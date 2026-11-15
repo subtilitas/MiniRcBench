@@ -1,6 +1,11 @@
 # S.BUS output
 
-Status: designed, not built; slices wait on being built. The owner chose an
+Status: designed, not built. By the owner's decision of 2026-11-15
+([decision 1](#decisions)) S.BUS OUTPUT is built only together with a
+bootloader probe on GP0, which needs the connect cycle and the EFM8 answer
+of ESC SETTINGS: the slices wait on the probe, and the probe waits on read
+slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown)
+([work breakdown](#work-breakdown)). The owner chose an
 S.BUS output on 2026-11-14 ([rx-signals.md](rx-signals.md#decisions),
 decisions 1, 4, 5 and 6): inverted 8E2 at 100,000 baud on GP0, UART0's TX
 pin; the encoder from rcbench, copied unchanged; the throttle channel under
@@ -10,10 +15,10 @@ is on rcbench's `main` since pull request 847 and is host-tested there; it
 has not been copied here yet. Nothing of this design has driven a pin. The
 firmware facts below are read from the sources under [sources](#sources),
 with file and line; the ones no readable source settles are marked "not
-verified" and listed again under [not verified](#not-verified). One question
-is open to the owner ([open questions](#open-questions)); every other point
-of the list in [rx-signals.md](rx-signals.md#sbus-output) is decided here
-with its reason ([choices](#choices)).
+verified" and listed again under [not verified](#not-verified). No question
+is open: the owner's decision is under [decisions](#decisions), and every
+other point of the list in [rx-signals.md](rx-signals.md#sbus-output) is
+decided here with its reason ([choices](#choices)).
 
 ## Terms
 
@@ -70,11 +75,11 @@ other common FC firmwares, are not read for this note.
   demand, and to frames that stop.
 - Fixed, repeatable values, which a transmitter's sticks do not give.
 
-The output is a throttle to whatever listens: an FC passes the throttle
-channel to its motors once it is armed, and an arm switch is one of the
-channels. That is why decision 6 holds the throttle channel under MAX
-THROTTLE, and why the rules of [safety](#safety) are the servo tester's
-with the throttle channel added.
+The output is a throttle to whatever listens: an FC passes the throttle channel
+to its motors once it is armed, and an arm switch is one of the channels. That
+is why rx-signals.md decision 6 holds the throttle channel under MAX THROTTLE,
+and why the rules of [safety](#safety) are the servo tester's with the throttle
+channel added.
 
 ## The line
 
@@ -82,7 +87,7 @@ What the output sends, from rcbench's encoder (`sbus.h` at b88593d3):
 
 | Item | Value | Source |
 |---|---|---|
-| Line | UART, 100,000 baud, 8E2, the pad's output inverted: idle low | decision 1; [rx-signals.md](rx-signals.md#sbus-frame) |
+| Line | UART, 100,000 baud, 8E2, the pad's output inverted: idle low | rx-signals.md decision 1; [rx-signals.md](rx-signals.md#sbus-frame) |
 | Frame | 25 bytes: header 0x0F, 22 bytes of 16 channels, flag byte, footer 0x00 | `sbus.h` lines 44 to 48, 163 to 169 |
 | Flag byte | bit 0 CH17, bit 1 CH18, bit 2 frame lost, bit 3 failsafe; bits 4 to 7 clear | `sbus.h` lines 74 to 77, 169 |
 | Encoder refusal | a channel above 2047 refuses the frame; the output buffer is left unwritten, and the caller sends a stop frame or nothing | `sbus.h` lines 171 to 176; `sbus.c` lines 78 to 105 |
@@ -179,8 +184,10 @@ GP1 keeps its function: in the default wiring it is AUX and not asked for.
    frame in the FIFO completes, at most 3,000 µs after it was loaded. No
    frame is cut short, so a decoder that frames on the header alone never
    reads the tail of one frame as the start of another.
-3. `gpio_set_function(0, GPIO_FUNC_SIO)`, which zeroes OUTOVER, input, the
-   pull-down on: the line stays low.
+3. `gpio_set_dir(0, GPIO_IN)` and `gpio_put(0, 0)`: SIO's output enable
+   for GP0 is off before the pad leaves the UART, so SIO drives nothing
+   when it takes the pad. Then `gpio_set_function(0, GPIO_FUNC_SIO)`, which
+   zeroes OUTOVER, then the pull-down: the line stays low.
 4. `uart_deinit(uart0)`, then the status cleared, as the monitor's release
    does (`sbus_job.cpp` lines 179 to 187).
 
@@ -223,9 +230,11 @@ asks again every frame. `escCheck` is true for every wiring:
 
 The check sees only an ESC that answers bidirectional DShot. It misses an
 ESC that is unpowered, and an ESC that does not answer: BLHeli_S has no
-bidirectional DShot, so the bench never drives it at all and the check
-never sees one. The next section says what each firmware does with S.BUS on
-its signal pin, and why that gap matters for BLHeli_S.
+bidirectional DShot, so the check never sees one. Once ESC SETTINGS serves
+BLHeli_S ([bluejay-blheli-s.md](bluejay-blheli-s.md)), a BLHeli_S ESC on
+GP0 is a usual bench state. The next section says what each firmware does
+with S.BUS on its signal pin, why that gap matters for BLHeli_S, and the
+[bootloader probe](#the-bootloader-probe) that closes part of it.
 
 ### What an ESC does with S.BUS on its signal pin
 
@@ -273,7 +282,8 @@ returns to detection, which tests DShot300 and DShot600 and loops
 the line high for about 150 ms (lines 496 to 506); the inverted line idles
 low.
 
-**BLHeli_S 16.7: may take it as Multishot.** BLHeli_S detects normal PWM,
+**BLHeli_S 16.7: may take it as Multishot, calibrate, arm and start its
+motor.** BLHeli_S detects normal PWM,
 OneShot125, OneShot42, DShot150 to 600 and Multishot in that order, 100 ms
 each, and takes a mode when fewer than 10 pulses net were out of range
 (`BLHeli_S.asm` lines 3651 to 3779; the count rises for each pulse out of
@@ -292,38 +302,97 @@ the high time measured on Timer0 at the system clock (`A.inc` lines 143 to
 
 The DShot tests fail as Bluejay's do: they check the same 16 pulses and
 frame time (lines 621 to 700). Multishot is the last test, and S.BUS passes
-it in the model: most high runs are 10 µs to 30 µs. For `MCU_48MHZ` builds
-the constants double and the result depends on the clock during detection,
-not worked out here; at 24 MHz or 48 MHz the window still holds the 10 µs
-run.
+it in the model: most high runs are 10 µs to 30 µs. Builds with
+`MCU_48MHZ` 1 detect at 24 MHz (line 3619) and double the count
+(`A.inc` lines 158 to 171), so their window is the same; builds with
+`MCU_48MHZ` 2 are not worked out.
 
-What follows, by the same reading:
+What follows, by the same reading and a model of the line (the reviewer's
+of pull request 82, checked against the lines named), not a measurement:
 
-- **Arming needs a pulse below the stop value** (`program_by_tx_checked`,
-  lines 3905 to 3915). With the default calibration, minimum throttle
-  1148 (line 324), a Multishot high time reads as stop only below about
-  7.6 µs; S.BUS has none, so the ESC keeps returning to `arming_start` and
-  does not arm.
-- **Throttle calibration can run first.** On the first arm sequence after
-  power-up (`Initial_Arm`, lines 3568, 3811 to 3816), with TX programming
-  enabled, the default (line 323), a throttle above mid-stick in two
-  100 ms samples in a row starts the calibration (lines 3819 to 3842), and
-  ten samples below mid-stick in a row end it, store the new range in the
-  ESC's flash (lines 3852 to 3897) and return to detection (line 3903).
-  In the full range of the calibration a 10 µs run reads 26 %, 20 µs
-  76 % and 30 µs above 100 %, so samples land on both sides of mid-stick
-  by chance. A minimum stored from the 10 µs runs would then make those
-  runs read as stop, so the ESC could arm, and the 20 µs and 30 µs runs
-  would read as throttle. How likely each step is was not worked out.
+- **The held reading.** The ESC's reading, `New_Rcp`, changes only on a
+  high run inside the window. The flag byte and the footer, both 0x00 with
+  the flags clear, are runs of 100 µs, out of the window; the first 50 out
+  of range are ignored (lines 1198 to 1212), and the runs in range count
+  that down again. So between frames, 11 of every 14 ms, the ESC holds the
+  reading of the frame's last run in the window, which byte 22 (channel 16,
+  bits 3 to 10) decides, or the flag byte when CH17 is on. In the full
+  range of the calibration (minimum 1024 units, lines 1222 to 1230; gain
+  125, `find_throttle_gains`) a 10 µs run reads 60 of 255 (24 %), 20 µs
+  182 (71 %), and 30 µs clamps at 255; mid-stick is 127.
+- **Arming needs a reading of stop** (`program_by_tx_checked`, lines 3905
+  to 3915). With the default calibration, minimum throttle 1148 µs (line
+  324), a high run reads as stop only below about 8.1 µs, 195 counts at
+  24 MHz; S.BUS has none, so with the default calibration the ESC does not
+  arm.
+- **The calibration comes first and is tried again on every pass.**
+  `Initial_Arm` is set at power-up (line 3568) and cleared only once the
+  ESC has armed (line 3927). While it is set, every pass through
+  `arming_start` (line 3796) checks it (lines 3811 to 3816); with TX
+  programming on, the default (line 323), two readings above mid-stick
+  100 ms apart start the calibration (lines 3819 to 3842), and ten below
+  mid-stick in a row end it, store the new range in the ESC's flash (lines
+  3852 to 3897), at least 35 units, 140 µs, wide (`find_throttle_gain`),
+  and return to detection (line 3903). A pass with no reading of stop goes
+  back to `arming_start` (line 3915).
+- **The START frame**, channel 16 at raw 172: the held run is 30 µs, above
+  mid-stick. In the model the ESC enters the calibration within about 1 s
+  and stays in its low step, writing nothing, for as long as channel 16
+  and CH17 stay there.
+- **Channel 16 at 904 of its 1640 values from 172 to 1811, raw 992
+  (1500 µs) among them, or CH17 on**: the held run is 10 µs, below
+  mid-stick. In the model, with each reading at a random phase of the
+  frame, the ESC completed the calibration, wrote a range of about 140 µs
+  to its flash, armed on the held run as stop and met its motor-start
+  condition (`wait_for_power_on`, lines 3930 to 4008: a reading above stop,
+  and the pulses still there 100 ms later) within about 40 s in each of
+  200 runs. After four stalls it re-detects, arms and starts again (lines
+  4574 to 4579). Whether the motor turns on readings above stop for about
+  3 ms of every 14 ms the source does not settle.
 
-So the frames must never reach an ESC, and for BLHeli_S nothing on the
-bench can tell that one is there: it never answers. The guard against it
-is the pilot: the screen says on every view before START that GP0 goes to
-an FC and never to an ESC ([screen](#screen)); the owner's question is
-whether to ask for more ([open questions](#open-questions)). The servo
-tester has the same blind spot with a more direct risk: its 1000 µs to
-2000 µs pulses are a valid PWM throttle to any ESC that reads PWM, AM32
-and BLHeli_S included.
+So the frames must never reach a BLHeli_S ESC, and the claim's ESC check
+cannot see one: it never answers DShot. The servo tester does not share
+this: its START puts 1500 µs on the pin, which a BLHeli_S reads below
+mid-stick and above stop, so it neither calibrates nor arms until the user
+drags to the ends; S.BUS reaches a motor start with no input from the
+user. The owner's answer is the [bootloader probe](#the-bootloader-probe),
+with the warnings of the [screen](#screen) kept for what the probe misses.
+
+### The bootloader probe
+
+By the owner's decision 1 of 2026-11-15, S.BUS OUTPUT is built only
+together with this probe. Before the first START of a visit, the connect
+cycle of [bluejay-blheli-s.md](bluejay-blheli-s.md#the-connect-cycle)
+decision 2 runs on GP0: 1000 ms quiet on the pull-up, then 3 greetings,
+about 125 ms. A visit is each bind of the claim: the entry, and BACK TO
+OUTPUT on the leave page, which asked for the lead to be unplugged.
+
+- **What it finds.** By that note, a powered Bluejay or BLHeli_S that was
+  on DShot drops to its no-signal state when the pump stops and enters its
+  EFM8 bootloader on the high line inside the quiet second; a powered
+  BLHeli_S still looking for a signal checks for 15 ms of high line at each
+  pass through detection. An AM32 enters its bootloader only in the 46 ms
+  after its own power-up; an AM32 already running answers DShot, which the
+  claim's ESC check sees. A bootloader that answers a greeting is an ESC on
+  GP0.
+- **START refused.** While an EFM8 or AM32 bootloader answers, START is
+  refused and the rows' area says so ([unavailable pin](#unavailable-pin)).
+  The cycle repeats until one cycle passes with no answer, so START stays
+  refused until the ESC is unplugged: an answering bootloader may read
+  S.BUS frames as commands (not verified what each would do). Then the UART
+  binds and the screen is SAFE.
+- **What it misses.** An ESC that is unpowered during the probe, and an
+  ESC plugged in after it. The warnings stay on every view before START.
+- **Cost.** About 1.1 s per visit before START is offered. For that time an
+  FC on GP0 sees the line on the pull-up, high, which an inverted S.BUS
+  input reads as a break, and the greetings; it reads no frame from either.
+  What a given FC does with a second of high line is not verified.
+- **Where it comes from.** The connect cycle, the greeting and the reading
+  of an EFM8 or AM32 answer are built by read slices 1 to 3 of
+  [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown). The probe is a
+  phase of the S.BUS OUTPUT claim before the UART bind; how its job shares
+  that line driver is the probe slice's design ([work
+  breakdown](#work-breakdown)).
 
 ## Safety
 
@@ -332,6 +401,7 @@ The rules are the servo tester's ([servo-tester.md](servo-tester.md),
 
 | | S.BUS OUTPUT |
 |---|---|
+| Before SAFE | the [bootloader probe](#the-bootloader-probe) on each bind of the claim: about 1.1 s; START refused while a bootloader answers |
 | Off state | SAFE: GP0 bound to the UART, idle low, no frames |
 | Starting | HOLD TO START, `ARM_HOLD_MS` 1000 ms, on `ui_hold`; refused by core1 while the heartbeat has lapsed |
 | First frame | the START frame, set by core1 whatever the screen sent: the throttle channel at raw 172, the other three of channels 1 to 4 at raw 992, channels 5 to 16 at raw 172, CH17 and CH18 off, both flags clear |
@@ -341,7 +411,7 @@ The rules are the servo tester's ([servo-tester.md](servo-tester.md),
 | Stopping | STOP, on press: no frame after the one on the wire, which ends within 3,000 µs |
 | UI stalls 250 ms | `core1UiAlive()` false while RUNNING: frames stop, `Tripped` latched, chip `STALLED`, a new HOLD TO START needed |
 | Touch lost | the frames stop on the touch-loss rule pull request #49 brings to the tester and the servo tester, once it is merged ([STATUS.md](../../STATUS.md) open item 23); until then the idle stop below is the backstop, since a controller that stops answering reads as no touch |
-| Idle | `IDLE_DISARM_MS`, 30 s, with no touch while the throttle channel is above raw 172: frames stop, as the tester disarms; the note says why |
+| Idle | more than `IDLE_DISARM_MS`, 30 s, with no touch while the throttle channel is above raw 172, or any of channels 5 to 16, CH17 and CH18 differs from the START frame: frames stop, as the tester disarms; the note says why |
 | BACK | the leave: frames stop, the last one completes, GP0 is let go low ([UART0 on GP0](#uart0-on-gp0)) |
 
 Why each rule:
@@ -354,10 +424,12 @@ Why each rule:
   Raw 172 reads 987.5 µs in Betaflight (5/8 × raw + 880, `sbus_channels.c`
   line 94), at the low end of every switch range.
 - **The throttle channel starts at its stop and stops at the ceiling** of
-  SETTINGS, the ceiling the DShot throttle obeys (decision 6). The ceiling
-  is in raw counts, as rcbench's `sbus.h` asks (line 149), from the same
-  fraction the tester uses: MAX THROTTLE out of 2000 (`config.h` lines 431
-  to 437). Betaflight reads raw 499 as 1191.9 µs.
+  SETTINGS, the ceiling the DShot throttle obeys (rx-signals.md decision 6). The
+  ceiling is in raw counts, as rcbench's `sbus.h` asks (line 149), from the same
+  fraction the tester uses: MAX THROTTLE out of 2000 (`config.h` lines 431 to
+  437). Betaflight reads raw 499 as 1191.9 µs. The ceiling bounds the throttle
+  channel, not an armed FC's motor outputs: the FC adds its idle and its
+  stabilisation to them.
 
   | MAX THROTTLE | Raw ceiling | µs, rcbench | µs, Betaflight |
   |---|---|---|---|
@@ -368,8 +440,9 @@ Why each rule:
 
 - **Channels stay from raw 172 to 1811**, the endpoints a transmitter sends
   ([rx-signals.md](rx-signals.md#value-scale)). Betaflight flags a value
-  under `rx_min_usec` on channels 1 to 4 as a lost signal (`pg/rx.c` line
-  96; the default value is not read here), and the endpoints keep the
+  under `rx_min_usec`, 885 µs by default, on channels 1 to 4 as a lost
+  signal (`pg/rx.c` line 96, `common_defaults_post.h` lines 97, 98: 885 µs
+  and 2115 µs), and the endpoints keep the
   output inside what a receiver would send. With every value in range,
   `sbus_encode()` never refuses; if it does, core1 sends nothing more,
   goes SAFE and reports the refusal, the second of the two answers
@@ -378,10 +451,13 @@ Why each rule:
   bit: the servo tester stops its pulses (servo-tester.md, decision 6), and
   an FC without frames goes to its own failsafe, the state a pilot tests
   for. The failsafe bit is its own control on SET.
-- **The idle stop** carries the tester's `IDLE_DISARM_MS` over to the one
-  channel that is a throttle: an FC armed through a switch channel runs its
-  motors at that channel. With the throttle at its stop the frames go on,
-  so the FC's receiver page can be watched for as long as needed.
+- **The idle stop** carries the tester's `IDLE_DISARM_MS` over, with its
+  bound, more than 30 s (`ui.cpp` line 1405): an FC armed through a switch
+  channel spins its motors at idle with the throttle at its stop, and
+  faster above it. So the frames stop when the throttle is above its stop
+  or a switch channel, 5 to 16, CH17 or CH18, is off its START value. With
+  the frame at its START values the frames go on, so the FC's receiver page
+  can be watched for as long as needed.
 
 ### What the FC does when frames stop
 
@@ -390,10 +466,12 @@ frame-lost bit counts as not received (`rx.c` line 607, `sbus_channels.c`
 lines 76 to 85). With no received frame for 150 ms the receiver is lost
 (`rx.c` lines 137, 570, 753). The failsafe's first stage holds for
 `failsafe_delay`, 1.5 s by default, and the second runs its procedure,
-`DROP` by default, which disarms (`failsafe.c` lines 86 to 95, 110). So
-STOP, a heartbeat trip, the idle stop, the failsafe bit and a frame-lost
-bit held on each lead a Betaflight FC into failsafe within about 150 ms
-and to a disarm 1.5 s later. Other FC firmwares are not read.
+`DROP` by default, which disarms (`failsafe.c` lines 86 to 95, 110,
+229 to 235, 255 to 259, 534, 535); the period runs from the last valid
+frame. So STOP, a heartbeat trip, the idle stop, the failsafe bit and a
+frame-lost bit held on each lead a Betaflight FC into failsafe within
+about 150 ms and to a disarm about 1.5 s after the last valid frame. Other
+FC firmwares are not read.
 
 ## The job
 
@@ -504,14 +582,14 @@ y   0 +------------------------------------------+
 |---|---|---|
 | Strip caption | 8, 44, 137, 7 | `SIG GP0  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `AUX GP0  100 KBAUD  8E2` when GP0 is AUX. With `  14 MS` it would be 30 characters and end at x 186, past the chip, so by menu-b.md decision 14 the period goes, the item at the right; it is fixed, and the README states it |
 | Strip chip | 179, 42, 53, 12 at its widest | `uiChip()`: `SAFE` on `UI_COL_SAFE`, `RUNNING` on `UI_COL_ON`, `STALLED` on `UI_COL_ALERT`; at most 7 characters, 41 px, plus 6 px each side, right edge x 231. The caption ends at x 144, 34 px clear. Drawn only while the job runs |
-| Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` |
+| Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` for the heartbeat, `UI_COL_WARN` for the idle rule and a refused frame |
 | Note 2 | 8, 70, at most 215, 7 | SAFE: `NEVER TO AN ESC. PROPS OFF.`, 27 characters, 161 px, `UI_COL_WARN`. RUNNING: `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, at most 36 characters, 215 px, `C_TEXT`, `UI_COL_WARN` while a flag is on. After a stop: `HOLD TO START AGAIN.`, 20 characters, 119 px, `C_DIM` |
 | Row i, i = 0 to 7 | 8, 80 + 25i, 224, 22 | label, slider, value; 22 px is `UI_TAP_MIN` |
 | Label | 8, y + 8, at most 41, 7 | `CH1` to `CH16`; `CH3 THR` on the throttle channel, 7 characters, 41 px, `UI_COL_WARN` |
 | Track | 54, y + 6, 146, 10 | 1000 µs at x 54, 1500 µs at x 126, 2000 µs at x 199: 6.9 µs a pixel |
 | Knob | 14 × 16 px (`ui_slider.cpp` `THUMB_W`, `UI_SLIDER_OVERHANG`) | on the command; 3 px above and below the track, y + 3 to y + 18, inside the row |
 | Ceiling mark | x 54 + 145 × (ceiling − 1000) / 1000, y, 1, 22 | throttle row only, `UI_COL_WARN`: x 83 at 1200 µs; the track past it `C_DIM`, and the knob stops there |
-| Value | right-aligned to x 231, y + 8 | `sbus_to_us()` of the raw value in the frame last sent, 4 characters, 23 px, from x 209; `C_TEXT` while RUNNING, `C_DIM` otherwise |
+| Value | right-aligned to x 231, y + 8 | `sbus_to_us()` of the raw value in the frame last sent, 4 characters, 23 px, from x 209; `UI_COL_LIVE` while RUNNING, a live reading, `C_DIM` otherwise |
 | Hold bar | 6, 281, 110, 3 | HOLD TO START's progress, `UI_HOLD_BAR_H` |
 | HOLD TO START | 6, 285, 110, 32 | 13 characters, 77 px; `STOP` at scale 2, 46 px, on `UI_COL_ON` while RUNNING, acting on press |
 | Page | 120, 285, 55, 32 | `CH 9-16`, 7 characters, 41 px; `CH 1-8` on the second page, 6 characters, 35 px; acts in every state |
@@ -534,8 +612,9 @@ next START.
 |---|---|---|---|
 | Claim not held | none | the claim's message ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
 | SAFE | `SAFE` | the two warnings | disabled, START values |
-| RUNNING | `RUNNING` | the ceiling and the flags | live, values `C_TEXT` |
-| Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED.` (24 characters, 143 px) and `HOLD TO START AGAIN.` | disabled, the last values |
+| Probe | none | `CHECKING GP0 FOR AN ESC.` ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
+| RUNNING | `RUNNING` | the ceiling and the flags | live, values `UI_COL_LIVE` |
+| Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `HOLD TO START AGAIN.` | disabled, the last values |
 | Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `HOLD TO START AGAIN.` | disabled, the last values |
 | Encoder refused | `SAFE` | `STOPPED: FRAME REFUSED.` (23 characters, 137 px) and `HOLD TO START AGAIN.` | disabled |
 
@@ -564,7 +643,9 @@ while frames run: the value on SET is always what the line carries. They
 are not on the main view: two taps, row then `+`, are harder to make by
 accident than one, and CH17 or CH18 can be an FC's arm switch. The footer
 holds `STOP` on press while RUNNING, in SET's right button, as SERVO
-TESTER's SET does; nothing while SAFE. Header BACK returns to the main
+TESTER's SET does. While SAFE the footer carries the second warning,
+`NEVER TO AN ESC. PROPS OFF.` (27 characters, 161 px, `UI_COL_WARN`), at
+x 8, y 287, so SET too warns before START. Header BACK returns to the main
 view (menu-b.md, decision 5).
 
 ### Unavailable pin
@@ -577,6 +658,8 @@ the monitor's ([rx-signals.md](rx-signals.md#screen)), and no chip:
 | An ESC answers on SIG | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | `UI_COL_WARN` | 155, 155 and 161 px |
 | KISS frames on AUX, GP0 is AUX | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | `UI_COL_WARN` | 173, 155 and 179 px |
 | The claim drains DShot | `RELEASING SIG GP0` | `C_DIM` | 101 px |
+| The bootloader probe runs | `CHECKING GP0 FOR AN ESC.` | `C_DIM` | 143 px |
+| A bootloader answered the probe | `AN ESC ANSWERS ON GP0.` `UNPLUG IT. START WAITS UNTIL` `A CHECK FINDS NO ESC.` | `UI_COL_WARN` | 131, 167 and 125 px |
 | Held, the job not bound yet | `TAKING SIG GP0` | `C_DIM` | 83 px |
 | The bind refused the clock | `SIG GP0 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46 | `UI_COL_WARN` | 203 px |
 | No role on GP0 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | `UI_COL_WARN` | 95 and 173 px |
@@ -635,6 +718,23 @@ Both lines are within `UI_PROG_LINE_CHARS`, 37, and end at y 210, the
 second at y 204 as `NOT BUILT` does today, so `rxEntriesFit()` holds. A
 tap opens S.BUS OUTPUT through `uiChooseTool()`, whose entry point asks for
 the claim on that frame, as MONITOR's does; its origin is MENU.
+
+### Warnings
+
+The probe misses an ESC that is unpowered during it or plugged in after
+it, so the warnings stay wherever START can be reached:
+
+| Where | Text |
+|---|---|
+| Main view, SAFE | `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` |
+| SET, SAFE | `NEVER TO AN ESC. PROPS OFF.` in the footer |
+| RX SIGNALS, under OUTPUT | `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` |
+
+README's section and the wiki pages RX-Signals and RX-Signale carry the
+same warning in prose, written by the screen slice: GP0 goes to a flight
+controller only, never to an ESC; propellers off; a BLHeli_S ESC is found
+only while it is powered and in its bootloader at the probe, and by its
+source it can calibrate, arm and start its motor on S.BUS.
 
 ## Resources
 
@@ -700,21 +800,25 @@ Checked:
 - the line: the bytes the TX fake sent, fed with their times to rcbench's
   decoder, give back the frames the core built, at 14 ms, with no gap
   inside a frame and none under 2000 µs between frames;
-- the job through the claim: the pull-down first, the clock refusal and
-  RETRY, RXE off, GP0's control register never on the UART function
-  without OUTOVER inverted, GP1 untouched; the release only after BUSY
-  clears, GP0 on SIO before `uart_deinit()`, OUTOVER normal, the pull-down
-  on, the status cleared; each wiring, GP0 as SIG and as AUX, and the
-  NO GP0 backstop; the ESC check in both wirings and its end 500 ms after
-  the last eRPM frame; KISS on AUX GP0; a new visit starting SAFE with no
-  trip;
+- the job through the claim: the pull-down first, the clock refusal and RETRY,
+  RXE off, GP0's control register never on the UART function without OUTOVER
+  inverted, GP1 untouched; the release only after BUSY clears, SIO's output
+  enable for GP0 off before FUNCSEL leaves the UART, GP0 on SIO before
+  `uart_deinit()`, OUTOVER normal, the pull-down on, the status cleared; the
+  probe before the first bind of each visit, START refused while a model EFM8 or
+  AM32 bootloader answers and offered after one cycle with no answer, no probe
+  between STOP and START; each wiring, GP0 as SIG and as AUX, and the NO GP0
+  backstop; the ESC check in both wirings and its end 500 ms after the last eRPM
+  frame; KISS on AUX GP0; a new visit starting SAFE with no trip;
 - the screen through MENU and RX SIGNALS by control id: OUTPUT live and
   opening the screen; HOLD TO START at 1000 ms and not at 999 ms; STOP on
   press, on the main view and on SET; the sliders disabled while SAFE, a
   press moving nothing, a drag moving its channel and the throttle row
   stopping at the ceiling mark; the page button; SET's rows locked as the
-  table says; the idle stop at 30,000 ms with the throttle above raw 172,
-  not at 29,999 ms, and never with it at 172; every note in each state;
+  table says; the idle stop at 30,001 ms with the throttle above raw 172,
+  not at 30,000 ms, the same with channel 9 or CH17 off its START value,
+  and never with the START frame; every note in each state; SET's footer
+  warning while SAFE;
   every message of the unavailable pin; the leave page, BACK TO OUTPUT and
   RESTART DSHOT; every string within its rectangle; the control tables;
   the preview `docs/sbus-out-preview.png`.
@@ -730,8 +834,7 @@ Only hardware settles these:
   the release; no high edge at the bind; 100,000 baud, 8E2, the inversion;
   25 bytes in 3,000 µs and a 14,000 µs period; the last frame complete at
   STOP and at a heartbeat trip (core0 halted in a debugger).
-- With the S.BUS monitor of a second board, or this board's monitor after
-  a loop from GP0 to GP1 on another visit: the channels and flags read
+- With the S.BUS monitor of a second board: the channels and flags read
   back.
 - A Betaflight FC, propellers off: its receiver page reads the 16 channels
   and CH17 and CH18 as sent; throttle at the ceiling; the failsafe bit, the
@@ -740,10 +843,14 @@ Only hardware settles these:
 - An AM32 and a Bluejay ESC on GP0, motor disconnected, powered up after
   START, so the claim's check never saw them: neither arms nor beeps a
   detection, as read from source.
-- BLHeli_S is not tested with a motor on it. With an expendable ESC and no
-  motor, whether it detects Multishot (its arm-sequence beeps) and whether
-  its stored throttle range changes is a test the owner may choose; the
-  ESC's settings may be rewritten by it.
+- The probe: a Bluejay and a BLHeli_S ESC powered on GP0 answer it and
+  START stays refused until they are unplugged; an AM32 powered up during
+  the quiet second answers too.
+- BLHeli_S is not tested with a motor on it. With an expendable ESC, no
+  motor, powered up after the probe, channel 16 at 1500 µs and
+  CH17 on: whether it detects Multishot (its arm-sequence beeps), and its
+  stored minimum and maximum throttle read with ESC SETTINGS before and
+  after. The test may rewrite the ESC's settings.
 
 ## Work breakdown
 
@@ -751,12 +858,17 @@ Each slice builds, passes the host suite and merges alone.
 
 | Slice | Content | Files | Lines, rough |
 |---|---|---|---|
+| 0. Prerequisites | read slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown): the escwire copies, the detection of an EFM8 answer, the connect cycle and its job | there | there |
 | 1. Encoder copy | `sbus.c`, `sbus.h`, `test_sbus.c` from rcbench b88593d3; `lib/rcbench/README.md`, STATUS, CHANGELOG | 3 replaced, 3 edited | 300 changed in copies, 30 of documentation |
 | 2. Job | `sbus_out_job.*`, the user and job rows, `CORE1_JOB_NO_GP0`, the TX side of the UART0 fake, the control-register record, `test/test_sbus_out_job.cpp`, STATUS, CHANGELOG | 2 new in `src/`, 1 new in `test/`, 8 edited | 350 in `src/`, 700 in `test/` |
-| 3. Screen | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README, wiki pages RX-Signals and RX-Signale, STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
-| 4. Bring-up | the bench tests above | none | none |
+| 3. Probe | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, its host tests on the bootloader models of slice 0 | 2 edited in `src/`, 1 new in `test/` | 150 in `src/`, 300 in `test/` |
+| 4. Screen | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
+| 5. Bring-up | the bench tests above | none | none |
 
-Slice 2 depends on slice 1, slice 3 on slice 2.
+By decision 1, slices 1 to 5 wait on slice 0, the probe's prerequisites.
+Slice 2 depends on slice 1, slice 3 on slices 0 and 2, slice 4 on slice 3,
+slice 5 on all of them. No build offers START without the probe: slice 2
+has no screen, and slice 4 comes after slice 3.
 
 ## Choices
 
@@ -779,22 +891,35 @@ here with its reason above:
    once merged, touch loss; no failsafe frames on stop ([safety](#safety)).
 7. **Channels from raw 172 to 1811** only.
 8. **The leave page** after every visit, `1 UNPLUG THE FLIGHT CONTROLLER.`
+9. **The probe on every bind of the claim**: the entry and BACK TO OUTPUT;
+   none between STOP and START ([bootloader probe](#the-bootloader-probe)).
+10. **The idle rule also covers the switch channels**: a frame off its
+    START values on channels 5 to 16, CH17 or CH18 stops after 30 s without
+    touch, since an armed FC idles its motors ([safety](#safety)).
+11. **The warnings on every view before START**, SET's footer included
+    ([warnings](#warnings)).
+
+## Decisions
+
+Decision of the owner, 2026-11-15, answering this note's question of the
+same day:
+
+1. **A BLHeli_S ESC on GP0.** S.BUS OUTPUT is built only together with a
+   bootloader probe: before the first START of a visit, the connect cycle
+   of [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) decision 2,
+   1000 ms quiet on the pull-up, then 3 greetings, about 125 ms, runs on
+   GP0; START is refused while an EFM8 or AM32 bootloader answers, and
+   stays refused until the ESC is unplugged, since an answering bootloader
+   may read S.BUS frames as commands. The probe misses an unpowered ESC and
+   one plugged in after START; the warnings stay. The question had offered
+   the warnings alone, recommended, or a confirmation tap per visit; the
+   decision is neither and puts the slices behind the probe and its
+   prerequisites ([the bootloader probe](#the-bootloader-probe), [work
+   breakdown](#work-breakdown)).
 
 ## Open questions
 
-1. **A BLHeli_S ESC on GP0.** The claim's ESC check cannot see one, and
-   by the reading of its source above a BLHeli_S ESC may take S.BUS as
-   Multishot, rewrite its throttle calibration and then arm. The design
-   guards with the notes on every view before START, `GP0 GOES TO A FLIGHT
-   CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.`, and the chooser's line, as
-   the servo tester guards its pulses with its message. The alternative is
-   a confirmation once per visit: SAFE shows `NO ESC ON GP0` as a button,
-   and HOLD TO START is drawn disabled until it is tapped. Recommendation:
-   **the notes only**, as designed. The bench sends only bidirectional
-   DShot, which BLHeli_S does not run, so a BLHeli_S ESC on GP0 is one the
-   bench never served; the servo tester carries a more direct form of the
-   same risk with a note only; and a confirmation tapped on every visit
-   becomes a habit that guards nothing.
+None open.
 
 ## Not verified
 
@@ -805,8 +930,11 @@ here with its reason above:
 - What an unrouted UART0 RX input reads on the RP2350.
 - Core1's pass time with this job.
 - Everything said of AM32, Bluejay and BLHeli_S above: read from source,
-  not run on an ESC; the BLHeli_S figures for 24 MHz builds only, and the
-  likelihood of its calibration path not worked out.
-- Betaflight's behaviour, read and not run; the default of `rx_min_usec`;
-  ArduPilot and INAV not read.
+  not run on an ESC; the BLHeli_S figures for 24 MHz builds and
+  `MCU_48MHZ` 1 builds, not for `MCU_48MHZ` 2.
+- The BLHeli_S calibration path's timing, from a model of the line, not
+  measured; whether its motor turns on 3 ms of power in 14 ms.
+- What an answering bootloader does with S.BUS frames; what an FC does
+  with the probe's second of high line.
+- Betaflight's behaviour, read and not run; ArduPilot and INAV not read.
 - Pull request #49's touch-loss rule, not merged.

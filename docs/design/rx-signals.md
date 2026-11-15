@@ -12,10 +12,11 @@ answered the note's open questions on 2026-11-14 ([decisions](#decisions)):
 build the S.BUS monitor and an S.BUS output, no PPM output. The S.BUS
 monitor reads a receiver's S.BUS output on GP1 through UART0. The S.BUS
 output, inverted 8E2 at 100,000 baud on GP0 through UART0's TX, is designed
-in [sbus-output.md](sbus-output.md) and not built; its encoder is rcbench's,
-on rcbench's `main` since pull request 847. The PPM sections stay as
-the record of a design that is not built, by decision 1. Both tools sit on
-the pin claim of [pin-claim.md](pin-claim.md) under one MENU row, RX
+in [sbus-output.md](sbus-output.md) and not built: it waits on a bootloader
+probe on GP0 and on the ESC SETTINGS slices the probe needs; its encoder is
+rcbench's, on rcbench's `main` since pull request 847. The PPM sections
+stay as the record of a design that is not built, by decision 1. Both
+tools sit on the pin claim of [pin-claim.md](pin-claim.md) under one MENU row, RX
 SIGNALS, which opens a chooser with MONITOR and OUTPUT (decision 4); OUTPUT
 is drawn disabled with `NOT BUILT` until the output exists ([MENU](#menu)).
 The decoder is rcbench's, host-tested there and nowhere measured on a pin.
@@ -461,9 +462,12 @@ The owner's choice of 2026-11-14 ([decision 1](#decisions)), option (c) of
 the question it answered: an S.BUS output on GP0, UART0's TX pin, inverted
 8E2 at 100,000 baud, with the pad's output inverted by OUTOVER, the PL011
 sending, no PIO and no DMA. The encoder is rcbench's, written and tested
-there and copied here unchanged, as the decoder was (decision 5). The throttle channel obeys MAX THROTTLE of
-SETTINGS (decision 6). Designed in [sbus-output.md](sbus-output.md), which
-settles each point below; this list stays as the record of what was open:
+there and copied here unchanged, as the decoder was (decision 5). The
+throttle channel obeys MAX THROTTLE of SETTINGS (decision 6). Designed in
+[sbus-output.md](sbus-output.md), which settles each point below, and not
+built: by the owner's decision 1 there, it waits on a bootloader probe on
+GP0 and on the ESC SETTINGS slices the probe needs. This list stays as the
+record of what was open:
 
 - **Frame timing.** The frame period, 7 ms or 14 ms or a choice, and what
   sends each frame on core1: the PL011's 32-entry transmit FIFO holds a
@@ -484,7 +488,7 @@ settles each point below; this list stays as the record of what was open:
   PPM design have them, and the line's level after the release.
 - **Electrical.** The level an FC's S.BUS input takes, 3.3 V from GP0, and
   the idle level of the inverted line, high, against the line's low idle
-  on the monitor.
+  on the monitor (settled: low, [sbus-output.md](sbus-output.md#electrical)).
 
 ## PPM output
 
@@ -1186,8 +1190,8 @@ Further decisions of the owner, 2026-11-14, on the output:
 
 None open. Questions 1 to 4 of 2026-11-13 are answered by decisions 1 to
 4; questions 5 to 7 were on the PPM output and fell away with decision 1.
-The S.BUS output's design, with its one question to the owner, is
-[sbus-output.md](sbus-output.md).
+The S.BUS output's design is [sbus-output.md](sbus-output.md), with no
+question open.
 
 ## To confirm
 

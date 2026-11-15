@@ -52,8 +52,10 @@ protocol.
   channel starting at its stop and held under MAX THROTTLE, CH17, CH18 and
   the failsafe and frame-lost bits, HOLD TO START and the frame stops of the
   servo tester. It records, read from source, that AM32 and Bluejay take no
-  throttle from an S.BUS line and that BLHeli_S may take it as Multishot.
-  One question is open to the owner. Documentation only.
+  throttle from an S.BUS line and that BLHeli_S may take it as Multishot,
+  calibrate, arm and start its motor. By the owner's decision of 2026-11-15
+  it is built only with a bootloader probe on GP0 before START, after the
+  ESC SETTINGS read slices for Bluejay and BLHeli_S. Documentation only.
 - After v0.1.0-rc1 (a93e1c1): the DShot command slot on core1, slice 1 of
   [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built). The
   beacon's slot in `EscPump` becomes one sequence: beacons 1 to 5 as 6
