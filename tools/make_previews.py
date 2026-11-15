@@ -40,15 +40,22 @@ PREVIEWS = {
         "shot_tester_armed",
         "shot_tester_stale",
     ],
-    # Three states of MENU that actually differ, and PROGRAMMER, the chooser
-    # its SERVO PROGRAMMER row opens. shot_menu is the same screen with EDT
-    # off, so pairing it with shot_menu_edt_off published the same picture
-    # twice.
+    # Three states of MENU's EDT chip, and PROGRAMMER, the chooser its SERVO
+    # PROGRAMMER row opens. shot_menu is the same screen with EDT off, so
+    # pairing it with shot_menu_edt_off published the same picture twice.
     "menu-preview": [
         "shot_menu_edt_on",
         "shot_menu_edt_off",
-        "shot_menu_beep_flash",
+        "shot_menu_no_esc",
         "shot_prog_chooser",
+    ],
+    # ESC COMMANDS: at rest, a beacon going out with every control drawn
+    # disabled, 3D ON sent with its amber lines, and no ESC answering.
+    "esccmd-preview": [
+        "shot_esccmd",
+        "shot_esccmd_sending",
+        "shot_esccmd_3d_on",
+        "shot_esccmd_no_esc",
     ],
     "log-preview": [
         "shot_log_nocard",

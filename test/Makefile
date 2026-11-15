@@ -60,9 +60,9 @@ INCLUDES += $(FEATURE_INCLUDES)
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp test_servo_supply.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_esc_cmd.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp test_run_summary.cpp \
+        test_dshot_edt.cpp test_esc_cmd.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_esc_cmd_ui.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp test_run_summary.cpp \
         fakes.cpp \
-        ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_registry.cpp ../src/ui_servo_prog.cpp ../src/ui_esc_config.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
+        ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_esc_cmd.cpp ../src/esc_3d.cpp ../src/ui_registry.cpp ../src/ui_servo_prog.cpp ../src/ui_esc_config.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/ui_leave.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/bl_answer.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
