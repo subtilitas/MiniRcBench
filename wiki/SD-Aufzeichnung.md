@@ -173,7 +173,8 @@ auf der Platine sind sie nicht getestet.
 
 ## Den Bildschirm lesen
 
-Öffnen über **MENU → SD LOG**, die sechste Zeile. Die Zeile zeigt denselben
+Öffnen über **MENU → SD LOG**, die siebte Zeile: Ziehe MENU um 34 px nach
+oben, um sie ganz zu sehen. Die Zeile zeigt denselben
 Zustand: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`,
 solange ein Computer die Karte hält.
 

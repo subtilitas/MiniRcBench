@@ -33,6 +33,7 @@ Für jedes Werkzeug brauchst du außerdem:
 | Hitec-Programmierung, D-Serie | Ein Hitec-Servo der D-Serie und eine 5-V-Versorgung |
 | Hitec-Programmierung, klassisch | Ein klassisches Hitec-Servo (HS-5xxx, HS-7xxx) und die geschaltete Versorgung aus [Verdrahtung](Verdrahtung), Teil C: der Aufwärtswandler oben, 5 V, mit EN und Ausgangstrennung, seine LiPo-Zelle und ein Pull-down-Widerstand von 10 kΩ von EN nach Masse |
 | RX-Signale, MONITOR | Ein Empfänger mit S.BUS-Ausgang, an seinen Sender gebunden, und seine eigene Versorgung. Siehe [RX-Signale](RX-Signale#verdrahtung) |
+| Winkelmesser | Nichts außer der Platine, betrieben mit ihrem LiPo; eine gerade Leiste für den Einstellwinkel. Siehe [Winkelmesser](Winkelmesser#die-platine-halten) |
 
 ---
 

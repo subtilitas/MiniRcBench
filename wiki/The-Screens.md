@@ -2,11 +2,12 @@
 
 # The Screens
 
-The firmware has twelve screens. The tester is the root. `MENU` opens the
+The firmware has fourteen screens. The tester is the root. `MENU` opens the
 list of tools, and every tool is left with `BACK`, which returns to `MENU`.
 ESC CONFIG opens the choice of the ESC tools. SERVO PROGRAMMER opens
 PROGRAMMER, the choice of the KST and Hitec programmers. RX SIGNALS opens
-the choice of the receiver signal tools.
+the choice of the receiver signal tools. TOOLS opens the choice of the bench
+tools that use no signal pin.
 SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
 returns to the tester.
 
@@ -26,6 +27,8 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
    │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RESTART DSHOT──> MENU
    │                    │    └── OUTPUT     (drawn disabled: NOT BUILT)
+   │                    ├── TOOLS ──> TOOLS ──BACK──> MENU
+   │                    │    └── ANGLE METER ──BACK──> MENU   (SETUP, FLIP CAL: BACK goes one level up)
    │                    ├── SD LOG       ──BACK──> MENU
    │                    └── SETTINGS     ──BACK──> MENU
    └──── BACK on MENU ──┘
@@ -202,15 +205,16 @@ starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
 The ESC does not acknowledge the enable, so the chip shows *received frames*,
 not sent commands.
 
-Below the strip is a list of seven rows, 40 px tall at a 42 px pitch, by
+Below the strip is a list of eight rows, 40 px tall at a 42 px pitch, by
 what sits on the signal pin: the ESC, a servo, then the bench. Each row has
 a name on the left and its state on the right; a tool's row shows no state,
 since the strip names the pins. `BACK` returns to the tester.
 
-**Scrolling.** Six rows fit the screen. SD LOG is the sixth, whole and
-tappable without a drag. The seventh, SETTINGS, shows only 6 px at first.
-Drag MENU up 36 px to bring SETTINGS and its `UNSAVED` status into view; it
-takes a tap only then. A 3 px scroll bar at the right edge shows the
+**Scrolling.** Six rows fit the screen. TOOLS is the sixth, whole and
+tappable without a drag. The seventh, SD LOG, shows only 6 px at first; drag
+MENU up 34 px to bring it whole into view. The eighth, SETTINGS, starts below
+the screen: drag MENU up 76 px to bring SETTINGS and its `UNSAVED` status
+into view. A row takes a tap only while it shows whole. A 3 px scroll bar at the right edge shows the
 position.
 
 | Row | State on the right | A tap |
@@ -220,14 +224,16 @@ position.
 | **SERVO TESTER** | nothing | Opens the servo tester |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the choice of servo programmer. See [PROGRAMMER](#programmer) |
 | **RX SIGNALS** | nothing | Opens RX SIGNALS, the choice of the receiver signal tools. See [RX SIGNALS](#rx-signals) |
+| **TOOLS** | nothing | Opens TOOLS, the choice of the bench tools: ANGLE METER. See [TOOLS](#tools) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
 | **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber | Opens SETTINGS |
 
 While the signal pins are still in use, for example while DShot restarts
 after the servo tester, the KST programmer or the Hitec programmer, the strip
 reads `DSHOT RESTARTING ON SIG GP0` in amber. ESC COMMANDS, ESC CONFIG,
-SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS are then drawn as
-an outline under their usual state, and a tap on such a row opens nothing.
+SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS and SETTINGS are then
+drawn as an outline under their usual state, and a tap on such a row opens
+nothing.
 They act again once DShot runs. SD LOG claims no pin and stays available.
 
 <img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS drawn as outlines">
@@ -238,9 +244,10 @@ is on SETTINGS.
 <img src="img/menu-unsaved.png" width="240" alt="UNSAVED on the SETTINGS row, with changes not yet written to flash">
 
 `UPDATED` on the SETTINGS row means a firmware update changed the saved
-settings. Either it carried settings of an older layout over, version 2, 3
-or 4: the values the old layout has are kept, checked as on a save, and
-the newer ones, `CURRENT SENSE` among them, are at their defaults. Or it
+settings. Either it carried settings of an older layout over, version 2, 3,
+4 or 5: the values the old layout has are kept, checked as on a save, and
+the newer ones, `CURRENT SENSE` and the angle meter's setup and calibration
+among them, are at their defaults. Or it
 found a layout it does not know and discarded it: every value, the pole
 count, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` and `CURRENT SENSE`
 among them, is at its compiled default. Check them in SETTINGS and hold
@@ -342,6 +349,16 @@ outline with `NOT BUILT` under it: it does nothing. The strip names both
 signal pins, `SIG GP0  AUX GP1`. RX SIGNALS takes no pin. `BACK` returns
 to `MENU`, and so does `RESTART DSHOT` at the end of the monitor. See
 [RX Signals](RX-Signals).
+
+### TOOLS
+
+<img src="img/tools-chooser.png" width="240" alt="TOOLS: ANGLE METER with INCIDENCE, DECALAGE, DIHEDRAL, THROW under it">
+
+`MENU → TOOLS` opens a choice of the bench tools that use no signal pin,
+as PROGRAMMER: for now **ANGLE METER** alone. The strip reads
+`DSHOT RUNS ON SIG GP0`: TOOLS takes no pin, and neither does the angle
+meter. `BACK` returns to `MENU`, and so does `BACK` on the angle meter. See
+[Angle Meter](Angle-Meter).
 
 ---
 
@@ -552,6 +569,21 @@ DShot: as AUX in the default wiring, as SIG when SIG PIN is GP1, where it
 waits while an ESC answers. `BACK` opens the leave page at
 `1 UNPLUG THE RECEIVER.`; `BACK TO MONITOR` starts again with every count at
 0, and `RESTART DSHOT` returns to `MENU`. See [RX Signals](RX-Signals).
+
+---
+
+## ANGLE METER
+
+<img src="img/angle-main.png" width="240" alt="ANGLE METER after a zero: -20.0 degrees, -13.7 MM, MAX -20.0 degrees, the IMU's temperature">
+
+Reads angles from gravity with the board's own accelerometer: the angle
+about the axis at scale 5, the axis's tilt and the `SETTLED` chip on the
+strip, the trailing edge's travel in mm with LENGTH set, MAX each side and
+the board's temperature. `ZERO`, `RESET MAX` and `SETUP` in the footer;
+SETUP holds ALONG AXIS, LENGTH, SIGN and the three-pose calibration, FLIP
+CAL. `BACK` on the main view turns the accelerometer off and returns to
+`MENU`; on SETUP and FLIP CAL it goes one level up. Not tested on hardware;
+the accuracy is not measured. See [Angle Meter](Angle-Meter).
 
 ---
 

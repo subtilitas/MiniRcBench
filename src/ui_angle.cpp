@@ -204,10 +204,13 @@ static uint32_t mixText(uint32_t h, const char *s) {
 	return mix(h, 0xFFu);
 }
 
-/** @brief Whether region @p i must repaint for @p key; records it. */
+/**
+ * @brief Whether region @p i must repaint for @p key; records it. A new view
+ *        clears every key first, so all its regions repaint.
+ */
 static bool regionDue(int i, uint32_t key) {
 	key |= 1u;
-	if (!s_full && s_keys[i] == key) return false;
+	if (s_keys[i] == key) return false;
 	s_keys[i] = key;
 	return true;
 }
@@ -718,7 +721,6 @@ bool uiAngleTick(const TouchState *t) {
 	angleTick(&s_m, now);
 	angleRead(&s_m, &s_r);
 
-	AngleView was = s_view;
 	if (s_view == AngleView::Main) {
 		if (!mainTouch(now)) return false;
 	} else if (s_view == AngleView::Setup) {
@@ -728,9 +730,6 @@ bool uiAngleTick(const TouchState *t) {
 		if (flipDown()) s_t = &none;
 		flipTouch(now);
 	}
-	// A view opened on this frame draws with no touch: the tap that opened
-	// it belongs to the view it left.
-	if (s_view != was) s_t = &none;
 	// What the taps changed, ZERO armed or MAX reset among them, shows on
 	// this frame.
 	angleRead(&s_m, &s_r);

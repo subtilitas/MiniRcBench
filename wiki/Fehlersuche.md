@@ -267,10 +267,10 @@ Einstellungen im Flash nicht lesen. Polzahl und Gasobergrenze werden unter
 **MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
 ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`, der
-letzten: Ziehe `MENU` um 36 px nach oben, um sie zu sehen.
+letzten: Ziehe `MENU` um 76 px nach oben, um sie zu sehen.
 
-Die Firmware speichert ihre Einstellungen im Format Version 5. Einstellungen,
-die eine frühere Firmware im Format Version 2, 3 oder 4 gespeichert hat,
+Die Firmware speichert ihre Einstellungen im Format Version 6. Einstellungen,
+die eine frühere Firmware im Format Version 2, 3, 4 oder 5 gespeichert hat,
 darunter die von DshotDisplay 2.x, werden übernommen: Jede Einstellung, die
 das alte Format kennt, behält ihren Wert, geprüft nach denselben Regeln wie
 gespeicherte Einstellungen, und jede neuere Einstellung beginnt mit ihrer
@@ -286,9 +286,12 @@ Voreinstellung. Also:
 - ein KISS-Pin auf dem ESC-Pin wechselt auf den anderen freien Pin, ob KISS
   an oder aus ist, und KISS behält seine Einstellung: SIG und AUX teilen nie
   einen Pin;
-- CURRENT SENSE steht auf `NONE`; SERVO SUPPLY steht nach Version 2 oder 3
-  auf `OWN`, denn der Schalter auf GP0 aus Version 3 liegt jetzt auf dem Pin
-  des ESC-Kabels; nach Version 4 behält es `GP28` oder `GP29`.
+- CURRENT SENSE steht nach Version 2, 3 oder 4 auf `NONE`; nach Version 5
+  behält es seinen Wert. SERVO SUPPLY steht nach Version 2 oder 3 auf
+  `OWN`, denn der Schalter auf GP0 aus Version 3 liegt jetzt auf dem Pin
+  des ESC-Kabels; nach Version 4 oder 5 behält es `GP28` oder `GP29`;
+- ALONG AXIS, LENGTH, SIGN und die Kalibrierung des Winkelmessers stehen
+  auf ihrer Voreinstellung: `LONG`, `OFF`, `NORMAL` und keine.
 
 Eine Übernahme wird angezeigt: Der Startbildschirm zeigt
 `SETTINGS CARRIED OVER FROM AN UPDATE` und `CHECK MENU > SETTINGS, THEN SAVE`,

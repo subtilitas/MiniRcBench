@@ -247,10 +247,10 @@ They were not saved, or new firmware could not read the settings layout in
 flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
-`UNSAVED` on its `SETTINGS` row, the last: drag `MENU` up 36 px to see it.
+`UNSAVED` on its `SETTINGS` row, the last: drag `MENU` up 76 px to see it.
 
-The firmware stores its settings in layout version 5. Settings an earlier
-firmware saved in layout version 2, 3 or 4, DshotDisplay 2.x's among them,
+The firmware stores its settings in layout version 6. Settings an earlier
+firmware saved in layout version 2, 3, 4 or 5, DshotDisplay 2.x's among them,
 are carried over: every setting the old layout has keeps its value, checked
 by the same rules as saved settings, and every newer setting starts at its
 default. So:
@@ -262,9 +262,12 @@ default. So:
   switched off, its pin back to the default (GP1);
 - a KISS pin on the ESC pin moves to the other free pin, whether KISS is on
   or off, and KISS keeps its setting: SIG and AUX never share a pin;
-- CURRENT SENSE is `NONE`; SERVO SUPPLY is `OWN` after version 2 or 3,
-  since version 3's switch on GP0 sits on the ESC wire's pin now; after
-  version 4 it keeps `GP28` or `GP29`.
+- CURRENT SENSE is `NONE` after version 2, 3 or 4; after version 5 it keeps
+  its value. SERVO SUPPLY is `OWN` after version 2 or 3, since version 3's
+  switch on GP0 sits on the ESC wire's pin now; after version 4 or 5 it
+  keeps `GP28` or `GP29`;
+- the angle meter's ALONG AXIS, LENGTH, SIGN and calibration are at their
+  defaults: `LONG`, `OFF`, `NORMAL` and none.
 
 A carry-over is shown: the splash reads
 `SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETTINGS, THEN SAVE`,

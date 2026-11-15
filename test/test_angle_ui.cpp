@@ -63,9 +63,16 @@ static bool allOf(int x, int y, int w, int h, uint16_t c) {
 	return true;
 }
 
-/** @brief @p text at scale @p scale, ending at x 231, top at @p y, on the background. */
+/**
+ * @brief @p text at scale @p scale, ending at x 231, top at @p y, on the
+ *        background, and the character cell before it blank: no more text
+ *        to its left.
+ */
 static bool rightIs(int y, const char *text, uint16_t col, int scale) {
-	return fakeTextIs(231 - gfxTextW(text, scale), y, text, col, C_BG, scale);
+	const int x = 231 - gfxTextW(text, scale);
+	const int cell = 6 * scale;
+	return fakeTextIs(x, y, text, col, C_BG, scale) &&
+	       (x - cell < 0 || allOf(x - cell, y, cell, 7 * scale, C_BG));
 }
 
 /** @brief @p text at scale 1 from x 8, top at @p y, on the background. */
@@ -335,6 +342,11 @@ static void testReading() {
 	settle();
 	frames(40);
 	checkTrue("tilt 45.1`: 45`, amber", stripIs("LONG EDGE  AXIS TILT 45`", C_AMBER, "SETTLED", C_GREEN));
+	pose(3.0, -45.1);
+	settle();
+	frames(160);   // the tilt alone moved: the filter's tilt comes after the still time
+	checkTrue("tilt -45.1`, the other end up: 45`, amber",
+	          stripIs("LONG EDGE  AXIS TILT 45`", C_AMBER, "SETTLED", C_GREEN));
 	checkTrue("the angle still reads, its change the rotation", angleIs("+3.0`", C_LIME));
 	pose(3.0, 69.9);
 	settle();
@@ -586,6 +598,27 @@ static void testSetup() {
 	checkTrue("the travel: 40 x sin 20` = -13.7 MM, scale 3", rightIs(122, "-13.7 MM", C_LIME, 3));
 	checkTrue("and MAX's: -13.7 MM  --", rightIs(186, "-13.7 MM  --", C_DIM, 1));
 	fakeDumpFrame("shot_angle_main.ppm");
+	pose(30.0, 70.1);
+	frames(160);
+	checkTrue("too steep with LENGTH set: --- MM, dim", rightIs(122, "--- MM", C_DIM, 3) &&
+	          angleIs("---", C_DIM));
+	pose(30.0);
+	settle();
+	checkTrue("level again: -20.0`", angleIs("-20.0`", C_LIME));
+
+	// LENGTH alone: a change of it is a change, saved on BACK.
+	writes = fakeFlashWrites();
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(AngleCtl::LenPlus));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("LENGTH 41 alone: one write", fakeFlashWrites() - writes == 1 &&
+	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b));
+	               return b.s.angleLengthMm == 41; }());
+	writes = fakeFlashWrites();
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(AngleCtl::LenMinus));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("and back to 40: one write", fakeFlashWrites() - writes == 1);
 
 	// ALONG AXIS: a new axis drops the zero and MAX.
 	writes = fakeFlashWrites();
@@ -593,13 +626,15 @@ static void testSetup() {
 	tapId(UI_FIX(AngleCtl::Along));
 	checkTrue("ALONG AXIS: SHORT, SHORT EDGE ON AXIS",
 	          setupRowIs(0, "ALONG AXIS", "SHORT EDGE ON AXIS", "SHORT") && settings()->angleAlong == 1);
+	pose(30.5);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("one write, and the zero and MAX gone",
 	          fakeFlashWrites() - writes == 1 && !reading().zeroed && !reading().hasMax[0] &&
 	          !reading().hasMax[1]);
-	frames(10);
-	checkTrue("the strip names the short edge", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "SHORT EDGE  AXIS TILT",
-	                                                      C_DIM, C_BG, 1) || true);
+	settle();
+	frames(160);
+	checkTrue("the strip names the short edge, tilted 30` by the 30.5` turn about the long one",
+	          stripIs("SHORT EDGE  AXIS TILT 30`", C_DIM, "SETTLED", C_GREEN));
 	// A failed save: the values stay live, the hint says so.
 	tapId(UI_FIX(AngleCtl::Setup));
 	tapId(UI_FIX(AngleCtl::Along));
@@ -621,6 +656,18 @@ static void testSetup() {
 	settingsLoad();
 	checkTrue("a restart: what flash holds, SHORT, the failed save's LONG lost",
 	          settings()->angleAlong == 1 && settings()->angleLengthMm == 40);
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_TOOLS));
+	tapId(UI_FIX(ToolsCtl::Angle));
+	frames(1);
+	checkTrue("the visit after it opens on SHORT, LENGTH 40, INVERT",
+	          uiAngleModel()->set.along == AngleAlong::Short && uiAngleModel()->set.lengthMm == 40 &&
+	          uiAngleModel()->set.invert);
+	settle();
+	checkTrue("the strip names the short edge", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "SHORT EDGE  AXIS TILT ",
+	                                                      C_DIM, C_BG, 1));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
 }
 
 // ---------------------------------------------------------------------------
@@ -781,9 +828,45 @@ static void testFlip() {
 	          fabs(uiAngleModel()->set.cal.offG[0] - 0.06) < 0.001 &&
 	          fabs(settings()->angleCalOffG[0] - 0.06) < 0.001);
 	tapId(UI_FIX(UI_BACK));
+	writes = fakeFlashWrites();
+	fakeFlashSetWritable(false);
 	tapId(UI_FIX(UI_BACK));
+	checkTrue("SETUP's BACK tries the changed calibration again; refused: the hint, flash as it was",
+	          lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) &&
+	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b));
+	               return fabs(b.s.angleCalOffG[0] - OX) < 0.001; }());
+	fakeFlashSetWritable(true);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("CTRL7 00h on BACK from the main view", s_q->reg[0x08] == 0x00);
+
+	// The next visit takes the calibration from the live settings: the one
+	// applied, not saved; after a restart the one flash holds.
+	tapId(menuRow(&UI_TOOLS));
+	tapId(UI_FIX(ToolsCtl::Angle));
+	frames(1);
+	checkTrue("the next visit: the calibration applied, X's offset 60 mg",
+	          angleCalValid(&uiAngleModel()->set.cal) &&
+	          fabs(uiAngleModel()->set.cal.offG[0] - 0.06) < 0.001 &&
+	          fabs(uiAngleModel()->set.cal.offG[2] - OZ) < 0.001 &&
+	          fabs(uiAngleModel()->set.cal.gain[2] - KZ) < 0.001);
+	tapId(UI_FIX(AngleCtl::Setup));
+	writes = fakeFlashWrites();
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("SETUP opened and left with nothing changed: nothing written", fakeFlashWrites() == writes);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	settingsLoad();
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_TOOLS));
+	tapId(UI_FIX(ToolsCtl::Angle));
+	frames(1);
+	checkTrue("after a restart: the calibration saved, X's offset 30 mg",
+	          angleCalValid(&uiAngleModel()->set.cal) &&
+	          fabs(uiAngleModel()->set.cal.offG[0] - OX) < 0.001);
+	tapId(UI_FIX(AngleCtl::Setup));
+	checkTrue("SETUP: CALIBRATED", setupRowIs(3, "CALIBRATION", UI_ANGLE_CAL_YES, "FLIP"));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
 
