@@ -987,7 +987,15 @@ The previews: the wiki's `log-last.png` shows the run after STOP and
 FULL`; README's `docs/log-preview.png` adds the run after STOP as its
 fourth panel.
 
-MUTATIONS
+41 mutations of the new code in `src/ui_sdlog.cpp` were run against the
+suite: each colour, column, offset and tag rule of drawRunRow(), the row
+loop, the poles and file number handed to runSumRowText(), the choice
+between the run and the counters, and each part of the redraw key and of
+what it keeps. 40 fail it, one of them by a crash (the untagged branch
+removed: runSumRowText() gives no tag, and the tag's colour test reads
+it). 1 is equivalent: the alert tested before `--`. runSumRowText() never
+sets both: MAX TEMP's alert needs a held value, and `NOT SAVED` is a
+value.
 
 Not verified on hardware: the rows on the panel, their legibility in
 daylight, and the redraw's timing on the board.
