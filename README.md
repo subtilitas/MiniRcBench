@@ -51,8 +51,10 @@ built; the owner answered its questions on 2026-11-15, and its entry is an
 eighth MENU row, `TOOLS`, with a chooser. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
-designed in `docs/design/run-summary.md` and not built; the owner answered
-its questions on 2026-11-15. The owner's board has no cell in the RTC
+designed in `docs/design/run-summary.md`; the owner answered its questions
+on 2026-11-15. Its slice 1, the summary computed from the telemetry and the
+text of its file, is built and host-tested; the logger does not call it, so
+no summary file is written yet. The owner's board has no cell in the RTC
 socket J2, so its clock is set again after each power-up, and files
 written before the set have FAT date 0.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
@@ -186,14 +188,20 @@ One sheet, four parts:
 | Board connectors | J5, J4 and J3 pin by pin, each with its role | [Pin map](#pin-map-from-the-official-schematic) |
 | A | ESC: signal on SIG, ground, KISS telemetry on AUX, the BEC (battery eliminator circuit) wire cut | [Wiring the ESC](#wiring-the-esc), [KISS telemetry](#kiss-telemetry-optional-third-wire) |
 | B | Servo on its own supply with a switch in the positive lead; a second servo on AUX for the servo tester | [Servo tester wiring](#wiring), [KST wiring](#wiring-1), [Hitec wiring](#wiring-2) |
-| C | Servo on a DC-DC (direct current to direct current) converter whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND (ground) on J4 | [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos) |
+| C | Servo on a boost converter with output disconnect, from one LiPo cell, whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND (ground) on J4. The optional INA219 current sensor on the converter's output wire, its I2C bus, 3.3 V and ground from J3 | [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos), [Current sensor](#current-sensor) |
 
 `tools/make_wiring.py` draws `docs/wiring.svg` (Scalable Vector Graphics)
 from the connector table in `src/board_rp2350_touch_lcd_2_8.h`, the start
-pins in `src/config.h` and the enable pins in `src/servo_supply.h`, checked
-against `servoSupplyPinOf()` in `src/servo_supply.cpp`. The Docs
+pins in `src/config.h`, the enable pins in `src/servo_supply.h`, checked
+against `servoSupplyPinOf()` in `src/servo_supply.cpp`, and the INA219's
+address and shunt in `src/sense.h`. In the connector table `^` marks the
+I2C pins of the sensor's connector, J3, and `*` the bus's other pins, J4
+pins 7 and 8; the script stops when `^` is on more than one connector, when
+that connector carries more than SCL, SDA, 3V3 and GND, or when the address
+is one of the board's own I2C parts. The Docs
 job in `ci.yml` runs `python3 tools/make_wiring.py --check`, which fails when
-the file differs from what the script draws.
+the file differs from what the script draws, and when the script takes one
+of nine changed sources it has to refuse (`SENSOR_MUTANTS`).
 
 ### Wiring the ESC
 
@@ -210,10 +218,11 @@ connectors, so an ESC lead needs a pigtail:
 ```
 J4 (12P): 1=GND  2=VBUS 3=USB_N 4=USB_P 5=GND   6=3V3
           7=GP7* 8=GP6* 9=GP0   10=GP1  11=GP28 12=GP29
-J3  (4P): 1=GP7* 2=GP6* 3=3V3   4=GND
+J3  (4P): 1=GP7^ 2=GP6^ 3=3V3   4=GND
 J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
-                                (* = on the shared I2C bus: only the optional
-                                     INA219, at 0x40, joins it)
+                                (^ = on the shared I2C bus: J3 is the
+                                     connector of the optional INA219, at 0x40)
+                                (* = on the shared I2C bus: do not use)
                                 (J5 pin 3: never connect)
 
 ESC signal (SIG)     GP0   J4 pin 9  or J5 pin 2
@@ -1652,24 +1661,36 @@ hand: a plug, or a switch in its positive lead.
   wiring](#wiring) apply here too.
 
 **Switched supply (optional).** With SETTINGS → SERVO SUPPLY at `GP28` or
-`GP29`, the bench powers the servo itself through a DC-DC converter whose
+`GP29`, the bench powers the servo itself through a boost converter whose
 enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 
 ```
-  user supply +  ------- VIN    DC-DC    VOUT  ---------  servo +  (red)
-  user supply -  ---+--- GND             EN  ----+------  GP28, J4 pin 11
-                    |                            |        or GP29, J4 pin 12
-                    |                       10 k pull-down
-                    |                            |
-                    +----------------------------+------  servo -  (brown)
-                    |
-  board GND  -------+    one tap: J5 pin 4, or J4 pin 1 or 5
-  board SIG  -------------------------------------------  servo signal (GP0, J4 pin 9 or J5 pin 2)
+  LiPo + --fuse-- VIN  BOOST  VOUT -- IN+ [INA219] IN- --  servo +  (red)
+  LiPo - ---+---- GND         EN  --+-------------------  GP28, J4 pin 11
+            |                       |                     or GP29, J4 pin 12
+            |                 10 k pull-down
+            |                       |
+            +-----------------------+-------------------  servo -  (brown)
+            |
+  board GND +   one tap: J5 pin 4, or J4 pin 1 or 5
+  board SIG --------------------------------------------  servo signal
+
+  SIG: GP0, J4 pin 9 or J5 pin 2
+  INA219, optional: SCL J3 pin 1, SDA pin 2, VCC pin 3 (3.3 V), GND pin 4
 ```
 
-- The converter: 5 V out, rated above the servo's stall current, more than
-  1 A; a buck, or a type with output disconnect. A plain boost module with
-  no EN passes its input to the servo and does not qualify.
+- The converter: a synchronous boost with output disconnect, 5 V out, at
+  least 3 A, from one LiPo cell, 3.0 V to 4.2 V (design note
+  `docs/design/current-sense.md`, decision 10). The cell is one of its own,
+  charged off the bench, with a fuse at the cell. A boost without the
+  disconnect passes the cell's voltage, less a diode drop, to the servo
+  while EN is low, and does not qualify; nor does a module with no EN. A
+  boost needs its input below 5 V: from a pack of two cells or a bench
+  supply, a buck or a buck-boost does the same, such as the Pololu
+  S13V30F5. The module is not named. The 5 V boost board of
+  `hardware/mechanical/models/boost_5v_en.step` names no chip, so its
+  disconnect, its EN threshold, its current limit and its start-up time are
+  not known until bench tests B6 and B7 of the design note.
 - EN takes 3.3 V as high: the enable pin is a 3.3 V output, on GP28 or
   GP29, ADC pins that are not fault tolerant. An external pull-down from EN
   to the supply's minus holds the converter off while the enable pin is not
@@ -1677,8 +1698,13 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
   converter, it also holds EN low when the EN wire comes off at a
   connector. An EN with an internal pull-up needs a pull-down small enough
   to keep EN below its off threshold and at most 3.6 V at the highest VIN
-  used, and at most 0.5 V while the board is off: 10 kΩ for the Pololu
-  S13V30F5 (design note, "Example modules").
+  used, and at most 0.5 V while the board is off. On one cell, 4.2 V, that
+  is at most 0.135 times the pull-up; 10 kΩ for the Pololu S13V30F5's
+  475 kΩ (design notes, "Enable and its pull-down" and "Example modules").
+- The optional INA219 current sensor sits on the converter's output wire,
+  IN+ from VOUT, IN- to the servo's plus, and takes J3
+  ([Current sensor](#current-sensor)). Without it VOUT goes straight to the
+  servo's plus.
 - The converter's output is the lead's middle wire. **An ESC on this lead
   gets the converter's output on its BEC wire**, its own regulated supply.
   The claim's ESC check sees only an ESC that answers bidirectional DShot.
@@ -2252,8 +2278,10 @@ and with them the touch controller, to 5 V. The servo's current goes through
 the module's screw terminal only: IN+ from the supply's output, IN- to the
 servo's plus wire. The VIN- and VIN+ pins of the module's header stay
 unconnected. The address is 0x40, both address pins at GND, the common
-module's default (`INA219_ADDR`). The design note's "Electrical" section
-has the circuit, the ratings and the bus's pull-ups.
+module's default (`INA219_ADDR`). Part C of the
+[wiring diagram](#wiring-diagram) draws it on the boost converter's output.
+The design note's "Electrical" section has the circuit, the ratings and the
+bus's pull-ups.
 
 **SETTINGS → CURRENT SENSE.** `NONE`, the default, or `INA219`, in the
 SERVO SUPPLY section below SERVO SUPPLY. With `INA219` the bench probes the
@@ -2483,6 +2511,7 @@ src/
   esc_merge.{h,cpp}     per-field preference between KISS and EDT (pure)
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
+  run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure; not called yet)
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_hw_config.c        SD wiring for the FatFs driver
   sdio/                 SDIO card driver, MIT, written from the SD specification
@@ -2495,7 +2524,7 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder, sensor bus
+                        S.BUS decoder, sensor bus, escwire core and line driver
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -2515,8 +2544,10 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-the S.BUS (Futaba's serial bus for receiver channels) decoder, and the
-current sensor's bus record (`sense_bus.c`). Files include each other as plain
+the S.BUS (Futaba's serial bus for receiver channels) decoder, the
+current sensor's bus record (`sense_bus.c`), and the escwire core for ESC
+settings over the signal wire with its RP2350 line driver, which nothing
+calls yet. Files include each other as plain
 siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -2545,7 +2576,12 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`,
 `test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
 `test_hitec_session_write.c` and `test_hitec_card.c`, with
-`hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
+`hitec_headers.cpp` built as C++11, `test_sbus.c` (12 cases), and the
+twelve escwire tests `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
+`test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
+`test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
+`test_ew_session_text.c` and `test_ew_file_e32.c` (210 cases), with
+`escwire_headers.cpp` built as C++11. The SDIO
 tests run the card protocol against a simulated card. Time is virtual and
 counted in microseconds — `millis()` advances only when a test says so — which
 makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
@@ -2609,7 +2645,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 10,427 of 10,606 lines in 65 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 10,781 of 10,964 lines in 67 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -2855,6 +2891,9 @@ the list.
   by the same copyright holder under the same MIT licence.
 - The S.BUS decoder in `lib/rcbench/` comes from rcbench at commit 5ef42efd,
   by the same copyright holder under the same MIT licence.
+- The escwire core, its RP2350 line driver and the servo file store in
+  `lib/rcbench/` come from rcbench at commit 2b4f934a, by the same copyright
+  holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
 - [DShot — the missing handbook](https://brushlesswhoop.com/dshot-and-bidirectional-dshot/)

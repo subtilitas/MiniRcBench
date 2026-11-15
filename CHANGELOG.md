@@ -83,6 +83,19 @@ protocol.
   `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
   models read from their sources. No page sends commands yet; MENU's BEEP
   THE ESC is the only caller. Not tested on hardware.
+- After v0.1.0-rc1: the run summary's core, slice 1 of
+  [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
+  `src/run_summary.*`. From each logged frame's telemetry it keeps the
+  maximum eRPM, current and temperature over the whole log and the minimum
+  voltage while armed, each as a raw extreme and as a held one, counted
+  only when three consecutive new values reach it; the source per frame,
+  KISS while fresh and EDT in its gaps, tagged `MIXED` when both counted,
+  and EDT's own figure when every fresh KISS frame carried 0; the KISS
+  counter's rise and the charge from current; the armed time. It builds the
+  `LOGnnnnn.TXT` text, both clock lines `not set`, and SD LOG's row texts.
+  Host tests in `test/test_run_summary.cpp`. The logger does not call it
+  yet: no `.TXT` is written and SD LOG does not change. Not tested on
+  hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
@@ -133,6 +146,16 @@ protocol.
   first write, the read-back, and why a cut write followed by a restart of
   the ESC loses its 48 tag bytes. The owner answered its eight questions
   on 2026-11-15.
+- After v0.1.0-rc1: rcbench's escwire core (`protocols/escwire/`), its
+  RP2350 line driver `ew_line` and the servo file store
+  (`shared/logfile/servo_store.*`), copied unchanged from rcbench commit
+  2b4f934a into `lib/rcbench/`, with rcbench's 12 tests of them in
+  `test/rcbench/` (210 cases) and `escwire_headers.cpp` built as C++11
+  ([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-1-as-built),
+  slice 1). `src/escwire.cmake` builds the core and the line driver into the
+  firmware and `test/escwire.mk` the core and the store into the host suite.
+  Nothing calls them yet. CI holds the escwire line fixture to pioasm's
+  words, as it does the KST and Hitec fixtures.
 - The design note for the angle meter,
   [angle-meter.md](docs/design/angle-meter.md), designed and not built:
   incidence, decalage, dihedral and control-surface throw in degrees and
@@ -686,6 +709,22 @@ protocol.
   DShot pump lets go of SIG, for a pin claim or a wiring change, expires
   (`escPumpTeardown()` in `src/esc_task.h`) and no longer starts on the next
   bind's ESC. Host test in `test/test_esc_cmd.cpp`.
+- After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
+  the bench converter, slice 2 of
+  [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The
+  connector table in `src/board_rp2350_touch_lcd_2_8.h` marks J3's I2C pins
+  `^`, the INA219's connector, and J4's `*`, which `docs/wiring.svg` now
+  labels "do not use". Part C of `docs/wiring.svg` shows a synchronous
+  boost with output disconnect from one LiPo (lithium-polymer) cell of its
+  own, with a fuse at the cell, and the optional INA219 on its output, VIN+
+  from VOUT and VIN- to the servo's plus, its header on J3.
+  `tools/make_wiring.py` reads the address and the shunt from `src/sense.h`,
+  and its `--check` fails when the marker is on more than one connector, J3
+  carries another pin, or the address is reserved or one of the board's
+  own. The README's wiring table and switched supply, and the wiki pages
+  Wiring and Setup with their German pairs, describe the boost, the sensor
+  and J3; the converter module is not named and its ratings are not known.
+  Not on hardware.
 - After v0.1.0-rc1 (a93e1c1): MENU's BEEP THE ESC goes through the command
   slot (`escRequestBeep()` calls `escRequestCommand(n, false)`). It shows
   `REFUSED` while no ESC answers, while the motor turns and for 1500 ms after
