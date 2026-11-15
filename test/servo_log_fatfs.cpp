@@ -38,6 +38,7 @@
 #include "hw_config.h"
 #include "run_summary.h"
 #include "sd_log.h"
+#include "sd_log_next.h"
 #include "sdio/sd_cache.h"
 #include "sdio/sd_card_cache.h"
 #include "sense.h"
@@ -112,6 +113,8 @@ struct CardModel {
 	bool     pendingErr; /**< The block in flight was not taken. */
 	unsigned reads;     /**< Blocks read from the card. */
 	unsigned writes;    /**< Blocks sent to the card. */
+	bool     failRead;  /**< A read of @ref failLba fails: no response. */
+	uint32_t failLba;
 };
 static CardModel g_card;
 
@@ -125,6 +128,7 @@ static void cardTimes(uint32_t readUs, uint32_t busyUs) {
 static sd_err_t devRead(void *, uint32_t lba, uint32_t n, uint8_t *buf) {
 	g_card.reads += n;
 	g_us += (uint64_t)g_card.readUs * n;
+	if (g_card.failRead && lba <= g_card.failLba && g_card.failLba < lba + n) return SDE_NO_RESPONSE;
 	return ramDiskRead(buf, lba, n) == RES_OK ? SDE_OK : SDE_NO_RESPONSE;
 }
 
@@ -147,6 +151,10 @@ static const sdc_dev_t kDev = { nullptr, devRead, devWriteStart, devWritePoll };
 
 /** @brief Blocks queued by the writes of the call being measured. */
 static unsigned g_queued = 0;
+/** @brief millis() of each queued block holding SRV00001.CSV's 8.3 entry: its syncs on FAT32. */
+static std::vector<uint32_t> g_entryWrites;
+/** @brief The LBA of the last of them. */
+static uint32_t g_entryLba = 0;
 /** @brief Writes that found the queue without room: a flush on the spot. */
 static unsigned g_spotFlushes = 0;
 
@@ -165,6 +173,11 @@ static DRESULT viaWrite(const BYTE *buf, LBA_t sector, UINT count) {
 		sdc_state(&left);
 		if (left + count > SDC_QUEUE_BLOCKS) g_spotFlushes++;
 		g_queued += count;
+		for (UINT i = 0; i < count; i++)
+			if (memmem(buf + i * 512u, 512, "SRV00001CSV", 11)) {
+				g_entryWrites.push_back((uint32_t)(g_us / 1000u));
+				g_entryLba = (uint32_t)(sector + i);
+			}
 		return sdc_write((uint32_t)sector, count, buf) == SDE_OK ? RES_OK : RES_ERROR;
 	}
 	for (UINT i = 0; i < count; i++) {
@@ -646,6 +659,7 @@ static void testRun(const char *vol, BYTE fmt, DWORD au) {
 	ServoLogStatus s = logStatus();
 	checkTrue("a second START call while the log runs: the same log",
 	          servoLogStart(nowMs()) && logStatus().fileNumber == s.fileNumber && sdc_on());
+	g_entryWrites.clear();
 	checkTrue("SRV00001.CSV open, nothing wrong",
 	          s.active && s.fileNumber == 1 && s.fault == SdLogEnd::None && s.how == ServoLogHow::None);
 
@@ -658,6 +672,22 @@ static void testRun(const char *vol, BYTE fmt, DWORD au) {
 		runFor(250);
 	}
 	g_loop.flags = 0;
+	if (fmt == FM_FAT32) {
+		// The entry is written by the syncs alone: every 2000 ms from the
+		// open, each at the first pass the cache is idle.
+		bool every = g_entryWrites.size() >= 4;
+		uint32_t last = g_startMs, least = 0xFFFFFFFFu, most = 0;
+		for (uint32_t ms : g_entryWrites) {
+			uint32_t gap = ms - last;
+			if (gap < least) least = gap;
+			if (gap > most) most = gap;
+			last = ms;
+		}
+		printf("  (%u syncs, %lu to %lu ms apart)\n", (unsigned)g_entryWrites.size(),
+		       (unsigned long)least, (unsigned long)most);
+		checkTrue("the entry synced every 2000 ms, 2000 ms the shortest",
+		          every && least == 2000 && most <= 2030);
+	}
 	checkTrue("no reading before the open is a row",
 	          g_loop.readings.size() > 0 && g_smp.seq > seqBefore);
 	// A pass whose sample is not new adds no row.
@@ -698,6 +728,12 @@ static void testRun(const char *vol, BYTE fmt, DWORD au) {
 	if (f_stat("/LOGS/LOG00001.BFL", &fno) == FR_OK) bflUsed = (DWORD)((fno.fsize + csize * 512u - 1) / (csize * 512u));
 	checkInt("free clusters: only the three files' own", (long)freeClusters(),
 	         (long)(freeBefore - used - txtUsed - bflUsed));
+
+	runFor(100);
+	s = logStatus();
+	checkTrue("later passes leave the closed log alone", !s.active && s.how == ServoLogHow::Stop &&
+	          s.fault == SdLogEnd::None && !sdc_on());
+	checkTrue("and the file as it was", readFile("/LOGS/SRV00001.CSV", &got) && got == want);
 
 	// A refused Start: taken, never RUNNING. Closed at once, no rows.
 	jobSafe();
@@ -783,6 +819,7 @@ static void testCardFull() {
 	f_mkdir("/LOGS");
 	runFor(100);
 	fill(1);   // one cluster, 4096 bytes: no room for the preallocation
+	WORD idFull = sdLogFs()->id;
 	checkTrue("HOLD TO START: a log", holdStart());
 	g_spotFlushes = 0;
 	g_loop.worstQueued = 0;
@@ -808,6 +845,7 @@ static void testCardFull() {
 	checkTrue("SRV00001.CSV: the cluster's 4096 bytes, as the rows gave them, no end line",
 	          readFile("/LOGS/SRV00001.CSV", &got) && got.size() == 4096 && want.compare(0, 4096, got) == 0);
 	checkTrue("the card left mounted: the blackbox logger ready", escStatus().state == SdLogState::Idle);
+	checkTrue("and not mounted again", sdLogFs()->id == idFull);
 
 	// The next START: the fault cleared, the card still full.
 	jobSafe();
@@ -915,6 +953,64 @@ static void testWriteError() {
 	          !s.active && s.fault == SdLogEnd::WriteFailed && !sdc_on() &&
 	          escStatus().state == SdLogState::Idle);
 	f_mount(nullptr, "", 0);
+}
+
+/** @brief Read @p path whole through FatFs: its blocks fill the cache's read cache. */
+static void readThrough(const char *path) {
+	std::string junk;
+	readFile(path, &junk);
+}
+
+/**
+ * @brief A block FatFs needs fails to read while the cache is healthy: the
+ *        directory's block, pushed out of the read cache and the FAT window
+ *        by another file's 24 blocks. During the run the sync fails; at the
+ *        end the close does. Either is WRITE FAILED, and the card is mounted
+ *        again.
+ */
+static void testReadFails() {
+	section("Servo log over FatFs, FAT32: a block FatFs needs does not read, the cache healthy");
+	for (int atClose = 0; atClose < 2; atClose++) {
+		format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+		cardTimes(1000, 5000);
+		loopReset();
+		jobSafe();
+		std::string big(24 * 512, 'b');
+		put("/BIG.BIN", big.c_str());
+		runFor(100);
+		g_entryLba = 0;
+		holdStart();
+		runFor(atClose ? 2500 : 500);   // the first sync, at 2000 ms, writes the entry
+		uint32_t dir = g_entryLba;
+		checkTrue("the entry's block known", dir != 0 || !atClose);
+		if (!atClose) {
+			// The open's sync wrote it: find the block holding the name.
+			for (auto &kv : g_disk.images[g_disk.card])
+				if (memmem(kv.second.data(), 512, "SRV00001CSV", 11)) dir = (uint32_t)kv.first;
+		}
+		WORD id = sdLogFs()->id;
+		readThrough("/BIG.BIN");
+		g_card.failLba = dir;
+		g_card.failRead = true;
+		if (!atClose) {
+			runFor(2000);
+			ServoLogStatus s = logStatus();
+			checkTrue("the sync's read fails: WRITE FAILED, the run on, the cache healthy",
+			          s.active && s.fault == SdLogEnd::WriteFailed && cardCacheState() != CardCache::Failed);
+		}
+		runEnds();
+		pass();
+		g_card.failRead = false;
+		ServoLogStatus s = logStatus();
+		checkTrue(atClose ? "the close's read fails: WRITE FAILED, the cache off"
+		                  : "STOP: WRITE FAILED kept, no close tried, the cache off",
+		          !s.active && s.fault == SdLogEnd::WriteFailed && !sdc_on());
+		checkTrue("the card mounted again", sdLogFs()->id != id && escStatus().state == SdLogState::Idle);
+		std::string got;
+		checkTrue("no end line on the card", readFile("/LOGS/SRV00001.CSV", &got) &&
+		          got.find("# end=") == std::string::npos);
+		f_mount(nullptr, "", 0);
+	}
 }
 
 /**
@@ -1050,6 +1146,7 @@ int main() {
 	testCardFull();
 	testRemoved();
 	testWriteError();
+	testReadFails();
 	testCache(false);
 	testCache(true);
 	testCutOnTime(1000, 5000);

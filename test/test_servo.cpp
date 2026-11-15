@@ -5234,6 +5234,10 @@ static void testLogScreen() {
 	uiFrames(2);
 	checkTrue("STOP: the line gone with RUNNING",
 	          !s_st.running && !logLineIs("LOGGING TO SRV00012.CSV", C_DIM));
+	char safe2[48];
+	snprintf(safe2, sizeof(safe2), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", (unsigned)gpioOf(PIN_SIG));
+	checkTrue("SAFE's notes whole on both lines, the log open or not",
+	          notesAre("THE SERVO MOVES TO CENTRE AT START.", C_DIM, safe2, C_DIM));
 	checkInt("STOP opens no log", (long)fakeServoLogCalls().starts, 0);
 	leaveServo();
 	checkInt("BACK tells the log", (long)fakeServoLogCalls().backs, 1);

@@ -154,7 +154,8 @@ bool servoLogRunOver(const ServoStatus *st, uint16_t startSeq);
  *        Start command.
  *
  * Nothing without CURRENT SENSE at INA219, which gives the readings, or
- * without a mounted card (cardMounted()). Otherwise the write cache goes on
+ * without a mounted card, where cardCacheBegin() leaves the cache off.
+ * Otherwise the write cache goes on
  * (cardCacheBegin()), which stops a running blackbox log as SERVO TESTER's
  * (SdLogEnd::ByServo), and the file is created: N one above the highest
  * `SRVnnnnn.CSV` in `LOGS/`, numbered apart from `LOGnnnnn.BFL`, read once
@@ -174,7 +175,10 @@ bool servoLogStart(uint32_t nowMs);
  */
 void servoLogFollow(uint16_t seq);
 
-/** @brief BACK during the log: its end line reads `end=BACK` unless a trip ended the run. */
+/**
+ * @brief BACK during the log: its end line reads `end=BACK` unless a trip
+ *        ended the run. The next servoLogStart() forgets it.
+ */
 void servoLogBack();
 
 /**

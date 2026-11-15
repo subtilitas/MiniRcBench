@@ -636,8 +636,9 @@ powered after it, or by the bench.
   (`LOGS` not made or read, or the file not opened),
   `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT`
   (no number after the highest file),
-  and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `ESC SETTINGS` when
-  the tool's claim stopped the log (`cardCacheBegin()`). A USB DRIVE refusal
+  and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` or
+  `SERVO TESTER` when the tool's claim, or the servo tester's log, stopped
+  the log (`cardCacheBegin()`). A USB DRIVE refusal
   outranks them for its 4000 ms.
 - **DROPPED FRAMES**: frames the ring buffer refused because the card was
   slower than the data. Red when non-zero. Non-zero means the buffer is too
@@ -1122,7 +1123,7 @@ with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
 Information Interchange) text, one value a line: the log's name, the
 firmware version, the clock at the start and the stop (`2026-11-14 15:42:07`
 or `not set`), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
-`HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
+`HITEC SERVO`, `ESC SETTINGS` or `SERVO TESTER`), its duration and armed time, the maximum
 RPM, current and temperature, the minimum voltage while armed, the charge
 used by the KISS counter and from the current, and the logger's counters
 that SD LOG shows while a log runs (frames, dropped frames, kilobytes
@@ -2145,6 +2146,72 @@ and no cut. Not tested on hardware.
   that eases its drive near the target can fall to its holding current
   while the horn still creeps. How far the time lies from the horn's
   arrival is not measured (bench test B10).
+
+**The log.** With CURRENT SENSE at `INA219` and a card mounted, each run
+from HOLD TO START to its end writes `LOGS/SRVnnnnn.CSV`, one row per
+reading of the sensor, 40 a second (slice 6 of
+`docs/design/current-sense.md`, `src/servo_log.*`). Without a sensor or a
+card no log is written and the screen shows nothing of it. Host tests only:
+no card has taken the log on the board.
+
+```text
+ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
+12345,1500,0,420,5020,0
+...
+# end=STOP rows=2400 dropped=0 up_ms=40
+```
+
+- `ms` is the reading's time from HOLD TO START; `pulse_a_us` and
+  `pulse_b_us` what SIG and AUX carry, 0 for level 0 or no second servo;
+  `current_ma` the current to the nearest mA, signed; `bus_mv` the bus
+  voltage; `flags` 1 for a clipped reading, 2 for the first reading after
+  the part was found reset. About 26 bytes a row, 1.0 kB/s.
+- The numbers are the log's own: one above the highest `SRVnnnnn.CSV` in
+  `LOGS`, read once per mount as the blackbox log's are; `LOGnnnnn.BFL` and
+  `SRVnnnnn.CSV` do not move each other's numbers. After `SRV99999.CSV` no
+  log starts.
+- The file opens at HOLD TO START, before the pulses and the supply start,
+  with 4 MiB reserved (`SERVO_LOG_PREALLOC_BYTES`, about 50 minutes). It
+  closes when the run ends: STOP, BACK, a cut, a trip, or a supply that did
+  not come up. Its last line says how (`end=STOP`, `BACK`, `OVERCURRENT`,
+  `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`, `TOUCH_SILENT`,
+  `BUS_STUCK`, `NO_START`), how many rows were taken and dropped, and the
+  supply's start-up time (`up_ms=-` without the switch). The close truncates
+  the file to its rows. A board that loses power during a run leaves the
+  file at its 4 MiB, the rows of the last sync (every 2000 ms) followed by
+  zeros, as a blackbox log is left.
+- A running blackbox log stops at HOLD TO START, and SD LOG then reads
+  `RECORDING STOPPED BY SERVO TESTER`; its `.TXT` says `Ended by: SERVO
+  TESTER`. SD LOG's last-run rows stay those of the blackbox log; the servo
+  log has no rows there.
+- The SD write cache is on from the open to the close
+  (`docs/design/sd-write-cache.md`). During the run core0 hands FatFs one
+  512-byte block of rows, or the directory entry every 2000 ms, only while
+  nothing is queued or in flight, so no write of the run waits for the card.
+  Rows wait in a RAM ring of 16384 bytes (`SERVO_LOG_RING_BYTES`); a card
+  slower than the rows drops rows, counted. A pass of core0's loop reads the
+  card at most once: the cache's check of the volume's serial number before
+  a batch, or a block FatFs asks for and neither holds. The open, the
+  close, the truncation and the cache's last flush run while the pulses are
+  at level 0 and the supply is off.
+- While RUNNING the dial's second line reads `LOGGING TO SRV00012.CSV`,
+  dim; in amber `SRV00012.CSV: 12 ROWS DROPPED`, `LOG STOPPED: CARD FULL`,
+  `LOG STOPPED: CARD WRITE FAILED`, `NO LOG: THE FILE DID NOT OPEN` or
+  `NO LOG: SRV99999.CSV EXISTS`. `NO SENSOR READING: NO CURRENT CUTS.`
+  takes the line before them.
+- A full card stops the writing; the rows written stay and the file is
+  closed, with no end line. A card removed, or a block the card does not
+  take, stops the writing too; at the run's end the card is mounted again
+  (`cardCacheRecover()`), and SD LOG shows whether one is there. The file
+  then holds the blocks written before, at its preallocated size.
+- The time a pass spends on the card: in the host model, a block read and a
+  transfer, at most 1.1 ms with a card that reads a block in 1 ms, and
+  100.1 ms at the SD specification's read limit, 100 ms. A reading, and so a
+  cut, waits at most that long: the hard cut came at most 25.0 ms after a
+  step of current without the log and 99.0 ms with it at the limit, under the
+  250 ms of the heartbeat and of the sensor-lost cut (`make -C test lognum`,
+  `test/servo_log_fatfs.cpp`). A real card's latency and the cuts' timing on
+  the board with the log on are not measured.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:

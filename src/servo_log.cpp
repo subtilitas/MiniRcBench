@@ -68,7 +68,6 @@ bool servoLogRunOver(const ServoStatus *st, uint16_t startSeq) {
 #if SD_LOG_ENABLE
 
 #include "card_cache.h"
-#include "card_dir.h"
 #include "log_ring.h"
 #include "sd_log_next.h"
 #include "sense.h"
@@ -89,8 +88,7 @@ static SdLogNextCache s_next = {};
 
 static bool     s_active = false;   /**< A log is open. */
 static bool     s_writing = false;  /**< Rows go to the card: no fault yet. */
-static bool     s_followed = false; /**< servoLogFollow() gave the Start's seq. */
-static uint16_t s_startSeq = 0;     /**< That seq. */
+static uint16_t s_startSeq = 0;     /**< The Start command's seq (servoLogFollow()). */
 static bool     s_back = false;     /**< BACK was tapped during the log. */
 static uint32_t s_startMs = 0;      /**< millis() at the open: the rows' time 0. */
 static uint32_t s_seq = 0;          /**< Seq of the last reading seen. */
@@ -113,12 +111,13 @@ bool servoLogStart(uint32_t nowMs) {
 	s_how = ServoLogHow::None;
 	s_rows = s_dropped = 0;
 	s_fileNo = 0;
-	// No readings, no rows; no card, nothing to write to.
-	if (!senseDeclared() || !cardMounted()) return false;
+	// No readings, no rows.
+	if (!senseDeclared()) return false;
 	// The cache from the open on, so the open's reads fill its read cache:
 	// the directory's block and the file's FAT blocks are those the run reads
 	// again. This also stops a running blackbox log, whose 14 blocks a second
-	// would fill the queue.
+	// would fill the queue. Without a mounted card the cache stays off: no
+	// card, nothing to write to.
 	if (!cardCacheBegin(SdLogEnd::ByServo)) return false;
 	uint32_t n = 0;
 	SdLogEnd why = sdLogOpenNext(&s_next, sdLogFs(), SD_LOG_DIR_PATH, &s_file, &n,
@@ -144,19 +143,15 @@ bool servoLogStart(uint32_t nowMs) {
 	s_fileNo = n;
 	s_startMs = nowMs;
 	s_lastSyncMs = nowMs;
-	s_followed = false;
 	s_back = false;
 	s_writing = true;
 	s_active = true;
 	return true;
 }
 
-void servoLogFollow(uint16_t seq) {
-	s_startSeq = seq;
-	s_followed = s_active;
-}
+void servoLogFollow(uint16_t seq) { s_startSeq = seq; }
 
-void servoLogBack() { s_back = s_active; }
+void servoLogBack() { s_back = true; }
 
 /** @brief The reading @p smp as a row, with the pulses of @p st. */
 static void addRow(const ServoStatus *st, const SenseSample *smp) {
@@ -212,10 +207,10 @@ static void finish(ServoLogHow how, uint16_t upMs) {
 		if (s_writing && len < sizeof(end)) put(end, (uint32_t)len);
 		// A card that filled up keeps the rows written before: the close
 		// still commits the entry, as it needs no new cluster.
+		// f_close() syncs first: the entry with the size, then the file's
+		// release.
 		f_truncate(&s_file);
-		FRESULT sync = f_sync(&s_file);
-		FRESULT close = f_close(&s_file);
-		if (sync != FR_OK || close != FR_OK || cardCacheFlush() == CardCache::Failed)
+		if (f_close(&s_file) != FR_OK || cardCacheFlush() == CardCache::Failed)
 			s_fault = SdLogEnd::WriteFailed;
 	}
 	// A failed write leaves FatFs's view of the card behind the card's: a
@@ -234,7 +229,7 @@ void servoLogPoll(uint32_t nowMs) {
 	senseSample(&smp);
 	if (s_writing && smp.seq != s_seq) addRow(&st, &smp);
 	s_seq = smp.seq;
-	if (s_followed && servoLogRunOver(&st, s_startSeq)) {
+	if (servoLogRunOver(&st, s_startSeq)) {
 		finish(servoLogHowOf(&st, s_back), st.upMs);
 		return;
 	}

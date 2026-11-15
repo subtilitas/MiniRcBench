@@ -44,6 +44,33 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the servo tester's log on the card, slice 6 of
+  [current-sense.md](docs/design/current-sense.md#slice-6-as-built)
+  (`src/servo_log.*`), with CURRENT SENSE at INA219 and a card mounted. Each
+  run from HOLD TO START to its end writes `LOGS/SRVnnnnn.CSV`, one row per
+  reading, `ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags`, and an end
+  line `# end=STOP rows=2400 dropped=0 up_ms=40` that names the end (STOP,
+  BACK, a cut, a trip, a supply that did not come up), the rows taken and
+  dropped and the supply's start-up time. The numbers count apart from
+  `LOGnnnnn.BFL`. The file opens before the Start command and closes once
+  the job reports the run over, so its directory work and the close run with
+  the pulses at level 0 and the supply off. The SD write cache is on from the
+  open to the close; during the run core0 writes one 512-byte block, or the
+  entry every 2000 ms, only while nothing is queued or in flight. A running
+  blackbox log stops at HOLD TO START: SD LOG reads
+  `RECORDING STOPPED BY SERVO TESTER`, the run summary
+  `Ended by: SERVO TESTER` (`SdLogEnd::ByServo`, `RunSumEnd::ByServo`). The
+  dial's second line shows `LOGGING TO SRV00012.CSV` while RUNNING, or in
+  amber the rows dropped, a full card, a failed write, or a log that did not
+  open. A full card keeps the rows written; a card removed or a failed block
+  stops the writing, and the card is mounted again at the run's end.
+  `sdLogNameNumberOf()` and the scan and open of `src/sd_log_next.*` take the
+  kind of log. Host tests in `test/servo_log_fatfs.cpp` (`make lognum`) over
+  FatFs R0.15, `card_cache.cpp` and `sd_cache.c` with a card model, and in
+  `test/test_servo.cpp`, mutation-checked; README and the wiki pages
+  Servo-Tester, Servotester, SD-Logging and SD-Aufzeichnung describe it. A
+  real card's latency and the cuts' timing with the log on are not tested on
+  hardware.
 - After v0.1.0-rc1: the S.BUS output's core1 job, slice 2 of
   [sbus-output.md](docs/design/sbus-output.md#slice-2-as-built), tested on
   the host only; nothing opens it. `Core1Job::SbusOut`

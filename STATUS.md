@@ -36,7 +36,8 @@ pulses. KST and Chaservo servo programming, on the same pins, is slice 3 of
 servo supply whose enable is on GP28 or GP29, which the servo tester switches
 too (slice 3 of [current-sense.md](docs/design/current-sense.md)), and which
 the current sensor's cuts switch off (slice 4); the servo tester times each
-step of MIN, CENTRE or MAX from the sensor's current (slice 5). Steps 1 to
+step of MIN, CENTRE or MAX from the sensor's current (slice 5) and logs each
+reading to `LOGS/SRVnnnnn.CSV` behind the SD write cache (slice 6). Steps 1 to
 5 of [kst-programming.md](docs/design/kst-programming.md) are built:
 rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
 with rcbench's tests of them, 298 cases; the search (`src/kst_seek.h`) and the
@@ -787,7 +788,8 @@ not run on hardware (item 18).
       the servo tester on the switched supply, is built and host-tested.
       Slice 4, the cuts on the sensor's readings, is built and host-tested.
       Slice 5, the move timing, is built and host-tested. Slice 6, the log,
-      waits on building.
+      is built and host-tested; a real card's latency and the cuts' timing
+      with the log on are not tested on hardware.
     - [diagnostics.md](docs/design/diagnostics.md): no fault log now; the
       owner revisits it after the board has run on the bench, with the
       note's seven questions.

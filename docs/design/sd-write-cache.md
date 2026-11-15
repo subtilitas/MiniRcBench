@@ -11,9 +11,11 @@ reading touch and sending the heartbeat while the card programs.
 
 The HITEC SERVO claim runs it too
 ([hitec-programming.md](hitec-programming.md#decisions-of-the-owner),
-decision 11). Outside those claims nothing changes:
-SERVO, the blackbox logger, SD LOG and USB (Universal Serial Bus) DRIVE use the synchronous path
-of [sdio-driver.md](sdio-driver.md).
+decision 11), and SERVO TESTER while its servo log runs, from HOLD TO START
+to the run's end ([current-sense.md](current-sense.md#slice-6-as-built)).
+Outside those nothing changes: SERVO TESTER without a log, the blackbox
+logger, SD LOG and USB (Universal Serial Bus) DRIVE use the synchronous
+path of [sdio-driver.md](sdio-driver.md).
 
 ## What it solves
 
@@ -242,6 +244,12 @@ A batch that fails:
   `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` until the
   next start; a mount keeps it. Without a mounted card the cache stays off
   for the claim.
+- SERVO TESTER's servo log calls `cardCacheBegin()` at HOLD TO START, with
+  a current sensor declared and a card mounted, and `cardCacheEnd()` once
+  the run is over, after its close; it stops a running blackbox log as
+  `SERVO TESTER`. During the run it writes only while the cache reads Idle,
+  one FatFs call a pass, so its writes never fill the queue
+  ([current-sense.md](current-sense.md#slice-6-as-built)).
 - `cardCacheEnd()` runs when the claim ends: KST's LEAVE, BACK and the loss
   rule, AM32's BACK. It flushes, core0 blocking, recovers a failed flush, and
   turns the cache off. NEXT SERVO on KST's leave page keeps the claim and

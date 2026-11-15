@@ -1,18 +1,17 @@
 # Current sense and the bench converter
 
-Status: slices 1 to 5 built, slices 1, 3, 4 and 5 host-tested and slice 2
+Status: slices 1 to 6 built, slices 1, 3, 4, 5 and 6 host-tested and slice 2
 checked by `tools/make_wiring.py --check` ([slice 2 as
 built](#slice-2-as-built), [slice 3 as built](#slice-3-as-built), [slice 4 as
-built](#slice-4-as-built), [slice 5 as built](#slice-5-as-built)), none
-tested on hardware; slice 6 not built. The owner's decisions of 2026-11-13
+built](#slice-4-as-built), [slice 5 as built](#slice-5-as-built), [slice 6 as
+built](#slice-6-as-built)), none tested on hardware. The owner's decisions of 2026-11-13
 and 2026-11-14 are recorded under [decisions](#decisions). On 2026-11-14 the
 owner answered Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt
 as sold, the servo tester switching the supply always, rcbench's limit run as
 the protection, and the settings carried over from the older layouts. One point
 is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V boost
 board the owner modelled names no chip, and the owner does not know it, so its
-ratings come only from bench tests B6 and B7. Slice 6 waits on being
-built. Slices 3 to 5 rely on no rating of the module: the 500 ms start-up
+ratings come only from bench tests B6 and B7. Slices 3 to 6 rely on no rating of the module: the 500 ms start-up
 limit is this note's value until B6, and the cuts' thresholds are decision
 13's and this note's. The settings carry-over of decision 14 is built
 and host-tested. No INA219 has been on the board's bus, and no boost
@@ -680,9 +679,9 @@ A reading older than 250 ms, or none, reads `-- A`.
 ### The servo tester on the switched supply
 
 Decision 20 of [servo-tester.md](servo-tester.md#decisions), built here in
-slices 3 and 4 except the log of slice 6
+slices 3, 4 and 6
 ([slice 3 as built](#slice-3-as-built), [slice 4 as
-built](#slice-4-as-built)): with `SERVO SUPPLY` at `GP28` or `GP29`:
+built](#slice-4-as-built), [slice 6 as built](#slice-6-as-built)): with `SERVO SUPPLY` at `GP28` or `GP29`:
 
 | State | Supply |
 |---|---|
@@ -807,6 +806,9 @@ leaves open: when a step is timed, the holding level, the hold and the line's
 place.
 
 ### Logging to the card
+
+Built in slice 6 ([slice 6 as built](#slice-6-as-built)), which settles what
+this section leaves open and differs from it where the cache is used.
 
 A servo tester run with the supply on writes `LOGS/SRVnnnnn.CSV`, one row
 per reading:
@@ -959,8 +961,8 @@ boost's EN as it does to every EN on part C.
   then the loss path.
 - `servo_move` through the job: an MG90S-like move from `servo_sim`
   timed within one read and two cycles; UNSEEN with no current change.
-- The log: rows per reading, the file closed at each end, a full queue
-  counted.
+- The log: rows per reading, the file closed at each end, a full ring
+  counted ([slice 6 as built](#slice-6-as-built)).
 - `tools/make_wiring.py --check`: J3's roles and part C from the sources.
 
 ### Bench tests
@@ -1013,7 +1015,7 @@ copies from rcbench are counted apart and are unchanged.
 | 3 | The servo tester on the switched supply, decision 20: SAFE off, START on, STOP and the trip off, the read-back, the start-up time, the stuck-bus and silent-touch cuts, the screen texts | about 350 | about 500 | | 1 |
 | 4 | Protection: `src/supply_guard.*`, the cuts in the servo job, the hard and collapse cuts in the KST and Hitec jobs, the chips and texts | about 300 | about 550 | | 3 |
 | 5 | Move timing: the move measurement in the servo job, the SET line | about 200 | about 250 | `servo_move.{c,h}`, `servo_sim.{c,h}`, `test_servo_move.c`, 1,535 lines | 3 |
-| 6 | The log: `LOGS/SRVnnnnn.CSV`, the write cache on for a SERVO claim with a log | about 300 | about 350 | | 3 |
+| 6 | The log: `LOGS/SRVnnnnn.CSV`, the write cache on for a SERVO claim with a log. Built: `src/servo_log.*`, 420 lines with the screen's line and the numbering per kind; tests 1,170 lines, `test/servo_log_fatfs.cpp` over FatFs and the cache ([slice 6 as built](#slice-6-as-built)) | about 300 | about 350 | | 3 |
 
 Each slice updates this note's status line, its row in
 [README.md](README.md), [STATUS.md](../../STATUS.md) and the README
@@ -1500,6 +1502,140 @@ timed and SET shows what it showed before.
   end reads above its threshold, B8. `MOVE_MIN_READINGS`, the 500 ms of rest
   and hold and the 20 mA floor and 50 mA band are rcbench's or this slice's
   choices, not measured on this meter.
+
+### Slice 6 as built
+
+The log of [logging to the card](#logging-to-the-card), with CURRENT SENSE at
+`INA219` and a card mounted. With `NONE`, or without a card, nothing of it
+applies: no file, no cache, and a running blackbox log goes on.
+
+- **The module.** `src/servo_log.{h,cpp}`, core0 only. HOLD TO START on
+  SERVO TESTER calls `servoLogStart()`, then sends the Start command and
+  hands its seq to `servoLogFollow()`; BACK calls `servoLogBack()`.
+  `servoLogPoll()` runs on every pass of `loop()` after `cardCachePoll()`.
+  Core1 calls nothing of it: the job, the cuts and the move timing are as
+  slice 5 left them.
+- **The columns, units and rate.** The note's header,
+  `ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags`, as the file's first
+  line, and one row per new reading (`SenseSample::seq`), 40 a second at
+  the UI frame of 25 ms: `ms` the reading's `takenMs` less the open's
+  `millis()`; the pulses `ServoStatus::outUs`, 0 for level 0 or no second
+  servo; `current_ma` the reading rounded to the nearest mA, half away from
+  zero, signed; `bus_mv` as read; `flags` `SenseSample::flags`, 1 clipped,
+  2 the first reading after a reset. A row is 24 to 28 bytes in a run
+  (`12345,1500,0,420,5020,0`), at most 42; about 1.0 kB/s. The last line
+  is `# end=STOP rows=2400 dropped=0 up_ms=40`: how the run ended, the
+  readings taken while the log wrote, those the ring had no room for, and
+  the supply's start-up time, the place "goes into the log" of
+  [the servo tester on the switched supply](#the-servo-tester-on-the-switched-supply)
+  takes; `up_ms=-` without one.
+- **The numbering.** Separate from `LOGnnnnn.BFL`, as the blackbox log
+  numbers its own: one above the highest `SRVnnnnn.CSV` in `LOGS/`, in any
+  letter case, read once per mount and kept between starts
+  (`sdLogNameNumberOf()` with `SD_LOG_KIND_SRV`, `sdLogOpenNext()` with a
+  kind, its own `SdLogNextCache`); created new, never over a file; none after
+  `SRV99999.CSV`. Neither kind moves the other's number.
+- **When it starts and ends.** It opens at HOLD TO START before the Start
+  command: the cache goes on (`cardCacheBegin(SdLogEnd::ByServo)`), the file
+  is created, 4 MiB reserved (`SERVO_LOG_PREALLOC_BYTES`, f_expand()) and
+  synced, so the FAT's blocks and FSINFO go out before the pulses and the
+  supply start. It ends at the first pass in which the job has taken the
+  Start, or a later command, and is not RUNNING (`servoLogRunOver()`): STOP
+  on SERVO or SET, BACK, a cut, a trip, a supply that did not come up, or a
+  START core1 refused. Core1 publishes not RUNNING in the pass that takes
+  the enable pin low, so the close runs with the supply off and the pulses
+  at level 0: the rest of the ring and the end line, f_truncate(), the
+  close, the cache's flush, which may wait for the card, and the cache off.
+  `end=` names a trip by its cause first, then a supply that did not come
+  up, then BACK, else STOP.
+- **The run's writes.** Each pass makes at most one FatFs call, and only
+  while `cardCacheState()` reads Idle: an f_write() of the ring's oldest
+  512 bytes, or every `SD_LOG_SYNC_MS`, 2000 ms, an f_sync(). The rows wait
+  in a ring of 16384 bytes (`SERVO_LOG_RING_BYTES`, about 16 s of rows); a
+  row it has no room for is dropped and counted. The call queues one block,
+  or, past the preallocation, at most 4: the sync's entry, FSINFO and the
+  FAT's block in both copies. The queue holds 32, so no write of the run
+  waits for the card. The note's design let the cache's 32 blocks absorb a
+  slow card; as built they hold one call at a time and the RAM ring absorbs
+  it, since the cache sends one block at a time either way.
+- **The bound on core0.** A pass reads the card at most once: the cache's
+  swap check before a batch's first block, in `cardCachePoll()`, or a
+  block FatFs asks for that neither its window nor the read cache holds,
+  in `servoLogPoll()` only when nothing is queued. The open reads the
+  directory's block and the FAT's into the read cache, so in the host model
+  every read of the run is the swap check. A pass with the log therefore
+  adds at most one block read, one block's transfer, about 0.1 ms at
+  10 MHz, and a look at the busy line. In the host model: 1.1 ms with a card
+  that reads a block in 1 ms, 100.1 ms at the SD specification's read
+  limit, 100 ms. A reading waits at most that long, and a cut with it: the
+  hard cut came at most 25.0 ms after a step of current without the log,
+  25.0 ms with it on the 1 ms card and 99.0 ms on the 100 ms card, over 200
+  steps at every phase; the longest gap between readings was 112.2 ms,
+  under the 250 ms of the heartbeat and of the sensor-lost cut. The open
+  and the close may wait for the card's busy line; they run with the supply
+  off. A real card's read latency and busy time are not measured.
+- **A full card, a card removed, a write error.** A short write is CARD
+  FULL: the writing stops, the run goes on, the close keeps the rows written
+  and commits the entry, with no end line. A cache that reads Failed, after
+  the swap check found no card or another, or a block the card did not take,
+  is WRITE FAILED: the writing stops; at the run's end the cache's queue is
+  dropped and the card mounted again (`cardCacheRecover()`), as after a
+  failed batch of a backup claim, and no close is tried. The file then holds
+  the blocks written before, at its entry's last sync, the preallocated
+  4 MiB with zeros after the rows, as a blackbox log cut by a power loss.
+  A close or a last flush that fails is WRITE FAILED too. The fault stays
+  until the next HOLD TO START.
+- **SD LOG.** The servo log stops a running blackbox log as KST SERVO's
+  claim does: `SdLogEnd::ByServo`, `RECORDING STOPPED BY SERVO TESTER` on
+  SD LOG's note lines until the next start, a mount keeping it, and the run
+  summary's `Ended by: SERVO TESTER` (`RunSumEnd::ByServo`). SD LOG's
+  last-run rows stay the blackbox log's summary; the servo log has none
+  there, as the blackbox log's rows describe a `.BFL`. A recovery after a
+  failed write mounts the card again, which forgets that summary, as any
+  mount does.
+- **The screen.** While RUNNING the dial band's second line, where SAFE's
+  notes are, reads `LOGGING TO SRV00012.CSV`, dim; in amber
+  `SRV00012.CSV: 12 ROWS DROPPED`, `LOG STOPPED: CARD FULL`,
+  `LOG STOPPED: CARD WRITE FAILED`, `NO LOG: THE FILE DID NOT OPEN` or
+  `NO LOG: SRV99999.CSV EXISTS`, at most 37 characters; with no log, empty.
+  `NO SENSOR READING: NO CURRENT CUTS.` takes the line first. While SAFE
+  the notes are as before.
+- **Choices the note does not settle.**
+  - A log needs the sensor: its rows are readings. With `OWN` and the sensor
+    it logs too, the current of whatever supply runs through the sensor.
+  - The rows run from the open, before the Start, through the supply's
+    start-up, to the pass that sees the run over, so the start-up shows in
+    `bus_mv`.
+  - BACK is recorded only when no trip or cut ended the run first.
+  - The log takes the cache only while it runs; between runs, SAFE, the
+    cache is off, as outside the backup claims.
+  - No `.TXT` beside the `.CSV`: the end line carries what a summary would.
+- **Tests.** `test/servo_log_fatfs.cpp` in `make -C test lognum`, over FatFs
+  R0.15 on FAT32 and exFAT, the logger, `card_cache.cpp` and `sd_cache.c`
+  as they ship, under them a card model with a read time, a transfer and a
+  busy time polled, and a modelled core0 loop with core1's supply guard: the
+  row and end texts, rounding at ±499 and ±500 µA and at `INT32_MIN`, every
+  end's name and cause, the run's end across the seq's wrap; the name
+  sequence beside `LOG00005.BFL`, a lower-case name, four and six digits,
+  another extension, a longer name, the number kept and read again after a
+  mount, `SRV99999.CSV`; the header, a row per reading byte for byte, a
+  clipped and a reset reading, the end line, the file truncated to its rows;
+  a blackbox log stopped with its `.TXT`; STOP not yet taken; a refused
+  START; BACK and every cut and trip; no sensor, no card; a full card; a
+  card removed; a block not taken, and a failed flush at the close; the
+  cache on for the log only, no write of the run with the queue full, at
+  most 2 blocks a call while preallocated and 4 while growing, at most one
+  card read a pass, no pass waiting for the busy line, rows dropped and
+  counted on the slow card; the hard cut on both cards with the log off and
+  on. `test/test_servo.cpp` (`testLogScreen()`): HOLD TO START opening the
+  log while the job is not RUNNING and following the Start's seq, BACK, the
+  line's texts and colours, the blind note first, the widths; the frame
+  `shot_servo_log.ppm`. `test_ui.cpp`, `test_run_summary.cpp` and
+  `test/sd_log_fatfs.cpp`: SERVO TESTER's stop. MUTATION_RESULTS
+- **Not on hardware.** No card has taken the log on the board: its read
+  latency, its busy time, and the cuts' timing with the log on are not
+  measured (bench test B12, a 60 s log with the supply on, is still to
+  run).
 
 ## Open questions
 

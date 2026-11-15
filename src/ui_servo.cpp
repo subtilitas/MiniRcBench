@@ -653,10 +653,11 @@ static void drawDial() {
 	char lg[48];
 	uint16_t lgCol;
 	logLine(lg, sizeof(lg), &lgCol);
+	// The log's colour follows from its text: no key of its own.
 	struct { uint32_t l1, l2, l3, sw, n1, n2, lg; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
-	         bool running, tripped, blind; uint16_t c1, c2, lgCol; } k;
+	         bool running, tripped, blind; uint16_t c1, c2; } k;
 	memset(&k, 0, sizeof(k));
-	k.lg = textKey(lg[0] ? lg : nullptr); k.lgCol = lgCol;
+	k.lg = textKey(lg[0] ? lg : nullptr);
 	k.sw = textKey(sw[0] ? sw : nullptr);
 	k.n1 = textKey(n1); k.n2 = textKey(n2); k.c1 = c1; k.c2 = c2;
 	k.l1 = textKey(l1); k.l2 = textKey(l2); k.l3 = textKey(l3);
@@ -682,7 +683,7 @@ static void drawDial() {
 		line(64, sw, UI_COL_LIVE);
 	}
 	if (k.blind) line(76, SERVO_UI_OWN_NO_CUTS, C_DIM);
-	else if (s_st.running && lg[0]) line(76, lg, lgCol);
+	else if (s_st.running) line(76, lg, lgCol);   // nothing for an empty line
 	gfxArcDots(SERVO_DIAL_X, SERVO_DIAL_Y, SERVO_DIAL_ARC_R, -90, 90, 10, 3, C_GRID);
 	gfxLine(SERVO_DIAL_X, SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4, SERVO_DIAL_X,
 	        SERVO_DIAL_Y - SERVO_DIAL_ARC_R + 4, 1, C_DIM);

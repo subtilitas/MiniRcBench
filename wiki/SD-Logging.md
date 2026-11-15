@@ -103,7 +103,10 @@ stopped on its own shows while armed. SD LOG says what happened.
 A log also ends when KST SERVO, HITEC SERVO or ESC SETTINGS opens: the tool
 needs the card for its backup. SD LOG then reads
 `RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `ESC SETTINGS`). Press
-`START` for a new log after the tool.
+`START` for a new log after the tool. The servo tester stops it too, at
+`HOLD TO START` with the current sensor fitted, to write its own log,
+`LOGS/SRVnnnnn.CSV` ([Servo Tester](Servo-Tester#the-log-on-the-card));
+SD LOG then reads `RECORDING STOPPED BY SERVO TESTER`.
 
 **Stop the recording before cutting the board's power or pulling the card:**
 disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`. A
@@ -146,7 +149,7 @@ It holds one value a line:
 |---|---|
 | `Log`, `Firmware` | The log's file name and the firmware version |
 | `Clock at start`, `Clock at stop` | The board's clock at the log's start and stop, as `2026-11-14 15:42:07`, or `not set` while the clock is not set; after a set during the log the stop's line adds `(clock set during the log)` ([The clock](#the-clock)) |
-| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` or `ESC SETTINGS` |
+| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` or `SERVO TESTER` |
 | `Duration`, `Armed` | The log's length and the time armed within it, in seconds |
 | `Max RPM` | The highest RPM: DShot eRPM (electrical RPM), or KISS eRPM in a log without DShot eRPM, divided by half the `MOTOR POLES` value at the stop |
 | `Max current`, `Max temperature` | The highest current and ESC (electronic speed controller) temperature: KISS while KISS is live, EDT (Extended DShot Telemetry) in its gaps; EDT alone when KISS sent 0 in every frame, an ESC without that sensor |
@@ -281,6 +284,7 @@ without a card the mount hint takes the second line.
 | `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make or read `LOGS`, or open the next file | Check the card on a computer, press `RETRY MOUNT` |
 | `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` holds `LOG99999.BFL`, and no number follows it | Move the logs off the card on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
 | `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | The tool took the card for its backup | `START` for a new log |
+| `RECORDING STOPPED BY SERVO TESTER` | The servo tester took the card for its own log | `START` for a new log |
 
 A full card is told from a failed write by what the filesystem reports: a
 write that finds no free cluster ends with fewer bytes written and no error.
