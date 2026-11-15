@@ -32,7 +32,8 @@ ESCWIRE_CSRCS         := $(ESCWIRE_DIR)/ew_wire.c $(ESCWIRE_DIR)/ew_pio.c \
                          $(ESCWIRE_DIR)/ew_map_e32.c \
                          $(ESCWIRE_DIR)/ew_session.c \
                          $(ESCWIRE_DIR)/ew_session_text.c \
-                         $(ESCWIRE_DIR)/ew_file.c $(ESCWIRE_DIR)/ew_file_read.c \
+                         $(ESCWIRE_DIR)/ew_file.c \
+                         $(ESCWIRE_DIR)/ew_file_read.c \
                          $(ESCWIRE_DIR)/ew_file_load.c \
                          ../lib/rcbench/shared/logfile/servo_store.c
 ESCWIRE_INCLUDES      := -I$(ESCWIRE_DIR)/include -I$(ESCWIRE_DIR)/rp2350 \

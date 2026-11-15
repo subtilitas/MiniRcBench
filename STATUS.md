@@ -227,10 +227,12 @@ core, its line driver and the KST file store are rcbench files at the same
 commit, and the Hitec programming core, its line driver, the Hitec servo file
 text and its CRC are rcbench files at commit 3e29dc1b, and the S.BUS
 (Futaba's serial bus for receiver channels) decoder and the current sensor's
-bus record, `sense_bus.c`, are rcbench files at commit 5ef42efd, all copied
-unchanged into `lib/rcbench/`
+bus record, `sense_bus.c`, are rcbench files at commit 5ef42efd, and the
+escwire core, its line driver and the servo file store are rcbench files at
+commit 2b4f934a, all copied unchanged into `lib/rcbench/`
 ([lib/rcbench/README.md](lib/rcbench/README.md)). The firmware builds the S.BUS
-decoder for the S.BUS job. The SDIO driver in `src/sdio/` is part of the tree,
+decoder for the S.BUS job, and the escwire core and its line driver, which
+nothing calls yet. The SDIO driver in `src/sdio/` is part of the tree,
 MIT, written from the SD Association's Physical Layer Simplified
 Specification v9.10 and the RP2350 datasheet
 ([design note](docs/design/sdio-driver.md)). A release carries one UF2
@@ -860,7 +862,7 @@ not run on hardware (item 18).
     after an unfinished write; no bridge while USB DRIVE holds the card; the 3D
     note follows a bridge write. Slices wait on being built. BLHeliSuite is
     closed source and not verified; nothing has run on an ESC.
-30. **Bluejay and BLHeli_S settings, designed, not built.** Item (6) of the
+30. **Bluejay and BLHeli_S settings, slice 1 of 6 built.** Item (6) of the
     owner's feature choice of 2026-11-14 (item 28).
     [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows AM32 CONFIG
     into the `ESC SETTINGS` screen: its greeting is already a valid greeting for
@@ -877,9 +879,14 @@ not run on hardware (item 18).
     chooser `ESC CONFIG` beside `USB BRIDGE`; 1000 ms quiet, then 3 greetings in
     turn; LEAVE sends `00 01`; no repair here, and rcbench is asked for an EFM8
     restore; backups `BJnnn.TXT` and `BHnnn.TXT`; a write without a card runs;
-    older layouts read-only; a leave page after an answer with no LEAVE. Slices
-    wait on being built. `ESC SETTINGS` serves AM32 only until the Bluejay
-    slices land. Nothing of it has run on an ESC.
+    older layouts read-only; a leave page after an answer with no LEAVE. Slice
+    1 is built ([slice 1 as built](docs/design/bluejay-blheli-s.md#slice-1-as-built)):
+    rcbench's escwire core, its line driver `ew_line` and the servo file store,
+    copied unchanged from rcbench 2b4f934a into `lib/rcbench/`, with rcbench's
+    12 tests of them, 210 cases; the firmware builds the core and the line
+    driver against SDK 2.1.1 with `STRICT=ON`, and nothing in `src/` calls
+    them. Slices 2 to 6 wait on being built. `ESC SETTINGS` serves AM32 only
+    until the Bluejay slices land. Nothing of it has run on an ESC.
 
 ## Known limitations
 
@@ -1009,10 +1016,11 @@ its own that links the real `src/usb_msc.cpp` against stubs of the logger,
 the card and TinyUSB and drives its callbacks: the suite links a fake of that
 file's runtime half for the screens.
 
-`test/servo.mk`, `test/kst.mk`, `test/hitec.mk`, `test/rx.mk` and
-`test/sense.mk` list each feature's sources and test files for
-`test/Makefile`, as `src/servo.cmake`, `src/kst.cmake`, `src/hitec.cmake`,
-`src/rx.cmake` and `src/sense.cmake` do for `CMakeLists.txt`. A feature's C
+`test/servo.mk`, `test/kst.mk`, `test/hitec.mk`, `test/rx.mk`,
+`test/sense.mk` and `test/escwire.mk` list each feature's sources and test
+files for `test/Makefile`, as `src/servo.cmake`, `src/kst.cmake`,
+`src/hitec.cmake`, `src/rx.cmake`, `src/sense.cmake` and `src/escwire.cmake`
+do for `CMakeLists.txt`. A feature's C
 sources and C test programs are built as C11:
 `make run` also runs rcbench's `test_servo_sweep.c` (14 cases) and the
 adapted `test_out_pwm_map.c` (5 cases) from `test/rcbench/`, and rcbench's KST
@@ -1024,8 +1032,14 @@ tests, copied unchanged: `test_hitec_wire.c` (11 cases), `test_hitec_pre.c`
 `test_hitec_reg_plan.c` (9), `test_hitec_session.c` (15),
 `test_hitec_session_write.c` (13) and `test_hitec_card.c` (12), and
 `hitec_headers.cpp`, the core's headers compiled as C++11, and rcbench's
-S.BUS decoder test, copied unchanged: `test_sbus.c` (12 cases). CI holds
-the KST and Hitec line fixtures to pioasm's words.
+S.BUS decoder test, copied unchanged: `test_sbus.c` (12 cases), and
+rcbench's escwire tests, copied unchanged: `test_ew_a.c` (9 cases),
+`test_ew_id.c` (9), `test_ew_map.c` (9), `test_ew_guard.c` (15),
+`test_ew_session.c` (13), `test_ew_session_write.c` (26), `test_ew_file.c`
+(28), `test_ew_file_load.c` (10), `test_ew_pio.c` (28), `test_ew_text.c`
+(20), `test_ew_session_text.c` (34) and `test_ew_file_e32.c` (9), and
+`escwire_headers.cpp`, the core's headers compiled as C++11. CI holds the
+KST, Hitec and escwire line fixtures to pioasm's words.
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
@@ -1054,7 +1068,7 @@ requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; holds the KST and Hitec line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; holds the KST, Hitec and escwire line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
 | Host tests | `make`, which runs the SDIO and backlight PIO models too; the suite again with both pin macros overridden; `make kstcount` against the KST and Hitec design notes' card-phase tables; `make lognum`, the next log's file over FatFs; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
