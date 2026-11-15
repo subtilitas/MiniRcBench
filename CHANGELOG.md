@@ -44,6 +44,22 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the QMI8658 IMU (inertial measurement unit) driver, slice 2
+  of [angle-meter.md](docs/design/angle-meter.md#slice-2-as-built)
+  (`src/qmi8658.*`, `src/angle.cmake`). While the angle meter is open it reads
+  WHO_AM_I at 0x6B on I2C1, writes a soft reset, waits for dQY_L 80h after 15 ms
+  or for 1750 ms, writes CTRL1 40h, CTRL2 08h, CTRL5 07h and CTRL7 01h one byte
+  each and reads each back, and from 100 ms later reads one 11-byte burst and
+  the time stamp again every UI frame, after touch and the current sensor; the
+  first whole burst is a baseline, so the first sample taken was latched after
+  the 100 ms; a burst whose time stamp changed is dropped, a repeated time stamp
+  is not counted. Its transfers go to the shared bus record; three failed frames
+  take it offline, probed again every 1000 ms, and no reset follows another
+  within 2000 ms. Closing it writes CTRL7 00h. No screen opens it yet, so
+  nothing is sent to 0x6B. The board header gains `BOARD_IMU_AXES`, a
+  placeholder until bench test B3. Host tests in `test/test_qmi8658.cpp` against
+  a register model of the part in `test/fake_i2c.*`; `test/angle.mk` lists them.
+  Not tested on hardware.
 - After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
   [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built), copied
   unchanged from rcbench e98345aa into `lib/rcbench/`: `servo_rudder.*`, the
@@ -62,7 +78,7 @@ protocol.
   [run-summary.md](docs/design/run-summary.md#slice-2-as-built).
   `sdLogTick()` hands every frame's snapshot, merged reading and arm state
   to `runSumAdd()`; the stop ends the summary as `STOP`, `DISARM`,
-  `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG`, and once the `.BFL` has
+  `KST SERVO`, `HITEC SERVO` or `ESC SETTINGS`, and once the `.BFL` has
   closed clean writes the text, built in the drained write buffer, with
   `FA_CREATE_ALWAYS` (`src/sd_log_summary.*`). A failed write during the
   log ends the summary there, not saved, and no `.TXT` is tried. A `.TXT`
@@ -120,6 +136,23 @@ protocol.
   `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
   models read from their sources. No page sends commands yet; MENU's BEEP
   THE ESC is the only caller. Not tested on hardware.
+- After v0.1.0-rc1 (a93e1c1): a Bluejay or BLHeli_S ESC that answers the
+  greeting is recognised, slice 2 of
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built).
+  `src/bl_answer.*` classifies the answer: an AM32 family, the EFM8
+  bootloader of Bluejay and BLHeli_S by its signature E8B1, E8B2 or E8B5,
+  or neither; `am32BlAnswer()` returns it. The connect page reads
+  `EFM8 E8B2 ANSWERED: NOT READ YET.`; nothing is read. The answer sets
+  MENU's run cue and gives the pin claim a leave page
+  (`pinClaimWantLeavePage()`), so BACK opens the leave page of the note's
+  decision 8, `UNPLUG THE ESC BATTERY, THEN LEAVE.` and
+  `PLUG IT IN AFTER RESTART DSHOT.`, and DShot returns to SIG only from its
+  RESTART DSHOT, which clears the cue. MENU's second row is the chooser
+  `ESC CONFIG` (`src/ui_esc_config.*`), holding `ESC SETTINGS` and
+  `USB BRIDGE`, the latter drawn disabled with `NOT BUILT`. Host tests in
+  `test/test_am32.cpp`, `test/test_claim.cpp`, `test/test_ui.cpp`,
+  `test/test_menu.cpp` and `test/test_ids.cpp`; the screenshots
+  `esc-chooser`, `am32-efm8` and `am32-leave`. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
@@ -742,6 +775,12 @@ protocol.
   names the servo tester; README, the wiki pages Servo-Tester, The-Screens,
   Wiring and Setup with their German pairs, and the design notes follow.
   Not tested on hardware.
+- After v0.1.0-rc1: the shared I2C1 bus is recovered with CURRENT SENSE at
+  `NONE` too: `senseTick()` runs the recovery before its mode test, since
+  touch and the IMU share the bus. `senseNote()` replaces `senseNoteTouch()`,
+  takes the transfers of the touch driver and the IMU driver alike and
+  returns the mapped result. A host test in `test/test_sense.cpp` runs the
+  recovery at `NONE`.
 - After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
   the bench converter, slice 2 of
   [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The
@@ -764,6 +803,19 @@ protocol.
   an ESC starts answering, where before it sent the beacon with no check of
   the link. A press while an EDT enable or an earlier beacon and its gap go
   out waits, at most 2000 ms. Host test in `test/test_menu.cpp`.
+- After v0.1.0-rc1 (a93e1c1): AM32 CONFIG is `ESC SETTINGS`, opened from
+  MENU → ESC CONFIG, by decision 1 of
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions) and its
+  call A: its hex view and write page are titled `ESC HEX` and `ESC WRITE`,
+  the list's strip names the firmware, `AM32 2.16` in place of `FW 2.16`,
+  and SD LOG reads `RECORDING STOPPED BY ESC SETTINGS`. An AM32 session
+  with no EFM8 answer leaves as before, DShot back within BACK. The
+  greeting's comment in `src/am32_bl.cpp` says what F4 7D is: CRC-16/ARC of
+  `BLHeli` alone.
+- After v0.1.0-rc1 (a93e1c1): the leave page belongs to the pin claim, not
+  only to its user: `PinUserInfo::unplug` sets it when a claim begins and
+  `pinClaimWantLeavePage()` for the rest of one that began without it
+  (`src/pin_claim.*`).
 - After v0.1.0-rc1 (a93e1c1): MENU's RX SIGNALS row acts: it opens the RX
   SIGNALS chooser, has no status, and is drawn disabled while the pin claim
   is not free, as SERVO PROGRAMMER's row. `UI_RX_SIGNALS` moves from

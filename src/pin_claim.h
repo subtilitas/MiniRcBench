@@ -9,7 +9,7 @@
  *
  * | Role | Pin | Claimed by |
  * |---|---|---|
- * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST and Hitec programming; the S.BUS monitor |
+ * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | ESC settings (AM32), servo A, KST and Hitec programming; the S.BUS monitor |
  * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode; the S.BUS monitor when AUX is GP1 |
  *
  * Every claim is escTaskSuspend(): with the signal pin gone the ESC hears no
@@ -29,12 +29,20 @@
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
  * | Held | both pins free; the GPIOs are latched; SERVO, KST and the S.BUS monitor start their job; HITEC as its entry asks (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO, KST, HITEC and the S.BUS monitor show the leave page (ui_leave.h) | Restoring |
+ * | Leaving | the job releases its pins; SERVO, KST, HITEC and the S.BUS monitor show the leave page (ui_leave.h), and AM32 after an EFM8 bootloader answered | Restoring |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
  *
  * AM32 has no core1 job: its bootloader transport runs on core0
  * (am32_bl.cpp) and binds the pin itself, so an AM32 claim stays in Held
  * until pinClaimEnd().
+ *
+ * The leave page belongs to the claim, not only to its user: a user's
+ * PinUserInfo::unplug sets it when the claim begins, and
+ * pinClaimWantLeavePage() sets it for the rest of a claim that began
+ * without it. ESC SETTINGS does so when an EFM8 bootloader, Bluejay's or
+ * BLHeli_S's, answers its greeting: that bootloader waits for commands with
+ * no timeout, and DShot frames could pass as one
+ * (docs/design/bluejay-blheli-s.md, "Safety").
  *
  * HITEC defers its job: the entry tap on PROGRAMMER claims SIG, and the
  * screen calls pinClaimStartJob() at once for CLASSIC and for D SERIES with
@@ -66,7 +74,7 @@
 /** @brief The screen that holds the claim. */
 enum class PinUser : uint8_t {
 	None,   /**< No claim. */
-	Am32,   /**< AM32 CONFIG: SIG, no core1 job. */
+	Am32,   /**< ESC SETTINGS: SIG, no core1 job. */
 	Servo,  /**< SERVO: SIG, and AUX for two servos. */
 	Kst,    /**< KST SERVO: SIG. */
 	Hitec,  /**< HITEC SERVO: SIG. */
@@ -78,7 +86,7 @@ enum class PinUser : uint8_t {
 struct PinUserInfo {
 	PinUser  who;
 	Core1Job job;       /**< The core1 job; None: the screen drives the pin from core0 (AM32). */
-	bool     unplug;    /**< The leave page comes before DShot restarts. */
+	bool     unplug;    /**< The leave page comes before DShot restarts, from the claim's start; pinClaimWantLeavePage() sets it later. */
 	bool     escCheck;  /**< Refused while an ESC answers on SIG (@ref ClaimRefusal::EscAnswering). */
 	bool     deferJob;  /**< Held starts no job until pinClaimStartJob(). */
 };
@@ -123,7 +131,7 @@ enum class ClaimState : uint8_t {
 	Stopping,   /**< The pump drains and releases. */
 	Held,       /**< Both pins free, no job bound; HITEC on OWN waits here for READ. */
 	Running,    /**< The job holds its pins. */
-	Leaving,    /**< The job releases; SERVO, KST, HITEC and the S.BUS monitor show the leave page. */
+	Leaving,    /**< The job releases; a claim with the leave page shows it (pinClaimLeavePage()). */
 	Restoring,  /**< The pump rebuilds. */
 };
 
@@ -245,9 +253,10 @@ uint8_t pinClaimJobError();
  * @brief BACK: leave the claim. Core0. The poll finishes it.
  *
  * From Stopping, DShot is resumed at once. From Held and Running the job is
- * asked to stop and the claim is Leaving. AM32, which has no job and no
- * leave page, resumes DShot within this call. A call from a screen that does
- * not hold the claim does nothing.
+ * asked to stop and the claim is Leaving. A claim without the leave page
+ * (pinClaimLeavePage()), an AM32 claim no EFM8 bootloader answered, which
+ * has no job either, resumes DShot within this call. A call from a screen
+ * that does not hold the claim does nothing.
  *
  * @param who The screen leaving.
  */
@@ -281,9 +290,29 @@ void pinClaimStartJob(PinUser who);
 void pinClaimRetry(PinUser who);
 
 /**
- * @brief True while the job has let the pins go and SERVO, KST, HITEC or
- *        the S.BUS monitor waits on its leave page for RESTART DSHOT, or for
- *        NEXT SERVO, BACK TO SERVO or BACK TO MONITOR.
+ * @brief Give the claim the leave page: from pinClaimEnd() on, DShot
+ *        restarts only on RESTART DSHOT. Core0.
+ *
+ * Acts only while @p who holds the claim and it is Stopping, Held or
+ * Running. It lasts until the claim is Free. A claim still Stopping has
+ * driven nothing on SIG and resumes at once. ESC SETTINGS calls it when an
+ * EFM8 bootloader answers its greeting.
+ *
+ * @param who The screen.
+ */
+void pinClaimWantLeavePage(PinUser who);
+
+/**
+ * @brief Whether the claim shows the leave page before DShot restarts:
+ *        its user's PinUserInfo::unplug, or pinClaimWantLeavePage().
+ * @return false while Free.
+ */
+bool pinClaimLeavePage();
+
+/**
+ * @brief True while the job has let the pins go and SERVO, KST, HITEC, the
+ *        S.BUS monitor or ESC SETTINGS waits on its leave page for RESTART
+ *        DSHOT, or for NEXT SERVO, BACK TO SERVO or BACK TO MONITOR.
  *
  * Leaving, with the job idle and DShot not yet restarted. DShot idles the
  * line high and pulls it low for about 27 us per 1000 us frame, which a PWM
