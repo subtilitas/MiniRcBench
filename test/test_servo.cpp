@@ -5302,6 +5302,48 @@ static void testMoveScreen() {
 }
 
 /**
+ * @brief The move timing on SET with CURRENT SENSE at NONE: a step leaves
+ *        the second line as it was, no move and no dashes.
+ */
+static void testMoveScreenNone() {
+	section("Servo screen: a step with CURRENT SENSE at NONE leaves SET's line");
+
+	freshUi();
+	fakeI2cReset();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	openServo();
+	uiFrames(42);
+	holdStartFrames();
+	uiFrames(3);
+	checkTrue("running at CENTRE, no sensor", s_st.running && fakePin(SIG).level == 1500);
+	openSet();
+	checkTrue("before a step: no line on the second row",
+	          s_st.move.state == MoveState::None && !anyOf(0, UI_STRIP_Y + 12, GFX_W, 7, C_DIM));
+	backFromSet();
+
+	uiFrames(144);
+	tapId(UI_FIX(ServoCtl::Max));
+	uiFrames(2);
+	checkTrue("MAX at rest: sent", fakePin(SIG).level == 2000);
+	uiFrames(160);
+	tapId(UI_FIX(ServoCtl::Centre));
+	uiFrames(2);
+	checkTrue("CENTRE: sent", fakePin(SIG).level == 1500);
+	openSet();
+	checkTrue("after two steps: nothing timed, the line as before, no dashes",
+	          s_st.move.state == MoveState::None &&
+	          !textAt(UI_MARGIN, UI_STRIP_Y + 12, "MOVE -- S  PEAK -- A  HOLD -- A", C_DIM, 1) &&
+	          !anyOf(0, UI_STRIP_Y + 12, GFX_W, 7, C_DIM));
+	backFromSet();
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	leaveServo();
+}
+
+/**
  * @brief SERVO names SIG by role and number: the caption, the claim's
  *        messages, and the refusal no UI path reaches.
  */
@@ -5437,6 +5479,7 @@ void runServoTests() {
 	testSupplyScreenFaults();
 	testCutScreens();
 	testMoveScreen();
+	testMoveScreenNone();
 	testColourRoles();
 	testPinNames();
 	freshUi();

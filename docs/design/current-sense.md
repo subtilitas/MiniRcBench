@@ -1414,8 +1414,13 @@ timed and SET shows what it showed before.
   reading comes for `SENSE_STALE_MS`, 250 ms, counted from the command at
   the earliest; a hold under way is then not shown. A bind voids a move
   under way; a profile's rebind and a new screen session drop the result.
-  With CURRENT SENSE at `NONE` no step is timed, a move or hold under way
-  ends, and the result stays as it is.
+  With CURRENT SENSE at `NONE` no step is timed, a move under way is void
+  as lost, a hold under way is not shown, and a step leaves the result as
+  it is. The mode changes only in SETTINGS (`applyLive()` in
+  `src/ui_settings.cpp`), and opening SERVO starts a new session
+  (`servoJobNewSession()`), which drops the result: the case is not
+  reachable through the screens today, and the timer covers it as a
+  defence.
 - **The screen.** SERVO SET's note band, second line, in `C_DIM`, when the
   line is free (`moveNote()`): `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`,
   `MOVE LATE  ...`, `MOVE UNSEEN  ...`, and `--` for each figure not shown,
@@ -1466,7 +1471,9 @@ timed and SET shows what it showed before.
   from the command; CURRENT SENSE at `NONE`; clipped readings high and low;
   a negative peak; readings seen twice, stale, not online, and taken 8 ms
   before core1's pass, which count at their time taken; a bind; the line's
-  texts, rounding and width.
+  texts, rounding and width; a hold closed by the reading taken 502 ms
+  after the arrival, passed 8 ms later, which a hold counted from core1's
+  pass does not close; NONE during a move, void as lost with dashes.
   `test/test_servo.cpp`: `testJobMoveTiming()` through the job table on the
   fake INA219 on its conversion clock, each reading the mean of rcbench's
   servo model over the 17.02 ms shunt conversion, 0.95 A moving at 1.2 µs a
@@ -1483,11 +1490,15 @@ timed and SET shows what it showed before.
   `testMoveScreen()`, on the same model: SET's line through the screen,
   the start-up time before the first step, the line while running and kept
   while SAFE, gone at a profile's rebind, under a two-line note, gone at
-  START, dashes for a step too soon; the
+  START, dashes for a step too soon; `testMoveScreenNone()`: with CURRENT
+  SENSE at `NONE` two steps leave SET's second line free, no move and no
+  dashes; the
   frame `shot_servo_set_move.ppm`. rcbench's `test_servo_move.c` runs as a
-  C11 program. Mutation check: 101 mutants of `src/move_timer.cpp`, the
+  C11 program. Mutation check: 104 mutants of `src/move_timer.cpp`, the
   timing's lines of `src/servo_job.cpp` and of `src/ui_servo.cpp`, among
-  them each use of a reading's `takenMs` replaced by the pass's time; 99
+  them each use of a reading's `takenMs` replaced by the pass's time, the
+  arrival's `finish(t, s->takenMs)` included, and the lost sensor's three
+  mutants (no void, void as Ended, the NONE test dropped); 102
   fail the suite, 2 do not, both equivalent: `< 0` for `<= 0` where the hold
   skips a reading taken in the arrival's millisecond, which core0's one
   read a frame never gives; `>= 0` for `> 0` where the stale rule takes the
