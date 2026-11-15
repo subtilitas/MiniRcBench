@@ -973,6 +973,54 @@ static void testCmdBindAndDrain() {
 	checkTrue("a teardown in the first gap: save lost",
 	          b->pump.seq.state == EscCmdState::SaveLost && b->pump.seq.cmd == 0);
 
+	// A request that waits at a teardown is dropped with it: it does not
+	// start on the next bind's ESC. A sequence the teardown cuts keeps its
+	// own outcome.
+	b = benchBoot(Fw::Am32, 5000);
+	benchReady(b);
+	benchRequest(b, DSHOT_CMD_SPIN_DIRECTION_2, true);
+	benchRun(b, 3);
+	benchRequest(b, DSHOT_CMD_BEEP3, false);
+	benchRun(b, 1);
+	checkTrue("a beacon asked for in the block waits", b->req.cmd == DSHOT_CMD_BEEP3);
+	bool dropped = escPumpTeardown(&b->pump, &b->req);
+	checkTrue("a teardown at frame 4: the request dropped, the cut 8 reads not sent, nothing ready",
+	          dropped && b->pump.seq.state == EscCmdState::NotSent &&
+	          b->pump.seq.stateCmd == DSHOT_CMD_SPIN_DIRECTION_2 && b->pump.seq.cmd == 0 &&
+	          b->pump.ready == EscCmdReady::NoAnswer);
+	b->req.cmd = 0;
+	escPumpBind(&b->pump, &b->armed, &b->throttle);
+	checkTrue("the next bind's ESC reaches Ready and starts no sequence",
+	          benchReady(b) && b->pump.seq.cmd == 0 &&
+	          b->pump.seq.state == EscCmdState::NotSent);
+
+	b = benchBoot(Fw::Am32, 5000);
+	benchReady(b);
+	benchRequest(b, DSHOT_CMD_SPIN_DIRECTION_2, true);
+	benchRun(b, 100);
+	benchRequest(b, DSHOT_CMD_BEEP3, false);
+	benchRun(b, 1);
+	checkTrue("a teardown in the first gap with a beacon waiting: save lost stays, the beacon dropped",
+	          escPumpTeardown(&b->pump, &b->req) && b->pump.seq.state == EscCmdState::SaveLost &&
+	          b->pump.seq.stateCmd == DSHOT_CMD_SPIN_DIRECTION_2);
+
+	// No sequence running: the request, waiting for an ESC that has not
+	// answered yet, expires about its own command.
+	b = benchBoot(Fw::Am32, 5000);
+	benchRequest(b, DSHOT_CMD_BEEP3, false);
+	benchRun(b, 5);
+	checkTrue("a beacon asked for before the ESC answers waits", b->req.cmd == DSHOT_CMD_BEEP3 &&
+	          b->pump.seq.cmd == 0);
+	checkTrue("a teardown then: the request expires, about beacon 3",
+	          escPumpTeardown(&b->pump, &b->req) && b->pump.seq.state == EscCmdState::Expired &&
+	          b->pump.seq.stateCmd == DSHOT_CMD_BEEP3);
+
+	b = benchBoot(Fw::Am32, 5000);
+	benchReady(b);
+	const EscCmdRequest none = {0, false, 0};
+	checkTrue("a teardown with no request waiting: nothing to clear, the outcome stays",
+	          !escPumpTeardown(&b->pump, &none) && b->pump.seq.state == EscCmdState::Idle);
+
 	// A drain frame inside a block breaks it.
 	b = benchBoot(Fw::Am32, 5000);
 	benchReady(b);

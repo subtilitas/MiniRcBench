@@ -39,6 +39,7 @@ void runSbusUiTests();
 void runWidgetTests();
 void runIdTests();
 void runMenuTests();
+void runEscCmdUiTests();
 void runBackupTests();
 void runSdCacheTests();
 void runDiagTests();
@@ -82,6 +83,7 @@ int main() {
 	runBackupTests();
 	runSdCacheTests();
 	runMenuTests();
+	runEscCmdUiTests();
 	runDiagTests();
 	runRunSummaryTests();
 	runClockTests();

@@ -621,8 +621,7 @@ void escHeartbeat() { g_heartbeatMs = millis(); }
 uint32_t escHeartbeatMs() { return g_heartbeatMs; }
 // Core0's side of the command slot. esc_task.cpp cannot be linked here (PIO,
 // UART), so the request side is a copy -- but its rule is the shipped
-// escCmdAccept(), and escRequestBeep() is the header's own inline. The
-// readiness core1 would publish is set by the test (fakeSetCmdReady()); the
+// escCmdAccept(). The readiness core1 would publish is set by the test (fakeSetCmdReady()); the
 // default, Ready, is an ESC that has answered for 1500 ms with the motor
 // stopped. The counter increments only when the request is taken, as
 // production queues it only then. Counting refused requests too meant a test
@@ -633,6 +632,11 @@ static uint8_t     g_lastCmd = 0;
 static bool        g_lastSave = false;
 static int         g_cmdCancels = 0;
 static EscCmdReady g_cmdReady = EscCmdReady::Ready;
+// The state as production reports it: Waiting while a taken request is not
+// yet read, else what core1 published, which the test sets.
+static bool        g_cmdWaiting = false;
+static EscCmdState g_cmdState = EscCmdState::Idle;
+static uint8_t     g_cmdStateCmd = 0;
 int  fakeBeepRequests() { return g_beepRequests; }
 uint8_t fakeLastCommand(bool *save) {
 	if (save) *save = g_lastSave;
@@ -645,13 +649,22 @@ bool escRequestCommand(uint8_t cmd, bool save) {
 	g_beepRequests++;
 	g_lastCmd = cmd;
 	g_lastSave = save;
+	g_cmdWaiting = true;
 	return true;
 }
-void escCancelCommand() { g_cmdCancels++; }
+void fakeSetCmdState(EscCmdState st, uint8_t cmd) {
+	g_cmdWaiting = false;
+	g_cmdState = st;
+	g_cmdStateCmd = cmd;
+}
+void escCancelCommand() {
+	g_cmdCancels++;
+	g_cmdWaiting = false;
+}
 EscCmdReady escCommandReady() { return g_cmdReady; }
 EscCmdState escCommandState(uint8_t *cmd) {
-	if (cmd) *cmd = g_lastCmd;
-	return EscCmdState::Idle;
+	if (cmd) *cmd = g_cmdWaiting ? g_lastCmd : g_cmdStateCmd;
+	return g_cmdWaiting ? EscCmdState::Waiting : g_cmdState;
 }
 // Settable, because production only reports true once an ESC has answered and
 // been sent an enable -- so a hardcoded true made the DS600 chip's two states

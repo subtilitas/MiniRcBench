@@ -12,6 +12,8 @@
 #include "sense.h"
 #include "qmi8658.h"
 #include "ui_am32.h"
+#include "esc_3d.h"
+#include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
@@ -442,7 +444,7 @@ static bool telemetryAlive() {
 static bool readoutsAct() { return !s_armed && !uiPinsRefuse(&UI_SETTINGS); }
 
 /** @brief The pole count is drawn: the 3D note does not take its row. */
-static bool polesShown() { return !uiAm32Esc3d(); }
+static bool polesShown() { return !esc3dNote(); }
 
 /** @brief A 1 px underline in the text colour under @p text at (x, y). */
 static void underline(int x, int y, const char *text) {
@@ -666,7 +668,7 @@ static void drawStatusBar() {
 #define TESTER_NOTE_Y 114
 /** @brief Where the 3D note starts: the pole count's x. */
 #define TESTER_NOTE_X 10
-static_assert(TESTER_NOTE_X + 6 * (int)(sizeof(AM32_UI_TESTER_3D) - 1) - 1 <= 226,
+static_assert(TESTER_NOTE_X + 6 * (int)(sizeof(ESC_3D_TESTER_NOTE) - 1) - 1 <= 226,
               "the 3D note runs past the RPM label's right edge, x 226");
 static_assert(TESTER_NOTE_Y + 8 <= Z_RPM_Y1, "the 3D note leaves the RPM area");
 static_assert(TESTER_NOTE_X == POLES_TEXT_X && TESTER_NOTE_Y == POLES_TEXT_Y,
@@ -681,10 +683,10 @@ static void drawRpm() {
 	uint32_t erpm = alive ? s_erpmShown : 0;
 	uint32_t rpm  = (alive && s_poles >= 2) ? erpm / (s_poles / 2) : 0;
 	if (rpm > 99999) rpm = 99999;
-	// An AM32 session in this power-up left the ESC in 3D mode. It changes
-	// only on ESC SETTINGS, and the tester repaints whole when it opens, so
-	// it is not part of the key below. @see uiAm32Esc3d()
-	bool esc3d = uiAm32Esc3d();
+	// ESC SETTINGS or ESC COMMANDS in this power-up left the ESC in 3D mode.
+	// It changes only on those two tools, and the tester repaints whole when
+	// it opens, so it is not part of the key below. @see esc3dNote()
+	bool esc3d = esc3dNote();
 
 	int readout = readoutsAct() ? 1 : 0;
 
@@ -717,7 +719,7 @@ static void drawRpm() {
 	// engaged SWIPE ACTIVE takes the row alone, since it is the only sign the
 	// drag took hold (below); the note returns on release.
 	if (esc3d && !s_padEngaged) {
-		gfxText(TESTER_NOTE_X, TESTER_NOTE_Y, AM32_UI_TESTER_3D, C_AMBER, 1);
+		gfxText(TESTER_NOTE_X, TESTER_NOTE_Y, ESC_3D_TESTER_NOTE, C_AMBER, 1);
 		return;
 	}
 
@@ -1180,7 +1182,7 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::Servo,    &UI_SERVO },
 	{ UiScreenId::Kst,      &UI_KST },
 	{ UiScreenId::Hitec,    &UI_HITEC },
-	{ UiScreenId::Beep,     &UI_BEEP },
+	{ UiScreenId::EscCmd,   &UI_ESC_CMD },
 	{ UiScreenId::ServoProg, &UI_SERVO_PROG },
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 	{ UiScreenId::Sbus,      &UI_SBUS },
