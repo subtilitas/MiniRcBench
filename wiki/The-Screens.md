@@ -11,8 +11,9 @@ SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
 returns to the tester.
 
 ```
-Tester ──MENU──> MENU ──┬── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
-   ▲                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
+Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
+   ▲                    ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
+   │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
    │                    │    │   (after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE   (drawn disabled: NOT BUILT)
    │                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
@@ -30,8 +31,6 @@ Tester ──MENU──> MENU ──┬── ESC CONFIG ──> ESC CONFIG ─�
    └──── BACK on MENU ──┘
 Tester ──14 POLES or MAX 20% (disarmed)──> SETTINGS ──BACK──> Tester
 ```
-
-`BEEP THE ESC` is a row of `MENU` that acts and opens no screen.
 
 **BACK is at the top right**, in the header band, on every screen except the
 tester. The header is 36 px tall and `BACK` is 64 × 32 px. The tester is the
@@ -120,18 +119,21 @@ below it. Green digits: eRPM arrived within the last 500 ms. Dark red zero: it
 did not, and the line reads `NO TELEMETRY`.
 
 After ESC SETTINGS has read an ESC with 3D MODE on, or written 3D MODE on
-(accepted by the ESC, verified or not), in this power-up, the row under the
-`ERPM` line reads `3D MODE ESC: THROTTLE SCALE DIFFERS` in amber, in place of
-the pole count and the swipe hint, armed or not; `NO TELEMETRY` stays on its own
-line above it. While a swipe on the pad is engaged, `SWIPE ACTIVE` in green
-takes the row, and the note returns on release. In 3D mode 50 % throttle is full
-power one way, and above 50 % the motor runs the other way. Keep the propeller
-off. Arming is not refused on it. The note does not know that the ESC on the pin
-was swapped for another one; only a verified write or a list read with 3D MODE
-off, or a restart, removes it. The read-only view of a layout not known leaves
-it. See [AM32 Configuration](AM32-Configuration#fields-with-a-note).
+(accepted by the ESC, verified or not), or after `3D ON` on
+[ESC COMMANDS](#esc-commands), in this power-up, the row under the `ERPM` line
+reads `3D MODE ESC: 0-50% REVERSED AT 2X` in amber, in place of the pole count
+and the swipe hint, armed or not; `NO TELEMETRY` stays on its own line above
+it. While a swipe on the pad is engaged, `SWIPE ACTIVE` in green takes the
+row, and the note returns on release. In 3D mode the tester's 0 to 50 % runs
+the motor the reverse of its set direction at twice the throttle, so 50 % is
+full power reversed; above 50 % it runs the set direction from low. Keep the
+propeller off. Arming is not refused on it. The note does not know that the
+ESC on the pin was swapped for another one; only a verified write or a list
+read with 3D MODE off, or a restart, removes it. `3D OFF` on ESC COMMANDS and
+the read-only view of a layout not known leave it. See
+[AM32 Configuration](AM32-Configuration#fields-with-a-note).
 
-<img src="img/tester-3d.png" width="240" alt="The tester armed, with 3D MODE ESC: THROTTLE SCALE DIFFERS in amber under the RPM readout">
+<img src="img/tester-3d.png" width="240" alt="The tester armed, with 3D MODE ESC: 0-50% REVERSED AT 2X in amber under the RPM readout">
 
 **Six tiles.** Voltage, current, ESC temperature, stress, ESC status and link
 quality. See [Telemetry](Telemetry).
@@ -213,7 +215,7 @@ position.
 
 | Row | State on the right | A tap |
 |---|---|---|
-| **BEEP THE ESC** | `DISARMED`; for 350 ms after a tap, `SENT` or `REFUSED` | Sends the DShot beacon command, so the motor beeps. Use it to identify which ESC is connected. Needs an ESC that answers, a stopped motor, and 1.5 s after the ESC starts answering |
+| **ESC COMMANDS** | nothing | Opens ESC COMMANDS: the DShot beacons, the direction and 3D mode. See [ESC COMMANDS](#esc-commands) |
 | **ESC CONFIG** | nothing | Opens ESC CONFIG, the choice of the ESC tools. See [ESC CONFIG](#esc-config) |
 | **SERVO TESTER** | nothing | Opens the servo tester |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the choice of servo programmer. See [PROGRAMMER](#programmer) |
@@ -223,24 +225,12 @@ position.
 
 While the signal pins are still in use, for example while DShot restarts
 after the servo tester, the KST programmer or the Hitec programmer, the strip
-reads `DSHOT RESTARTING ON SIG GP0` in amber. ESC CONFIG, SERVO TESTER,
-SERVO PROGRAMMER, RX SIGNALS and SETTINGS are then drawn as an outline
-under their usual state, and a tap on such a row opens nothing. They act
-again once DShot runs. SD LOG claims no pin and stays available.
+reads `DSHOT RESTARTING ON SIG GP0` in amber. ESC COMMANDS, ESC CONFIG,
+SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS are then drawn as
+an outline under their usual state, and a tap on such a row opens nothing.
+They act again once DShot runs. SD LOG claims no pin and stays available.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS drawn as outlines">
-
-BEEP works only while disarmed, and opening `MENU` disarms. It also needs
-an ESC that answers: `REFUSED` while no eRPM answer has come for 500 ms,
-while the motor turns, and for 1.5 s after the ESC starts answering. AM32
-takes a command only after a second of zero throttle. The command takes
-6 ms (6 frames at 1 kHz), then 260 ms of zero throttle before the next
-command. The screen repaints every 25 ms, so the row is filled for 350 ms
-after each press: white with `SENT`, or amber with `REFUSED`. `SENT` means
-the beacon is queued: a second press during the first beacon waits for it,
-at most 2 s.
-
-<img src="img/menu-beep-flash.png" width="240" alt="BEEP accepted"> <img src="img/menu-beep-refused.png" width="240" alt="BEEP refused because the ESC is armed">
+<img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS and SETTINGS drawn as outlines">
 
 `UNSAVED` on the SETTINGS row means a value differs from flash. The save button
 is on SETTINGS.
@@ -260,6 +250,53 @@ changed. See
 says the same at start-up (see [First Run](First-Run#powering-up)).
 
 <img src="img/menu-updated.png" width="240" alt="UPDATED on the SETTINGS row after an update discarded the saved settings">
+
+### ESC COMMANDS
+
+<img src="img/esccmd.png" width="240" alt="ESC COMMANDS at rest: BEEP 1 to 5, NORMAL and REVERSED, 3D OFF and 3D ON, and the six dim lines"> <img src="img/esccmd-3d-on.png" width="240" alt="ESC COMMANDS after 3D ON: SENT 10 (3D ON), THEN 12 (SAVE). and three amber lines">
+
+`MENU → ESC COMMANDS` sends DShot commands to the ESC on SIG. It takes no
+pin: DShot keeps running while it shows. The strip reads `SIG GP0  DSHOT600`
+and carries MENU's EDT chip.
+
+- **BEEP 1 to 5**, a tap each: the ESC plays its beacon tone 1 to 5. Use it
+  to hear which ESC is connected and that it takes commands.
+- **NORMAL** and **REVERSED** under DIRECTION, a 1 s hold each: the spin
+  direction, command 7 or 8, then 12, which saves it in the ESC.
+- **3D OFF** and **3D ON** under 3D MODE, a 1 s hold each: command 9 or 10,
+  then 12.
+
+A hold fills red while held, and a bar under it fills over the second; it
+acts at 1 s. A direction or 3D change takes 620 ms on the wire. The buttons
+act while the ESC is ready, otherwise they are drawn as outlines and an
+amber line says why: `NO ESC ANSWERS ON SIG GP0.`,
+`MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.` (AM32
+takes a command only after a second of zero throttle). A press while the
+board is still sending something else, such as the 260 ms to 1020 ms
+pause after a beacon, waits: it goes out once the wire is free, or is
+dropped after 2 s, and the lines then read
+`NOT SENT: THE ESC WAS NOT READY.`. While a command of the page waits or
+goes out, the buttons and `BACK` are grey, and a press that starts on them
+then does nothing when it lifts.
+
+The lines under the buttons say what was sent, for example
+`SENT 8 (REVERSED), THEN 12 (SAVE).`, or why it was not:
+`NOT SENT: THE ESC STOPPED ANSWERING.` before the ESC can have acted,
+`SAVE NOT SENT: POWER-CYCLE THE ESC.` when the change may sit in the ESC
+unsaved, and `NOT SENT: THE ESC WAS NOT READY.` when it never started.
+After 3D ON the lines say that the tester shows its 3D note and that a
+restart of the board, or ESC SETTINGS reading 3D MODE off, clears it.
+
+The ESC sends no answer to a command, so the bench cannot see the
+direction. Check it on the tester with 3D off: propeller off, a strip of
+tape on the bell, arm, run at 5 % for a second, disarm. On AM32 the save
+plays beacon 1's tone for normal and beacon 2's for reversed. After a power
+cycle of the ESC, a direction that holds was saved. After `3D ON` the tester
+shows its 3D note ([The tester](#the-tester)); `3D OFF` leaves the note until
+the board restarts or ESC SETTINGS reads 3D MODE off. None of these commands
+has been sent to an ESC from this board yet.
+
+<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS while beacon 3 goes out: every button and BACK grey"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS with no ESC answering: NO ESC ANSWERS ON SIG GP0. in amber, every button grey">
 
 ### PROGRAMMER
 
@@ -325,7 +362,7 @@ ceiling while disarmed; `BACK` returns to where it was opened from.
 | WIRING | **DSHOT** | The DShot rate in kbit/s: 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire, on AUX |
 | WIRING | **AUX PIN** | AUX, the GPIO of the KISS wire and of the servo tester's second servo, with its J5 pin under it. Acts whether KISS TELEM is on or off. A step swaps SIG and AUX, so the two never share a pin |
-| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` or `GP29`: `OWN` means the servo has a supply of its own and the bench switches nothing; `GP28` or `GP29` means a DC-DC converter (direct-current voltage converter) for a programmed servo's supply has its enable on that pin, shown under the value: `J4 PIN 11` for GP28, `J4 PIN 12` for GP29. `OWN` by default. - and + step through the three. With `GP28` or `GP29`, KST SERVO and HITEC SERVO switch the servo's supply |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, `GP28` or `GP29`: `OWN` means the servo has a supply of its own and the bench switches nothing; `GP28` or `GP29` means a DC-DC converter (direct-current voltage converter) for the servo's supply has its enable on that pin, shown under the value: `J4 PIN 11` for GP28, `J4 PIN 12` for GP29. `OWN` by default. - and + step through the three. With `GP28` or `GP29`, SERVO TESTER, KST SERVO and HITEC SERVO switch the servo's supply |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE` or `INA219`: whether an INA219 current sensor module is on J3. `NONE` by default. A tap switches between the two. With `INA219` a caption under the name reads `FOUND`, `NOT FOUND`, or `OTHER PART` for another chip at the sensor's address. An INA219 left on another configuration by other firmware also shows `OTHER PART`: power-cycle the module. The servo tester, KST SERVO and HITEC SERVO then show the supply's current |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. High contrast is for daylight |
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
@@ -442,11 +479,13 @@ pins. The strip names them, `SIG GP0  50 HZ  1000-2000 US`, or
 `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
 touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
-`GP28` or `GP29` the strip's second line reads `GP28 SUPPLY STAYS OFF HERE.`
-in amber: the servo tester never switches the converter on, so the servo
-needs a supply of its own here. `SET` opens the profile and sweep settings;
-its `BACK` with a change waiting for `HOLD TO APPLY` warns first,
-`1 CHANGE NOT APPLIED.`
+`GP28` or `GP29` the screen switches the converter: on at `HOLD TO START`,
+off at `STOP`, at a stall and at `BACK`. The strip's second line says where
+it is, in amber: `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`,
+`GP28 SUPPLY ON`, or `GP28 SUPPLY NOT OFF` when the current sensor still
+reads more than 2.5 V 2 s after the switch-off. `SET` opens the profile and
+sweep settings; its `BACK` with a change waiting for `HOLD TO APPLY` warns
+first, `1 CHANGE NOT APPLIED.`
 `BACK` opens the leave page at `1 UNPLUG THE SERVO.` before the ESC driver
 takes the pins back; `BACK TO SERVO` returns to the tester, and
 `RESTART DSHOT` returns to `MENU`. With CURRENT SENSE at `INA219` the

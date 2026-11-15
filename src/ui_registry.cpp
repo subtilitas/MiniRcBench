@@ -5,6 +5,7 @@
 
 #include "ui_registry.h"
 #include "ui_am32.h"
+#include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
@@ -23,7 +24,7 @@
  *        in characters, 0 for a row with none.
  */
 constexpr UiMenuEntry UI_MENU[] = {
-	{ "BEEP THE ESC",      8, &UI_BEEP       },   // ui_menu.cpp: DISARMED, REFUSED
+	{ UI_ESC_CMD_TITLE,    0, &UI_ESC_CMD    },   // the DShot commands, BEEP 1 to 5 among them
 	{ UI_ESC_CFG_TITLE,    0, &UI_ESC_CONFIG },   // the chooser: ESC SETTINGS, USB BRIDGE
 	{ SERVO_UI_TITLE,      0, &UI_SERVO      },
 	{ "SERVO PROGRAMMER",  0, &UI_SERVO_PROG },   // 190 px: no room for a status
