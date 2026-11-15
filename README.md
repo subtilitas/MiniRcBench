@@ -59,13 +59,15 @@ and neither has run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slices 1 to 3 are built and host-tested: the summary
+on 2026-11-15. Its slices 1 to 4 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
-([Blackbox logging to microSD](#blackbox-logging-to-microsd)), and SD LOG
-showing it after a stop; the clock is not built. The owner's board has no cell
-in the RTC socket J2, so its clock is set again after each power-up, and
-files written before the set have FAT date 0.
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)), SD LOG
+showing it after a stop, and the clock read at start-up, dating the files
+and the summary's clock lines while it runs; the firmware cannot set the
+clock yet. The owner's board has no cell in the RTC socket J2, so its
+clock is to be set again after each power-up, and files written before the
+set have FAT date 0.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
@@ -200,7 +202,7 @@ One sheet, four parts:
 | Board connectors | J5, J4 and J3 pin by pin, each with its role | [Pin map](#pin-map-from-the-official-schematic) |
 | A | ESC: signal on SIG, ground, KISS telemetry on AUX, the BEC (battery eliminator circuit) wire cut | [Wiring the ESC](#wiring-the-esc), [KISS telemetry](#kiss-telemetry-optional-third-wire) |
 | B | Servo on its own supply with a switch in the positive lead; a second servo on AUX for the servo tester | [Servo tester wiring](#wiring), [KST wiring](#wiring-1), [Hitec wiring](#wiring-2) |
-| C | Servo on a boost converter with output disconnect, from one LiPo cell, whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND (ground) on J4. The optional INA219 current sensor on the converter's output wire, its I2C bus, 3.3 V and ground from J3 | [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos), [Current sensor](#current-sensor) |
+| C | Servo on a boost converter with output disconnect, from one LiPo cell, whose enable input (EN) is on GP28 or GP29, with a 10 kΩ pull-down at the converter; SIG, EN and GND (ground) on J4. The optional INA219 current sensor on the converter's output wire, its I2C bus, 3.3 V and ground from J3 | [Servo tester, switched supply](#servo-tester), [KST wiring, switched supply](#wiring-1), [Classic servos](#classic-servos), [Current sensor](#current-sensor) |
 
 `tools/make_wiring.py` draws `docs/wiring.svg` (Scalable Vector Graphics)
 from the connector table in `src/board_rp2350_touch_lcd_2_8.h`, the start
@@ -664,7 +666,7 @@ colour, read-only values grey, and a toggle that is on fills blue.
 | WIRING | **DSHOT** | The DShot bitrate in kbit/s, 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire, on AUX. A toggle; it moves no pin |
 | WIRING | **AUX PIN** | AUX, the GPIO of the KISS telemetry wire and of the servo tester's second servo, with its J5 pin under the value. Acts whatever KISS is, and swaps with SIG as SIG PIN does. The receiver is a PIO state machine, so any free GPIO works |
-| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the programmed servo's supply is wired, and to which pin. `OWN`: the servo has a supply of its own and the bench switches nothing. With `GP28` the value has `J4 PIN 11` under it, with `GP29` `J4 PIN 12` (design note `docs/design/kst-programming.md`, "Switched servo supply"). A core section after WIRING, whichever tools MENU lists. A stepper: - and + step OWN, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply (KST servo programming, Hitec servo programming) |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the servo's supply is wired, and to which pin. `OWN`: the servo has a supply of its own and the bench switches nothing. With `GP28` the value has `J4 PIN 11` under it, with `GP29` `J4 PIN 12` (design note `docs/design/kst-programming.md`, "Switched servo supply"). A core section after WIRING, whichever tools MENU lists. A stepper: - and + step OWN, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a servo tester, KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply ([Servo tester](#servo-tester), KST servo programming, Hitec servo programming) |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE`, the default, or `INA219`: whether an INA219 current sensor is on the I2C bus at 0x40 ([Current sensor](#current-sensor)). A toggle; it applies at once. With `NONE` nothing is sent to 0x40. With `INA219` the bench probes the part at once and every 1000 ms while it is not found, and a caption under the label reads `FOUND`, `NOT FOUND` or `OTHER PART`. `OTHER PART` is another chip at 0x40, or an INA219 left on another configuration, which a power-cycle of the module clears |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
@@ -1040,14 +1042,16 @@ looks the same to a board with no card-detect line
 (`src/sd_log_next.cpp`, tested over FatFs by `make -C test lognum`). After
 `LOG99999.BFL` no log starts and SD LOG says so. A file is
 created new, never over an existing one. Logs an earlier firmware wrote to
-the card's root stay there and are not counted. The board sets no clock.
+the card's root stay there and are not counted. Files carry the time of the
+board's real-time clock when the clock was running at start-up, else FAT
+date and time 0; the firmware cannot set the clock yet (see below).
 
 Each log that stops clean gets a run summary beside it, `LOGS/LOGnnnnn.TXT`
 with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
 `docs/design/run-summary.md`). It is plain ASCII (American Standard Code for
 Information Interchange) text, one value a line: the log's name, the
-firmware version, the clock at the start and the stop (`not set`: the clock
-is not built), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
+firmware version, the clock at the start and the stop (`2026-11-14 15:42:07`
+or `not set`), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
 `HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
 RPM, current and temperature, the minimum voltage while armed, the charge
 used by the KISS counter and from the current, and the logger's counters
@@ -1073,6 +1077,23 @@ removed when the card still allows it; after a close that fails, an empty
 `.TXT`. The `.TXT`, the `.BFL` beside it and every failure path are tested
 over FatFs R0.15 on a RAM disk by `make -C test lognum`
 (`test/sd_log_fatfs.cpp`).
+
+The clock is the board's PCF85063A at 0x51 on I2C1 (`src/clock.*`). `setup()`
+reads its registers 00h to 0Ah once, after `senseInit()`: 14 bytes on the wire,
+129 clocks, with a 1000 µs timeout, noted to the current sensor's bus record. A
+running clock, with the oscillator-stop flag OS and the bits STOP, EXT_TEST and
+12_24 clear and every time register in range, is the time from then on, kept by
+the 64-bit microsecond timer; no bus transfer follows. Anything else leaves the
+clock not set until the next start-up. With OS set, the oscillator has stopped
+since the time was written, as at every power-up of a board without a cell on
+J2: the firmware sends the software reset, 58h to Control_1, and turns CLKOUT
+off, 07h to Control_2. FatFs stamps files through `get_fattime()`, which returns
+the kept time packed while the clock is set and 0 otherwise; the SD library's
+`my_rtc.c`, with its own `get_fattime()`, is not in the firmware build. The
+run summary takes the clock at the log's start and
+at its stop. Nothing in the firmware sets the clock yet: that is slice 5 of
+`docs/design/run-summary.md`, over USB. Tested against a register-level model of
+the part in `test/fake_i2c.*` (`test/test_clock.cpp`); not tested on hardware.
 
 ![SD log screen](docs/log-preview.png)
 
@@ -1665,10 +1686,51 @@ While SAFE with one servo, the readout row reads `TWO SERVOS:` and
 `SET > SERVOS` on the right: SET's SERVOS row switches the second servo on.
 The hint is not shown while the claim refuses AUX.
 
-The servo tester never drives the switched supply's enable pin. With SERVO
-SUPPLY at `GP28` or `GP29` the converter stays off on this screen, and a servo
-with no supply of its own does not move: the strip reads
-`GP28 SUPPLY STAYS OFF HERE.` in amber under its caption.
+**Switched supply.** With SETTINGS → SERVO SUPPLY at `GP28` or `GP29` the
+servo tester switches the servo's supply, the boost converter of part C of
+the [wiring diagram](#wiring-diagram) (decision 20 of
+`docs/design/servo-tester.md`, built as slice 3 of
+`docs/design/current-sense.md`). Not tested on hardware.
+
+| State | Enable pin | Pulses | Strip, second line, amber |
+|---|---|---|---|
+| SAFE | low from the claim on | level 0 | `GP28 SUPPLY ON AT START` |
+| HOLD TO START | high at once | level 0 until the supply is up | `GP28 SUPPLY COMING UP` |
+| Supply up | high | CENTRE, then what the controls command | `GP28 SUPPLY ON` |
+| STOP, on SERVO or SET | low in the same core1 pass as level 0 on the pins | level 0 | `GP28 SUPPLY ON AT START` |
+| A heartbeat lapse of 250 ms | low | level 0, `STALLED` | as SAFE |
+| BACK | low at once; an undriven input after the last pulse, before the pins return to DShot | level 0 | |
+
+- The supply counts as up at the first reading of the current sensor taken
+  more than 18 ms after the switch-on, one conversion cycle of the sensor
+  (`SUPPLY_READ_LAG_MS`), at 4.5 V or more (`SUPPLY_ON_MIN_MV`), with CURRENT
+  SENSE at `INA219`, or 500 ms after the switch-on with `NONE`
+  (`SUPPLY_START_MAX_MS`). With the sensor and no such reading within
+  500 ms the supply goes off, the pulses never start, and the dial reads
+  `SUPPLY NOT UP: NO 4.5 V IN 500 MS.` over `CHECK THE CONVERTER ON GP28.`
+  The 500 ms is a value of the design note until bench test B6 measures a
+  converter's start-up time. SET shows the time of the last switch-on to
+  that reading, `SUPPLY UP IN 25 MS`, an upper bound by one read and one
+  conversion cycle.
+- While the supply comes up the pulses wait at level 0 and MIN, CENTRE,
+  MAX, SWEEP and the dial are drawn disabled; STOP acts.
+- The touch controller is the only way to STOP. A touch controller that has
+  not answered for 250 ms (`touchAnsweredMs()`), or the shared I2C bus marked
+  stuck by the sensor, switches the supply off while RUNNING: the chip reads
+  `STALLED`, the dial `STOPPED: TOUCH DID NOT ANSWER` or
+  `STOPPED: TOUCH BUS STUCK`. Either refuses HOLD TO START while it lasts;
+  with no trip the dial reads `START WAITS: THE I2C BUS IS STUCK.` or
+  `START WAITS: TOUCH DOES NOT ANSWER.`
+- With CURRENT SENSE at `INA219` and the part not found, HOLD TO START is
+  drawn disabled and the dial reads `START WAITS FOR THE CURRENT SENSOR.`
+  over `NONE IN CURRENT SENSE SKIPS IT.`
+- After a switch-off, with the sensor, a reading above 2.5 V 2000 ms or more
+  later turns the strip's line to `GP28 SUPPLY NOT OFF`: a converter without
+  output disconnect, or EN held high. It is a warning: EN is already low.
+- While SAFE the dial reads `PULSES ON GP0 ARE THROTTLE TO AN ESC,` over
+  `AND ITS BEC WIRE GETS THE SUPPLY.` in amber.
+- With SERVO SUPPLY at `OWN` the screen drives neither GP28 nor GP29, and the
+  supply's rules and texts above do not apply.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -1817,10 +1879,10 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 - The converter's output is the lead's middle wire. **An ESC on this lead
   gets the converter's output on its BEC wire**, its own regulated supply.
   The claim's ESC check sees only an ESC that answers bidirectional DShot.
-- The enable pin is driven only during a KST or Hitec claim; outside it the
-  pull-down alone holds EN low. A reset or a power-off of the board returns
-  the pin to that state; nothing in the firmware switches the supply off if
-  core1 hangs.
+- The enable pin is driven only during a servo tester, KST or Hitec claim;
+  outside it the pull-down alone holds EN low. A reset or a power-off of the
+  board returns the pin to that state; nothing in the firmware switches the
+  supply off if core1 hangs.
 
 ### Using it
 
@@ -2424,14 +2486,16 @@ three failed transactions take the part offline, two timeouts of 1000 µs in
 a row or a line held low mark the bus stuck, and a recovery, 9 clocks on SCL
 and a STOP, runs at once and every 100 ms while it is stuck, with CURRENT
 SENSE at `NONE` too, since touch and the IMU share the bus. The touch
-driver and the IMU driver report their own transfers to the same record; an
-abort with a line still low 10 µs after it counts as a stuck bus, not as a
-missing part. The probe reads the configuration register first and writes
-a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
+driver, the IMU driver and the clock's read at start-up (`src/clock.cpp`)
+report their own transfers to the same record; an abort with a line still
+low 10 µs after it counts as a stuck bus, not as a missing part. The probe
+reads the configuration register first and writes a register only when it
+reads as an INA219's, 399Fh or 19EFh; another chip
 at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
-(`src/sense.h`), under a lock of its own, for core1; slices 3 and 4 of the
-design note read it there, and nothing on core1 reads it yet.
+(`src/sense.h`), under a lock of its own, for core1, where the servo
+tester's job reads the bus voltage back after each switch-on and switch-off
+([Servo tester](#servo-tester)).
 
 ## Device backups
 
@@ -2535,7 +2599,10 @@ In the firmware:
   the button is drawn disabled starts nothing. Core1 ends the
   pulses if core0 sends no heartbeat for 250 ms. The servo screen does not
   claim the pins while an ESC answers on them, and DShot restarts only on
-  the leave page's RESTART DSHOT, 1 s after the pins are let go.
+  the leave page's RESTART DSHOT, 1 s after the pins are let go. With the
+  switched supply it is off while SAFE and off with every end of the
+  pulses, a silent touch controller and a stuck I2C bus included, and the
+  enable pin is an undriven input again before DShot restarts.
 
 Not in the firmware:
 
@@ -2591,7 +2658,7 @@ src/
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
-  servo_job.{h,cpp}     the servo tester's core1 job: SAFE, START, slew, sweep, trip
+  servo_job.{h,cpp}     the servo tester's core1 job: pulses, trip, supply
   ui_kst.{h,cpp}        KST SERVO: the search, the field list, the write, FILES, the leave
   kst_view.{h,cpp}      what KST SERVO shows: rows, values with units, the stepper, the texts
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
@@ -2629,6 +2696,7 @@ src/
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
   run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure)
+  clock.{h,cpp}         the PCF85063A real-time clock: start-up read, kept time, get_fattime()
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_log_summary.{h,cpp} the run summary's .TXT beside its log, over FatFs
   sd_hw_config.c        SD wiring for the FatFs driver
@@ -2771,7 +2839,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,541 of 11,730 lines in 74 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,574 of 11,763 lines in 75 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
