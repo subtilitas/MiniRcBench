@@ -13,6 +13,8 @@
 
 #include "ff.h"
 
+#include <stdint.h>
+
 #include <map>
 #include <vector>
 
@@ -34,14 +36,18 @@ struct RamDisk {
 	const void *failPrefix;
 	size_t   failLen;    /**< Bytes of @ref failPrefix compared. */
 	bool     failWrites; /**< Every write fails with RES_ERROR. */
+	/** @brief A clock in µs that every disk_write() call advances by
+	 *         @ref writeUs, a failed one included; nullptr for none. */
+	uint64_t *clockUs;
+	uint32_t writeUs;    /**< The time one disk_write() call takes, µs. */
 };
 
 /** @brief The disk FatFs sees. */
 extern RamDisk g_disk;
 
 /**
- * @brief Format both images with @p fmt, card 0 in the slot, no faults, and
- *        mount card 0 on @p fs. Exits the program when FatFs refuses.
+ * @brief Format both images with @p fmt, card 0 in the slot, no faults, no
+ *        clock, and mount card 0 on @p fs. Exits the program when FatFs refuses.
  * @param fs      The volume object.
  * @param fmt     FM_FAT32 or FM_EXFAT.
  * @param sectors The volume's size in sectors.

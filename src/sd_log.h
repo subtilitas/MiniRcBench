@@ -200,7 +200,7 @@ struct SdLogStatus {
 	/**
 	 * @brief The last log's run summary (run_summary.h), ended, with what
 	 *        became of its `.TXT`; nullptr while a log runs, before the first
-	 *        log and after a mount.
+	 *        log, after a mount and after a release (sdLogRelease()).
 	 *
 	 * Points into the logger's state on core0. A failed start keeps it, as
 	 * it keeps @ref fileNumber; the next start that opens a log reuses it.
@@ -253,6 +253,7 @@ void sdLogStop();
  *        one: SD LOG then reads `RECORDING STOPPED BY` and the tool's name
  *        until the next start; a mount keeps it (sdLogMountForget()).
  *        No-op when no log runs.
+ *
  * The run summary records the tool as how the log ended, as sdLogStop()
  * records STOP.
  *

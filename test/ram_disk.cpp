@@ -30,6 +30,7 @@ DRESULT disk_read(BYTE, BYTE *buf, LBA_t sector, UINT count) {
 }
 
 DRESULT disk_write(BYTE, const BYTE *buf, LBA_t sector, UINT count) {
+	if (g_disk.clockUs) *g_disk.clockUs += g_disk.writeUs;
 	if (g_disk.protect) return RES_WRPRT;
 	if (g_disk.failWrites) return RES_ERROR;
 	if (g_disk.failPrefix) {
@@ -64,6 +65,8 @@ void ramDiskFormat(FATFS *fs, BYTE fmt, LBA_t sectors, DWORD au) {
 	g_disk.noInit = g_disk.protect = g_disk.failWrites = false;
 	g_disk.failPrefix = nullptr;
 	g_disk.failLen = 0;
+	g_disk.clockUs = nullptr;
+	g_disk.writeUs = 0;
 	static BYTE work[FF_MAX_SS * 8];
 	MKFS_PARM opt = { fmt, 2, 0, 0, au };
 	for (int c = 1; c >= 0; c--) {

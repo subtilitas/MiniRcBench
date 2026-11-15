@@ -11,12 +11,12 @@
  *
  * Covers the summary fed by every frame, ended by STOP, DISARM and each
  * tool, by a full card and a failed write during the log and by a failed
- * sync at the stop; the `.TXT` beside its `.BFL` with the text
+ * flush of the stop's drain and a failed sync at the stop; the `.TXT` beside its `.BFL` with the text
  * runSumText() builds; a stray `.TXT` replaced; the next log's number
  * unmoved by `.TXT` files; the `.TXT` itself not saved, on a full card, in
  * a full directory, by a failed write and by a failed close, with the
  * logger ready and the `.BFL` byte for byte as on a card with room; the
- * summary kept by a failed start and forgotten by a mount. On FAT32 and
+ * summary kept by a failed start and forgotten by a mount and a release. On FAT32 and
  * exFAT; the failures on FAT32.
  */
 
@@ -95,12 +95,12 @@ static SdLogStatus status() {
 static uint32_t g_frame = 0;
 
 /**
- * @brief Log @p frames frames, 2 ms apart, flushing after each. DShot eRPM
- *        7000 in every frame; EDT 16.00 V, 12 A, 40 °C every 50th frame; a
- *        throttle that differs from frame to frame, so no two blocks of a
- *        log begin alike.
+ * @brief Log @p n frames, 2 ms apart, flushing after each unless @p flush
+ *        is false. DShot eRPM 7000 in every frame; EDT 16.00 V, 12 A, 40 °C
+ *        every 50th frame; a throttle that differs from frame to frame, so
+ *        no two blocks of a log begin alike.
  */
-static void frames(int n) {
+static void frames(int n, bool flush = true) {
 	for (int i = 0; i < n; i++) {
 		g_us += 2000;
 		uint32_t ms = nowMs();
@@ -114,7 +114,7 @@ static void frames(int n) {
 		}
 		g_frame = g_frame * 1103515245u + 12345u;   // a linear congruential sequence
 		sdLogTick(time_us_32(), (uint16_t)((g_frame >> 16) % 2001u));
-		sdLogFlush();
+		if (flush) sdLogFlush();
 	}
 }
 
@@ -339,6 +339,16 @@ static void testFailedStart(const char *vol) {
 	g_disk.protect = false;
 	sdLogRemount();
 	checkTrue("a mount forgets it", status().summary == nullptr);
+
+	sdLogStart();
+	frames(20);
+	sdLogStop();
+	checkTrue("the next log's summary", status().summary != nullptr);
+	checkTrue("USB DRIVE's release", sdLogRelease());
+	st = status();
+	checkTrue("forgets it: no card, no summary",
+	          st.state == SdLogState::NoCard && st.summary == nullptr);
+	checkTrue("the card taken back", sdLogReacquire());
 }
 
 /** @brief The log a fixed run writes, from a fixed clock: the same bytes each time. */
@@ -523,6 +533,31 @@ static void testLogFails() {
 	st = status();
 	checkTrue("the stop fails: WRITE FAILED", st.state == SdLogState::Error && st.end == SdLogEnd::WriteFailed);
 	checkTrue("the summary up to the stop, not saved",
+	          st.summary && st.summary->end == RunSumEnd::Stop &&
+	          st.summary->file == RunSumFile::WriteFailed && st.summary->stopUs == stop);
+	checkTrue("no LOG00001.TXT", !exists("/LOGS/LOG00001.TXT"));
+
+	// The drain's first flush fails: the ring holds more than a chunk, as
+	// when the loop has not flushed for a while. Each block write takes
+	// 1 ms, so a later end shows in the summary's stop time.
+	format(FM_FAT32, sectors, 4096);
+	sdLogStart();
+	frames(100, false);
+	st = status();
+	checkTrue("the ring holds more than a chunk, nothing written",
+	          st.peakBuffer > SD_LOG_CHUNK_BYTES && st.bytesWritten == 0 && st.bytesDropped == 0);
+	g_disk.failWrites = true;
+	g_disk.clockUs = &g_us;
+	g_disk.writeUs = 1000;
+	stop = g_us;
+	sdLogStop();
+	bool wrote = g_us > stop;
+	g_disk.clockUs = nullptr;
+	g_disk.failWrites = false;
+	st = status();
+	checkTrue("the drain fails: WRITE FAILED, a block write tried",
+	          st.state == SdLogState::Error && st.end == SdLogEnd::WriteFailed && wrote);
+	checkTrue("the summary ended by STOP as the stop began, not saved",
 	          st.summary && st.summary->end == RunSumEnd::Stop &&
 	          st.summary->file == RunSumFile::WriteFailed && st.summary->stopUs == stop);
 	checkTrue("no LOG00001.TXT", !exists("/LOGS/LOG00001.TXT"));

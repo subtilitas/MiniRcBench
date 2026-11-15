@@ -71,7 +71,7 @@ static SdLogNextCache s_next = {};
  *        @see run_summary.h, docs/design/run-summary.md
  */
 static RunSum   s_sum;
-/** @brief A start has begun @ref s_sum since the last mount. */
+/** @brief A start has begun @ref s_sum since the last mount or release. */
 static bool     s_sumKept = false;
 /** @brief MOTOR POLES when @ref s_sum ended. */
 static uint8_t  s_sumPoles = 0;
@@ -240,6 +240,8 @@ bool sdLogRelease() {
 	s_state = SdLogState::NoCard;
 	s_released = true;
 	sdLogNextForget(&s_next);
+	// The state reads no card, and no summary shows with no card.
+	s_sumKept = false;
 	return true;
 }
 
@@ -316,7 +318,11 @@ static void writeSummary() {
 		sdLogStatus(&st);
 		char *text = (char *)s_ringBuf;
 		size_t len = runSumText(&s_sum, &st, s_sumPoles, text, sizeof(s_ringBuf));
-		f = sdLogWriteSummary(&s_file, SD_LOG_DIR_PATH, s_fileNo, text, (uint32_t)len);
+		// runSumText() returns the length the whole text needs. The ring's
+		// size or more means a cut text, and f_write() would read past the
+		// ring: WRITE FAILED, nothing written.
+		if (len < sizeof(s_ringBuf))
+			f = sdLogWriteSummary(&s_file, SD_LOG_DIR_PATH, s_fileNo, text, (uint32_t)len);
 	}
 	runSumFileResult(&s_sum, f);
 }
