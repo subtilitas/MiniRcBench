@@ -674,7 +674,7 @@ Only an ESC settles these, one per firmware at hand:
 
 - B1. Direction, with 3D off: REVERSED, tape on the bell, 5 % on the
   tester; power-cycle the ESC; still reversed; NORMAL back.
-- B2. AM32: the save's tone against BEEP 1 and BEEP 2; AM32 CONFIG reading
+- B2. AM32: the save's tone against BEEP 1 and BEEP 2; ESC SETTINGS reading
   the MOTOR group's `DIRECTION` and `3D MODE` as sent.
 - B3. 3D ON: the note on the tester; at 10 % the motor runs as at about
   20 % and reversed; above 50 % in the set direction, from low; 3D OFF; a

@@ -828,8 +828,8 @@ ESC COMMANDS.
 
 #### EC-B2. AM32's save tone, and the settings as sent
 
-- **Verifies:** the save's tone against BEEP 1 and BEEP 2; ESC SETTINGS (the
-  note's AM32 CONFIG) reading the MOTOR group's `DIRECTION` and `3D MODE` as
+- **Verifies:** the save's tone against BEEP 1 and BEEP 2; ESC SETTINGS
+  reading the MOTOR group's `DIRECTION` and `3D MODE` as
   sent. **Why:** the page's commands are read from source only.
 - **Setup:** E, the AM32 ESC.
 - **Steps:** BEEP 1, BEEP 2, then a direction change; open ESC SETTINGS.

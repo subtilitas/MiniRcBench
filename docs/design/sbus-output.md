@@ -921,8 +921,10 @@ Every behaviour change gets a mutation check, as the monitor's slices did
 Only hardware settles these:
 
 - On a scope at GP0: the idle level low while SAFE, after STOP and after
-  the release; no high edge at the bind; 100,000 baud, 8E2, the inversion;
-  25 bytes in 3,000 µs and a 14,000 µs period; the last frame complete at
+  the release; at the bind the probe's greetings, the line high on the
+  pull-up between them, then one fall at the switch to the UART and no high
+  edge after it ([slice 3 as built](#slice-3-as-built)); 100,000 baud, 8E2,
+  the inversion; 25 bytes in 3,000 µs and a 14,000 µs period; the last frame complete at
   STOP and at a heartbeat trip (core0 halted in a debugger).
 - With the S.BUS monitor of a second board: the channels and flags read
   back.

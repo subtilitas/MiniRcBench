@@ -3484,7 +3484,7 @@ In the firmware:
 - A stored settings block that fails its CRC, version or size check is
   discarded whole and the compiled defaults are used. Fields are never merged
   one by one, so a corrupted byte cannot raise the throttle ceiling. A whole
-  block of an older layout, version 2 to 4, is read field by field from
+  block of an older layout, version 2 to 5, is read field by field from
   that layout and validated as a current block.
 - Arming is blocked while a USB host holds the SD card.
 - After ESC SETTINGS read 3D MODE on, or wrote it and the ESC accepted the
