@@ -30,10 +30,10 @@
  * flush run after the job has reported the run over. An open given up, too
  * slow or failed, makes no further card call: its blocks go out one flush
  * step a pass during the run, without a wait, and at the run's end the queue
- * is flushed first, then its file is closed and removed, from the card it
- * was opened on only, by the volume's serial number, and the cache goes off.
- * A serial number that does not read leaves the file closed and in place,
- * with no remount.
+ * is flushed after a fresh swap check, then its file is closed and removed,
+ * from the card it was opened on only, by the volume's serial number, and
+ * the cache goes off. A serial number that does not read mounts nothing and
+ * removes nothing.
  *
  * Core1 runs the pulses, the cuts and the move timing and calls nothing here.
  *

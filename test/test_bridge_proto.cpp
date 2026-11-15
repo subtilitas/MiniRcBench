@@ -257,13 +257,20 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 			r[c + 1] = (uint8_t)(crc >> 8);
 			r[c + 2] = g_bl.readAck;
 			// AM32's bootloader sets the address back to 0 after a READ
-			// (578ff29 main.c line 810).
+			// (578ff29 main.c line 810). The EFM8 bootloader's read loop
+			// does `inc DPTR` for each byte (BLHeliBootLoad.inc, rd1;
+			// from the BLHeli_S and Bluejay sources, not in this
+			// repository and not verified here): the address is past
+			// the bytes read.
 			if (!g_bl.efm8) g_bl.addr = 0;
+			else g_bl.addr = (uint16_t)(g_bl.addr + c);
 			return c + 3;
 		}
 		case 0x01:
 			if (!g_bl.bufLen || g_bl.refuseProgram) return blAck(r, 0xC5);
 			memcpy(g_bl.flash + g_bl.addr, g_bl.buf, g_bl.bufLen);
+			// The EFM8 bootloader's program loop advances DPTR too (pro5).
+			if (g_bl.efm8) g_bl.addr = (uint16_t)(g_bl.addr + g_bl.bufLen);
 			g_bl.programs++;
 			*d = g_bl.programUs;
 			return blAck(r, 0x30);
@@ -978,16 +985,28 @@ static void testBlheliS() {
 	for (int i = 0; i < 0x70; i++) s[i] = (uint8_t)(i + 1);
 	r = fw(B4W_WRITE, 0x1A00, s, sizeof(s));
 	checkTrue("Write 0x1A00", r.ok && r.ack == 0);
+	// PROGRAM leaves the model EFM8's address past the 0x70 bytes: 0x1A70, the
+	// erased rest of the page.
+	r = fwOne(B4W_READ, 4, 0xFFFF);
+	checkTrue("Read at 0xFFFF after the Write: the erased 4 bytes at 0x1A70",
+	          r.ok && r.ack == 0 && r.n == 4 && r.par[0] == 0xFF && r.par[1] == 0xFF && r.par[2] == 0xFF &&
+	          r.par[3] == 0xFF);
 	r = fwOne(B4W_READ, 0x70, 0x1A00);
 	checkTrue("read back", r.ok && r.n == 0x70 && memcmp(r.par, s, 0x70) == 0);
-	// The EFM8 bootloader keeps its address after a READ: a Read at 0xFFFF
-	// sends no SET ADDRESS and returns the bytes at 0x1A00, where the last
-	// READ left it (AM32 refuses the same Read: testCommands()).
+	// The model EFM8 advances its address by the bytes read: after the READ
+	// of 0x70 at 0x1A00 it is 0x1A70 again. A Read at 0xFFFF sends no SET
+	// ADDRESS and returns the bytes there, and the next one the bytes after.
+	// AM32 refuses the same Read (testCommands()).
+	const uint8_t after[8] = {0xA1, 0xA2, 0xA3, 0xA4, 0xB1, 0xB2, 0xB3, 0xB4};
+	memcpy(g_bl.flash + 0x1A70, after, 8);
 	w = fakeBridgeLineWireCount();
 	r = fwOne(B4W_READ, 4, 0xFFFF);
-	checkTrue("Read at 0xFFFF: no SET ADDRESS, READ 04, the 4 bytes at the address kept",
-	          r.ok && r.ack == 0 && r.n == 4 && memcmp(r.par, s, 4) == 0 &&
+	checkTrue("Read at 0xFFFF: no SET ADDRESS, READ 04, the 4 bytes at 0x1A70, past the last READ",
+	          r.ok && r.ack == 0 && r.n == 4 && memcmp(r.par, after, 4) == 0 &&
 	          wireAt(w) == 0x03 && wireAt(w + 1) == 0x04);
+	r = fwOne(B4W_READ, 4, 0xFFFF);
+	checkTrue("a second Read at 0xFFFF: the 4 bytes after those, 0x1A74",
+	          r.ok && r.ack == 0 && r.n == 4 && memcmp(r.par, after + 4, 4) == 0);
 	r = fw(B4W_VERIFY, 0x1A00, s, 4);
 	checkTrue("Verify on SiLabs: 0x02", r.ok && r.ack == B4W_ACK_I_INVALID_CMD);
 	checkTrue("no 3D note from an EFM8", !esc3dNote());

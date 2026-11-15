@@ -1587,14 +1587,20 @@ applies: no file, no cache, and a running blackbox log goes on.
   makes no further card call: its file stays open in FatFs, its queued blocks go
   out one flush step a pass during the run, without a wait, and at the run's end
   the queue is flushed, then the file is closed and removed and the cache turned
-  off. The flush runs the swap check before each batch, so it writes to no other
-  card; a flush that fails mounts the card again. The removal needs the open's
-  card: the serial number is read after the flush, and on another card nothing
-  is closed or removed there; the card is mounted again, and the open's file
-  stays on its own card, as after a power loss. A file of the same number on the
-  other card is that card's own. A serial number that does not read, the flush
-  done, removes nothing and mounts nothing: the file is closed and stays on the
-  card, complete.
+  off. The swap check runs once a batch and stays passed until the queue
+  empties, so the end asks for a fresh check first (`cardCacheRecheck()`): the
+  next block waits for it, and a card swapped since the last check fails the
+  flush, which drops the queue and mounts the card again, with no close and no
+  removal. The removal needs the open's card: the serial number is read after
+  the flush, and on another card nothing is closed or removed there; the card
+  is mounted again, and the open's file stays on its own card, as after a power
+  loss. A file of the same number on the other card is that card's own. A
+  serial number that does not read, the flush done, removes nothing and mounts
+  nothing: the file is closed and stays on the card with the size the open
+  synced, a reserve and no rows. That holds for a read error that leaves the
+  card ready, a CRC or frame error; a fatal one marks the card not ready
+  (STA_NOINIT) and FatFs refuses the close. The host model fails the read once
+  without the fatal mark; the fatal case is not tested.
 - **The end.** It ends at the first pass after the Start's seq was given in
   which the job has taken that Start, or a later command, and is not RUNNING
   (`servoLogRunOver()`): STOP on SERVO or SET, BACK, a cut, a trip, a supply
@@ -1761,7 +1767,9 @@ applies: no file, no cache, and a running blackbox log goes on.
   other card mounted and its own file of the same number kept; an open given up
   with blocks queued and the serial number not read once at the run's end, the
   file closed and left on the card with no remount, and the same with the
-  number read, the file removed; a removed card's
+  number read, the file removed; an open given up on a slow card with 20 blocks
+  queued and its batch already checked, then card B in the slot: none of the 19
+  blocks reaches card B, which keeps its own file; a removed card's
   pass at most 5 ms, one unanswered command; the cache on for the log only, one
   block a call, never a flush on the spot, every block's batch checked without a
   wait, at most 100 µs a pass, rows dropped and counted on the slow card; the
@@ -1809,7 +1817,16 @@ applies: no file, no cache, and a running blackbox log goes on.
   check of the card, the limit between the two tries and CMD12 only after a
   block that did not come: 11 mutants, 9 failing the tests. Equivalent: the
   close after a recovery, refused by FatFs as above, and a second recovery after
-  the first, which mounts the same card again.
+  the first, which mounts the same card again. Fifth, after the end's fresh swap
+  check (`cardCacheRecheck()`, `sdc_recheck()`) and its unread serial number: 8
+  mutants of `src/servo_log.cpp` and `src/sdio/sd_cache.c`, 5 failing the tests:
+  the recheck call left out, the batch kept checked, a remount on a serial
+  number that does not read, no remount on one that differs, the removal on one
+  that does not read. Three survive and are equivalent in the model: the flush
+  replaced by a check of the state, as `cardCacheEnd()` flushes after it under
+  the same check; the settle left out of `sdc_recheck()`, which matters only
+  for a check read under way when it is called, one the model's card does not
+  have there; the check's try count not reset, which is 0 already.
 - **Not on hardware.** No card has taken the log on the board: its read
   latency, its busy time, and the cuts' timing with the log on are not
   measured (bench test B12, a 60 s log with the supply on, is still to

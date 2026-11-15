@@ -54,6 +54,13 @@ void cardCachePoll();
 /** @brief The cache's state; @p left, when not NULL, the blocks still to go. */
 CardCache cardCacheState(uint16_t *left = nullptr);
 
+/**
+ * @brief The next block waits for a fresh swap check, so a card swapped since
+ *        the batch's check takes none of the queued blocks: cardCacheFlush()
+ *        next fails on another card. Blocking while a block is in flight.
+ */
+void cardCacheRecheck();
+
 /** @brief Flush until Idle or Failed, blocking; Off with the cache off. */
 CardCache cardCacheFlush();
 

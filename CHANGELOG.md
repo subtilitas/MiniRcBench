@@ -1179,20 +1179,31 @@ protocol.
 
 ### Changed
 
-- After v0.1.0-rc1: the run's end after a servo log's open given up flushes the
-  queued blocks before it reads the volume's serial number
-  (`endGiveUp()` in `src/servo_log.cpp`). The flush runs the swap check before
-  each batch, so it writes to no other card. A serial number that does not
-  read once no longer mounts the card again and drops the open's blocks: the
-  file is closed and stays on the card, complete. The card is mounted again
-  only when the flush fails or the serial number differs. Host test in
-  `test/servo_log_fatfs.cpp`, mutation-checked.
+- After v0.1.0-rc1: the run's end after a servo log's open given up asks the
+  write cache for a fresh swap check, then flushes the queued blocks, then
+  reads the volume's serial number (`endGiveUp()` in `src/servo_log.cpp`,
+  `cardCacheRecheck()`, `sdc_recheck()` in `src/sdio/sd_cache.c`). The swap
+  check runs once a batch and stays passed until the queue empties, so a card
+  swapped after it, with blocks still queued, would have taken them; now the
+  next block waits for a new check and another card fails the flush, which
+  drops the queue and mounts the card again, with no close and no removal. A
+  serial number that does not read once no longer mounts the card again and
+  drops the open's blocks: the file stays on the card with the size the open
+  synced and no rows, closed when the read error leaves the card ready (a CRC
+  or frame error). A fatal read error marks the card not ready and FatFs
+  refuses the close; the host model does not cover that case. The card is
+  mounted again only when the flush fails or the serial number differs. Host
+  tests in `test/servo_log_fatfs.cpp`; the mutants and the survivors are in
+  the slice 6 note.
 
-- After v0.1.0-rc1: the S.BUS OUTPUT source test refuses the alternative
-  tokens `or`, `and`, `not`, `bitor`, `bitand` and `compl` in the gate of
-  HOLD TO START, as it refuses `|` and `?`, and `test/test_bridge_proto.cpp`
-  reads at 0xFFFF on a model BLHeli_S, which keeps its address, with no SET
-  ADDRESS sent.
+- After v0.1.0-rc1: the S.BUS OUTPUT source test refuses, in the gate of HOLD
+  TO START, the 11 alternative tokens `or`, `and`, `not`, `bitor`, `bitand`,
+  `compl`, `xor`, `or_eq`, `and_eq`, `xor_eq` and `not_eq` and any assignment
+  (an `=` that is not part of `==`, `!=`, `<=` or `>=`), as it refuses `|` and
+  `?`, with a failing sample for each form. `test/test_bridge_proto.cpp` reads
+  at 0xFFFF on a model BLHeli_S, which advances its address by the bytes read
+  and programmed, with no SET ADDRESS sent; the advance is from the BLHeli_S
+  and Bluejay bootloader source, which is not in this repository.
 
 - After v0.1.0-rc1: the models, CAD files and drawings move from MIT to
   CC BY-NC-SA 4.0 (Creative Commons Attribution-NonCommercial-ShareAlike 4.0

@@ -129,6 +129,16 @@ sdc_state_t sdc_state(uint16_t *left);
  */
 void sdc_settle(void);
 
+/**
+ * @brief Make the next block wait for a fresh swap check. A batch is checked
+ *        once and stays checked until the queue empties, so a card swapped
+ *        after that check, with blocks still queued, would take them. After
+ *        this call the next poll checks the card first: another card fails
+ *        the batch. A block or a check in flight ends first (sdc_settle());
+ *        nothing with the queue empty or the cache off or failed.
+ */
+void sdc_recheck(void);
+
 /** @brief Flush until SDC_IDLE or SDC_FAILED, core0 blocking. */
 sdc_state_t sdc_flush(void);
 
