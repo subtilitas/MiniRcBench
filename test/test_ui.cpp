@@ -6442,6 +6442,28 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));
 	}
 
+	section("ESC SETTINGS: an AM32 answers the session's own contact");
+	{
+		efm8Esc(0xB2, true);
+		sim_init_am(fakeEwSim(), 3, 2);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the session page", s_state == S_EW);
+		checkTrue("not an EFM8: the cycle greets again", untilState(S_CONNECT, 200) && pinClaimLeavePage());
+		EwJobStatus st;
+		escwireJobStatus(&st);
+		checkTrue("its page was not read, nothing written", st.contact.cpu == EW_CPU_ARM && !st.haveRead &&
+		          fakeEwSim()->programs == 0);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
 	section("ESC SETTINGS: the job's bind refused");
 	{
 		efm8Esc(0xB2, true);
