@@ -754,8 +754,10 @@ unanswered. `test_kst_seek.cpp` and `test_kst_job.cpp` run against it:
 - the supply off at every claim end, and off after BACK during an off phase;
 - settings: the version 4 layout, the `servoSupply` clamp at 2, a version 3
   block discarded whole; revised by
-  [current-sense.md](current-sense.md#decisions) decision 14: `runSettingsTests` carries blocks of versions 2 to 5 over
-  into version 6;
+  [current-sense.md](current-sense.md#decisions) decision 14, which carries
+  blocks of versions 2 to 4 over into version 5, and by the angle meter's
+  [slice 4](angle-meter.md#slice-4-as-built), which carries versions 2 to 5
+  over into version 6: `runSettingsTests` checks both;
 - the mode to pin map, and a change from GP28 to GP29 that switches only
   GP29;
 - SETTINGS, by control id: `SERVO SUPPLY` scrolled into view, stepped
@@ -1560,7 +1562,9 @@ so these run against the same simulated servo:
      version 4 with the enable on GP28 or GP29, and a DshotDisplay 2.x block
      and a version 3 block are each discarded whole and load the compiled
      defaults. Revised by [current-sense.md](current-sense.md#decisions)
-     decision 14: blocks of versions 2 to 5 carry over into version 6.
+     decision 14, versions 2 to 4 carried over into version 5, and by the
+     angle meter's [slice 4](angle-meter.md#slice-4-as-built), versions 2
+     to 5 carried over into version 6.
    - The SERVO SUPPLY section: one `SettingsRow` in KST's header, named by
      KST's line in `ui_registry.cpp` ([SETTINGS row](#settings-row));
      `test_ui.cpp`: the row by control id. The scrolling list, its asserts
@@ -1655,10 +1659,12 @@ decisions 11 and 12 come from that revision:
    the ESC pin included. A block DshotDisplay saved does not load, and
    DshotDisplay discards a version 3 block. Revised by the revisions of
    2026-10-29 and 2026-11-14 below (the values `OWN`, `GP28` and `GP29`, and
-   a SETTINGS section, SERVO SUPPLY, in place of the SETUP row) and by
-   [current-sense.md](current-sense.md#decisions) decision 14: a block of
-   versions 2 to 5, DshotDisplay's version 2 among them, carries over into
-   version 6.
+   a SETTINGS section, SERVO SUPPLY, in place of the SETUP row), by
+   [current-sense.md](current-sense.md#decisions) decision 14, which
+   carries blocks of versions 2 to 4, DshotDisplay's version 2 among them,
+   over into version 5, and by the angle meter's
+   [slice 4](angle-meter.md#slice-4-as-built), which carries versions 2 to
+   5 over into version 6.
 9. **Timing.** rcbench's values: 2000 ms off before each search attempt and
    for REBOOT, 1000 ms start for REBOOT, and the entry directly after the
    switch-on in the search, `KST_SUPPLY_ENTRY_DELAY_MS` 0 ms, until

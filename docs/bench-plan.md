@@ -117,11 +117,11 @@ notes give; no note states them.
 |---|---|---|
 | Oscilloscope | 4 channels: SIG, AUX, EN and VOUT at once, or the two ends of the INA219's 0.1 Ω shunt for a current step. Bandwidth derived: the fastest edge measured is the I2C rise time against 300 ns (`CS-B1`); a scope rise time of a fifth of that, 60 ns, is about 0.35 / 60 ns = 6 MHz, so any scope of 20 MHz or more serves. Sample rate derived: at least 33 MS/s, ten samples over a 300 ns edge (`CS-B1`). Single-shot capture and a record of at least 1 s at 1 MS/s (a heartbeat trip at 250 ms, a 1000 ms stall). Ground clips on board GND only: a clip on a shunt end or on VOUT shorts the converter through the PC's earth. The shunt is read with two probes, as the difference of two channels, or with a differential probe | most sessions |
 | Logic analyser | 3 channels or more, with UART, I2C and inverted-UART decoders. Rate derived: at 24 MS/s one sample is 42 ns, a fortieth of a DShot600 bit, 1.67 µs; 3 % of a 19200 baud bit, 52 µs, is 1.6 µs (`UB-B11`). Its ground on board GND only | Sessions 2, 3, 9 |
-| Bench supply 1 | 0 V to 5 V DC with a current limit. In place of the converter's LiPo cell for the lowest and highest VIN, 3.0 V and 4.2 V (`CS-B6`); current derived: 5 V × 3 A / 3.0 V = 5 A into the converter at 3 A out, before its losses (`CS-B7`); limit set below the cell's fuse. At 5 V into the INA219 for `CS-B4` and `CS-B5`. At most 5.0 V into the board through a USB-C power breakout for `DG-3`, never into J4 pin 2 (VBUS) | Sessions 1, 4, 7 |
+| Bench supply 1 | 0 V to 5 V DC with a current limit. In place of the converter's LiPo cell for the lowest and highest VIN, 3.0 V and 4.2 V (`CS-B6`); current derived: 5 V × 3 A / 3.0 V = 5 A into the converter at 3 A out, and 5.2 A at 3.1 A out, before its losses (`CS-B7`, `CS-B9a`); limit set below the cell's fuse. At 5 V into the INA219 for `CS-B4` and `CS-B5`. At most 5.0 V into the board through a USB-C power breakout for `DG-3`, never into J4 pin 2 (VBUS) | Sessions 1, 4, 7 |
 | Bench supply 2, or the ESC's own pack | for the ESC; current limit set for a motor without propeller. No note sets the limit's value: record the value used. At most 3.3 V with a current limit as the separate source for the EN threshold (`CS-B6`) | Sessions 2 to 4, 8 to 10 |
 | Multimeter | DC volts and ohms; the reference for the bus voltage at 5 V (`CS-B5`) and the BOARD voltage (`OI-22b`) | all |
-| Reference ammeter | in series with the load, 0 A to 3.5 A (`CS-B4`), and a µA range for the current into SIG (`BJ-B13`). Its accuracy is not set in the note: record its type, range and burden | `CS-B4`, `CS-B8`, `CS-B9`, `BJ-B13` |
-| Resistive loads | the current is set by the load in series with the INA219's 0.1 Ω shunt, the leads and the ammeter's burden: at 5.0 V with the shunt alone in series, 1.67 Ω gives 2.82 A, 1.43 Ω 3.27 A and the note's 1.5 Ω 3.13 A. Set each current with the reference ammeter, trimming the load, or with an electronic load in constant-current mode: 0.1 A, 1 A, 2 A, 3 A and 3.5 A (`CS-B4`), and above the 3.0 A cut for `CS-B9`, about 16 W at 3.1 A | `CS-B4`, `CS-B5`, `CS-B7`, `CS-B9` |
+| Reference ammeter | in series with the load, 0 A to 3.5 A (`CS-B4`), and a µA range for the current into SIG (`BJ-B13`). Its accuracy is not set in the note: record its type, range and burden | `CS-B4`, `CS-B8`, `CS-B9a`, `BJ-B13` |
+| Resistive loads | the current is set by the load in series with the INA219's 0.1 Ω shunt, the leads and the ammeter's burden: at 5.0 V with the shunt alone in series, 1.67 Ω gives 2.82 A, 1.43 Ω 3.27 A and the note's 1.5 Ω 3.13 A. Set each current with the reference ammeter, trimming the load, or with an electronic load in constant-current mode: 0.1 A, 1 A, 2 A, 3 A and 3.5 A (`CS-B4`), and above the 3.0 A cut for `CS-B9a`, about 16 W at 3.1 A | `CS-B4`, `CS-B5`, `CS-B7`, `CS-B9a` |
 | Small parts | 100 Ω to hold SDA low (`CS-B3`); 68 kΩ for the Hitec classic line (`HT-6a`); the pull-down for EN at the converter (Setup C); a 10 kΩ pull-down for a servo-only lead, only if `KST-7d` loses reply edges (kst-programming.md decision 3) | Sessions 4, 5 |
 | Thermometer | a contact probe or an infrared thermometer, for the converter and the shunt after a 1000 ms stall; `AM-B7` uses the IMU's own temperature | `CS-B7`, `CS-B8` |
 | SWD debug probe | to halt core0 for the heartbeat tests and for a debugger reset (`DG-4`). Whether the board brings SWD out is not recorded in this repository | `SV-5`, `CS-B11`, `SO-1`, `DG-4`, `DG-7` |
@@ -378,8 +378,9 @@ tested on hardware", numbered here in its order; STATUS open item 17.
   DG-3: the cell off and the PC's cable off; bench supply 1 at no more than
   5.0 V, its current limit set, into the board's USB-C through a USB-C power
   breakout, then lowered slowly until the chip resets. Never into J4 pin 2
-  (VBUS). DG-7 and DG-8 need a glitch reset; with no safe method to make
-  one, record them as not run.
+  (VBUS). DG-7 takes a glitch or a debugger reset, so the SWD probe's
+  reset serves; only DG-8 needs a glitch reset, and with no safe method to
+  make one it is recorded as not run.
 - **Steps and pass**, one restart each, reading LAST RESTART after it:
 
   | ID | Restart | Expected (the note) |
@@ -699,7 +700,7 @@ record"; STATUS open item 3.
 - **Record:** both levels per ESC.
 - **Result to:** open item 3; kiss-telemetry.md, "Hardware record".
 - **Safety:** the board powered before the ESC; the board-off capture
-  only after the board-on levels pass 3.63 V.
+  only if both board-on levels measure at or below 3.63 V.
 
 #### KS-2. A KISS frame on GP1 on the telemetry bit alone
 
@@ -1286,14 +1287,15 @@ stays off J4 until `CS-B6` has measured it with the board unpowered.
 - **Verifies:** VOUT at 1 A, 2 A and 3 A, its current limit, its temperature
   after 1000 ms of stall. **Why:** decision 10 needs 5.0 V and at least 3 A;
   the module's ratings are unknown.
-- **Setup:** C with the resistive loads on VOUT in place of the servo, and
-  CURRENT SENSE at `NONE`, so the guard's stall cut (above 1.0 A for
-  400 ms) and hard cut (3.0 A) do not switch the supply off; or the load on
-  VOUT ahead of the shunt. The servo tester's START switches EN on. The
-  scope on VOUT; the thermometer.
+- **Setup:** C with no servo and CURRENT SENSE at `NONE`, so none of the
+  guard's cuts acts: not the stall cut (above 1.0 A for 400 ms), the hard
+  cut (3.0 A) or the collapse cut (under 4.0 V for 1000 ms). The resistive
+  loads from VOUT to GND. The servo tester's START switches EN on. The scope
+  on VOUT; the thermometer.
 - **Pass:** criterion not set in the note beyond the requirement of 5 V at
   at least 3 A, with no tolerance on VOUT. For reference, the firmware cuts
-  the supply when VOUT reads under 4.0 V for 1000 ms (`GUARD_LOW_MV`).
+  the supply when VOUT reads under 4.0 V for 1000 ms (`GUARD_LOW_MV`) with
+  a sensor declared.
 - **Record:** VOUT per load; the current at which it limits; the
   temperature.
 - **Result to:** as CS-B6.
@@ -1336,29 +1338,41 @@ and BACK" among B6 to B13;
   supply" (B3); open item 16.
 - **Safety:** 100 Ω, never a short, to GND.
 
-#### CS-B9, the hard cut
+#### CS-B9a. The hard cut
 
-[current-sense.md](design/current-sense.md#bench-tests), B9, its 1.5 Ω step;
-the stall step is in Session 7. Run here so that Session 5 relies on a
-proven hard cut, not on bench supply 1's current limit alone.
+[current-sense.md](design/current-sense.md#bench-tests), B9, its 1.5 Ω step,
+numbered here 9a; the stall step is `CS-B9b` in Session 7. Run here so that
+Session 5 relies on a proven hard cut, not on bench supply 1's current limit
+alone.
 
 - **Verifies:** the hard cut on one reading at or above 3.0 A
   (`GUARD_HARD_MA`), and the time from the current step to EN low.
-- **Setup:** C with the servo tester running; the load on VIN-, the servo's
-  plus behind the shunt, so the INA219 sees its current; never on VOUT ahead
-  of the shunt. The note's 1.5 Ω gives about 3.13 A with the shunt in
-  series; leads and the ammeter lower it. Set the current at least 0.1 A
-  over 3.0 A, a margin this plan sets; above 3.2 A, the end of the /8
-  range, the reading is clipped, which cuts as well. The scope on EN and
-  across the shunt with two probes.
-- **Steps:** switch the load onto VIN- while the tester runs.
-- **Pass:** EN low on the hard cut. The time to EN low: criterion not set;
-  record it.
-- **Record:** the current measured on the ammeter; the capture; the time.
+- **Setup:** first CS-B4's setup: bench supply 1 at 5.0 V into VIN+, with
+  the load, the shunt and the leads used below. The cut fires on one
+  reading, about 25 ms after the step, too soon to trim the load or read a
+  meter, so the current is set and read here. The note's 1.5 Ω gives about
+  3.13 A with the shunt in series; leads and the ammeter lower it. Set it at
+  least 0.1 A over 3.0 A, a margin this plan sets; above 3.2 A, the end of
+  the /8 range, the reading is clipped, which cuts as well. Then Setup C
+  with the servo tester running: the load on VIN-, the servo's plus behind
+  the shunt, so the INA219 sees its current, never on VOUT ahead of the
+  shunt. VIN at 4.2 V. Bench supply 1's limit above the converter's input
+  current at 3.1 A out, derived: 5.0 V × 3.1 A / 4.2 V = 3.7 A at 4.2 V VIN,
+  and 5.2 A at 3.0 V VIN, before the converter's losses, which are not
+  known. A lower limit lets VOUT sag and the current fall under 3.0 A, which
+  reads as a false fail. The scope on EN, on VOUT and across the shunt with two
+  probes.
+- **Steps:** switch the load onto VIN- while the tester runs; read the step
+  on the scope across the shunt.
+- **Pass:** EN low on the hard cut, with the step on the scope at or above
+  3.0 A (the voltage across 0.1 Ω at or above 300 mV). The time to EN low:
+  criterion not set; record it.
+- **Record:** the current set on bench supply 1; the step on the scope;
+  VOUT during the step; the time; bench supply 1's limit and VIN.
 - **Result to:** verification table, row "The cuts on the current sensor's
   readings"; open item 16.
-- **Safety:** the load's rating, about 16 W; bench supply 1's current limit
-  set.
+- **Safety:** the load's rating, about 16 W; bench supply 1's limit as set
+  above, with the cell's fuse.
 
 #### CS-B11. The heartbeat with the supply on
 
@@ -1377,7 +1391,7 @@ that Session 5 relies on it.
 ## Session 5: servo programmers and backups
 
 Prerequisites: all of Session 4 passed with the converter used here, the hard
-cut (`CS-B9`'s hard-cut step), the stuck bus (`CS-B3`) and the heartbeat
+cut (`CS-B9a`), the stuck bus (`CS-B3`) and the heartbeat
 (`CS-B11`) among it; Session 3 for the ESC backups of `BK-1`. Setup C with the
 servo under test; a card in the slot. Each write is relied on only after its
 family's write with read-back below has passed.
@@ -1688,8 +1702,8 @@ Prerequisites: all of Session 4 passed with the converter and the INA219
 used here; `SD-1` and `SD-2` of Session 1 on the card used for `CS-B12`.
 Setup C; the scope on EN, SIG and the two ends of the 0.1 Ω shunt, each
 end with its own probe and the ground clips on board GND only, or a
-differential or current probe. The hard cut and the heartbeat (`CS-B9`'s
-hard-cut step, `CS-B11`) passed in Session 4. Run the tests in the order
+differential or current probe. The hard cut and the heartbeat (`CS-B9a`,
+`CS-B11`) passed in Session 4. Run the tests in the order
 below: the stall first, the log last.
 
 [current-sense.md](design/current-sense.md#bench-tests), "Bench tests";
@@ -1715,9 +1729,10 @@ STATUS open item 16.
 - **Result to:** verification table, row "The cuts on the current sensor's
   readings"; open item 16; current-sense.md, "Protection".
 
-#### CS-B9, the stall cut
+#### CS-B9b. The stall cut
 
-The stall step of B9; its hard-cut step ran in Session 4.
+[current-sense.md](design/current-sense.md#bench-tests), B9, its stall step,
+numbered here 9b; the hard-cut step is `CS-B9a` in Session 4.
 
 - **Verifies:** the stall cut with a servo held at its stop, and the time
   from the stall to EN low.
@@ -1751,13 +1766,13 @@ The stall step of B9; its hard-cut step ran in Session 4.
   the log on. **Why:** a real card's read latency and busy time, the
   receiver's `busRxReady()` on the board and the cuts' timing with the log
   on are not measured.
-- **Prerequisites:** both steps of CS-B9, and CS-B11, passed.
+- **Prerequisites:** CS-B9a, CS-B9b and CS-B11 passed.
 - **Steps:** HOLD TO START with a card mounted; run 60 s, sweeping; STOP;
-  repeat CS-B9's stall step with the log on; read the files on the PC.
+  repeat CS-B9b with the log on; read the files on the PC.
 - **Pass:** no heartbeat trip in the 60 s; the rows counted. The row count
   has no figure in the note; for reference, one reading every 25 ms gives
   about 2,400 rows in 60 s (derived). The cut's time with the log on:
-  criterion not set; record it against CS-B9's.
+  criterion not set; record it against CS-B9b's.
 - **Record:** the row count; the file's size; the cut's time with the log.
 - **Result to:** verification table, row "The servo log"; open item 16;
   current-sense.md, slice 6 as built, "Not on hardware".
@@ -1809,10 +1824,13 @@ SO-4, SO-6, SO-3.
   unpowered until the probe has passed.
 - **Steps:** START; power the ESC; watch for at least 200 s: in the note's
   model of the line, detection takes 4.5 s to 199 s, about 40 s at the
-  median; STOP; read the throttle values on ESC SETTINGS.
+  median. Channel 16 at 1500 µs and CH17 on are off the START frame, so the
+  idle stop ends the frames after 30 s with no touch (sbus-output.md,
+  "Safety"): touch an inert spot of the screen at least every 30 s, and
+  record any idle stop. STOP; read the throttle values on ESC SETTINGS.
 - **Pass:** criterion not set; record.
-- **Record:** the beeps and the time to them; both throttle values before
-  and after.
+- **Record:** the beeps and the time to them; any idle stop; both
+  throttle values before and after.
 
 #### SO-3. A Betaflight FC
 
@@ -1928,7 +1946,7 @@ result is recorded as measured, and a pass or fail is the owner's call.
 | Criterion | Tests |
 |---|---|
 | None: record only | `OI-21`, `VT-6`, `DG-7`, `SD-4`, `RS-4`, `RS-5`, `OI-1`, `EC-B4`, `EC-B7`, `EC-B8`, `WC-1`, `WC-3`, `BJ-B3`, `BJ-B4`, `BJ-B7`, `BJ-B11`, `BJ-B12`, `BJ-B13`, `SV-9`, `CS-B4`, `CS-B5`, `CS-B7`, `CS-B8`, `CS-B10`, `CS-B13`, `OI-11`, `HT-6a`, `KST-7a`, `HT-6b`, `OI-24c`, `BK-3`, `RX-5`, `RX-7`, `AM-B3` to `AM-B8`, `SO-6`, `OI-18`, `UB-B5`, `UB-B7` to `UB-B11` |
-| Part of the test | `OI-22b` (the reading's error), `RS-2` (the drift), `SD-2` (beyond the drop count), `OI-20a` (the scan's time), `BB-1` (the viewers), `OI-15a` (`DSERR`), `PC-3`, `EC-B2` (the tone), `BJ-B2`, `BJ-B5` (the rise time), `BJ-B10` (the next read), `OI-24a` (the servo's travel), `CS-B2` (the frame's time), `CS-B3` (the code, the leakage), `CS-B6` (the start-up time, the decay), `CS-B9` (the time to EN low), `CS-B12` (the row count, the cut's time), `KST-7c` (the window), `KST-7d` (read reliability), `HT-6c` (the decay), `SO-2`, `SO-3` (the two times), `UB-B6` (the turnaround, the echo) |
+| Part of the test | `OI-22b` (the reading's error), `RS-2` (the drift), `SD-2` (beyond the drop count), `OI-20a` (the scan's time), `BB-1` (the viewers), `OI-15a` (`DSERR`), `PC-3`, `EC-B2` (the tone), `BJ-B2`, `BJ-B5` (the rise time), `BJ-B10` (the next read), `OI-24a` (the servo's travel), `CS-B2` (the frame's time), `CS-B3` (the code, the leakage), `CS-B6` (the start-up time, the decay), `CS-B9a` and `CS-B9b` (the time to EN low), `CS-B12` (the row count, the cut's time), `KST-7c` (the window), `KST-7d` (read reliability), `HT-6c` (the decay), `SO-2`, `SO-3` (the two times), `UB-B6` (the turnaround, the echo) |
 
 ## Results template
 
@@ -1948,7 +1966,7 @@ and the note's section the result went into.
 | angle-meter.md | 9: `AM-B1` to `AM-B9` |
 | blackbox-logging.md | 1: `BB-1`; its unmeasured BUF PEAK and WORST FLUSH are `SD-2` |
 | bluejay-blheli-s.md | 13: `BJ-B1` to `BJ-B13` |
-| current-sense.md | 13: `CS-B1` to `CS-B13` |
+| current-sense.md | 13: `CS-B1` to `CS-B13`, B9 in two steps, `CS-B9a` and `CS-B9b` |
 | diagnostics.md | 8: `DG-1` to `DG-8` |
 | esc-commands.md | 9: `EC-B1` to `EC-B9` |
 | hitec-programming.md | 6: `HT-6a` to `HT-6f` |

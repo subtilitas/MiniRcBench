@@ -198,7 +198,12 @@ MENU as built, revision lines in the design notes, README's Layout, Tests
 and user manual, and rule 9 of `test/check_docs.py`, which fails when
 README.md or a wiki page names a screen text, view or image structure B
 removed. The owner answered the note's eight questions on 2026-11-14 (open
-item 18). The pin
+item 18). The slices name the AM32 screen AM32 CONFIG; it is ESC SETTINGS,
+under MENU's ESC CONFIG with USB BRIDGE
+([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions) decision
+1). MENU has eight rows (`UI_MENU` in `src/ui_registry.cpp`): ESC COMMANDS,
+ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, SD LOG and
+SETTINGS. The pin
 claim both features share is built (slice 1): the AM32 editor and the servo
 tester run on it. For the ESC, the board is the throttle source. It sends
 bidirectional DShot (a digital ESC protocol in which the ESC answers each
@@ -504,8 +509,8 @@ ports the first branch's frame slot and ring.
 State on 2026-11-14: one pull request is open as a draft, #49, the touch-loss
 stop of item 23; all seven CI jobs pass on `main` at 22c1e4b (#51). The owner
 answered the questions of items 18 to 21 and 24 on 2026-11-14. Eight of the
-decisions are built: the settings carried over from older versions, now 2 to 5
-into version 6 (item 19), the log numbering (item 20), the write refusal on a
+decisions are built: the settings carried over from older versions, 2 to 5 into
+version 6 (item 19), the log numbering (item 20), the write refusal on a
 red BOARD voltage (item 21), and all five of item 24: the tester's 3D note,
 HITEC SERVO's claim at opening, the servo tester's hold past the travel,
 SETTINGS' 1 s defaults hold and ESC SETTINGS' read-only AM32 view. The rest
