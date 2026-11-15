@@ -328,7 +328,7 @@ static unsigned commandFrames(const Bench *b, unsigned from, unsigned to) {
 	return n;
 }
 
-/** @brief A direction hold, 8 then 12, from a settled ESC; its first slot. */
+/** @brief A hold's request, @p cmd then 12, run to its end; its first slot. */
 static unsigned benchHold(Bench *b, uint8_t cmd) {
 	benchRequest(b, cmd, true);
 	unsigned at = b->slot;
@@ -358,13 +358,14 @@ static void testCmdAccept() {
 	const EscCmdReady all[] = {EscCmdReady::NoAnswer, EscCmdReady::Turning,
 	                           EscCmdReady::Settling, EscCmdReady::Busy,
 	                           EscCmdReady::Ready};
+	const char *names[] = {"NoAnswer", "Turning", "Settling", "Busy", "Ready"};
 	const bool takes[] = {false, false, false, true, true};
 	for (unsigned i = 0; i < 5; i++) {
 		char what[64];
-		snprintf(what, sizeof(what), "disarmed, readiness %u: %s", i,
+		snprintf(what, sizeof(what), "disarmed, %s: %s", names[i],
 		         takes[i] ? "taken" : "refused");
 		checkTrue(what, escCmdAccept(8, true, false, all[i]) == takes[i]);
-		snprintf(what, sizeof(what), "armed, readiness %u: refused", i);
+		snprintf(what, sizeof(what), "armed, %s: refused", names[i]);
 		checkTrue(what, !escCmdAccept(8, true, true, all[i]));
 	}
 	checkTrue("a beacon at Ready is taken", escCmdAccept(1, false, false, EscCmdReady::Ready));
