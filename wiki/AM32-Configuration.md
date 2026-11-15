@@ -3,9 +3,8 @@
 # AM32 Configuration
 
 This screen reads, changes and writes the settings of an AM32 ESC (electronic
-speed controller) over the signal wire, and reads and shows those of a
-Bluejay or BLHeli_S ESC. It needs no laptop or configurator. It does not
-update ESC firmware.
+speed controller), and of a Bluejay or BLHeli_S ESC, over the signal wire.
+It needs no laptop or configurator. It does not update ESC firmware.
 
 <img src="img/am32-list.png" width="240" alt="The AM32 settings list">
 
@@ -24,10 +23,9 @@ Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
 `ESC CONFIG` is a chooser. It takes nothing from the signal pin: DShot keeps
 running until you tap `ESC SETTINGS`. `USB BRIDGE` lets a desktop ESC
 tool reach the ESC through the board: see [USB Bridge](USB-Bridge). `BACK`
-returns to MENU. The screen is
-titled `ESC SETTINGS` for every ESC firmware; it reads and writes AM32, and
-reads Bluejay and BLHeli_S without writing them: see
-[EFM8 ESCs](#efm8-escs).
+returns to MENU. The screen is titled `ESC SETTINGS` for every ESC
+firmware; it reads and writes AM32, Bluejay and BLHeli_S: see
+[EFM8 ESCs](#efm8-escs) for the last two.
 
 The screen hands the signal pin from the DShot driver to the bootloader link
 (19200 baud, one wire, half-duplex), then starts searching. Before DShot lets
@@ -105,29 +103,31 @@ The handshake is also a valid greeting for the bootloader of Bluejay and
 BLHeli_S ESCs, so such an ESC can answer it. The screen tells the answer
 apart from an AM32 one: `471` with 0xE8 four bytes later names the EFM8
 chip of a Bluejay or BLHeli_S ESC (`E8B1`, `E8B2` or `E8B5`). The tester
-then reads that ESC's settings and shows them; it does not change them.
-From the bootloaders' source; not seen on an ESC.
+then reads that ESC's settings, and on Bluejay 0.21 and BLHeli_S 16.3 to
+16.7 lets you change and write them. From the bootloaders' source; not
+seen on an ESC.
 
 The page reads `EFM8 E8B2 ANSWERED: READING.` and, in place of
 `POWER-CYCLE THE ESC`, `EFM8 BOOTLOADER`: the ESC waits in its bootloader
 for commands, and its firmware does not run until it leaves. The tester
 holds the signal line high for half a second, greets the bootloader again
 and reads its settings page, 112 bytes for BLHeli_S and 255 for Bluejay.
-Nothing is erased or written. With rcbench's simulated ESC this takes
+Reading erases and writes nothing. With rcbench's simulated ESC this takes
 under one second; not measured on an ESC.
 
 <img src="img/am32-efm8.png" width="240" alt="The connect page while a Bluejay ESC is read: EFM8 BOOTLOADER, EFM8 E8B2 ANSWERED: READING.">
 
 Then the list opens. The strip names the firmware, its version, the
 settings layout and the chip, for example `BLUEJAY 0.21  LAYOUT 208  E8B2`.
-Every row is grey: shown, not editable. The names and values are those of
-rcbench's tables, in capitals; DIRECTION's bidirectional settings read `3D`
-and `3D REVERSED`. A value that is none of the setting's own reads, for
-example, `RAW 17` in amber. `WRITE...` and `REVERT` are grey, and under the
-list: `SHOWN ONLY: WRITING IS NOT BUILT.` / `BACK SENDS LEAVE: THE ESC
-STARTS.`
+The names and values are those of rcbench's tables, in capitals;
+DIRECTION's bidirectional settings read `3D` and `3D REVERSED`. A value that
+is none of the setting's own reads, for example, `RAW 17` in amber. On
+Bluejay 0.21 and BLHeli_S 16.3 to 16.7 you edit the settings as on AM32,
+below: 15 on Bluejay, 12 on BLHeli_S. Grey rows are shown only: BLHeli_S'
+throttle limits, Bluejay's PWM INDICATOR and SAFETY ARM. Under the list:
+`TAP A SETTING TO EDIT` / `BACK SENDS LEAVE: THE ESC STARTS.`
 
-<img src="img/efm8-list.png" width="240" alt="A Bluejay 0.21 ESC's settings, every row grey, WRITE... and REVERT grey">
+<img src="img/efm8-list.png" width="240" alt="A Bluejay 0.21 ESC's settings, the editable rows white, WRITE... and REVERT grey until a change">
 
 Tap a row to select it. Some rows have a note, two amber lines on the
 strip:
@@ -149,16 +149,82 @@ a line; drag to scroll the 255 bytes of a Bluejay page.
 
 <img src="img/efm8-hex.png" width="240" alt="ESC HEX: the Bluejay page's bytes, 8 to a line">
 
-An older version, and a page the firmware rewrote, read the same way with
-two amber lines on the strip:
+An older version, and a page the firmware rewrote, open read-only: every
+row grey, `WRITE...` grey, `SHOWN ONLY: NOTHING IS WRITTEN.` under the
+list, and two amber lines on the strip. With a card in, the settings go to
+the card as the list opens, as `BACKUP/BJnnn.TXT` for Bluejay or
+`BACKUP/BHnnn.TXT` for BLHeli_S:
 
 | Page | Strip |
 |---|---|
-| Bluejay before 0.21, BLHeli_S before 16.3 | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
-| The ESC lost its tags, the 48 bytes that name its hardware | `ESC LOST ITS TAGS: READ-ONLY.` / `REFLASH ON A COMPUTER. NO BACKUP.` |
-| The settings marker is wrong | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
+| Bluejay before 0.21, BLHeli_S before 16.3 | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` / `SHOWN ONLY. BACKUP BJ018` |
+| The ESC lost its tags, the 48 bytes that name its hardware | `ESC LOST ITS TAGS: READ-ONLY.` / `REFLASH ON A COMPUTER. BACKUP BH018` |
+| The settings marker is wrong | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. BACKUP BJ018` |
+
+Without a card the second line reads `SHOWN ONLY. NO CARD: NO BACKUP.`
+(`REFLASH ON A COMPUTER. NO CARD.` for lost tags), while USB DRIVE holds
+the card `SHOWN ONLY. USB DRIVE: NO BACKUP.` (`REFLASH ON A COMPUTER. USB
+DRIVE.`), and with a card that refuses the file `... BACKUP FAILED.` The
+same page opened again saves no second copy while its backup is the
+newest on the card.
 
 <img src="img/efm8-readonly.png" width="240" alt="Bluejay 0.19: BLUEJAY 0.19, LAYOUT 206: READ-ONLY. in amber">
+
+**Writing.** Edit as on AM32: tap a row, then `-` and `+`, or swipe it
+sideways. `WRITE...` opens `ESC WRITE`, which lists each change and the
+backup it saves first, for example `BACKUP FIRST: BACKUP/BJ001.TXT`. Hold
+`HOLD TO WRITE` for 1 s. The tester saves the settings as it first read
+them to the card, with the tags that name the ESC's hardware, then writes
+the changes, reads the page back and compares it. Only the settings page is
+written; the ESC's firmware and bootloader are never erased. A card that
+refuses the backup stops the write; without a card the write runs and the
+old values are lost when you leave the screen, as the page says in amber.
+
+<img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH changed from 40 to 88, cyan, in the editor bar"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 changes and BACKUP FIRST: BACKUP/BJ001.TXT">
+
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in amber, BACK and OK grey"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in green, LEAVING STARTS THE ESC WITH THEM.">
+
+| Result | Meaning and next step |
+|---|---|
+| `WRITE VERIFIED. BACKUP BJ018` / `LEAVING STARTS THE ESC WITH THEM.` | Read back equal. `BACK` from the list sends LEAVE, and the ESC starts with the new settings |
+| `READ FAILED: NOTHING ERASED.` | The read before the erase failed. Tap OK and write again |
+| `ESC PAGE CHANGED: NOT WRITTEN.` | The ESC's page differs from what was read. Tap OK, then `READ AGAIN` |
+| `WRITE FAILED: PAGE AS READ.` | Three tries did not take; the ESC holds its old settings. Write again |
+| `HALF WRITTEN: KEEP THE ESC POWERED.` | The page is neither the old nor the new. Write again at once |
+| `NO ANSWER IN THE WRITE: KEEP POWER.` | The ESC stopped answering after its page was erased. Keep it powered, fix the wire, `READ AGAIN`, then write |
+
+**After a cut write keep the ESC powered.** Its page may be erased or half
+written. While it is powered the ESC waits in its bootloader, and the
+tester still holds the page as it was read, tags included: `READ AGAIN`,
+then `WRITE...` writes your changes, or, after `REVERT`, the page as read
+(`THE PAGE AS READ, TAGS INCLUDED.`). A power cycle before that makes the
+ESC store its defaults and lose its tags for good: the next session reads
+`ESC LOST ITS TAGS: READ-ONLY.`, and only a firmware flash for that ESC on a
+computer brings them back. The backup file on the card holds them. While a
+page is half written, `BACK` warns first,
+`HALF WRITTEN. BACK AGAIN LEAVES IT;` / `A POWER CYCLE THEN LOSES ITS TAGS.`;
+a second `BACK` opens the leave page, and no LEAVE is sent.
+
+That way back holds only while the session goes on. If it ended with the
+page half written, by a failed line driver, a heartbeat stop or the second
+`BACK`, the result reads `SESSION ENDED: RESTORE ON A COMPUTER.`: the next
+session reads the page as it is, most likely empty or with lost tags, which
+it does not write, or as a torn page that only looks whole, and the tester
+cannot restore the old one. Keep the ESC powered and restore it on a
+computer. The old page, as the session first read it, is in the backup on
+the card, `ALSO ON THE CARD: BACKUP BJ018`; without a card the backup line
+reads `NO BACKUP: OLD PAGE ON THIS SCREEN.` Until you leave ESC SETTINGS,
+`OLD PAGE` on the connect page shows its bytes, and so does ESC HEX of a
+later list, under the page's own: copy them by hand before you leave.
+
+<img src="img/efm8-ended.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. SESSION ENDED: RESTORE ON A COMPUTER. NO BACKUP: OLD PAGE ON THIS SCREEN."> <img src="img/efm8-oldpage.png" width="240" alt="ESC HEX of the old page in amber: OLD PAGE, BEFORE THE CUT WRITE: ON THIS SCREEN ONLY: COPY IT.">
+
+<img src="img/efm8-lost.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. TAP OK, THEN READ AGAIN."> <img src="img/efm8-guard.png" width="240" alt="HALF WRITTEN. BACK AGAIN LEAVES IT; A POWER CYCLE THEN LOSES ITS TAGS. on the strip, READ AGAIN">
+
+<img src="img/efm8-asread.png" width="240" alt="ESC WRITE with 0 CHANGES: THE PAGE AS READ, TAGS INCLUDED. and HOLD TO WRITE">
+
+None of this is verified on an ESC yet: the write has run against
+rcbench's simulated ESC only.
 
 A page the tester does not take stays on the connect page, with what it
 is: `EFM8 E8B2: SETTINGS PAGE EMPTY` with `PAGE EMPTY, AS AFTER A CUT

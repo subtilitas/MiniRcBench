@@ -171,7 +171,8 @@ Neither figure has been measured on a motor from this board.
 
 After ESC SETTINGS has read an ESC with 3D MODE on, or a Bluejay or
 BLHeli_S ESC with DIRECTION at 3D or 3D REVERSED, or written 3D MODE on
-(accepted by the ESC, verified or not), or after `3D ON` on
+(accepted by the ESC, verified or not) or DIRECTION at 3D (verified, or
+left half written), or after `3D ON` on
 [ESC COMMANDS](#esc-commands), in this power-up, the row under the `ERPM` line
 reads `3D MODE ESC: 0-50% REVERSED AT 2X` in amber, in place of the pole count
 and the swipe hint, armed or not; `NO TELEMETRY` stays on its own line above
@@ -385,8 +386,8 @@ programming session, and `BACK` in a programmer before it holds SIG.
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and USB BRIDGE, each with its two lines">
 
 `MENU → ESC CONFIG` opens a choice of two, as PROGRAMMER: **ESC SETTINGS**,
-which opens the ESC settings screen, AM32 read and written, Bluejay and
-BLHeli_S read, and **USB BRIDGE**, which passes a desktop ESC tool's
+which opens the ESC settings screen, AM32, Bluejay and BLHeli_S read
+and written, and **USB BRIDGE**, which passes a desktop ESC tool's
 bytes to the ESC, with `A DESKTOP ESC TOOL OVER USB.` and
 `PASSTHROUGH: AM32 DIRECT MODE.` under it. The strip names the signal pin,
 `SIG GP0`. ESC CONFIG takes no pin; the tap on an entry takes SIG. `BACK`

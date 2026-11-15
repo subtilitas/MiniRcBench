@@ -22,6 +22,8 @@ static critical_section_t s_cs;
  */
 static uint16_t    s_cmdSeq = 0;           /**< The held command's seq. */
 static EwJobOp     s_cmdOp = EwJobOp::Stop; /**< The held command. */
+static uint8_t     s_cmdDraft[EW_PAGE_MAX]; /**< The draft a Write holds. */
+static uint16_t    s_cmdLen = 0;           /**< Its length. */
 static EwJobStatus s_status;               /**< What core1 last published. */
 /** @} */
 
@@ -38,6 +40,8 @@ static EwJobOp      s_lastOp;        /**< The last operation started. */
 static uint8_t      s_result;        /**< `ew_ses_t` of the last operation that ended. */
 static bool         s_stalled;       /**< A lapse stopped an operation. */
 static bool         s_left;          /**< The leave ran to its end. */
+static uint8_t      s_draft[EW_PAGE_MAX]; /**< The draft of the Write taken: the session judges and copies it. */
+static uint16_t     s_draftLen;      /**< Its length. */
 /**
  * @brief Something the status shows changed since the last publish: a
  *        command taken, an operation's end, a stop by the lapse. The page
@@ -45,6 +49,8 @@ static bool         s_left;          /**< The leave ran to its end. */
  *        for its copy on every pass.
  */
 static bool         s_changed;
+/** @brief The session's `writing` and `dirty` as last published: a change publishes. */
+static bool         s_pubWriting, s_pubDirty;
 /** @} */
 
 /** @brief Copy the job's state to the shared status. */
@@ -61,6 +67,11 @@ static void publish() {
 	s_status.haveRead = s_ses.have_read;
 	s_status.stalled = s_stalled;
 	s_status.left = s_left;
+	s_status.reread = s_ses.reread;
+	s_status.writing = s_pubWriting = s_ses.writing;
+	s_status.dirty = s_pubDirty = s_ses.dirty;
+	s_status.refuse = s_ses.refuse;
+	s_status.badOff = s_ses.bad_off;
 	s_status.contact = s_ses.contact;
 	s_status.id = s_ses.id;
 	memcpy(s_status.page, s_ses.orig, sizeof(s_status.page));
@@ -119,6 +130,12 @@ static void take(EwJobOp op, bool uiAlive) {
 		case EwJobOp::Leave:
 			if (s_state != EwJobState::InMode) break;
 			started(op, ew_session_leave(&s_ses));
+			return;
+		case EwJobOp::Write:
+			// The guard judges the draft: only editable fields of a written
+			// layout change, each to one of its values.
+			if (s_state != EwJobState::InMode) break;
+			started(op, ew_session_write(&s_ses, s_draft, s_draftLen));
 			return;
 		case EwJobOp::Stop:
 			break;
@@ -184,6 +201,10 @@ static void escwireJobStep(uint32_t nowMs, bool uiAlive) {
 	critical_section_enter_blocking(&s_cs);
 	uint16_t seq = s_cmdSeq;
 	EwJobOp op = s_cmdOp;
+	if (seq != s_ackSeq && op == EwJobOp::Write) {
+		memcpy(s_draft, s_cmdDraft, sizeof(s_draft));
+		s_draftLen = s_cmdLen;
+	}
 	critical_section_exit(&s_cs);
 
 	if (seq != s_ackSeq) {
@@ -191,8 +212,9 @@ static void escwireJobStep(uint32_t nowMs, bool uiAlive) {
 		take(op, uiAlive);
 	}
 	if (s_state == EwJobState::Busy) {
-		// A lapse stops an entry or a read; a leave's frame has gone, and the
-		// rest is the line low, so it finishes.
+		// A lapse stops an entry, a read or a write: a write that has sent
+		// its erase or program runs to its read-back, then parks. A leave's
+		// frame has gone, and the rest is the line low, so it finishes.
 		if (!uiAlive && s_lastOp != EwJobOp::Leave) {
 			ew_session_stop(&s_ses);
 			s_stalled = true;
@@ -200,14 +222,16 @@ static void escwireJobStep(uint32_t nowMs, bool uiAlive) {
 		}
 		run();
 	}
+	// The erase or program went: core0 sees the page in doubt at once.
+	if (s_ses.writing != s_pubWriting || s_ses.dirty != s_pubDirty) s_changed = true;
 	if (s_changed) publish();
 }
 
 static bool escwireJobRelease(uint32_t nowMs) {
 	(void)nowMs;
 	if (s_state == EwJobState::Busy) {
-		// An entry or a read is cut; a leave, or a write once there is one,
-		// runs to its end first.
+		// An entry, a read or a write before its erase is cut; a write that
+		// has sent its erase or program, and a leave, run to their end first.
 		if (s_lastOp != EwJobOp::Leave) ew_session_stop(&s_ses);
 		run();
 		if (s_state == EwJobState::Busy) {
@@ -229,17 +253,27 @@ const Core1JobOps ESCWIRE_JOB_OPS = {
 // core0
 // ---------------------------------------------------------------------------
 
-uint16_t escwireJobCommand(EwJobOp op) {
+/** @brief Hold @p op, with @p n bytes of @p draft for a Write. */
+static uint16_t post(EwJobOp op, const uint8_t *draft, uint16_t n) {
 	critical_section_enter_blocking(&s_cs);
 	bool pending = s_status.ackSeq != s_cmdSeq;
 	if (!(pending && s_cmdOp == EwJobOp::Stop)) {
 		s_cmdSeq = (uint16_t)(s_cmdSeq + 1);
 		s_cmdOp = op;
+		if (draft) {
+			if (n > sizeof(s_cmdDraft)) n = sizeof(s_cmdDraft);
+			memcpy(s_cmdDraft, draft, n);
+			s_cmdLen = n;
+		}
 	}
 	uint16_t held = s_cmdSeq;
 	critical_section_exit(&s_cs);
 	return held;
 }
+
+uint16_t escwireJobCommand(EwJobOp op) { return post(op, nullptr, 0); }
+
+uint16_t escwireJobWrite(const uint8_t *draft, uint16_t n) { return post(EwJobOp::Write, draft, n); }
 
 void escwireJobStatus(EwJobStatus *out) {
 	critical_section_enter_blocking(&s_cs);

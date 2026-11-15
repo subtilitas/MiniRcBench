@@ -188,7 +188,8 @@ Keiner der beiden Werte ist an einem Motor mit diesem Board gemessen.
 
 Hat ESC SETTINGS seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
 einen Bluejay- oder BLHeli_S-ESC mit DIRECTION auf 3D oder 3D REVERSED, oder
-3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), oder kam
+3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht) oder
+DIRECTION auf 3D (bestätigt oder halb geschrieben), oder kam
 `3D ON` auf [ESC COMMANDS](#esc-commands), zeigt die Zeile unter der
 `ERPM`-Zeile in Bernstein `3D MODE ESC: 0-50% REVERSED AT 2X` (3D-ESC: 0 bis
 50 % rückwärts mit doppeltem Gas), an Stelle der Polzahl und des
@@ -417,8 +418,8 @@ Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS und USB BRIDGE, jedes mit seinen zwei Zeilen">
 
 `MENU → ESC CONFIG` öffnet eine Wahl aus zwei, wie PROGRAMMER:
-**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32
-gelesen und geschrieben, Bluejay und BLHeli_S gelesen, und **USB BRIDGE**,
+**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32,
+Bluejay und BLHeli_S gelesen und geschrieben, und **USB BRIDGE**,
 das die Bytes eines ESC-Programms auf dem Computer an den ESC weitergibt,
 darunter `A DESKTOP ESC TOOL OVER USB.` und
 `PASSTHROUGH: AM32 DIRECT MODE.`. Die Leiste nennt den Signalpin,
