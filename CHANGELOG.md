@@ -44,6 +44,19 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
+  [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built), copied
+  unchanged from rcbench e98345aa into `lib/rcbench/`: `servo_rudder.*`, the
+  deflection from a zero, its travel in mm and the largest deflection each
+  side; `imu.*`, the IMU (inertial measurement unit) model with
+  `imu_feed_angles()`, which takes three angles and a time; and
+  `witmotion.*`, the WitMotion decoder `imu.h` includes. Their tests,
+  `test_servo_rudder.c`, `test_imu_angles.c` with `wit_frame.h` and
+  `test_witmotion.c`, 25 cases, are in `test/rcbench/`, run by `make -C test
+  run` through `test/angle.mk`. Nothing in `src/` calls them yet, and the
+  firmware does not build them. The cases of rcbench's `test_imu.c` and
+  `test_imu_filter.c` that need `imu.h` alone are not adapted; open for
+  slice 3.
 - After v0.1.0-rc1: each blackbox log that stops clean gets its run
   summary beside it, `LOGS/LOGnnnnn.TXT`, slice 2 of
   [run-summary.md](docs/design/run-summary.md#slice-2-as-built).

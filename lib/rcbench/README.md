@@ -4,7 +4,8 @@ The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
 the Hitec files at commit `3e29dc1b`, the S.BUS files and the sensor bus at
 commit `5ef42efd`, the escwire files and the servo file store at commit
-`2b4f934a`, every other file at commit `453cf334`. rcbench is MIT
+`2b4f934a`, the angle meter's files at commit `e98345aa`, every other file at
+commit `453cf334`. rcbench is MIT
 licensed by the same copyright holder as MiniRcBench, subtilitas, so the
 copies carry the licence of this repository, [LICENSE](../../LICENSE). Each
 file keeps its `SPDX-License-Identifier: MIT` line. The directory layout is
@@ -54,6 +55,18 @@ The escwire files and the servo file store, at commit `2b4f934a`
 | `protocols/escwire/rp2350/ew_line.c`, `ew_line.h`, `ew_line.pio` | the same paths |
 | `shared/logfile/servo_store.c` | `shared/logfile/servo_store.c` |
 | `shared/logfile/include/servo_store.h` | `shared/logfile/include/servo_store.h` |
+
+The angle meter's files, at commit `e98345aa`
+(`e98345aa5219643f25edb7a25afc1d32173bc43f`):
+
+| File here | rcbench path |
+| --- | --- |
+| `shared/servo/servo_rudder.c` | `shared/servo/servo_rudder.c` |
+| `shared/servo/include/servo_rudder.h` | `shared/servo/include/servo_rudder.h` |
+| `shared/bench/imu.c` | `shared/bench/imu.c` |
+| `shared/bench/include/imu.h` | `shared/bench/include/imu.h` |
+| `protocols/witmotion/witmotion.c` | `protocols/witmotion/witmotion.c` |
+| `protocols/witmotion/include/witmotion.h` | `protocols/witmotion/include/witmotion.h` |
 
 The servo tester uses them: `servo_sweep` computes the sweep curve on core1,
 and `out_pwm_map` maps each GPIO (general-purpose input/output) to its PWM
@@ -122,6 +135,27 @@ Its rcbench test, copied unchanged from rcbench `test/host/test_sbus.c` into
 `test/rcbench/`, is `test_sbus.c`, 12 cases.
 rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
 this repository lists its sources in its own `.cmake` and `.mk` files.
+
+The control-surface arithmetic (`shared/servo/servo_rudder.*`), the IMU
+(inertial measurement unit) model (`shared/bench/imu.*`) and the WitMotion
+decoder (`protocols/witmotion/`) are for the angle meter of
+[angle-meter.md](../../docs/design/angle-meter.md), slice 1.
+`servo_rudder` gives a deflection from a zero, its travel in mm at the
+trailing edge and the largest deflection each side; `imu` keeps the filtered
+angles, the still time per axis and the age, fed three angles and a time by
+`imu_feed_angles()`. `imu.h` includes `witmotion.h`, so the decoder comes
+with it; the angle meter does not use the WitMotion stream. Nothing in
+`src/` calls them yet, and the firmware does not build them. They are built
+as C11 in the host suite by `test/angle.mk`. Their rcbench tests, copied
+unchanged from rcbench `test/host/` into `test/rcbench/`, are
+`test_servo_rudder.c`, 4 cases, `test_imu_angles.c`, 7 cases, the test of
+`imu_feed_angles()`, and `test_witmotion.c`, 14 cases, with `wit_frame.h`,
+which builds WitMotion frames for `test_imu_angles.c`. rcbench's
+`test_imu.c` and `test_imu_filter.c` are not copied: they include rcbench's
+BLE (Bluetooth Low Energy) simulator, `imu_sensor.h` and servo modules that
+are not ported. Their cases that need `imu.h` alone are to be adapted, as
+`test_out_pwm_map.c` was, and are not yet: that work is open, for slice 3
+of `docs/design/angle-meter.md`.
 
 `sbus.h` cites `(NOTICE, "Trademarks")`: that NOTICE file is rcbench's, and
 this repository has none. Here the trademark notice of
