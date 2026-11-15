@@ -1,7 +1,9 @@
 # Bluejay and BLHeli_S settings
 
-Status: designed, not built; the owner answered its questions on
-2026-11-15, see [decisions](#decisions); slices wait on being built. The
+Status: slice 1 of 6 built, the copies of rcbench's escwire and their tests
+([slice 1 as built](#slice-1-as-built)); nothing in `src/` calls them. The
+owner answered its questions on 2026-11-15, see [decisions](#decisions);
+slices 2 to 6 wait on being built. The
 feature is item (6) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: Bluejay and BLHeli_S settings, rcbench's
@@ -473,8 +475,8 @@ by a core1 job, as KST and Hitec run theirs:
 - The driver is rcbench's `ew_line` on one PIO state machine, 25
   instructions, and 2 DMA channels (rcbench README lines 392 to 395); the
   claim has freed pio2 from DShot and KISS. Every SDK call `ew_line.c`
-  makes exists by name in the 2.1.1 headers (checked with `grep`); the build
-  is slice 1's check.
+  makes exists by name in the 2.1.1 headers (checked with `grep`), and
+  `ew_line.c` compiles against them ([slice 1 as built](#slice-1-as-built)).
 - `PinUser::Am32` binds no core1 job today (`pin_claim.h` lines 69, 88). It
   gets `Core1Job::EscWire` with `deferJob` true, as HITEC (`pin_claim.h`
   line 91): the job starts only when the connect page hands it an EFM8.
@@ -764,12 +766,55 @@ own README and wiki lines (the owner's decision 27 of
 
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
-| 1. Copies | the files of [what is copied](#what-is-copied), `src/escwire.cmake`, `test/escwire.mk`, the fixture check in CI, `lib/rcbench/README.md` | about 40 new | the 210 copied cases | `lib/rcbench/README.md`, STATUS, CHANGELOG | |
+| 1. Copies, built | the files of [what is copied](#what-is-copied), `src/escwire.cmake`, `test/escwire.mk`, the fixture check in CI, `lib/rcbench/README.md` | about 40 new | the 210 copied cases | `lib/rcbench/README.md`, STATUS, CHANGELOG | |
 | 2. Detection | the classification; an EFM8 answer named on the connect page, `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters, 197 px), nothing read; the run cue set by that answer, cleared by RESTART DSHOT or eRPM; a leave page per claim in `pin_claim`, set for `PinUser::Am32` at an EFM8's answer (today `unplug` is fixed per user, `pin_claim.h` line 88), the leave page of decision 8, which closes [today's limitation](#the-firmware-as-it-is-today); the connect loop stays as today, so no ESC is drawn into its bootloader more often than now; the chooser `ESC CONFIG` and the title `ESC SETTINGS` by decision 1 | about 200 | about 250 | README "AM32 ESC configuration", wiki in both languages, previews, STATUS | |
 | 3. Read | the connect cycle, `escwire_job`, the claim's job, the read, the list read-only for every page, the views, HEX, the strip notes, the 3D note, LEAVE's `00 01` frame | about 650 | about 650 | README section, wiki, previews | 1, 2 |
 | 4. Write | WRITE..., ESC WRITE, the backups and their prefixes, the results, the guarded BACK, the heartbeat stop | about 400 | about 500 | as above | 3 |
 | 5. Bring-up | B1 to B13 | none | none | the record in STATUS | 1 to 4 |
 | 6. Restore | by decision 4, after rcbench has one | | | | 4 |
+
+### Slice 1 as built
+
+The files of [what is copied](#what-is-copied), byte for byte those of
+rcbench `main` at 2b4f934a (2b4f934ad6b6d67f20b46d5ba80001c091e14b89), 51
+files compared with `cmp`, `greatest.h` among them; rcbench's `main` had
+not changed any of them on 2026-11-15. Into `lib/rcbench/`: the 16 core
+sources, `ew_session_int.h`, `ew_file_int.h`, the 9 headers of `include/`,
+`rp2350/ew_line.c`, `ew_line.h` and `ew_line.pio`, and
+`shared/logfile/servo_store.c` with its header. Into `test/rcbench/`: the
+12 tests, `escwire_headers.cpp`, `ew_sim.h`, `ew_sim_text.h`,
+`ew_pio_model.h`, `ew_file_rig.h` and `fixtures/ew_line_words.txt`.
+[lib/rcbench/README.md](../../lib/rcbench/README.md) lists them with the
+commit.
+
+- **Firmware.** `src/escwire.cmake`, included last by `CMakeLists.txt`,
+  builds the 16 core sources and `ew_line.c`, assembles `ew_line.pio` with
+  pioasm and links `hardware_pio`, `hardware_gpio`, `hardware_dma`,
+  `hardware_clocks` and `hardware_timer`, as rcbench's
+  `rp2350/CMakeLists.txt` does. With arm-none-eabi-gcc 13.3, SDK 2.1.1 and
+  `STRICT=ON` (`-std=gnu11 -Wall -Wextra -Wshadow -Werror`) all 17 compile
+  unchanged. Nothing calls them, and the image holds no `ew_` symbol
+  (`arm-none-eabi-nm`): the linker drops them. The servo file store is not
+  in the firmware.
+- **Host suite.** `test/escwire.mk` lists the 16 core sources and
+  `servo_store.c` as the feature's C sources, built with `-std=c11 -Wall
+  -Wextra -Wshadow -Werror` as the KST and Hitec copies are and linked into
+  each C test program and into `dshot_tests`; the 12 tests as C test
+  programs, 210 cases, which `make run` runs; `escwire_headers.cpp` as a
+  C++11 program; and the two paths `test_ew_pio.c` reads, `EW_LINE_PIO` and
+  `EW_LINE_WORDS`, as rcbench's `test/host/CMakeLists.txt` sets them. Every
+  file compiles unchanged under these flags. `test/Makefile` adds the
+  feature to its `FEATURE_*` lists.
+- **CI.** The step that holds the line fixtures to pioasm's words takes
+  `ew_line_words.txt` with the KST and Hitec fixtures; its loop names each
+  directory and line, since `ew_line.pio` is in `protocols/escwire/`. The
+  25 words match pioasm's output of SDK 2.1.1. The "Config permutations"
+  job has the escwire `include/` and `rp2350/` folders on its include path.
+- **Checks of the wiring.** A changed fixture word fails 1 case of
+  `test_ew_pio.c`; a CRC in `ew_a.c` off by one bit fails 3 cases of
+  `test_ew_a.c` and 12 of `test_ew_session.c`. Both restored.
+- The coverage figure counts `src/` only; the copies are instrumented and
+  do not count, so it is unchanged.
 
 ## Decisions
 
@@ -829,7 +874,8 @@ not a question to the owner.
 - What a waiting EFM8 bootloader does with DShot frames (B12).
 - What BLHeli_S 16.7 does with inverted DShot; what the builds with sub
   revision 8 or 9 that rcbench refuses are.
-- `ew_line.c` built against SDK 2.1.1: the calls exist by name; nothing has
-  been compiled.
+- `ew_line.c` on SDK 2.1.1: it compiles and links
+  ([slice 1 as built](#slice-1-as-built)); nothing calls it, and no frame of
+  it has been on a pin.
 - Whether a desktop configurator offers narrower ranges than rcbench's maps
   for any field.

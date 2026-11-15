@@ -115,6 +115,16 @@ protocol.
   first write, the read-back, and why a cut write followed by a restart of
   the ESC loses its 48 tag bytes. The owner answered its eight questions
   on 2026-11-15.
+- After v0.1.0-rc1: rcbench's escwire core (`protocols/escwire/`), its
+  RP2350 line driver `ew_line` and the servo file store
+  (`shared/logfile/servo_store.*`), copied unchanged from rcbench commit
+  2b4f934a into `lib/rcbench/`, with rcbench's 12 tests of them in
+  `test/rcbench/` (210 cases) and `escwire_headers.cpp` built as C++11
+  ([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-1-as-built),
+  slice 1). `src/escwire.cmake` builds the core and the line driver into the
+  firmware and `test/escwire.mk` the core and the store into the host suite.
+  Nothing calls them yet. CI holds the escwire line fixture to pioasm's
+  words, as it does the KST and Hitec fixtures.
 - The design note for the angle meter,
   [angle-meter.md](docs/design/angle-meter.md), designed and not built:
   incidence, decalage, dihedral and control-surface throw in degrees and
