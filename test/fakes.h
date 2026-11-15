@@ -31,6 +31,18 @@ void fakeAdvanceUs(uint32_t us);
  * moves no time. sleep_ms() and fakeAdvanceUs() are exact.
  */
 
+/**
+ * @brief Uses of a critical section that critical_section_init() never set up.
+ *
+ * Deviation from the SDK: the fake critical section excludes nothing, but
+ * critical_section_init() marks the section and critical_section_enter_blocking()
+ * and critical_section_exit() count each call on an unmarked one. On the chip
+ * such a call uses a NULL spin lock pointer. main() in test_main.cpp fails the
+ * run when the count is not 0, so a core1 job without its init call fails the
+ * suite. A section is unmarked until its init call, as a zeroed static is.
+ */
+unsigned fakeCriticalSectionMisuse();
+
 struct SdLogStatus;
 
 /**
