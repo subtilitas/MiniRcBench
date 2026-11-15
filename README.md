@@ -52,7 +52,8 @@ the owner's decision. An angle meter on the board's QMI8658 IMU (inertial
 measurement unit), for incidence, decalage, dihedral and control-surface
 throw, is designed in `docs/design/angle-meter.md` and not
 built; the owner answered its questions on 2026-11-15, and its entry is an
-eighth MENU row, `TOOLS`, with a chooser. A run
+eighth MENU row, `TOOLS`, with a chooser. The rcbench files it builds on are
+copied into `lib/rcbench/` and host-tested; nothing calls them yet. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
@@ -2564,7 +2565,8 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder, sensor bus, escwire core and line driver
+                        S.BUS decoder, sensor bus, escwire core and line driver,
+                        control-surface arithmetic, IMU model, WitMotion decoder
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
   make_previews.py      restitches docs/*.png and wiki/img/ from the test suite's frames
@@ -2585,9 +2587,12 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
 the S.BUS (Futaba's serial bus for receiver channels) decoder, the
-current sensor's bus record (`sense_bus.c`), and the escwire core for ESC
+current sensor's bus record (`sense_bus.c`), the escwire core for ESC
 settings over the signal wire with its RP2350 line driver, which nothing
-calls yet. Files include each other as plain
+calls yet, and for the angle meter the control-surface arithmetic
+(`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
+the WitMotion decoder `imu.h` includes, which the host suite alone builds
+and nothing calls yet. Files include each other as plain
 siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -2621,15 +2626,16 @@ twelve escwire tests `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
 `test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
 `test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
 `test_ew_session_text.c` and `test_ew_file_e32.c` (210 cases), with
-`escwire_headers.cpp` built as C++11. The SDIO
-tests run the card protocol against a simulated card. Time is virtual and
-counted in microseconds — `millis()` advances only when a test says so — which
-makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
-dependent on machine speed. The fake ESC serves a real settings blob recovered
-from the reference configurator, so the UI tests operate on values a real ESC
-would report. The suite renders 122 screens to PPM (portable pixmap) images as
-it runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
-the frames:
+`escwire_headers.cpp` built as C++11, and the angle meter's
+`test_servo_rudder.c`, `test_imu_angles.c` and `test_witmotion.c` (25
+cases). The SDIO tests run the card protocol against a simulated card. Time is
+virtual and counted in microseconds — `millis()` advances only when a test
+says so — which makes hold-to-arm, hold-to-write and gesture repeat
+deterministic rather than dependent on machine speed. The fake ESC serves a
+real settings blob recovered from the reference configurator, so the UI tests
+operate on values a real ESC would report. The suite renders 122 screens to
+PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
+so a layout change is visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
@@ -2936,6 +2942,9 @@ the list.
   by the same copyright holder under the same MIT licence.
 - The escwire core, its RP2350 line driver and the servo file store in
   `lib/rcbench/` come from rcbench at commit 2b4f934a, by the same copyright
+  holder under the same MIT licence.
+- The control-surface arithmetic, the IMU model and the WitMotion decoder in
+  `lib/rcbench/` come from rcbench at commit e98345aa, by the same copyright
   holder under the same MIT licence.
 - [logwiju](https://subtilitas.github.io/logwiju/): the browser-based blackbox viewer
   for these logs.
