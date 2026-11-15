@@ -207,8 +207,9 @@ a second `BACK` opens the leave page, and no LEAVE is sent.
 That way back holds only while the session goes on. If it ended with the
 page half written, by a failed line driver, a heartbeat stop or the second
 `BACK`, the result reads `SESSION ENDED: RESTORE ON A COMPUTER.`: the next
-session reads the page as empty or with lost tags and writes neither, and
-the tester cannot restore it. Keep the ESC powered and restore it on a
+session reads the page as it is, most likely empty or with lost tags, which
+it does not write, or as a torn page that only looks whole, and the tester
+cannot restore the old one. Keep the ESC powered and restore it on a
 computer. The old page, as the session first read it, is in the backup on
 the card, `ALSO ON THE CARD: BACKUP BJ018`; without a card the backup line
 reads `NO BACKUP: OLD PAGE ON THIS SCREEN.` Until you leave ESC SETTINGS,

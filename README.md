@@ -1651,16 +1651,17 @@ ESC again and BACK opens the leave page. A verified write with DIRECTION at
 clears it, and a half-written page with 3D in its draft sets it.
 
 A session that ends with the page half written, by a driver failure, a
-heartbeat stop, a frame the guard refuses after the erase, a READ AGAIN
-cut that way, or the guard's second BACK, leaves a page no later session
-writes: the next session reads it as empty or with lost tags. The result's
-second line then reads `SESSION ENDED: RESTORE ON A COMPUTER.`, and with no
-backup on a card the backup line reads `NO BACKUP: OLD PAGE ON THIS
-SCREEN.` in amber. The session's first read is kept for the rest of the
-visit: `OLD PAGE` (`Am32Ctl::OldPage`) on the connect page opens its bytes
-as ESC HEX, in amber under `OLD PAGE, BEFORE THE CUT WRITE:` over
-`ON THIS SCREEN ONLY: COPY IT.` or `ALSO ON THE CARD: BACKUP BJ018`, and an
-EFM8 list's ESC HEX shows them under the page's own.
+heartbeat stop, a frame the guard refuses after the erase, a READ AGAIN cut
+that way, or the guard's second BACK, leaves a page the next session reads as
+it is: most likely empty or with lost tags, which it does not write, or, with
+marker and tags intact, as a writable page that is not the old one. The
+result's second line then reads `SESSION ENDED: RESTORE ON A COMPUTER.`, and
+with no backup on a card the backup line reads `NO BACKUP: OLD PAGE ON THIS
+SCREEN.` in amber. The session's first read is kept for the rest of the visit,
+the first such page only: `OLD PAGE` (`Am32Ctl::OldPage`) on the connect page
+opens its bytes as ESC HEX, in amber under `OLD PAGE, BEFORE THE CUT WRITE:`
+over `ON THIS SCREEN ONLY: COPY IT.` or `ALSO ON THE CARD: BACKUP BJ018`, and
+an EFM8 list's ESC HEX shows them under the page's own.
 
 Why a cut write loses the tags, and the way back, are in
 `docs/design/bluejay-blheli-s.md`: a power cut between the erase and the

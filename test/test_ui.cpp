@@ -6585,6 +6585,53 @@ static void testEfm8Write() {
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
+	section("ESC WRITE: a torn page that reads as writable does not replace the kept old page");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING to MEDIUM", ewEditRow("TIMING", -1) && s_ewDraft[0x15] == 3);
+	tapId(UI_FIX(Am32Ctl::Write));
+	// Every program stores TIMING with bit 0 cleared: 2, neither page.
+	sim_script(e, F_CORRUPT, 0, 40, 0x15);
+	checkTrue("held: half written, one bit off, marker and tags intact",
+	          efm8HoldWrite() && efm8UntilDone(1200) && strcmp(s_status, EFM8_UI_TORN_1) == 0 &&
+	          efm8Page()[0x15] == 2 && efm8Page()[0x0D] == 0x55 && efm8Page()[0x0E] == 0xAA &&
+	          memcmp(efm8Page() + 0x40, orig + 0x40, 48) == 0);
+	e->fail = F_NONE;
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the guard's second BACK: the old page kept", s_state == S_LEAVE && s_ewKeptLen == 255 &&
+	          memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::Stay));
+	checkTrue("STAY: the cycle greets again", untilState(S_CONNECT, 60));
+	uint8_t torn[EW_PAGE_MAX];
+	memcpy(torn, efm8Page(), sizeof(torn));
+	e->contacted = false;
+	e->dead = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("session 2", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	checkTrue("the torn page reads as Bluejay 208, writable", untilState(S_EW_LIST, 160) && ewWritable() &&
+	          s_ewPage[0x15] == 2);
+	checkTrue("DEMAG edited", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("a second cut write: lost", efm8HoldWrite() && efm8UntilDone() && s_ewDirty);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the guard's second BACK again: still the first old page, not the torn one",
+	          s_state == S_LEAVE && memcmp(s_ewKept, orig, 255) == 0 && memcmp(s_ewKept, torn, 255) != 0 &&
+	          !s_ewKeptOnCard);
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
 	section("ESC WRITE: a page changed and read again gets its own backup");
 	am32Card();
 	efm8Esc(0xB2, true);

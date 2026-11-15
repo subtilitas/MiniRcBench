@@ -629,7 +629,7 @@ What an interrupted write leaves, and the way back:
 | The ESC's power, between erase and program end | as above | at its next start: defaults, tags 0xFF; or, cut inside the program, the marker written and later bytes 0xFF, which the firmware reads without a range check (`Eeprom.asm` 62 to 84) and runs on, tags 0xFF | `LOST` | the next session shows `ESC LOST ITS TAGS: READ-ONLY.`; the tags return with a firmware flash for the ESC's layout on a computer, the backup's byte lines naming the layout tag (bytes 0x40 to 0x4F), or with a restore (decision 4) |
 | The bench (cell, USB cable, reset), after the erase | as above | in its bootloader while powered; DShot frames reach it after the bench restarts | none until reopened: then `SETTINGS PAGE EMPTY` or a refusal | keep the ESC powered; a restore, if built, writes the backup that went to the card before the erase; without one, a computer tool; a power cycle loses the tags |
 | A heartbeat lapse, before the erase | as read | in its bootloader; the session ended, the line parked | `STOPPED BEFORE THE ERASE: AS READ.` over `THE SESSION ENDED. TAP OK TO SEARCH.` | OK greets again; the next session reads the page as it was |
-| A heartbeat lapse, after the erase | as written once the read-back proves it, else empty or partly programmed | in its bootloader; the write ran to its read-back, then the session ended, the line parked | the result over `THE SESSION ENDED. TAP OK TO SEARCH.`, or, half written, over `SESSION ENDED: RESTORE ON A COMPUTER.` | written: OK greets again, and LEAVE goes from the next session's list. Half written: no later session writes the page, which reads empty or with lost tags; keep the ESC powered and restore it on a computer, from the backup on the card or the old page on `OLD PAGE` while ESC SETTINGS stays open |
+| A heartbeat lapse, after the erase | as written once the read-back proves it, else empty or partly programmed | in its bootloader; the write ran to its read-back, then the session ended, the line parked | the result over `THE SESSION ENDED. TAP OK TO SEARCH.`, or, half written, over `SESSION ENDED: RESTORE ON A COMPUTER.` | written: OK greets again, and LEAVE goes from the next session's list. Half written: a later session reads the page as it is, mostly empty or with lost tags, which rcbench writes neither of; a page whose marker and tags survived reads as writable, and a write there starts from the torn page, not the old one; keep the ESC powered and restore it on a computer, from the backup on the card or the old page on `OLD PAGE` while ESC SETTINGS stays open |
 
 The cue for the user is the same in each case: after a cut write, keep the
 ESC powered. The page says so in the result lines and the manual explains
@@ -1230,9 +1230,11 @@ Choices the note left open, the developer's:
   the result's second line says `THE SESSION ENDED. TAP OK TO SEARCH.`, OK
   greets the ESC again as after a session that stopped
   ([slice 3 as built](#slice-3-as-built)), and BACK opens the leave page. A
-  half-written page is then read by the next session as what it is, empty
-  or with lost tags, which rcbench writes neither of; the RAM copy of the
-  tags went with the session. So the second line reads
+  half-written page is then read by the next session as what it is, most
+  likely empty or with lost tags, which rcbench writes neither of; a page
+  whose marker and tags survived reads as writable, and its first read is
+  the torn page. Either way the RAM copy of the old page went with the
+  session. So the second line reads
   `SESSION ENDED: RESTORE ON A COMPUTER.` instead, and the screen keeps the
   session's first read, the page the backup holds, for the rest of the
   visit (`ewKeepOldPage()`, by the review of pull request 102): `OLD PAGE`
@@ -1240,7 +1242,10 @@ Choices the note left open, the developer's:
   ESC HEX shows them under its own, so that they can be copied by hand.
   Without a backup on a card ESC WRITE's backup line says the page is on
   the screen only. A READ AGAIN that ends the session on a half-written
-  page, and the guard's second BACK, keep it the same way.
+  page, and the guard's second BACK, keep it the same way. Only the first
+  page kept stays: a later session that ends half written, on a torn page
+  it read as writable, does not replace it (by the re-review of pull
+  request 102).
 - **The guard's second BACK** sends Stop, which aborts the idle session and
   parks the line with no LEAVE, and opens the leave page with STAY
   returning to the connect page, which greets again.
@@ -1262,51 +1267,50 @@ Choices the note left open, the developer's:
   same device, saves no second copy and names that backup
   ([backups.md](backups.md#what-the-ring-holds)).
 
-Mutations, each applied to a copy of the tree, the suite built and run:
-77, 68 failing the suite, 57 before the review of pull request 102 and 20
-for its fixes, with the 10 earlier ones whose code changed run again, all
-failing again. Nine pass. Six are equivalent: Write taken outside InMode
-without the job's own check, which `ew_session_write()` refuses the same
-way; `WRITE...` live on a read-only list without its layout check, where no
-row edits, so there is never a change to write; LEAVE asked again on a
-half-written page, which the guard keeps from ever sending LEAVE; the
-write's refusal of a page other than ESC WRITE showed, which no path
-reaches, as on AM32; READ AGAIN copying the session's identification and
-rows, which a read does not change; and the backup's check that the ring's
-latest number is the same device's, whose file name, with its prefix,
-exists only then. Three are backstops the suite cannot see: the screen's
-own `ew_image_check()` before Write, whose drafts the session's guard
-refuses alike (the job's tests hold the guard to each refusal); the clamp
-of a draft longer than 256 bytes in `escwireJobWrite()`, which no caller
-sends and which would only overrun memory; and the BOARD check after the
-backup's flush, which sees the cell the check before it saw. The others
-fail the suite: the draft not copied to core1 or its length lost, the erase
-not published, a lapse or the release aborting, `dirty` or `reread` not
-reported; rows editable on read-only pages or shown-only fields editable, a
-step to any byte, the coarse factor rounded down, CHANGED or LOST needing no
-read, an ended session not said or a half-written one said as any, a stopped
-half-written page called stopped, the backup name cut, the no-card lines
-swapped or a USB host's taken for them, changes counted wrong; Bluejay saved
-as BH, a capture failure ignored, the next name taken as the latest, BJ and
-BH swapped in the ring, a copy equal to the latest saved again or one
-differing not saved; `WRITE...` dead on a half-written page, edits on it,
-the page as read not writable, no BOARD refusal, a write with no backup or
-after a failed one, the verified page not taken, the 3D note not set by a
-write or by a half-written draft, a Write refused for a lapse not asked
-again, no guard on a half-written page, its second BACK not aborting or
-sending LEAVE, BACK live while writing, edits dropped or an ended session
-kept by READ AGAIN, a failed READ AGAIN taken as a read, a page read again
-getting no backup, OK after an ended session going to the list, the old
-page not kept by an ended write, an ended READ AGAIN or the guard's abort,
-kept across visits, not offered on the session's page, not under a list's
-dump or without its backup's name, the screen-only backup line missing, the
-read-only backup not saved, the backup state kept into a second session or
-into an AM32 answer after it, the as-read line missing, the half-written
-strip's lines swapped, REVERT or a swipe doing nothing, shown rows drawn
-editable, the backup line naming AM, the sent draft not kept, a wide value
-at scale 2; in the fake, no pattern outside the page, a read keeping the
-address, an overflowed log passing. The script and its list are kept with
-the build's scratch files, outside the repository.
+Mutations, each applied to a copy of the tree, the suite built and run: 78, 69
+failing the suite, 57 before the review of pull request 102 and 21 for its
+fixes, with the 10 earlier ones whose code changed run again, all failing
+again. Nine pass. Six are equivalent: Write taken outside InMode without the
+job's own check, which `ew_session_write()` refuses the same way; `WRITE...`
+live on a read-only list without its layout check, where no row edits, so
+there is never a change to write; LEAVE asked again on a half-written page,
+which the guard keeps from ever sending LEAVE; the write's refusal of a page
+other than ESC WRITE showed, which no path reaches, as on AM32; READ AGAIN
+copying the session's identification and rows, which a read does not change;
+and the backup's check that the ring's latest number is the same device's,
+whose file name, with its prefix, exists only then. Three are backstops the
+suite cannot see: the screen's own `ew_image_check()` before Write, whose
+drafts the session's guard refuses alike (the job's tests hold the guard to
+each refusal); the clamp of a draft longer than 256 bytes in
+`escwireJobWrite()`, which no caller sends and which would only overrun
+memory; and the BOARD check after the backup's flush, which sees the cell the
+check before it saw. The others fail the suite: the draft not copied to core1
+or its length lost, the erase not published, a lapse or the release aborting,
+`dirty` or `reread` not reported; rows editable on read-only pages or
+shown-only fields editable, a step to any byte, the coarse factor rounded
+down, CHANGED or LOST needing no read, an ended session not said or a
+half-written one said as any, a stopped half-written page called stopped, the
+backup name cut, the no-card lines swapped or a USB host's taken for them,
+changes counted wrong; Bluejay saved as BH, a capture failure ignored, the
+next name taken as the latest, BJ and BH swapped in the ring, a copy equal to
+the latest saved again or one differing not saved; `WRITE...` dead on a
+half-written page, edits on it, the page as read not writable, no BOARD
+refusal, a write with no backup or after a failed one, the verified page not
+taken, the 3D note not set by a write or by a half-written draft, a Write
+refused for a lapse not asked again, no guard on a half-written page, its
+second BACK not aborting or sending LEAVE, BACK live while writing, edits
+dropped or an ended session kept by READ AGAIN, a failed READ AGAIN taken as a
+read, a page read again getting no backup, OK after an ended session going to
+the list, the old page not kept by an ended write, an ended READ AGAIN or the
+guard's abort, replaced by a later session's, kept across visits, not offered
+on the session's page, not under a list's dump or without its backup's name,
+the screen-only backup line missing, the read-only backup not saved, the
+backup state kept into a second session or into an AM32 answer after it, the
+as-read line missing, the half-written strip's lines swapped, REVERT or a
+swipe doing nothing, shown rows drawn editable, the backup line naming AM, the
+sent draft not kept, a wide value at scale 2; in the fake, no pattern outside
+the page, a read keeping the address, an overflowed log passing. The script
+and its list are kept with the build's scratch files, outside the repository.
 
 Not verified: everything on an ESC. No write of this slice has reached a
 Bluejay or BLHeli_S ESC: the erase, program and read-back are rcbench's

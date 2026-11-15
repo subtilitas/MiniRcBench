@@ -229,8 +229,9 @@ Dieser Weg zurück gilt nur, solange die Sitzung weiterläuft. Endet sie
 mit halb geschriebener Seite, durch einen ausgefallenen Leitungstreiber,
 einen Herzschlag-Stopp oder das zweite `BACK`, zeigt das Ergebnis
 `SESSION ENDED: RESTORE ON A COMPUTER.` (Sitzung beendet, am Computer
-wiederherstellen): Die nächste Sitzung liest die Seite als leer oder mit
-verlorenen Tags und schreibt keins von beidem, und der Tester kann sie
+wiederherstellen): Die nächste Sitzung liest die Seite, wie sie ist,
+meist leer oder mit verlorenen Tags, was sie nicht schreibt, oder als
+beschädigte Seite, die nur ganz aussieht, und der Tester kann die alte
 nicht wiederherstellen. ESC eingeschaltet lassen und am Computer
 wiederherstellen. Die alte Seite, wie die Sitzung sie zuerst gelesen hat,
 steht in der Sicherung auf der Karte, `ALSO ON THE CARD: BACKUP BJ018`;

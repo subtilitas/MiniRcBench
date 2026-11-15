@@ -461,8 +461,12 @@ static bool backLive() { return !writing() && !ewRunning() && s_state != S_LEAVE
 /**
  * @brief A session ended with its page half written: keep the session's
  *        first read for the rest of the visit, with where its backup went.
+ *        Only the first such page is kept.
  */
 static void ewKeepOldPage() {
+	// The first page kept stays for the visit: a later session may read the
+	// half-written page as writable, and its first read is not the old page.
+	if (s_ewKeptLen != 0) return;
 	memcpy(s_ewKept, s_ewEntry, sizeof(s_ewKept));
 	s_ewKeptLen = s_ewEntryId.len;
 	s_ewKeptOnCard = s_backupDone;
