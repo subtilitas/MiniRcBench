@@ -144,17 +144,28 @@ jobs:
             --indirect ew_line_start --indirect ew_line_poll --indirect ew_line_abort \
             --indirect ew_line_level --indirect ew_line_now_us "${ci[@]}"
 
-      # The S.BUS output job runs on core1 too. src/rx.cmake builds the job
-      # and rcbench's S.BUS module with -fcallgraph-info=su; the same limit
-      # holds for the job's three entry points, SDK calls counting 0 bytes.
+      # The S.BUS output job runs on core1 too. src/rx.cmake builds the job,
+      # rcbench's S.BUS module and the probe's classification and connect
+      # cycle with -fcallgraph-info=su, src/escwire.cmake the probe's line:
+      # its port, rcbench's driver and the parts of the escwire core the
+      # probe and the driver call. The same limit holds for the job's three
+      # entry points; the probe calls the driver through the pointers of
+      # ew_driver_t, so the deepest of the five is added, as in the ESC
+      # settings step. SDK calls count 0 bytes.
       - name: S.BUS output job stack on core1
         run: |
-          mapfile -t ci < <(find build -name 'sbus_out_job.cpp.ci' -o -name 'sbus.c.ci')
+          mapfile -t ci < <(find build -name 'sbus_out_job.cpp.ci' -o -name 'sbus.c.ci' \
+                                -o -name 'bl_answer.cpp.ci' -o -name 'greet_cycle.cpp.ci' \
+                                -o -name 'escwire_port.cpp.ci' -o -name 'escwire_job.cpp.ci' \
+                                -o -name 'ew_line.c.ci' -o -name 'ew_a.c.ci' \
+                                -o -name 'ew_wire.c.ci' -o -name 'ew_pio.c.ci')
           printf '%s\n' "${ci[@]}"
-          [ "${#ci[@]}" -eq 2 ] || {
-            echo "::error::expected 2 call-graph files, found ${#ci[@]}"; exit 1; }
+          [ "${#ci[@]}" -eq 10 ] || {
+            echo "::error::expected 10 call-graph files, found ${#ci[@]}"; exit 1; }
           python3 tools/stack_depth.py --limit 1792 \
-            --root sbusOutJobStep --root sbusOutJobRelease --root sbusOutJobBind "${ci[@]}"
+            --root sbusOutJobStep --root sbusOutJobRelease --root sbusOutJobBind \
+            --indirect ew_line_start --indirect ew_line_poll --indirect ew_line_abort \
+            --indirect ew_line_level --indirect ew_line_now_us "${ci[@]}"
 
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes

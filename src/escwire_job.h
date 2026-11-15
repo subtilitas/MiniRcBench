@@ -135,5 +135,15 @@ uint16_t escwireJobWrite(const uint8_t *draft, uint16_t n);
 /** @brief Copy the last status core1 published. Core0. */
 void escwireJobStatus(EwJobStatus *out);
 
+/**
+ * @brief The bind failure a screen names for an open of the escwire line
+ *        (escwirePortOpen()) that was refused. Pure. The S.BUS output's
+ *        bootloader probe opens the same line (sbus_out_job.h).
+ * @param lineErr The `ew_line_err_t` of the refused open.
+ * @return CORE1_JOB_CLOCK, CORE1_JOB_DMA, CORE1_JOB_PIN for a pin the driver
+ *         does not take (`EW_LINE_ERR_ARG`), CORE1_JOB_PIO for the rest.
+ */
+uint8_t escwireJobBindError(uint8_t lineErr);
+
 /** @brief The ESC settings job's entry in the job table of core1_job.cpp. */
 extern const Core1JobOps ESCWIRE_JOB_OPS;

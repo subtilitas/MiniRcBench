@@ -13,6 +13,7 @@
  *
  * | State | GP0 | Leaves it |
  * |---|---|---|
+ * | Probe | ESC SETTINGS' escwire line: 1000 ms on the pull-up, then 3 greetings, in turn | a cycle with no answer: SAFE; the release |
  * | SAFE | the UART bound and idle: low, no frames | Start |
  * | RUNNING | a frame every 14 ms | Safe, a heartbeat lapse, a refused frame, the release |
  * | Tripped | SAFE, latched after a heartbeat lapse while RUNNING | Start, or a new bind |
@@ -22,22 +23,52 @@
  * job around them copies the command block, loads the TX FIFO
  * (first-in, first-out buffer) and publishes the status.
  *
- * **The bind**, in this order: SIO's output enable for GP0 off and its output
- * low, so whatever an earlier owner left driving, SIO drives nothing; the
- * pull-down on GP0, which holds the line at its idle level; uart_init() at
- * 100,000 baud, refused with CORE1_JOB_CLOCK more than 1 % off (sbusBaudOk());
- * 8E2 and the receiver off (UARTCR.RXE), since no pad carries UART0's RX during
- * this claim; then GP0 to the UART with its output inverted.
- * gpio_set_function() writes the whole control register and zeroes OUTOVER (SDK
- * 2.1.1, gpio.c), so the SDK's two calls, function then gpio_set_outover(),
- * would put the UART's high idle on the pad between them. The job does
- * gpio_set_function()'s three steps itself: input enable on and output disable
- * off in the pad register, the control register with FUNCSEL `GPIO_FUNC_UART`
- * and OUTOVER `GPIO_OVERRIDE_INVERT` in one write, then pad isolation cleared.
+ * **The bootloader probe** (docs/design/sbus-output.md, decision 1) runs on
+ * every bind, before GP0 reaches the UART: ESC SETTINGS' connect cycle
+ * (greet_cycle.h), @ref ESC_GREET_QUIET_MS on the pull-up, then
+ * @ref ESC_GREET_BURST greetings, on the line driver of ESC SETTINGS' job
+ * (escwire_port.h), rcbench's first contact for a greeting, each answer
+ * read by blAnswerClassify(). An EFM8 bootloader's answer (Bluejay,
+ * BLHeli_S), a piece of one, or an AM32 bootloader's answer is an ESC on
+ * GP0: it sets MENU's run cue, and the cycle repeats. Bytes that are no
+ * bootloader's answer set no cue but hold the cycle too: an FC's S.BUS input
+ * sends nothing. Only a cycle whose greetings all went out and came back with
+ * no byte, each capture whole, lets the job go on to the UART. After every
+ * greeting's capture the line goes back to the pull-up, which the driver
+ * leaves for its pull-down after a capture cut or not whole, so every quiet
+ * phase is on the pull-up. No command is taken during the probe, and the
+ * switch takes the command block's seq as acknowledged, so a START sent
+ * before it is never taken: START is impossible until a probe cycle with no
+ * answer has passed in this bind, and each bind probes again.
  *
- * **The release** loads no new frame and returns false while UARTFR.BUSY is
- * set, so the frame on the wire completes, at most 3,000 us after it was
- * loaded; @ref SBUS_OUT_RELEASE_MAX_MS is the backstop for a BUSY that never
+ * **The bind**, in this order: SIO's output enable for GP0 off and its output
+ * low, so whatever an earlier owner left driving, SIO drives nothing;
+ * uart_init() at 100,000 baud, refused with CORE1_JOB_CLOCK more than 1 % off
+ * (sbusBaudOk()); 8E2 and the receiver off (UARTCR.RXE), since no pad carries
+ * UART0's RX during this claim; then the escwire line on GP0, which parks the
+ * pad on its pull-down, and the pull-up at once (`EW_LINE_UP`). The UART runs
+ * from the bind with no pad on it, so a clock it cannot use refuses the bind
+ * before the probe. A refused bind leaves GP0's function as it was, SIO
+ * driving nothing, and the pull-up on: the level the pump's teardown and the
+ * probe hold, so nothing pulls the line low.
+ *
+ * **The switch**, once a probe cycle passes: the escwire line closed, which
+ * leaves GP0 an SIO input, low, on the pull-up (escwirePortClose()); the
+ * pull-down, which holds the line at the UART's idle level from here on; then
+ * GP0 to the UART with its output inverted. gpio_set_function() writes the
+ * whole control register and zeroes OUTOVER (SDK 2.1.1, gpio.c), so the
+ * SDK's two calls, function then gpio_set_outover(), would put the UART's
+ * high idle on the pad between them. The job does gpio_set_function()'s three
+ * steps itself: input enable on and output disable off in the pad register,
+ * the control register with FUNCSEL `GPIO_FUNC_UART` and OUTOVER
+ * `GPIO_OVERRIDE_INVERT` in one write, then pad isolation cleared.
+ *
+ * **The release** during the probe cuts a greeting on the wire and closes
+ * the escwire line: GP0 stays an SIO input on the pull-up, the probe's level,
+ * and never reaches the UART; then uart_deinit(). After the switch it loads
+ * no new frame and returns false while UARTFR.BUSY is set, so the frame on
+ * the wire completes, at most 3,000 us after it was loaded;
+ * @ref SBUS_OUT_RELEASE_MAX_MS is the backstop for a BUSY that never
  * clears. Then SIO's output enable for GP0 off and its output low, the pad
  * to SIO, which zeroes OUTOVER, the pull-down, and only then uart_deinit():
  * the pad leaves the UART before the UART stops, so the line never shows
@@ -48,12 +79,12 @@
  * CORE1_JOB_NO_GP0 and takes nothing.
  *
  * Nothing opens the job: no screen claims PinUser::SbusOut and nothing in
- * `src/` sends a command. The bootloader probe that must run before any
- * START (docs/design/sbus-output.md, decision 1) and the screen come in
- * later slices of that note.
+ * `src/` sends a command. The screen, a later slice of the note, offers
+ * START only while sbusOutProbePassed() holds.
  *
- * Not run on hardware: the inversion on the pin, the level at the bind and
- * the release, and the frames on a scope are not measured.
+ * Not run on hardware: the inversion on the pin, the level at the bind, the
+ * switch and the release, the probe's greetings and an ESC's answer to them,
+ * and the frames on a scope are not measured.
  *
  * @see docs/design/sbus-output.md
  */
@@ -62,6 +93,7 @@
 
 #include <stdint.h>
 
+#include "bl_answer.h"
 #include "core1_job.h"
 #include "sbus.h"
 
@@ -94,6 +126,18 @@
 #define SBUS_OUT_RAW_MID 992u
 /** @brief The throttle channel's index by default: channel 3, Betaflight's map `AETR1234`. */
 #define SBUS_OUT_THR_DEFAULT 2u
+/**
+ * @brief Bytes the probe takes after a greeting, at most: the AM32
+ *        transport's handshake reads as many (am32_bl.cpp). An answer is 9.
+ */
+#define SBUS_OUT_PROBE_RX_MAX 40u
+
+/** @brief Where the job is in a bind. */
+enum class SbusOutPhase : uint8_t {
+	Off,    /**< Not bound. */
+	Probe,  /**< The bootloader probe runs on GP0; no command is taken. */
+	Uart,   /**< A probe cycle passed with no answer: GP0 is UART0's, SAFE or RUNNING. */
+};
 
 /** @brief What a command asks of the job. */
 enum class SbusOutCmdKind : uint8_t {
@@ -115,8 +159,19 @@ struct SbusOutCmd {
 	uint16_t       ceilRaw;    /**< The throttle ceiling, raw, sbusOutCeilRaw(); taken by SbusOutCmdKind::Start, never above MAX THROTTLE's. */
 };
 
-/** @brief What core1 publishes for core0. The release clears it. */
+/**
+ * @brief What core1 publishes for core0. The release clears it, but for the
+ *        answers' counts and their time, which run from the board's start.
+ */
 struct SbusOutStatus {
+	SbusOutPhase phase;        /**< Off, the probe, or the UART. */
+	bool         answered;     /**< A bootloader answered the probe in this bind: START waits for a cycle with none. */
+	bool         efm8;         /**< That answer, or one of them, was an EFM8 bootloader's or a piece of one. */
+	uint16_t     signature;    /**< The last EFM8 answer's signature, 0xE8B2 and its kin; 0 for a piece or none. */
+	uint32_t     cycles;       /**< Probe cycles ended in this bind. */
+	uint32_t     answerSeq;    /**< Answers of either kind since the board's start; never cleared. At one a greeting, 2^32 take over 5 years. */
+	uint32_t     efm8Seq;      /**< EFM8 answers and pieces since the board's start; never cleared. */
+	uint32_t     answerMs;     /**< millis() of the pass that read the last answer; never cleared. */
 	uint16_t     ackSeq;       /**< Seq of the last command taken. */
 	bool         running;      /**< RUNNING: frames go out. */
 	bool         tripped;      /**< A heartbeat lapse stopped the frames; cleared by START and by a bind. */
@@ -241,12 +296,29 @@ uint16_t sbusOutCeilRaw(uint16_t maxThrottle);
 uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);
 
 /**
+ * @brief Read one greeting's answer. Pure.
+ *
+ * An answer is a bootloader on GP0: an EFM8 bootloader's (@ref
+ * BlAnswerKind::Efm8), a reply that holds a piece of one
+ * (@ref BlAnswer::fragment), or an AM32 bootloader's. An answer sets MENU's
+ * run cue and, for an EFM8 one, the EFM8 mark. Bytes that are none of these
+ * set neither, as ESC SETTINGS reads them; the probe still repeats the cycle
+ * they came in (sbus_out_job.cpp, judge()).
+ *
+ * @param a        blAnswerClassify() of the bytes.
+ * @param[out] efm8 Set when the answer is an EFM8 bootloader's or a piece of one.
+ * @return True for an answer.
+ */
+bool sbusOutProbeAnswer(const BlAnswer &a, bool *efm8);
+
+/**
  * @brief Send a command. Core0.
  *
  * One command is held at a time, and a new one replaces a command core1 has
  * not taken, with one exception: a Safe not yet taken stays, and a command
  * sent after it is dropped. A STOP is never lost to a later command. Nothing
- * in `src/` calls it yet.
+ * in `src/` calls it yet. Core1 takes no command until the probe has passed
+ * (@ref SbusOutPhase::Uart), and none sent before that.
  *
  * @param c The command; its seq is ignored.
  * @return The seq of the command held, which SbusOutStatus::ackSeq echoes
@@ -259,6 +331,67 @@ uint16_t sbusOutJobCommand(const SbusOutCmd *c);
  * @param[out] out The status as core1 last published it.
  */
 void sbusOutJobStatus(SbusOutStatus *out);
+
+/** @brief The probe as the screen shows it. */
+enum class SbusOutProbeState : uint8_t {
+	Off,       /**< The job is not bound. */
+	Checking,  /**< The probe runs and no bootloader has answered in this bind. */
+	Answered,  /**< A bootloader answered in this bind; the probe repeats. */
+	Passed,    /**< A cycle passed with no answer: GP0 is UART0's, START may go. */
+};
+
+/**
+ * @brief The gate: true once a probe cycle with no answer has passed in this
+ *        bind and GP0 is UART0's. Core0. The screen offers START only while
+ *        it holds; core1 takes no command before it either.
+ * @return @ref SbusOutPhase::Uart in the published status.
+ */
+bool sbusOutProbePassed();
+
+/**
+ * @brief Where the probe is, for the screen. Core0, once per UI frame by the
+ *        screen that holds the claim.
+ *
+ * Once an EFM8 bootloader, or a piece of its answer, has answered in this
+ * claim (sbusOutProbeEfm8()), it calls pinClaimWantLeavePage(): SIG returns
+ * to DShot only after the leave page, whose first step asks for the ESC's
+ * battery to come off (docs/design/bluejay-blheli-s.md, decision 8).
+ *
+ * @return Off, Checking, Answered or Passed.
+ */
+SbusOutProbeState sbusOutProbePoll();
+
+/**
+ * @brief An EFM8 bootloader, or a piece of its answer, answered the probe
+ *        since the last sbusOutProbeRestart(). Core0. The leave page then
+ *        takes the first step of decision 8 (docs/design/bluejay-blheli-s.md),
+ *        which asks for the ESC's battery to come off before LEAVE.
+ * @return True after such an answer.
+ */
+bool sbusOutProbeEfm8();
+
+/**
+ * @brief MENU's run cue, `POWER-CYCLE THE ESC TO RUN IT`, ORed with ESC
+ *        SETTINGS' and the USB bridge's (ui_menu.cpp). Core0.
+ *
+ * Set by an answer of either kind to the probe: the ESC waits in its
+ * bootloader. Cleared by an eRPM frame stamped after the last answer, which
+ * only the ESC's firmware sends, and by sbusOutProbeRestart() after an EFM8
+ * answer. Kept after the claim ends.
+ *
+ * @param lastRpmMs EscTelemetry::lastRpmMs.
+ * @return True while the cue stands.
+ */
+bool sbusOutRunCue(uint32_t lastRpmMs);
+
+/**
+ * @brief RESTART DSHOT on the leave page. Core0. After an EFM8 answer the
+ *        page's first step took the ESC's battery off: the EFM8 mark and
+ *        the run cue go. After an AM32 answer alone nothing goes: the page
+ *        does not ask for the ESC's battery, and the cue stays until an eRPM
+ *        frame.
+ */
+void sbusOutProbeRestart();
 
 /** @brief The S.BUS output job's entry in the job table of core1_job.cpp. */
 extern const Core1JobOps SBUS_OUT_JOB_OPS;
