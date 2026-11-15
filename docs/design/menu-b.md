@@ -214,7 +214,12 @@ developer, 2026-11-15, under these decisions: that title change, and the
 building of the chooser rows, `ESC CONFIG` with whichever of the two
 slices 2 merges first, holding both entries and drawing the unbuilt one
 disabled with `NOT BUILT`, and `TOOLS` with the angle meter's first screen
-slice.
+slice. Built by slice 2 of
+[bluejay-blheli-s.md](bluejay-blheli-s.md#slice-2-as-built): row 2 reads
+`ESC CONFIG` and opens its chooser, with `ESC SETTINGS` and `USB BRIDGE`
+drawn disabled under `NOT BUILT`, and the titles read `ESC SETTINGS`,
+`ESC HEX` and `ESC WRITE`; MENU keeps its seven rows until ESC COMMANDS
+and TOOLS are built.
 
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32

@@ -63,9 +63,9 @@ während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 Scharf-Anzeige und `BOARD`, damit eine Aufzeichnung, die von selbst endete,
 auch im scharfen Zustand auffällt. SD LOG sagt, was geschah.
 
-Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder AM32 CONFIG
+Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder ESC SETTINGS
 öffnet: Das Werkzeug braucht die Karte für seine Sicherung. SD LOG zeigt dann
-`RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `AM32 CONFIG`). Nach dem
+`RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `ESC SETTINGS`). Nach dem
 Werkzeug startet `START` eine neue Aufzeichnung.
 
 **Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder
@@ -147,7 +147,7 @@ ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | Ein Schreibvorgang oder das abschließende Sichern oder Schließen schlug fehl: eine herausgezogene Karte oder ein Kartenfehler. Beides wird nicht unterschieden | Karte neu einstecken, `RETRY MOUNT` drücken |
 | `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder lesen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
 | `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
-| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
+| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
 
 Eine volle Karte unterscheidet sich von einem fehlgeschlagenen Schreibvorgang
 durch das, was das Dateisystem meldet: Ein Schreibvorgang, der keinen freien

@@ -1,7 +1,9 @@
 # Bluejay and BLHeli_S settings
 
-Status: designed, not built; the owner answered its questions on
-2026-11-15, see [decisions](#decisions); slices wait on being built. The
+Status: designed; the owner answered its questions on 2026-11-15, see
+[decisions](#decisions). Slice 2 is built, tested on the host only
+([slice 2 as built](#slice-2-as-built)); slices 1 and 3 to 6 wait on being
+built. The
 feature is item (6) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: Bluejay and BLHeli_S settings, rcbench's
@@ -632,15 +634,16 @@ into it whatever the screen does: the bench cannot know.
 
 ### The firmware as it is today
 
-The same hazard exists now, before any of this is built. A BLHeli_S or
-Bluejay ESC that enters its bootloader while AM32 CONFIG is open and answers
-its greeting gets `REPLY NOT UNDERSTOOD:`; `s_blReached`, which sets MENU's
-run cue, is set only on `AM32_OK` (`ui_am32.cpp` line 846), so no cue
-shows; and BACK resumes the DShot pump at once (`uiAm32Exit()`, lines 783
-to 791; `PinUser::Am32` has no leave page, `pin_claim.h` line 88). The ESC
-is left in its bootloader with DShot on SIG. Until slice 2 closes this,
-unplug such an ESC's battery before BACK and plug it in after; STATUS.md,
-the README and the manual record it as a known limitation.
+With slice 2 built, a BLHeli_S or Bluejay ESC that enters its bootloader
+while ESC SETTINGS is open and answers its greeting is named on the connect
+page, `EFM8 E8B2 ANSWERED: NOT READ YET.`; nothing is read. The answer sets
+MENU's run cue and gives the claim the leave page
+(`pinClaimWantLeavePage()`), so BACK opens the leave page of decision 8 and
+DShot returns to SIG only from its RESTART DSHOT, after its steps have told
+the user to unplug the ESC's battery. The bench cannot see the battery:
+RESTART DSHOT with the ESC still powered, or a bench restart while it
+waits, sends DShot into the bootloader. STATUS.md records that as a known
+limitation.
 
 ## What is copied
 
@@ -770,6 +773,113 @@ own README and wiki lines (the owner's decision 27 of
 | 4. Write | WRITE..., ESC WRITE, the backups and their prefixes, the results, the guarded BACK, the heartbeat stop | about 400 | about 500 | as above | 3 |
 | 5. Bring-up | B1 to B13 | none | none | the record in STATUS | 1 to 4 |
 | 6. Restore | by decision 4, after rcbench has one | | | | 4 |
+
+### Slice 2 as built
+
+Files: `src/bl_answer.{h,cpp}`, the classification, pure;
+`am32BlAnswer()` and the classification in `am32BlHandshake()`
+(`src/am32_bl.*`); `pinClaimWantLeavePage()` and `pinClaimLeavePage()`
+(`src/pin_claim.*`), the leave page per claim; the EFM8 answer, its leave
+page and the titles in `src/ui_am32.*`; `src/ui_esc_config.{h,cpp}`, the
+`ESC CONFIG` chooser, `UiScreenId::EscConfig`, its entries
+`UI_ESC_CFG_ENTRIES` and their fit check in `src/ui_registry.cpp`; MENU's
+row 2; SD LOG's stop line. Host tests in `test/test_am32.cpp`
+(`testBlAnswer()`), `test/test_claim.cpp` (`testLeavePagePerClaim()`),
+`test/test_ui.cpp` (`testAm32Efm8()`), `test/test_menu.cpp`
+(`testEscConfig()`) and `test/test_ids.cpp`; the screenshots
+`shot_esc_chooser`, `shot_am32_efm8` and `shot_am32_leave`.
+
+Texts, at scale 1 unless named, (6n − 1) px for n characters:
+
+| Where | Text | Width |
+|---|---|---|
+| MENU, row 2, scale 2 | `ESC CONFIG` | 10, 118 px |
+| Chooser title, scale 2 | `ESC CONFIG` | 10, 118 px |
+| Chooser strip, `C_DIM` | `SIG GP0` | 7, 41 px |
+| Entry 1, scale 2 | `ESC SETTINGS` | 12, 142 px |
+| Its lines, `C_DIM`, y 112 and 124 | `AM32 SETTINGS, READ AND WRITTEN.` / `BLUEJAY, BLHELI_S: NAMED, NOT READ.` | 32, 191 px; 35, 209 px |
+| Entry 2, scale 2, drawn disabled | `USB BRIDGE` | 10, 118 px |
+| Its lines, `C_DIM`, y 192 and 204 | `A DESKTOP ESC TOOL OVER USB.` / `NOT BUILT` | 28, 167 px; 9, 53 px |
+| Titles, scale 2 | `ESC SETTINGS`, `ESC HEX`, `ESC WRITE` | 142, 82, 106 px, each ending 4 px or more before BACK |
+| List strip | `NEOESC f051  F051  AM32 2.16`; without a name `F051  AM32 2.16  LAYOUT 2` | 28, 167 px; 25, 149 px |
+| Connect page, y 176, amber, and the strip | `EFM8 E8B2 ANSWERED: NOT READ YET.` | 33, 197 px |
+| Leave page strip, `C_DIM` | `EFM8 E8B2  SIG GP0` | 18, 107 px |
+| Leave step 1, from x 20 | `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.` | 35, 209 px, to x 228; 33, 197 px; 26, 155 px |
+| Leave step 2 | `PLUG IT IN AFTER RESTART DSHOT.` | 31, 185 px |
+| SD LOG, a stop by the claim | `RECORDING STOPPED BY ESC SETTINGS` | 33, 197 px |
+
+Choices the note left open, the developer's:
+
+- **The classification's rule.** An AM32 family at the fifth byte from the end
+  is AM32 whatever the bytes before it, as `am32BlHandshake()` has always taken
+  it, so no AM32 answer changes meaning. An EFM8 answer is 9 bytes or more
+  ending in `471`, any byte, 0xE8, 0xB1, 0xB2 or 0xB5, any two bytes and 0x30:
+  rcbench's first contact takes 9 bytes starting `471` (`ew_a.c` lines 165 to
+  177, `protocols/escwire` at f4ba5321) and reads the signature from bytes 4 and
+  5 (`ew_id.c` lines 53 to 75). The fourth byte, `d` in Bluejay's answer, the
+  bootloader version and the page count are not checked: this note reads 6 and 1
+  from Bluejay's copy of the bootloader only, and BLHeli_S's copy is not read
+  for them. - **The handshake's result.** `am32BlHandshake()` still returns
+  `AM32_ERR_NAK` for an EFM8 answer and `AM32_ERR_TIMEOUT` for silence;
+  `am32BlAnswer()` returns the classification, so `Am32Result` and its texts
+  keep their widths. - **The connect loop after an EFM8 answer** greets as it
+  greets after any other answer it cannot use, by "the connect loop stays as
+  today" of the work breakdown. A later greeting reads to the waiting bootloader
+  as a restart and a new greeting ([the greeting already
+  fits](#the-greeting-already-fits)); not verified on an ESC. The EFM8 line
+  stays through later silence, since the bootloader waits with no timeout; a
+  later answer of another kind replaces it. The rest of the connect page,
+  `POWER-CYCLE THE ESC` and its three lines, is AM32's and unchanged. - **The
+  leave page opens before LEAVE**, with STAY and LEAVE, as decision 8's first
+  step ends `THEN LEAVE.`: the transport keeps SIG until LEAVE, which calls
+  `am32BlEnd()` and `pinClaimEnd()`. STAY returns to the view BACK left, the
+  claim kept, and the connect page greets again. After LEAVE there is no left
+  button: there is no next ESC to keep the claim for. RESTART DSHOT is live 1000
+  ms after SIG is let go, which for an AM32 claim, with no job, is the frame
+  after LEAVE. The note `RELEASING THE PIN` stands for that one frame. The strip
+  names the signature and SIG. - **Which BACK opens it.** Any BACK that would
+  leave the screen once an EFM8 bootloader answered in the session: from the
+  connect page, the list after a later AM32 answer, its guard's second BACK
+  included, and the read-only view. BACK from ESC HEX and ESC WRITE goes to the
+  list first, as before. - **The leave page per claim.** `PinUserInfo::unplug`
+  stays the default, copied into the claim at `pinClaimBegin()`.
+  `pinClaimWantLeavePage()` acts only for the holder and only while Stopping,
+  Held or Running, so it cannot hold back a claim already leaving;
+  `pinClaimLeavePage()` reads false while Free. - **The run cue** is set at each
+  EFM8 answer and stamped then, so an eRPM frame after the last answer clears it
+  as after an AM32 handshake. In this slice the only way from ESC SETTINGS to
+  MENU after an EFM8 answer is RESTART DSHOT, which clears it, so MENU does not
+  show it for an EFM8 answer; it matters once slice 3's LEAVE exists. - **Call A
+  here.** The sub-view titles change with the title `ESC SETTINGS`, which this
+  slice builds, so `AM32 WRITE` and `AM32 HEX` read `ESC WRITE` and `ESC HEX`
+  now. The firmware's name moves to the list's strip: `AM32 2.16` in place of
+  `FW 2.16`. - **The chooser's code.** A file of its own, `ui_esc_config.*`, as
+  RX SIGNALS' `ui_rx_signals.*`, with an entry type of a label, two lines and a
+  screen; a null screen draws the entry disabled. `USB BRIDGE`'s line says what
+  it is for, then `NOT BUILT`, as RX SIGNALS' OUTPUT. ESC SETTINGS' lines say
+  what it does today. The strip names SIG alone: the chooser's tools use SIG
+  only.
+
+Mutations, each applied to the tree, the suite built and run, then restored: 34,
+all failing the suite: the classification dropping each of B1, B2 and B5, the
+`471` check, its `7`, the 0xE8 check, the 0x30 check, the 9-byte floor, the
+signature's low byte; the claim's leave page per user again, set by any screen,
+set in any state, not taken from the user's row at `pinClaimBegin()`, reported
+while Free; no leave page on an EFM8 answer, no run cue on it, RESTART DSHOT
+keeping the cue, BACK leaving at once after an EFM8 answer, the EFM8 line
+dropped on silence, BACK live on the leave page, LEAVE keeping the transport,
+STAY going to the list, the page opened releasing, RESTART DSHOT without its
+wait, the steps swapped, an EFM8 answer taken as silence, the hex title `AM32
+HEX`, the strip's `FW`; every chooser entry acting, the chooser not `freePins`,
+USB BRIDGE without `NOT BUILT`, the entries' controls swapped, MENU's row back
+to `AM32 CONFIG`, SD LOG's old stop line. The script is not kept.
+
+Not verified: everything on an ESC. No Bluejay or BLHeli_S ESC has
+answered this board's greeting; the answer's bytes are the bootloader
+source's ([the greeting already fits](#the-greeting-already-fits)); what a
+waiting bootloader does with the greetings that follow is the source's;
+whether the user's unplugging reaches the ESC before RESTART DSHOT is the
+user's.
 
 ## Decisions
 

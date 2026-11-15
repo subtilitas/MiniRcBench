@@ -805,6 +805,7 @@ static void openLeave(Am32Screen from) {
 
 /**
  * @brief One frame of the leave page.
+ * @param t This frame's touch.
  * @return false once RESTART DSHOT gave SIG back to DShot: the screen leaves.
  */
 static bool leaveTick(const TouchState *t) {

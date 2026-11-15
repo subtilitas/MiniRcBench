@@ -44,6 +44,23 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1 (a93e1c1): a Bluejay or BLHeli_S ESC that answers the
+  greeting is recognised, slice 2 of
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built).
+  `src/bl_answer.*` classifies the answer: an AM32 family, the EFM8
+  bootloader of Bluejay and BLHeli_S by its signature E8B1, E8B2 or E8B5,
+  or neither; `am32BlAnswer()` returns it. The connect page reads
+  `EFM8 E8B2 ANSWERED: NOT READ YET.`; nothing is read. The answer sets
+  MENU's run cue and gives the pin claim a leave page
+  (`pinClaimWantLeavePage()`), so BACK opens the leave page of the note's
+  decision 8, `UNPLUG THE ESC BATTERY, THEN LEAVE.` and
+  `PLUG IT IN AFTER RESTART DSHOT.`, and DShot returns to SIG only from its
+  RESTART DSHOT, which clears the cue. MENU's second row is the chooser
+  `ESC CONFIG` (`src/ui_esc_config.*`), holding `ESC SETTINGS` and
+  `USB BRIDGE`, the latter drawn disabled with `NOT BUILT`. Host tests in
+  `test/test_am32.cpp`, `test/test_claim.cpp`, `test/test_ui.cpp`,
+  `test/test_menu.cpp` and `test/test_ids.cpp`; the screenshots
+  `esc-chooser`, `am32-efm8` and `am32-leave`. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
@@ -626,6 +643,19 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): AM32 CONFIG is `ESC SETTINGS`, opened from
+  MENU → ESC CONFIG, by decision 1 of
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions) and its
+  call A: its hex view and write page are titled `ESC HEX` and `ESC WRITE`,
+  the list's strip names the firmware, `AM32 2.16` in place of `FW 2.16`,
+  and SD LOG reads `RECORDING STOPPED BY ESC SETTINGS`. An AM32 session
+  with no EFM8 answer leaves as before, DShot back within BACK. The
+  greeting's comment in `src/am32_bl.cpp` says what F4 7D is: CRC-16/ARC of
+  `BLHeli` alone.
+- After v0.1.0-rc1 (a93e1c1): the leave page belongs to the pin claim, not
+  only to its user: `PinUserInfo::unplug` sets it when a claim begins and
+  `pinClaimWantLeavePage()` for the rest of one that began without it
+  (`src/pin_claim.*`).
 - After v0.1.0-rc1 (a93e1c1): MENU's RX SIGNALS row acts: it opens the RX
   SIGNALS chooser, has no status, and is drawn disabled while the pin claim
   is not free, as SERVO PROGRAMMER's row. `UI_RX_SIGNALS` moves from

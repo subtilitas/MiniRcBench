@@ -64,7 +64,7 @@ after a restart, report it as described under [Still stuck](#still-stuck).
 Nothing answers on the signal wire, and the chip under the title on the
 `MENU` screen reads `NO ESC`. Check in this order:
 
-1. **The ESC has not been power-cycled since AM32 CONFIG.** Leaving that
+1. **The ESC has not been power-cycled since ESC SETTINGS.** Leaving that
    screen sends the bootloader no command to start the ESC firmware, and
    what the ESC does then is not recorded. Power-cycle the ESC before you
    test it: [AM32 Configuration](AM32-Configuration#leaving).
@@ -226,6 +226,10 @@ screen does not work.
 
 - **`REPLY NOT UNDERSTOOD`**: the link works and the framing does not. Possible
   cause: the ESC does not run AM32.
+- **`EFM8 E8B2 ANSWERED: NOT READ YET.`**: a Bluejay or BLHeli_S ESC
+  answered. The screen does not read its settings. `BACK` opens a leave
+  page: unplug the ESC battery, `LEAVE`, `RESTART DSHOT`, then plug it in
+  ([AM32 Configuration](AM32-Configuration#a-bluejay-or-blheli_s-esc)).
 - **`NO VALID SETTINGS`**: the ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`**: the screen connected, and the ESC
@@ -287,14 +291,14 @@ discarded without these notes; the note line then reads
 
 The recording ended without `STOP`. **MENU → SD LOG** says how above
 `START`: a full card, a failed write, a file that did not open, or the tool
-(KST SERVO, HITEC SERVO, AM32 CONFIG) that took the card. See
+(KST SERVO, HITEC SERVO, ESC SETTINGS) that took the card. See
 [SD Logging](SD-Logging#how-the-last-log-ended).
 
 ---
 
 ## A write says `BOARD VOLTAGE IS RED: NOT WRITTEN.`
 
-KST SERVO, HITEC SERVO and AM32 CONFIG write nothing, and restore nothing,
+KST SERVO, HITEC SERVO and ESC SETTINGS write nothing, and restore nothing,
 while the BOARD voltage on the tester is red: below 3.30 V, until it rises
 to 3.35 V. Charge the board's cell, then hold again. The edits stay. With
 USB power and no cell the reading is not measured; if it reads red there,

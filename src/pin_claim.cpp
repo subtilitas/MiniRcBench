@@ -83,7 +83,6 @@ static void settle() {
 	s_roles = 0;
 	s_sig = s_aux = PIN_CLAIM_NO_GPIO;
 	s_jobWanted = false;
-	s_unplug = false;
 }
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
