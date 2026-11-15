@@ -36,8 +36,8 @@ run.
 > **Before you power anything on:** a motor on a bench can injure. Read
 > [First Run](First-Run#safety-first) before the first arm.
 
-**Hardware testing.** No image of this firmware has run on hardware yet. Its
-tests run on a host computer.
+**Hardware testing.** No image of this firmware has run on hardware yet. The
+firmware's tests run on a host computer.
 
 **Bench plan.** The ordered hardware tests of the bring-up:
 [docs/bench-plan.md](https://github.com/subtilitas/MiniRcBench/blob/main/docs/bench-plan.md).
@@ -83,7 +83,7 @@ Strom und der erste Motorlauf.
 > Scharfschalten.
 
 **Hardware-Tests.** Kein Image dieser Firmware lief bisher auf Hardware. Ihre
-Tests laufen auf einem Computer.
+Tests der Firmware laufen auf einem Host-Computer.
 
 **Prüfplan.** Die geordneten Hardware-Tests der Inbetriebnahme:
 [docs/bench-plan.md](https://github.com/subtilitas/MiniRcBench/blob/main/docs/bench-plan.md).

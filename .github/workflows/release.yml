@@ -214,6 +214,8 @@ jobs:
           sha256sum ./*.uf2 ./THIRD_PARTY_NOTICES.txt > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
+      # "Hardware testing" states the record at the time of writing; revise it
+      # when a bench result for a MiniRcBench image is recorded in STATUS.md.
       - name: Write release notes
         env:
           TAG: ${{ needs.version.outputs.tag }}
@@ -229,8 +231,8 @@ jobs:
 
           ## Hardware testing
 
-          No MiniRcBench image, this one included, has run on hardware. Its
-          tests run on a host computer. The bench tests are listed in
+          No MiniRcBench image, this one included, has run on hardware. The
+          firmware's tests run on a host computer. The bench tests are listed in
           `docs/bench-plan.md`.
 
           ## Flashing
@@ -299,7 +301,8 @@ jobs:
 
           ---
           EOF
-          sed -i "s/MiniRcBench-TAG-/MiniRcBench-${TAG}-/" notes.md
+          n=$(cat notes.md)
+          printf '%s\n' "${n//MiniRcBench-TAG-/"MiniRcBench-$TAG-"}" > notes.md
 
       # --notes prepends to the generated notes; --notes-file does not combine
       # with --generate-notes, so the body is passed inline.

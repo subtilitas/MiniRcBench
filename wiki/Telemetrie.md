@@ -25,7 +25,8 @@ Firmware; siehe unten.
 
 Bidirektionales DShot und EDT funktionieren auf der Hardware mit dem
 DShot-Treiber von DshotDisplay v2.3 (laut Projektinhaber; kein Fehler bekannt).
-Der DShot-Treiber dieser Firmware lief noch nicht auf Hardware.
+Der DShot-Treiber dieser Firmware lief in dieser Firmware noch nicht auf
+Hardware; rcbench betrieb ihn an einem AM32-ESC.
 
 **KISS-Telemetrie** ist ein optionales drittes Kabel vom Telemetrie-Pad des
 ESC. Ihre Schritte sind 0,01 V und 0,01 A, gegenüber 0,25 V und 1 A bei EDT,
@@ -135,8 +136,9 @@ DShot-Frame eines an, also mit 50 Hz. Das Kabel bringt feinere Spannung und
 Strom sowie die verbrauchten mAh.
 
 **Stand:** funktioniert auf der Hardware mit dem DShot-Treiber von
-DshotDisplay v2.3 (laut Projektinhaber); mit dieser Firmware nicht auf
-Hardware getestet.
+DshotDisplay v2.3 (laut Projektinhaber); ob dieser Bericht das
+RP2350-Touch-LCD-2.8 betrifft, ist nicht festgehalten. Mit dieser Firmware
+nicht auf Hardware getestet.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|

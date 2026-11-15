@@ -378,7 +378,7 @@ build or test for the RP2350's Hazard3 RISC-V cores.
 
 Every [release](https://github.com/subtilitas/MiniRcBench/releases) has the
 `.uf2` attached. Flash it as above. No MiniRcBench image has run on hardware
-yet; its tests run on a host computer. The bench tests are listed in
+yet; the firmware's tests run on a host computer. The bench tests are listed in
 `docs/bench-plan.md`.
 
 Every green CI run uploads the `.uf2` as an
@@ -1090,8 +1090,9 @@ mAh, which EDT does not carry.
 The line is transmit-only from the ESC. Requests go out every 20th DShot frame
 (`KISS_REQUEST_EVERY_N`), which is 50 Hz at 1 kHz.
 
-**Status:** working on hardware with `pico-bidir-dshot` (owner report); not
-tested on hardware with `src/dshot/`. It is off by default
+**Status:** working on hardware with `pico-bidir-dshot` (owner report);
+whether that report covers the RP2350-Touch-LCD-2.8 is not recorded. Not
+tested on hardware in MiniRcBench. It is off by default
 (`KISS_ENABLE_LCD_2_8` = 0) because the board has two free pins and the ESC
 uses one.
 

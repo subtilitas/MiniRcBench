@@ -24,7 +24,8 @@ receive an enable command. The firmware sends it; see below.
 
 Bidirectional DShot and EDT work on hardware with the DShot driver of
 DshotDisplay v2.3 (owner report; no defect known). The DShot driver of this
-firmware has not run on hardware yet.
+firmware has not run on hardware in this firmware; rcbench ran it on one AM32
+ESC.
 
 **KISS telemetry** is an optional third wire from the ESC's telemetry pad. Its
 steps are 0.01 V and 0.01 A, against EDT's 0.25 V and 1 A, and it carries
@@ -127,7 +128,8 @@ telemetry pad when requested. The tester requests one every 20th DShot frame,
 which is 50 Hz. The wire adds finer voltage and current, and consumed mAh.
 
 **Status:** works on hardware with the DShot driver of DshotDisplay v2.3
-(owner report); not tested on hardware with this firmware.
+(owner report); whether that report covers the RP2350-Touch-LCD-2.8 is not
+recorded. Not tested on hardware with this firmware.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|

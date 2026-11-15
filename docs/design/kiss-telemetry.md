@@ -14,10 +14,11 @@ continuous integration. AM32 is an open-source ESC firmware.
 
 Status: implemented on the Waveshare RP2350-Touch-LCD-2.8: decoder, PIO receiver, request and drain on
 core1, merge with EDT, source tags on the main screen, both eRPM sources in the
-log. Working on hardware (owner report). Issue #1 separately reports correct
-values with a receiver driving the ESC and the display only listening. Whether
-each report covers the RP2350-Touch-LCD-2.8, and the line voltage, have no
-record.
+log. Working on hardware with `pico-bidir-dshot`, the DShot driver before
+`src/dshot/` (owner report); not tested on hardware in MiniRcBench. Issue #1
+separately reports correct values with a receiver driving the ESC and the
+display only listening. Whether each report covers the RP2350-Touch-LCD-2.8, and
+the line voltage, have no record.
 
 ## Why
 
@@ -318,11 +319,12 @@ host.
 
 ## Hardware record
 
-The owner reports KISS telemetry working on hardware, the display's own
-telemetry request included. Issue #1 separately reports correct values with a
-receiver driving the ESC and the display only listening. Whether each report
-covers the RP2350-Touch-LCD-2.8 is not recorded. The line level is not
-measured.
+The owner reports KISS telemetry working on hardware with `pico-bidir-dshot`,
+the DShot driver before `src/dshot/`, the display's own telemetry request
+included. It is not tested on hardware in MiniRcBench. Issue #1 separately
+reports correct values with a receiver driving the ESC and the display only
+listening. Whether each report covers the RP2350-Touch-LCD-2.8 is not recorded.
+The line level is not measured.
 [STATUS.md](../../STATUS.md) holds the full verification record.
 
 ## Open questions
