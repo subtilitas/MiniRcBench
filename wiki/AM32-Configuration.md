@@ -168,11 +168,17 @@ tags already; keeping the ESC powered keeps it in its bootloader.
 
 <img src="img/efm8-empty.png" width="240" alt="An empty settings page: EFM8 E8B2: SETTINGS PAGE EMPTY and its two lines"> <img src="img/efm8-refused.png" width="240" alt="A page not known: EFM8 E8B5: PAGE NOT KNOWN, NOT BLUEJAY OR BLHELI_S AS KNOWN: and NOTHING IS WRITTEN.">
 
+A reply the tester does not understand that holds a piece of such an
+answer, for example the answer with one byte lost, gets the same leave page
+from `BACK`: that ESC's bootloader may wait too. Its strip reads
+`EFM8  SIG GP0`. A reply with no such piece does not.
+
 **Leaving the list.** `BACK` from the list sends the bootloader LEAVE,
 which starts the ESC's firmware: the page reads `LEAVING` and
 `KEEP THE PROPELLER OFF.` in amber. About a third of a second later DShot
 returns on the signal pin and the screen returns to MENU. LEAVE has no
 answer: whether the ESC started is not seen, and not verified on an ESC.
+MENU's `POWER-CYCLE THE ESC TO RUN IT` stays until the ESC sends eRPM.
 
 <img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE, THEN DSHOT RETURNS. KEEP THE PROPELLER OFF.">
 
@@ -192,12 +198,13 @@ So `BACK` opens a leave page instead of returning to MENU at once:
 
 <img src="img/am32-leave.png" width="240" alt="The leave page: step 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
 
-`STAY` returns to the screen; a read under way goes on. Unplug the ESC
-battery, then tap `LEAVE`. `RESTART DSHOT` takes LEAVE's place and acts 1 s
-later; it starts DShot on the signal pin and returns to MENU. Plug the
-battery back in after that. `BACK` is grey on this page. MENU's
-`POWER-CYCLE THE ESC TO RUN IT` is cleared by LEAVE from the list and by
-RESTART DSHOT, since the steps power-cycled the ESC. The tester cannot see
+`STAY` returns to the screen. While the leave page is open the tester's
+greeting and its first look at the page run on, and the read of the whole
+page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
+`RESTART DSHOT` takes LEAVE's place and acts 1 s later; it starts DShot on
+the signal pin and returns to MENU. Plug the battery back in after that.
+`BACK` is grey on this page. RESTART DSHOT clears MENU's
+`POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the ESC. The tester cannot see
 the battery: RESTART DSHOT with the ESC still powered, or a restart of the
 tester while the ESC waits, sends DShot into its bootloader.
 
@@ -502,9 +509,9 @@ After a Bluejay or BLHeli_S answer, `BACK` from its list sends LEAVE, and
 
 After a session in which the bootloader answered, MENU shows
 `POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. It goes
-when an eRPM frame arrives, which only the ESC's firmware sends, when LEAVE
-went out from a Bluejay or BLHeli_S list, on RESTART DSHOT of the leave
-page, or when the board restarts.
+when an eRPM frame arrives, which only the ESC's firmware sends, on RESTART
+DSHOT of the leave page, or when the board restarts. LEAVE from a Bluejay
+or BLHeli_S list leaves it, as LEAVE has no answer.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU with POWER-CYCLE THE ESC TO RUN IT in amber under the strip's caption">
 
@@ -513,8 +520,9 @@ page, or when the board restarts.
 ## When it will not connect
 
 - **`LINE HIGH, NOTHING SENT` and `WAITING...` with no end.** Unplug and
-  replug the ESC battery *while the screen is open*. Whether an ESC powered before the
-  screen opened is reached without a power cycle is not measured.
+  replug the ESC battery *while the screen is open*. Whether an ESC powered
+  before the screen opened is reached without a power cycle is not
+  measured.
 - **`REPLY NOT UNDERSTOOD`.** The link works; the framing does not. Possible
   causes: the ESC does not run AM32, or its bootloader uses a protocol this
   transport does not implement.

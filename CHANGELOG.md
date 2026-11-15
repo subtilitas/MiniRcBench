@@ -59,9 +59,12 @@ protocol.
   255 bytes, the strip's caption, read-only lines and row notes, and the
   tester's 3D note. A page rcbench does not take is named on the connect
   page, `EFM8 E8B2: SETTINGS PAGE EMPTY` or `EFM8 E8B2: PAGE NOT KNOWN` and
-  the like. BACK from the list sends LEAVE, `00 01`, clears MENU's run cue
-  and gives SIG back to DShot; every other BACK after an EFM8 answer opens
-  the leave page, as before. A session that ends without the page greets
+  the like. BACK from the list sends LEAVE, `00 01`, and gives SIG back to
+  DShot; MENU's run cue stays until an eRPM frame, as LEAVE has no answer.
+  Every other BACK after an EFM8 answer opens the leave page, as before, and
+  so does BACK after a reply that holds a piece of an EFM8 answer, `471`,
+  `71` and 0xE8 two bytes on, or 0xE8 with 0xB1, 0xB2 or 0xB5. A refused
+  bind puts the pull-up back on SIG. A session that ends without the page greets
   again. The job stops an entry or read on a heartbeat lapse and lets a
   LEAVE finish. Nothing writes a Bluejay or BLHeli_S ESC. Host tests in
   `test/test_escwire_job.cpp`, `test/test_efm8_view.cpp`,

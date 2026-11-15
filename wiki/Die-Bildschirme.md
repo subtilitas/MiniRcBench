@@ -213,9 +213,8 @@ nur eine Anzeige, eckig und 12 px hoch:
 
 Nach einer Sitzung in ESC SETTINGS, in der der Bootloader des ESC geantwortet
 hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in
-Bernstein, bis ein eRPM-Frame eintrifft, LEAVE aus einer Bluejay- oder
-BLHeli_S-Liste hinausgeht, RESTART DSHOT auf der Verlassenseite von ESC
-SETTINGS getippt wird oder die Platine neu startet
+Bernstein, bis ein eRPM-Frame eintrifft, RESTART DSHOT auf der
+Verlassenseite von ESC SETTINGS getippt wird oder die Platine neu startet
 ([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
 
 <img src="img/menu-no-esc.png" width="240" alt="MENU ohne angeschlossenen ESC: das Feld zeigt NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU mit einem ESC, der eRPM und kein EDT sendet: das Feld zeigt EDT OFF in Rot">

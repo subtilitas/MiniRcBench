@@ -1326,8 +1326,10 @@ BLHeli_S ESC whose page was read is left with LEAVE, below. After a session
 whose handshake succeeded, or in which an EFM8 bootloader answered, MENU's
 strip shows `POWER-CYCLE THE ESC TO RUN IT` in amber on a second line under
 its caption (`uiAm32RunCue()`), until an eRPM frame stamped after that answer
-arrives, LEAVE goes out, RESTART DSHOT on the leave page below is tapped, or
-the board restarts.
+arrives, RESTART DSHOT on the leave page below is tapped, or the board
+restarts. LEAVE from a Bluejay or BLHeli_S list leaves it: LEAVE has no
+answer, so only an eRPM frame shows that the firmware started. A reply that
+holds a piece of an EFM8 answer sets it too, below.
 
 ### Connecting
 
@@ -1384,10 +1386,23 @@ a garbled byte still counts as an EFM8 answer and keeps DShot off its
 bootloader; escwire's own first contact then checks the answer in full.
 From the bootloaders' sources; not seen on an ESC.
 
+A reply not understood that holds a piece of an EFM8 answer, `471`, or `71`,
+a byte and 0xE8, or 0xE8 followed by 0xB1, 0xB2 or 0xB5
+(`blAnswerEfm8Fragment()`), as an answer with its `d` or its leading `4`
+lost does, gives the claim the leave page and MENU the run cue too: its
+bootloader may wait on the line. The connect page names the bytes, as for
+any reply not understood, and the cycle greets on; BACK opens the leave
+page, whose strip reads `EFM8  SIG GP0`. Bytes with none of these pieces
+leave the leave page off. A false hit costs a leave page.
+
 An EFM8 answer gives the pin claim a leave page
 (`pinClaimWantLeavePage()`) and sets MENU's run cue. Then the AM32
 transport lets go of SIG, leaving it floating, and the claim starts its
 core1 job, `Core1Job::EscWire` (`src/escwire_job.h`), on core1's next pass.
+A bind the driver refuses puts the pull-up back on SIG and names the
+resource on the connect page, `SIG GP0 COULD NOT BE TAKEN (DMA)` and the
+like, or `(PIN)` for a pin the driver does not take; BACK opens the leave
+page.
 The job opens rcbench's line driver, `ew_line` on one PIO state machine of
 25 words and 2 DMA channels, and drives the line high in the same call. It
 holds it high 500 ms more, makes its own first contact, 3 tries of 100 ms,
@@ -1444,10 +1459,10 @@ firmware loads its defaults at its next start.
 line, then the line parked. The page reads `LEAVING` over `THE ESC STARTS
 ITS FIRMWARE ON` / `LEAVE, THEN DSHOT RETURNS.` and, in amber,
 `KEEP THE PROPELLER OFF.`; BACK is drawn disabled. Once LEAVE went out the
-run cue clears, the job lets SIG go and DShot returns, with no leave page,
-and the screen returns to MENU. LEAVE has no answer: whether the firmware
-started is not seen, and not verified on an ESC. A LEAVE that did not go
-out opens the leave page below.
+job lets SIG go and DShot returns, with no leave page, and the screen
+returns to MENU. LEAVE has no answer: whether the firmware started is not
+seen, and not verified on an ESC, so MENU's run cue stays until an eRPM
+frame after it. A LEAVE that did not go out opens the leave page below.
 
 An entry or a read that ends without the page, the ESC silent, another
 answer or a stop, closes the job; the claim keeps its leave page, the AM32

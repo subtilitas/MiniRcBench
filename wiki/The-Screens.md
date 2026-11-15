@@ -196,8 +196,8 @@ square and 12 px tall:
 
 After an ESC SETTINGS session in which the ESC's bootloader answered, a second
 line under the caption reads `POWER-CYCLE THE ESC TO RUN IT` in amber, until
-an eRPM frame arrives, LEAVE goes out from a Bluejay or BLHeli_S list,
-RESTART DSHOT on ESC SETTINGS' leave page is tapped, or the board restarts ([AM32 Configuration](AM32-Configuration#leaving)).
+an eRPM frame arrives, RESTART DSHOT on ESC SETTINGS' leave page is tapped,
+or the board restarts ([AM32 Configuration](AM32-Configuration#leaving)).
 
 <img src="img/menu-no-esc.png" width="240" alt="MENU with no ESC connected: the chip reads NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU with an ESC that sends eRPM and no EDT: the chip reads EDT OFF in red">
 

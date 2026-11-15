@@ -182,12 +182,19 @@ eingeschaltet bleibt der ESC in seinem Bootloader.
 
 <img src="img/efm8-empty.png" width="240" alt="Eine leere Einstellungsseite: EFM8 E8B2: SETTINGS PAGE EMPTY und ihre zwei Zeilen"> <img src="img/efm8-refused.png" width="240" alt="Eine unbekannte Seite: EFM8 E8B5: PAGE NOT KNOWN, NOT BLUEJAY OR BLHELI_S AS KNOWN: und NOTHING IS WRITTEN.">
 
+Eine Antwort, die der Tester nicht versteht, die aber ein Stück einer
+solchen Antwort enthält, zum Beispiel die Antwort mit einem verlorenen
+Byte, bekommt von `BACK` dieselbe Verlassenseite: Der Bootloader dieses ESC
+kann ebenfalls warten. Ihr Streifen zeigt `EFM8  SIG GP0`. Eine Antwort
+ohne ein solches Stück nicht.
+
 **Die Liste verlassen.** `BACK` aus der Liste sendet dem Bootloader LEAVE,
 das die ESC-Firmware startet: Die Seite zeigt `LEAVING` und in Bernstein
 `KEEP THE PROPELLER OFF.` (Propeller ab lassen). Etwa eine Drittelsekunde
 später kehrt DShot auf den Signalpin zurück und der Bildschirm zu MENU.
 LEAVE hat keine Antwort: Ob der ESC gestartet ist, sieht der Tester nicht;
-an keinem ESC geprüft.
+an keinem ESC geprüft. MENUs `POWER-CYCLE THE ESC TO RUN IT` bleibt, bis der
+ESC eRPM sendet.
 
 <img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE, THEN DSHOT RETURNS. KEEP THE PROPELLER OFF.">
 
@@ -209,12 +216,14 @@ Verlassenseite, statt sofort zu MENU zurückzukehren:
 
 <img src="img/am32-leave.png" width="240" alt="Die Verlassenseite: Schritt 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
 
-`STAY` kehrt zum Bildschirm zurück; ein laufendes Lesen geht weiter. Zieh
-den ESC-Akku ab, dann tippe `LEAVE`. `RESTART DSHOT` tritt an die Stelle von
-LEAVE und wirkt 1 s später; es startet DShot auf dem Signalpin und kehrt zu
-MENU zurück. Steck den Akku danach wieder an. `BACK` ist auf dieser Seite
-grau. MENUs `POWER-CYCLE THE ESC TO RUN IT` verschwindet mit LEAVE aus der
-Liste und mit RESTART DSHOT, da die Schritte den ESC neu gestartet haben.
+`STAY` kehrt zum Bildschirm zurück. Solange die Verlassenseite offen ist,
+laufen der Gruß des Testers und sein erster Blick auf die Seite weiter, und
+das Lesen der ganzen Seite wartet auf `STAY`. Zieh den ESC-Akku ab, dann
+tippe `LEAVE`. `RESTART DSHOT` tritt an die Stelle von LEAVE und wirkt 1 s
+später; es startet DShot auf dem Signalpin und kehrt zu MENU zurück. Steck
+den Akku danach wieder an. `BACK` ist auf dieser Seite grau. RESTART DSHOT
+nimmt MENUs `POWER-CYCLE THE ESC TO RUN IT` weg, da die Schritte den ESC
+neu gestartet haben.
 Den Akku sieht der Tester nicht: RESTART DSHOT bei noch eingestecktem ESC,
 oder ein Neustart des Testers, während der ESC wartet, schickt DShot in
 seinen Bootloader.
@@ -546,9 +555,9 @@ BLHeli_S sendet `BACK` aus deren Liste LEAVE, und `BACK` von überall sonst
 Nach einer Sitzung, in der der Bootloader geantwortet hat, zeigt MENU
 `POWER-CYCLE THE ESC TO RUN IT` in Bernstein unter der Zeile des Streifens.
 Der Hinweis verschwindet, sobald ein eRPM-Frame eintrifft, den nur die
-ESC-Firmware sendet, sobald LEAVE aus einer Bluejay- oder BLHeli_S-Liste
-hinausging, mit RESTART DSHOT der Verlassenseite, oder wenn die Platine neu
-startet.
+ESC-Firmware sendet, mit RESTART DSHOT der Verlassenseite, oder wenn die
+Platine neu startet. LEAVE aus einer Bluejay- oder BLHeli_S-Liste lässt ihn
+stehen, da LEAVE keine Antwort hat.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU mit POWER-CYCLE THE ESC TO RUN IT in Bernstein unter der Zeile des Streifens">
 
@@ -557,9 +566,9 @@ startet.
 ## Wenn keine Verbindung zustande kommt
 
 - **Endlos `LINE HIGH, NOTHING SENT` und `WAITING...`.** Zieh den ESC-Akku
-  ab und steck ihn wieder an, *während der Bildschirm offen ist*. Ob ein ESC, der schon
-  vor dem Öffnen des Bildschirms lief, ohne Neustart erreicht wird, ist nicht
-  gemessen.
+  ab und steck ihn wieder an, *während der Bildschirm offen ist*. Ob ein
+  ESC, der schon vor dem Öffnen des Bildschirms lief, ohne Neustart erreicht
+  wird, ist nicht gemessen.
 - **`REPLY NOT UNDERSTOOD`.** Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursachen: Der ESC läuft nicht mit AM32, oder sein Bootloader
   nutzt ein Protokoll, das dieser Transport nicht umsetzt.

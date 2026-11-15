@@ -647,8 +647,8 @@ to SIG only from its RESTART DSHOT, after its steps have told the user to
 unplug the ESC's battery. The bench cannot see the battery: RESTART DSHOT
 with the ESC still powered, or a bench restart while it waits, sends DShot
 into the bootloader. LEAVE has no answer, so a LEAVE the ESC did not take
-leaves it waiting when DShot returns (B11). STATUS.md records both as known
-limitations.
+leaves it waiting when DShot returns (B11); MENU's run cue stays until an
+eRPM frame after LEAVE. STATUS.md records both as known limitations.
 
 ## What is copied
 
@@ -964,7 +964,7 @@ Files: `src/greet_cycle.{h,cpp}`, the connect cycle, pure, its two numbers
 `src/core1_job.*`; `src/escwire_port.{h,cpp}`, its line on `ew_line`;
 `src/efm8_view.{h,cpp}`, the rows and texts of a page, pure; the screen's
 states `S_EW`, `S_EW_LIST`, `S_EW_EXIT` and `S_REGREET` in
-`src/ui_am32.*`; `PinUser::Am32`'s row in `src/pin_claim.h`, now
+`src/ui_am32.*`; `PinUser::Am32`'s row in `src/pin_claim.h`,
 `Core1Job::EscWire` with `deferJob`; ESC SETTINGS' second chooser line in
 `src/ui_registry.cpp`; `src/escwire.cmake` builds the three new sources
 and the job's call graph. Host tests in `test/test_am32.cpp`
@@ -974,8 +974,13 @@ core1 once a millisecond in every frame), `test/test_claim.cpp`,
 `test/test_menu.cpp` and `test/test_ids.cpp`, the job and the screen
 against rcbench's simulated ESC behind `test/fake_escwire_port.h`. CI's
 "ESC settings job stack on core1" holds the job's deepest chain to
-1,792 bytes; it is 288 bytes, `escwireJobStep()` through
-`ew_session_step()` to `ew_text_show()`. The screenshots `shot_am32_quiet`,
+1,792 bytes, which leaves 256 bytes of core1's 2 KB for `loop1()` and
+`core1JobPoll()` above it, as for the Hitec job. The chain is 408 bytes: 296
+from `escwireJobStep()` through `ew_session_step()` to `ew_text_show()`,
+and 112 for the line driver's functions, which the session calls through
+the pointers of `ew_driver_t` and the call graph has no edge for; the step
+adds the deepest of them, `ew_line_start()`, to every chain
+(`tools/stack_depth.py --indirect`). SDK and library calls count 0 bytes. The screenshots `shot_am32_quiet`,
 `shot_am32_efm8`, `shot_efm8_list`, `shot_efm8_note`, `shot_efm8_hex`,
 `shot_efm8_3d`, `shot_efm8_readonly`, `shot_efm8_empty`,
 `shot_efm8_refused`, `shot_efm8_leaving`, `shot_efm8_stopped` and
@@ -1044,10 +1049,14 @@ Choices the note left open, the developer's:
   ([why an interrupted write loses the tags](#why-an-interrupted-write-loses-the-tags)).
   BACK there opens the leave page of decision 8.
 - **DShot after LEAVE.** Once the job reports LEAVE went out, the screen
-  clears the run cue and ends the claim; the claim keeps its leave page
-  flag, so it waits in Leaving until the job is idle, and the screen then
-  calls `pinClaimRestart()` itself, without the leave page's 1000 ms or
-  steps. `src/pin_claim.*` gains no function. A LEAVE refused for the
+  ends the claim; the claim keeps its leave page flag, so it waits in
+  Leaving until the job is idle, and the screen then calls
+  `pinClaimRestart()` itself, without the leave page's 1000 ms or steps.
+  The run cue stays: LEAVE has no answer (B11), so an ESC that missed
+  `00 01` still waits when DShot returns, and only an eRPM frame after
+  LEAVE clears the cue. Decision 3 (a1) reads "the run cue is cleared when
+  LEAVE went out"; this build keeps it, by the review of pull request 96,
+  and the owner may restore (a1). `src/pin_claim.*` gains no function. A LEAVE refused for the
   heartbeat is asked again; one that ends without going out opens the leave
   page.
 - **A session that ends without the page**, silent, another answer, a
@@ -1068,8 +1077,20 @@ Choices the note left open, the developer's:
 - **The 3D note.** A read that opens a list sets it from DIRECTION; a page
   whose marker is wrong leaves it, since its firmware loads its defaults at
   its next start.
-- **A bind refused** reads `SIG GP0 COULD NOT BE TAKEN (PIO)` on the
-  connect page with no RETRY; BACK opens the leave page.
+- **A bind refused** puts the pull-up back on SIG, which `am32BlEnd()` left
+  floating, and reads `SIG GP0 COULD NOT BE TAKEN (DMA)`, `(PIO)`,
+  `(CLOCK)` or, for a pin the driver does not take, `(PIN)`
+  (`CORE1_JOB_PIN`), on the connect page with no RETRY; BACK opens the
+  leave page.
+- **A piece of an EFM8 answer.** A reply not understood that holds `471`,
+  or `71`, a byte and 0xE8, or 0xE8 followed by 0xB1, 0xB2 or 0xB5
+  (`blAnswerEfm8Fragment()`, `BlAnswer::fragment`), as an EFM8 answer with
+  its `d` or its leading `4` lost does, gives the claim the leave page and
+  MENU the run cue; no job starts, and the cycle greets on. The leave
+  page's strip reads `EFM8  SIG GP0`, naming no part. A reply with none of
+  the pieces keeps the leave page off, so noise does not ask for an unplug;
+  a reply classified AM32 is never a piece, but an AM32 answer with a
+  glitch byte holds `471` and is one. A false hit costs a leave page.
 
 Mutations, each applied to a copy of the tree, the suite built and run: 53,
 49 failing the suite. Of the four that pass, three are equivalent: Read
