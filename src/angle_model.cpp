@@ -100,10 +100,8 @@ bool angleFlipSolve(const float p1[3], const float p2[3], const float p3[3],
                     const int8_t axes[3], AngleCal *out) {
 	if (!out) return false;
 	out->valid = false;
-	for (int i = 0; i < 3; ++i) {
-		if (!isfinite(p1[i]) || !isfinite(p2[i]) || !isfinite(p3[i])) return false;
-	}
-	// Written so that NaN, from an axis map that is not one, fails each test.
+	// Written so that NaN, in a pose or from an axis map that is not one,
+	// fails each test.
 	if (!(normalOf(p1, axes) > ANGLE_FLIP_POSE_G) || !(normalOf(p2, axes) > ANGLE_FLIP_POSE_G) ||
 	    !(normalOf(p3, axes) < -ANGLE_FLIP_POSE_G)) {
 		return false;
@@ -117,7 +115,7 @@ bool angleFlipSolve(const float p1[3], const float p2[3], const float p3[3],
 		const float s = (p1[i] - p2[i]) / 2.0f;
 		s2 += s * s;
 	}
-	if (!(s2 < 1.0f)) return false;
+	// A slope of 90 deg or more gives an infinite or NaN gain, refused below.
 	out->offG[n] = (p1[n] + p3[n]) / 2.0f;
 	out->gain[n] = fabsf(p1[n] - p3[n]) / 2.0f / sqrtf(1.0f - s2);
 	out->valid = true;
@@ -212,15 +210,14 @@ void angleOpen(AngleModel *m, const AngleSetup *s) {
 	imu_init(&m->imu);
 	imu_set_filter(&m->imu, ANGLE_FILTER);
 	servo_rudder_init(&m->rud);
-	m->zero = AngleZero::None;
-	angleFlipStart(&m->flip);
+	// The memset leaves ZERO at None and the flip at step 1.
 }
 
 /** @brief Whether the model's reading is settled now. */
 static bool settled(const AngleModel *m) {
 	const imu_reading_t *r = &m->imu.r;
-	return r->valid && !angleTooSteep(r->angle[IMU_AXIS_Y]) &&
-	       imu_still_ms(r, IMU_AXIS_X) >= ANGLE_SETTLED_MS;
+	// imu_still_ms() is 0 while the reading is not valid.
+	return !angleTooSteep(r->angle[IMU_AXIS_Y]) && imu_still_ms(r, IMU_AXIS_X) >= ANGLE_SETTLED_MS;
 }
 
 /** @brief ZERO armed for @ref ANGLE_ZERO_WAIT_MS by @p ms: timed out. */
@@ -259,7 +256,7 @@ static void frameIn(AngleModel *m, const float chip[3], float tempC, uint32_t ms
 
 void angleSample(AngleModel *m, const ImuSample *s) {
 	if (!m || !s || s->seq == 0 || s->seq == m->lastSeq) return;
-	if (m->count > 0 && s->takenMs - m->lastSampleMs >= IMU_STALE_MS) {
+	if (s->takenMs - m->lastSampleMs >= IMU_STALE_MS) {
 		m->count = 0;
 	}
 	if (m->count == 0) {

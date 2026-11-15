@@ -263,9 +263,10 @@ float angleBetween(const float a[3], const float b[3]);
  * @param p3   Screen down.
  * @param axes The axis map.
  * @param out  Takes the calibration, valid only on success.
- * @return false for a value that is not finite, a pose whose normal is not
- *         past @ref ANGLE_FLIP_POSE_G the right way, a slope of 90° or more,
- *         or a result angleCalValid() refuses.
+ * @return false for a pose whose normal is not past @ref ANGLE_FLIP_POSE_G
+ *         the right way, or a result angleCalValid() refuses, which a value
+ *         that is not finite, in a component the result takes, and a slope
+ *         of 90° or more give.
  */
 bool angleFlipSolve(const float p1[3], const float p2[3], const float p3[3],
                     const int8_t axes[3], AngleCal *out);
@@ -281,8 +282,9 @@ void angleFlipStart(AngleFlip *f);
  *        stretch's first, in the step's pose and less than IMU_STALE_MS after
  *        the last, adds to the stretch; any other starts a new one, or none
  *        for a frame out of the pose. A stretch of @ref ANGLE_FLIP_HOLD_MS is
- *        the step's pose, step 2's only after a stretch broke since P1. In
- *        step `Back` a frame screen up solves the poses.
+ *        the step's pose, its mean; step 2's only after a move since P1, a
+ *        stretch broken or a frame out of the pose. In step `Back` a frame
+ *        screen up solves the poses.
  * @param f    The flip.
  * @param chip The frame, chip axes, uncalibrated, g.
  * @param axes The axis map.

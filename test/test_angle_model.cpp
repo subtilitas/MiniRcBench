@@ -169,6 +169,10 @@ static void testAxesMap() {
 	const int8_t bad[3] = { 0, 4, -4 };
 	angleMapAxes(bad, chip, b);
 	checkTrue("0, 4 and -4 map to NaN", isnan(b[0]) && isnan(b[1]) && isnan(b[2]));
+	const float wide[4] = { 0.1f, -0.2f, 0.9f, 0.5f };
+	const int8_t four[3] = { 4, 1, 2 };
+	angleMapAxes(four, wide, b);
+	checkTrue("4: NaN, not the float after Z", isnan(b[0]) && b[1] == 0.1f && b[2] == -0.2f);
 
 	// The same board turned the same way reads the same through any map.
 	for (int along = 0; along < 2; ++along) {
@@ -290,6 +294,9 @@ static void testSteep() {
 	AngleReading r = reading(&m);
 	checkTrue("too steep: ZERO stays armed, no MAX", r.zero == AngleZero::Armed && !r.zeroed &&
 	                                                   !r.hasMax[0] && !r.hasMax[1]);
+	angleTick(&m, t + 300);
+	r = reading(&m);
+	checkTrue("stale: neither TOO STEEP nor amber", !r.valid && !r.tooSteep && !r.steepWarn);
 }
 
 static void testFrames() {
@@ -334,6 +341,9 @@ static void testFrames() {
 		angleSample(&m, &s);
 	}
 	checkTrue("8, 9, 10 after it: a frame", reading(&m).valid);
+	s.seq = 0;
+	for (int i = 0; i < 4; ++i) angleSample(&m, &s);
+	checkTrue("seq 0 after 10: not taken", m.count == 0 && m.lastSeq == 10);
 
 	// A gap of 300 ms drops the frame begun; 299 ms does not.
 	openWith(&m, AngleAlong::Long);
@@ -732,13 +742,27 @@ static void testFlipSolve() {
 	              fabsf(c.offG[1] - offChip[1]) < 1e-6f && fabsf(c.offG[2] - offChip[2]) < 1e-6f &&
 	              fabsf(c.gain[2] - 0.97f) < 1e-5f && c.gain[0] == 1.0f && c.gain[1] == 1.0f);
 
-	// Refusals.
-	float a[3] = { 0.0f, 0.0f, 0.8f }, b[3] = { 0.0f, 0.0f, 0.81f }, d[3] = { 0.0f, 0.0f, -0.81f };
+	// The normal on chip X.
+	const int8_t mapX[3] = { 2, -3, 1 };
+	poses(5.0f, 200.0f, off, 1.02f, p);
+	for (int i = 0; i < 3; ++i) chipOf(mapX, p[i], q[i]);
+	chipOf(mapX, off, offChip);
+	checkTrue("map 2, -3, 1: the chip's offsets, gain 1.02 on X",
+	          angleFlipSolve(q[0], q[1], q[2], mapX, &c) && fabsf(c.offG[0] - offChip[0]) < 1e-6f &&
+	              fabsf(c.offG[1] - offChip[1]) < 1e-6f && fabsf(c.offG[2] - offChip[2]) < 1e-6f &&
+	              fabsf(c.gain[0] - 1.02f) < 1e-5f && c.gain[1] == 1.0f && c.gain[2] == 1.0f);
+
+	// Refusals. Each pose's normal at the limit, the others giving an offset
+	// of 0.195 g and a gain of 0.995, both within theirs.
+	float a[3] = { 0.0f, 0.0f, 0.8f }, b[3] = { 0.0f, 0.0f, 0.81f }, d[3] = { 0.0f, 0.0f, -1.19f };
+	float b2[3] = { 0.0f, 0.0f, 0.82f };
+	checkTrue("P1 0.81 g, P3 -1.19 g: solved", angleFlipSolve(b, b, d, id, &c) && fabsf(c.gain[2] - 1.0f) < 1e-6f);
 	checkTrue("P1's normal at 0.8 g: refused", !angleFlipSolve(a, b, d, id, &c) && !c.valid);
-	checkTrue("P2's normal at 0.8 g: refused", !angleFlipSolve(b, a, d, id, &c));
-	float e[3] = { 0.0f, 0.0f, -0.8f };
-	checkTrue("P3's normal at -0.8 g: refused", !angleFlipSolve(b, b, e, id, &c));
-	checkTrue("0.81 and -0.81 g: past the gain's limit", !angleFlipSolve(b, b, d, id, &c));
+	checkTrue("P2's normal at 0.8 g: refused", !angleFlipSolve(b2, a, d, id, &c));
+	float e[3] = { 0.0f, 0.0f, -0.8f }, h[3] = { 0.0f, 0.0f, 1.19f }, b0[3] = { 0.0f, 0.0f, -0.81f };
+	checkTrue("P1 1.19 g, P3 -0.81 g: solved", angleFlipSolve(h, h, b0, id, &c));
+	checkTrue("P3's normal at -0.8 g: refused", !angleFlipSolve(h, h, e, id, &c));
+	checkTrue("0.81 and -0.81 g: past the gain's limit", !angleFlipSolve(b, b, b0, id, &c));
 	float u1[3] = { 0.0f, 0.0f, 0.9f }, u3[3] = { 0.0f, 0.0f, -0.9f };
 	checkTrue("0.9 and -0.9 g: gain 0.9", angleFlipSolve(u1, u1, u3, id, &c) && fabsf(c.gain[2] - 0.9f) < 1e-6f);
 	float n1[3] = { NAN, 0.0f, 1.0f };
@@ -761,8 +785,22 @@ static void testFlipSteps() {
 	AngleFlip f;
 	angleFlipStart(&f);
 	const float up[3] = { 0.05f, -0.03f, 1.01f };
+	// Screen up at 0.8 g is not the pose: no stretch.
+	const float upEdge[3] = { 0.0f, 0.6f, 0.8f };
+	for (uint32_t s = 0; s <= 2500; s += 100) angleFlipFrame(&f, upEdge, id, s);
+	checkTrue("0.8 g for 2500 ms: no stretch, step 1", f.step == FlipStep::Up && f.n == 0);
+	// A frame out of the pose ends a stretch: 1000 ms, one at 0.8 g, then
+	// 1800 ms is no pose.
+	for (uint32_t s = 3000; s <= 4000; s += 100) angleFlipFrame(&f, up, id, s);
+	angleFlipFrame(&f, upEdge, id, 4100);
+	for (uint32_t s = 4200; s <= 6000; s += 100) angleFlipFrame(&f, up, id, s);
+	checkTrue("broken by a frame out of the pose: step 1", f.step == FlipStep::Up && f.fromMs == 4200);
 	// Step 1: a still stretch of 2000 ms, frames 100 ms apart.
 	uint32_t t = 1000;
+	angleFlipStart(&f);
+	angleFlipFrame(&f, up, id, 700);
+	angleFlipFrame(&f, vec(0.05f, 0.1f, 1.0f), id, 800);
+	checkTrue("a stretch broken in step 1: moved", f.moved);
 	for (; t <= 2900; t += 100) angleFlipFrame(&f, up, id, t);
 	angleFlipFrame(&f, up, id, 2999);
 	checkTrue("1999 ms still: step 1", f.step == FlipStep::Up);
@@ -800,7 +838,6 @@ static void testFlipSteps() {
 	checkTrue("2000 ms screen down: P3, waiting for screen up", f.step == FlipStep::Back && fabsf(f.pose[2][2] + 0.99f) < 1e-6f);
 	angleFlipFrame(&f, down, id, 13800);
 	angleFlipFrame(&f, edge, id, 13900);
-	const float upEdge[3] = { 0.0f, 0.6f, 0.8f };
 	angleFlipFrame(&f, upEdge, id, 14000);
 	checkTrue("down, then 0.8 g: still waiting", f.step == FlipStep::Back);
 	angleFlipFrame(&f, up, id, 14100);
@@ -838,12 +875,19 @@ static void testFlipSteps() {
 	// Through the model: the flip takes the frames only while FLIP CAL is open.
 	AngleModel m;
 	openWith(&m, AngleAlong::Long);
+	AngleCal cal;
+	memset(&cal, 0, sizeof(cal));
+	cal.valid = true;
+	cal.gain[0] = cal.gain[1] = cal.gain[2] = 1.0f;
+	cal.offG[0] = 0.1f;
+	angleSetCal(&m, &cal);
 	float v[3] = { 0.02f, 0.01f, 1.0f };
 	uint32_t s = frames(&m, v, 1000, 20);
 	checkTrue("FLIP CAL closed: the flip takes nothing", !m.flipOn && m.flip.n == 0 && m.flip.step == FlipStep::Up);
 	angleFlipBegin(&m);
 	s = frames(&m, v, s, 17);
 	checkTrue("open: 17 frames, 2048 ms, P1", m.flip.step == FlipStep::Turn);
+	checkNear("  of the frames as they came", m.flip.pose[0][0], roundf(0.02f * ANGLE_COUNTS_PER_G) / ANGLE_COUNTS_PER_G, 1e-6f);
 	angleFlipEnd(&m);
 	s = frames(&m, v, s, 2);
 	checkTrue("closed again: it takes no more", !m.flipOn && m.flip.n == 0);
@@ -859,9 +903,11 @@ static void testDegenerate() {
 	frames(&m, none, 1000, 3);
 	AngleReading r = reading(&m);
 	checkTrue("0 g: dropped, no reading, the temperature kept", !r.valid && !r.hasDeg && r.hasTemp);
-	const float half[3] = { 0.0f, 0.3f, 0.4f };
+	const float half[3] = { 0.0f, 0.0f, 0.5f };
 	frames(&m, half, 2000, 1);
 	checkTrue("0.5 g: taken", reading(&m).valid);
+	frames(&m, vec(0.0f, 0.995f, -0.1f), 2128, 1);
+	checkTrue("a normal of -0.1 g: screen down", reading(&m).faceDown);
 	openWith(&m, AngleAlong::Long);
 	sampleAt(&m, vec(0.0f, 0.0f, 0.0f), 3000);
 	sampleAt(&m, vec(0.0f, 0.0f, 0.0f), 3032);
@@ -936,6 +982,8 @@ static void testText() {
 		checkStr("plain", angleTenthsText(b, sizeof b, c.v, false), c.plain);
 		checkStr("plus", angleTenthsText(b, sizeof b, c.v, true), c.plus);
 	}
+	char one[1] = { 'x' };
+	checkStr("1 byte: empty", angleTenthsText(one, sizeof one, 12.3f, false), "");
 	char five[5];
 	checkStr("cut to 5 bytes", angleTenthsText(five, sizeof five, -180.0f, false), "-180");
 	checkTrue("NULL", angleTenthsText(nullptr, 8, 1.0f, false) == nullptr);
