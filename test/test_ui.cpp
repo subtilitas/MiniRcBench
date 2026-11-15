@@ -6280,6 +6280,73 @@ static void testEfm8Write() {
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
+	section("ESC WRITE: a second session in one visit saves its own backup");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("written, BJ001", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DEMAG edited", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	// The re-read's transaction never ends: the driver fails before the erase.
+	sim_script(e, F_STUCK, 1, 1, 0);
+	checkTrue("held: the line driver failed, nothing erased, the session ended",
+	          efm8HoldWrite() && efm8UntilDone() && e->erases == 1 &&
+	          ewResultIs(EFM8_UI_DRIVER_1, UI_COL_WARN, EFM8_UI_ENDED_2, UI_COL_WARN));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	// The ESC waits in its bootloader and answers the next greeting.
+	e->fail = F_NONE;
+	e->contacted = false;
+	e->dead = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("its answer: a new session", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	checkTrue("the list", untilState(S_EW_LIST, 160));
+	checkTrue("DEMAG edited again", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("its backup line names the next number",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP FIRST: BACKUP/BJ002.TXT", C_DIM, C_BG, 1));
+	checkTrue("written with its own backup, BJ002", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          strcmp(s_status, "WRITE VERIFIED. BACKUP BJ002") == 0 && fakeFatExists("BACKUP/BJ002.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: an AM32 answering after an EFM8 session saves its own backup");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("written, BJ001", efm8HoldWrite() && efm8UntilDone() && fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DEMAG edited", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_STUCK, 1, 1, 0);
+	checkTrue("held: the session ended", efm8HoldWrite() && efm8UntilDone() && s_ewEnded);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	frames(45);
+	checkTrue("an AM32 answers: its list", s_state == S_LIST);
+	checkTrue("POLES steps", am32Step("POLES"));
+	am32HoldWrite();
+	checkTrue("its own backup, AM002", fakeFatExists("BACKUP/AM002.TXT"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the leave page", s_state == S_LEAVE);
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
 	section("ESC WRITE: read-only lists save their backup and never write");
 	am32Card();
 	efm8Esc(0xB2, false);
