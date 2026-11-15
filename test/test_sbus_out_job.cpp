@@ -1784,10 +1784,9 @@ static void testOnlyPath() {
 	          countOf(start, "send(SbusOutCmdKind::Start);") == 1 && countOf(ui, "SbusOutCmdKind::Start") == 1);
 	checkTrue("startFrames() is called once, by HOLD TO START's hold, gated by startAllowed()",
 	          countOf(ui, "startFrames()") == 2 &&
-	          countOf(ui, "if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed() && !s_needLift, now)) "
-	                      "startFrames();") == 1);
+	          countOf(ui, "if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();") == 1);
 	const std::string gate = bodyOf(ui, "static bool startAllowed() {");
-	checkTrue("startAllowed() is one chain of conditions, sbusOutProbePassed() among them",
+	checkTrue("startAllowed() is one chain of conditions ending in sbusOutProbePassed()",
 	          countOf(gate, "return ") == 1 && countOf(gate, "sbusOutProbePassed()") == 1 &&
 	          countOf(gate, "||") == 0 && countOf(gate, "&& sbusOutProbePassed();") == 1);
 	checkTrue("a call in a comment is blanked, one in code is not",

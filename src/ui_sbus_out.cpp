@@ -206,7 +206,6 @@ static uint16_t     s_ceilRaw = SBUS_OUT_RAW_LO;     /**< The throttle ceiling, 
 static SbusOutStop  s_stop = SbusOutStop::None;      /**< The screen's own stop since START. */
 static uint32_t     s_touchMs = 0;            /**< millis() of the last frame with a finger down. */
 static UiHold       s_hold;                   /**< HOLD TO START. */
-static bool         s_needLift = false;       /**< A STOP press is down: it starts nothing. */
 
 static int    s_sel = -1;    /**< SET's selected row, or -1. */
 static UiList s_list;        /**< SET's rows. */
@@ -316,13 +315,14 @@ static void send(SbusOutCmdKind kind) {
 }
 
 /**
- * @brief HOLD TO START is live: the claim runs the job with no bind error,
- *        the frames are off, and the probe's gate holds, a cycle with no
- *        answer passed in this bind. This is the only gate to START.
+ * @brief HOLD TO START is live: the frames are off and the probe's gate
+ *        holds, a cycle with no answer passed in this bind. This is the only
+ *        gate to START. The gate holds only while this claim's job is bound
+ *        in its UART phase, so the claim runs with no bind error whenever it
+ *        does.
  */
 static bool startAllowed() {
-	return s_claimed && pinClaimState() == ClaimState::Running && !pinClaimJobError() &&
-	       !s_st.running && sbusOutProbePassed();
+	return !s_st.running && sbusOutProbePassed();
 }
 
 /**
@@ -394,7 +394,8 @@ static void message(const char **l1, const char **l2, const char **l3, uint16_t 
 		*retry = true;
 		return;
 	}
-	if (cs != ClaimState::Running || s_probe == SbusOutProbeState::Off) {
+	// The job not bound yet: the probe's state is Off until the bind.
+	if (s_probe == SbusOutProbeState::Off) {
 		snprintf(a, sizeof(a), "TAKING %s GP0", gp0Role());
 		*l1 = a; *col = C_DIM;
 		return;
@@ -569,14 +570,14 @@ static void openSet() {
 /** @brief Every touch of the main view. */
 static void mainTouch() {
 	uint32_t now = millis();
-	// HOLD TO START, live only through startAllowed(); STOP on press.
-	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed() && !s_needLift, now)) startFrames();
+	// HOLD TO START, live only through startAllowed(); STOP on press. The
+	// press that stops the frames landed while HOLD TO START was not live,
+	// so ui_hold never times it.
+	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();
 	if (s_st.running && s_t->pressed && pressing(BTN_START)) {
 		send(SbusOutCmdKind::Safe);
-		s_needLift = true;
 		return;
 	}
-	if (!s_t->down) s_needLift = false;
 
 	// The sliders move only while frames go out; a press alone commands
 	// nothing (delta drag, tap-to-set off).
@@ -704,11 +705,7 @@ static void setTouch() {
 	else if (s_sel >= 0 && pressing(BTN_PLUS)) dir = +1;
 	if (dir && repeatFires(&s_repeat, dir, millis())) stepRow(s_sel, dir);
 	if (!dir) repeatFires(&s_repeat, 0, millis());
-	if (s_st.running && s_t->pressed && pressing(BTN_STOP)) {
-		send(SbusOutCmdKind::Safe);
-		s_needLift = true;
-	}
-	if (!s_t->down) s_needLift = false;
+	if (s_st.running && s_t->pressed && pressing(BTN_STOP)) send(SbusOutCmdKind::Safe);
 	UiListEvent e = uiListTouch(&s_list, s_t);
 	if (e.kind == UiListEv::Tap || e.kind == UiListEv::Swipe) s_sel = e.row;
 }
@@ -773,7 +770,6 @@ static void newVisit() {
 	s_ceilRaw = sbusOutCeilRaw(settings()->maxThrottle);
 	resetFrame();
 	uiHoldReset(&s_hold);
-	s_needLift = false;
 	s_full = true;
 }
 

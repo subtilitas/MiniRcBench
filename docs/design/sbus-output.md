@@ -1,31 +1,33 @@
 # S.BUS output
 
-Status: slices 1 to 3 built, host tests only, not tested on hardware
+Status: slices 1 to 4 built, host tests only, not tested on hardware
 ([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built),
-[slice 3 as built](#slice-3-as-built)): rcbench's encoder is copied from
-b88593d3, and the core1 job `src/sbus_out_job.*` with its pin user
-`PinUser::SbusOut` probes GP0 for an ESC's bootloader at every bind and,
-once a probe cycle passes with no answer, sends frames on the host suite's
-UART0 fake. Nothing opens the job: by the owner's decision of 2026-11-15
+[slice 3 as built](#slice-3-as-built), [slice 4 as built](#slice-4-as-built)):
+rcbench's encoder is copied from b88593d3; the core1 job
+`src/sbus_out_job.*` with its pin user `PinUser::SbusOut` probes GP0 for an
+ESC's bootloader at every bind and, once a probe cycle passes with no
+answer, sends frames on the host suite's UART0 fake; and S.BUS OUTPUT,
+`src/ui_sbus_out.*` with its formatter `src/sbus_out_view.*`, opens from
+OUTPUT on RX SIGNALS and offers START only while the probe's gate,
+`sbusOutProbePassed()`, holds. By the owner's decision of 2026-11-15
 ([decision 1](#decisions)) S.BUS OUTPUT is built only together with the
-bootloader probe, and no screen offers START before it; the screen, slice 4,
-offers START only while the probe's gate, `sbusOutProbePassed()`, holds.
-The probe's prerequisites, slices 1 to 3 of
+bootloader probe. The probe's prerequisites, slices 1 to 3 of
 [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown), are built
-([work breakdown](#work-breakdown)). Slices 4 and 5 are not built. The owner
-chose an S.BUS output on 2026-11-14 ([rx-signals.md](rx-signals.md#decisions),
-decisions 1, 4, 5 and 6): inverted 8E2 at 100,000 baud on GP0, UART0's TX
-pin; the encoder from rcbench, copied unchanged; the throttle channel under
-MAX THROTTLE of SETTINGS; the entry OUTPUT on the RX SIGNALS chooser, drawn
-`NOT BUILT` today. rcbench's encoder, `sbus_encode()` and `sbus_from_us()`,
-is on rcbench's `main` since pull request 847 and is host-tested there and
-here. Nothing of this design has driven a pin on hardware. The
-firmware facts below are read from the sources under [sources](#sources),
-with file and line; the ones no readable source settles are marked "not
-verified" and listed again under [not verified](#not-verified). No question
-is open: the owner's decision is under [decisions](#decisions), and every
-other point of the list in [rx-signals.md](rx-signals.md#sbus-output) is
-decided here with its reason ([choices](#choices)).
+([work breakdown](#work-breakdown)). Slice 5, the bring-up, is not done. The
+owner chose an S.BUS output on 2026-11-14
+([rx-signals.md](rx-signals.md#decisions), decisions 1, 4, 5 and 6):
+inverted 8E2 at 100,000 baud on GP0, UART0's TX pin; the encoder from
+rcbench, copied unchanged; the throttle channel under MAX THROTTLE of
+SETTINGS; the entry OUTPUT on the RX SIGNALS chooser. rcbench's encoder,
+`sbus_encode()` and `sbus_from_us()`, is on rcbench's `main` since pull
+request 847 and is host-tested there and here. Nothing of this design has
+driven a pin on hardware. The firmware facts below are read from the sources
+under [sources](#sources), with file and line; the ones no readable source
+settles are marked "not verified" and listed again under
+[not verified](#not-verified). No question is open: the owner's decision is
+under [decisions](#decisions), and every other point of the list in
+[rx-signals.md](rx-signals.md#sbus-output) is decided here with its reason
+([choices](#choices)).
 
 ## Terms
 
@@ -664,7 +666,7 @@ next START.
 |---|---|---|---|
 | Claim not held | none | the claim's message ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
 | SAFE | `SAFE` | the two warnings | disabled, START values |
-| Probe | none | `CHECKING GP0 FOR AN ESC.` ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
+| Probe | none | `CHECKING SIG GP0 FOR AN ESC.` ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
 | RUNNING | `RUNNING` | the ceiling and the flags | live, values `UI_COL_LIVE` |
 | Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `HOLD TO START AGAIN.` | disabled, the last values |
 | Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `HOLD TO START AGAIN.` | disabled, the last values |
@@ -711,8 +713,8 @@ the monitor's ([rx-signals.md](rx-signals.md#screen)), and no chip:
 | An ESC answers on SIG | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | `UI_COL_WARN` | 155, 155 and 161 px |
 | KISS frames on AUX, GP0 is AUX | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | `UI_COL_WARN` | 173, 155 and 179 px |
 | The claim drains DShot | `RELEASING SIG GP0` | `C_DIM` | 101 px |
-| The bootloader probe runs | `CHECKING GP0 FOR AN ESC.` | `C_DIM` | 143 px |
-| A bootloader answered the probe | `AN ESC BOOTLOADER ANSWERS ON GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | `UI_COL_WARN` | 197, 191 and 185 px |
+| The bootloader probe runs | `CHECKING SIG GP0 FOR AN ESC.` | `C_DIM` | 167 px |
+| A bootloader answered the probe | `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | `UI_COL_WARN` | 221, 191 and 185 px |
 | Held, the job not bound yet | `TAKING SIG GP0` | `C_DIM` | 83 px |
 | The bind refused the clock | `SIG GP0 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46 | `UI_COL_WARN` | 203 px |
 | No role on GP0 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | `UI_COL_WARN` | 95 and 173 px |
@@ -945,7 +947,7 @@ Each slice builds, passes the host suite and merges alone.
 | 1. Encoder copy, built | `sbus.c`, `sbus.h`, `test_sbus.c` from rcbench b88593d3; `lib/rcbench/README.md`, STATUS, CHANGELOG | 3 replaced, 3 edited | 300 changed in copies, 30 of documentation |
 | 2. Job, built | `sbus_out_job.*`, the user and job rows, `CORE1_JOB_NO_GP0`, the TX side of the UART0 fake, the control-register record, `test/test_sbus_out_job.cpp`, STATUS, CHANGELOG | 2 new in `src/`, 1 new in `test/`, 8 edited | 350 in `src/`, 700 in `test/` |
 | 3. Probe, built | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, MENU's run cue at an answer, `pinClaimWantLeavePage()` and the mark for decision 8's leave page after an EFM8 answer, the gate `sbusOutProbePassed()`, its host tests on the bootloader models of slice 0 | `sbus_out_job.*`, `escwire_job.*`, `ui_menu.cpp`, a comment in `usb_bridge.h`, `rx.cmake`; in `test/` the job's test file, the escwire line's fake and the GPIO stub; CI's stack step | 400 in `src/`, 700 in `test/` |
-| 4. Screen | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
+| 4. Screen, built | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
 | 5. Bring-up | the bench tests above | none | none |
 
 By decision 1, slices 1 to 5 need slice 0, the probe's prerequisites,

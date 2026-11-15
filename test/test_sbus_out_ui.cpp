@@ -165,6 +165,7 @@ static void testViewRows() {
 	checkInt("1568.9: 1570", sbusOutStepUs(1568.9f, 2000), 1570);
 	checkInt("below 1000: 1000", sbusOutStepUs(940.0f, 2000), 1000);
 	checkInt("above 2000: 2000", sbusOutStepUs(2100.0f, 2000), 2000);
+	checkInt("above 2000 under a top above it: 2000", sbusOutStepUs(2100.0f, 2100), 2000);
 	checkInt("1999.0: 2000", sbusOutStepUs(1999.0f, 2000), 2000);
 	checkInt("held to the top, 1200", sbusOutStepUs(1500.0f, 1200), 1200);
 	checkInt("held to a top off the step, 1049", sbusOutStepUs(1500.0f, 1049), 1049);
@@ -530,12 +531,18 @@ static void testEntryProbeStart() {
 	checkTrue("the press: the hold runs, nothing sent yet", held().seq == seq0);
 	fakeHold(x, y);
 	tick(999);
-	checkTrue("999 ms: no START", held().seq == seq0 && !jobSt().running);
+	checkTrue("999 ms: no START, the hold's bar lime nearly to its end",
+	          held().seq == seq0 && !jobSt().running && pixel(7, SBOUT_UI_BAR_Y + 1) == UI_COL_LIVE &&
+	          pixel(6 + 107, SBOUT_UI_BAR_Y + 1) == UI_COL_LIVE &&
+	          pixel(6 + 109, SBOUT_UI_BAR_Y + 1) == C_BG);
 	fakeHold(x, y);
 	tick(1);
 	SbusOutCmd c = held();
 	checkTrue("1000 ms: START, the throttle on channel 3, MAX THROTTLE's ceiling, raw 499",
 	          c.seq != seq0 && c.kind == SbusOutCmdKind::Start && c.thrCh == 2 && c.ceilRaw == 499);
+	for (int k = 0; k < 10; k++) { fakeHold(x, y); tick(25); }
+	checkTrue("the finger left on the button 250 ms more: still RUNNING, no STOP",
+	          jobSt().running && held().kind == SbusOutCmdKind::Start);
 	fakeRelease();
 	soFrames(2);
 	SbusOutStatus st = jobSt();
@@ -829,6 +836,14 @@ static void testSet() {
 	          ctlPresent(UI_ROW(0, Row)) && ctlRect(UI_ROW(0, Row)).y == UI_BODY_Y &&
 	          fakeTextIs(232 - gfxTextW("CH3", 2), UI_BODY_Y + 13, "CH3", C_TEXT, C_BG, 2));
 	checkControlTable("OUTPUT SET, SAFE");
+	{
+		const uint16_t seqF = held().seq;
+		fakePress(200, UI_FOOT_Y + 23);
+		tick(25);
+		fakeRelease();
+		tick(25);
+		checkTrue("a press where STOP stands while RUNNING: nothing sent while SAFE", held().seq == seqF);
+	}
 	fakeDumpFrame("shot_sbus_out_set.ppm");
 	tapId(UI_ROW(1, Row));
 	const uint16_t seqSet = held().seq;
@@ -923,12 +938,14 @@ static void testLeave() {
 	soFrames(1);
 	checkTrue("stalled on page 2", jobSt().tripped && rowIs(0, "CH9", C_DIM, "1000", C_DIM));
 	tapId(UI_FIX(UI_BACK));
+	checkTrue("the page's note while the job lets GP0 go: RELEASING THE PIN, dim",
+	          !pinClaimUnplugDue() && leaveNoteIs(0, UI_LEAVE_RELEASING, C_DIM));
 	checkTrue("BACK: the leave page, opened releasing", uiCurrentScreen() == UiScreenId::SbusOut &&
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled &&
 	          ctlPresent(UI_FIX(SbusOutCtl::BackToOutput)));
 	soFrames(1);
-	checkTrue("GP0 let go: no frames, the UART off", pinClaimUnplugDue() && !jobSt().running &&
-	          !fakeUart().enabled);
+	checkTrue("GP0 let go: no frames, the UART off, the note gone", pinClaimUnplugDue() &&
+	          !jobSt().running && !fakeUart().enabled && leaveNoteBlank(0));
 	checkTrue("step 1, current: UNPLUG THE FLIGHT CONTROLLER., DSHOT RESTARTS ON SIG GP0.",
 	          leaveStepIs(66, '1', SBOUT_UI_UNPLUG, true) && leaveStepIs(78, 0, "DSHOT RESTARTS ON SIG GP0.", true));
 	checkTrue("step 2: RESTART DSHOT.", leaveStepIs(92, '2', UI_LEAVE_RESTART, false));
@@ -1201,7 +1218,8 @@ static void testUnavailable() {
 	checkTrue("RETRY at 150 MHz: the probe, RETRY gone, the bottom row back, the body clear under it",
 	          sbusOutProbePoll() == SbusOutProbeState::Checking && !ctlPresent(UI_FIX(SbusOutCtl::Retry)) &&
 	          ctlPresent(UI_FIX(SbusOutCtl::Start)) && allOf(0, UI_FOOT_Y, GFX_W, SBOUT_UI_BAR_Y - UI_FOOT_Y, C_BG));
-	checkTrue("SAFE", toSafe());
+	checkTrue("SAFE, on page 1: the tap on RETRY reached nothing under it",
+	          toSafe() && rowIs(0, "CH1", C_DIM, "1500", C_DIM));
 	checkTrue("back to MENU", leaveToMenu());
 	tapId(UI_FIX(UI_BACK));
 
