@@ -4,7 +4,7 @@
  *        src/ui_list.cpp, src/ui_hold.cpp, src/ui_leave.cpp and
  *        src/ui_widgets.cpp as shipped.
  *
- * The screens that use them, AM32 CONFIG, SERVO, SERVO SET and SETUP, are
+ * The screens that use them, ESC SETTINGS, SERVO, SERVO SET and SETUP, are
  * tested through the UI in test_ui.cpp and test_servo.cpp. This file holds
  * each rule at its boundary.
  */

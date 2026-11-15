@@ -77,10 +77,13 @@ interface of flight controllers, is designed in `docs/design/usb-bridge.md`
 and not built; the owner answered its questions on 2026-11-15. It
 is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`.
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
-wire, from the connect page AM32 CONFIG has, with rcbench's escwire module,
-is designed in `docs/design/bluejay-blheli-s.md` and not built; the owner
-answered its questions on 2026-11-15. The screen is `ESC SETTINGS`, in the
-`ESC CONFIG` chooser.
+wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
+module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
+answered its questions on 2026-11-15. Its slice 2 is built, tested on the
+host only: the `ESC CONFIG` chooser on MENU, the title `ESC SETTINGS`, and
+a Bluejay or BLHeli_S answer named on the connect page with nothing read,
+after which SIG returns to DShot only from a leave page. Reading and
+writing their settings are not built.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the
@@ -530,7 +533,7 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 | Row | State on the right | A tap |
 |---|---|---|
 | **ESC COMMANDS** | nothing | Opens ESC COMMANDS: BEEP 1 to 5, the direction and 3D mode, each change saved in the ESC. See [ESC commands](#esc-commands) |
-| **AM32 CONFIG** | nothing | Opens the ESC settings editor. See [AM32 ESC configuration](#am32-esc-configuration) |
+| **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS, and USB BRIDGE drawn disabled, `NOT BUILT`. See [AM32 ESC configuration](#am32-esc-configuration) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
 | **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
 | **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR, and OUTPUT drawn disabled, `NOT BUILT`. See [S.BUS monitor](#sbus-monitor) |
@@ -540,10 +543,11 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 The rows go by what sits on the signal pin: the ESC, a servo, then the
 bench. A tool row shows no state: the strip names the pins.
 
-- **DSHOT RESTARTING**: AM32 CONFIG and SERVO TESTER claim the signal
-  pins, SERVO PROGRAMMER's entries open the KST and Hitec programmers, which
-  claim SIG, RX SIGNALS' MONITOR claims GP1, ESC COMMANDS needs DShot
-  running on SIG, and SETTINGS changes the wiring a claim latched. While the
+- **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC CONFIG's
+  ESC SETTINGS claims SIG, SERVO PROGRAMMER's entries open the KST and Hitec
+  programmers, which claim SIG, RX SIGNALS' MONITOR claims GP1, ESC COMMANDS
+  needs DShot running on SIG, and SETTINGS changes the wiring a claim
+  latched. While the
   claim is not free, for example after RESTART DSHOT until the DShot pump
   runs again, these rows are drawn disabled, an outline, SETTINGS under its
   own status and the tool rows with none, a tap opens nothing, and the
@@ -597,7 +601,7 @@ powered after it, or by the bench.
   (`LOGS` not made or read, or the file not opened),
   `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT`
   (no number after the highest file),
-  and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` when
+  and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `ESC SETTINGS` when
   the tool's claim stopped the log (`cardCacheBegin()`). A USB DRIVE refusal
   outranks them for its 4000 ms.
 - **DROPPED FRAMES**: frames the ring buffer refused because the card was
@@ -844,18 +848,18 @@ it is drawn in the normal text colour, and red again from 2.55 V, the same
 50 mV band.
 
 While the value is red (`BoardCell::Critical`, `uiBoardWriteRefused()`), KST
-SERVO, HITEC SERVO and AM32 CONFIG refuse a write and a KST or Hitec restore.
+SERVO, HITEC SERVO and ESC SETTINGS refuse a write and a KST or Hitec restore.
 KST SERVO and HITEC SERVO ask at the end of the write page's hold: refused
 there, no file goes to the card and no frame to the servo. They ask again just
 before their files and their write go out, after a wait for a card flush:
 refused there, the backup and the write's record may be on the card already, and
-no frame goes out. AM32 CONFIG asks once, before its backup: refused, no file
+no frame goes out. ESC SETTINGS asks once, before its backup: refused, no file
 goes to the card and no byte to the ESC. A write already running is not stopped:
 cut off, it would leave the servo partly written and unverified, while one that
 finishes ends with its read-back. The KST and Hitec write pages read, in amber
 at y 196 and y 208, `BOARD VOLTAGE IS RED: NOT WRITTEN.` and `CHARGE THE BOARD'S
-CELL, HOLD AGAIN.`, their hold still live; AM32 CONFIG shows the first line as
-its write's result on `AM32 WRITE`, in amber at the same place, over `CHARGE THE
+CELL, HOLD AGAIN.`, their hold still live; ESC SETTINGS shows the first line as
+its write's result on `ESC WRITE`, in amber at the same place, over `CHARGE THE
 CELL. TAP OK, WRITE AGAIN.`, since its result stands under OK. Amber, the text
 colour, and a value below 2.50 V (no cell to judge) refuse no write. The bands
 are a lithium-polymer cell's usual range, not measured on this board; what the
@@ -943,7 +947,7 @@ the drag took hold, and the note returns on release. The `ERPM` / `NO TELEMETRY`
 line above it, y 102, does not change. Arming is not refused on it. In 3D mode
 the ESC runs the tester's 0 to 50 % the reverse of its set direction at twice
 the throttle, and above 50 % in the set direction from low. The flag is set by
-an AM32 CONFIG read that opens the list on settings with 3D MODE on, by a write
+an ESC SETTINGS read that opens the list on settings with 3D MODE on, by a write
 of settings with 3D MODE on that the ESC accepted (`am32BlWrite()` returned OK),
 whether the read-back then verifies, fails or differs, and by ESC COMMANDS' 3D
 ON once sent, or once stopped after the ESC may have acted on it: such an ESC
@@ -1029,7 +1033,7 @@ with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
 Information Interchange) text, one value a line: the log's name, the
 firmware version, the clock at the start and the stop (`not set`: the clock
 is not built), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
-`HITEC SERVO` or `AM32 CONFIG`), its duration and armed time, the maximum
+`HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
 RPM, current and temperature, the minimum voltage while armed, the charge
 used by the KISS counter and from the current, and the logger's counters
 that SD LOG shows (frames, dropped frames, kilobytes written, buffer peak,
@@ -1226,27 +1230,45 @@ The ESC sends no answer to a command, so the bench cannot see the direction.
 To check it: 3D off (in 3D the tester's 0 to 50 % runs the motor reversed),
 propeller off, a strip of tape on the bell, then on the tester arm, run at
 5 % for a second and disarm. On AM32 the save plays beacon 1's tone for
-normal and beacon 2's for reversed, and AM32 CONFIG reads `DIRECTION` and
+normal and beacon 2's for reversed, and ESC SETTINGS reads `DIRECTION` and
 `3D MODE` back. After a power cycle of the ESC, a direction that holds was
 saved.
 
 After 3D ON is sent, or stops after the ESC may have acted on it, the tester
 shows `3D MODE ESC: 0-50% REVERSED AT 2X` in amber in place of the pole
 count. 3D OFF leaves the note, since nothing reads the ESC back; a restart
-of the bench or an AM32 CONFIG read with 3D MODE off clears it. The note is
+of the bench or an ESC SETTINGS read with 3D MODE off clears it. The note is
 not stored. The tester shows no note for the direction.
 
 ## AM32 ESC configuration
 
-**MENU → AM32 CONFIG** reads and edits an AM32 ESC's settings over the signal wire. It
-does not flash ESC firmware. The transport is `src/am32_bl.h`.
+**MENU → ESC CONFIG → ESC SETTINGS** reads and edits an AM32 ESC's
+settings over the signal wire. It does not flash ESC firmware. The transport
+is `src/am32_bl.h`.
+
+MENU's second row, **ESC CONFIG**, opens a chooser
+(`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
+scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
+`BLUEJAY, BLHELI_S: NAMED, NOT READ.`, and `USB BRIDGE` drawn disabled with
+`A DESKTOP ESC TOOL OVER USB.` and `NOT BUILT` under it
+(`docs/design/usb-bridge.md`). The strip reads `SIG GP0`. The chooser claims
+nothing; the tap on ESC SETTINGS claims SIG. Its BACK, and ESC SETTINGS'
+BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
+the pin claim is not free. ESC SETTINGS serves AM32 until the Bluejay and
+BLHeli_S slices of `docs/design/bluejay-blheli-s.md` are built. Its titles
+are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
+and the list's strip names the firmware, for example
+`NEOESC f051  F051  AM32 2.16`.
+
+![ESC CONFIG and a Bluejay answer](docs/esc-preview.png)
 
 ![AM32 config](docs/am32-preview.png)
 
 Entering the screen claims the signal pin (`src/pin_claim.h`): it disarms,
 sends throttle zero for at least 250 ms after the last throttle frame,
 stops the DShot driver and hands the pin to the bootloader transport; the
-strip reads `RELEASING SIG GP0` meanwhile. Leaving hands it back.
+strip reads `RELEASING SIG GP0` meanwhile. Leaving hands it back, at once
+or, after a Bluejay or BLHeli_S answer, from the leave page.
 
 Leaving sends the bootloader no `RUN` command. The transport has one,
 `am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An ESC that answered
@@ -1256,7 +1278,8 @@ started on its own, on those frames or not at all, is not recorded.
 Power-cycle the ESC after leaving, before driving a motor. After a session
 whose handshake succeeded, MENU's strip shows `POWER-CYCLE THE ESC TO RUN IT`
 in amber on a second line under its caption (`uiAm32RunCue()`), until an eRPM
-frame stamped after that handshake arrives or the board restarts.
+frame stamped after that handshake arrives, RESTART DSHOT on the leave page
+below, or the board restarts.
 
 ### Connecting
 
@@ -1280,14 +1303,44 @@ The screen shows which half failed:
 |---|---|---|
 | `WAITING... (TRY n)` | No reply yet | Power-cycle the ESC while the screen is open |
 | `nB: xx xx xx @19200`, then `REPLY NOT UNDERSTOOD:` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
+| `EFM8 E8B2 ANSWERED: NOT READ YET.` | A Bluejay or BLHeli_S bootloader answered; the signature is shown | Nothing is read here; leave through the leave page, below |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no `WRITE...` |
 
-A Bluejay or BLHeli_S ESC can answer the greeting: `REPLY NOT UNDERSTOOD:` with
-the bytes `34 37 31`. Its bootloader then waits for commands, MENU does not show
-`POWER-CYCLE THE ESC TO RUN IT`, and BACK sends DShot into it at once, which its
-bootloader may read as a command. Unplug its battery before BACK and plug it in
-after. From the bootloader's source; not seen on an ESC.
+### A Bluejay or BLHeli_S ESC
+
+The greeting is a valid greeting for the EFM8 bootloader of Bluejay and
+BLHeli_S, so such an ESC can answer it. `blAnswerClassify()`
+(`src/bl_answer.h`) reads the answer from its end: a fifth byte from the end
+that is an AM32 family, 0x1F, 0x2B or 0x35, is AM32; `471`, a byte, 0xE8,
+then 0xB1, 0xB2 or 0xB5, two bytes and 0x30 is an EFM8 bootloader with the
+signature E8B1, E8B2 or E8B5 (EFM8BB1, EFM8BB2, EFM8BB51); anything else is
+not understood. From the bootloaders' sources; not seen on an ESC.
+
+An EFM8 answer reads `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters,
+197 px) in amber at y 176 and on the strip. Nothing is read or written.
+Later greetings that go unanswered keep the line: the bootloader waits for
+commands with no timeout. The answer sets MENU's run cue and gives the pin
+claim a leave page (`pinClaimWantLeavePage()`), so DShot frames, which the
+bootloader could read as a command, do not follow at once. BACK from then
+on opens the leave page of `docs/design/bluejay-blheli-s.md` decision 8,
+the leave page of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
+
+| Step | Text | Width |
+|---|---|---|
+| 1, current until LEAVE | `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.` | 35, 33 and 26 characters: 209, 197 and 155 px from x 20 |
+| 2, current after LEAVE | `PLUG IT IN AFTER RESTART DSHOT.` | 31, 185 px |
+
+The strip reads `EFM8 E8B2  SIG GP0`, and BACK is drawn disabled.
+**STAY** returns to the page BACK left, the claim kept. **LEAVE** lets the
+transport go of SIG; DShot stays stopped, and **RESTART DSHOT** takes the
+wide button, live 1000 ms later. Its tap restarts DShot, clears MENU's run
+cue, since the steps power-cycled the ESC, and returns to MENU. There is no
+left button after LEAVE. An AM32 session in which no EFM8 bootloader
+answered has no leave page: BACK gives DShot the pin at once.
+
+A board restart while an EFM8 bootloader waits sends DShot into it: the
+bench cannot know.
 
 ### Layouts outside 2 to 4
 
@@ -1307,7 +1360,7 @@ bytes, in grey: `THE BYTES AS READ. THE FIELD TABLE` /
 The backup goes to the card as the view opens, since no write follows. The
 view's one control is BACK: no row, no `WRITE...`, REVERT or HEX, and the
 screen has no transition from the view to the write. The view keeps the title
-`AM32 CONFIG`, and its BACK goes to MENU. The write itself checks the
+`ESC SETTINGS`, and its BACK goes to MENU. The write itself checks the
 layout of the bytes as read before anything else (`writeRefused()`), so a
 way to it would still write nothing: `LAYOUT NOT KNOWN: NOT WRITTEN`.
 
@@ -1341,7 +1394,7 @@ line names the value as read: `PWM FREQ  24KHZ ->` over the new value, or
 `-` and `+`. Selecting a row fills it and lights its label, and leaves the
 value's colour as it is: a value as read is in the text colour. **REVERT**,
 labelled in amber, restores the values that were read. **HEX** shows the raw
-48 bytes for checking a field's decoding, titled `AM32 HEX`; its BACK
+48 bytes for checking a field's decoding, titled `ESC HEX`; its BACK
 returns to the list.
 
 BACK on the list with edits not written arms a guard (decision 7 of
@@ -1351,7 +1404,7 @@ BACK on the list with edits not written arms a guard (decision 7 of
 to MENU and drops the edits; a press anywhere else disarms the guard and the
 strip returns. There is no timer. Without edits BACK goes to MENU at once.
 
-**WRITE...** opens `AM32 WRITE` on a tap; nothing on the list is held. The
+**WRITE...** opens `ESC WRITE` on a tap; nothing on the list is held. The
 page lists each field that changes, from the ESC as read to the edit: the
 label, then `old -> new`, the old value grey and the new one cyan, at most 4
 lines and then `AND n MORE`; the strip counts them, `2 CHANGES`. A line at
@@ -1360,7 +1413,7 @@ session's first write with a card in, `BACKUP: BACKUP/AM001.TXT` once it is
 on the card, and in amber `NO CARD: OLD VALUES LOST ON LEAVING`, or
 `USB DRIVE: OLD VALUES LOST ON LEAVING` while USB holds the card: without a
 card the settings as read stay in RAM until a write with a card saves them,
-and leaving AM32 CONFIG loses them. Writing needs a 1 s hold on the page's
+and leaving ESC SETTINGS loses them. Writing needs a 1 s hold on the page's
 `HOLD TO WRITE`, the wide button; the tap that opened the page is not timed.
 While the write runs the page reads `WRITING: DO NOT UNPLUG.` in amber and
 BACK is drawn disabled. BACK before the hold, or under the result, returns to
@@ -2435,7 +2488,7 @@ In the firmware:
   block of an older layout, version 2 to 4, is read field by field from
   that layout and validated as a current block.
 - Arming is blocked while a USB host holds the SD card.
-- After AM32 CONFIG read 3D MODE on, or wrote it and the ESC accepted the
+- After ESC SETTINGS read 3D MODE on, or wrote it and the ESC accepted the
   write, verified or not, and after ESC COMMANDS' 3D ON, the tester shows
   `3D MODE ESC: 0-50% REVERSED AT 2X`; arming is not refused on it.
 - ESC COMMANDS sends a command only disarmed, with the motor stopped and
@@ -2443,12 +2496,12 @@ In the firmware:
   needs a 1 s hold and is saved in the ESC with command 12 in the same
   sequence. BACK is drawn disabled while a request waits or a sequence goes
   out.
-- AM32 CONFIG, KST SERVO and HITEC SERVO write a device only from their
+- ESC SETTINGS, KST SERVO and HITEC SERVO write a device only from their
   write page: a tap on `WRITE...` or `RESTORE...` opens it, it names every
   change, and its 1 s hold writes. While a write runs, or waits for the
   card to hold the backup, BACK is drawn disabled and does nothing. While
   the BOARD voltage is red the hold writes nothing.
-- BACK on AM32 CONFIG's list with edits not written, and on SERVO TESTER →
+- BACK on ESC SETTINGS' list with edits not written, and on SERVO TESTER →
   SET with a change waiting, names the changes in amber first; a second
   BACK drops them.
 - On SERVO TESTER → SET a heli profile, a rate above 60 Hz, a profile taken
@@ -2499,12 +2552,13 @@ src/
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
   ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
   ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry, UiProgEntry and the control ids
-  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER and RX SIGNALS entry, and the checks that their texts fit
+  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER, RX SIGNALS and ESC CONFIG entry, and the checks that their texts fit
   ui_menu.{h,cpp}       MENU
   ui_esc_cmd.{h,cpp}    ESC COMMANDS: BEEP 1 to 5, direction and 3D mode, through the command slot
-  esc_3d.{h,cpp}        the tester's 3D note, which AM32 CONFIG and ESC COMMANDS set
+  esc_3d.{h,cpp}        the tester's 3D note, which ESC SETTINGS and ESC COMMANDS set
   ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers
   ui_rx_signals.{h,cpp} RX SIGNALS: the chooser of MONITOR and OUTPUT
+  ui_esc_config.{h,cpp} ESC CONFIG: the chooser of ESC SETTINGS and USB BRIDGE
   ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
   diag.{h,cpp}          the restart reason, decoded from the reset registers, and the uptime
   ui_sdlog.{h,cpp}      SD LOG screen
@@ -2512,7 +2566,7 @@ src/
   ui_list.{h,cpp}       the scrolling list: pixel scroll, axis lock, tap, swipe
   ui_hold.{h,cpp}       the hold-to-act control: 1 s timer, one firing, its bar
   ui_leave.{h,cpp}      the leave page: phases, numbered steps, RESTART DSHOT's wait
-  ui_am32.{h,cpp}       AM32 config screen: connect, edit, verified write
+  ui_am32.{h,cpp}       ESC SETTINGS: connect, edit, verified write; an EFM8 answer and its leave page
   ui_servo.{h,cpp}      SERVO TESTER: the main view, SERVO SET, the leave page
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
@@ -2539,6 +2593,7 @@ src/
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
+  bl_answer.{h,cpp}     the greeting's answer classified: AM32, EFM8 or neither (pure)
   am32_eeprom.{h,cpp}   AM32 settings layout, decoding and presentation
   am32_backup.{h,cpp}   the AM32 settings block as a backup file
   gfx.{h,cpp}           RGB565 framebuffer, dirty bands, 5x7 font, 7-seg digits, lines, arcs
@@ -2633,7 +2688,7 @@ virtual and counted in microseconds — `millis()` advances only when a test
 says so — which makes hold-to-arm, hold-to-write and gesture repeat
 deterministic rather than dependent on machine speed. The fake ESC serves a
 real settings blob recovered from the reference configurator, so the UI tests
-operate on values a real ESC would report. The suite renders 122 screens to
+operate on values a real ESC would report. The suite renders 125 screens to
 PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
 so a layout change is visible in the frames:
 
@@ -2650,6 +2705,7 @@ so a layout change is visible in the frames:
   no ESC answering;
 - two of MENU → SERVO PROGRAMMER: SERVO SUPPLY at `OWN` and at a pin;
 - one of MENU → RX SIGNALS, the chooser;
+- one of MENU → ESC CONFIG, the chooser;
 - eight of S.BUS MONITOR: waiting for the first frame, frames, failsafe,
   the receiver gone, an ESC answering on GP1 as SIG, no role on GP1, and the
   leave page with GP1 as AUX and as SIG;
@@ -2659,10 +2715,11 @@ so a layout change is visible in the frames:
 - eight of MENU → SD LOG: ready, recording, no card, a card found by RETRY
   MOUNT, the last log named, a full card, USB DRIVE refused, USB DRIVE
   serving;
-- seventeen of AM32 CONFIG: the connect page, a reply it cannot parse, the
-  list, a field edit, scrolled, AM32 HEX, the read-only view, firmware 2.22,
+- nineteen of ESC SETTINGS: the connect page, a reply it cannot parse, a
+  Bluejay or BLHeli_S bootloader's answer, the leave page after it, the
+  list, a field edit, scrolled, ESC HEX, the read-only view, firmware 2.22,
   an older firmware, the 3D mode note, a protection off, the BACK guard,
-  AM32 WRITE before its hold, written, written with a backup, a write not
+  ESC WRITE before its hold, written, written with a backup, a write not
   verified, a write refused on a red BOARD voltage;
 - fifteen of SERVO TESTER: SAFE, running, sweeping, two servos, stalled, an
   ESC answering, a refused bind, one GPIO for both pins, the switched
@@ -2691,7 +2748,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 10,940 of 11,128 lines in 69 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 10,931 of 11,114 lines in 69 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

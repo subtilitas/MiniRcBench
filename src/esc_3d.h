@@ -8,7 +8,7 @@
  * throttle"). The tester sends its 0 to 2000 as 47 to 2047 whatever the
  * ESC does with them, so it says so while this flag stands.
  *
- * Two screens write the flag. AM32 CONFIG sets it to what a list read shows,
+ * Two screens write the flag. ESC SETTINGS sets it to what a list read shows,
  * sets it after a write with 3D MODE on that the ESC accepted, and clears it
  * after a verified write with 3D MODE off. ESC COMMANDS sets it after 3D ON
  * once the change may have reached the ESC: the sequence sent, or stopped

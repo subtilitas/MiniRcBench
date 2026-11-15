@@ -21,11 +21,12 @@ Enforces what actually goes wrong, and nothing else:
      the design notes (docs/design/*.md) names a file that exists, and an
      anchor into a Markdown file names a heading that exists
   9. README.md and the wiki pages, which describe the screens as built, name
-     no screen text, view or MENU path that menu structure B removed
-     (docs/design/menu-b.md) or a later design note replaced, and no image
-     of a removed screen; nor does a
-     fakeDumpFrame() call or tools/make_previews.py. CHANGELOG.md, STATUS.md
-     and the design notes keep those names as records and are not checked
+     no screen text, view or MENU path that menu structure B and the
+     decisions that revise it removed (docs/design/menu-b.md,
+     docs/design/bluejay-blheli-s.md) or a later design note replaced, and
+     no image of a removed screen; nor does a fakeDumpFrame() call or
+     tools/make_previews.py. CHANGELOG.md, STATUS.md and the design notes
+     keep those names as records and are not checked
 
 Deliberately narrower than Doxygen's WARN_IF_UNDOCUMENTED, which also fires on
 file-static internals. A comment on `s_scroll` saying "scroll position" is
@@ -56,9 +57,10 @@ LINKED_DOCS = sorted(glob.glob("STATUS.md") + glob.glob("CHANGELOG.md") +
                      glob.glob("docs/design/*.md"))
 MANUAL_DOCS = sorted(glob.glob("README.md") + glob.glob("wiki/*.md"))
 
-# Rule 9: what menu structure B removed, each with the decision of
-# docs/design/menu-b.md that removed it, and what a later design note
-# replaced, with its decision. Case-sensitive regular expressions,
+# Rule 9: what menu structure B and the decisions that revise it removed,
+# each with the decision that removed it, of docs/design/menu-b.md unless
+# named, and what a later design note replaced, with its decision.
+# Case-sensitive regular expressions,
 # matched line by line in README.md and wiki/*.md, code spans included.
 REMOVED_TEXTS = [
     (r"PINS BUSY", "MENU's busy status (decision 15 f)"),
@@ -93,6 +95,9 @@ REMOVED_TEXTS = [
      "MENU's BEEP THE ESC, now ESC COMMANDS (esc-commands.md, decision 1)"),
     (r"THROTTLE SCALE DIFFERS",
      "the tester's 3D note, now 0-50% REVERSED AT 2X (esc-commands.md, decision 9)"),
+    (r"AM32 (CONFIG|WRITE|HEX)\b|\bFW \d+\.\d+",
+     "AM32's titles and the strip's FW, now ESC CONFIG, ESC SETTINGS, ESC WRITE, "
+     "ESC HEX and AM32 n.n (bluejay-blheli-s.md, call A)"),
 ]
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers

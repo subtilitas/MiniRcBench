@@ -13,6 +13,7 @@
 #include "ui_am32.h"
 #include "esc_3d.h"
 #include "ui_esc_cmd.h"
+#include "ui_esc_config.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
@@ -681,7 +682,7 @@ static void drawRpm() {
 	uint32_t erpm = alive ? s_erpmShown : 0;
 	uint32_t rpm  = (alive && s_poles >= 2) ? erpm / (s_poles / 2) : 0;
 	if (rpm > 99999) rpm = 99999;
-	// AM32 CONFIG or ESC COMMANDS in this power-up left the ESC in 3D mode.
+	// ESC SETTINGS or ESC COMMANDS in this power-up left the ESC in 3D mode.
 	// It changes only on those two tools, and the tester repaints whole when
 	// it opens, so it is not part of the key below. @see esc3dNote()
 	bool esc3d = esc3dNote();
@@ -1184,6 +1185,7 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::ServoProg, &UI_SERVO_PROG },
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 	{ UiScreenId::Sbus,      &UI_SBUS },
+	{ UiScreenId::EscConfig, &UI_ESC_CONFIG },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {

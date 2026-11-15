@@ -16,7 +16,17 @@ keinen Laptop und keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 ## Verbinden
 
-**MENU → AM32 CONFIG** öffnen.
+**MENU → ESC CONFIG** öffnen, dann **ESC SETTINGS** antippen.
+
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS und, grau, USB BRIDGE mit NOT BUILT">
+
+`ESC CONFIG` ist eine Auswahl. Sie nimmt dem Signalpin nichts weg: DShot
+läuft weiter, bis du `ESC SETTINGS` antippst. `USB BRIDGE` ist grau
+gezeichnet, darunter `NOT BUILT` (nicht gebaut), und tut nichts. `BACK`
+führt zu MENU zurück. Der Bildschirm heißt für jede ESC-Firmware
+`ESC SETTINGS`; heute liest und schreibt er nur AM32. Bluejay- und
+BLHeli_S-ESCs werden erkannt, nicht gelesen: siehe
+[EFM8-ESCs](#efm8-escs).
 
 Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
 Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
@@ -39,7 +49,8 @@ einschalten) in Bernstein, den Schritt, der jetzt dran ist, und
 `SEARCHING...`, dann `WAITING... (TRY n)` mit einem Versuchszähler, und einen
 Ladekringel. Bei Erfolg erscheint die Liste, und der
 Streifen unter dem Titel zeigt den ESC-Namen, die MCU-Familie (Microcontroller)
-und die Firmware-Version.
+und die Firmware mit ihrer Version, zum Beispiel
+`NEOESC f051  F051  AM32 2.16`.
 
 <img src="img/am32-connect.png" width="240" alt="Die Verbindungsseite: POWER-CYCLE THE ESC, WAITING... (TRY 3) und der Ladekringel">
 
@@ -80,13 +91,44 @@ geschrieben wird. Sie enthält die 48 Bytes, keine Feldzeile und die Zeile
 `Layout not known: fields not read, not verified`. Die Ansicht hat ein
 Bedienelement, `BACK`, das zum MENU führt: keine Zeile, kein `WRITE...`,
 `REVERT` oder `HEX`, und der Bildschirm hat keinen Weg von dieser Ansicht zum
-Schreiben. Der Titel bleibt `AM32 CONFIG`.
+Schreiben. Der Titel bleibt `ESC SETTINGS`.
 Das Schreiben selbst lehnt in einem solchen Layout gelesene Einstellungen
 ebenfalls ab: `LAYOUT NOT KNOWN: NOT WRITTEN`. Um die Einstellungen eines
 solchen ESC zu ändern, nimm den AM32-Konfigurator.
 
 Welche Firmware ein ESC hat, der nicht antwortet, zeichnet die Firmware nicht
 auf.
+
+### EFM8-ESCs
+
+Der Verbindungsaufbau ist auch für den Bootloader von Bluejay- und
+BLHeli_S-ESCs ein gültiger Gruß, also kann ein solcher ESC antworten. Der
+Bildschirm unterscheidet die Antwort an ihrer Signatur von einer AM32-Antwort
+und zeigt `EFM8 E8B2 ANSWERED: NOT READ YET.` (geantwortet, noch nicht
+gelesen) in Bernstein (`E8B1`, `E8B2` oder `E8B5`, der EFM8-Chip des ESC).
+Nichts wird gelesen oder geschrieben. Laut dem Quelltext der Bootloader; an
+keinem ESC gesehen.
+
+<img src="img/am32-efm8.png" width="240" alt="Die Verbindungsseite nach einer Antwort von Bluejay oder BLHeli_S: EFM8 E8B2 ANSWERED: NOT READ YET.">
+
+Der Bootloader dieses ESC wartet jetzt auf Befehle, ohne Zeitlimit, und
+DShot-Frames könnten als einer durchgehen. Darum öffnet `BACK` eine
+Verlassenseite, statt sofort zu MENU zurückzukehren:
+
+1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` (ESC-Akku abziehen, dann LEAVE) /
+   `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.`
+2. `PLUG IT IN AFTER RESTART DSHOT.` (nach RESTART DSHOT wieder anstecken)
+
+<img src="img/am32-leave.png" width="240" alt="Die Verlassenseite: Schritt 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
+
+`STAY` kehrt zum Bildschirm zurück. Zieh den ESC-Akku ab, dann tippe
+`LEAVE`. `RESTART DSHOT` tritt an die Stelle von LEAVE und wirkt 1 s später;
+es startet DShot auf dem Signalpin und kehrt zu MENU zurück. Steck den Akku
+danach wieder an. `BACK` ist auf dieser Seite grau. MENUs
+`POWER-CYCLE THE ESC TO RUN IT` verschwindet mit RESTART DSHOT, da die
+Schritte den ESC neu gestartet haben. Den Akku sieht der Tester nicht:
+RESTART DSHOT bei noch eingestecktem ESC, oder ein Neustart des Testers,
+während der ESC wartet, schickt DShot in seinen Bootloader.
 
 ---
 
@@ -116,8 +158,8 @@ v2.22 und dem Zweig `main` bei 077b6a4 (November 2026), mit dem
 AM32-Konfigurator bei 06955fe und den Tags v1.77 bis v2.01 der Firmware von
 AlkaMotors und ihrer Geschichte für Firmware unter 2.00. Am Prüfstand gemessen
 ist es nicht. Die Firmware-Version ist die, die der ESC in seinen Einstellungen
-speichert; der Streifen zeigt sie als `FW`. Ein Versionsbyte, das AM32 nicht
-geschrieben hat, zählt als die älteste.
+speichert; der Streifen zeigt sie nach `AM32`. Ein Versionsbyte, das AM32
+nicht geschrieben hat, zählt als die älteste.
 
 <img src="img/am32-3d.png" width="240" alt="3D MODE an: zwei bernsteinfarbene Zeilen auf dem Streifen statt des ESC-Namens"> <img src="img/am32-protection-off.png" width="240" alt="TEMP LIMIT ausgewählt bei OFF: PROTECTION OFF: THE ESC DOES NOT CUT POWER ON THIS LIMIT.">
 
@@ -137,7 +179,7 @@ Motor mit wenig Leistung in die andere. Mit der voreingestellten Gasgrenze
 von 20 % erreicht der Tester etwa 40 % des AM32-Gasbereichs in eine
 Richtung.
 
-**Auf dem Tester.** Hat AM32 CONFIG die Einstellungen des ESC mit 3D MODE an
+**Auf dem Tester.** Hat ESC SETTINGS die Einstellungen des ESC mit 3D MODE an
 gelesen, oder sie mit 3D MODE an geschrieben (vom ESC angenommen, ob das
 Zurücklesen danach `WRITE VERIFIED` zeigt oder nicht), zeigt der Tester unter
 der Drehzahl in Bernstein `3D MODE ESC: 0-50% REVERSED AT 2X` (3D-ESC:
@@ -151,7 +193,7 @@ ESC abgelehntes Schreiben, ein nicht bestätigtes Schreiben mit 3D MODE aus, ein
 gescheitertes Lesen und ein Lesen, das die Liste nicht öffnet, darunter die
 Nur-Lese-Ansicht eines unbekannten Layouts, lassen ihn, wie er ist. Der
 Tester kann nicht erkennen, dass der ESC am Pin gegen einen anderen getauscht
-wurde: Der Hinweis beschreibt den letzten ESC, den AM32 CONFIG seit dem
+wurde: Der Hinweis beschreibt den letzten ESC, den ESC SETTINGS seit dem
 Einschalten gelesen oder geschrieben hat. `3D ON` auf ESC COMMANDS setzt
 denselben Hinweis, sein `3D OFF` lässt ihn stehen
 ([Die Bildschirme](Die-Bildschirme#esc-commands)). Teste einen 3D-ESC ohne
@@ -272,11 +314,11 @@ zum MENU zurück.
 
 ## Schreiben
 
-Tippe `WRITE...` unter der Liste an. Es öffnet die Seite `AM32 WRITE`;
+Tippe `WRITE...` unter der Liste an. Es öffnet die Seite `ESC WRITE`;
 geschrieben ist noch nichts. Ohne Änderungen ist `WRITE...` grau und tut
 nichts.
 
-<img src="img/am32-write.png" width="240" alt="AM32 WRITE mit fünf Änderungen: vier Zeilen mit Name und alt -> neu, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT und HOLD TO WRITE">
+<img src="img/am32-write.png" width="240" alt="ESC WRITE mit fünf Änderungen: vier Zeilen mit Name und alt -> neu, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT und HOLD TO WRITE">
 
 Die Seite listet jede Einstellung, die sich ändert, mit Namen und
 `alt -> neu`, den alten Wert grau und den neuen cyan: vier Zeilen, dann
@@ -376,9 +418,9 @@ Wenn sich ein Ergebnis wiederholt:
 1. Prüfe Signal- und Masseader.
 2. Verlasse den Bildschirm mit zweimal `BACK`: Das erste nennt die
    Änderungen, das zweite verwirft sie.
-3. Öffne **MENU → AM32 CONFIG** erneut und starte den ESC neu, während der
-   Bildschirm offen ist, wie unter [Verbinden](#verbinden). Der Bildschirm
-   liest dann, was im ESC steht.
+3. Öffne **MENU → ESC CONFIG → ESC SETTINGS** erneut und starte den ESC
+   neu, während der Bildschirm offen ist, wie unter [Verbinden](#verbinden).
+   Der Bildschirm liest dann, was im ESC steht.
 4. Vergleiche es mit der Sicherung, der neuesten `BACKUP/AMnnn.TXT` auf der
    Karte. Sie hält die Einstellungen, wie sie beim Öffnen des Editors gelesen
    wurden, vor jedem Schreiben. Ihre Nummer steht in `BACKUP/LAST`, solange
@@ -392,7 +434,7 @@ Wenn sich ein Ergebnis wiederholt:
 <img src="img/am32-hex.png" width="240" alt="Die rohen Einstellungsbytes">
 
 `HEX` zeigt die 48 rohen Einstellungsbytes, nur lesbar, unter dem Titel
-`AM32 HEX`. Damit prüfst du ein Feld, das deine Layout-Version nicht
+`ESC HEX`. Damit prüfst du ein Feld, das deine Layout-Version nicht
 anbietet, oder siehst, was eine Änderung auf Byte-Ebene bewirkt hat.
 `FIELDS` oder `BACK` kehrt zur Liste zurück.
 
@@ -407,12 +449,15 @@ unter [Ändern](#ändern). Der Tester ist entschärft.
 Beim Verlassen schickt die Firmware dem Bootloader keinen Befehl, die
 ESC-Firmware zu starten. Was der ESC nach dem Verlassen des Bildschirms
 tut, ist nicht aufgezeichnet. **Starte den ESC nach dem Verlassen neu**,
-bevor du einen Motor ansteuerst.
+bevor du einen Motor ansteuerst. Nach einer Antwort von Bluejay oder
+BLHeli_S öffnet `BACK` stattdessen die Verlassenseite
+([EFM8-ESCs](#efm8-escs)).
 
 Nach einer Sitzung, in der der Bootloader geantwortet hat, zeigt MENU
 `POWER-CYCLE THE ESC TO RUN IT` in Bernstein unter der Zeile des Streifens.
 Der Hinweis verschwindet, sobald ein eRPM-Frame eintrifft, den nur die
-ESC-Firmware sendet, oder wenn die Platine neu startet.
+ESC-Firmware sendet, mit RESTART DSHOT der Verlassenseite, oder wenn die
+Platine neu startet.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU mit POWER-CYCLE THE ESC TO RUN IT in Bernstein unter der Zeile des Streifens">
 
@@ -427,12 +472,10 @@ ESC-Firmware sendet, oder wenn die Platine neu startet.
 - **`REPLY NOT UNDERSTOOD`.** Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursachen: Der ESC läuft nicht mit AM32, oder sein Bootloader
   nutzt ein Protokoll, das dieser Transport nicht umsetzt.
-- **`REPLY NOT UNDERSTOOD` mit den Bytes `34 37 31`.** Ein Bluejay- oder
-  BLHeli_S-ESC hat geantwortet. Sein Bootloader wartet jetzt auf Befehle, und
-  kein Hinweis zum Neustart erscheint. **Zieh seinen Akku vor BACK ab und steck
-  ihn danach wieder an**: BACK schickt sofort DShot, das sein Bootloader als
-  Befehl lesen kann. Laut dem Quelltext des Bootloaders; an keinem ESC
-  gesehen.
+- **`EFM8 E8B2 ANSWERED: NOT READ YET.`** Ein Bluejay- oder BLHeli_S-ESC
+  hat geantwortet. Dieser Bildschirm liest seine Einstellungen noch nicht.
+  Verlass ihn über die Verlassenseite, wie unter
+  [EFM8-ESCs](#efm8-escs).
 - **`NO VALID SETTINGS`.** Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** Der ESC speichert ein

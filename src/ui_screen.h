@@ -34,7 +34,7 @@ enum class UiScreenId : uint8_t {
 	Menu,      /**< MENU, the list of tools and actions. */
 	Settings,  /**< SETTINGS, one list in sections. */
 	SdLog,     /**< SD LOG. */
-	Am32,      /**< AM32 CONFIG. */
+	Am32,      /**< ESC SETTINGS, opened from ESC CONFIG. */
 	Servo,     /**< SERVO, its SET view and its leave page. */
 	Kst,       /**< KST SERVO: the search, the field list, FILES, the write and leave pages. */
 	Hitec,     /**< HITEC SERVO: the entry, the field list, FILES, the write and leave pages. */
@@ -42,6 +42,7 @@ enum class UiScreenId : uint8_t {
 	ServoProg, /**< PROGRAMMER, the chooser behind MENU's SERVO PROGRAMMER row. */
 	RxSignals, /**< RX SIGNALS, the chooser behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
 	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
+	EscConfig, /**< ESC CONFIG, the chooser behind MENU's ESC CONFIG row: ESC SETTINGS and USB BRIDGE. */
 	Count,     /**< How many screens; not a screen. */
 };
 
@@ -152,7 +153,8 @@ struct UiScreen {
 	/**
 	 * @brief Opens only while the pin claim is Free, without claiming:
 	 *        SETTINGS, which changes the wiring a claim latched, and
-	 *        PROGRAMMER and RX SIGNALS, whose entries open tools that claim.
+	 *        PROGRAMMER, RX SIGNALS and ESC CONFIG, whose entries open tools
+	 *        that claim.
 	 *        A tool with a @ref pinUser waits for Free anyway.
 	 */
 	bool freePins;

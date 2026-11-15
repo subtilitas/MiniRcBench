@@ -243,7 +243,7 @@ static void testPinsBusy() {
 		checkTrue("SERVO TESTER is an outline with no status: the strip names the pins",
 		          pixel(sr.x + 4, sr.y + sr.h / 2) == C_BG &&
 		          allOf(sr.x + 160, sr.y + 4, sr.w - 164, sr.h - 8, C_BG));
-		checkTrue("nor AM32 CONFIG", !ctlEnabled(menuRow(&UI_AM32)));
+		checkTrue("nor ESC CONFIG", !ctlEnabled(menuRow(&UI_ESC_CONFIG)));
 		checkTrue("nor SERVO PROGRAMMER, whose entries claim", !ctlEnabled(menuRow(&UI_SERVO_PROG)));
 		const UiRect rx = ctlRect(menuRow(&UI_RX_SIGNALS));
 		checkTrue("nor RX SIGNALS, whose MONITOR claims: an outline with no status",
@@ -335,19 +335,21 @@ static void testSettingsRowVisible() {
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
 	static const char *const ORDER[] = {
-		"ESC COMMANDS", "AM32 CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
+		"ESC COMMANDS", "ESC CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
 		"RX SIGNALS", "SD LOG", "SETTINGS",
 	};
 	bool order = n == 7;
 	for (uint8_t i = 0; order && i < n; i++) order = strcmp(e[i].label, ORDER[i]) == 0;
-	checkTrue("ESC COMMANDS, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
+	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
 	          "SETTINGS, in that order", order);
-	checkTrue("the rows' screens", uiMenuRowOf(&UI_SERVO_PROG) == 3 && uiMenuRowOf(&UI_RX_SIGNALS) == 4 &&
+	checkTrue("the rows' screens", uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
+	          uiMenuRowOf(&UI_SERVO_PROG) == 3 && uiMenuRowOf(&UI_RX_SIGNALS) == 4 &&
 	          uiMenuRowOf(&UI_SDLOG) == 5 && uiMenuRowOf(&UI_SETTINGS) == 6);
 	checkTrue("no row for KST SERVO or HITEC SERVO: PROGRAMMER opens them",
 	          uiMenuRowOf(&UI_KST) < 0 && uiMenuRowOf(&UI_HITEC) < 0);
+	checkTrue("no row for ESC SETTINGS: ESC CONFIG opens it", uiMenuRowOf(&UI_AM32) < 0);
 	checkTrue("the tool rows have no status (decision 18)",
-	          !UI_ESC_CMD.status && e[0].statusWidest == 0 && !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
+	          !UI_ESC_CMD.status && e[0].statusWidest == 0 && !UI_ESC_CONFIG.status && !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
 	          !UI_HITEC.status && !UI_RX_SIGNALS.status && !UI_SBUS.status &&
 	          e[1].statusWidest == 0 && e[2].statusWidest == 0 && e[3].statusWidest == 0 &&
 	          e[4].statusWidest == 0);
@@ -594,6 +596,102 @@ static void dragList(int y0, int dy) {
 	int steps = (dy < 0 ? -dy : dy) / 4;
 	for (int k = 1; k <= steps; k++) { fakeHold(120, y0 + (dy < 0 ? -4 : 4) * k); menuFrames(1); }
 	fakeRelease(); menuFrames(1);
+}
+
+/**
+ * @brief ESC CONFIG (bluejay-blheli-s.md decision 1 and call B, usb-bridge.md
+ *        decision 1): MENU's second row opens the chooser, which claims
+ *        nothing; ESC SETTINGS opens the settings screen, which claims SIG on
+ *        the tap; USB BRIDGE is drawn disabled under `NOT BUILT` and opens
+ *        nothing; the row is drawn disabled while the claim is not Free.
+ */
+static void testEscConfig() {
+	section("ESC CONFIG: the chooser, ESC SETTINGS and USB BRIDGE");
+	freshTester();
+	openMenu();
+	const UiControlId row = menuRow(&UI_ESC_CONFIG);
+	{
+		const UiRect r = ctlRect(row);
+		checkTrue("MENU's second row reads ESC CONFIG, 118 px at scale 2, no status",
+		          uiMenuRowOf(&UI_ESC_CONFIG) == 1 && gfxTextW(UI_ESC_CFG_TITLE, 2) == 118 &&
+		          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_ESC_CFG_TITLE, C_TEXT, C_PANEL, 2) &&
+		          allOf(r.x + 160, r.y + 4, r.w - 164, r.h - 8, C_PANEL));
+		checkTrue("the chooser opens only while the claim is Free and claims nothing",
+		          UI_ESC_CONFIG.freePins && UI_ESC_CONFIG.pinUser == PinUser::None &&
+		          UI_ESC_CONFIG.id == UiScreenId::EscConfig && !UI_ESC_CONFIG.status);
+		checkTrue("a claim taken", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+		menuFrames(1);
+		checkTrue("while the claim is not Free: drawn disabled, gated",
+		          !ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_BG &&
+		          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_ESC_CFG_TITLE, C_DIM, C_BG, 2));
+		tapId(row, IdExpect::Disabled);
+		checkTrue("a tap opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+		pinClaimEnd(PinUser::Servo);
+		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) {
+			menuFrames(1);
+			pinClaimRestart(PinUser::Servo);
+		}
+		menuFrames(1);
+		checkTrue("Free again: it acts", ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_PANEL);
+	}
+	tapId(menuRow(&UI_ESC_CONFIG));
+	menuFrames(1);
+	checkTrue("ESC CONFIG opens the chooser", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("it claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended() && fakePinReturned());
+	menuFrames(20);
+	checkTrue("half a second on, still nothing claimed", pinClaimState() == ClaimState::Free);
+	checkTrue("the title reads ESC CONFIG, ending 4 px or more before BACK",
+	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_ESC_CFG_TITLE, C_TEXT, C_PANEL, 2) &&
+	          UI_MARGIN + gfxTextW(UI_ESC_CFG_TITLE, 2) + 4 <= UI_BACK_X);
+	{
+		char strip[16];
+		snprintf(strip, sizeof(strip), "SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip: SIG GP0, dim", lineIs(UI_STRIP_Y + 4, strip, C_DIM));
+	}
+	checkInt("two entries", UI_ESC_CFG_ENTRIES_COUNT, 2);
+	const UiRect set = ctlRect(UI_FIX(EscCfgCtl::Settings)), br = ctlRect(UI_FIX(EscCfgCtl::Bridge));
+	checkTrue("ESC SETTINGS: 228 x 46 px at (6, 62)", set.x == 6 && set.y == 62 && set.w == 228 && set.h == 46);
+	checkTrue("USB BRIDGE: 228 x 46 px at (6, 142)", br.x == 6 && br.y == 142 && br.w == 228 && br.h == 46);
+	checkTrue("ESC SETTINGS acts, its label C_TEXT on the panel, centred at scale 2, 142 px",
+	          ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && gfxTextW("ESC SETTINGS", 2) == 142 &&
+	          fakeTextIs(set.x + (set.w - 142) / 2, set.y + 16, "ESC SETTINGS", C_TEXT, C_PANEL, 2));
+	checkTrue("its lines at y 112 and 124, dim",
+	          lineIs(112, "AM32 SETTINGS, READ AND WRITTEN.", C_DIM) &&
+	          lineIs(124, "BLUEJAY, BLHELI_S: NAMED, NOT READ.", C_DIM));
+	checkTrue("USB BRIDGE is drawn disabled: an outline, the label C_GRID",
+	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && pixel(br.x + 4, br.y + br.h - 5) == C_BG &&
+	          fakeTextIs(br.x + (br.w - gfxTextW("USB BRIDGE", 2)) / 2, br.y + 16, "USB BRIDGE", C_GRID,
+	                     C_BG, 2));
+	checkTrue("its lines at y 192 and 204, dim: what it is, NOT BUILT",
+	          lineIs(192, "A DESKTOP ESC TOOL OVER USB.", C_DIM) && lineIs(204, UI_ESC_CFG_NOT_BUILT, C_DIM));
+	checkControlTable("ESC CONFIG");
+	fakeDumpFrame("shot_esc_chooser.ppm");
+	tapId(UI_FIX(EscCfgCtl::Bridge), IdExpect::Disabled);
+	checkTrue("a tap on USB BRIDGE opens nothing and claims nothing",
+	          uiCurrentScreen() == UiScreenId::EscConfig && pinClaimState() == ClaimState::Free);
+	fakePress(br.x + br.w / 2, br.y + br.h / 2);
+	menuFrames(1);
+	checkTrue("a press on USB BRIDGE draws no pressed look", pixel(br.x + 2, br.y + br.h / 2) == C_BG);
+	fakeRelease();
+	menuFrames(1);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the chooser's BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(menuRow(&UI_ESC_CONFIG));
+	menuFrames(1);
+	fakePress(set.x + set.w / 2, set.y + set.h / 2);
+	menuFrames(1);
+	checkTrue("a press on ESC SETTINGS draws it pressed", pixel(set.x + 2, set.y + set.h / 2) == C_INK);
+	checkTrue("and claims nothing yet", pinClaimState() == ClaimState::Free);
+	fakeRelease();
+	menuFrames(1);
+	checkTrue("its lift opens ESC SETTINGS", uiCurrentScreen() == UiScreenId::Am32);
+	checkTrue("which claims SIG on the tap's frame", pinClaimHolder() == PinUser::Am32);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("ESC SETTINGS' BACK returns to MENU, not the chooser", uiCurrentScreen() == UiScreenId::Menu);
+	for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
+	checkTrue("DShot runs again", pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
 }
 
 /** @brief SETTINGS' scroll: 0 px on open, 620 px at most, from a drag on a label only. */
@@ -1550,12 +1648,12 @@ static void testMenuScrollResets() {
 }
 
 /**
- * @brief AM32 CONFIG's own refusal: opened beside another claim, as MENU no
+ * @brief ESC SETTINGS' own refusal: opened beside another claim, as MENU no
  *        longer allows, it waits, leaves that claim alone, and claims once
  *        the other one ends. The backstop under MENU's disabled rows.
  */
 static void testAm32WaitsBesideAClaim() {
-	section("AM32 CONFIG: opened beside another claim, it waits");
+	section("ESC SETTINGS: opened beside another claim, it waits");
 	freshTester();
 	checkTrue("SERVO takes the pins", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	static const TouchState none = {};
@@ -1674,6 +1772,7 @@ void runMenuTests() {
 	testSettingsRowVisible();
 	testRxSignalsRow();
 	testServoProg();
+	testEscConfig();
 	testSettingsScroll();
 	testSettingsDiagnostics();
 	testSettingsCutControl();

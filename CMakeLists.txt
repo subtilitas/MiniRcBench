@@ -222,6 +222,7 @@ add_executable(MiniRcBench
     src/ui_esc_cmd.cpp
     src/ui_registry.cpp
     src/ui_servo_prog.cpp
+    src/ui_esc_config.cpp
     src/ui_sdlog.cpp
     src/ui_input.cpp
     src/ui_widgets.cpp
@@ -248,6 +249,7 @@ add_executable(MiniRcBench
     src/pin_claim.cpp
     src/core1_job.cpp
     src/am32_bl.cpp
+    src/bl_answer.cpp
     src/am32_eeprom.cpp
     src/kiss_telem.cpp
     src/pio_uart_rx.cpp

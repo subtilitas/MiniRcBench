@@ -57,9 +57,9 @@ The tester screen shows the state in its top row: `REC` (red) while recording,
 drawn on an amber chip, between the arm badge and `BOARD`, so a recording that
 stopped on its own shows while armed. SD LOG says what happened.
 
-A log also ends when KST SERVO, HITEC SERVO or AM32 CONFIG opens: the tool
+A log also ends when KST SERVO, HITEC SERVO or ESC SETTINGS opens: the tool
 needs the card for its backup. SD LOG then reads
-`RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `AM32 CONFIG`). Press
+`RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `ESC SETTINGS`). Press
 `START` for a new log after the tool.
 
 **Stop the recording before cutting the board's power or pulling the card:**
@@ -102,7 +102,7 @@ It holds one value a line:
 |---|---|
 | `Log`, `Firmware` | The log's file name and the firmware version |
 | `Clock at start`, `Clock at stop` | `not set`: the board's clock is not used |
-| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` |
+| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` or `ESC SETTINGS` |
 | `Duration`, `Armed` | The log's length and the time armed within it, in seconds |
 | `Max RPM` | The highest RPM: DShot eRPM (electrical RPM), or KISS eRPM in a log without DShot eRPM, divided by half the `MOTOR POLES` value at the stop |
 | `Max current`, `Max temperature` | The highest current and ESC (electronic speed controller) temperature: KISS while KISS is live, EDT (Extended DShot Telemetry) in its gaps; EDT alone when KISS sent 0 in every frame, an ESC without that sensor |
@@ -200,7 +200,7 @@ without a card the mount hint takes the second line.
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | A write, or the final sync or close, failed: a card that was pulled out, or a card fault. The two are not told apart | Reseat the card, press `RETRY MOUNT` |
 | `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make or read `LOGS`, or open the next file | Check the card on a computer, press `RETRY MOUNT` |
 | `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` holds `LOG99999.BFL`, and no number follows it | Move the logs off the card on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
-| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | The tool took the card for its backup | `START` for a new log |
+| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | The tool took the card for its backup | `START` for a new log |
 
 A full card is told from a failed write by what the filesystem reports: a
 write that finds no free cluster ends with fewer bytes written and no error.

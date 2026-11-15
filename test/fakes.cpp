@@ -539,8 +539,10 @@ uint32_t am32BlBaud() { return 19200; }
 static int     g_am32WriteFails = 0;   /**< am32BlWrite() calls that fail, storing nothing. */
 static int     g_am32ReadFails = 0;    /**< am32BlRead() calls that fail. */
 static int     g_am32WriteSkews = 0;   /**< am32BlWrite() calls that store byte 0x1B wrong. */
-static uint8_t g_am32Garble[3];        /**< A handshake reply that is not one. */
+static uint8_t g_am32Garble[16];       /**< A handshake reply other than an AM32 bootloader's. */
 static uint8_t g_am32GarbleLen = 0;    /**< Its length; 0: the handshake succeeds. */
+/** @brief The last handshake's answer, classified by the real blAnswerClassify(). */
+static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0 };
 static bool    g_am32Blank = false;    /**< Reads return an erased page. */
 static bool    g_am32Silent = false;   /**< Handshakes time out with no reply. */
 void fakeAm32FailWrites(int n) { g_am32WriteFails = n; }
@@ -553,9 +555,20 @@ void fakeAm32Garble(const uint8_t *b, uint8_t n) {
 void fakeAm32Blank(bool on) { g_am32Blank = on; }
 void fakeAm32Silent(bool on) { g_am32Silent = on; }
 Am32Result am32BlHandshake(uint8_t *) {
-	if (g_am32Silent) return AM32_ERR_TIMEOUT;
-	return g_am32GarbleLen ? AM32_ERR_NAK : AM32_OK;
+	// Nine bytes with F051's family byte fifth from the end and the ACK
+	// last, or the bytes a test set, through the classification the
+	// transport uses. The other bytes of an AM32 answer are not modelled.
+	static const uint8_t F051[9] = { '4', '7', '1', 0, AM32_ESC_F051_1KB, 0, 0, 0, 0x30 };
+	if (g_am32Silent) g_am32Answer = blAnswerClassify(nullptr, 0);
+	else if (g_am32GarbleLen) g_am32Answer = blAnswerClassify(g_am32Garble, g_am32GarbleLen);
+	else g_am32Answer = blAnswerClassify(F051, sizeof(F051));
+	switch (g_am32Answer.kind) {
+		case BlAnswerKind::Silent: return AM32_ERR_TIMEOUT;
+		case BlAnswerKind::Am32:   return AM32_OK;
+		default:                   return AM32_ERR_NAK;
+	}
 }
+BlAnswer am32BlAnswer() { return g_am32Answer; }
 Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) {
 	if (g_am32ReadFails > 0) { g_am32ReadFails--; return AM32_ERR_TIMEOUT; }
 	if (g_am32Blank) memset(b, 0xFF, n);
@@ -717,7 +730,12 @@ void escTaskSuspend() {
 // The transport must let go of the pin before DShot is asked to take it back.
 static bool g_am32EndBeforeResume = false;
 bool fakeAm32EndBeforeResume() { return g_am32EndBeforeResume; }
-void am32BlEnd() { g_am32EndBeforeResume = g_suspendReq; }
+static int g_am32Ends = 0;  /**< am32BlEnd() calls. */
+int fakeAm32Ends() { return g_am32Ends; }
+void am32BlEnd() {
+	g_am32Ends++;
+	g_am32EndBeforeResume = g_suspendReq;
+}
 bool escTaskSuspended() { return g_suspended; }
 // Only the request, as in esc_task.cpp: the rebuild is the next
 // fakePumpPoll().

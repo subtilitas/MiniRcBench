@@ -16,7 +16,16 @@ does not update ESC firmware.
 
 ## Connecting
 
-Open **MENU → AM32 CONFIG**.
+Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
+
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and, drawn grey, USB BRIDGE with NOT BUILT">
+
+`ESC CONFIG` is a chooser. It takes nothing from the signal pin: DShot keeps
+running until you tap `ESC SETTINGS`. `USB BRIDGE` is drawn grey with
+`NOT BUILT` under it and does nothing. `BACK` returns to MENU. The screen is
+titled `ESC SETTINGS` for every ESC firmware; today it reads and writes
+AM32 only. Bluejay and BLHeli_S ESCs are recognised, not read: see
+[EFM8 ESCs](#efm8-escs).
 
 The screen hands the signal pin from the DShot driver to the bootloader link
 (19200 baud, one wire, half-duplex), then starts searching. Before DShot lets
@@ -35,7 +44,8 @@ each reply.
 The screen shows `POWER-CYCLE THE ESC` in amber, the step to take now, and
 `SEARCHING...`, then `WAITING... (TRY n)` with an attempt counter, and a
 spinner. On success the list appears, and the strip under the
-title shows the ESC name, MCU (microcontroller) family and firmware revision.
+title shows the ESC name, MCU (microcontroller) family and firmware with its
+revision, for example `NEOESC f051  F051  AM32 2.16`.
 
 <img src="img/am32-connect.png" width="240" alt="The connect page: POWER-CYCLE THE ESC, WAITING... (TRY 3) and the spinner">
 
@@ -73,12 +83,41 @@ later. It holds the 48 bytes, no field line, and the line
 `Layout not known: fields not read, not verified`. The view has one control,
 `BACK`, which goes to MENU: no row, no `WRITE...`, `REVERT` or `HEX`, and the
 screen has no way from this view to the write. The title stays
-`AM32 CONFIG`. The write itself also refuses settings read
+`ESC SETTINGS`. The write itself also refuses settings read
 in such a layout: `LAYOUT NOT KNOWN: NOT WRITTEN`. To change the settings of
 such an ESC, use the AM32 configurator.
 
 The firmware does not record which firmware an ESC that does not answer
 runs.
+
+### EFM8 ESCs
+
+The handshake is also a valid greeting for the bootloader of Bluejay and
+BLHeli_S ESCs, so such an ESC can answer it. The screen tells the answer
+apart from an AM32 one by its signature and shows
+`EFM8 E8B2 ANSWERED: NOT READ YET.` in amber (`E8B1`, `E8B2` or `E8B5`,
+the ESC's EFM8 chip). Nothing is read or written. From the bootloaders'
+source; not seen on an ESC.
+
+<img src="img/am32-efm8.png" width="240" alt="The connect page after a Bluejay or BLHeli_S answer: EFM8 E8B2 ANSWERED: NOT READ YET.">
+
+That ESC's bootloader now waits for commands and does not time out, and
+DShot frames could pass as one. So `BACK` opens a leave page instead of
+returning to MENU at once:
+
+1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR
+   COMMANDS` / `AND MAY READ DSHOT AS ONE.`
+2. `PLUG IT IN AFTER RESTART DSHOT.`
+
+<img src="img/am32-leave.png" width="240" alt="The leave page: step 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
+
+`STAY` returns to the screen. Unplug the ESC battery, then tap `LEAVE`.
+`RESTART DSHOT` takes LEAVE's place and acts 1 s later; it starts DShot on
+the signal pin and returns to MENU. Plug the battery back in after that.
+`BACK` is grey on this page. MENU's `POWER-CYCLE THE ESC TO RUN IT` is
+cleared by RESTART DSHOT, since the steps power-cycled the ESC. The tester
+cannot see the battery: RESTART DSHOT with the ESC still powered, or a
+restart of the tester while the ESC waits, sends DShot into its bootloader.
 
 ---
 
@@ -107,8 +146,8 @@ source code: the releases v2.05, v2.16 and v2.18 to v2.22, and the `main`
 branch at 077b6a4 (November 2026), with the AM32 configurator at 06955fe, and
 AlkaMotors' firmware tags v1.77 to v2.01 and their history for firmware below
 2.00. It is not measured on the bench. The firmware version is the one the ESC
-stores in its settings, shown on the strip as `FW`; a version byte AM32 did not
-write counts as the oldest.
+stores in its settings, shown on the strip after `AM32`; a version byte AM32 did
+not write counts as the oldest.
 
 <img src="img/am32-3d.png" width="240" alt="3D MODE on: two amber lines on the strip in place of the ESC name"> <img src="img/am32-protection-off.png" width="240" alt="TEMP LIMIT selected at OFF: PROTECTION OFF: THE ESC DOES NOT CUT POWER ON THIS LIMIT.">
 
@@ -127,7 +166,7 @@ way, and just above 50 % the motor runs the other way at low power. With the
 default throttle ceiling of 20 % the tester reaches about 40 % of AM32's
 throttle range in one direction.
 
-**On the tester.** After AM32 CONFIG has read the ESC's settings with 3D MODE
+**On the tester.** After ESC SETTINGS has read the ESC's settings with 3D MODE
 on, or written them with 3D MODE on (accepted by the ESC, whether the read-back
 then shows `WRITE VERIFIED` or not), the tester shows
 `3D MODE ESC: 0-50% REVERSED AT 2X` in amber under the RPM readout, in place
@@ -139,7 +178,7 @@ written, a write the ESC refused, a write of 3D MODE off that is not verified, a
 failed read and a read that does not open the list, the read-only view of a
 layout not known among them, leave it as it was. The
 tester cannot tell that the ESC on the pin was swapped for another one: the note
-describes the last ESC AM32 CONFIG read or wrote in this power-up. `3D ON` on
+describes the last ESC ESC SETTINGS read or wrote in this power-up. `3D ON` on
 ESC COMMANDS sets the same note, and its `3D OFF` leaves it
 ([The Screens](The-Screens#esc-commands)). Keep the
 propeller off while testing a 3D ESC.
@@ -251,10 +290,10 @@ returns to MENU at once.
 
 ## Writing
 
-Tap `WRITE...` under the list. It opens the page `AM32 WRITE`; nothing is
+Tap `WRITE...` under the list. It opens the page `ESC WRITE`; nothing is
 written yet. With no changes `WRITE...` is drawn grey and does nothing.
 
-<img src="img/am32-write.png" width="240" alt="AM32 WRITE with five changes: four lines of name and old -> new, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT and HOLD TO WRITE">
+<img src="img/am32-write.png" width="240" alt="ESC WRITE with five changes: four lines of name and old -> new, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT and HOLD TO WRITE">
 
 The page lists every setting that changes, its name and `old -> new`, the old
 value grey and the new one cyan: four lines, then `AND n MORE`. The strip
@@ -345,9 +384,9 @@ When a result repeats:
 1. Check the signal and ground wires.
 2. Leave with `BACK`, twice: the first names the edits, the second drops
    them.
-3. Open **MENU → AM32 CONFIG** again and power-cycle the ESC while the
-   screen is open, as under [Connecting](#connecting). The screen then
-   reads what the ESC holds.
+3. Open **MENU → ESC CONFIG → ESC SETTINGS** again and power-cycle the ESC
+   while the screen is open, as under [Connecting](#connecting). The screen
+   then reads what the ESC holds.
 4. Compare it with the backup, the newest `BACKUP/AMnnn.TXT` on the card.
    It holds the settings as read when the editor opened, before any write.
    Its number is in `BACKUP/LAST` while no KST or Hitec backup came after
@@ -360,7 +399,7 @@ When a result repeats:
 <img src="img/am32-hex.png" width="240" alt="The raw settings bytes">
 
 `HEX` shows the raw 48 settings bytes, read-only, under the title
-`AM32 HEX`. Use it to check a field that your layout revision does not offer,
+`ESC HEX`. Use it to check a field that your layout revision does not offer,
 or to see what a change did at byte level. `FIELDS` or `BACK` returns to the
 list.
 
@@ -375,11 +414,13 @@ to `MENU`; with changes not written it asks first, as under
 The firmware sends the bootloader no command to start the ESC firmware when
 the screen closes. What the ESC does after the screen is left is not
 recorded. **Power-cycle the ESC after leaving**, before driving a motor.
+After a Bluejay or BLHeli_S answer, `BACK` opens the leave page instead
+([EFM8 ESCs](#efm8-escs)).
 
 After a session in which the bootloader answered, MENU shows
 `POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. It goes
-when an eRPM frame arrives, which only the ESC's firmware sends, or when the
-board restarts.
+when an eRPM frame arrives, which only the ESC's firmware sends, on RESTART
+DSHOT of the leave page, or when the board restarts.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU with POWER-CYCLE THE ESC TO RUN IT in amber under the strip's caption">
 
@@ -393,11 +434,10 @@ board restarts.
 - **`REPLY NOT UNDERSTOOD`.** The link works; the framing does not. Possible
   causes: the ESC does not run AM32, or its bootloader uses a protocol this
   transport does not implement.
-- **`REPLY NOT UNDERSTOOD` with the bytes `34 37 31`.** A Bluejay or BLHeli_S
-  ESC answered. Its bootloader now waits for commands and MENU does not show
-  `POWER-CYCLE THE ESC TO RUN IT`. **Unplug its battery before BACK and plug it
-  in after**: BACK sends DShot at once, which its bootloader may read as a
-  command. From the bootloader's source; not seen on an ESC.
+- **`EFM8 E8B2 ANSWERED: NOT READ YET.`** A Bluejay or BLHeli_S ESC
+  answered. This screen does not read its settings yet. Leave through the
+  leave page, as under
+  [EFM8 ESCs](#efm8-escs).
 - **`NO VALID SETTINGS`.** The ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** The ESC stores a settings layout the

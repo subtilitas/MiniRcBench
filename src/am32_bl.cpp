@@ -14,6 +14,7 @@
 
 #include "am32_bl.h"
 #include "am32_eeprom.h"
+#include "bl_answer.h"
 #include "config.h"
 
 #include "plat.h"
@@ -270,6 +271,11 @@ const char *am32BlEscTypeName() {
 
 uint8_t am32BlLastRx(const uint8_t **buf) { *buf = s_lastRx; return s_lastRxLen; }
 
+/** @brief The last handshake's answer, classified. */
+static BlAnswer s_answer = { BlAnswerKind::Silent, 0, 0 };
+
+BlAnswer am32BlAnswer() { return s_answer; }
+
 
 void am32BlJumpToBootloader() {
 	if (s_pin == 0xFF) return;
@@ -293,12 +299,15 @@ Am32Result am32BlHandshake(uint8_t *deviceInfo) {
 	if (s_pin == 0xFF) return AM32_ERR_BUSY;
 
 	s_lastRxLen = 0;
+	s_answer = BlAnswer{ BlAnswerKind::Silent, 0, 0 };
 
 	// ESC_INIT_STRING, verbatim from a known-working configurator: twelve zero
-	// bytes, 0x0D, "BLHeli", then the fixed signature F4 7D. 21 bytes total.
+	// bytes, 0x0D, "BLHeli", then F4 7D. 21 bytes total.
 	//
-	// The trailing F4 7D is a literal, not a checksum -- CRC-16/ARC over the
-	// preceding 19 bytes is not 0x7DF4.
+	// F4 7D is CRC-16/ARC over `BLHeli` alone, not over the 19 bytes before
+	// it: the EFM8 bootloader of Bluejay and BLHeli_S starts its CRC at each
+	// new scan, so it takes this greeting as well
+	// (docs/design/bluejay-blheli-s.md, "The greeting already fits").
 	static const uint8_t GREET[21] = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
@@ -324,21 +333,25 @@ Am32Result am32BlHandshake(uint8_t *deviceInfo) {
 	}
 	s_lastRxLen = (uint8_t)(got > (int)sizeof(s_lastRx) ? sizeof(s_lastRx) : got);
 
-	if (got == 0) return AM32_ERR_TIMEOUT;
-	if (got < 5)  return AM32_ERR_NAK;   // replied, but too short to identify
+	// What answered: an AM32 bootloader, an EFM8 one, or neither
+	// (bl_answer.h). Only an AM32 family opens the settings.
+	s_answer = blAnswerClassify(reply, got);
+	if (s_answer.kind == BlAnswerKind::Silent) return AM32_ERR_TIMEOUT;
+	if (s_answer.kind != BlAnswerKind::Am32) {
+		s_eepromAddr = 0;
+		return AM32_ERR_NAK;
+	}
 
-	if (reply[got - 1] != AM32_ACK_OK) return AM32_ERR_NAK;
-
-	// Fifth byte from the end identifies the MCU family, which is what decides
-	// where its settings live. Getting this wrong reads the wrong flash page.
-	s_escType = reply[got - 5];
+	// The family decides where the settings live. Getting this wrong reads
+	// the wrong flash page.
+	s_escType = s_answer.family;
 	switch (s_escType) {
 		case AM32_ESC_G071_2KB: s_eepromAddr = 0x7E00; break;
 		case AM32_ESC_F051_1KB: s_eepromAddr = 0x7C00; break;
 		case AM32_ESC_F3_2KB:   s_eepromAddr = 0xF800; break;
 		default:
 			s_eepromAddr = 0;
-			return AM32_ERR_NAK;   // answered, but not a family we know
+			return AM32_ERR_NAK;
 	}
 
 	if (deviceInfo) {
