@@ -73,6 +73,7 @@
 #include "st7789.h"
 #include "touch.h"
 #include "sense.h"
+#include "clock.h"
 #include "esc_task.h"
 #include "core1_job.h"
 #include "ui.h"
@@ -136,6 +137,9 @@ void setup() {
 	// NOT FOUND until the controller answers. @see touchAnswered()
 	touchInit();
 	senseInit();        // the current sensor, on the bus touchInit() set up
+	// The real-time clock, read once on the same bus, after senseInit() has
+	// started the bus record its transfers are noted to. @see clock.h
+	clockInit();
 	uiInit();
 
 	// The splash, while the ESC finishes booting. Core1 is not running yet:

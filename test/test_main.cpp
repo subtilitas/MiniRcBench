@@ -44,6 +44,7 @@ void runBackupTests();
 void runSdCacheTests();
 void runDiagTests();
 void runRunSummaryTests();
+void runClockTests();
 void runBridgeTests();
 void core1JobInit();
 
@@ -86,6 +87,7 @@ int main() {
 	runEscCmdUiTests();
 	runDiagTests();
 	runRunSummaryTests();
+	runClockTests();
 	runBridgeTests();
 
 	section("Critical sections");
