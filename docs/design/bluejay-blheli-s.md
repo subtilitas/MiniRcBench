@@ -1262,37 +1262,51 @@ Choices the note left open, the developer's:
   same device, saves no second copy and names that backup
   ([backups.md](backups.md#what-the-ring-holds)).
 
-Mutations, each applied to a copy of the tree, the suite built and run: 57, 51
-failing the suite. Six pass. Four are equivalent: Write taken outside InMode
-without the job's own check, which `ew_session_write()` refuses the same way;
-`WRITE...` live on a read-only list without its layout check, where no row
-edits, so there is never a change to write; LEAVE asked again on a
-half-written page, which the guard keeps from ever sending LEAVE; and the
-write's refusal of a page other than ESC WRITE showed, which no path reaches,
-as on AM32. Two are backstops the suite cannot see: the screen's own
-`ew_image_check()` before Write, whose drafts the session's guard refuses
-alike (the job's tests hold the guard to each refusal), and the clamp of a
-draft longer than 256 bytes in `escwireJobWrite()`, which no caller sends and
-which would only overrun memory. The others fail the suite: the draft not
-copied to core1 or its length lost, the erase not published, a lapse or the
-release aborting, `dirty` or `reread` not reported; rows editable on read-only
-pages or shown-only fields editable, a step to any byte, the coarse factor
-rounded down, CHANGED or LOST needing no read, an ended session not said, a
-stopped half-written page called stopped, the backup name cut, the no-card
-lines swapped, changes counted wrong; Bluejay saved as BH, a capture failure
-ignored, the next name taken as the latest, BJ and BH swapped in the ring;
-`WRITE...` dead on a half-written page, edits on it, the page as read not
-writable, no BOARD refusal, a write with no backup or after a failed one, the
-verified page not taken, the 3D note not set by a write or by a half-written
-draft, a Write refused for a lapse not asked again, no guard on a half-written
-page, its second BACK not aborting or sending LEAVE, BACK live while writing,
-edits dropped or an ended session kept by READ AGAIN, a failed READ AGAIN
-taken as a read, OK after an ended session going to the list, the read-only
-backup not saved, the backup state kept into a second session or into an AM32
-answer after it, the as-read line missing, the half-written strip's lines
-swapped, REVERT or a swipe doing nothing, shown rows drawn editable, the
-backup line naming AM, the sent draft not kept, a wide value at scale 2. The
-script is not kept.
+Mutations, each applied to a copy of the tree, the suite built and run:
+77, 68 failing the suite, 57 before the review of pull request 102 and 20
+for its fixes, with the 10 earlier ones whose code changed run again, all
+failing again. Nine pass. Six are equivalent: Write taken outside InMode
+without the job's own check, which `ew_session_write()` refuses the same
+way; `WRITE...` live on a read-only list without its layout check, where no
+row edits, so there is never a change to write; LEAVE asked again on a
+half-written page, which the guard keeps from ever sending LEAVE; the
+write's refusal of a page other than ESC WRITE showed, which no path
+reaches, as on AM32; READ AGAIN copying the session's identification and
+rows, which a read does not change; and the backup's check that the ring's
+latest number is the same device's, whose file name, with its prefix,
+exists only then. Three are backstops the suite cannot see: the screen's
+own `ew_image_check()` before Write, whose drafts the session's guard
+refuses alike (the job's tests hold the guard to each refusal); the clamp
+of a draft longer than 256 bytes in `escwireJobWrite()`, which no caller
+sends and which would only overrun memory; and the BOARD check after the
+backup's flush, which sees the cell the check before it saw. The others
+fail the suite: the draft not copied to core1 or its length lost, the erase
+not published, a lapse or the release aborting, `dirty` or `reread` not
+reported; rows editable on read-only pages or shown-only fields editable, a
+step to any byte, the coarse factor rounded down, CHANGED or LOST needing no
+read, an ended session not said or a half-written one said as any, a stopped
+half-written page called stopped, the backup name cut, the no-card lines
+swapped or a USB host's taken for them, changes counted wrong; Bluejay saved
+as BH, a capture failure ignored, the next name taken as the latest, BJ and
+BH swapped in the ring, a copy equal to the latest saved again or one
+differing not saved; `WRITE...` dead on a half-written page, edits on it,
+the page as read not writable, no BOARD refusal, a write with no backup or
+after a failed one, the verified page not taken, the 3D note not set by a
+write or by a half-written draft, a Write refused for a lapse not asked
+again, no guard on a half-written page, its second BACK not aborting or
+sending LEAVE, BACK live while writing, edits dropped or an ended session
+kept by READ AGAIN, a failed READ AGAIN taken as a read, a page read again
+getting no backup, OK after an ended session going to the list, the old
+page not kept by an ended write, an ended READ AGAIN or the guard's abort,
+kept across visits, not offered on the session's page, not under a list's
+dump or without its backup's name, the screen-only backup line missing, the
+read-only backup not saved, the backup state kept into a second session or
+into an AM32 answer after it, the as-read line missing, the half-written
+strip's lines swapped, REVERT or a swipe doing nothing, shown rows drawn
+editable, the backup line naming AM, the sent draft not kept, a wide value
+at scale 2; in the fake, no pattern outside the page, a read keeping the
+address, an overflowed log passing. The script and its list are kept with
+the build's scratch files, outside the repository.
 
 Not verified: everything on an ESC. No write of this slice has reached a
 Bluejay or BLHeli_S ESC: the erase, program and read-back are rcbench's
