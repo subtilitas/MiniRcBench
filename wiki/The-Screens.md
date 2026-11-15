@@ -437,6 +437,7 @@ ceiling while disarmed; `BACK` returns to where it was opened from.
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
 | BOARD | **VERSION** | Read-only. The firmware version, for example `0.1.0` |
+| BOARD | **CLOCK** | Read-only. The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in grey. The line under it, `SET AT EACH POWER-UP`: the board has no cell for its clock, so a computer sets it again after each power-up with `tools/set_clock.py` ([SD Logging](SD-Logging#the-clock)). Redrawn once a minute while the row shows |
 | DIAGNOSTICS | **LAST RESTART** | Read-only. Why the board last started: `POWER-ON`, `BROWN-OUT` (the supply dipped too low), `RUN PIN` (the reset input), `WATCHDOG`, `UPDATE` (the restart after copying a new firmware onto the board), `REBOOT` (a restart through the watchdog that another program asked for, for example picotool), `DEBUGGER`, `GLITCH` (a short supply glitch), `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG` |
 | DIAGNOSTICS | **UPTIME** | Read-only. Time since the board started, hours, minutes and seconds, for example `1:02:03`. Redrawn once a second while the row shows |
 
