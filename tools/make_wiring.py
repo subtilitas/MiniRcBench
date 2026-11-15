@@ -19,7 +19,9 @@ the drawing follows the code:
 
 Usage:
     python3 tools/make_wiring.py           # write docs/wiring.svg
-    python3 tools/make_wiring.py --check   # fail when docs/wiring.svg differs
+    python3 tools/make_wiring.py --check   # fail when docs/wiring.svg differs,
+                                           # or when sensor() takes a source
+                                           # of SENSOR_MUTANTS
 """
 
 import difflib
@@ -57,7 +59,13 @@ BOX = "#ffffff"
 # sources
 # --------------------------------------------------------------------------
 
+# Source texts that stand in for the files during selftest().
+OVERRIDE = {}
+
+
 def read(path):
+    if path in OVERRIDE:
+        return OVERRIDE[path]
     with open(path, encoding="utf-8") as f:
         return f.read()
 
@@ -118,7 +126,7 @@ def sensor():
     marked = {c for c, v in conns.items() for name in v["pins"].values() if name.endswith("^")}
     if len(marked) != 1:
         raise SystemExit("%s: the ^ marker, the INA219's connector, is on %s, not on one "
-                         "connector" % (BOARD_H, sorted(marked) or "none"))
+                         "connector" % (BOARD_H, ", ".join(sorted(marked)) or "no connector"))
     conn = marked.pop()
     names = sorted(conns[conn]["pins"].values())
     if names != sorted(["GP%d^" % scl, "GP%d^" % sda, "3V3", "GND"]):
@@ -176,6 +184,45 @@ def supply_pins():
             raise SystemExit("%s: servoSupplyPinOf() does not map Gp%s to %s" % (SUPPLY_CPP, gp, gp))
         out.append((int(gp), conn, int(pin)))
     return out
+
+
+# Changes to the sources that sensor() has to refuse: (file, text, its
+# replacement, a part of the message).
+SENSOR_MUTANTS = [
+    (BOARD_H, "1=GP7^ 2=GP6^", "1=GP7* 2=GP6*", "on no connector"),
+    (BOARD_H, "7=GP7* 8=GP6*", "7=GP7^ 8=GP6^", "on J3, J4, not on one"),
+    (BOARD_H, "3=3V3   4=GND\n *     J5", "3=3V3   4=GP0\n *     J5", "not SCL"),
+    (BOARD_H, "7=GP7* 8=GP6*", "7=GP7  8=GP6*", "not marked *"),
+    (BOARD_H, "1=GP1  2=GP0  3=3V3", "1=GP1* 2=GP0  3=3V3", "not on the I2C bus"),
+    (BOARD_H, "#define PIN_I2C_SCL   7", "#define PIN_I2C_SCL   5", "not SCL"),
+    (SENSE_H, "#define INA219_ADDR          0x40u", "#define INA219_ADDR          0x1Au",
+     "CST328_I2C_ADDR"),
+    (SENSE_H, "#define INA219_ADDR          0x40u", "#define INA219_ADDR          0x78u",
+     "reserved"),
+    (SENSE_H, "#define INA219_ADDR          0x40u", "#define INA219_ADDR          0x07u",
+     "reserved"),
+]
+
+
+def selftest():
+    """Run sensor() on each of SENSOR_MUTANTS; a list of the ones it took."""
+    sensor()
+    missed = []
+    for path, old, new, why in SENSOR_MUTANTS:
+        text = read(path)
+        if old not in text:
+            missed.append("%s no longer holds %r" % (os.path.relpath(path, ROOT), old))
+            continue
+        OVERRIDE[path] = text.replace(old, new, 1)
+        try:
+            sensor()
+            missed.append("%s with %r taken" % (os.path.relpath(path, ROOT), new))
+        except SystemExit as e:
+            if why not in str(e):
+                missed.append("%s with %r: %s" % (os.path.relpath(path, ROOT), new, e))
+        finally:
+            del OVERRIDE[path]
+    return missed
 
 
 def pin_of(conns, conn, gpio):
@@ -579,6 +626,12 @@ def main(argv):
     check = argv == ["--check"]
     out = draw()
     if check:
+        missed = selftest()
+        if missed:
+            print("\n".join(missed), file=sys.stderr)
+            print("tools/make_wiring.py: sensor() takes a source it has to refuse",
+                  file=sys.stderr)
+            return 1
         try:
             have = read(OUT)
         except FileNotFoundError:
