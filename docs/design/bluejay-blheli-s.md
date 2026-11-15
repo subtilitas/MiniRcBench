@@ -49,7 +49,7 @@ that commit.
 | Bluejay release tags v0.2.0 to v0.21.1-RC1 | the tags' commits, listed under [Versions and layouts](#versions-and-layouts) | `Bluejay.asm` or `src/Bluejay.asm`: `EEPROM_FW_SUB_REVISION`, `EEPROM_LAYOUT_REVISION`, `Eep_Name` | as above |
 | BLHeli_S (`bitdump/BLHeli`), revision 16.7 (`BLHeli_S SiLabs/BLHeli_S.asm` lines 534 to 536) | a5bcf99 | `BLHeli_S SiLabs/BLHeli_S.asm` lines 44 to 63, 314 to 330, 529 to 588, 3563, 3586 to 3607; `BLHeliPgm.inc` lines 40 to 87, 96 to 136, 194 to 202, 230 to 262; `A.inc` lines 50 to 104; `BLHeliBootLoad.inc` lines 10, 76, 163, 164, 369 to 375, 390 to 394 | GPL-3.0; read, nothing copied |
 | AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 (2026-09-17); 8b1206a (2024-12-06); the first commit with `bootloader/main.c`, 3a9e057 (2024-08-21) | `bootloader/main.c` lines 46, 628 to 633, 835 to 857, 1097 to 1158, 1263, 1278 to 1283; at 3a9e057 lines 580 to 635 | GPL-3.0; read, nothing copied |
-| AM32 firmware (`am32-firmware/AM32`) | `main` at 2a695a8; v2.21 at 6b3ef3d | `Src/main.c` lines 1739, 2137 to 2163, 2379 at 2a695a8; lines 1977 to 2003 at 6b3ef3d | GPL-3.0; read, nothing copied |
+| AM32 firmware (`am32-firmware/AM32`) | `main` at 2a695a8; v2.21 at 6b3ef3d | `Src/main.c` lines 1739, 2137 to 2163 and `Src/dshot.c` lines 77, 105 at 2a695a8; lines 1977 to 2003 at 6b3ef3d | GPL-3.0; read, nothing copied |
 | BLHeli_S history | the commits that changed `BLHeli_S.asm`, de5ad83 (2016-04-30) to 80ac909 (2022-12-11) | `EEPROM_FW_SUB_REVISION`, `EEPROM_LAYOUT_REVISION` | as above |
 | rcbench (`subtilitas/rcbench`) | `main` at 2b4f934a; `protocols/escwire` last changed at f4ba5321 | `protocols/escwire/README.md` lines 42 to 95, 200 to 248, 283 to 286, 368 to 498; `ew_a.c` lines 52 to 60; `ew_id.c` lines 11 to 16, 53 to 86, 128 to 189; `ew_map_s.c` lines 56 to 82; `ew_map_bj.c` lines 9, 57 to 84; `include/ew_session.h` lines 55 to 97, 167 to 259; `include/ew_map.h` lines 33 to 50; `rp2350/ew_line.c`; `docs/EscWire.md` lines 11, 18 to 23, 150; `docs/LinkEsc.md` lines 77 to 111, 153 to 160; `test/host/test_ew_*.c`, `ew_sim.h` lines 234 to 262 | MIT, same holder |
 | This repository | `main` at 8c7ace3 | `src/am32_bl.{h,cpp}` (handshake lines 292 to 345), `src/ui_am32.{h,cpp}` (connect page lines 489 to 530, `tryConnect()` lines 810 to 880), `src/pin_claim.h` lines 69, 88, `src/config.h` lines 600 to 640, `src/ui_registry.cpp` line 24, `src/ui_list.{h,cpp}`, `src/backup_ring.h`, [backups.md](backups.md), [menu-b.md](menu-b.md), [esc-commands.md](esc-commands.md), README "AM32 ESC configuration" | |
@@ -156,7 +156,8 @@ only leads to that check, so only a low in its last 5 ms starts the
 firmware. And AM32's firmware resets itself: `NVIC_SystemReset()` after
 0.5 s with no valid frame while armed and after 2 s while disarmed
 (`Src/main.c` lines 2137 to 2163 at 2a695a8, the counter at 1739, cleared
-at 2379; lines 1977 to 2003 in v2.21 at 6b3ef3d).
+by a DShot frame at `Src/dshot.c` lines 77 and 105; lines 1977 to 2003 in
+v2.21 at 6b3ef3d).
 
 So under today's loop, which holds the line low for at least 6 ms of every
 41 ms, a power-up most likely starts the firmware, but the firmware sees no
@@ -794,7 +795,8 @@ own README and wiki lines (the owner's decision 27 of
    answer, B11), or (a2) only by eRPM, which BLHeli_S never sends, so its
    cue stays until RESTART DSHOT or a bench restart. (b) Nothing, as AM32
    CONFIG today: the result line asks for a power cycle, the run cue stays until
-   eRPM, and SIG returns to DShot only by question 8.
+   RESTART DSHOT on question 8's leave page or eRPM, and SIG returns to
+   DShot only by question 8.
 4. **Repair after a cut write.** (a) None here: lost tags read read-only,
    and the manual explains a reflash on a computer, the backup naming the
    layout tag. (b) An EFM8 restore written in rcbench first, as its AM32

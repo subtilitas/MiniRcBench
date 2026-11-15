@@ -26,12 +26,13 @@ Leitung still wird.
 
 **Dann den ESC neu starten.** Zieh den ESC-Akku ab und steck ihn wieder an,
 während dieser Bildschirm offen ist. Laut dem Quelltext des AM32-Bootloaders
-entscheidet er etwa 46 ms nach jedem Start und wartet dann, solange die
-Leitung hoch liegt; fallen Bytes des Verbindungsaufbaus in diese 46 ms,
-startet stattdessen die ESC-Firmware, und die startet sich ohne DShot nach
-2 s selbst neu, sodass der Bootloader eine neue Gelegenheit bekommt. Nicht
-gemessen. Die Firmware wiederholt ihren Verbindungsaufbau und wartet je 30 ms
-auf eine Antwort.
+entscheidet der Bootloader etwa 46 ms nach dem Einschalten und wartet dann,
+solange die Leitung hoch liegt; fallen Bytes des Verbindungsaufbaus in diese
+46 ms, startet stattdessen die ESC-Firmware, und die startet sich ohne DShot
+nach 2 s selbst neu, sodass der Bootloader eine neue Gelegenheit bekommt; dann
+startet nur ein Low in seinen letzten 5 ms die Firmware. Nicht gemessen. Die
+Firmware wiederholt ihren Verbindungsaufbau und wartet je 30 ms auf eine
+Antwort.
 
 Der Bildschirm zeigt `POWER-CYCLE THE ESC` (den ESC aus- und wieder
 einschalten) in Bernstein, den Schritt, der jetzt dran ist, und
@@ -417,8 +418,9 @@ ESC-Firmware sendet, oder wenn die Platine neu startet.
 ## Wenn keine Verbindung zustande kommt
 
 - **Endlos `SEARCHING...` oder `WAITING...`.** Zieh den ESC-Akku ab und steck
-  ihn wieder an, *während der Bildschirm offen ist*. Ein Neustart vor dem
-  Öffnen des Bildschirms funktioniert nicht.
+  ihn wieder an, *während der Bildschirm offen ist*. Ob ein ESC, der schon
+  vor dem Öffnen des Bildschirms lief, ohne Neustart erreicht wird, ist nicht
+  gemessen.
 - **`REPLY NOT UNDERSTOOD`.** Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursachen: Der ESC läuft nicht mit AM32, oder sein Bootloader
   nutzt ein Protokoll, das dieser Transport nicht umsetzt.

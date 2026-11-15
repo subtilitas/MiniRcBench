@@ -1122,9 +1122,10 @@ frame stamped after that handshake arrives or the board restarts.
 
 Open the screen, then power-cycle the ESC: the page says so in amber,
 `POWER-CYCLE THE ESC`, the step to take now. By the AM32 bootloader's source,
-it decides about 46 ms after each reset and then waits while the line rests
-high; a greeting's low bits in those 46 ms start the ESC's firmware, which
-resets itself 2 s after its last DShot frame and so returns to the bootloader
+the bootloader decides about 46 ms after power-up and then waits while the
+line rests high; a greeting's low bits in those 46 ms start the ESC's
+firmware, which resets itself about 2 s later with no DShot, and after that
+reset only a low in the bootloader's last 5 ms starts the firmware again
 (`docs/design/bluejay-blheli-s.md`). Not measured. The firmware repeats the
 21-byte init string, waiting 30 ms (`AM32_GREET_TMO_MS`) for each reply.
 
@@ -1142,11 +1143,11 @@ The screen shows which half failed:
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no `WRITE...` |
 
-A Bluejay or BLHeli_S ESC can answer the greeting: `REPLY NOT UNDERSTOOD:`
-with the bytes `34 37 31`. Its bootloader then waits for commands, no run cue
-shows, and BACK sends DShot into it at once, which its bootloader may read as a
-command. Unplug its battery before BACK and plug it in after. From the
-bootloader's source; not seen on an ESC.
+A Bluejay or BLHeli_S ESC can answer the greeting: `REPLY NOT UNDERSTOOD:` with
+the bytes `34 37 31`. Its bootloader then waits for commands, MENU does not show
+`POWER-CYCLE THE ESC TO RUN IT`, and BACK sends DShot into it at once, which its
+bootloader may read as a command. Unplug its battery before BACK and plug it in
+after. From the bootloader's source; not seen on an ESC.
 
 ### Layouts outside 2 to 4
 
