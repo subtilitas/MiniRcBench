@@ -59,6 +59,37 @@ protocol.
   250 ms. `test/pio_bridge_emu.py` runs both programs on one pad and CI
   holds its assembly to pioasm; `test/test_bridge.cpp` runs the job on a
   line fake and through the claim.
+- After v0.1.0-rc1: SD LOG shows the last log's run after a stop, slice 3
+  of [run-summary.md](docs/design/run-summary.md#slice-3-as-built). Rows 2
+  to 8 read `MAX RPM`, `MAX CURRENT`, `MAX TEMP`, `MIN VOLTAGE`, `USED` or
+  `USED FROM CURRENT`, `ARMED` and `SUMMARY` from `SdLogStatus::summary`
+  through `runSumRowText()`, the RPM at MOTOR POLES at the stop. A source
+  tag beside a value reads `KISS` in the text colour or `EDT` and `MIXED`
+  dim; an unknown value reads `--`, dim. `MAX TEMP` at 90 °C and above and
+  `NOT SAVED: CARD FULL` or `NOT SAVED: WRITE FAILED` are red. FRAMES,
+  WRITTEN, DROPPED FRAMES, BUF PEAK, WORST FLUSH, CARD and MOUNT show while
+  a log runs and while no summary shows: before the first log and after a
+  mount or USB DRIVE. The screen redraws when the summary changes. The
+  tester shows nothing of the run. README and the wiki pages SD-Logging and
+  SD-Aufzeichnung describe the rows; the wiki's `log-last.png` and
+  `log-card-full.png` show them. Host tests in `test/test_ui.cpp`. Not
+  tested on hardware.
+- After v0.1.0-rc1: the QMI8658 IMU (inertial measurement unit) driver, slice 2
+  of [angle-meter.md](docs/design/angle-meter.md#slice-2-as-built)
+  (`src/qmi8658.*`, `src/angle.cmake`). While the angle meter is open it reads
+  WHO_AM_I at 0x6B on I2C1, writes a soft reset, waits for dQY_L 80h after 15 ms
+  or for 1750 ms, writes CTRL1 40h, CTRL2 08h, CTRL5 07h and CTRL7 01h one byte
+  each and reads each back, and from 100 ms later reads one 11-byte burst and
+  the time stamp again every UI frame, after touch and the current sensor; the
+  first whole burst is a baseline, so the first sample taken was latched after
+  the 100 ms; a burst whose time stamp changed is dropped, a repeated time stamp
+  is not counted. Its transfers go to the shared bus record; three failed frames
+  take it offline, probed again every 1000 ms, and no reset follows another
+  within 2000 ms. Closing it writes CTRL7 00h. No screen opens it yet, so
+  nothing is sent to 0x6B. The board header gains `BOARD_IMU_AXES`, a
+  placeholder until bench test B3. Host tests in `test/test_qmi8658.cpp` against
+  a register model of the part in `test/fake_i2c.*`; `test/angle.mk` lists them.
+  Not tested on hardware.
 - After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
   [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built), copied
   unchanged from rcbench e98345aa into `lib/rcbench/`: `servo_rudder.*`, the
@@ -757,6 +788,12 @@ protocol.
   within BACK as before; the USB bridge, slice 1 of
   [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), is the first
   user with a job and no page.
+- After v0.1.0-rc1: the shared I2C1 bus is recovered with CURRENT SENSE at
+  `NONE` too: `senseTick()` runs the recovery before its mode test, since
+  touch and the IMU share the bus. `senseNote()` replaces `senseNoteTouch()`,
+  takes the transfers of the touch driver and the IMU driver alike and
+  returns the mapped result. A host test in `test/test_sense.cpp` runs the
+  recovery at `NONE`.
 - After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
   the bench converter, slice 2 of
   [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The

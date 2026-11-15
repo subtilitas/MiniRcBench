@@ -73,7 +73,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
         $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \
-        $(SENSE_TESTS) $(SENSE_SRCS) \
+        $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS) \
         $(BRIDGE_TESTS) $(BRIDGE_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still

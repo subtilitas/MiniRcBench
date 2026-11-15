@@ -114,12 +114,32 @@
 
 /**
  * @defgroup lcd28_pins_imu IMU — QMI8658C
- * @brief Present on the board but unused by this firmware.
+ * @brief Read on I2C1 by src/qmi8658.cpp while the angle meter is open
+ *        (docs/design/angle-meter.md). Its interrupt pins are not used and
+ *        GP8 and GP9 are not configured.
  * @{
  */
-#define PIN_IMU_INT1  8       /**< IMU interrupt 1. */
-#define PIN_IMU_INT2  9       /**< IMU interrupt 2. */
-#define QMI8658_I2C_ADDR 0x6B /**< 7-bit I2C address of the QMI8658C. */
+#define PIN_IMU_INT1  8       /**< IMU interrupt 1. Wired; not used. */
+#define PIN_IMU_INT2  9       /**< IMU interrupt 2. Wired; not used. */
+/**
+ * @brief 7-bit I2C address of the QMI8658: SA0 at GND in the schematic, 0x6B
+ *        by the QMI8658A datasheet and both Waveshare demos. Not seen on a
+ *        bus by this project.
+ */
+#define QMI8658_I2C_ADDR 0x6B
+
+/**
+ * @brief The chip's axes on the board: which chip axis lies along the board's
+ *        long edge, its short edge and its normal, in that order, as
+ *        1 for X, 2 for Y and 3 for Z, negative where the chip axis points
+ *        the other way.
+ *
+ * A placeholder, X, Y and Z in that order with no sign turned: the chip's
+ * orientation against the board's edges is not known. Bench test B3 of
+ * docs/design/angle-meter.md sets it. Each axis appears once
+ * (qmi8658AxesValid()).
+ */
+#define BOARD_IMU_AXES 1, 2, 3
 /** @} */
 
 /**
