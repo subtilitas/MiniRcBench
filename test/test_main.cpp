@@ -30,6 +30,7 @@ void runDshotFrameTests();
 void runDshotTelemTests();
 void runDshotEdtTests();
 void runEscCmdTests();
+void runKvEstTests();
 void runSdioTests();
 void runClaimTests();
 void runServoTests();
@@ -76,6 +77,7 @@ int main() {
 	runDshotTelemTests();
 	runDshotEdtTests();
 	runEscCmdTests();
+	runKvEstTests();
 	runSdioTests();
 	runClaimTests();
 	runServoTests();
