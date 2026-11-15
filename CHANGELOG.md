@@ -823,7 +823,9 @@ protocol.
 
 - After v0.1.0-rc1: a pin claim without the leave page restores DShot only
   once its core1 job has let the pin go, so DShot is never rebuilt on a pin
-  a job's state machines still drive. AM32, which has no job, restores
+  a job's state machines still drive. Any call into the claim,
+  `pinClaimState()` included, moves it on, so it needs no poll from the
+  screen that ended it. AM32, which has no job, restores
   within BACK as before; the USB bridge, slice 1 of
   [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), is the first
   user with a job and no page.

@@ -174,9 +174,10 @@ the exception.
    page, so its BACK restores DShot within the
    `pinClaimEnd()` call.
    The USB bridge has a job and no page of its own: its claim restores
-   DShot on the first `pinClaimPoll()` that finds the job idle, never
-   before, so DShot is not rebuilt on a pin the job's state machines still
-   hold. Its job finishes the frame under way, for at most 250 ms
+   DShot on the first call into the claim that finds the job idle,
+   `pinClaimPoll()`, `pinClaimState()` or any other, never before, so DShot
+   is not rebuilt on a pin the job's state machines still hold, and comes
+   back after a screen that ended the claim and closed. Its job finishes the frame under way, for at most 250 ms
    (`BRIDGE_RELEASE_MAX_MS`), then leaves SIG an input with the pull-up on.
    After an unfinished write the bridge is to call `pinClaimWantLeavePage()`
    (usb-bridge.md, decision 10), and then waits for RESTART DSHOT as the
@@ -224,14 +225,15 @@ What differs per user is a table, `PIN_USERS` in `pin_claim.h`, one row per
 `PinUser`: the core1 job (None: the screen drives the pin from core0, as AM32
 does), whether the leave page comes before DShot restarts, whether the
 claim is refused while an ESC answers on SIG (not for AM32, the S.BUS
-monitor and the USB bridge), and whether Held waits for `pinClaimStartJob()` before the job
-starts (HITEC alone). `pinUserInfo()`
+monitor and the USB bridge), and whether Held waits for
+`pinClaimStartJob()` before the job starts (HITEC alone). `pinUserInfo()`
 reads it. A new pin user is one enum value and one row.
 
 The refusal check is a pure function, `pinClaimCheck()`, beside it, so the
 host suite tests every rule without the SDK. Its order is Armed, Busy,
-EscAnswering (SERVO, KST and HITEC only; AM32 and the USB bridge are exempt), KissLive, SamePin;
-freshness is `escFieldFresh()`, the rule the readouts use.
+EscAnswering (SERVO, KST and HITEC only; AM32 and the USB bridge are
+exempt), KissLive, SamePin; freshness is `escFieldFresh()`, the rule the
+readouts use.
 
 Core1, in `src/core1_job.h`:
 
@@ -284,7 +286,7 @@ is alive" for the pump and every job.
 | Hitec | the Hitec job: `hitec_session_next()`, the step on the `hitec_line` driver or the switched supply, `hitec_session_feed()` | the line driver wants a poll every 1 ms or faster; a PRECHARGE receive decodes about 29 sampler words a millisecond ([hitec-programming.md](hitec-programming.md#where-the-session-runs)) |
 | KST | the KST job: the entry loop wrapper, `kst_session_step()` and the `kst_line` driver | the session needs a step every 1 ms or faster, and its driver slack is 5 ms (`KST_DRIVER_SLACK_US`); core0 cannot promise either |
 | S.BUS | the S.BUS job: drains UART0's receive FIFO into rcbench's decoder, each byte stamped with the pass's `micros()` | the decoder frames on a gap of 2000 µs between bytes, so a byte's time must be within a small part of that; core0 stalls for tens of milliseconds |
-| USB bridge | the bridge's job: moves the received bytes into the ring for core0, matches the echo, keeps the transmit FIFO filled from the frame slot | a FIFO of 8 bytes holds 4.2 ms of the wire; core0 stalls for tens of milliseconds ([usb-bridge.md](usb-bridge.md#cores-and-buffers)) |
+| USB bridge | the bridge's job: moves the received bytes into the ring for core0, matches the echo, keeps the transmit FIFO filled from the frame slot | a FIFO of 8 bytes holds 4.27 ms of the bridge's frames, 82 cycles a byte; core0 stalls for tens of milliseconds ([usb-bridge.md](usb-bridge.md#cores-and-buffers)) |
 
 ### Interlocks
 

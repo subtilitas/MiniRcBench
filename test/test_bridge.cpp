@@ -215,7 +215,7 @@ static void testLine() {
 	checkInt("nothing lost", (long)s.lost, 0);
 	checkInt("the pad never driven by both", fakeBridgeLineConflicts(), 0);
 
-	// A pass every 5 ms: 8 bytes last 4.4 ms, so the transmitter waits for
+	// A pass every 5 ms: 8 bytes last 4.27 ms, so the transmitter waits for
 	// core1, the pad driven, and the frame stays one frame. The receive FIFO
 	// holds the 8 echoes.
 	uint8_t big[64];
@@ -422,6 +422,21 @@ static ClaimState pass() {
 	return s;
 }
 
+/**
+ * @brief One pass of both cores, 1 ms on, with core0 only looking at the
+ *        claim: a screen that ended the claim and closed, and MENU's
+ *        pinClaimState() behind it.
+ */
+static ClaimState passLooking() {
+	fakeAdvanceUs(1000);
+	fakePumpPoll();
+	core1JobPoll();
+	if (bridgeLineIsOpen() && !escTaskSuspended()) g_together++;
+	ClaimState s = pinClaimState();
+	if (bridgeLineIsOpen() && !escTaskSuspended()) g_together++;
+	return s;
+}
+
 /** @brief A bridge claim on SIG to Running, or the state it stopped in. */
 static ClaimState claimToRunning() {
 	if (pinClaimBegin(PinUser::Bridge, PIN_SIG) != ClaimRefusal::None) return ClaimState::Free;
@@ -506,6 +521,24 @@ static void testClaimCycle() {
 	checkTrue("the line opened and closed once", fakeBridgeLineOpens() == 1 &&
 	                                             fakeBridgeLineCloses() == 1);
 	checkInt("DShot never bound while the line was open", g_together, 0);
+
+	// BACK, and the screen gone: nothing polls the claim, only looks at it.
+	freshPump(0, 1, true);
+	checkTrue("again: Running", claimToRunning() == ClaimState::Running);
+	bridgeWireSend(big, sizeof(big));
+	for (int k = 0; k < 10; k++) pass();
+	const int r1 = fakeResumeCount();
+	pinClaimEnd(PinUser::Bridge);
+	int looks = 0;
+	while (pinClaimState() != ClaimState::Free && looks < 300) {
+		passLooking();
+		looks++;
+	}
+	checkTrue("no poll after BACK: Free all the same", pinClaimState() == ClaimState::Free);
+	checkTrue("once the frame was out", looks > 30 && looks < 250 && wireIs(100, big, 100));
+	checkInt("DShot asked back once", fakeResumeCount(), r1 + 1);
+	checkTrue("with the job idle, and DShot up", fakeResumeJobIdle() && !escTaskSuspended());
+	checkInt("DShot never with the line", g_together, 0);
 
 	// SIG on GP1: the line follows the latched wiring.
 	freshPump(1, 0, false);

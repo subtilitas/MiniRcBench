@@ -70,8 +70,9 @@ static void restore() {
  * claim after an EFM8 bootloader answered (pinClaimWantLeavePage()). Any
  * other AM32 claim has neither a job nor the page, so it restores within the
  * call that ended it. The USB bridge has a job and no page: it restores on
- * the first poll that finds its job idle, so DShot is never rebuilt on a pin
- * the job's state machines still drive.
+ * the first look at the claim that finds its job idle, settle()'s included,
+ * so DShot is never rebuilt on a pin the job's state machines still drive,
+ * and comes back after a screen that ended the claim and closed.
  */
 static void leaveStep() {
 	if (needsUnplug()) return;
@@ -79,8 +80,15 @@ static void leaveStep() {
 	restore();
 }
 
-/** @brief Restoring ends when the pump runs again. Nothing is left to do. */
+/**
+ * @brief Leaving moves on without its screen: a claim without the leave page
+ *        restores once its job is idle. Restoring ends when the pump runs
+ *        again. Run by every call that reads or changes the claim, so a
+ *        screen that ended the claim and closed, as ESC SETTINGS does,
+ *        leaves no claim behind for MENU's look at it.
+ */
 static void settle() {
+	if (s_state == ClaimState::Leaving) leaveStep();
 	if (s_state != ClaimState::Restoring || escTaskSuspended()) return;
 	s_state = ClaimState::Free;
 	s_who   = PinUser::None;

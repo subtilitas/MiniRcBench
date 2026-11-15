@@ -292,15 +292,18 @@ enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec, Sbus, Bridge, Coun
 ```
 
 - **escCheck false**, as AM32: the bridge needs the ESC on the pin and
-  answering until the claim stops DShot (`pin_claim.h` lines 159 to 163).
-- **unplug false**, as AM32: BACK resumes DShot through `pinClaimEnd()`,
-  Leaving and Restoring (`pin_claim.h` lines 26 to 33, 238 to 248). The
-  exception, decision 10's leave page after an unfinished write, needs a
-  leave page per claim rather than per user, which `PIN_USERS`' fixed
-  `unplug` flag (`pin_claim.h` line 80) cannot say; slice 1 adds it.
+  answering until the claim stops DShot (the EscAnswering rule of
+  `pinClaimCheck()`).
+- **unplug false**, as AM32: BACK (`pinClaimEnd()`) asks the job to let the
+  pin go, and DShot resumes through Leaving and Restoring once the job is
+  idle, on the next call into the claim after that (`leaveStep()` and
+  `settle()` in `pin_claim.cpp`). The exception, decision 10's leave page
+  after an unfinished write, needs a leave page per claim rather than per
+  user, which `PIN_USERS`' fixed `PinUserInfo::unplug` flag cannot say;
+  `pinClaimWantLeavePage()` gives it.
 - **A core1 job**, `Core1Job::Bridge`, not core0 as AM32's transport:
-  `pin_claim.h` lines 20 to 24 make core1 the owner of every PIO change on
-  the signal pins, with AM32 the one exception.
+  the file description of `pin_claim.h` makes core1 the owner of every PIO
+  change on the signal pins, with AM32 the one exception.
 
 The flow, all of it existing claim machinery but for decision 10's leave
 page:
@@ -324,7 +327,7 @@ page:
 | Gap within one bootloader message | none: the bytes go back to back; as built, a stop bit of 1.25 bit times, driven high ([slice 1 as built](#slice-1-as-built)) | the AM32 bootloader ends a message after 5 bit times, 260 µs, of idle line (`main.c` 860) |
 | Gap between `SET_BUFFER` and its data | at least 520 µs, 10 bit times; the 4-way handler waits 4 ms, as Betaflight | they are two messages: data closer than 260 µs behind the header become part of it and get no answer. Betaflight waits about 4 ms (`serial_4way_avrootloader.c` 267 to 278), rcbench's escwire 520 µs (`escwire/README.md` 53, 59 to 61) |
 | Turnaround | the line is let go at the end of the last stop bit | Betaflight releases the line straight after its last byte (`serial_4way_avrootloader.c` 178 to 194); AM32 answers about 0.3 to 0.35 ms after the host's last byte by rcbench's specification (`escwire/README.md`), not measured |
-| Idle | input with the pad's pull-up, as the claim leaves it in Held | `pin_claim.h` lines 42 to 44; `am32_bl.cpp` lines 74 to 78 |
+| Idle | input with the pad's pull-up, as the claim leaves it in Held | the Held row of `pin_claim.h`'s state table; `am32_bl.cpp` lines 74 to 78 |
 | Drive while sending | push-pull, both levels | `AM32_PUSH_PULL_TX` 1 (`config.h` line 628); rcbench `ew_line.h` "a transaction's bytes: driven, both levels" |
 | Receive | sampled always, while sending too | below |
 
@@ -383,7 +386,9 @@ blocking calls removed:
 
 Single producer, single consumer, release and acquire on each index, as
 `bridge_wire.cpp` lines 41 to 51 do; no lock. The receive FIFO joined to 8
-entries holds 4.2 ms of bytes; core1's pass is the claim's job dispatch,
+entries holds 8 bytes: 4.27 ms of the bridge's own frames, at 82 cycles a
+byte as built, and 4.17 ms of an ESC sending back to back at 10 bit times
+a byte; core1's pass is the claim's job dispatch,
 whose length is not measured, and a full FIFO counts as `LOST`.
 
 **Passthrough gather.** A PC frame arrives in 64-byte USB packets, and
@@ -504,7 +509,7 @@ copied it, and not its guard or session.
 | Rule | Where | What it guards |
 |---|---|---|
 | No DShot while bridged | the claim: DShot is drained, stopped and released before the line binds | a throttle frame between bootloader bytes |
-| Disarmed to enter | `uiOpenTool()` disarms; `pinClaimCheck()` refuses while armed (`pin_claim.h` 179) | a running motor when DShot stops |
+| Disarmed to enter | `uiOpenTool()` disarms; `pinClaimCheck()` refuses while armed (its Armed rule) | a running motor when DShot stops |
 | No MSP motor command | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
 | Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write (decision 7) |
 | No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written (decision 6) |
@@ -804,6 +809,12 @@ Only an ESC and a PC settle these:
 - B10. The USB cable pulled during a page write, the board on its battery
   and on USB power alone: the screen, SIG's level on the analyser, the
   ESC's state.
+- B11. The receiver's rate limit on an ESC: `pio_uart_rx` loses bytes from
+  a sender 3 % fast that sends back to back, in the model
+  ([slice 1 as built](#slice-1-as-built)). An ESC bootloader on an RC
+  (resistor-capacitor) oscillator, an EFM8's internal one among them, may
+  run that far off: its bit time on the analyser, and a read of 256 bytes
+  through the bridge at room temperature and warm.
 
 ## Work breakdown
 
@@ -815,7 +826,7 @@ and changed lines, rough.
 | 1. Line and claim | `PinUser::Bridge`, `Core1Job::Bridge`, the PIO line (`src/bridge_line.pio`), the slot and the ring from `bridge_wire.*`, the leave page per claim, the PIO budget table in [pin-claim.md](pin-claim.md) | about 300 | about 300 | STATUS, CHANGELOG | |
 | 2. Passthrough and the screen | `src/usb_bridge.*`, the stdio switch in `usb_dev.cpp`, the screen `src/ui_bridge.*`, the entry by decision 1 (the `ESC CONFIG` chooser, with the build rule of the design call under [entry](#entry)), `test_ids.cpp`, the preview, DshotDisplay's tests, the log by decision 8; README section, wiki pages in English and German | about 450 | about 500 | about 200 | 1 |
 | 3. MSP and the 4-way interface | `src/bridge_msp.*`, `src/bridge_4way.*`, the bootloader frames (escwire's if item (6) copied them), mode detection, the 3D note: byte 0x12 of each AM32 settings page forwarded (decision 12) | about 600 | about 700 | about 80 | 2 |
-| 4. Bring-up | B1 to B10 | none | none | the record in STATUS | 1 to 3 |
+| 4. Bring-up | B1 to B11 | none | none | the record in STATUS | 1 to 3 |
 
 Slice 2 alone serves the AM32 configurator in Direct mode and the Python
 tool; ESC-Configurator needs slice 3.
@@ -844,7 +855,10 @@ a claim without the leave page restores DShot only once its job is idle
 `pinClaimEnd()`, which was right only for AM32, the one user without a
 page, which has no job; the bridge has a job, and DShot rebuilt while its
 state machines still drive SIG would put DShot frames and bootloader bytes
-on one pad. AM32 still restores within the call.
+on one pad. AM32 still restores within the call. `settle()`, which every
+call into the claim runs, `pinClaimState()` included, takes Leaving on, so
+the claim reaches Free once the job is idle even when the screen that
+ended it has closed and only MENU looks at the claim.
 
 **The line.** `bridge_tx`, 7 words: `pull`, the start bit with the pad's
 direction set by side-set, eight data bits by `out pins`, the stop bit,
@@ -905,20 +919,21 @@ shorter, a collision and a full receive FIFO. A control run with the ESC's
 bits 3 % shorter loses bytes at every phase: `pio_uart_rx` samples the stop
 bit 9.6 bit times after the start edge and looks for the next start bit
 only then, so a sender that fast, back to back, gets ahead of it. Whether
-an ESC's bootloader sends that fast is not verified. `test/test_bridge.cpp`,
-156 checks in 8 sections, against `test/fake_bridge_line.h`, a wire on the
+an ESC's bootloader sends that fast is not verified; bench item B11. `test/test_bridge.cpp`,
+162 checks in 8 sections, against `test/fake_bridge_line.h`, a wire on the
 virtual clock with the model's cycle counts and a model ESC: the divider;
 the slot's refusals and handover; the frame on the wire whole, with a pass
 every 1 ms and every 5 ms; the echo kept and dropped, differing and lost;
 the receive FIFO and the ring full, the ring's wrap; the release; the pin
 user's row and the claim's rules for it; the claim through the job table
 from Stopping to Free, DShot never bound while the line is open and asked
-back only once the job is idle; BACK while Stopping; SIG on GP1; the leave
+back only once the job is idle, also with nothing but `pinClaimState()`
+called after BACK; BACK while Stopping; SIG on GP1; the leave
 page given and kept; RETRY. `bridge_line_port.cpp` is built by the firmware
 and typechecked by `make syntax` only.
 
-**Mutations.** 35 of the C++ code and 6 of the PIO program, each applied
-alone. All 6 of the program fail the model. Of the 35, 31 fail the suite;
+**Mutations.** 36 of the C++ code and 6 of the PIO program, each applied
+alone. All 6 of the program fail the model. Of the 36, 32 fail the suite;
 one, the release clearing the slot after the close, survived and showed the
 line redundant, since a closed line refuses sends and the next bind clears
 the slot, and the line is removed. Three survive, equivalent on the host:

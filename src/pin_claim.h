@@ -50,7 +50,10 @@
  * the job lets its pins and state machines go first, so DShot is never
  * rebuilt on a pin a job still drives. The USB bridge is the one such user
  * with a job; its release finishes the frame under way, at most
- * @ref BRIDGE_RELEASE_MAX_MS. AM32 has no job and restores at once.
+ * @ref BRIDGE_RELEASE_MAX_MS. Every call that reads or changes the claim
+ * moves Leaving on, pinClaimState() among them, so DShot comes back once the
+ * job is idle whether or not the screen still polls. AM32 has no job and
+ * restores at once.
  *
  * HITEC defers its job: the entry tap on PROGRAMMER claims SIG, and the
  * screen calls pinClaimStartJob() at once for CLASSIC and for D SERIES with
@@ -270,8 +273,9 @@ uint8_t pinClaimJobError();
  * asked to stop and the claim is Leaving. A claim without the leave page
  * (pinClaimLeavePage()) resumes DShot once its job is idle: an AM32 claim no
  * EFM8 bootloader answered, which has no job, within this call; the USB
- * bridge on the pinClaimPoll() after its job let the pin go. A call from a
- * screen that does not hold the claim does nothing.
+ * bridge on the first call into the claim after its job let the pin go,
+ * pinClaimPoll() or pinClaimState() alike. A call from a screen that does
+ * not hold the claim does nothing.
  *
  * @param who The screen leaving.
  */

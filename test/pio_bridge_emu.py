@@ -23,8 +23,8 @@ Checked, for frames of 1, 2, 21 and 64 bytes:
   - the pad driven from the first start bit to the end of the last stop
     bit, 8 cycles into it, and released then, with no cycle released in
     between, also when the next byte comes late;
-  - 81 cycles from one start bit to the next while the FIFO holds the next
-    byte, 80 for the last;
+  - 82 cycles from one start bit to the next while the FIFO holds the next
+    byte; the last byte's pad let go 80 cycles after its start bit;
   - every byte received back by the receiver, in order: the echo;
   - in the first cycle the transmitter waits on `pull` with its FIFO empty,
     every echo is in the receive FIFO and the receiver waits on its start
