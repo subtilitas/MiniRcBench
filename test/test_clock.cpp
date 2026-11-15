@@ -55,16 +55,14 @@ static void checkBoot(const char *what, ClockBoot want) {
 }
 
 static ClockTime ct(int y, int mo, int d, int h, int mi, int s) {
-	// Its padding byte zeroed too, for the memcmp() below.
-	ClockTime t;
-	memset(&t, 0, sizeof(t));
-	t.year = (uint16_t)y;
-	t.month = (uint8_t)mo;
-	t.day = (uint8_t)d;
-	t.hour = (uint8_t)h;
-	t.minute = (uint8_t)mi;
-	t.second = (uint8_t)s;
+	ClockTime t = { (uint16_t)y, (uint8_t)mo, (uint8_t)d, (uint8_t)h, (uint8_t)mi, (uint8_t)s };
 	return t;
+}
+
+/** @brief Whether two times are the same, field by field: the struct's padding is not compared. */
+static bool sameTime(const ClockTime &a, const ClockTime &b) {
+	return a.year == b.year && a.month == b.month && a.day == b.day && a.hour == b.hour &&
+	       a.minute == b.minute && a.second == b.second;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,10 +118,9 @@ static void testCalendar() {
 	uint32_t expect = 86399;
 	while (d.year <= 2099) {
 		ClockTime back;
-		memset(&back, 0, sizeof(back));
 		if (clockToSecs(&d) != expect) bad++;
 		clockFromSecs(expect, &back);
-		if (memcmp(&back, &d, sizeof(d)) != 0) bad++;
+		if (!sameTime(back, d)) bad++;
 		clockFromSecs(expect + 1, &back);
 		if (back.hour != 0 || back.minute != 0 || back.second != 0) bad++;
 		if (++d.day > clockDaysIn(d.year, d.month)) {

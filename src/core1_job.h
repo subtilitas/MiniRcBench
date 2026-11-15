@@ -64,6 +64,7 @@ enum Core1JobError : uint8_t {
 	CORE1_JOB_DMA     = 4,  /**< No free DMA channel. */
 	CORE1_JOB_CLOCK   = 5,  /**< `clk_sys`, or `clk_peri` for the S.BUS job, is outside what the job accepts. */
 	CORE1_JOB_NO_GP1  = 6,  /**< The S.BUS job: neither role is GP1, UART0's receive pin. */
+	CORE1_JOB_PIN     = 7,  /**< The ESC settings job: its line driver does not take the pin. */
 };
 
 /**
@@ -136,9 +137,9 @@ Core1JobPhase core1JobPhase();
 
 /**
  * @brief Why the last job did not bind. Core0.
- * @return CORE1_JOB_PWM, CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK or
- *         CORE1_JOB_NO_GP1 from the job's bind; CORE1_JOB_OK when it bound
- *         or none was started.
+ * @return CORE1_JOB_PWM, CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK,
+ *         CORE1_JOB_NO_GP1 or CORE1_JOB_PIN from the job's bind;
+ *         CORE1_JOB_OK when it bound or none was started.
  *         Never CORE1_JOB_REFUSED: a refused start is reported by
  *         pinClaimJobError().
  */

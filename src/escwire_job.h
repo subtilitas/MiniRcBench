@@ -22,6 +22,9 @@
  * | Ended | parked: the entry failed, a stop cut the session, or the leave ran | the release |
  * | Closed | an input with its pull-up (escwirePortClose()) | the release |
  *
+ * A refused bind puts the pull-up on SIG, which the AM32 transport left
+ * floating, and touches nothing else.
+ *
  * The bind opens the line, which parks it on the pull-down, and drives it
  * high in the same call: the gap after `am32BlEnd()`, which leaves it
  * floating, is the one core1 pass before the bind (decision of the note's

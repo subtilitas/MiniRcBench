@@ -6036,8 +6036,10 @@ static void testAm32Efm8() {
 		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
 		checkTrue("the job idle when DShot was asked back", fakeResumeJobIdle());
 		frames(2);
-		checkTrue("the claim ends, the run cue cleared", pinClaimState() == ClaimState::Free && !s_blReached &&
-		          !menuRunCueShown());
+		checkTrue("the claim ends; LEAVE has no answer, so the run cue stands",
+		          pinClaimState() == ClaimState::Free && s_blReached && menuRunCueShown());
+		checkTrue("an eRPM frame from before the answer leaves it", uiAm32RunCue(s_blReachedMs - 1));
+		checkTrue("one after LEAVE clears it", !uiAm32RunCue(millis()) && !s_blReached);
 		checkTrue("the line closed", fakeEwCloses() == 1 && !fakeEwOpen());
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -6445,6 +6447,38 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));
 	}
 
+	section("ESC SETTINGS: an EFM8 answer with a byte lost brings the leave page");
+	{
+		// `471`, the `d` lost, then E8 B2 06 01 30: no EFM8 answer by the
+		// rule, a piece of one.
+		static const uint8_t CUT[8] = { '4', '7', '1', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		s_blReached = false;
+		fakeAm32Garble(CUT, sizeof(CUT));
+		enterAm32(1);
+		checkTrue("the bytes, REPLY NOT UNDERSTOOD:", s_state == S_CONNECT && s_connectNote == CN_GARBLED &&
+		          fakeTextCentredIs(196, "REPLY NOT UNDERSTOOD:", C_AMBER, C_BG, 1));
+		fakeAm32Garble(nullptr, 0);
+		fakeAm32Silent(true);
+		frames(1);
+		checkTrue("no job, the leave page and the run cue set", core1JobRunning() == Core1Job::None &&
+		          pinClaimLeavePage() && s_blReached);
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes);
+		char strip[32];
+		snprintf(strip, sizeof(strip), "EFM8  SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip names no part: EFM8  SIG GP0",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, the cue cleared",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 && !s_blReached);
+		fakeAm32Silent(false);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
 	section("ESC SETTINGS: the job's bind refused");
 	{
 		efm8Esc(0xB2, true);
@@ -6458,6 +6492,7 @@ static void testAm32Efm8() {
 		          fakeTextCentredIs(176, want, C_AMBER, C_BG, 1));
 		checkTrue("nothing opened, the claim Held, its leave page set", fakeEwOpens() == 0 &&
 		          pinClaimState() == ClaimState::Held && pinClaimLeavePage());
+		checkTrue("SIG on its pull-up, not floating", fakePin(settings()->dshotPin).pull == FakePull::Up);
 		int resumes = fakeResumeCount();
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: the leave page", s_state == S_LEAVE);
@@ -6520,6 +6555,7 @@ static void testAm32Guidance() {
 		fakeAm32Garble(junk, 3);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
+		checkTrue("no piece of an EFM8 answer: no leave page", !pinClaimLeavePage() && !s_efm8Seen);
 		checkTrue("the bytes once in the page, y 176",
 		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
 		checkTrue("REPLY NOT UNDERSTOOD:, y 196",

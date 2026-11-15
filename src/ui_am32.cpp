@@ -314,6 +314,11 @@ static UiLeave    s_leave;
 static Am32Screen s_leaveFrom = S_CONNECT;
 /** @brief The signature of the EFM8 bootloader that answered in this session; 0 for none. */
 static uint16_t   s_efm8Sig = 0;
+/**
+ * @brief An EFM8 bootloader answered in this session, or a reply held a piece
+ *        of an EFM8 answer (blAnswerEfm8Fragment()): BACK opens the leave page.
+ */
+static bool       s_efm8Seen = false;
 
 /** @brief The connect cycle: quiet on the pull-up, then a burst of greetings. */
 static GreetCycle s_cycle;
@@ -595,7 +600,11 @@ static void drawHeader() {
 		uint8_t sig = pinClaimGpio(PIN_SIG);
 		if (sig == PIN_CLAIM_NO_GPIO) sig = settings()->dshotPin;
 		char buf[32];
-		snprintf(buf, sizeof(buf), "EFM8 %04X  SIG GP%u", (unsigned)s_efm8Sig, (unsigned)sig);
+		// A piece of an answer names no part.
+		if (s_efm8Sig)
+			snprintf(buf, sizeof(buf), "EFM8 %04X  SIG GP%u", (unsigned)s_efm8Sig, (unsigned)sig);
+		else
+			snprintf(buf, sizeof(buf), "EFM8  SIG GP%u", (unsigned)sig);
 		uiStripText(buf, C_DIM);
 	} else if (s_status[0]) {
 		uiStripText(s_status, C_DIM);
@@ -1029,6 +1038,7 @@ void uiAm32Enter() {
 	s_attempt = 0;
 	s_connectNote = CN_NONE;
 	s_efm8Sig = 0;
+	s_efm8Seen = false;
 	s_ewEntered = false;
 	s_ewRowCount = 0;
 	s_ewSel = -1;
@@ -1112,6 +1122,7 @@ static void tryConnect() {
 			// go of SIG, last, and the claim's job takes it on core1's next
 			// pass (docs/design/bluejay-blheli-s.md, "The escwire session").
 			s_efm8Sig = a.signature;
+			s_efm8Seen = true;
 			pinClaimWantLeavePage(PinUser::Am32);
 			s_blReached = true;
 			s_blReachedMs = millis();
@@ -1130,6 +1141,15 @@ static void tryConnect() {
 			         (unsigned long)n, rx[0], n > 1 ? rx[1] : 0, n > 2 ? rx[2] : 0,
 			         (unsigned long)am32BlBaud());
 			s_connectNote = CN_GARBLED;
+			if (a.fragment) {
+				// A piece of an EFM8 answer, a byte of it lost: its
+				// bootloader may wait on the line, so DShot follows only
+				// from the leave page, and MENU gets the run cue.
+				s_efm8Seen = true;
+				pinClaimWantLeavePage(PinUser::Am32);
+				s_blReached = true;
+				s_blReachedMs = millis();
+			}
 			return;
 		}
 
@@ -1242,9 +1262,9 @@ static void ewTick() {
 	pinClaimPoll();
 	uint8_t err = pinClaimJobError();
 	if (err) {
-		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
+		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK", "GP1", "PIN"};
 		snprintf(s_status, sizeof(s_status), "SIG GP%u COULD NOT BE TAKEN (%s)",
-		         (unsigned)pinClaimGpio(PIN_SIG), WHY[err < 6 ? err : 1]);
+		         (unsigned)pinClaimGpio(PIN_SIG), WHY[err < 8 ? err : 1]);
 		return;
 	}
 	if (pinClaimState() != ClaimState::Running) return;
@@ -1299,9 +1319,11 @@ static void startExit() {
 
 /**
  * @brief S_EW_EXIT: LEAVE's `00 01` starts the ESC's firmware, so once it
- *        went out the cue goes and the claim gives SIG back to DShot without
- *        the leave page's steps (decision 3 of bluejay-blheli-s.md). A LEAVE
- *        that did not go out opens the leave page.
+ *        went out the claim gives SIG back to DShot without the leave page's
+ *        steps (decision 3 of bluejay-blheli-s.md). LEAVE has no answer, so
+ *        MENU's run cue stays until an eRPM frame after it shows the firmware
+ *        runs (bench item B11). A LEAVE that did not go out opens the leave
+ *        page.
  * @return false once DShot is on its way back: the screen leaves.
  */
 static bool exitTick() {
@@ -1319,7 +1341,6 @@ static bool exitTick() {
 			return true;
 		}
 		s_exitLeft = true;
-		s_blReached = false;
 		snprintf(s_status, sizeof(s_status), AM32_UI_EXIT_SENT);
 		endClaim();
 	}
@@ -1696,7 +1717,7 @@ bool uiAm32Tick(const TouchState *t) {
 			// The page was read: LEAVE starts the ESC's firmware, then DShot
 			// returns (docs/design/bluejay-blheli-s.md, decision 3).
 			startExit();
-		} else if (back && s_efm8Sig) {
+		} else if (back && s_efm8Seen) {
 			// An EFM8 bootloader answered and no LEAVE went: SIG goes back to
 			// DShot only from the leave page (decision 8 of that note).
 			openLeave(s_state);

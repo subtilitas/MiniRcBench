@@ -19,6 +19,7 @@
 #include "esc_task.h"
 #include "escwire_job.h"
 #include "ew_line.h"
+#include "hardware/gpio.h"
 
 #include <pico/time.h>
 #include <stdio.h>
@@ -115,20 +116,25 @@ static void testBind() {
 	          status().job == EwJobState::Closed);
 
 	static const uint8_t ERRS[] = { EW_LINE_ERR_PIO, EW_LINE_ERR_DMA, EW_LINE_ERR_CLOCK, EW_LINE_ERR_ARG };
-	static const uint8_t JOB[] = { CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK, CORE1_JOB_PIO };
-	static const char *const NAMES[] = { "PIO", "DMA", "CLOCK", "ARG as PIO" };
+	static const uint8_t JOB[] = { CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK, CORE1_JOB_PIN };
+	static const char *const NAMES[] = { "PIO", "DMA", "CLOCK", "ARG as PIN" };
 	for (int i = 0; i < 4; i++) {
 		g_alive = true;
 		escHeartbeat();
 		suspend();
 		fakeEwReset(0xB2, true);
 		fakeEwRefuse(ERRS[i]);
+		// The AM32 transport leaves the pin floating.
+		gpio_disable_pulls(SIG);
 		core1JobStart(Core1Job::EscWire, SIG, 0xFF);
 		core1JobPoll();
 		char what[64];
 		snprintf(what, sizeof(what), "a refused open: %s, nothing driven", NAMES[i]);
 		checkTrue(what, core1JobError() == JOB[i] && core1JobPhase() == Core1JobPhase::Idle &&
 		          fakeEwSim()->line_calls == 0 && status().lineError == ERRS[i]);
+		bool arg = ERRS[i] == EW_LINE_ERR_ARG;
+		snprintf(what, sizeof(what), arg ? "%s: the pin left alone" : "%s: SIG on its pull-up", NAMES[i]);
+		checkTrue(what, fakePin(SIG).pull == (arg ? FakePull::None : FakePull::Up));
 		escTaskResume();
 		fakePumpPoll();
 	}

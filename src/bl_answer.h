@@ -52,6 +52,12 @@ struct BlAnswer {
 	/** @brief Efm8: 0xE8 and the byte after it, 0xE8B1, 0xE8B2 or 0xE8B5 on the parts the
 	 *         bootloader names; else 0. */
 	uint16_t     signature;
+	/**
+	 * @brief NotUnderstood: the bytes hold a piece of an EFM8 answer, so an
+	 *        EFM8 bootloader may wait on the line; false for every other kind.
+	 *        @see blAnswerEfm8Fragment()
+	 */
+	bool         fragment;
 };
 
 /**
@@ -70,8 +76,28 @@ struct BlAnswer {
  * escwire's own first contact then reads the answer again and checks it in
  * full. An answer cut right after the 0xE8 has the signature 0xE800.
  *
+ * A reply not understood that holds a piece of an EFM8 answer, as
+ * blAnswerEfm8Fragment() finds it, has @ref BlAnswer::fragment set.
+ *
  * @param reply The bytes, in the order they arrived.
  * @param n     How many.
  * @return The classification.
  */
 BlAnswer blAnswerClassify(const uint8_t *reply, int n);
+
+/**
+ * @brief Whether the bytes hold a piece of an EFM8 bootloader's answer: `471`,
+ *        or `71`, any byte and 0xE8, or 0xE8 followed by 0xB1, 0xB2 or 0xB5.
+ *
+ * An answer with a byte lost, its `d` or its leading `4`, is no Efm8 answer by
+ * blAnswerClassify()'s rule, yet the bootloader that sent it waits on the line
+ * with no timeout. ESC SETTINGS gives the claim the leave page on such a reply
+ * (docs/design/bluejay-blheli-s.md, slice 3): a false hit costs a leave page,
+ * a miss DShot into a waiting bootloader. Bytes with none of the pieces keep
+ * the leave page off, so noise on the line does not ask for an unplug.
+ *
+ * @param reply The bytes, in the order they arrived.
+ * @param n     How many.
+ * @return true when one of the pieces is there.
+ */
+bool blAnswerEfm8Fragment(const uint8_t *reply, int n);

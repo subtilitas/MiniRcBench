@@ -18,10 +18,11 @@
  * contact and reads the page (docs/design/bluejay-blheli-s.md, slice 3).
  * The page opens as a list, read-only in this build, or the connect page
  * names why it is not taken. BACK from the list sends LEAVE, `00 01`, which
- * starts the ESC's firmware, clears the cue and gives SIG back to DShot.
- * Every other BACK after an EFM8 answer opens the leave page of decision 8
- * of that note, whose RESTART DSHOT gives SIG back to DShot and clears the
- * cue. Nothing here writes a Bluejay or BLHeli_S ESC.
+ * starts the ESC's firmware, and gives SIG back to DShot; the cue stays until
+ * an eRPM frame. Every other BACK after an EFM8 answer, or after a reply that
+ * holds a piece of one, opens the leave page of decision 8 of that note,
+ * whose RESTART DSHOT gives SIG back to DShot and clears the cue. Nothing
+ * here writes a Bluejay or BLHeli_S ESC.
  *
  * @see am32_bl.h for the transport, am32_eeprom.h for the settings layout.
  */
@@ -267,10 +268,11 @@ bool uiAm32Tick(const TouchState *t);
  *
  * Set when a handshake with the bootloader succeeds, and when an EFM8
  * bootloader answers the greeting. Cleared by an eRPM frame that arrived
- * after that answer, which only the ESC's firmware sends, by LEAVE's
- * `00 01` once it went out, which starts an EFM8's firmware, and by RESTART
+ * after that answer, which only the ESC's firmware sends, and by RESTART
  * DSHOT on the leave page, whose steps power-cycle the ESC; a restart of the
- * board clears it as well, since it is not stored.
+ * board clears it as well, since it is not stored. LEAVE's `00 01` leaves it:
+ * LEAVE has no answer, so only an eRPM frame after it shows that the firmware
+ * started. A reply that holds a piece of an EFM8 answer sets it too.
  *
  * @param lastRpmMs EscTelemetry::lastRpmMs.
  * @return true while the cue stands.

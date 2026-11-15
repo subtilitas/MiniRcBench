@@ -8,6 +8,7 @@
 #include "ew_line.h"
 
 #include "plat.h"
+#include <hardware/gpio.h>
 #include <pico/critical_section.h>
 #include <string.h>
 
@@ -37,10 +38,18 @@ static EwJobOp      s_lastOp;        /**< The last operation started. */
 static uint8_t      s_result;        /**< `ew_ses_t` of the last operation that ended. */
 static bool         s_stalled;       /**< A lapse stopped an operation. */
 static bool         s_left;          /**< The leave ran to its end. */
+/**
+ * @brief Something the status shows changed since the last publish: a
+ *        command taken, an operation's end, a stop by the lapse. The page
+ *        changes only with an operation's end, so the spin lock is not held
+ *        for its copy on every pass.
+ */
+static bool         s_changed;
 /** @} */
 
 /** @brief Copy the job's state to the shared status. */
 static void publish() {
+	s_changed = false;
 	critical_section_enter_blocking(&s_cs);
 	s_status.ackSeq = s_ackSeq;
 	s_status.job = s_state;
@@ -60,6 +69,7 @@ static void publish() {
 
 /** @brief The running operation ended with @p r. */
 static void ended(ew_ses_t r) {
+	s_changed = true;
 	s_result = (uint8_t)r;
 	if (s_lastOp == EwJobOp::Leave && r == EW_SES_OK) s_left = true;
 	s_state = s_ses.in_mode ? EwJobState::InMode : EwJobState::Ended;
@@ -84,6 +94,7 @@ static void started(EwJobOp op, ew_ses_t r) {
 
 /** @brief Take a command from core0. */
 static void take(EwJobOp op, bool uiAlive) {
+	s_changed = true;
 	s_refused = EwJobRefusal::None;
 	if (op == EwJobOp::Stop) {
 		// Outside a write a stop cuts at once and parks the line; the next
@@ -130,7 +141,7 @@ static uint8_t bindError(uint8_t lineErr) {
 	switch (lineErr) {
 		case EW_LINE_ERR_CLOCK: return CORE1_JOB_CLOCK;
 		case EW_LINE_ERR_DMA:   return CORE1_JOB_DMA;
-		// EW_LINE_ERR_ARG: the claim's SIG is a pin the chip has.
+		case EW_LINE_ERR_ARG:   return CORE1_JOB_PIN;
 		default:                return CORE1_JOB_PIO;
 	}
 }
@@ -150,6 +161,11 @@ static uint8_t escwireJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	ew_driver_t d;
 	s_lineError = escwirePortOpen(sigGpio, &d);
 	if (s_lineError != 0) {
+		// The AM32 transport left the pin floating and the refused open did
+		// not touch it: the pull-up holds the line high, as between
+		// greetings, while an EFM8 bootloader waits on it. A pin the chip
+		// does not have is left alone.
+		if (s_lineError != EW_LINE_ERR_ARG) gpio_pull_up(sigGpio);
 		s_state = EwJobState::Closed;
 		memset(&s_ses, 0, sizeof(s_ses));
 		publish();
@@ -180,10 +196,11 @@ static void escwireJobStep(uint32_t nowMs, bool uiAlive) {
 		if (!uiAlive && s_lastOp != EwJobOp::Leave) {
 			ew_session_stop(&s_ses);
 			s_stalled = true;
+			s_changed = true;
 		}
 		run();
 	}
-	publish();
+	if (s_changed) publish();
 }
 
 static bool escwireJobRelease(uint32_t nowMs) {

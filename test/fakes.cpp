@@ -558,7 +558,7 @@ static int     g_am32WriteSkews = 0;   /**< am32BlWrite() calls that store byte 
 static uint8_t g_am32Garble[16];       /**< A handshake reply other than an AM32 bootloader's. */
 static uint8_t g_am32GarbleLen = 0;    /**< Its length; 0: the handshake succeeds. */
 /** @brief The last handshake's answer, classified by the real blAnswerClassify(). */
-static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0 };
+static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0, false };
 static bool    g_am32Blank = false;    /**< Reads return an erased page. */
 static bool    g_am32Silent = false;   /**< Handshakes time out with no reply. */
 void fakeAm32FailWrites(int n) { g_am32WriteFails = n; }

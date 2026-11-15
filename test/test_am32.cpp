@@ -321,8 +321,34 @@ static void testBlAnswer() {
 		const uint8_t nak[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0xC1 };
 		checkTrue("C1 in place of 0x30: EFM8 E8B2", efm8(nak, 9, 0xE8B2));
 		const uint8_t e[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
-		checkTrue("eight bytes, its first lost: not understood", kindIs(e + 1, 8, BlAnswerKind::NotUnderstood));
-		checkTrue("a short answer, 34 37 31: not understood", kindIs(e, 3, BlAnswerKind::NotUnderstood));
+		// Not understood, but a piece of an EFM8 answer: the claim gets the
+		// leave page.
+		auto piece = [](const uint8_t *b, int n) {
+			BlAnswer a = blAnswerClassify(b, n);
+			return a.kind == BlAnswerKind::NotUnderstood && a.fragment && blAnswerEfm8Fragment(b, n);
+		};
+		checkTrue("its leading 4 lost, 71d E8 ...: not understood, a piece", piece(e + 1, 8));
+		const uint8_t noD[8] = { '4', '7', '1', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		checkTrue("its d lost, 471 E8 B2 ...: not understood, a piece", piece(noD, 8));
+		checkTrue("471 alone: a piece", piece(e, 3));
+		const uint8_t sevenOne[4] = { '7', '1', 0x00, 0xE8 };
+		checkTrue("71, a byte, E8: a piece", piece(sevenOne, 4));
+		static const uint8_t PART[3] = { 0xB1, 0xB2, 0xB5 };
+		for (uint8_t p : PART) {
+			const uint8_t sig[3] = { 0x55, 0xE8, p };
+			char what[48];
+			snprintf(what, sizeof(what), "55 E8 %02X: a piece", p);
+			checkTrue(what, piece(sig, 3));
+		}
+		const uint8_t noise[3] = { 0x55, 0xAA, 0x01 };
+		checkTrue("55 AA 01: no piece", !blAnswerClassify(noise, 3).fragment && !blAnswerEfm8Fragment(noise, 3));
+		const uint8_t near[9] = { '4', '7', 0x00, '7', '1', 0xE9, 0x00, 0xE8, 0xB3 };
+		checkTrue("47, 71 with E8 three bytes on, E8 B3: no piece", !blAnswerEfm8Fragment(near, 9));
+		const uint8_t shortTail[3] = { 0x00, '7', '1' };
+		checkTrue("71 at the end, no room for E8: no piece", !blAnswerEfm8Fragment(shortTail, 3));
+		const uint8_t lastE8[2] = { 0x00, 0xE8 };
+		checkTrue("E8 as the last byte: no piece", !blAnswerEfm8Fragment(lastE8, 2));
+		checkTrue("no byte: silent, no piece", !blAnswerClassify(nullptr, 0).fragment);
 		checkTrue("471d E8, cut there: EFM8, signature E800", efm8(e, 5, 0xE800));
 		checkTrue("471d E8 B2, cut there: EFM8 E8B2", efm8(e, 6, 0xE8B2));
 		checkTrue("471d, cut before the E8: not understood", kindIs(e, 4, BlAnswerKind::NotUnderstood));
@@ -362,6 +388,10 @@ static void testBlAnswer() {
 		memcpy(both, e, 5);
 		memcpy(both + 5, am, 9);
 		checkTrue("an AM32 answer after an EFM8 pattern: AM32", kindIs(both, 14, BlAnswerKind::Am32));
+		checkTrue("an AM32 answer holds 471, and is never a piece", !blAnswerClassify(both, 14).fragment &&
+		          !blAnswerClassify(am, 9).fragment);
+		checkTrue("an EFM8 answer is no piece either", !blAnswerClassify(e, 9).fragment);
+		checkTrue("an AM32 answer with a glitch byte holds 471: a piece", blAnswerClassify(am, 10).fragment);
 	}
 }
 

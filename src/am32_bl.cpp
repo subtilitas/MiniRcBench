@@ -272,7 +272,7 @@ const char *am32BlEscTypeName() {
 uint8_t am32BlLastRx(const uint8_t **buf) { *buf = s_lastRx; return s_lastRxLen; }
 
 /** @brief The last handshake's answer, classified. */
-static BlAnswer s_answer = { BlAnswerKind::Silent, 0, 0 };
+static BlAnswer s_answer = { BlAnswerKind::Silent, 0, 0, false };
 
 BlAnswer am32BlAnswer() { return s_answer; }
 
@@ -299,7 +299,7 @@ Am32Result am32BlHandshake(uint8_t *deviceInfo) {
 	if (s_pin == 0xFF) return AM32_ERR_BUSY;
 
 	s_lastRxLen = 0;
-	s_answer = BlAnswer{ BlAnswerKind::Silent, 0, 0 };
+	s_answer = BlAnswer{ BlAnswerKind::Silent, 0, 0, false };
 
 	// ESC_INIT_STRING, verbatim from a known-working configurator: twelve zero
 	// bytes, 0x0D, "BLHeli", then F4 7D. 21 bytes total.
