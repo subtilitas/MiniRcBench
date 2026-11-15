@@ -518,22 +518,24 @@ v0.1.0 after the bench checks, is revised by it. CHANGELOG dates 0.1.0
 2026-11-15. The owner pushes the tag `v0.1.0` on the commit that carries this
 record; its Release run publishes the image, `SHA256SUMS.txt` and
 `THIRD_PARTY_NOTICES.txt`, and its Docs run publishes `wiki/` (item 7). The
-0.1.0 image has not run on hardware: every tool after rc1, the servo log, the
-S.BUS output, the USB bridge and the Bluejay and BLHeli_S writes among them, is
-tested on the host only. v0.1.0-rc1 exists, the tag at a93e1c1, published as a
-pre-release with `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes),
-`SHA256SUMS.txt` and `THIRD_PARTY_NOTICES.txt`, with no manual.
+0.1.0 image has not run on hardware; no MiniRcBench image, rc1 included, has.
+Every tool after rc1, the servo log, the S.BUS output, the USB bridge and the
+Bluejay and BLHeli_S writes among them, is tested on the host only. v0.1.0-rc1
+exists, the tag at a93e1c1, published as a pre-release with
+`MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes), `SHA256SUMS.txt`
+and `THIRD_PARTY_NOTICES.txt`, with no manual.
 
 The next work is the bench. [docs/bench-plan.md](docs/bench-plan.md) orders
 every bench test of the design notes and of the open items below into ten
 sessions that build on each other, from the board and the SD card to the
 destructive tests on spare parts, with the setups, pass criteria and the place
-each result goes. A finding at the bench goes into a fix and a 0.1.x release.
+each result goes. A defect found at the bench needs a fix and a new release.
 Menu structure B and the tools after it are built, host tests only; none has
 run on hardware (item 18).
 
 Waiting on the owner:
 
+- the tag `v0.1.0` on the merge commit of this record;
 - the bench, which needs the hardware and the instruments the plan lists;
 - the converter module's name (item 19) and item 21's open question on a
   second contact;

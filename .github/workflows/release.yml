@@ -215,15 +215,23 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Write release notes
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           cat > notes.md <<'EOF'
           ## Which image
 
           | File | Board |
           |---|---|
-          | `MiniRcBench-VERSION-touch-lcd-2.8.uf2` | Waveshare RP2350-Touch-LCD-2.8 |
+          | `MiniRcBench-TAG-touch-lcd-2.8.uf2` | Waveshare RP2350-Touch-LCD-2.8 |
 
           The image is for the RP2350-Touch-LCD-2.8 only.
+
+          ## Hardware testing
+
+          No MiniRcBench image, this one included, has run on hardware. Its
+          tests run on a host computer. The bench tests are listed in
+          `docs/bench-plan.md`.
 
           ## Flashing
 
@@ -241,7 +249,7 @@ jobs:
           | Ground | **GND** — J4 pin 1 or 5, or J5 pin 4 |
 
           The board brings out two free signal pins, GP0 and GP1. The ESC pin
-          is a setting under **MENU → SETTINGS**, kept across power cycles
+          is **SIG PIN** under **MENU → SETTINGS**, kept across power cycles
           after **HOLD TO SAVE**. A wrong pin produces no error: the ESC
           receives no frames. The **LINK** row on the same screen shows the
           live packet rate. A non-zero rate means the pin is correct.
@@ -291,6 +299,7 @@ jobs:
 
           ---
           EOF
+          sed -i "s/MiniRcBench-TAG-/MiniRcBench-${TAG}-/" notes.md
 
       # --notes prepends to the generated notes; --notes-file does not combine
       # with --generate-notes, so the body is passed inline.
