@@ -29,21 +29,25 @@ Work through it like this:
    the row of STATUS.md's verification table, the STATUS open item, and the
    note's section. A note's state changes only with a recorded result.
 
-Acronyms: ESC is electronic speed controller, DShot the digital ESC protocol
-on SIG, EDT Extended DShot Telemetry, eRPM electrical revolutions per
-minute, KISS the serial ESC telemetry protocol on AUX, FC flight controller,
-S.BUS Futaba's serial receiver bus, MSP the MultiWii Serial Protocol, BEC
-battery eliminator circuit, SD Secure Digital, SDIO Secure Digital
-input/output, SDSC, SDHC and SDXC the standard, high and extended capacity
-SD cards, FAT File Allocation Table, USB Universal Serial Bus, UF2 USB
-Flashing Format, BOOTSEL the RP2350's USB boot mode, SWD Serial Wire Debug,
-GPIO general-purpose input/output, GP*n* GPIO number *n*, PIO programmable
-input/output, PWM pulse-width modulation, I2C Inter-Integrated Circuit, SDA
-and SCL its data and clock lines, UART universal asynchronous
-receiver-transmitter, IMU inertial measurement unit, RTC real-time clock,
-EN a converter's enable input, VIN and VOUT its input and output voltage,
-GND ground, LiPo lithium-polymer, HV high-voltage (servo), EFM8 the Silicon
-Labs microcontroller of BLHeli_S and Bluejay ESCs, UI user interface.
+Acronyms: ESC is electronic speed controller, DShot the digital ESC protocol on
+SIG, EDT Extended DShot Telemetry, eRPM electrical revolutions per minute, RPM
+revolutions per minute, KISS the serial ESC telemetry protocol on AUX, FC flight
+controller, S.BUS Futaba's serial receiver bus, MSP the MultiWii Serial
+Protocol, BEC battery eliminator circuit, SD Secure Digital, SDIO Secure Digital
+input/output, SDSC, SDHC and SDXC the standard, high and extended capacity SD
+cards, DAT0 and CMD an SD card's data line 0 and command line, FAT File
+Allocation Table, CSV comma-separated values, USB Universal Serial Bus, VBUS the
+USB supply voltage, COM a serial port on Windows, UF2 USB Flashing Format,
+BOOTSEL the RP2350's USB boot mode, SWD Serial Wire Debug, GPIO general-purpose
+input/output, GP*n* GPIO number *n*, PIO programmable input/output, PWM
+pulse-width modulation, I2C Inter-Integrated Circuit, SDA and SCL its data and
+clock lines, UART universal asynchronous receiver-transmitter, IMU inertial
+measurement unit, RTC real-time clock, SDK software development kit, EN a
+converter's enable input, VIN and VOUT its input and output voltage, VCC a
+module's supply pin, VS the INA219's supply pin, DC direct current, MS/s
+megasamples per second, GND ground, LiPo lithium-polymer, HV high-voltage
+(servo), EFM8 the Silicon Labs microcontroller of BLHeli_S and Bluejay ESCs, UI
+user interface.
 
 ### Test IDs
 
@@ -53,6 +57,9 @@ numbers, this plan numbers them in the note's order and says so
 (`SO-1` is the first bullet of sbus-output.md's bench list). Tests that only
 STATUS.md names carry `OI-` and the open item's number (`OI-23` is open
 item 23), or `VT-` for a row of the verification table with no open item.
+Open item 15 names five checks: `OI-15a`, `OI-15d` and `OI-15e` here; its
+KISS frame on GP1 is `KS-2` and its servo channels on a scope `SV-3`, so the
+letters b and c are not used.
 
 | Prefix | Source | Section |
 |---|---|---|
@@ -84,11 +91,15 @@ bluejay-blheli-s.md's slice 6, which is not built.
 ### Firmware for the bench
 
 - **Main image.** `MiniRcBench-touch-lcd-2.8.uf2` built from `main` at the
-  commit the session runs, or the v0.1.0-rc1 pre-release image (tag at
-  a93e1c1), which predates several tools below. Record the commit in every
-  result row.
+  commit the session runs. Record the commit in every result row. The
+  v0.1.0-rc1 pre-release image (tag at a93e1c1) predates the tools of
+  Sessions 3 to 9 and serves Sessions 1 and 2 only; it writes a settings
+  block of version 5, which `OI-19` uses.
 - **Pull request #49 image.** The branch `ccr-ux-pass2`, built the same
-  way, for the touch-loss check `OI-23` only.
+  way, for the touch-loss check `OI-23` only. Its settings block is
+  version 5: flashed over `main`, it discards `main`'s version 6 block
+  whole and starts from its compiled defaults; a block it saves is carried
+  over when `main` is flashed back.
 - **`tools/sdtest`.** The SD bring-up firmware, target `sdtest` of the same
   build, for `SD-5`.
 - **A bring-up build for `CS-B6`**, which polls the INA219's bus register
@@ -104,16 +115,16 @@ notes give; no note states them.
 
 | Instrument | Specification | Used by |
 |---|---|---|
-| Oscilloscope | 4 channels: SIG, AUX, EN and VOUT at once, or the two ends of the INA219's 0.1 Ω shunt for a current step. Bandwidth derived: the fastest edge measured is the I2C rise time against 300 ns (`CS-B1`); a scope rise time of a fifth of that, 60 ns, is about 0.35 / 60 ns = 6 MHz, so any scope of 20 MHz or more serves. Single-shot capture and a record of at least 1 s at 1 MS/s (a heartbeat trip at 250 ms, a 1000 ms stall) | most sessions |
-| Logic analyser | 3 channels or more, with UART, I2C and inverted-UART decoders. Rate derived: at 24 MS/s one sample is 42 ns, a fortieth of a DShot600 bit, 1.67 µs; 3 % of a 19200 baud bit, 52 µs, is 1.6 µs (`UB-B11`) | Sessions 2, 3, 9 |
-| Bench supply 1 | 0 V to 5 V, in place of the converter's LiPo cell for the lowest and highest VIN, 3.0 V and 4.2 V (`CS-B6`); current derived: 5 V × 3 A / 3.0 V = 5 A into the converter at 3 A out, before its losses (`CS-B7`). Current limit set below the cell's fuse | Session 4, 7 |
-| Bench supply 2, or the ESC's own pack | for the ESC; current limit set for a motor without propeller. No note sets the limit's value: record the value used | Sessions 2, 3, 8 to 10 |
-| Multimeter | DC volts and ohms; the reference for the bus voltage at 5 V (`CS-B5`) and the BOARD voltage (`OI-22`) | all |
-| Reference ammeter | in series with the load, 0 A to 3.5 A (`CS-B4`). Its accuracy is not set in the note: record its type and range | `CS-B4`, `CS-B8` |
-| Resistive loads | derived at 5 V: 50 Ω (0.1 A), 5 Ω (1 A), 2.5 Ω (2 A), 1.67 Ω (3 A), 1.43 Ω (3.5 A), and 1.5 Ω (3.3 A, about 17 W) for the hard cut (`CS-B9`); or an electronic load | `CS-B4`, `CS-B5`, `CS-B7`, `CS-B9` |
-| Small parts | 100 Ω to hold SDA low (`CS-B3`); 68 kΩ for the Hitec classic line (`HT-6a`); 10 kΩ pull-down for EN at the converter; a 10 kΩ pull-down for a servo-only lead, only if `KST-7d` loses reply edges (kst-programming.md decision 3) | Sessions 4, 5 |
-| Thermometer | a contact probe or an infrared thermometer, for the converter and the shunt after a 1000 ms stall | `CS-B7`, `CS-B8`, `AM-B7` |
-| SWD debug probe | to halt core0 for the heartbeat tests and for a debugger reset (`DG-4`). Whether the board brings SWD out is not recorded in this repository | `SV-5`, `CS-B11`, `SO-1`, `DG-4` |
+| Oscilloscope | 4 channels: SIG, AUX, EN and VOUT at once, or the two ends of the INA219's 0.1 Ω shunt for a current step. Bandwidth derived: the fastest edge measured is the I2C rise time against 300 ns (`CS-B1`); a scope rise time of a fifth of that, 60 ns, is about 0.35 / 60 ns = 6 MHz, so any scope of 20 MHz or more serves. Sample rate derived: at least 33 MS/s, ten samples over a 300 ns edge (`CS-B1`). Single-shot capture and a record of at least 1 s at 1 MS/s (a heartbeat trip at 250 ms, a 1000 ms stall). Ground clips on board GND only: a clip on a shunt end or on VOUT shorts the converter through the PC's earth. The shunt is read with two probes, as the difference of two channels, or with a differential probe | most sessions |
+| Logic analyser | 3 channels or more, with UART, I2C and inverted-UART decoders. Rate derived: at 24 MS/s one sample is 42 ns, a fortieth of a DShot600 bit, 1.67 µs; 3 % of a 19200 baud bit, 52 µs, is 1.6 µs (`UB-B11`). Its ground on board GND only | Sessions 2, 3, 9 |
+| Bench supply 1 | 0 V to 5 V DC with a current limit. In place of the converter's LiPo cell for the lowest and highest VIN, 3.0 V and 4.2 V (`CS-B6`); current derived: 5 V × 3 A / 3.0 V = 5 A into the converter at 3 A out, before its losses (`CS-B7`); limit set below the cell's fuse. At 5 V into the INA219 for `CS-B4` and `CS-B5`. At most 5.0 V into the board through a USB-C power breakout for `DG-3`, never into J4 pin 2 (VBUS) | Sessions 1, 4, 7 |
+| Bench supply 2, or the ESC's own pack | for the ESC; current limit set for a motor without propeller. No note sets the limit's value: record the value used. At most 3.3 V with a current limit as the separate source for the EN threshold (`CS-B6`) | Sessions 2 to 4, 8 to 10 |
+| Multimeter | DC volts and ohms; the reference for the bus voltage at 5 V (`CS-B5`) and the BOARD voltage (`OI-22b`) | all |
+| Reference ammeter | in series with the load, 0 A to 3.5 A (`CS-B4`), and a µA range for the current into SIG (`BJ-B13`). Its accuracy is not set in the note: record its type, range and burden | `CS-B4`, `CS-B8`, `CS-B9`, `BJ-B13` |
+| Resistive loads | the current is set by the load in series with the INA219's 0.1 Ω shunt, the leads and the ammeter's burden: at 5.0 V with the shunt alone in series, 1.67 Ω gives 2.82 A, 1.43 Ω 3.27 A and the note's 1.5 Ω 3.13 A. Set each current with the reference ammeter, trimming the load, or with an electronic load in constant-current mode: 0.1 A, 1 A, 2 A, 3 A and 3.5 A (`CS-B4`), and above the 3.0 A cut for `CS-B9`, about 16 W at 3.1 A | `CS-B4`, `CS-B5`, `CS-B7`, `CS-B9` |
+| Small parts | 100 Ω to hold SDA low (`CS-B3`); 68 kΩ for the Hitec classic line (`HT-6a`); the pull-down for EN at the converter (Setup C); a 10 kΩ pull-down for a servo-only lead, only if `KST-7d` loses reply edges (kst-programming.md decision 3) | Sessions 4, 5 |
+| Thermometer | a contact probe or an infrared thermometer, for the converter and the shunt after a 1000 ms stall; `AM-B7` uses the IMU's own temperature | `CS-B7`, `CS-B8` |
+| SWD debug probe | to halt core0 for the heartbeat tests and for a debugger reset (`DG-4`). Whether the board brings SWD out is not recorded in this repository | `SV-5`, `CS-B11`, `SO-1`, `DG-4`, `DG-7` |
 | PC | Windows, Linux and macOS for `UB-B1` and `RS-3`; Chrome for Web Serial; ESC-Configurator (v0.32.1 is the version usb-bridge.md read), the AM32 configurator (`am32-firmware/am32-configurator`), BLHeliSuite on Windows, Python 3 with `tools/set_clock.py`, picotool, and logwiju for `.BFL` logs | Sessions 1, 2, 9 |
 | ESCs | an AM32 ESC (AM32 2.22 for `UB-B7`; rcbench ran 2.21), a Bluejay 0.21 ESC (EFM8BB2, signature E8B2), a BLHeli_S 16.7 ESC, an EFM8BB51 Bluejay ESC if at hand, a BLHeli_32 ESC for `EC-B4` (32.6 for `OI-1`), and spare ESCs of each EFM8 firmware for the tests that may leave an ESC without its tags | Sessions 2, 3, 8 to 10 |
 | Motor | a brushless motor of known rated kV, for `EC-B8`, clamped to the bench; an optical tachometer if at hand | Sessions 2, 3 |
@@ -143,7 +154,7 @@ bus: do not use.
 | **A**, the board alone | USB-C to the PC; a LiPo cell on the battery connector where the test says | |
 | **E**, an ESC on SIG | ESC signal to SIG, ESC ground to GND; the ESC lead's middle wire, BEC +5 V, cut or depinned; the ESC on its own pack or bench supply 2; telemetry to AUX where the test says (SETTINGS → KISS TELEM); motor without propeller, clamped | part A |
 | **S**, a servo on its own supply | servo A signal to SIG, servo B to AUX for two servos, servo minus to the supply's minus with one ground tap to GND; the servo's middle wire to its supply, never to a connector pin; SERVO SUPPLY at `OWN` | part B |
-| **C**, a servo on the switched supply | as S, with the boost converter's VOUT to the servo's plus through the INA219's screw terminal (VIN+ from VOUT, VIN- to the servo's plus), EN to GP28 (J4 pin 11) or GP29 (J4 pin 12) with SERVO SUPPLY at that pin, a 10 kΩ pull-down from EN to GND at the converter; the INA219 on J3 by a pigtail, CURRENT SENSE at `INA219`; SIG, EN and GND on one J4 pigtail, J5 free | part C |
+| **C**, a servo on the switched supply | as S, with the boost converter's VOUT to the servo's plus through the INA219's screw terminal (VIN+ from VOUT, VIN- to the servo's plus), EN to GP28 (J4 pin 11) or GP29 (J4 pin 12) with SERVO SUPPLY at that pin, only after `CS-B6` has measured EN at or below 0.5 V with the board unpowered; the pull-down from EN to GND at the converter: 10 kΩ to 100 kΩ for an EN with no pull-up, and with a pull-up to VIN at most 0.135 times that pull-up at 4.2 V, so EN stays at or below 0.5 V with the board off (wiring.svg; kst-programming.md, "Hardware"); the INA219 on J3 by a pigtail, CURRENT SENSE at `INA219`; SIG, EN and GND on one J4 pigtail, J5 free. An ESC on this lead gets VOUT on its BEC wire: ESCs go on Setup E's lead only | part C |
 | **R**, a receiver on AUX | receiver S.BUS output to GP1 (AUX), receiver ground to GND; the receiver on its own supply, never the board's | |
 | **F**, an FC on SIG | GP0 to the FC's S.BUS input, GND to the FC's ground, nothing else | |
 | **U**, a PC through the board | Setup E, and the board's USB-C to the PC running the desktop tool | |
@@ -152,16 +163,18 @@ bus: do not use.
 
 These hold in every session; each test adds its own.
 
-- Propellers off, every motor clamped. Keep a way to cut the ESC's power
-  that does not depend on the touchscreen (README.md, "Safety").
+- Propellers off, every motor clamped. Wear eye protection and stay out of
+  the plane of rotation. Keep a way to cut the ESC's power that does not
+  depend on the touchscreen (README.md, "Safety").
 - One device on SIG at a time. Unplug any servo before DShot runs.
 - The ESC on its own pack, never on the board's 5 V; its BEC wire cut.
 - Never connect J5 pin 3 or J4 pin 6 (3.3 V out) or J4 pin 2 (VBUS) to a
   device.
 - SIG and AUX take 5.5 V while the board is powered and 3.63 V while it is
-  off; GP28 and GP29 are not fault tolerant and carry only EN. Power the
-  board before a servo supply, a receiver or an FC, and switch them off
-  before the board.
+  off; GP28 and GP29 are not fault tolerant, carry only EN and drive it
+  to 0 V or 3.3 V: no other source on EN while it is on J4. Power the
+  board before a servo supply, a receiver, an FC or an ESC with a telemetry
+  wire, and switch them off before the board.
 - No level above 3.6 V on SIG from a KST servo (kst-programming.md
   decision 4); measure the Hitec classic line off the board first
   (`HT-6a`).
@@ -172,6 +185,8 @@ These hold in every session; each test adds its own.
   Multishot, calibrate, arm and start its motor.
 - A bench supply's current limit set before the load is connected, and
   recorded.
+- Scope and analyser ground clips on board GND only, never on a shunt end
+  or on VOUT.
 - Destructive tests (Session 10, `UB-B8`, `UB-B10`) on spare parts only.
 
 ## Order
@@ -181,10 +196,10 @@ These hold in every session; each test adds its own.
 | [1](#session-1-the-board-alone-and-the-sd-card) | Power-up, display and touch, splash, BOARD voltage, settings, diagnostics, the clock; then the SD card | none |
 | [2](#session-2-pins-the-pin-claim-and-dshot) | DShot on SIG, KISS on AUX, the pin claim, the touch-loss stop, logs with an ESC | 1 |
 | [3](#session-3-esc-tools-on-dshot) | ESC COMMANDS, ESC SETTINGS on AM32, Bluejay and BLHeli_S, read and write | 2 |
-| [4](#session-4-servo-tester-current-sensor-and-converter) | Servo tester, INA219, the boost converter | 1, 2 (`PC-`) |
-| [5](#session-5-servo-programmers-and-backups) | KST and Hitec bring-up, the backups | 4 (`CS-B6`, `CS-B7`) |
-| [6](#session-6-receiver-sbus-output-on-a-scope-angle-meter) | S.BUS monitor, S.BUS output on a scope and a second board, the angle meter | 1, 4 (`CS-B2`) |
-| [7](#session-7-risky-supply-cuts-and-the-servo-log) | Risky: the cuts on the sensor's readings, then the servo log `CS-B12` | 4 complete, 1 (`SD-`) |
+| [4](#session-4-servo-tester-current-sensor-and-converter) | Servo tester, INA219, the boost converter, and the converter's protections: the hard cut, the stuck bus and the heartbeat | 1, 2 (`PC-`) |
+| [5](#session-5-servo-programmers-and-backups) | KST and Hitec bring-up, the backups | 3 (for `BK-1`), 4 complete |
+| [6](#session-6-receiver-sbus-output-on-a-scope-angle-meter) | S.BUS monitor, S.BUS output on a scope and a second board, the angle meter | 1, 2 (`KS-2`, for `RX-8`), 4 (`CS-B2`) |
+| [7](#session-7-risky-supply-cuts-and-the-servo-log) | Risky: the stall cut on the owner's servos, the move timing, then the servo log `CS-B12` | 4 complete, 1 (`SD-`) |
 | [8](#session-8-risky-the-sbus-bootloader-probe-then-an-fc) | Risky: the S.BUS bootloader probe against real ESCs, then frames to an FC | 3 (`BJ-B1`, `BJ-B2`), 6 (`SO-1`, `SO-2`) |
 | [9](#session-9-risky-the-usb-bridge-with-desktop-tools) | Risky: the USB bridge with the desktop tools | 3 complete |
 | [10](#session-10-risky-destructive-tests-on-spare-parts) | Risky: cut writes and power cuts on spare ESCs and scratch cards | 3, 9 |
@@ -208,9 +223,9 @@ and a LiPo cell on its battery connector where a test says.
   version 6 at the first boot, field by field, and SETTINGS reads `UPDATED`.
   **Why:** the carry-over runs only in `settingsLoad()` on flash; the host
   suite runs it on a model.
-- **Setup:** A. An older firmware image that writes such a block (a
-  DshotDisplay 2.x image writes version 2). Optional: run it only if such
-  an image is at hand, and first, before any setting is saved.
+- **Setup:** A. The v0.1.0-rc1 image, which writes a version 5 block; a
+  DshotDisplay 2.x image, which writes version 2, as well if one is at hand.
+  Run it first, before the main image saves any setting.
 - **Steps:** flash the older image; change MAX THROTTLE, the DShot rate and
   the theme, and save; flash the main image; open SETTINGS.
 - **Pass:** each changed value reads as set in the older firmware, and
@@ -314,8 +329,10 @@ and a LiPo cell on its battery connector where a test says.
   and disarmed, SETTINGS' captions against its labels.
 - **Record:** a photo of each screen in each theme; which of those pairs
   can be told apart.
-- **Result to:** verification table, the menu structure B rows and "List
-  and hold widgets"; open item 18 and menu-b.md's slice 2 points.
+- **Result to:** verification table, the menu structure B rows, "List and
+  hold widgets", "MENU layout", "SETTINGS layout" and "Touch handling,
+  high-contrast theme, throttle gauge"; open item 18 and menu-b.md's
+  slice 2 points.
 - **Safety:** none.
 
 #### OI-21. Two fingers on the glass
@@ -357,8 +374,12 @@ tested on hardware", numbered here in its order; STATUS open item 17.
 - **Verifies:** SETTINGS → DIAGNOSTICS → LAST RESTART after each kind of
   restart. **Why:** nothing of `src/diag.*` has run on a chip; the reset
   registers' behaviour in three cases is not known.
-- **Setup:** A; the SWD probe for DG-4 and DG-7; picotool for DG-6; a bench
-  supply in place of the USB supply for DG-3.
+- **Setup:** A; the SWD probe for DG-4 and DG-7; picotool for DG-6. For
+  DG-3: the cell off and the PC's cable off; bench supply 1 at no more than
+  5.0 V, its current limit set, into the board's USB-C through a USB-C power
+  breakout, then lowered slowly until the chip resets. Never into J4 pin 2
+  (VBUS). DG-7 and DG-8 need a glitch reset; with no safe method to make
+  one, record them as not run.
 - **Steps and pass**, one restart each, reading LAST RESTART after it:
 
   | ID | Restart | Expected (the note) |
@@ -442,16 +463,18 @@ STATUS open item 6.
 
 [sdio-driver.md](design/sdio-driver.md#bench-tests-needed), fifth bullet.
 
-- **Verifies:** 10 MHz in the firmware, and 10 MHz and 25 MHz in
-  `tools/sdtest`. **Why:** the firmware ships at 10 MHz
-  (`SD_LOG_SDIO_HZ`); a run at 10 MHz is not recorded. A card that mounts in
-  `sdtest` and not in the firmware puts the fault in the integration
-  (blackbox-logging.md, "Bring-up").
+- **Verifies:** the card mounts in `tools/sdtest`, which tries 25 MHz,
+  10 MHz, 4 MHz and 1 MHz in that order and stops at the first rate that
+  mounts, and in the firmware at 10 MHz. **Why:** the firmware ships at
+  10 MHz (`SD_LOG_SDIO_HZ`); a run at 10 MHz is not recorded. A card that
+  mounts in `sdtest` and not in the firmware puts the fault in the
+  integration (blackbox-logging.md, "Bring-up").
 - **Setup:** A; the `sdtest` image, then the main image.
-- **Steps:** run `sdtest`, which sweeps 25 MHz down to 1 MHz, on each card
-  of SD-1; then the main image with each card.
-- **Pass:** each card mounts at 10 MHz and 25 MHz in `sdtest`, and at
-  10 MHz in the firmware.
+- **Steps:** run `sdtest` on each card of SD-1 and read its output on the
+  USB serial port; then the main image with each card.
+- **Pass:** `sdtest` mounts each card at some rate, recorded; 10 MHz is
+  covered by the firmware's run, where each card mounts. A card that
+  mounts only below 10 MHz in `sdtest` is recorded as such.
 - **Record:** `sdtest`'s output per card.
 - **Result to:** verification table, rows "SDIO card driver" and
   "`tools/sdtest`"; open item 6.
@@ -468,11 +491,13 @@ items 2 and 6.
   7.3 kB/s) from. **Why:** the ring's size is not measured.
 - **Setup:** A; each card of SD-1, and the slow and the fragmented card.
 - **Steps:** START on SD LOG; run 10 min; read BUF PEAK and WORST FLUSH
-  during the run; STOP; read the log's `.TXT`.
+  during the run; STOP; read the log's `.TXT`. Record the rate, the log's
+  size over its time; if it is below 7.3 kB/s with no ESC, repeat the test
+  under Setup E in Session 2.
 - **Pass:** criterion not set in the notes beyond DROPPED FRAMES: a stall
   longer than the ring holds drops frames, which DROPPED FRAMES counts.
   Record the figures.
-- **Record:** BUF PEAK, WORST FLUSH and DROPPED FRAMES per card.
+- **Record:** BUF PEAK, WORST FLUSH, DROPPED FRAMES and the rate per card.
 - **Result to:** open items 2 and 6; verification table, rows "Blackbox
   logging" and "Blackbox logs in `LOGS/`".
 - **Safety:** none.
@@ -485,8 +510,10 @@ STATUS open item 4.
 - **Verifies:** the read-only card reader with multi-block reads. **Why:**
   the USB card reader is not recorded on hardware.
 - **Setup:** A, a card with logs from SD-2.
-- **Steps:** plug USB into the PC with SD LOG idle; copy every log to the
-  PC; compare sizes; open a `.BFL` in logwiju.
+- **Steps:** USB to the PC; with no log recording and the tester
+  disarmed, MENU → SD LOG → USB DRIVE; the drive appears on the PC; copy
+  every log to the PC; compare sizes; open a `.BFL` in logwiju. `OI-20b` and
+  `VT-2` start from this step.
 - **Pass:** the files copy whole and the logs open; arming is refused while
   the host holds the card (README.md, "Safety").
 - **Record:** the files and their sizes; the copy rate.
@@ -499,10 +526,10 @@ STATUS open item 4.
 [STATUS.md](../STATUS.md#open-items) open item 20.
 
 - **Verifies:** a pulled cable reaches the firmware as a bus suspend, so the
-  card stays with the host until EJECT on SD LOG. **Why:** read from
-  TinyUSB 0.18.0, not seen on the board; open item 20 of the verification
-  table's "USB card reader" row.
-- **Setup:** A with the cell; the PC holding the card as in SD-3.
+  card stays with the host until EJECT on SD LOG. **Why:** this is read
+  from TinyUSB 0.18.0's source and not seen on the board (open item 20, and
+  the verification table's row "USB card reader").
+- **Setup:** A with the cell; the card on USB DRIVE, as in SD-3's steps.
 - **Steps:** pull the cable; read SD LOG; tap EJECT.
 - **Pass:** SD LOG reads `USB DRIVE` until EJECT and `READY` after it, as
   open item 20 says.
@@ -646,7 +673,7 @@ telemetry, automatic enable, expiry"; open item 1's facts.
   least 250 ms; the press that disarms, or one made while a USB host holds
   the card, does not arm however long it stays. **Why:** the HOLD TO ARM
   press rule is not tested on hardware.
-- **Setup:** E; then Setup A's USB host holding the card (SD-3).
+- **Setup:** E; then the card on USB DRIVE, as in SD-3's steps.
 - **Steps:** arm; tap DISARM and keep the finger down for 3 s; with the host
   holding the card, hold HOLD TO ARM for 3 s; eject; hold it for 1 s.
 - **Pass:** no arm in the first two cases; an arm in the third.
@@ -663,14 +690,16 @@ record"; STATUS open item 3.
   KISS specification puts the line at 3.6 V; GP1 takes 5.5 V while the board
   is powered and 3.63 V while it is off; the level is not measured.
 - **Setup:** E with telemetry to AUX, KISS on; the scope on AUX.
-- **Steps:** capture a frame's high level and the idle level, with the
-  board on; then with the board off and the ESC on.
+- **Steps:** capture a frame's high level and the idle level with the
+  board on. Only if both measure at or below 3.63 V, capture them again
+  with the board off and the ESC on.
 - **Pass:** the high level at most 5.5 V with the board on and at most
   3.63 V with it off (the pin's rating). Above 3.63 V with the board off,
   the rule "power the board before the ESC" is the protection.
 - **Record:** both levels per ESC.
 - **Result to:** open item 3; kiss-telemetry.md, "Hardware record".
-- **Safety:** measure with the board on first.
+- **Safety:** the board powered before the ESC; the board-off capture
+  only after the board-on levels pass 3.63 V.
 
 #### KS-2. A KISS frame on GP1 on the telemetry bit alone
 
@@ -723,11 +752,15 @@ whose STATUS.md names the same check under its item 22.
   minutes. **Why:** pull request #49 disarms the tester when the controller
   does not answer for 4 reads in a row and 100 ms; if the controller dozes,
   it disarms every latched motor shortly after the finger lifts.
-- **Setup:** E; the pull request #49 image.
-- **Steps:** power up and leave the tester untouched for 5 minutes; then,
+- **Setup:** E; the pull request #49 image. It discards `main`'s version 6
+  settings block and starts from its defaults (see "Firmware for the
+  bench"): check SIG PIN and MAX THROTTLE before arming, and expect
+  `main`'s settings reset or carried over from version 5 when it is flashed
+  back.
+- **Steps:** power up and leave the tester untouched for 5 min; then,
   propeller off, arm with the latch on (HOLD on that branch, LATCH on
   `main`) at a low throttle and lift the finger.
-- **Pass:** `TOUCH NOT ANSWERING` does not appear in the 5 minutes; the motor
+- **Pass:** `TOUCH NOT ANSWERING` does not appear in the 5 min; the motor
   runs until DISARM or the 30 s idle disarm.
 - **Record:** the time watched; when the motor stopped and why.
 - **Result to:** open item 23; the pull request.
@@ -758,7 +791,8 @@ whose STATUS.md names the same check under its item 22.
   initialisation on RAZOR32 and EXUAV 70A ESCs.
 - **Setup:** E, a BLHeli_32 32.6 ESC, only if one is at hand.
 - **Steps:** power the ESC; listen; then the owner's request to the
-  reporter: arm, then plug the ESC in while armed.
+  reporter: arm with the throttle at zero, then plug the ESC in while
+  armed, the throttle still at zero.
 - **Pass:** criterion not set: record the start-up sounds and LINK.
 - **Record:** the ESC, its firmware, the sounds, LINK at each rate.
 - **Result to:** open item 1; the issue.
@@ -818,7 +852,8 @@ ESC COMMANDS.
   after the board's restart (decision 4).
 - **Record:** the note each time; the motor's direction and speed.
 - **Result to:** as EC-B1; open item 24.
-- **Safety:** propeller off; MAX THROTTLE raised to 60 % for this test.
+- **Safety:** propeller off; MAX THROTTLE raised to 60 % for this test, a
+  value this plan sets, not the note.
 
 #### EC-B4. BEEP 1 to 5 on each firmware
 
@@ -905,6 +940,23 @@ step 3.
   "Device backups".
 - **Safety:** propeller off.
 
+#### OI-24c. An ESC set to EDT ARM
+
+[STATUS.md](../STATUS.md#open-items) open item 24, its last paragraph.
+
+- **Verifies:** an AM32 ESC with PROTOCOL at EDT ARM on the tester. **Why:**
+  STATUS records that such an ESC does not run on the tester, which sends
+  zero frames after its EDT enable; sending the enable in place of zero
+  frames while armed at zero throttle is proposed, not built, and needs a
+  check on hardware.
+- **Setup:** E, the AM32 ESC; PROTOCOL set to EDT ARM on ESC SETTINGS, the
+  backup of VT-5 on the card.
+- **Steps:** arm; 5 % on the tester; disarm; PROTOCOL back as it was.
+- **Pass:** criterion not set; record whether the motor runs.
+- **Record:** LINK, the tiles and the motor.
+- **Result to:** open item 24.
+- **Safety:** propeller off.
+
 #### OI-24b. An AM32 layout the table does not know, optional
 
 [STATUS.md](../STATUS.md#open-items) open item 24.
@@ -921,15 +973,16 @@ step 3.
 [sd-write-cache.md](design/sd-write-cache.md#work-breakdown) step 5; STATUS
 open item 12.
 
-- **Verifies:** during the AM32 claim with a card, core0 polls the card's
-  busy once per loop pass. **Why:** the glue and `src/card_cache.cpp` are
-  built by the firmware only.
-- **Setup:** E, a card; the scope on the card's DAT0 and CMD at the microSD
-  socket (GP21 and GP20; the probe points are not recorded).
+- **Verifies:** while the AM32 claim holds the card's write cache, core0
+  looks at the card's busy once per loop pass. **Why:** the glue and
+  `src/card_cache.cpp` are built by the firmware only.
+- **Setup:** E, a card; the scope on the card's DAT0 and CMD lines (GP21
+  and GP20) at the microSD socket, where the probe points are not
+  recorded.
 - **Steps:** a write on ESC SETTINGS, capturing the backup's flush.
-- **Pass:** criterion not set beyond "once per loop pass". A look at DAT0
-  does not show on a scope, and the note sets no method: record DAT0's
-  busy time and the commands around it.
+- **Pass:** criterion not set beyond "once per loop pass". The scope does
+  not show a look at DAT0, and the note sets no method; record how long
+  DAT0 shows busy and the commands before and after it.
 - **Record:** the capture.
 - **Result to:** verification table, row "SD write cache"; open item 12.
 - **Safety:** propeller off.
@@ -1081,14 +1134,14 @@ Setup S; SERVO SUPPLY at `OWN`; the scope on SIG (GP0) and AUX (GP1).
 | ID | Step | Pass (open item 9) | Record |
 |---|---|---|---|
 | SV-1 | open SERVO TESTER, no START | SAFE after the claim: both lines low, no edges | the capture |
-| SV-2 | START at 50 Hz, CENTRE 1500 µs; then the 560 Hz profile, HELI TAIL 760 | 1500 µs reads 1500 µs on the scope; the frame from the 1 MHz counter's wrap, 19,999 at 50 Hz and 1,784 at 560 Hz, so 20,000 µs and 1,785 µs | pulse width and period at each rate |
+| SV-2 | START at 50 Hz, CENTRE 1500 µs; then the 560 Hz profile, HELI TAIL 760, with no servo on the pins or with a 760 µs tail servo only | 1500 µs reads 1500 µs on the scope; the frame from the 1 MHz counter's wrap, 19,999 at 50 Hz and 1,784 at 560 Hz, so 20,000 µs and 1,785 µs | pulse width and period at each rate |
 | SV-3 | one servo, then SET → SERVOS TWO while the first runs | the second channel starts without a step on the first | the capture of both channels |
 | SV-4 | STOP while running at 50 Hz | the last pulse ends within one frame, 20 ms at 50 Hz | the time from the press to the last edge |
 | SV-5 | halt core0 in the debugger while running | the pulses stop 250 ms after the last UI frame | the time |
 | SV-6 | BACK while RUNNING; a profile change right after STOP | the last pulse complete, not cut short; the pins leave PWM about 41 ms after BACK; the rebind waits until about 41 ms after STOP, at 50 Hz | both captures |
-| SV-7 | the line after the release, through the leave page, then RESTART DSHOT | an input with the pull-down on: low; DShot back on RESTART DSHOT | the capture |
+| SV-7 | the line after the release, through the leave page; unplug the servos (the leave page's step 1), then RESTART DSHOT: DShot reads to a servo as a pulse of about 970 µs at 1 kHz (README.md) | an input with the pull-down on: low; DShot back on RESTART DSHOT | the capture |
 | SV-8 | STOP on SET while RUNNING | level 0 within one frame, as on SERVO | the time |
-| SV-9 | a real servo on each profile | criterion not set: record whether it reads 3.3 V pulses and moves | per servo and profile |
+| SV-9 | a real servo on each profile, each profile only on a servo rated for it: a rate above 60 Hz overheats an analogue servo (README.md) | criterion not set: record whether it reads 3.3 V pulses and moves | per servo and profile |
 
 #### OI-24a. A profile taken past its travel
 
@@ -1146,15 +1199,19 @@ STATUS open item 16. Setup A with the INA219 on J3; CURRENT SENSE at
 
 - **Verifies:** offset and gain error at /8. **Why:** the datasheet facts
   the design marks "to confirm" are not checked against SBOS448G.
-- **Setup:** C without a servo: the converter or bench supply 1 at 5 V into
-  the INA219's VIN+, the resistive load and the reference ammeter on VIN-.
-- **Steps:** 0 A, 0.1 A, 1 A, 2 A and 3 A; then 3.5 A, beyond the range.
+- **Setup:** bench supply 1 at 5 V into the INA219's VIN+, the resistive
+  load and the reference ammeter from VIN- to GND; no converter. SERVO
+  SUPPLY at `OWN`, SERVO TESTER open and SAFE: its readout row shows the
+  current and the bus voltage, and with no switched supply the guard's
+  cuts switch nothing.
+- **Steps:** 0 A, 0.1 A, 1 A, 2 A and 3 A, each set with the ammeter or
+  the electronic load (see Equipment); then 3.5 A, beyond the range.
 - **Pass:** criterion not set in the note; record the offset and gain
   error, and the code at 3.5 A.
 - **Record:** the readout and the reference at each step.
 - **Result to:** as CS-B1.
 - **Safety:** the load's power rating (17 W at 3.5 A and 5 V); the supply's
-  current limit at 4 A.
+  current limit at 4 A, a value this plan sets.
 
 #### CS-B5. Bus voltage against a multimeter
 
@@ -1168,7 +1225,8 @@ STATUS open item 16. Setup A with the INA219 on J3; CURRENT SENSE at
 
 [current-sense.md](design/current-sense.md#q1-the-converter-module), Q1:
 "Whichever module is used is checked on the bench before it is relied on".
-Setup C; the converter's input from bench supply 1 or its own cell.
+Setup C; the converter's input from bench supply 1 or its own cell. EN
+stays off J4 until `CS-B6` has measured it with the board unpowered.
 
 #### CS-B6. Disconnect, threshold, start-up and decay
 
@@ -1180,12 +1238,24 @@ Setup C; the converter's input from bench supply 1 or its own cell.
   start-up are known only from this test. `SUPPLY_START_MAX_MS`, 500 ms, is
   the note's value until B6 measures the start-up.
 - **Setup:** C; the scope on EN and VOUT; bench supply 1 at 3.0 V, then
-  4.2 V; the board off, in reset, in BOOTSEL, and on.
-- **Steps:** each state; then START and STOP on the servo tester.
-- **Pass:** with EN low, VOUT at 0 V at both VIN (kst-programming.md step 7);
-  EN at most 0.5 V with the board unpowered and VIN present, and below the
-  converter's falling threshold (kst-programming.md, "Hardware"). The
-  start-up time and the decay: criterion not set; record them.
+  4.2 V. GP28 and GP29 drive only 0 V or 3.3 V: a source on EN while EN is
+  on J4 fights the pin.
+- **Steps:**
+  1. EN's wire off J4, VIN at 4.2 V: EN on its pull-down alone, which is
+     what an unpowered board's pad sees; VOUT at 3.0 V and 4.2 V VIN (the
+     disconnect).
+  2. EN's wire still off J4: the threshold, rising and falling, at 3.0 V and
+     4.2 V VIN, from bench supply 2 limited to 3.3 V and a current limit.
+  3. Only if step 1 passes: EN to GP28 (J4 pin 11), SERVO SUPPLY at `GP28`.
+     The board unpowered, held in reset, in BOOTSEL, and on the main
+     screen: EN and VOUT in each.
+  4. START and STOP on the servo tester: the start-up time from EN high to
+     4.5 V; the decay after the switch-off, with a servo and with none.
+- **Pass:** EN at or below 0.5 V in step 1 and with the board unpowered in
+  step 3, and below the converter's falling threshold (kst-programming.md,
+  "Hardware"); with EN low, VOUT at 0 V at both VIN and in each state of
+  step 3 (kst-programming.md step 7). The start-up time and the decay:
+  criterion not set; record them.
 - **Record:** VOUT and EN in each state; both thresholds; the start-up time
   on the scope; the decay with and without a servo.
 - **Result to:** verification table, row "The servo tester on the switched
@@ -1197,12 +1267,16 @@ Setup C; the converter's input from bench supply 1 or its own cell.
 [STATUS.md](../STATUS.md#open-items) open item 15.
 
 - **Verifies:** EN high and low at GP28 and at GP29, with the converter's
-  output following. **Why:** no converter has been on GP28 or GP29.
+  output following, and EN low in every board state at GP29 as CS-B6 step 3
+  found it at GP28. **Why:** no converter has been on GP28 or GP29. KST-7a
+  and HT-6b use this record and CS-B6's.
 - **Setup:** C, EN on GP28 (J4 pin 11), then GP29 (J4 pin 12), SERVO SUPPLY
   set to match.
-- **Steps:** START and STOP on the servo tester at each pin.
-- **Pass:** VOUT follows EN at each pin.
-- **Record:** the capture per pin.
+- **Steps:** at GP29, CS-B6's step 3; at each pin, START and STOP on the
+  servo tester.
+- **Pass:** VOUT follows EN at each pin; at GP29 EN low and VOUT at 0 V in
+  each board state.
+- **Record:** the capture per pin and state.
 - **Result to:** open item 15.
 - **Safety:** GP28 and GP29 are not fault tolerant: EN only, nothing that
   drives the pin.
@@ -1212,8 +1286,11 @@ Setup C; the converter's input from bench supply 1 or its own cell.
 - **Verifies:** VOUT at 1 A, 2 A and 3 A, its current limit, its temperature
   after 1000 ms of stall. **Why:** decision 10 needs 5.0 V and at least 3 A;
   the module's ratings are unknown.
-- **Setup:** C with the resistive loads in place of the servo; the scope on
-  VOUT; the thermometer.
+- **Setup:** C with the resistive loads on VOUT in place of the servo, and
+  CURRENT SENSE at `NONE`, so the guard's stall cut (above 1.0 A for
+  400 ms) and hard cut (3.0 A) do not switch the supply off; or the load on
+  VOUT ahead of the shunt. The servo tester's START switches EN on. The
+  scope on VOUT; the thermometer.
 - **Pass:** criterion not set in the note beyond the requirement of 5 V at
   at least 3 A, with no tolerance on VOUT. For reference, the firmware cuts
   the supply when VOUT reads under 4.0 V for 1000 ms (`GUARD_LOW_MV`).
@@ -1226,8 +1303,8 @@ Setup C; the converter's input from bench supply 1 or its own cell.
 
 [STATUS.md](../STATUS.md#open-items) open item 16, which lists "the servo
 tester's switch-on, its pulses at 4.5 V and its switch-off at STOP, a trip
-and BACK" among B6 to B13; [current-sense.md](design/current-sense.md#slice-3-as-built),
-slice 3.
+and BACK" among B6 to B13;
+[current-sense.md](design/current-sense.md#slice-3-as-built), slice 3.
 
 - **Verifies:** EN low while SAFE, high at START, pulses only after VOUT
   reads 4.5 V, EN low at STOP and at BACK. **Why:** slice 3 runs in the host
@@ -1237,8 +1314,7 @@ slice 3.
 - **Pass:** no pulse on SIG before VOUT reaches 4.5 V; EN low in the same
   pass as level 0 on the pins at STOP; after the switch-off, the reading at
   or below 1.0 V; no "not off" warning, which takes a reading above 2.5 V
-  for 2000 ms (current-sense.md,
-  "Read-back from the bus voltage").
+  for 2000 ms (current-sense.md, "Read-back from the bus voltage").
 - **Record:** the captures; the start-up time the screen shows.
 - **Result to:** verification table, row "The servo tester on the switched
   supply"; open item 16.
@@ -1260,12 +1336,51 @@ slice 3.
   supply" (B3); open item 16.
 - **Safety:** 100 Ω, never a short, to GND.
 
+#### CS-B9, the hard cut
+
+[current-sense.md](design/current-sense.md#bench-tests), B9, its 1.5 Ω step;
+the stall step is in Session 7. Run here so that Session 5 relies on a
+proven hard cut, not on bench supply 1's current limit alone.
+
+- **Verifies:** the hard cut on one reading at or above 3.0 A
+  (`GUARD_HARD_MA`), and the time from the current step to EN low.
+- **Setup:** C with the servo tester running; the load on VIN-, the servo's
+  plus behind the shunt, so the INA219 sees its current; never on VOUT ahead
+  of the shunt. The note's 1.5 Ω gives about 3.13 A with the shunt in
+  series; leads and the ammeter lower it. Set the current at least 0.1 A
+  over 3.0 A, a margin this plan sets; above 3.2 A, the end of the /8
+  range, the reading is clipped, which cuts as well. The scope on EN and
+  across the shunt with two probes.
+- **Steps:** switch the load onto VIN- while the tester runs.
+- **Pass:** EN low on the hard cut. The time to EN low: criterion not set;
+  record it.
+- **Record:** the current measured on the ammeter; the capture; the time.
+- **Result to:** verification table, row "The cuts on the current sensor's
+  readings"; open item 16.
+- **Safety:** the load's rating, about 16 W; bench supply 1's current limit
+  set.
+
+#### CS-B11. The heartbeat with the supply on
+
+[current-sense.md](design/current-sense.md#bench-tests), B11. Run here so
+that Session 5 relies on it.
+
+- **Verifies:** core0 halted in a debugger while the supply is on.
+- **Setup:** C with a servo, the tester running; the SWD probe; the scope on
+  EN.
+- **Pass:** the supply off within 250 ms.
+- **Record:** the time from the halt to EN low.
+- **Result to:** verification table, row "The servo tester on the switched
+  supply" (B11); open item 16.
+- **Safety:** as Setup C.
+
 ## Session 5: servo programmers and backups
 
-Prerequisites: Session 4, `CS-B6`, `CS-B7`, `OI-15d` and `OI-16` passed
-with the converter used here. Setup C with the servo under test; a card in
-the slot. Each write is relied on only after its family's write with
-read-back below has passed.
+Prerequisites: all of Session 4 passed with the converter used here, the hard
+cut (`CS-B9`'s hard-cut step), the stuck bus (`CS-B3`) and the heartbeat
+(`CS-B11`) among it; Session 3 for the ESC backups of `BK-1`. Setup C with the
+servo under test; a card in the slot. Each write is relied on only after its
+family's write with read-back below has passed.
 
 ### 5A. KST bring-up
 
@@ -1275,23 +1390,23 @@ in rcbench's order and before any write is relied on."
 
 #### KST-7a. The converter, with the user's supply on
 
-- **Verifies:** EN and VOUT in every board state, the start-up time, and
-  VOUT at the end of the 2000 ms off time with the servo as the load.
-  **Why:** the KST search's entry delay rests on a measured start-up time.
-- **Setup:** C, no servo first, then the KST servo; the scope on EN and
-  VOUT.
-- **Steps:** the board unpowered, held in reset, in BOOTSEL, and on the main
-  screen with SERVO SUPPLY at `GP28` and at `GP29`; then a switched search
-  with the servo.
-- **Pass:** EN low and VOUT at 0 V in each of those states. The start-up time
-  from EN high to VOUT in range: record. VOUT at the end of the off time:
-  "the level at which a KST servo resets is not known, so the record is the
-  voltage reached, not a pass or fail".
-- **Record:** each state's levels; the start-up time; VOUT at the end of the
-  off time; VOUT with EN low at the lowest and the highest VIN used.
+- **Verifies:** the converter with the KST servo as its load: the start-up
+  time from EN high to VOUT in range, and VOUT at the end of the 2000 ms off
+  time. EN and VOUT in each board state, at GP28 and GP29, and VOUT with EN
+  low at the lowest and the highest VIN are `CS-B6`'s and `OI-15d`'s
+  records, which serve here. **Why:** the KST search's entry delay rests on
+  a measured start-up time.
+- **Setup:** C with the KST servo; the scope on EN and VOUT.
+- **Steps:** a switched search with the servo; LEAVE, which switches the
+  supply off for 2000 ms.
+- **Pass:** criterion not set for the start-up time: record it. VOUT at the
+  end of the off time: "the level at which a KST servo resets is not known,
+  so the record is the voltage reached, not a pass or fail".
+- **Record:** the start-up time with the servo; VOUT at the end of the off
+  time.
 - **Result to:** verification table, row "KST switched servo supply"; open
   item 10.
-- **Safety:** no servo for the first steps.
+- **Safety:** as Setup C.
 
 #### KST-7b. The reply level at the connector
 
@@ -1326,7 +1441,8 @@ in rcbench's order and before any write is relied on."
 - **Setup:** C; the scope on SIG. Repeat the write once on USB power alone
   with no cell, to record whether a red BOARD voltage refuses it (`OI-22b`).
 - **Steps:** read 20 times; one value changed and written with its hold;
-  LEAVE; power-cycle by REBOOT; read.
+  BACK to the leave page; HOLD TO REBOOT, which power-cycles the servo;
+  read; then LEAVE.
 - **Pass:** the read-back verified, and the value read after the power
   cycle. Read reliability: criterion not set; record the count of good
   reads.
@@ -1381,8 +1497,9 @@ before a write is relied on."
 
 #### HT-6b. The converter's checks
 
-- **Verifies:** the checks of `KST-7a`, which Hitec shares, with the Hitec
-  servo as the load.
+- **Verifies:** the checks of `KST-7a`, which Hitec shares: `CS-B6`'s and
+  `OI-15d`'s records, with the Hitec servo as the load for the start-up
+  time and VOUT at the end of the 2,000 ms off time.
 - **Pass, record:** as `KST-7a`.
 - **Result to:** open item 14.
 
@@ -1458,6 +1575,8 @@ before a write is relied on."
 - **Verifies:** the ring of `BACKUP/` on real cards. **Why:** built and run
   in the host suite only.
 - **Setup:** each device of Sessions 3 and 5; a FAT32 and an exFAT card.
+  The ESCs on Setup E's lead, never on Setup C's, which puts VOUT on an
+  ESC's BEC wire.
 
 | ID | Step | Pass | Record |
 |---|---|---|---|
@@ -1470,8 +1589,9 @@ before a write is relied on."
 
 ## Session 6: receiver, S.BUS output on a scope, angle meter
 
-Prerequisites: Session 1; `CS-B2` of Session 4 for `AM-B9`. No ESC on any
-pin.
+Prerequisites: Session 1; `KS-2` of Session 2 for `RX-8`; `CS-B2` of
+Session 4 for `AM-B9`. No ESC on any pin, except in `RX-8`, which uses
+Setup E with its safety rules.
 
 ### 6A. The S.BUS monitor
 
@@ -1491,12 +1611,12 @@ MENU → RX SIGNALS → MONITOR. "Only hardware settles these."
 |---|---|---|---|
 | RX-1 | the receiver's output level and idle level on the scope at GP1, before the first connection | the high level within GP1's rating, 5.5 V with the board powered; that a 3.3 V output clears the RP2350's threshold "to confirm" | both levels per receiver |
 | RX-2 | frames from at least one receiver per make at hand | frames decoded on the screen | the frame period each sends |
-| RX-3 | 10 minutes of frames | zero parity and framing errors over 10 minutes | the counts |
+| RX-3 | 10 min of frames | zero parity and framing errors over 10 min | the counts |
 | RX-4 | each stick and switch against the transmitter's channel monitor | the channel order matches | the order |
 | RX-5 | the transmitter off, in the receiver's hold mode and its no-pulses mode | criterion not set: record what each shows (`FAILSAFE` is the last frame's failsafe bit, `NO SIGNAL` no frame for 100 ms) | the screen per mode |
 | RX-6 | unplug the receiver | `NO SIGNAL` within 100 ms plus one UI frame | the time |
 | RX-7 | GP1's level after unplugging (erratum RP2350-E9) | criterion not set | the level; what the counts show |
-| RX-8 | leave the monitor; KISS on GP1 with Setup E's telemetry wire | KISS decodes again, no inversion left | the tiles' tags |
+| RX-8 | after `KS-2` has passed: leave the monitor, unplug the receiver; then Setup E with its safety rules (propeller off, the board powered before the ESC) and KISS on GP1 by the telemetry wire | KISS decodes again, no inversion left | the tiles' tags |
 
 ### 6B. The S.BUS output without an ESC or an FC
 
@@ -1515,9 +1635,10 @@ probe runs at each bind with nothing to answer it.
   the frames are not tested on hardware.
 - **Setup:** the scope on GP0 (J5 pin 2), nothing else on GP0; the SWD
   probe.
-- **Pass:** each item as listed. At the bind the line rests high on the
-  pull-up through the probe and falls once at the switch to the UART
-  (sbus-output.md, slice 3 as built, steps 3 and 4).
+- **Pass:** each item as listed. At the bind: the probe's greetings, the
+  line resting high on the pull-up between them, then one fall at the
+  switch to the UART, and no high edge after it (sbus-output.md, slice 3 as
+  built, steps 3 and 4).
 - **Record:** the captures; core1's pass time with the job if the
   debugger reads it.
 - **Result to:** verification table, rows "S.BUS output, slices 1 and 2"
@@ -1527,8 +1648,9 @@ probe runs at each bind with nothing to answer it.
 #### SO-2. Read back by a second board's monitor
 
 - **Verifies:** the channels and flags as sent.
-- **Setup:** GP0 of this board to GP1 (AUX) of the second board, the grounds
-  joined; the second board on S.BUS MONITOR.
+- **Setup:** GP0 of this board to GP1 of the second board, the grounds
+  joined; the second board keeps SIG at GP0, so its AUX is GP1, and runs
+  S.BUS MONITOR.
 - **Pass:** criterion not set in the note beyond "read back": each channel,
   CH17, CH18 and both flags as set on SET.
 - **Record:** a photo of both screens per setting.
@@ -1564,9 +1686,11 @@ debugger or a debug print, which the note does not set.
 
 Prerequisites: all of Session 4 passed with the converter and the INA219
 used here; `SD-1` and `SD-2` of Session 1 on the card used for `CS-B12`.
-Setup C; the scope on EN, SIG and the two ends of the 0.1 Ω shunt (or a
-current probe); the SWD probe. Run the tests in the order below: the cuts
-first, the log last.
+Setup C; the scope on EN, SIG and the two ends of the 0.1 Ω shunt, each
+end with its own probe and the ground clips on board GND only, or a
+differential or current probe. The hard cut and the heartbeat (`CS-B9`'s
+hard-cut step, `CS-B11`) passed in Session 4. Run the tests in the order
+below: the stall first, the log last.
 
 [current-sense.md](design/current-sense.md#bench-tests), "Bench tests";
 STATUS open item 16.
@@ -1591,16 +1715,16 @@ STATUS open item 16.
 - **Result to:** verification table, row "The cuts on the current sensor's
   readings"; open item 16; current-sense.md, "Protection".
 
-#### CS-B9. The cuts and their time
+#### CS-B9, the stall cut
 
-- **Verifies:** the stall cut with a servo held at its stop, the hard cut
-  with a 1.5 Ω load (3.3 A), and the time from the current step to EN low.
-- **Steps:** a servo held at its stop; then the 1.5 Ω load switched onto
-  VOUT while the tester runs.
-- **Pass:** the stall cut at 400 ms above 1.0 A; the hard cut on one reading
-  at or above 3.0 A (`GUARD_HARD_MA`). The time to EN low: criterion not
-  set; record it.
-- **Record:** both captures; the time from the step to EN low.
+The stall step of B9; its hard-cut step ran in Session 4.
+
+- **Verifies:** the stall cut with a servo held at its stop, and the time
+  from the stall to EN low.
+- **Steps:** a servo held at its stop while the tester runs.
+- **Pass:** the stall cut at 400 ms above 1.0 A. The time to EN low:
+  criterion not set; record it.
+- **Record:** the capture; the current across the shunt; the time.
 - **Result to:** as CS-B8.
 
 #### CS-B10. The move timing against a scope
@@ -1611,14 +1735,6 @@ STATUS open item 16.
   within one read and two cycles of the model.
 - **Record:** the screen's time, the scope's, rcbench's record.
 - **Result to:** verification table, row "The move timing"; open item 16.
-
-#### CS-B11. The heartbeat with the supply on
-
-- **Verifies:** core0 halted in a debugger while the supply is on.
-- **Pass:** the supply off within 250 ms.
-- **Record:** the time from the halt to EN low.
-- **Result to:** verification table, row "The servo tester on the switched
-  supply" (B11); open item 16.
 
 #### CS-B13. The voltage at the servo at a stall
 
@@ -1635,9 +1751,9 @@ STATUS open item 16.
   the log on. **Why:** a real card's read latency and busy time, the
   receiver's `busRxReady()` on the board and the cuts' timing with the log
   on are not measured.
-- **Prerequisites:** CS-B9 and CS-B11 passed.
+- **Prerequisites:** both steps of CS-B9, and CS-B11, passed.
 - **Steps:** HOLD TO START with a card mounted; run 60 s, sweeping; STOP;
-  repeat CS-B9's stall with the log on; read the files on the PC.
+  repeat CS-B9's stall step with the log on; read the files on the PC.
 - **Pass:** no heartbeat trip in the 60 s; the rows counted. The row count
   has no figure in the note; for reference, one reading every 25 ms gives
   about 2,400 rows in 60 s (derived). The cut's time with the log on:
@@ -1679,8 +1795,9 @@ SO-4, SO-6, SO-3.
 
 - **Verifies:** an AM32 and a Bluejay ESC on GP0, motor disconnected,
   powered up after START, so the claim's check never saw them.
+- **Setup:** Setup E without a motor; the ESC unpowered at START.
 - **Pass:** neither arms nor beeps a detection, as read from source.
-- **Record:** the sounds; 2 min watched per ESC.
+- **Record:** the sounds; 2 min watched per ESC, a time this plan sets.
 
 #### SO-6. BLHeli_S and Multishot, on an expendable ESC
 
@@ -1688,6 +1805,11 @@ SO-4, SO-6, SO-3.
   1500 µs and CH17 on: whether it detects Multishot (its arm-sequence
   beeps), and its stored minimum and maximum throttle read with ESC
   SETTINGS before and after. "The test may rewrite the ESC's settings."
+- **Setup:** Setup E without a motor, the expendable BLHeli_S ESC,
+  unpowered until the probe has passed.
+- **Steps:** START; power the ESC; watch for at least 200 s: in the note's
+  model of the line, detection takes 4.5 s to 199 s, about 40 s at the
+  median; STOP; read the throttle values on ESC SETTINGS.
 - **Pass:** criterion not set; record.
 - **Record:** the beeps and the time to them; both throttle values before
   and after.
@@ -1805,8 +1927,8 @@ result is recorded as measured, and a pass or fail is the owner's call.
 
 | Criterion | Tests |
 |---|---|
-| None: record only | `OI-21`, `VT-6`, `DG-7`, `SD-4`, `RS-4`, `RS-5`, `OI-1`, `EC-B4`, `EC-B7`, `EC-B8`, `WC-1`, `WC-3`, `BJ-B3`, `BJ-B4`, `BJ-B7`, `BJ-B11`, `BJ-B12`, `BJ-B13`, `SV-9`, `CS-B4`, `CS-B5`, `CS-B7`, `CS-B8`, `CS-B10`, `CS-B13`, `OI-11`, `HT-6a`, `BK-3`, `RX-5`, `RX-7`, `AM-B3` to `AM-B8`, `SO-6`, `OI-18`, `UB-B5`, `UB-B7` to `UB-B11` |
-| Part of the test | `OI-22b` (the reading's error), `RS-2` (the drift), `SD-2` (beyond the drop count), `OI-20a` (the scan's time), `BB-1` (the viewers), `OI-15a` (`DSERR`), `PC-3`, `EC-B2` (the tone), `BJ-B2`, `BJ-B5` (the rise time), `BJ-B10` (the next read), `OI-24a` (the servo's travel), `CS-B2` (the frame's time), `CS-B3` (the code, the leakage), `CS-B6` (the start-up time, the decay), `CS-B9` (the time to EN low), `CS-B12` (the row count, the cut's time), `KST-7a` (the start-up time, VOUT after the off time), `KST-7c` (the window), `KST-7d` (read reliability), `HT-6c` (the decay), `SO-2`, `SO-3` (the two times), `UB-B6` (the turnaround, the echo) |
+| None: record only | `OI-21`, `VT-6`, `DG-7`, `SD-4`, `RS-4`, `RS-5`, `OI-1`, `EC-B4`, `EC-B7`, `EC-B8`, `WC-1`, `WC-3`, `BJ-B3`, `BJ-B4`, `BJ-B7`, `BJ-B11`, `BJ-B12`, `BJ-B13`, `SV-9`, `CS-B4`, `CS-B5`, `CS-B7`, `CS-B8`, `CS-B10`, `CS-B13`, `OI-11`, `HT-6a`, `KST-7a`, `HT-6b`, `OI-24c`, `BK-3`, `RX-5`, `RX-7`, `AM-B3` to `AM-B8`, `SO-6`, `OI-18`, `UB-B5`, `UB-B7` to `UB-B11` |
+| Part of the test | `OI-22b` (the reading's error), `RS-2` (the drift), `SD-2` (beyond the drop count), `OI-20a` (the scan's time), `BB-1` (the viewers), `OI-15a` (`DSERR`), `PC-3`, `EC-B2` (the tone), `BJ-B2`, `BJ-B5` (the rise time), `BJ-B10` (the next read), `OI-24a` (the servo's travel), `CS-B2` (the frame's time), `CS-B3` (the code, the leakage), `CS-B6` (the start-up time, the decay), `CS-B9` (the time to EN low), `CS-B12` (the row count, the cut's time), `KST-7c` (the window), `KST-7d` (read reliability), `HT-6c` (the decay), `SO-2`, `SO-3` (the two times), `UB-B6` (the turnaround, the echo) |
 
 ## Results template
 
@@ -1841,8 +1963,8 @@ and the note's section the result went into.
 | pin-claim.md, through open item 8 | 4: `PC-1` to `PC-4` |
 | servo-tester.md, through open item 9 | 9: `SV-1` to `SV-9` |
 | backups.md, through open item 13 | 3: `BK-1` to `BK-3` |
-| STATUS.md open items alone | 17: `OI-1`, `OI-4`, `OI-11`, `OI-15a`, `OI-15d`, `OI-15e`, `OI-16`, `OI-18`, `OI-19`, `OI-20a`, `OI-20b`, `OI-21`, `OI-22a`, `OI-22b`, `OI-23`, `OI-24a`, `OI-24b` |
+| STATUS.md open items alone | 18: `OI-1`, `OI-4`, `OI-11`, `OI-15a`, `OI-15d`, `OI-15e`, `OI-16`, `OI-18`, `OI-19`, `OI-20a`, `OI-20b`, `OI-21`, `OI-22a`, `OI-22b`, `OI-23`, `OI-24a`, `OI-24b`, `OI-24c` |
 | STATUS.md verification table alone | 4: `VT-2`, `VT-3`, `VT-5`, `VT-6`; `VT-1` and `VT-4` are part of `OI-15a` |
 
-141 tests in all. menu.md and menu-b.md have no bench list; the panel check
+142 tests in all. menu.md and menu-b.md have no bench list; the panel check
 of open item 18 is `OI-18`.

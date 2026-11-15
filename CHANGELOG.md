@@ -47,7 +47,7 @@ protocol.
 - After v0.1.0-rc1: the hardware bench plan,
   [docs/bench-plan.md](docs/bench-plan.md). It gathers the bench tests of
   the design notes' bench and bring-up sections and of STATUS.md's open
-  items and verification table, 141 tests, into ten sessions that build on
+  items and verification table, 142 tests, into ten sessions that build on
   each other: the board and the SD card, then DShot and the pin claim, the
   ESC tools, the servo tester with the INA219 and the converter, the servo
   programmers, the receiver and the angle meter, and last the supply cuts

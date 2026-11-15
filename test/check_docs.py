@@ -471,7 +471,8 @@ def main():
             if not before.endswith("*/"):
                 problems.append(f"{path}: {m.group(2)}() has no doc comment")
 
-    # --- 8. relative links in the running record and design notes ---
+    # --- 8. relative links in the running record, the bench plan and the
+    #        design notes ---
     for path in LINKED_DOCS:
         problems.extend(check_links(path))
 
