@@ -1008,8 +1008,7 @@ model in `test/fake_i2c.*`. `setup()` calls `clockInit()` after
 `CMakeLists.txt` leaves `my_rtc.c` out of `sd_fatfs`. The logger records the
 clock at a log's start and stop, and `runSumText()` writes the clock lines
 from it. Nothing sets the clock: the set is slice 5. With the clock not set,
-`get_fattime()` returns 0 as `my_rtc.c` did, and the card gets the same
-dates as before.
+`get_fattime()` returns 0, and files carry FAT date 0.
 
 | Block | Where | Contract |
 |---|---|---|

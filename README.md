@@ -2382,7 +2382,8 @@ SENSE at `NONE` too, since touch and the IMU share the bus. The touch
 driver, the IMU driver and the clock's read at start-up (`src/clock.cpp`)
 report their own transfers to the same record; an abort with a line still
 low 10 µs after it counts as a stuck bus, not as a missing part. The probe
-reads the configuration register first and writes a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
+reads the configuration register first and writes a register only when it
+reads as an INA219's, 399Fh or 19EFh; another chip
 at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
 (`src/sense.h`), under a lock of its own, for core1; slices 3 and 4 of the
