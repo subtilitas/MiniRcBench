@@ -377,7 +377,9 @@ build or test for the RP2350's Hazard3 RISC-V cores.
 ### Prebuilt image
 
 Every [release](https://github.com/subtilitas/MiniRcBench/releases) has the
-`.uf2` attached. Flash it as above.
+`.uf2` attached. Flash it as above. No MiniRcBench image has run on hardware
+yet; the firmware's tests run on a host computer. The bench tests are listed in
+`docs/bench-plan.md`.
 
 Every green CI run uploads the `.uf2` as an
 artifact, so an untagged commit can be tested on hardware.
@@ -1066,8 +1068,10 @@ figures.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 
-Bidirectional DShot and EDT work on hardware. No defect is known as of
-DshotDisplay v2.3.
+Bidirectional DShot and EDT work on hardware with `pico-bidir-dshot`, the
+driver of DshotDisplay v2.3 (owner report; no defect known). MiniRcBench uses
+the driver in `src/dshot/`, which has not run on hardware in MiniRcBench;
+rcbench ran it at DShot600 on one AM32 ESC.
 
 ### KISS telemetry (optional third wire)
 
@@ -1087,7 +1091,9 @@ mAh, which EDT does not carry.
 The line is transmit-only from the ESC. Requests go out every 20th DShot frame
 (`KISS_REQUEST_EVERY_N`), which is 50 Hz at 1 kHz.
 
-**Status:** working on hardware (owner report). It is off by default
+**Status:** working on hardware with `pico-bidir-dshot` (owner report);
+whether that report covers the RP2350-Touch-LCD-2.8 is not recorded. Not
+tested on hardware in MiniRcBench. It is off by default
 (`KISS_ENABLE_LCD_2_8` = 0) because the board has two free pins and the ESC
 uses one.
 
@@ -4101,7 +4107,8 @@ byte swap. Commands use 8-bit frames. The panel clock is set to 62.5 MHz
 
 The [wiki](https://github.com/subtilitas/MiniRcBench/wiki) source is `wiki/`
 in this repository, in English and German. `docs.yml` mirrors it to GitHub
-after each successful Release run and overwrites edits made in the browser.
+after each successful Release run of a tag without a pre-release suffix and
+overwrites edits made in the browser.
 Every page says so in its footer.
 
 Its screenshots are not committed. The host suite renders them, one PNG

@@ -65,7 +65,7 @@
  * @ref BRIDGE_WRITE_WAIT_MS, BACK is drawn disabled (decision 7); and from
  * then until a RUN or the leave page's RESTART DSHOT, the leave page carries
  * `FLASH THE ESC AGAIN BEFORE USE.`, after BRIDGE's reopen too. A RUN counts
- * once core1 has taken it from the slot: one handed over just before BACK
+ * once core1 has taken it from the slot: one handed over shortly before BACK
  * is never sent, and the note stays.
  * BACK on a Running bridge always opens the leave page (decision 10 as
  * revised, ui_bridge.h): an ESC can sit in its bootloader with no frame of

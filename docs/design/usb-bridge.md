@@ -1166,9 +1166,11 @@ MSP frame ending it; `pinClaimKeep()` forgetting the page, so that a failed
 rebind gives none. Two survive: a write in passthrough and one in the 4-way
 interface leaving a pending RUN pending. On the host core1 runs between
 core0's passes, so `usbBridgeTask()` settles a pending RUN before a later
-frame can be handed over. On the chip core1 can take the RUN between that
-look and the write's handover; without the drop, the next pass would end
-the write's unfinished state.
+frame can be handed over. On the chip, in passthrough, core1 can take the
+RUN between that look and the write's handover; without the drop, the next
+pass would end the write's unfinished state. In the 4-way interface the
+drop is defensive only: a write-class frame is never a command's first
+frame, so the RUN of an earlier command is settled before it.
 
 
 ### Slice 3 as built

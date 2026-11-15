@@ -40,7 +40,9 @@ its own wire. AM32 is an open-source ESC firmware. PWM is pulse-width
 modulation. KST and Chaservo are servo brands that share one programming
 protocol.
 
-## 0.1.0 - Unreleased
+## Unreleased
+
+## 0.1.0 - 2026-11-15
 
 ### Added
 
@@ -1204,6 +1206,16 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: the release notes gain a "Hardware testing" section: no
+  MiniRcBench image has run on hardware. They name the image by its tag and
+  the ESC pin setting as SIG PIN. The README's "Prebuilt image" and the wiki's
+  Home page say that no MiniRcBench image has run on hardware. The README and
+  the KISS design notes name `pico-bidir-dshot` as the driver the owner's
+  hardware reports cover; the Telemetry and Telemetrie pages call it the DShot
+  driver of DshotDisplay v2.3. The README and the Telemetry pages state that
+  the driver in `src/dshot/` has not run on hardware in MiniRcBench and that
+  rcbench ran it at DShot600 on one AM32 ESC. The wiki footer says a
+  pre-release publishes no manual.
 - After v0.1.0-rc1: the documentation follows the code. STATUS.md's "Next
   steps" states what is open now: the draft pull request #49, the tags
   (v0.1.0-rc1 exists, v0.1.0-rc2 is not tagged), the bench plan as the next
@@ -2070,7 +2082,7 @@ protocol.
   them, or by the page's RESTART DSHOT
   (`usbBridgeWriteUnfinishedClear()`), which ends the claim: the next entry
   to USB BRIDGE starts with none. A RUN counts once core1 has taken it from
-  the frame slot, not at its handover: a RUN handed over just before BACK
+  the frame slot, not at its handover: a RUN handed over shortly before BACK
   is never sent, and the note stays. A board reset or a power loss in the
   middle of a flash still restarts with DShot on SIG and no note.
   Host-tested, not on hardware.

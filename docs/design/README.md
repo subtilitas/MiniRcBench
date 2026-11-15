@@ -13,7 +13,7 @@ firmware; the status lines here summarise it per feature.
 
 | Document | Status |
 |---|---|
-| [kiss-telemetry.md](kiss-telemetry.md) | Implemented. Working on hardware (owner report). Off by default. |
+| [kiss-telemetry.md](kiss-telemetry.md) | Implemented. Working on hardware with `pico-bidir-dshot` (owner report); whether that report covers the RP2350-Touch-LCD-2.8 is not recorded. Not tested on hardware in MiniRcBench. Off by default. |
 | [blackbox-logging.md](blackbox-logging.md) | Implemented. Hardware use recorded with the previous SDIO driver; none recorded with the current one. Buffer sizing unmeasured. |
 | [sdio-driver.md](sdio-driver.md) | Implemented, not tested on hardware. MIT SDIO driver written from the SD specification; replaces the SD library's GPL-derived one. Host tests against a simulated card; the PIO programs in a cycle-level model. |
 | [pin-claim.md](pin-claim.md) | Slices 1 and 2 built, host tests only, not tested on hardware: a screen takes the ESC and KISS pins from DShot while it is open, after a 250 ms zero-throttle drain; ESC SETTINGS and the servo tester run on it, and KST SERVO, HITEC SERVO, S.BUS MONITOR, S.BUS OUTPUT and USB BRIDGE take it with a pin user each, all built, host tests only. Shared hardware facts and the slice plan. |
@@ -50,12 +50,13 @@ input/output) SDIO (Secure Digital input/output) at 10 MHz, on the driver in
 yet. A USB (Universal Serial Bus) host can read the card as a read-only drive.
 
 KISS telemetry is implemented. The owner reports it working on hardware, the
-display's own telemetry request included; whether that report covers the
-RP2350-Touch-LCD-2.8 is not recorded. The receiver is a PIO state machine, so
-any free GPIO (general-purpose input/output) can carry the wire. The board
-frees two GPIOs, GP0 and GP1, both fault tolerant to 5.5 V while the board
-is powered. The ESC takes GP0 and KISS defaults to GP1, switched off until
-the user turns it on. GP28 and GP29 carry only the optional switched servo
+display's own telemetry request included, with `pico-bidir-dshot`, the DShot
+driver before `src/dshot/`. It is not tested on hardware in MiniRcBench. Whether
+that report covers the RP2350-Touch-LCD-2.8 is not recorded. The receiver is a
+PIO state machine, so any free GPIO (general-purpose input/output) can carry the
+wire. The board frees two GPIOs, GP0 and GP1, both fault tolerant to 5.5 V while
+the board is powered. The ESC takes GP0 and KISS defaults to GP1, switched off
+until the user turns it on. GP28 and GP29 carry only the optional switched servo
 supply's enable.
 
 What remains is measurement. BUF PEAK and WORST FLUSH under sustained logging

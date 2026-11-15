@@ -23,8 +23,11 @@ eRPM-Frames. Es braucht Unterstützung in der ESC-Firmware (BLHeli_32,
 Bluejay, AM32), und der ESC muss einen Freigabebefehl erhalten. Den sendet die
 Firmware; siehe unten.
 
-Bidirektionales DShot und EDT funktionieren auf der Hardware. Ein Fehler ist
-mit Stand DshotDisplay v2.3 nicht bekannt.
+Bidirektionales DShot und EDT funktionieren auf der Hardware mit dem
+DShot-Treiber von DshotDisplay v2.3 (laut Projektinhaber; kein Fehler bekannt).
+Der DShot-Treiber dieser Firmware stammt aus rcbench und ist in MiniRcBench
+noch nicht auf Hardware gelaufen; rcbench betrieb ihn mit DShot600 an einem
+AM32-ESC.
 
 **KISS-Telemetrie** ist ein optionales drittes Kabel vom Telemetrie-Pad des
 ESC. Ihre Schritte sind 0,01 V und 0,01 A, gegenüber 0,25 V und 1 A bei EDT,
@@ -133,7 +136,10 @@ Ein ESC mit KISS-Telemetrie sendet auf Anforderung ein 10-Byte-Frame mit
 DShot-Frame eines an, also mit 50 Hz. Das Kabel bringt feinere Spannung und
 Strom sowie die verbrauchten mAh.
 
-**Stand:** funktioniert auf der Hardware (laut Projektinhaber).
+**Stand:** funktioniert auf der Hardware mit dem DShot-Treiber von
+DshotDisplay v2.3 (laut Projektinhaber); ob dieser Bericht das
+RP2350-Touch-LCD-2.8 betrifft, ist nicht festgehalten. Mit dieser Firmware
+nicht auf Hardware getestet.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|
