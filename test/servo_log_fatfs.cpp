@@ -613,6 +613,12 @@ static void testPure() {
 		checkTrue(c.what, servoLogHowOf(&st, c.back) == c.want);
 	}
 
+	checkTrue("the open's limit: not at 1999 ms", !servoLogOpenLate(1000, 2999));
+	checkTrue("at 2000 ms", servoLogOpenLate(1000, 3000));
+	checkTrue("across the clock's wrap: not at 1999 ms, at 2000 ms",
+	          !servoLogOpenLate(0xFFFFFF00u, 0xFFFFFF00u + 1999u) &&
+	          servoLogOpenLate(0xFFFFFF00u, 0xFFFFFF00u + 2000u));
+
 	st = ServoStatus{};
 	st.ackSeq = 7;
 	st.running = true;
@@ -1359,6 +1365,49 @@ static void testOpenFaults() {
 	runEnds();
 	pass();
 	checkTrue("the run's end: the file removed, the cache off", !sdc_on() && !exists("/LOGS/SRV00001.CSV"));
+
+	// The open's flush fails: the block holding the entry not taken.
+	g_card.failHolding = "SRV00002CSV";
+	jobSafe();
+	WORD id = sdLogFs()->id;
+	checkTrue("the entry's block not taken at the open's flush: no log", !holdStart());
+	g_card.failHolding = nullptr;
+	s = logStatus();
+	checkTrue("THE FILE DID NOT OPEN, the cache Failed until the run's end",
+	          !s.active && s.fault == SdLogEnd::OpenFailed && !s.slow && cardCacheState() == CardCache::Failed);
+	runFor(500);
+	runEnds();
+	pass();
+	checkTrue("the run's end: the card mounted again, the cache off", !sdc_on() && sdLogFs()->id != id &&
+	          escStatus().state == SdLogState::Idle);
+	f_mount(nullptr, "", 0);
+
+	// A slow card with 600 files in LOGS/: the directory's scan alone passes
+	// the limit, so no search of the FAT starts and no reserve is taken.
+	section("Servo log over FatFs, FAT32: a long directory on a slow card, given up before the reserve");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	cardTimes(100000, 511000);
+	loopReset();
+	jobSafe();
+	f_mkdir("/LOGS");
+	g_card.busyUs = 0;   // the files put fast, as by a computer
+	for (int i = 0; i < 600; i++) {
+		char nm[32];
+		snprintf(nm, sizeof(nm), "/LOGS/F%04d.DAT", i);
+		put(nm, "");
+	}
+	g_card.busyUs = 511000;
+	sdLogRemount();   // a mount: the next open scans LOGS/
+	DWORD before = freeClusters();
+	g_refused = 0;
+	checkTrue("the open given up: no log", !holdStart() && logStatus().slow);
+	checkInt("no reserve taken during the run", (long)freeClusters(), (long)before);
+	checkInt("the Start taken", (long)g_refused, 0);
+	printf("  (the open: %llu us)\n", (unsigned long long)g_openUs);
+	runFor(500);
+	runEnds();
+	pass();
+	checkTrue("the run's end: no file, the cache off", !sdc_on() && !exists("/LOGS/SRV00001.CSV"));
 	f_mount(nullptr, "", 0);
 }
 

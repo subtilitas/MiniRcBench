@@ -349,30 +349,36 @@ brauchte: `# end=STOP rows=2400 dropped=0 up_ms=40`. `end=` ist `STOP`,
 `TOUCH_SILENT`, `BUS_STUCK` oder `NO_START`; `up_ms=-`, wenn die Bank die
 Versorgung nicht schaltet.
 
-- Die Nummern zählen ab der höchsten `SRVnnnnn.CSV` in `LOGS` weiter,
-  getrennt von den `LOGnnnnn.BFL` der Blackbox-Aufzeichnungen.
-- Während das Servo läuft, zeigt die zweite Zeile über der Skala
-  `LOGGING TO SRV00012.CSV` in Grau. In Bernstein:
-  `SRV00012.CSV: 12 ROWS DROPPED` (die Karte war langsamer als die
-  Messungen), `LOG STOPPED AT 16 MIB` (die Grenze der Datei, etwa 4
-  Stunden), `LOG STOPPED: CARD FULL`, `LOG STOPPED: CARD WRITE FAILED` (die
-  Karte wurde gezogen oder versagte), `NO LOG: CARD FULL` (weniger als
-  64 KiB am Stück frei), `NO LOG: THE FILE DID NOT OPEN` oder
-  `NO LOG: SRV99999.CSV EXISTS`. Das Servo läuft in jedem Fall weiter.
-- Eine laufende Blackbox-Aufzeichnung endet bei `HOLD TO START`; SD LOG
-  zeigt dann `RECORDING STOPPED BY SERVO TESTER`. Der letzte Lauf, den
-  SD LOG zeigt, bleibt der der Blackbox-Aufzeichnung.
-- Stoppe das Servo, bevor du den Strom abschaltest oder die Karte ziehst.
-  Ein durch Stromausfall abgebrochener Lauf hinterlässt eine Datei von
-  16 MiB oder des kleineren Platzes, den die Karte hatte: die Messungen, die
-  die Karte erreichten, danach, was die Karte dort vorher hielt. Die letzten
-  Messungen, bis etwa 16 KiB, gehen verloren.
-- Das Schreiben der Aufzeichnung lässt die Bank nie auf die Karte warten:
-  Der Sensor wird gelesen und die Abschaltungen greifen wie ohne die
-  Aufzeichnung, im Modell der Host-Tests auf 0,1 ms genau. Wie lange eine echte Karte braucht, ist auf der Platine
-  nicht gemessen.
+- Die Nummern zählen ab der höchsten `SRVnnnnn.CSV` in `LOGS` weiter, getrennt
+  von den `LOGnnnnn.BFL` der Blackbox-Aufzeichnungen.
+- Nach `HOLD TO START` zeigt die Skala `PREPARING THE LOG...` und `THE SERVO
+  STARTS AFTER IT.`, während die Bank die Datei öffnet; danach startet das
+  Servo. Braucht die Karte dafür länger als 2 s, gibt es keine Aufzeichnung: `NO
+  LOG: CARD TOO SLOW`, und das Servo startet ohne.
+- Während das Servo läuft, zeigt die zweite Zeile über der Skala `LOGGING TO
+  SRV00012.CSV` in Grau. In Bernstein: `SRV00012.CSV: 12 ROWS DROPPED` (die
+  Karte war langsamer als die Messungen), `LOG STOPPED AT 4 MIB` (die Grenze der
+  Datei, etwa eine Stunde), `LOG STOPPED: NO ROOM IN ONE PIECE` (die Karte hatte
+  keine 4 MiB am Stück frei, und die 64 KiB, die sie gab, sind belegt), `LOG
+  STOPPED: CARD WRITE FAILED` (die Karte wurde gezogen oder versagte), `NO LOG:
+  NO 64 KIB IN ONE PIECE`, `NO LOG: CARD TOO SLOW`, `NO LOG: THE CARD DID NOT
+  ANSWER`, `NO LOG: THE FILE DID NOT OPEN` oder `NO LOG: SRV99999.CSV EXISTS`.
+  Das Servo läuft in jedem Fall weiter.
+- Eine laufende Blackbox-Aufzeichnung endet bei `HOLD TO START`; SD LOG zeigt
+  dann `RECORDING STOPPED BY SERVO TESTER`. Der letzte Lauf, den SD LOG zeigt,
+  bleibt der der Blackbox-Aufzeichnung.
+- Stoppe das Servo, bevor du den Strom abschaltest oder die Karte ziehst. Ein
+  durch Stromausfall abgebrochener Lauf hinterlässt eine Datei von 4 MiB oder 64
+  KiB: die Messungen, die die Karte erreichten, danach, was die Karte dort
+  vorher hielt. Die letzten Messungen, bis etwa 16 KiB, gehen verloren.
+- Das Schreiben der Aufzeichnung lässt die Bank nie auf die Karte warten: Der
+  Sensor wird gelesen und die Abschaltungen greifen wie ohne die Aufzeichnung,
+  im Modell der Host-Tests auf 0,1 ms genau. Wie lange eine echte Karte braucht,
+  ist auf der Platine nicht gemessen.
+
 
 <img src="img/servo-log.png" width="240" alt="SERVO TESTER läuft, LOGGING TO SRV00012.CSV über der Skala">
+<img src="img/servo-log-prep.png" width="240" alt="SERVO TESTER nach HOLD TO START: PREPARING THE LOG..., während die Datei öffnet">
 
 ---
 

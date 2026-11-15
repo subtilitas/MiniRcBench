@@ -61,6 +61,10 @@ ServoLogHow servoLogHowOf(const ServoStatus *st, bool back) {
 	return back ? ServoLogHow::Back : ServoLogHow::Stop;
 }
 
+bool servoLogOpenLate(uint32_t startMs, uint32_t nowMs) {
+	return (uint32_t)(nowMs - startMs) >= SERVO_LOG_OPEN_MAX_MS;
+}
+
 bool servoLogRunOver(const ServoStatus *st, uint16_t startSeq) {
 	return (int16_t)(uint16_t)(st->ackSeq - startSeq) >= 0 && !st->running;
 }
@@ -153,7 +157,7 @@ static bool giveUp(uint32_t n, SdLogEnd why, bool slow) {
 }
 
 /** @brief The open has taken @ref SERVO_LOG_OPEN_MAX_MS or more since @p t0. */
-static bool late(uint32_t t0) { return (uint32_t)(millis() - t0) >= SERVO_LOG_OPEN_MAX_MS; }
+static bool late(uint32_t t0) { return servoLogOpenLate(t0, millis()); }
 
 /**
  * @brief The run's end after an open given up, core0 blocking, the supply
@@ -211,7 +215,6 @@ bool servoLogStart(uint32_t nowMs) {
 	SdLogEnd why = sdLogOpenNext(&s_next, sdLogFs(), SD_LOG_DIR_PATH, &s_file, &n,
 	                             &SD_LOG_KIND_SRV);
 	if (why != SdLogEnd::None) return giveUp(0, why, false);
-	if (late(t0)) return giveUp(n, SdLogEnd::None, true);
 	// A contiguous run reserved now, while nothing is powered: the run
 	// writes inside it and never searches the FAT. The free count, from
 	// FSINFO on FAT32, says first whether the run can fit at all, so a full
@@ -225,11 +228,12 @@ bool servoLogStart(uint32_t nowMs) {
 		return giveUp(n, SdLogEnd::OpenFailed, false);
 	uint64_t freeBytes = (uint64_t)freeClst * vol->csize * 512u;
 	if (freeBytes < SERVO_LOG_RESERVE_MIN_BYTES) return giveUp(n, SdLogEnd::CardFull, false);
+	// The directory's scan, a first after a mount, can take long on a slow
+	// card: past the limit no search of the FAT starts.
 	if (late(t0)) return giveUp(n, SdLogEnd::None, true);
 	uint32_t reserve = SERVO_LOG_PREALLOC_BYTES;
 	FRESULT fr = freeBytes < reserve ? FR_DENIED : f_expand(&s_file, reserve, 1);
 	if (fr == FR_DENIED) {
-		if (late(t0)) return giveUp(n, SdLogEnd::None, true);
 		reserve = SERVO_LOG_RESERVE_MIN_BYTES;
 		fr = f_expand(&s_file, reserve, 1);
 	}

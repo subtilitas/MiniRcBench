@@ -68,9 +68,10 @@
 /** @brief The smaller reserve: without this much free in one run no log starts. */
 #define SERVO_LOG_RESERVE_MIN_BYTES (64u * 1024u)
 /**
- * @brief The open's time limit, ms: past it, checked between the open's
- *        FatFs calls and at each step of its flush, the file is given up and
- *        the run starts without a log. A single FatFs call is not cut short.
+ * @brief The open's time limit, ms: past it, checked before the search of
+ *        the FAT for the reserve and at each step of the open's flush, the
+ *        file is given up and the run starts without a log. A single FatFs
+ *        call is not cut short.
  */
 #define SERVO_LOG_OPEN_MAX_MS 2000u
 
@@ -161,6 +162,16 @@ const char *servoLogHowName(ServoLogHow how);
  * @return How it ended.
  */
 ServoLogHow servoLogHowOf(const ServoStatus *st, bool back);
+
+/**
+ * @brief Whether the open, begun at @p startMs, has reached its limit,
+ *        @ref SERVO_LOG_OPEN_MAX_MS, at @p nowMs, across the clock's wrap.
+ *        Pure.
+ * @param startMs millis() after the cache went on.
+ * @param nowMs   millis() now.
+ * @return True at the limit or past it.
+ */
+bool servoLogOpenLate(uint32_t startMs, uint32_t nowMs);
 
 /**
  * @brief Whether the run the log follows is over: the job has taken the

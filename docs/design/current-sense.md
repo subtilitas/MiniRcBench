@@ -1550,89 +1550,113 @@ applies: no file, no cache, and a running blackbox log goes on.
   (`sdLogNameNumberOf()` with `SD_LOG_KIND_SRV`, `sdLogOpenNext()` with a
   kind, its own `SdLogNextCache`); created new, never over a file; none after
   `SRV99999.CSV`. Neither kind moves the other's number.
-- **When it starts and ends.** It opens at HOLD TO START before the Start
-  command: the cache goes on (`cardCacheBegin(SdLogEnd::ByServo)`), the file
-  is created, its reserve allocated in one contiguous run (f_expand()):
-  `SERVO_LOG_PREALLOC_BYTES`, 16 MiB, about 4 hours of rows, or on a card
-  without that much free in one run the largest half that fits, down to
-  `SERVO_LOG_RESERVE_MIN_BYTES`, 64 KiB; less is no log, CARD FULL, and the
-  empty file is removed. The reserve is mapped for FatFs's fast seek (a
-  cluster link map table of 8 words, `f_lseek(CREATE_LINKMAP)`), and the
-  file synced: the FAT's blocks, FSINFO and the entry, with the reserve's
-  size, go out before the pulses and the supply start. It ends at the first
-  pass in which the job has taken the Start, or a later command, and is not
-  RUNNING (`servoLogRunOver()`): STOP on SERVO or SET, BACK, a cut, a trip,
-  a supply that did not come up, or a START core1 refused. Core1 publishes
-  not RUNNING in the pass that takes the enable pin low, so the close runs
-  with the supply off and the pulses at level 0: fast seek off, the rest of
-  the ring and the end line, which may grow the file past the reserve,
-  f_truncate(), f_close(), the cache's flush, which may wait for the card,
-  and the cache off. `end=` names a trip by its cause first, then a supply
-  that did not come up, then BACK, else STOP.
-- **Every card access of core0 during the run.** Two calls a pass, after
-  the UI's frame:
-  - `cardCachePoll()`: one step of the flush (sd-write-cache.md, "The flush
-    step"), which never waits for the card: the swap check's read started
-    (CMD17) or one look at the receiver, a block's transfer, about 0.1 ms at
-    10 MHz, or one look at DAT0 and CMD13. The check's read is collected in
-    a later pass, so the 100 ms the SD specification allows a read is spent
-    between passes, not in one.
-  - `servoLogPoll()`: at most one f_write() of one whole 512-byte block,
-    only while the cache reads Idle, nothing queued and nothing in flight,
-    and only inside the reserve (`f_tell()` plus 512 within it). FatFs then
-    takes the block's cluster from the fast-seek table, not from the FAT;
-    its file pointer is on a block's boundary and the block whole, so it
-    writes the block from the ring (disk_write) and neither reads it nor
-    touches its window: no read. The cache queues the block in RAM: one of
-    32, the queue empty, so never a flush on the spot.
-  - No f_sync() during the run: it reads the directory's block to write the
-    entry (move_window() in FatFs), from the read cache or from the card.
-    The entry written at the open already holds the reserve's size, so a
-    sync during the run would add only the modification time. Nothing else
-    touches the card: the blackbox log is stopped, SD LOG and USB DRIVE are
-    not reachable from SERVO TESTER, and the screen reads no file.
-  - Past the reserve no block is written during the run: the writing
-    stops, and the close writes the rest with fast seek off.
-  - The open, the reserve's scan of the FAT, the halving, the map, the sync,
-    and the close with its truncation and flush may read the card and wait
-    for it; they run before the Start command and after the run is over,
-    with the supply off.
+- **When it starts and ends.** HOLD TO START with a log to open
+  (`servoLogWanted()`: CURRENT SENSE at INA219 and a card mounted) does not send
+  the Start in its frame: that frame draws `PREPARING THE LOG...` over `THE
+  SERVO STARTS AFTER IT.`, dim, in the dial band, where SAFE's notes are, and
+  the frame is flushed to the panel. The next frame opens the log
+  (`servoLogStart()`), and the frame after it sends the Start
+  (`servoLogFollow()`). Each frame stamps the heartbeat and reads touch at its
+  start (`uiTick()`), so the Start reaches core1 with both fresh however long
+  the open held core0, and core1 judges it by the 250 ms rules as any other.
+  Without a log to open the Start goes out in the hold's frame, as before. BACK
+  between the open and the Start sends no Start and gives the log the job's last
+  seq, so it ends at once.
+- **The open.** The cache goes on (`cardCacheBegin(SdLogEnd::ByServo)`), which
+  first stops a running blackbox log; a mounted card on which the cache does not
+  start is `NO LOG: THE CARD DID NOT ANSWER`. The file is created, then its
+  reserve allocated in one contiguous run (f_expand()):
+  `SERVO_LOG_PREALLOC_BYTES`, 4 MiB, about an hour of rows, 16 blocks of FAT
+  written in each copy on FAT32 with clusters of 4 KiB; or
+  `SERVO_LOG_RESERVE_MIN_BYTES`, 64 KiB, on a card without the large run. The
+  free count, from FSINFO on FAT32, comes first: less than 64 KiB free is no log
+  at once, less than 4 MiB skips the large try, so a full card costs no search
+  of the FAT; a card with the room in pieces can cost two. An answer of
+  f_expand() but FR_DENIED is a card fault, OpenFailed. The reserve is mapped
+  for FatFs's fast seek (a cluster link map table of 8 words,
+  `f_lseek(CREATE_LINKMAP)`), the file synced, and the cache flushed one step at
+  a time until every block of the open is on the card: the FAT's blocks, FSINFO
+  and the entry with the reserve's size, before the Start. An open that reaches
+  `SERVO_LOG_OPEN_MAX_MS`, 2000 ms, checked between its steps and at each step
+  of the flush, is given up: `NO LOG: CARD TOO SLOW`, and the run starts without
+  a log. A single FatFs call is not cut short, and a running blackbox log's
+  stop, before the open, is not counted. An open given up, too slow or failed,
+  makes no further card call: its file stays open in FatFs, its queued blocks go
+  out one flush step a pass during the run, without a wait, and at the run's end
+  the file is closed and removed and the cache turned off.
+- **The end.** It ends at the first pass after the Start's seq was given in
+  which the job has taken that Start, or a later command, and is not RUNNING
+  (`servoLogRunOver()`): STOP on SERVO or SET, BACK, a cut, a trip, a supply
+  that did not come up, or a START core1 refused. Core1 publishes not RUNNING in
+  the pass that takes the enable pin low, so the close runs with the supply off
+  and the pulses at level 0: fast seek off, the rest of the ring and the end
+  line, which may grow the file past the reserve, f_truncate(), f_close(), the
+  cache's flush, which may wait for the card, and the cache off. `end=` names a
+  trip by its cause first, then a supply that did not come up, then BACK, else
+  STOP.
+- **Every card access of core0 during the run.** Two calls a pass, after the
+  UI's frame: - `cardCachePoll()`: one step of the flush (sd-write-cache.md,
+  "The flush step"), which never waits for the card: the swap check's read
+  started (CMD17), or one look at the receiver, a block's transfer, about 0.1 ms
+  at 10 MHz, or one look at DAT0 and CMD13. The check's read is collected in a
+  later pass, so the 100 ms the SD specification allows a read is spent between
+  passes, not in one. - `servoLogPoll()`: at most one f_write() of one whole
+  512-byte block, only while the cache reads Idle, nothing queued and nothing in
+  flight, and only inside the reserve (`f_tell()` plus 512 within it). FatFs
+  then takes the block's cluster from the fast-seek table, not from the FAT; its
+  file pointer is on a block's boundary and the block whole, so it writes the
+  block from the ring (disk_write) and neither reads it nor touches its window:
+  no read. The cache queues the block in RAM: one of 32, the queue empty, so
+  never a flush on the spot. - No f_sync() during the run: it reads the
+  directory's block to write the entry (move_window() in FatFs), from the read
+  cache or from the card. The entry the open put on the card already holds the
+  reserve's size, so a sync during the run would add only the modification time.
+  Nothing else touches the card: the blackbox log is stopped, SD LOG and USB
+  DRIVE are not reachable from SERVO TESTER, and the screen reads no file. -
+  Past the reserve no block is written during the run: the writing stops, and
+  the close writes the rest with fast seek off. - The open's blocks are on the
+  card before the Start; an open given up drains its blocks during the run, one
+  flush step a pass, the same steps as above.
 - **The run's writes.** The rows wait in a ring of 16384 bytes
   (`SERVO_LOG_RING_BYTES`, about 15 s of rows); a row it has no room for is
-  dropped and counted. The note's design let the cache's 32 blocks absorb a
-  slow card; as built they hold one block at a time and the RAM ring absorbs
-  it, since the cache sends one block at a time either way.
-- **The bound on core0.** In the host model a pass spends at most 100 µs on
-  the card with the log, a block's transfer; no card read is waited for
-  during a run, on a card that reads a block in 1 ms and on one at the SD
-  specification's 100 ms with a busy time of 511 ms. The hard cut after a
-  step of current, 200 steps at every phase: log off at most 24.94 ms and
-  24.93 ms, log on 25.02 ms on the 1 ms card and 24.94 ms on the 100 ms
-  card, within one frame of 25 ms and a block's transfer. The longest gap
-  between readings: log off 25.00 ms, log on 25.05 ms and 25.07 ms; it is
-  longer by at most the block's transfer, 0.1 ms, which can fall in the
-  pass before a frame. Neither waits for the card's read or busy time: on
-  the 100 ms card the figures are those of the 1 ms card. The open and
-  the close may wait for the card; they run with the supply off. A real
-  card's latency and busy time are not measured.
-- **A power loss during the run.** The entry on the card is the open's: the
-  reserve's size, 16 MiB or less, the file's clusters allocated. The file
-  then holds every block of rows that reached the card, and after them
-  whatever the card held in the reserve before, old data, not part of the
-  log, as a blackbox log cut by a power loss. The rows still in the ring and
-  in the cache's queue, up to about 16 KiB and one block, are lost.
-- **A full card, the limit, a card removed, a write error.** A reserve cut
-  short by the card and used up is CARD FULL: the writing stops, the run
-  goes on, and the close writes the ring's rest and the end line where the
-  card still has room. The whole 16 MiB used stops the writing at its limit
-  (`ServoLogStatus::atLimit`), and the close writes the rest past it. A
-  cache that reads Failed, after the swap check found no card or another,
-  or a block the card did not take, is WRITE FAILED: the writing stops; at
-  the run's end the cache's queue is dropped and the card mounted again
+  dropped and counted. The note's design let the cache's 32 blocks absorb a slow
+  card; as built they hold one block at a time and the RAM ring absorbs it,
+  since the cache sends one block at a time either way.
+- **The bound on core0.** In the host model a pass spends at most 100 µs on the
+  card during a run, a block's transfer; no card read is waited for, on a card
+  that reads a block in 1 ms and on one at the SD specification's 100 ms with a
+  busy time of 511 ms. The hard cut after a step of current, 200 steps at every
+  phase: log off at most 25.01 ms, log on at most 25.04 ms, within one frame of
+  25 ms and a block's transfer. The longest gap between readings: log off 25.00
+  ms, log on at most 25.06 ms, longer by at most the block's transfer, which can
+  fall in the pass before a frame. The open: 557 ms the first time after a mount
+  with a blackbox log to stop and 120 ms the next on the 1 ms card; on the card
+  at the limits it was given up at 2.2 s and 2.1 s; core1 took every Start. A
+  Start in the open's own frame would have found the heartbeat 2.1 s old and
+  been refused. A real card's latency and busy time are not measured.
+- **A power loss during the run.** The open's blocks are on the card before the
+  Start: the entry with the reserve's size, 4 MiB or 64 KiB, the file's clusters
+  allocated in the FAT. The file then holds every block of rows that reached the
+  card, and after them whatever the card held in the reserve before, old data,
+  not part of the log, as a blackbox log cut by a power loss. The rows still in
+  the ring and in the cache's queue, up to about 16 KiB and one block, are lost.
+  During a run after an open given up, a power loss can leave that open's file,
+  empty or with its reserve, on the card, since its removal comes at the run's
+  end.
+- **A full card, the limit, a card removed, a write error.** The 64 KiB reserve,
+  all the card had in one run, used up stops the writing: CardFull, `LOG
+  STOPPED: NO ROOM IN ONE PIECE`, true of a full card and of a fragmented one;
+  the run goes on, and the close writes the ring's rest and the end line where
+  the card still has room. The whole 4 MiB used stops the writing at its limit
+  (`ServoLogStatus::atLimit`), and the close writes the rest past it. A cache
+  that reads Failed, after the swap check found no card or another, or a block
+  the card did not take, is WRITE FAILED: the writing stops; at the run's end
+  the cache's queue is dropped and the card mounted again
   (`cardCacheRecover()`), as after a failed batch of a backup claim, and no
-  close is tried. The file then holds the blocks written before, at its
-  reserved size, as after a power loss. A close or a last flush that fails
-  is WRITE FAILED too. The fault stays until the next HOLD TO START.
+  close is tried. The file then holds the blocks written before, at its reserved
+  size, as after a power loss. A close or a last flush that fails is WRITE
+  FAILED too. The fault stays until the next HOLD TO START.
+
 - **SD LOG.** The servo log stops a running blackbox log as KST SERVO's
   claim does: `SdLogEnd::ByServo`, `RECORDING STOPPED BY SERVO TESTER` on
   SD LOG's note lines until the next start, a mount keeping it, and the run
@@ -1641,14 +1665,16 @@ applies: no file, no cache, and a running blackbox log goes on.
   there, as the blackbox log's rows describe a `.BFL`. A recovery after a
   failed write mounts the card again, which forgets that summary, as any
   mount does.
-- **The screen.** While RUNNING the dial band's second line, where SAFE's
-  notes are, reads `LOGGING TO SRV00012.CSV`, dim; in amber
-  `SRV00012.CSV: 12 ROWS DROPPED`, `LOG STOPPED AT 16 MIB`,
-  `LOG STOPPED: CARD FULL`, `LOG STOPPED: CARD WRITE FAILED`,
-  `NO LOG: CARD FULL`, `NO LOG: THE FILE DID NOT OPEN` or
-  `NO LOG: SRV99999.CSV EXISTS`, at most 37 characters; with no log, empty.
-  `NO SENSOR READING: NO CURRENT CUTS.` takes the line first. While SAFE
-  the notes are as before.
+- **The screen.** While RUNNING the dial band's second line, where SAFE's notes
+  are, reads `LOGGING TO SRV00012.CSV`, dim; in amber `SRV00012.CSV: 12 ROWS
+  DROPPED`, `LOG STOPPED AT 4 MIB`, `LOG STOPPED: NO ROOM IN ONE PIECE`, `LOG
+  STOPPED: CARD WRITE FAILED`, `NO LOG: NO 64 KIB IN ONE PIECE`, `NO LOG: CARD
+  TOO SLOW`, `NO LOG: THE CARD DID NOT ANSWER`, `NO LOG: THE FILE DID NOT OPEN`
+  or `NO LOG: SRV99999.CSV EXISTS`, at most 37 characters; with no log, empty.
+  `NO SENSOR READING: NO CURRENT CUTS.` takes the line first. While HOLD TO
+  START waits for the open the notes read `PREPARING THE LOG...` and `THE SERVO
+  STARTS AFTER IT.`, dim; otherwise SAFE's notes are as before.
+
 - **Choices the note does not settle.**
   - A log needs the sensor: its rows are readings. With `OWN` and the sensor
     it logs too, the current of whatever supply runs through the sensor.

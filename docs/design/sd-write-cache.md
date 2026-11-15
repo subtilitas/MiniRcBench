@@ -106,8 +106,9 @@ the cache.
 4. A block busy for `SDH_BUSY_TIMEOUT_US`, 1,000,000 µs: a timeout.
 
 So no step waits for the card: the longest is a block's transfer, about
-0.1 ms, or a command and its response, CMD17, CMD24 or CMD13, each bounded
-by `SDH_CMD_TIMEOUT_US`, 5 ms, when the card does not answer.
+0.1 ms, or a command and its response, CMD17, CMD24, CMD13 or the CMD12
+after a failed check, each bounded by `SDH_CMD_TIMEOUT_US`, 5 ms, when the
+card does not answer.
 
 `sdh_write_start()` and `sdh_write_poll()` are `writeChunk()` split at its
 busy wait, for one block. The SD clock runs from the block's send until
@@ -202,15 +203,29 @@ receiver once each through `sdh_read_poll()`, which reads the bus's
 its table and both channels idle (`busRxReady()` in `src/sdio/sd_pio.c`, the
 test `busRxWait()` makes). Once the block is in, `rx_wait()` returns at once
 and puts its CRC words in order, and the CRC is checked as for any read; the
-block is sent in the call after. A different number, a read that fails, a
-CRC error, or no block within `SDH_READ_TIMEOUT_US`, 250 ms, of CMD17, which
-marks the card not ready, drops the queue and the read cache and sets
-`Failed`. No CMD12 follows a read that timed out: the card is initialised
-again at the recovery's mount. A miss of `sdc_read()`, `sdc_settle()`,
-`sdc_drop()`, `sdc_end()` and `sd_sdio_read_past()` collect a check's read
-under way first, core0 blocking, since the card takes no other command
-while it sends. A card swapped for a byte-for-byte copy with the same
-serial number is not detected.
+block is sent in the call after. A read that fails with a CRC (cyclic
+redundancy check), frame, timeout or no-response error, a timeout being no
+block within `SDH_READ_TIMEOUT_US`, 250 ms, of CMD17, is tried again in a
+later call, up to `SDC_ATTEMPTS`, 3 reads in all, as `sdh_read()` tries a
+block; after each failed read CMD12 goes out, as `sdh_read()` sends it, but
+without the wait for its busy, so a card that stalled is pulled back to the
+transfer state before the next try. The third failure, any other error, or
+a different number drops the queue and the read cache and sets `Failed`;
+the recovery's mount initialises the card again. A miss of `sdc_read()`,
+`sdc_settle()`, `sdc_drop()`, `sdc_end()`, `sdc_begin()` and
+`sd_sdio_read_past()` collect a check's read under way first, core0
+blocking, since the card takes no other command while it sends. A card
+swapped for a byte-for-byte copy with the same serial number is not
+detected.
+
+Every loop in which core0 waits on the card calls the driver's wait hook
+(`sdh_wait_hook`), as the driver's own waits do: `sdc_flush()`,
+`sdc_settle()`, a write that waits for room in the queue, and the
+collection of a check's read, at each look; `sdh_read_poll()` too, at each
+look that finds the block not in. KST SERVO and HITEC SERVO set the hook
+to their card stamp during a card phase, so a check's read that times out
+three times, 750 ms and more, keeps the stamp fresh and their jobs see no
+lapse of the heartbeat.
 
 The check at a batch's start does not cover a card swapped after the
 session's backup reached the card, with nothing queued. So when a tool
@@ -304,10 +319,12 @@ recorded in this note.
 
 - `test_sdio.cpp`: `sdh_read_start()` and `sdh_read_poll()` against the
   simulated card with a data latency: CMD17 out and the receiver armed, one
-  look a poll without time spent, the block in and the receiver disarmed, a
-  CRC error, no data 1 µs short of `SDH_READ_TIMEOUT_US` and at it, the card
-  then marked not ready, CMD17 unanswered, an unaligned or out-of-range
-  buffer, a receiver that does not arm, a card not ready.
+  look a poll without time spent, the block in and the receiver disarmed, its
+  CRC checked from the words the simulated DMA leaves swapped, a CRC error
+  and CMD12 after it, no data 1 µs short of `SDH_READ_TIMEOUT_US` and at it,
+  the wait hook at each look, CMD12, the card left ready and the next
+  attempt reading, CMD17 unanswered, an unaligned or out-of-range buffer, a
+  receiver that does not arm, a card not ready.
 - `test_sdio.cpp`: `sdh_write_start()` and `sdh_write_poll()` against the
   simulated card: one block, busy until the card's time, CMD13 after it, a
   CRC token, busy 1 µs short of the limit and at it, the card then marked
@@ -321,9 +338,12 @@ recorded in this note.
   for the block in flight; a full queue that flushes until the write fits;
   the swap check's read started in one poll and collected in a later one,
   nothing sent meanwhile, a hit while it reads touching no card, a miss, a
-  settle, a drop and an end collecting it first, a start refused, a read
-  that times out, a CRC error and another serial number each failing the
-  batch;
+  settle, a drop, an end and a begin collecting it first; a start refused,
+  a read that times out and a CRC error each tried 3 times, then failing
+  the batch, two of them and then a read going on, the count new with each
+  batch; another serial number failing it at once; the wait hook at every
+  look of a flush, a settle, a drop, an end and a full queue, and KST's
+  card stamp never more than a look old across three timed-out reads;
   two retries that land, three that fail; reads refused while failed, and a
   miss whose wait ends the batch; `sdc_settle()` ending the block in flight;
   a write error token; a changed serial number and a check that does not
