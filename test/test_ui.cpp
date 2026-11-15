@@ -43,6 +43,7 @@
 #include "version.h"
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
 #include "fake_escwire_port.h"
+#include "ew_line.h"
 
 // --- probes into the included translation unit ---
 static uint8_t uiByte(int o)     { return s_eeprom[o]; }
@@ -5986,6 +5987,32 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Restart));
 		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
 		          fakeResumeCount() == resumes + 1);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: the job's bind refused");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwRefuse(EW_LINE_ERR_DMA);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		char want[48];
+		snprintf(want, sizeof(want), "SIG GP%u COULD NOT BE TAKEN (DMA)", (unsigned)settings()->dshotPin);
+		checkTrue("SIG GP0 COULD NOT BE TAKEN (DMA), y 176", s_state == S_EW && strcmp(s_status, want) == 0 &&
+		          fakeTextCentredIs(176, want, C_AMBER, C_BG, 1));
+		checkTrue("nothing opened, the claim Held, its leave page set", fakeEwOpens() == 0 &&
+		          pinClaimState() == ClaimState::Held && pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		          fakeResumeCount() == resumes + 1);
+		fakeEwRefuse(0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
