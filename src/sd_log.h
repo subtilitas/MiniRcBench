@@ -358,9 +358,9 @@ enum class SdLogArmAction : uint8_t {
  * @brief Decide what an arm-state change should do. Pure; host-testable.
  *
  * Split out from sdLogSetArmed() so the host tests exercise the shipped rule
- * rather than a copy of it — sd_log.cpp pulls in FatFs and cannot be linked
- * into the test binary, and a fake that reimplements the policy proves only
- * that the fake agrees with itself.
+ * rather than a copy of it — sd_log.cpp pulls in FatFs and is not linked
+ * into the suite's binary (only into `make lognum`'s), and a fake that
+ * reimplements the policy proves only that the fake agrees with itself.
  *
  * The rule that matters: auto-stop undoes only what auto-start did. Entering
  * MENU force-disarms, and the logging screen is reached through it, so without that distinction walking over to check on a hand-started log
