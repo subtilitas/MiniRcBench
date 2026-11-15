@@ -45,9 +45,9 @@ pin is not measured. An S.BUS output to a flight controller, OUTPUT on the same
 chooser, sending a frame every 14 ms on GP0 through UART0 with the pad's output
 inverted, the throttle channel under MAX THROTTLE, is designed in
 `docs/design/sbus-output.md`. Its core1 job (`src/sbus_out_job.h`) is built and
-tested on the host only, and nothing opens it: the screen waits on a check for
-an ESC bootloader on GP0 before START. The chooser draws OUTPUT disabled,
-`NOT BUILT`. A PPM
+tested on the host only, with the check for an ESC bootloader on GP0 that runs
+at each of its binds before the UART takes the pin; nothing opens it until its
+screen is built. The chooser draws OUTPUT disabled, `NOT BUILT`. A PPM
 (pulse-position modulation) output is not built, by the owner's decision. An
 angle meter on the board's QMI8658 IMU (inertial measurement unit), MENU →
 TOOLS → ANGLE METER, reads incidence, decalage, dihedral and control-surface
@@ -190,7 +190,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) sends on GP0 with the pad's output inverted, and nothing opens it yet. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) first greets on GP0 for an ESC's bootloader with the ESC settings' line driver, then sends on GP0 with the pad's output inverted, and nothing opens it yet. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
 | KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
@@ -2775,8 +2775,8 @@ with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT**, an S.BUS output to a flight controller, is drawn
 disabled with `NOT BUILT` under it and opens nothing: it is designed in
-`docs/design/sbus-output.md`, its core1 job is built without a screen, and the
-screen waits on a check for an ESC bootloader on GP0 before START.
+`docs/design/sbus-output.md`, and its core1 job, with the check for an ESC
+bootloader on GP0 that comes before any START, is built without a screen.
 The row is drawn disabled while the pin claim is not free, as the other rows
 that lead to a claim.
 
@@ -3349,7 +3349,7 @@ src/
   sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
   ui_sbus.{h,cpp}       S.BUS MONITOR: the claim of GP1, the channels and counts, the leave page
   sbus_view.{h,cpp}     what S.BUS MONITOR shows: the link state, the bars' ink, the texts (pure)
-  sbus_out_job.{h,cpp}  the S.BUS output's core1 job: UART0's TX on GP0 inverted, a frame every 14 ms; nothing opens it
+  sbus_out_job.{h,cpp}  the S.BUS output's core1 job: the bootloader probe on GP0, then UART0's TX on GP0 inverted, a frame every 14 ms; nothing opens it
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
@@ -3541,7 +3541,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 15,151 of 15,412 lines in 94 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 15,265 of 15,526 lines in 94 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -3576,10 +3576,15 @@ its way is cut when the UART stops or GP0 leaves the UART function with its
 output inverted. The GPIO fake records every write of a control register with
 FUNCSEL and the overrides as one value, and the pad register's IE, OD, ISO and
 pulls from its reset value, 0x116; a pin's pull is read from the register.
-`test_sbus_out_job.cpp` checks the bind and the release write by write and
-feeds the characters sent, with their times, to rcbench's decoder; it also
-reads every source under `src/` and fails if a code line other than the job's
-declarations, its job-table line and the claim's row names the output.
+`test_sbus_out_job.cpp` checks the bind, the switch from the probe to the
+UART and the release write by write and feeds the characters sent, with their
+times, to rcbench's decoder. It runs the job's bootloader probe on rcbench's
+EFM8 and AM32 models behind `fake_escwire_port.cpp`, which writes the line
+driver's pulls, input buffer and function to the GPIO fake. It also reads
+every source under `src/` and fails if a code line other than the job's
+declarations, its job-table line, the claim's row and the probe's request for
+the leave page names the output, or if a line reaches a pin user or a core1
+job by a cast or walks the user rows or the job table.
 
 `esc_task.cpp` cannot be linked either, so core0's side of the command slot is
 a copy in `fakes.cpp` on the shipped `escCmdAccept()`. A test sets the
