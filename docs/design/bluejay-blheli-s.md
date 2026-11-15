@@ -974,7 +974,7 @@ core1 once a millisecond in every frame), `test/test_claim.cpp`,
 `test/test_menu.cpp` and `test/test_ids.cpp`, the job and the screen
 against rcbench's simulated ESC behind `test/fake_escwire_port.h`. CI's
 "ESC settings job stack on core1" holds the job's deepest chain to
-1,792 bytes; it is 288 bytes, `escwireJobRelease()` through
+1,792 bytes; it is 288 bytes, `escwireJobStep()` through
 `ew_session_step()` to `ew_text_show()`. The screenshots `shot_am32_quiet`,
 `shot_am32_efm8`, `shot_efm8_list`, `shot_efm8_note`, `shot_efm8_hex`,
 `shot_efm8_3d`, `shot_efm8_readonly`, `shot_efm8_empty`,
@@ -1071,8 +1071,34 @@ Choices the note left open, the developer's:
 - **A bind refused** reads `SIG GP0 COULD NOT BE TAKEN (PIO)` on the
   connect page with no RETRY; BACK opens the leave page.
 
-Mutations, each applied to a copy of the tree, the suite built and run:
-MUTDETAIL
+Mutations, each applied to a copy of the tree, the suite built and run: 53,
+49 failing the suite. Of the four that pass, three are equivalent: Read
+taken outside InMode and Enter taken twice without the job's own state
+check, which the session refuses the same way (`ew_session_read()`,
+`ew_session_enter()`), and a refusal in `started()` that changes the last
+operation, since every refusal the session makes in this slice the job's
+state check makes first. The fourth was the burst's own check in
+`greetCyclePhase()`, which the quiet phase's start already makes; the check
+is removed. Three passed in a first run and fail now, each with a test
+added: a LEAVE counted as left whatever its result, which showed that a
+leave the driver refused at once was reported as refused and is now
+reported as ended; a LEAVE the job refused not asked again; a read sent
+after a contact that names no EFM8. The others: the loose rule's 0xE8,
+`7`, last `471`, the 0x30 required and the signature's low byte; the
+cycle's 1000 ms, 3 greetings and the quiet phase from the third; the
+bind's hold, the heartbeat's stop, a leave cut by a lapse or by the
+release, the release's close, commands under a lapse, a Stop not held,
+the bind errors, an operation ended at once taken as refused; the revision
+bytes listed, the order by group, STARTUP POWER's group, the 3D words, the
+capitals, 3D at 4, the lost tags' lines, the empty page's 112 bytes,
+LOW-SPEED PROTECTION's note, the written layouts, a version too long; the
+leave page and the transport's end at an EFM8 answer, BACK from the list
+sending LEAVE, DShot without LEAVE, the cue after LEAVE, the transport
+after a stopped session, the quiet phase's status, the connect page's
+lines, the 3D note from a wrong marker, a refusal greeted again, a row's
+selection, WRITE... live, BACK live while leaving, a greeting every frame,
+rows not read-only, DShot restarted before the job is idle, the hex lines
+of a short page, the bind error's line. The script is not kept.
 
 Not verified: everything on an ESC. No frame of the escwire job has reached
 a Bluejay or BLHeli_S ESC; the entry after the AM32 greeting's answer (B4),
