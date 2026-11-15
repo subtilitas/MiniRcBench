@@ -6,8 +6,8 @@
  * claims a PIO state machine is the core that frees it; the AM32 transport,
  * on core0, is the exception. While the pin claim holds (pin_claim.h),
  * escTaskPoll() returns at once and core1 runs one job instead: the servo
- * tester, the KST programmer, the Hitec programmer, the S.BUS monitor or the
- * USB bridge.
+ * tester, the KST programmer, the Hitec programmer, the S.BUS monitor, the
+ * USB bridge or the ESC settings session of a Bluejay or BLHeli_S ESC.
  * `loop1()` calls escTaskPoll() and then core1JobPoll(); with no job,
  * core1JobPoll() returns at once too.
  *
@@ -18,6 +18,8 @@
  * sbus_job.h.
  * Core1Job::Bridge is the USB bridge's job of docs/design/usb-bridge.md:
  * bridge_wire.h.
+ * Core1Job::EscWire is the job of docs/design/bluejay-blheli-s.md:
+ * escwire_job.h.
  *
  * Core0 starts and stops a job; core1 binds, steps and releases it. The
  * request and the job's phase are shared under one critical section, in the
@@ -38,6 +40,7 @@ enum class Core1Job : uint8_t {
 	Hitec,  /**< Hitec programming on SIG (hitec_job.h). */
 	Sbus,   /**< The S.BUS monitor: UART0 receive on GP1, SIG or AUX (sbus_job.h). */
 	Bridge, /**< The USB bridge: a 19200 baud PIO line on SIG (bridge_wire.h). */
+	EscWire,  /**< ESC SETTINGS after an EFM8 bootloader answered: rcbench's escwire on SIG (escwire_job.h). */
 };
 
 /** @brief Where a job is between core1JobStart() and idle. */
@@ -64,6 +67,7 @@ enum Core1JobError : uint8_t {
 	CORE1_JOB_DMA     = 4,  /**< No free DMA channel. */
 	CORE1_JOB_CLOCK   = 5,  /**< `clk_sys`, or `clk_peri` for the S.BUS job, is outside what the job accepts. */
 	CORE1_JOB_NO_GP1  = 6,  /**< The S.BUS job: neither role is GP1, UART0's receive pin. */
+	CORE1_JOB_PIN     = 7,  /**< The ESC settings job: its line driver does not take the pin. */
 };
 
 /**
@@ -136,9 +140,9 @@ Core1JobPhase core1JobPhase();
 
 /**
  * @brief Why the last job did not bind. Core0.
- * @return CORE1_JOB_PWM, CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK or
- *         CORE1_JOB_NO_GP1 from the job's bind; CORE1_JOB_OK when it bound
- *         or none was started.
+ * @return CORE1_JOB_PWM, CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK,
+ *         CORE1_JOB_NO_GP1 or CORE1_JOB_PIN from the job's bind;
+ *         CORE1_JOB_OK when it bound or none was started.
  *         Never CORE1_JOB_REFUSED: a refused start is reported by
  *         pinClaimJobError().
  */

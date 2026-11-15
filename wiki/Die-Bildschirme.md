@@ -14,7 +14,8 @@ und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
 Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
    ▲                    ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
    │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
-   │                    │    │   (nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
+   │                    │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> MENU)
+   │                    │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE   (als Umriss gezeichnet: NOT BUILT)
    │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
@@ -182,6 +183,7 @@ Keiner der beiden Werte ist an einem Motor mit diesem Board gemessen.
 <img src="img/tester-kv.png" width="240" alt="Der Tester scharf bei 79 %: ERPM 156800  RPM/V 1400 und KV EST 1758 unter der Drehzahl">
 
 Hat ESC SETTINGS seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
+einen Bluejay- oder BLHeli_S-ESC mit DIRECTION auf 3D oder 3D REVERSED, oder
 3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), oder kam
 `3D ON` auf [ESC COMMANDS](#esc-commands), zeigt die Zeile unter der
 `ERPM`-Zeile in Bernstein `3D MODE ESC: 0-50% REVERSED AT 2X` (3D-ESC: 0 bis
@@ -195,8 +197,10 @@ rückwärts; über 50 % dreht er in der eingestellten Richtung, von unten
 beginnend. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
 verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen anderen
 getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen, das die Liste
-öffnet, mit 3D MODE aus oder ein Neustart nimmt ihn weg; `3D OFF` auf ESC
-COMMANDS und die Nur-Lese-Ansicht eines unbekannten Layouts lassen ihn.
+öffnet, mit 3D MODE aus oder DIRECTION auf NORMAL oder REVERSED, oder ein
+Neustart nimmt ihn weg; `3D OFF` auf ESC COMMANDS, die Nur-Lese-Ansicht eines
+unbekannten Layouts und eine Bluejay- oder BLHeli_S-Seite mit falscher
+Einstellungsmarke lassen ihn.
 Siehe [AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
 
 <img src="img/tester-3d.png" width="240" alt="Der Tester scharf, mit 3D MODE ESC: 0-50% REVERSED AT 2X in Bernstein unter der Drehzahl">
@@ -261,8 +265,8 @@ nur eine Anzeige, eckig und 12 px hoch:
 
 Nach einer Sitzung in ESC SETTINGS, in der der Bootloader des ESC geantwortet
 hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in
-Bernstein, bis ein eRPM-Frame eintrifft, RESTART DSHOT auf der Verlassenseite
-von ESC SETTINGS getippt wird oder die Platine neu startet
+Bernstein, bis ein eRPM-Frame eintrifft, RESTART DSHOT auf der
+Verlassenseite von ESC SETTINGS getippt wird oder die Platine neu startet
 ([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
 
 <img src="img/menu-no-esc.png" width="240" alt="MENU ohne angeschlossenen ESC: das Feld zeigt NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU mit einem ESC, der eRPM und kein EDT sendet: das Feld zeigt EDT OFF in Rot">
@@ -406,8 +410,9 @@ Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS mit seinen zwei Zeilen, USB BRIDGE als Umriss mit A DESKTOP ESC TOOL OVER USB. und NOT BUILT">
 
 `MENU → ESC CONFIG` öffnet eine Wahl aus zwei, wie PROGRAMMER:
-**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, heute
-für AM32, und **USB BRIDGE**, als Umriss gezeichnet mit `NOT BUILT`
+**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32
+gelesen und geschrieben, Bluejay und BLHeli_S gelesen, und **USB BRIDGE**,
+als Umriss gezeichnet mit `NOT BUILT`
 darunter: Es tut nichts. Die Leiste nennt den Signalpin, `SIG GP0`.
 ESC CONFIG belegt keinen Pin; das Tippen auf ESC SETTINGS belegt SIG.
 `BACK` führt zu `MENU` zurück, ebenso `BACK` auf ESC SETTINGS. Siehe

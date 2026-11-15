@@ -24,6 +24,7 @@ void runSettingsTests();
 void runServoSupplyTests();
 void runSenseTests();
 void runQmi8658Tests();
+void runAngleModelTests();
 void runUsbMscTests();
 void runDshotFrameTests();
 void runDshotTelemTests();
@@ -45,6 +46,8 @@ void runBackupTests();
 void runSdCacheTests();
 void runDiagTests();
 void runRunSummaryTests();
+void runEscwireJobTests();
+void runEfm8ViewTests();
 void runClockTests();
 void runBridgeTests();
 void core1JobInit();
@@ -62,6 +65,7 @@ int main() {
 	runServoSupplyTests();
 	runSenseTests();
 	runQmi8658Tests();
+	runAngleModelTests();
 	runUiTests();
 	runKissTests();
 	runGfxTests();
@@ -89,6 +93,8 @@ int main() {
 	runEscCmdUiTests();
 	runDiagTests();
 	runRunSummaryTests();
+	runEscwireJobTests();
+	runEfm8ViewTests();
 	runClockTests();
 	runBridgeTests();
 

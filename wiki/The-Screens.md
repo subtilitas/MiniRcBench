@@ -14,7 +14,8 @@ returns to the tester.
 Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
    ▲                    ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
    │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
-   │                    │    │   (after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU)
+   │                    │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> MENU)
+   │                    │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE   (drawn disabled: NOT BUILT)
    │                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
@@ -164,7 +165,8 @@ Neither figure has been measured on a motor from this board.
 
 <img src="img/tester-kv.png" width="240" alt="The tester armed at 79 %: ERPM 156800  RPM/V 1400 and KV EST 1758 under the RPM readout">
 
-After ESC SETTINGS has read an ESC with 3D MODE on, or written 3D MODE on
+After ESC SETTINGS has read an ESC with 3D MODE on, or a Bluejay or
+BLHeli_S ESC with DIRECTION at 3D or 3D REVERSED, or written 3D MODE on
 (accepted by the ESC, verified or not), or after `3D ON` on
 [ESC COMMANDS](#esc-commands), in this power-up, the row under the `ERPM` line
 reads `3D MODE ESC: 0-50% REVERSED AT 2X` in amber, in place of the pole count
@@ -175,8 +177,10 @@ the motor the reverse of its set direction at twice the throttle, so 50 % is
 full power reversed; above 50 % it runs the set direction from low. Keep the
 propeller off. Arming is not refused on it. The note does not know that the
 ESC on the pin was swapped for another one; only a verified write or a list
-read with 3D MODE off, or a restart, removes it. `3D OFF` on ESC COMMANDS and
-the read-only view of a layout not known leave it. See
+read with 3D MODE off or DIRECTION at NORMAL or REVERSED, or a restart,
+removes it. `3D OFF` on ESC COMMANDS, the read-only view of a layout not
+known and a Bluejay or BLHeli_S page whose settings marker is wrong leave
+it. See
 [AM32 Configuration](AM32-Configuration#fields-with-a-note).
 
 <img src="img/tester-3d.png" width="240" alt="The tester armed, with 3D MODE ESC: 0-50% REVERSED AT 2X in amber under the RPM readout">
@@ -239,8 +243,8 @@ square and 12 px tall:
 
 After an ESC SETTINGS session in which the ESC's bootloader answered, a second
 line under the caption reads `POWER-CYCLE THE ESC TO RUN IT` in amber, until
-an eRPM frame arrives, RESTART DSHOT on ESC SETTINGS' leave page is tapped, or
-the board restarts ([AM32 Configuration](AM32-Configuration#leaving)).
+an eRPM frame arrives, RESTART DSHOT on ESC SETTINGS' leave page is tapped,
+or the board restarts ([AM32 Configuration](AM32-Configuration#leaving)).
 
 <img src="img/menu-no-esc.png" width="240" alt="MENU with no ESC connected: the chip reads NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU with an ESC that sends eRPM and no EDT: the chip reads EDT OFF in red">
 
@@ -373,7 +377,8 @@ programming session, and `BACK` in a programmer before it holds SIG.
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS with its two lines, USB BRIDGE as an outline with A DESKTOP ESC TOOL OVER USB. and NOT BUILT">
 
 `MENU → ESC CONFIG` opens a choice of two, as PROGRAMMER: **ESC SETTINGS**,
-which opens the ESC settings screen, AM32 today, and **USB BRIDGE**, drawn
+which opens the ESC settings screen, AM32 read and written, Bluejay and
+BLHeli_S read, and **USB BRIDGE**, drawn
 as an outline with `NOT BUILT` under it: it does nothing. The strip names
 the signal pin, `SIG GP0`. ESC CONFIG takes no pin; the tap on ESC SETTINGS
 takes SIG. `BACK` returns to `MENU`, and so does `BACK` on ESC SETTINGS.

@@ -244,11 +244,15 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 - **`REPLY NOT UNDERSTOOD`**: Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursache: Der ESC läuft nicht mit AM32.
-- **`EFM8 E8B2 ANSWERED: NOT READ YET.`**: Ein Bluejay- oder BLHeli_S-ESC
-  hat geantwortet. Der Bildschirm liest seine Einstellungen nicht. `BACK`
-  öffnet eine Verlassenseite: ESC-Akku abziehen, `LEAVE`, `RESTART DSHOT`,
-  dann wieder anstecken
+- **`EFM8 E8B2 ANSWERED: READING.`**: Ein Bluejay- oder BLHeli_S-ESC hat
+  geantwortet, und der Bildschirm liest seine Einstellungen, angezeigt und
+  nicht geschrieben. `BACK` aus seiner Liste sendet LEAVE, das den ESC
+  startet; `BACK` vor der Liste öffnet eine Verlassenseite: ESC-Akku
+  abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder anstecken
   ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
+- **`THE ESC ANSWERED, THEN STOPPED.`**: Der ESC hat geantwortet und dann
+  nicht mehr, bevor seine Seite gelesen war; die Suche läuft erneut. Prüfe
+  das Signalkabel und lass den ESC eingeschaltet.
 - **`NO VALID SETTINGS`**: Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`**: Der Bildschirm hat verbunden, und

@@ -222,6 +222,8 @@ int fakeAm32Writes();
  *        EFM8 bootloader's; @p n 0 lets them succeed again with an F051's.
  */
 void fakeAm32Garble(const uint8_t *b, uint8_t n);
+/** @brief am32BlHandshake() calls since the start: the greetings sent. */
+int fakeAm32Handshakes();
 /** @brief Reads return an erased page, all 0xFF, while @p on. */
 void fakeAm32Blank(bool on);
 /** @brief Handshakes time out with no reply while @p on: the ESC is not in its bootloader. */
