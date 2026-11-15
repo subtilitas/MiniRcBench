@@ -237,8 +237,8 @@ mounted.
 `USB DRIVE` on the SD LOG screen presents the card to the computer on the USB
 (Universal Serial Bus) cable as a removable drive. Copy the `.BFL` files and
 their `.TXT` summaries off, eject the drive on the computer, and the tester
-takes the card back. The screen shows the amount read so far, for example `3.0
-MB READ`, in lime: a live reading.
+takes the card back. The screen shows the amount read so far, for example
+`3.0 MB READ`, in lime: a live reading.
 
 The board is a USB device already, for power and the serial port. The drive is
 a second USB interface on the same cable.

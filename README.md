@@ -2608,10 +2608,11 @@ compiled into the instrumented suite but are not in it.
 Host-suite line coverage of `src/` is **98.3%**: 10,781 of 10,964 lines in 67 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
-`sd_log.cpp` is not linked into the host suite (FatFs and the card driver come with it), so
-the logging UI is tested against a fake logger in `fakes.cpp`. `make lognum` links
-`sd_log.cpp` alone, over FatFs on a RAM disk with the card driver faked
-(`test/sd_log_fatfs.cpp`). The fake is the observable:
+`sd_log.cpp` is not linked into the host suite (FatFs and the card driver
+come with it), so the logging UI is tested against a fake logger in
+`fakes.cpp`. `make lognum` links `sd_log.cpp` alone, over FatFs on a RAM
+disk with the card driver faked (`test/sd_log_fatfs.cpp`). The fake is the
+observable:
 tapping START has to actually reach `sdLogStart()` for its state to change, which covers
 navigation, hit-testing and dispatch without production code carrying test-only
 accessors.

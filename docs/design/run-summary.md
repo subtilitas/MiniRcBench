@@ -821,7 +821,7 @@ does not change; slice 3 draws the rows from `SdLogStatus::summary`.
 | The start | `sdLogStart()` | a start that opens its file begins the summary with `time_us_64()` and the arm state; a failed start keeps the last one |
 | The end | `stopLog()`, `enterError()` | the stop ends the summary as it begins, before bbEnd(): STOP from sdLogStop(), DISARM from sdLogSetArmed(), the tool from sdLogStopFor(); a failed write of a running log ends it with CARD FULL or WRITE FAILED, not saved; MOTOR POLES (`settings()->poles`) is kept at the end |
 | The file | `writeSummary()`, `sdLogWriteSummary()` | only after the `.BFL`'s sync and close succeeded; the text built by runSumText() in `s_ringBuf` once `logRingUsed()` is 0; `LOGS/LOGnnnnn.TXT` with `FA_CREATE_ALWAYS`; the result in `RunSum::file`; the state returns to READY whatever the result |
-| The status | `SdLogStatus::summary`, `SdLogStatus::summaryPoles` | the last summary, nullptr while a log runs, before the first log and after a mount |
+| The status | `SdLogStatus::summary`, `SdLogStatus::summaryPoles` | the last summary, nullptr while a log runs, before the first log, after a mount and after a release |
 
 Choices made where the sections above leave room:
 
@@ -847,7 +847,9 @@ Choices made where the sections above leave room:
 - **The ring.** The text is built only when `logRingUsed()` is 0; otherwise
   the file reads WRITE FAILED without a write. The drain always empties it,
   so the branch is not reached. That the text fits is a `static_assert` on
-  the ring's 8192 bytes against the 1000 the text needs.
+  the ring's 8192 bytes against the 1000 the text needs; a length from
+  runSumText() of 8192 or more, a cut text, reads WRITE FAILED without a
+  write as well, so a longer text cannot make the write read past the ring.
 
 **Cost per frame, estimated from the compiled code, not measured.** In the
 firmware built with arm-none-eabi-gcc 13.3, Release, `runSumAdd()` is 1296
@@ -888,7 +890,8 @@ differ:
 - a stray `.TXT` of the new number, longer than the text, replaced; one of
   a higher number left alone; the next log's number from memory and after a
   mount unmoved by `.TXT` files;
-- a failed start keeping the summary, a mount forgetting it;
+- a failed start keeping the summary, a mount and USB DRIVE's release
+  forgetting it;
 - the `.TXT` not saved: a full card (no cluster, the empty file removed), a
   full `LOGS/` on a full card (the create refused with `FR_DENIED`), a
   failed first block write, a failed close (`FR_LOCKED` until a mount, then
@@ -898,21 +901,29 @@ differ:
   ended at the failure and not saved, a later STOP changing nothing; the
   stop's sync failing, through a failed write of every block and through a
   failed write of the log's last block alone, the summary ended by STOP, not
-  saved, and no `.TXT` tried.
+  saved, and no `.TXT` tried; the drain's first flush failing with more
+  than a 512-byte chunk in the ring, the summary ended by STOP at the
+  stop's first moment, not saved.
 
-The RAM disk fails a write whose sector begins with given bytes. A
+The RAM disk fails a write whose sector begins with given bytes, and can
+advance the test's clock by 1 ms a block write, so a summary ended later
+than the stop's start shows in its stop time. A
 throttle that differs from frame to frame keeps the log's blocks apart, and
 the test checks the last block begins unlike the others.
 
-53 mutations of `sd_log.cpp`'s wiring and of `sd_log_summary.*` were run
-against `test/sd_log_fatfs.cpp`: 47 fail it. 5 are equivalent:
+56 mutations of `sd_log.cpp`'s wiring and of `sd_log_summary.*` were run
+against `test/sd_log_fatfs.cpp`: 49 fail it, among them the stop's end of
+the summary moved after the drain and the release keeping the summary. 6
+are equivalent:
 
 - the ring check removed, and the result before it Saved: the drain
   always empties the ring;
 - a write error counted only by its byte count, and `wrote < len` for
   `wrote != len`: FatFs R0.15 returns fewer bytes than asked with every
   error and never more;
-- the path's length check with `>`: the path is 18 bytes of 40.
+- the path's length check with `>`: the path is 18 bytes of 40;
+- the check of runSumText()'s length against the ring removed: the text is
+  under 1000 bytes of 8192.
 
 1 is not killed: a failed close overriding a short write's CARD FULL with
 WRITE FAILED. The RAM disk cannot fail that close alone: after a short write
