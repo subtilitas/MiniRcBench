@@ -54,7 +54,9 @@ protocol.
   `test_servo_rudder.c`, `test_imu_angles.c` with `wit_frame.h` and
   `test_witmotion.c`, 25 cases, are in `test/rcbench/`, run by `make -C test
   run` through `test/angle.mk`. Nothing in `src/` calls them yet, and the
-  firmware does not build them.
+  firmware does not build them. The cases of rcbench's `test_imu.c` and
+  `test_imu_filter.c` that need `imu.h` alone are not adapted; open for
+  slice 3.
 - After v0.1.0-rc1: the design note for the S.BUS output,
   [sbus-output.md](docs/design/sbus-output.md), designed and not built:
   S.BUS OUTPUT behind OUTPUT on RX SIGNALS sends a frame every 14 ms on GP0

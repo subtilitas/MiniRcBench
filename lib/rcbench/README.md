@@ -153,7 +153,9 @@ unchanged from rcbench `test/host/` into `test/rcbench/`, are
 which builds WitMotion frames for `test_imu_angles.c`. rcbench's
 `test_imu.c` and `test_imu_filter.c` are not copied: they include rcbench's
 BLE (Bluetooth Low Energy) simulator, `imu_sensor.h` and servo modules that
-are not ported.
+are not ported. Their cases that need `imu.h` alone are to be adapted, as
+`test_out_pwm_map.c` was, and are not yet: that work is open, for slice 3
+of `docs/design/angle-meter.md`.
 
 `sbus.h` cites `(NOTICE, "Trademarks")`: that NOTICE file is rcbench's, and
 this repository has none. Here the trademark notice of

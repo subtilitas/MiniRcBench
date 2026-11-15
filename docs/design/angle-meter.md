@@ -7,8 +7,9 @@ board, at 0x6B on I2C1. The owner answered its questions on 2026-11-15,
 see [decisions](#decisions), first among them the entry: an eighth MENU
 row, `TOOLS`, opening a chooser. Slice 1, the copies from rcbench, is built
 ([slice 1 as built](#slice-1-as-built)); nothing in `src/` calls them yet,
-and nothing of the meter has run on a board. The sensor
-facts come from QST's datasheets and Waveshare's schematic and demo code;
+and nothing of the meter has run on a board. The cases of rcbench's
+`test_imu.c` and `test_imu_filter.c` that need `imu.h` alone are not
+adapted yet; slice 3 takes them. The sensor facts come from QST's datasheets and Waveshare's schematic and demo code;
 the ones this project has not seen on the bus are marked as such and listed
 under [to confirm](#to-confirm). The real accuracy is unknown until the
 bench measures it.
@@ -844,8 +845,9 @@ gains the table and the commit. Choices the note left open:
   with `imu_feed_angles()`, which needs `imu.h`, `wit_frame.h` and
   `greatest.h` only and so copies unchanged. The cases of `test_imu.c` and
   `test_imu_filter.c` that need `imu.h` alone, which the porting table says
-  are adapted, are not adapted in this slice: the slice copies, and the
-  path the meter uses is the one `test_imu_angles.c` tests.
+  are adapted, are not adapted yet: that work is open, and slice 3, the
+  model, takes it. The path the meter uses is the one `test_imu_angles.c`
+  tests.
 - **No firmware build yet.** Nothing in `src/` calls the files, so no
   `.cmake` file lists them; slice 3, the model, adds them to the firmware
   with its first caller.
