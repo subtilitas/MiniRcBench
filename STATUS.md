@@ -339,6 +339,7 @@ record either way.
 | Blackbox logs in `LOGS/` (`SD_LOG_DIR_PATH`) | the next log's file over FatFs R0.15 (`make -C test lognum`); `sd_log.cpp` itself over the same FatFs on a RAM disk (`test/sd_log_fatfs.cpp`): start, frames, stop, the failures during the log and at the stop; the SDIO driver below it is not in that program | not tested on hardware |
 | Run summary core (`src/run_summary.*`), slice 1 of [run-summary.md](docs/design/run-summary.md#slice-1-as-built) | `runRunSummaryTests`: the extremes, sources, charge, armed time, the `.TXT` text byte for byte and SD LOG's row texts and fits; 95 mutations, 91 failing the suite and 4 equivalent, listed in the note | not tested on hardware |
 | Run summary in the logger and its `.TXT` (`src/sd_log.cpp`, `src/sd_log_summary.*`), slice 2 of [run-summary.md](docs/design/run-summary.md#slice-2-as-built) | `test/sd_log_fatfs.cpp` in `make -C test lognum`, over FatFs R0.15 on FAT32 and exFAT: the summary fed by every frame and ended by STOP, DISARM and each tool, the `.TXT` beside its `.BFL` as `runSumText()` builds it, a stray `.TXT` replaced, the next log's number unmoved, the `.TXT` not saved on a full card, in a full directory, by a failed write and a failed close with the logger `READY` and the `.BFL` byte for byte, the log failing during the run, at the stop's sync and in the stop's drain with more than a chunk in the ring, the summary ended by STOP at the stop's start; the summary forgotten by a mount and by USB DRIVE's release; 56 mutations, 49 failing it, 6 equivalent and 1 not killed, listed in the note | not tested on hardware; the cost per frame on core0 is estimated from the compiled code, not measured |
+| Run summary on SD LOG (`src/ui_sdlog.cpp`), slice 3 of [run-summary.md](docs/design/run-summary.md#slice-3-as-built) | `testLogRun()`, `testTesterNoRun()` and `testLogEndNotes()` in `test_ui.cpp`, against the fake logger: rows 2 to 8 after STOP with each row's value, tag, colour and column, `--` for unknown values, EDT and MIXED tags dim, MAX TEMP red at 90 °C and not at 89 °C, both `NOT SAVED` texts red, `USED FROM CURRENT`, MAX RPM from KISS, the widest values, the counters, CARD and MOUNT hidden, MOTOR POLES at the stop; no summary before the first log, while logging, after a mount and after USB DRIVE; a failed start keeping the run; CARD FULL showing it not saved; each part of the redraw key; the tester's frame the same with and without a summary; 41 mutations, 40 failing the suite and 1 equivalent, listed in the note | not tested on hardware |
 | SD write cache for the backup claims (`src/sdio/sd_cache.*`, `src/card_cache.*`, the glue in `src/sdio/sd_card_glue.c`, `sdh_write_start()` and `sdh_write_poll()`); [sd-write-cache.md](docs/design/sd-write-cache.md) | the cache against a fake card (`runSdCacheTests`), the asynchronous block write against the simulated card (`runSdioTests`); the KST write waiting for the flush, a failed flush, the claim turning the cache on and off, a running log stopped, AM32's write refused after a failed flush, against a fake of `card_cache.h`; the glue and `card_cache.cpp` are built by the firmware only | not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 8 |
 | MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG and SETTINGS as 40 px rows, scrolled 36 px to reach SETTINGS | every registry entry opens and BACK returns to MENU; opening MENU disarms; ESC COMMANDS the first row, with no status; the rows drawn disabled and `DSHOT RESTARTING ON SIG GP0` while the claim restores, and a tap on a row opens nothing; over test registries, six rows do not scroll and seven scroll 36 px; SD LOG, the sixth row, is whole and takes a tap at 0 px, and SETTINGS, the seventh, is cut to 6 px until MENU is dragged 36 px; MENU opens at 0 px again when a tool returns; the UNSAVED status on MENU after leaving SETTINGS, its row revealed by a drag; the label and status fit check at build time | not recorded |
@@ -459,8 +460,9 @@ not run on hardware (item 18).
    answers eRPM.
 2. **Ring buffer size.** `SD_LOG_BUFFER_BYTES` is 8192, unmeasured. At
    7.3 kB/s it holds about 1.1 s. A card stall longer than that drops frames,
-   which DROPPED FRAMES counts. BUF PEAK and WORST FLUSH on the SD LOG screen
-   are the numbers to size it from.
+   which DROPPED FRAMES counts. BUF PEAK and WORST FLUSH, on the SD LOG
+   screen while a log runs and in each log's `.TXT`, are the numbers to size
+   it from.
 3. **KISS line voltage.** The KISS specification puts the line at 3.6 V.
    GP1, the KISS pin, tolerates 5.5 V while the board is powered and 3.63 V
    while it is off. The level an ESC drives is not measured. The firmware
@@ -477,7 +479,7 @@ not run on hardware (item 18).
    - initialisation on an SDSC card (2 GB or less) and on SDHC and SDXC
      (extended capacity) cards;
    - sustained logging at 7.3 kB/s, with BUF PEAK and WORST FLUSH read off the
-     SD LOG screen;
+     SD LOG screen while recording, or from the log's `.TXT`;
    - USB DRIVE: a host reads files, which takes multi-block reads;
    - the card pulled out while logging, while idle and while a host reads,
      then put back;
@@ -815,7 +817,7 @@ not run on hardware (item 18).
     either way.
 26. **Run summary per log, the owner's choice of 2026-11-14,** from the
     feature survey (item 28). Designed in
-    [run-summary.md](docs/design/run-summary.md), slices 1 and 2 built: a
+    [run-summary.md](docs/design/run-summary.md), slices 1 to 3 built: a
     summary per blackbox log, kept by the logger on core0, written as
     `LOGS/LOGnnnnn.TXT` beside the `.BFL` at a clean stop and shown on SD
     LOG; optionally the board's PCF85063 RTC dating the files on the card.
@@ -841,8 +843,15 @@ not run on hardware (item 18).
     ([slice 2 as built](docs/design/run-summary.md#slice-2-as-built)): the
     logger feeds the summary every frame, ends it at the stop or at a failed
     write, and after a clean stop writes `LOGS/LOGnnnnn.TXT` beside the
-    `.BFL`; `SdLogStatus` carries the last summary. SD LOG does not show it;
-    slices 3 to 6 wait on being built.
+    `.BFL`; `SdLogStatus` carries the last summary. Slice 3 is built,
+    host tests only
+    ([slice 3 as built](docs/design/run-summary.md#slice-3-as-built)):
+    SD LOG's rows 2 to 8 show the last run after a stop, MAX RPM to
+    SUMMARY with their source tags, MAX TEMP at 90 °C and above and
+    `NOT SAVED` in red, and the counters, CARD and MOUNT while a log runs
+    and while no summary shows; the tester shows nothing of the run.
+    Slices 4 to 6, the clock, its setting and the bench bring-up, wait on
+    being built.
 
 27. **Angle meter on the board's IMU, designed; slices 1, the copies, and 2,
     the driver, built.** The owner's choice of 2026-11-14 from the feature
@@ -1085,7 +1094,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs thirty suites:
 | Suite | File | Covers |
 | --- | --- | --- |
 | `runAm32Tests` | `test_am32.cpp` | AM32 init string, its trailer the CRC of `BLHeli` alone, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance, the backup's text and its CRC-32, the result texts and the longest of them; the greeting's answer classified (`blAnswerClassify()`): the three AM32 families, the EFM8 signatures E8B1, E8B2 and E8B5 with and without the echo before them, E8B3, E9B2, a short answer, no 0x30 and another start not understood |
-| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | the AM32 backup through the screen, screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, MENU's strip, its EDT chip in its three states and ESC COMMANDS' row, SETTINGS' wiring, contrast and save and its VERSION row, SD LOG with its RETRY MOUNT label and its two mount hints, USB DRIVE, the text probes of `fakes.h` in high contrast, the splash's version and ESC pin line, the tester's `BOARD` caption, the board voltage's text rounded to 0.01 V and clamped to five characters, HOLD TO ARM drawn disabled while a USB host holds the card, the header's BACK drawn as the control table reports it on every screen the suite checks, the AM32 write page (`WRITE...` on a tap, its changes, count, backup line and HOLD TO WRITE), its result inside the panel with its power-cycle line, ESC SETTINGS' BACK guard and ESC HEX, ESC SETTINGS' strip notes, next-step lines and connect lines and MENU's run cue, an EFM8 bootloader's answer named with nothing read, its line kept through silence, the run cue it sets, BACK then opening the leave page with DShot down, from the connect page, the list's guard and the read-only view, STAY back to each, its steps, STAY, LEAVE letting the transport go, RESTART DSHOT live 1000 ms later, restarting DShot and clearing the cue, an AM32 claim with no EFM8 answer giving DShot back within BACK, the tester's 3D note, ESC SETTINGS' read-only view of a layout outside 2 to 4 and its write refused while the BOARD voltage is red, screenshots |
+| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | the AM32 backup through the screen, screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, MENU's strip, its EDT chip in its three states and ESC COMMANDS' row, SETTINGS' wiring, contrast and save and its VERSION row, SD LOG with its RETRY MOUNT label and its two mount hints and the last run in its rows 2 to 8, USB DRIVE, the text probes of `fakes.h` in high contrast, the splash's version and ESC pin line, the tester's `BOARD` caption, the board voltage's text rounded to 0.01 V and clamped to five characters, HOLD TO ARM drawn disabled while a USB host holds the card, the header's BACK drawn as the control table reports it on every screen the suite checks, the AM32 write page (`WRITE...` on a tap, its changes, count, backup line and HOLD TO WRITE), its result inside the panel with its power-cycle line, ESC SETTINGS' BACK guard and ESC HEX, ESC SETTINGS' strip notes, next-step lines and connect lines and MENU's run cue, an EFM8 bootloader's answer named with nothing read, its line kept through silence, the run cue it sets, BACK then opening the leave page with DShot down, from the connect page, the list's guard and the read-only view, STAY back to each, its steps, STAY, LEAVE letting the transport go, RESTART DSHOT live 1000 ms later, restarting DShot and clearing the cue, an AM32 claim with no EFM8 answer giving DShot back within BACK, the tester's 3D note, ESC SETTINGS' read-only view of a layout outside 2 to 4 and its write refused while the BOARD voltage is red, screenshots |
 | `runKissTests` | `test_kiss.cpp` | KISS CRC-8, decode, resynchronisation, request payload, KISS/EDT merge, expiry, EDT enable rule |
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle, lines at any angle and thickness, arcs of dots |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
@@ -1292,14 +1301,14 @@ model.
 | `src/ui_rx_signals.cpp` | 49 | 49 | 100.0% |
 | `src/ui_sbus.cpp` | 235 | 234 | 99.6% |
 | `src/ui_screen.h` | 8 | 8 | 100.0% |
-| `src/ui_sdlog.cpp` | 220 | 216 | 98.2% |
+| `src/ui_sdlog.cpp` | 253 | 249 | 98.4% |
 | `src/ui_servo.cpp` | 611 | 611 | 100.0% |
 | `src/ui_servo_prog.cpp` | 65 | 65 | 100.0% |
 | `src/ui_settings.cpp` | 423 | 418 | 98.8% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 76 | 76 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **11449** | **11260** | **98.3%** |
+| **Total** | **11298** | **11115** | **98.4%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->
