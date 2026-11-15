@@ -301,6 +301,63 @@ How to get a timed move:
 
 <img src="img/servo-set-move.png" width="240" alt="SERVO SET with a timed move, MOVE, PEAK and HOLD, under STOP TO CHANGE THE PROFILE">
 
+### The log on the card
+
+With the sensor (SETTINGS > CURRENT SENSE `INA219`) and a card in the slot,
+every run from `HOLD TO START` to its end is written to the card as
+`LOGS/SRVnnnnn.CSV`: one line for each reading of the sensor, 40 a second,
+in columns a spreadsheet opens.
+
+```text
+ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
+12345,1500,0,420,5020,0
+```
+
+| Column | Meaning |
+|---|---|
+| `ms` | time of the reading since `HOLD TO START`, in milliseconds |
+| `pulse_a_us`, `pulse_b_us` | the pulse on SIG and on AUX in µs; 0 for no pulse or no second servo |
+| `current_ma` | the current in mA, signed |
+| `bus_mv` | the supply voltage at the sensor in mV |
+| `flags` | 1: the current was beyond the sensor's range; 2: the first reading after the sensor restarted |
+
+The last line says how the run ended, how many readings were taken and
+how many were dropped, and how long the supply took to come up:
+`# end=STOP rows=2400 dropped=0 up_ms=40`. `end=` is `STOP`, `BACK`,
+`OVERCURRENT`, `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`,
+`TOUCH_SILENT`, `BUS_STUCK` or `NO_START`; `up_ms=-` when the bench does not
+switch the supply.
+
+- The numbers count on from the highest `SRVnnnnn.CSV` in `LOGS`, apart from the
+  blackbox logs' `LOGnnnnn.BFL`.
+- After `HOLD TO START` the dial reads `PREPARING THE LOG...` and `THE SERVO
+  STARTS AFTER IT.` while the bench opens the file; the servo starts right
+  after. A card that takes longer than 2 s for that gets no log: `NO LOG: CARD
+  TOO SLOW`, and the servo starts without one.
+- While the servo runs, the dial's second line reads `LOGGING TO SRV00012.CSV`
+  in grey. In amber: `SRV00012.CSV: 12 ROWS DROPPED` (the card was slower than
+  the readings), `LOG STOPPED AT 4 MIB` (the file's limit, about an hour), `LOG
+  STOPPED: NO ROOM IN ONE PIECE` (the card had less than 4 MiB free in one
+  piece, and the 64 KiB it gave are used), `LOG STOPPED: CARD WRITE FAILED` (the
+  card was pulled, or failed), `NO LOG: NO 64 KIB IN ONE PIECE`, `NO LOG: CARD
+  TOO SLOW`, `NO LOG: THE CARD DID NOT ANSWER`, `NO LOG: THE FILE DID NOT OPEN`
+  or `NO LOG: SRV99999.CSV EXISTS`. The servo runs on in every case.
+- A blackbox recording that was running stops at `HOLD TO START`; SD LOG then
+  reads `RECORDING STOPPED BY SERVO TESTER`. The last run that SD LOG shows
+  stays the blackbox recording's.
+- Stop the servo before cutting the power or pulling the card. A run cut by a
+  power loss leaves a file of 4 MiB, or 64 KiB: the readings that reached the
+  card, then whatever the card held there before. The last readings, up to about
+  16 KiB, are lost. A card swapped in during a run that got `NO LOG` keeps its
+  own files; the file the bench had begun may then stay on the first card.
+- Writing the log never makes the bench wait for the card: the sensor is read
+  and the cuts act as without the log, within 0.1 ms in the host model. How long
+  a real card takes is not measured on the board.
+
+
+<img src="img/servo-log.png" width="240" alt="SERVO TESTER running, LOGGING TO SRV00012.CSV above the dial">
+<img src="img/servo-log-prep.png" width="240" alt="SERVO TESTER after HOLD TO START: PREPARING THE LOG... while the file opens">
+
 ---
 
 ## The SET screen

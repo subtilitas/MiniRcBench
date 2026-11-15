@@ -385,6 +385,7 @@ static const char *endText(RunSumEnd e) {
 		case RunSumEnd::ByKst:       return "KST SERVO";
 		case RunSumEnd::ByHitec:     return "HITEC SERVO";
 		case RunSumEnd::ByAm32:      return "ESC SETTINGS";
+		case RunSumEnd::ByServo:     return "SERVO TESTER";
 		case RunSumEnd::CardFull:    return "CARD FULL";
 		case RunSumEnd::WriteFailed: return "WRITE FAILED";
 		case RunSumEnd::Running:     break;

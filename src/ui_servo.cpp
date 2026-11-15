@@ -19,6 +19,7 @@
 #include "settings.h"
 #include "pin_claim.h"
 #include "servo_job.h"
+#include "servo_log.h"
 #include "servo_model.h"
 #include "sense.h"
 #include "servo_supply.h"
@@ -221,6 +222,14 @@ static bool         s_wasRunning = false;  /**< RUNNING on the last frame. */
  *        a release, which ends any hold.
  */
 static UiHold       s_hold;
+/**
+ * @brief HOLD TO START with a log to open: Note, the frame that drew
+ *        `PREPARING THE LOG...`; Open, the frame whose servoLogStart()
+ *        returned. The Start goes out in the frame after Open, which stamped
+ *        the heartbeat and read touch afresh at its start.
+ */
+enum class StartStep : uint8_t { None, Note, Open };
+static StartStep    s_startStep = StartStep::None;
 static UiLeave      s_leave;               /**< The leave page: its phase and its presses. */
 static bool         s_needLift = false;    /**< A STOP press is down; it starts and taps nothing. */
 static ServoStatus  s_st;                  /**< This frame's status from core1. */
@@ -324,8 +333,9 @@ static void supplyLine(char *buf, size_t n, unsigned pin) {
 /**
  * @brief Send a command with this frame's SPEED and sweep; @p step marks
  *        MIN, CENTRE and MAX for the move timing.
+ * @return The seq of the command held (servoJobCommand()).
  */
-static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE, bool step = false) {
+static uint16_t send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE, bool step = false) {
 	ServoCmd c;
 	memset(&c, 0, sizeof(c));
 	c.kind = kind;
@@ -334,7 +344,7 @@ static void send(ServoCmdKind kind, uint16_t command = SERVO_CMD_CENTRE, bool st
 	c.step = step;
 	c.slewPerS = servoSlewOf((int)(s_speed.value + 0.5f));
 	c.sweep = s_sweep;
-	servoJobCommand(&c);
+	return servoJobCommand(&c);
 }
 
 /** @brief Hand s_profile to the job, at once or on a later frame. */
@@ -537,6 +547,11 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
 static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	unsigned sig = gpioOf(PIN_SIG);
 	*ca = *cb = C_DIM;
+	if (s_startStep != StartStep::None) {
+		snprintf(a, n, SERVO_UI_LOG_PREP_1);
+		snprintf(b, n, SERVO_UI_LOG_PREP_2);
+		return;
+	}
 	if (s_st.tripped) {
 		const char *why = "STOPPED: SCREEN STALLED";
 		switch (s_st.powerFault) {
@@ -594,6 +609,51 @@ static bool cutsBlind() {
 	return smp.state != (uint8_t)SenseState::Online;
 }
 
+static_assert(SERVO_LOG_PREALLOC_BYTES == 4u * 1024u * 1024u,
+              "SERVO_UI_LOG_LIMIT names the servo log's 4 MiB");
+static_assert(SERVO_LOG_OPEN_MAX_MS == 2000u, "the docs give the open's limit as 2000 ms");
+
+/**
+ * @brief The dial band's second line while RUNNING with a servo log: the
+ *        file being written, dim; the rows dropped, or why the log stopped
+ *        or did not start, amber. Empty with no log: no card, no sensor.
+ */
+static void logLine(char *buf, size_t n, uint16_t *col) {
+	ServoLogStatus lg;
+	servoLogStatus(&lg);
+	buf[0] = '\0';
+	*col = C_AMBER;
+	switch (lg.fault) {
+		case SdLogEnd::CardFull:
+			snprintf(buf, n, lg.active ? SERVO_UI_LOG_FULL : SERVO_UI_LOG_NO_ROOM);
+			return;
+		case SdLogEnd::WriteFailed:  snprintf(buf, n, SERVO_UI_LOG_FAILED); return;
+		case SdLogEnd::OpenFailed:   snprintf(buf, n, SERVO_UI_LOG_NO_OPEN); return;
+		case SdLogEnd::NoFreeNumber: snprintf(buf, n, SERVO_UI_LOG_NO_NUMBER); return;
+		default:                     break;
+	}
+	if (lg.slow) {
+		snprintf(buf, n, SERVO_UI_LOG_SLOW);
+		return;
+	}
+	if (lg.noCache) {
+		snprintf(buf, n, SERVO_UI_LOG_NO_CACHE);
+		return;
+	}
+	if (!lg.active) return;
+	if (lg.atLimit) {
+		snprintf(buf, n, SERVO_UI_LOG_LIMIT);
+		return;
+	}
+	if (lg.dropped) {
+		snprintf(buf, n, SERVO_UI_LOG_DROPPED_FMT, (unsigned long)lg.fileNumber,
+		         (unsigned long)lg.dropped);
+		return;
+	}
+	snprintf(buf, n, SERVO_UI_LOG_FMT, (unsigned long)lg.fileNumber);
+	*col = C_DIM;
+}
+
 /** @brief The horn of one servo at its pulse. */
 static void drawHorn(uint16_t us, uint16_t col, bool selected) {
 	float deg = servoUsToDeg(&s_profile, us);
@@ -621,9 +681,14 @@ static void drawDial() {
 	char n1[48], n2[48];
 	uint16_t c1, c2;
 	safeNotes(n1, n2, sizeof(n1), &c1, &c2);
-	struct { uint32_t l1, l2, l3, sw, n1, n2; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
+	char lg[48];
+	uint16_t lgCol;
+	logLine(lg, sizeof(lg), &lgCol);
+	// The log's colour follows from its text: no key of its own.
+	struct { uint32_t l1, l2, l3, sw, n1, n2, lg; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
 	         bool running, tripped, blind; uint16_t c1, c2; } k;
 	memset(&k, 0, sizeof(k));
+	k.lg = textKey(lg[0] ? lg : nullptr);
 	k.sw = textKey(sw[0] ? sw : nullptr);
 	k.n1 = textKey(n1); k.n2 = textKey(n2); k.c1 = c1; k.c2 = c2;
 	k.l1 = textKey(l1); k.l2 = textKey(l2); k.l3 = textKey(l3);
@@ -649,6 +714,7 @@ static void drawDial() {
 		line(64, sw, UI_COL_LIVE);
 	}
 	if (k.blind) line(76, SERVO_UI_OWN_NO_CUTS, C_DIM);
+	else if (s_st.running) line(76, lg, lgCol);   // nothing for an empty line
 	gfxArcDots(SERVO_DIAL_X, SERVO_DIAL_Y, SERVO_DIAL_ARC_R, -90, 90, 10, 3, C_GRID);
 	gfxLine(SERVO_DIAL_X, SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4, SERVO_DIAL_X,
 	        SERVO_DIAL_Y - SERVO_DIAL_ARC_R + 4, 1, C_DIM);
@@ -800,6 +866,31 @@ static void drawButtons(bool startOk, int holdPct) {
 /** @brief Drive the selected servos to @p cmd; @p step for MIN, CENTRE and MAX. */
 static void position(uint16_t cmd, bool step = false) { send(ServoCmdKind::Position, cmd, step); }
 
+/**
+ * @brief The steps of a HOLD TO START with a log, one a frame, before any
+ *        touch: the open in the frame after the note was drawn, the Start in
+ *        the frame after the open. Core1 judges the Start as any other, by
+ *        the heartbeat and the touch stamp of this frame. With the pins gone
+ *        no Start is sent, and the log is told the job's last seq, so it
+ *        ends at once.
+ */
+static void startSteps() {
+	if (s_startStep == StartStep::Note) {
+		servoLogStart(millis());
+		s_startStep = StartStep::Open;
+		return;
+	}
+	if (s_startStep != StartStep::Open) return;
+	s_startStep = StartStep::None;
+	servoLogFollow(live() ? send(ServoCmdKind::Start) : s_st.ackSeq);
+}
+
+/** @brief BACK while a Start waits: no Start, and a log already open ends. */
+static void startStepsDrop() {
+	if (s_startStep == StartStep::Open) servoLogFollow(s_st.ackSeq);
+	s_startStep = StartStep::None;
+}
+
 /** @brief Every touch of the SERVO view. */
 static void mainTouch(bool startOk) {
 	bool run = driving();
@@ -813,8 +904,15 @@ static void mainTouch(bool startOk) {
 	//     landed on the live button, and not again once it fired: the press
 	//     that started the servo does not start it again after a trip, and
 	//     one made before the claim was live does not start it at all ---
-	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startOk && !s_needLift, millis()))
-		send(ServoCmdKind::Start);
+	// With a log to open, the Start waits: this frame draws the note, the
+	// next opens the log, the one after sends the Start (startSteps()).
+	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startOk && !s_needLift, millis())) {
+		if (servoLogWanted()) {
+			s_startStep = StartStep::Note;
+		} else {
+			send(ServoCmdKind::Start);
+		}
+	}
 	if (s_st.running && s_t->pressed && pressing(BTN_START)) {
 		send(ServoCmdKind::Safe);
 		s_dragging = false;
@@ -1316,6 +1414,7 @@ void uiServoEnter() {
 	s_dragging = false;
 	s_wasRunning = false;
 	uiHoldReset(&s_hold);
+	s_startStep = StartStep::None;
 	s_needLift = false;
 	s_sel = -1;
 	uiListInit(&s_list, SET_VIEW, SET_ROW_PITCH, SET_ROWS);
@@ -1351,6 +1450,8 @@ bool uiServoTick(const TouchState *t) {
 		} else {
 			uiSliderRelease(&s_speed);
 			if (!s_claimed) return false;
+			servoLogBack();
+			startStepsDrop();
 			pinClaimEnd(PinUser::Servo);
 			ClaimState cs = pinClaimState();
 			if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
@@ -1360,6 +1461,9 @@ bool uiServoTick(const TouchState *t) {
 			uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 		}
 	}
+
+	// The open, or the Start after it, before this frame's touches.
+	startSteps();
 
 	if (s_view == View::Leave) {
 		uiLeavePoll(&s_leave, pinClaimUnplugDue(), millis());

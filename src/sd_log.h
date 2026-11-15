@@ -56,31 +56,51 @@ enum class SdLogEnd : uint8_t {
 	ByHitec,      /**< HITEC SERVO did. */
 	ByAm32,       /**< ESC SETTINGS did. */
 	NoFreeNumber, /**< START found `LOG99999.BFL` in `LOGS/`: no number follows it. */
+	ByServo,      /**< SERVO TESTER did, for its servo log (servo_log.h). */
 };
 
-/** @brief The highest N in `LOGS/LOGnnnnn.BFL`: five digits. */
+/** @brief The highest N in `LOGS/LOGnnnnn.BFL` and `LOGS/SRVnnnnn.CSV`: five digits. */
 #define SD_LOG_NUMBER_MAX 99999u
 
 /**
- * @brief The number in a log's file name. Pure; host-testable.
+ * @brief One numbered kind of log file: three letters, five decimal digits
+ *        and an extension of four characters, the dot included.
  *
- * A log's name is `LOG`, five decimal digits and `.BFL`, nothing before or
- * after: `LOG00000.BFL` to `LOG99999.BFL`. Letter case is ignored, because
- * FAT compares names without it: `log00007.bfl` is the file `LOG00007.BFL`
- * opens, so it counts. Four or six digits, another extension, a sign, a
- * space or any longer name is not a log's name.
+ * Each kind numbers its files on its own: a blackbox log's number counts
+ * only `LOGnnnnn.BFL`, a servo log's only `SRVnnnnn.CSV`.
+ */
+struct SdLogKind {
+	const char *head;  /**< The three letters, upper case: `LOG`, `SRV`. */
+	const char *tail;  /**< The extension, upper case: `.BFL`, `.CSV`. */
+};
+
+/** @brief The blackbox log, `LOGnnnnn.BFL`. */
+static const SdLogKind SD_LOG_KIND_BFL = { "LOG", ".BFL" };
+/** @brief The servo tester's log, `SRVnnnnn.CSV` (servo_log.h). */
+static const SdLogKind SD_LOG_KIND_SRV = { "SRV", ".CSV" };
+
+/**
+ * @brief The number in a log's file name, for one kind of log. Pure;
+ *        host-testable.
+ *
+ * A log's name is the kind's three letters, five decimal digits and its
+ * extension, nothing before or after: `LOG00000.BFL` to `LOG99999.BFL`.
+ * Letter case is ignored, because FAT compares names without it:
+ * `log00007.bfl` is the file `LOG00007.BFL` opens, so it counts. Four or six
+ * digits, another extension, a sign, a space or any longer name is not a
+ * log's name.
  *
  * @param name A directory entry's name, NUL-terminated; nullptr reads as none.
+ * @param kind The kind of log.
  * @param[out] n The number, set only on a match.
- * @return True if @p name is a log's name.
+ * @return True if @p name is a log's name of @p kind.
  */
-static inline bool sdLogNameNumber(const char *name, uint32_t *n) {
+static inline bool sdLogNameNumberOf(const char *name, const SdLogKind *kind, uint32_t *n) {
 	if (!name) return false;
-	static const char HEAD[] = "LOG", TAIL[] = ".BFL";
 	for (int i = 0; i < 3; i++) {
 		char c = name[i];
 		if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
-		if (c != HEAD[i]) return false;
+		if (c != kind->head[i]) return false;
 	}
 	uint32_t v = 0;
 	for (int i = 3; i < 8; i++) {
@@ -91,7 +111,7 @@ static inline bool sdLogNameNumber(const char *name, uint32_t *n) {
 	for (int i = 0; i < 4; i++) {
 		char c = name[8 + i];
 		if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
-		if (c != TAIL[i]) return false;
+		if (c != kind->tail[i]) return false;
 	}
 	if (name[12] != '\0') return false;
 	*n = v;
@@ -99,15 +119,28 @@ static inline bool sdLogNameNumber(const char *name, uint32_t *n) {
 }
 
 /**
+ * @brief The number in a blackbox log's file name, `LOGnnnnn.BFL`
+ *        (sdLogNameNumberOf()). Pure; host-testable.
+ * @param name A directory entry's name, NUL-terminated; nullptr reads as none.
+ * @param[out] n The number, set only on a match.
+ * @return True if @p name is a blackbox log's name.
+ */
+static inline bool sdLogNameNumber(const char *name, uint32_t *n) {
+	return sdLogNameNumberOf(name, &SD_LOG_KIND_BFL, n);
+}
+
+/**
  * @brief Fold one directory entry's name into the highest log number seen.
  *        Pure; host-testable.
  * @param[in,out] highest The highest number so far, 0 before any; a name
- *        that is not a log's leaves it.
+ *        that is not a log's of @p kind leaves it.
  * @param name The entry's name.
+ * @param kind The kind of log; the blackbox log's when not given.
  */
-static inline void sdLogNoteName(uint32_t *highest, const char *name) {
+static inline void sdLogNoteName(uint32_t *highest, const char *name,
+                                 const SdLogKind *kind = &SD_LOG_KIND_BFL) {
 	uint32_t n;
-	if (sdLogNameNumber(name, &n) && n > *highest) *highest = n;
+	if (sdLogNameNumberOf(name, kind, &n) && n > *highest) *highest = n;
 }
 
 /**
@@ -128,7 +161,8 @@ static inline uint32_t sdLogNextNumber(uint32_t highest) {
 
 /** @brief True for an end a tool's claim caused. Pure. */
 static inline bool sdLogEndByTool(SdLogEnd e) {
-	return e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+	return e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32 ||
+	       e == SdLogEnd::ByServo;
 }
 
 /**
@@ -257,10 +291,10 @@ void sdLogStop();
  * The run summary records the tool as how the log ended, as sdLogStop()
  * records STOP.
  *
- * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
- *        @ref SdLogEnd::ByAm32. A stop that fails keeps the cause it
- *        recorded: CardFull or WriteFailed from the last flush, WriteFailed
- *        from the sync or close.
+ * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec,
+ *        @ref SdLogEnd::ByAm32 or @ref SdLogEnd::ByServo. A stop that
+ *        fails keeps the cause it recorded: CardFull or WriteFailed from
+ *        the last flush, WriteFailed from the sync or close.
  */
 void sdLogStopFor(SdLogEnd tool);
 

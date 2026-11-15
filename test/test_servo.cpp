@@ -5168,6 +5168,230 @@ static void testCutScreens() {
 	freshUi();
 }
 
+/** @brief Whether the dial band's second line reads @p text, centred, in @p col. */
+static bool logLineIs(const char *text, uint16_t col) {
+	return textAt((GFX_W - gfxTextW(text, 1)) / 2, 76, text, col, 1);
+}
+
+/**
+ * @brief The servo log on SERVO TESTER (servo_log.h, faked here): opened by
+ *        HOLD TO START before the Start command, told the Start's seq and
+ *        BACK; the dial band's second line while RUNNING.
+ */
+static void testLogScreen() {
+	section("Servo screen: the servo log's calls and its line while RUNNING");
+	freshUi();
+	ServoLogStatus lg = {};
+	lg.active = true;
+	lg.fileNumber = 12;
+	fakeServoLogSet(&lg);
+	fakeServoLogOpen(true, 0);
+	openServo();
+	uiFrames(2);
+	checkTrue("SAFE: no log line, no log opened",
+	          !logLineIs("LOGGING TO SRV00012.CSV", C_DIM) && fakeServoLogCalls().starts == 0);
+	holdStart();
+	uiFrames(2);
+	core1();
+	FakeServoLogCalls calls = fakeServoLogCalls();
+	ServoStatus st;
+	servoJobStatus(&st);
+	checkTrue("HOLD TO START opens the log once, with the job not running",
+	          calls.starts == 1 && !calls.ranAtStart && st.running);
+	checkTrue("and gives it the Start command's seq", calls.follows == 1 && calls.seq == st.ackSeq);
+	checkTrue("RUNNING: LOGGING TO SRV00012.CSV, dim", logLineIs("LOGGING TO SRV00012.CSV", C_DIM));
+	fakeDumpFrame("shot_servo_log.ppm");
+
+	struct { bool active, limit; uint32_t dropped; SdLogEnd fault; const char *text; uint16_t col;
+	         bool slow = false, noCache = false; } rows[] = {
+		{ true,  false, 12, SdLogEnd::None,         "SRV00012.CSV: 12 ROWS DROPPED",  C_AMBER },
+		{ true,  true,  12, SdLogEnd::None,         SERVO_UI_LOG_LIMIT,               C_AMBER },
+		{ true,  false, 0,  SdLogEnd::CardFull,     SERVO_UI_LOG_FULL,                C_AMBER },
+		{ false, false, 0,  SdLogEnd::CardFull,     SERVO_UI_LOG_NO_ROOM,             C_AMBER },
+		{ true,  false, 3,  SdLogEnd::WriteFailed,  SERVO_UI_LOG_FAILED,              C_AMBER },
+		{ false, false, 0,  SdLogEnd::OpenFailed,   SERVO_UI_LOG_NO_OPEN,             C_AMBER },
+		{ false, false, 0,  SdLogEnd::NoFreeNumber, SERVO_UI_LOG_NO_NUMBER,           C_AMBER },
+		{ false, false, 0,  SdLogEnd::None,         SERVO_UI_LOG_SLOW,                C_AMBER, true },
+		{ false, false, 0,  SdLogEnd::None,         SERVO_UI_LOG_NO_CACHE,            C_AMBER, false, true },
+	};
+	for (auto &r : rows) {
+		lg.active = r.active;
+		lg.atLimit = r.limit;
+		lg.slow = r.slow;
+		lg.noCache = r.noCache;
+		lg.dropped = r.dropped;
+		lg.fault = r.fault;
+		fakeServoLogSet(&lg);
+		uiFrames(1);
+		char t[80];
+		snprintf(t, sizeof(t), "RUNNING: %s", r.text);
+		checkTrue(t, logLineIs(r.text, r.col));
+	}
+	lg = ServoLogStatus{};
+	lg.fileNumber = 12;
+	fakeServoLogSet(&lg);
+	uiFrames(1);
+	checkTrue("no log (no card, no sensor): the line empty",
+	          !someOf(0, 76, GFX_W, 7, C_DIM) && !someOf(0, 76, GFX_W, 7, C_AMBER));
+
+	// STOP: SAFE's notes take the line; the log's text is gone.
+	lg.active = true;
+	fakeServoLogSet(&lg);
+	uiFrames(1);
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	checkTrue("STOP: the line gone with RUNNING",
+	          !s_st.running && !logLineIs("LOGGING TO SRV00012.CSV", C_DIM));
+	char safe2[48];
+	snprintf(safe2, sizeof(safe2), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", (unsigned)gpioOf(PIN_SIG));
+	checkTrue("SAFE's notes whole on both lines, the log open or not",
+	          notesAre("THE SERVO MOVES TO CENTRE AT START.", C_DIM, safe2, C_DIM));
+	checkInt("STOP opens no log", (long)fakeServoLogCalls().starts, 0);
+	leaveServo();
+	checkInt("BACK tells the log", (long)fakeServoLogCalls().backs, 1);
+
+	// The widest texts fit between the margins.
+	char widest[48];
+	snprintf(widest, sizeof(widest), SERVO_UI_LOG_DROPPED_FMT, 99999ul, 4294967295ul);
+	const char *texts[] = { widest, SERVO_UI_LOG_FULL, SERVO_UI_LOG_FAILED, SERVO_UI_LOG_NO_OPEN,
+	                        SERVO_UI_LOG_NO_NUMBER, SERVO_UI_LOG_NO_ROOM, SERVO_UI_LOG_LIMIT,
+	                        SERVO_UI_LOG_SLOW, SERVO_UI_LOG_NO_CACHE, SERVO_UI_LOG_PREP_1,
+	                        SERVO_UI_LOG_PREP_2 };
+	for (const char *t : texts) {
+		char what[80];
+		snprintf(what, sizeof(what), "fits: %s", t);
+		checkTrue(what, gfxTextW(t, 1) <= GFX_W - 2 * UI_MARGIN);
+	}
+
+	// OWN with the declared sensor gone: the note that the cuts are blind
+	// takes the line from the log's.
+	freshUi();
+	lg = ServoLogStatus{};
+	lg.active = true;
+	lg.fileNumber = 3;
+	fakeServoLogSet(&lg);
+	servoSupplyConfigure(0);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	openServo();
+	senseFrames(ina, 42);
+	holdStartFrames();
+	senseFrames(ina, 2);
+	checkTrue("OWN, the sensor online: the log's line", logLineIs("LOGGING TO SRV00003.CSV", C_DIM));
+	fakeI2cRemove(INA219_ADDR);
+	senseFrames(ina, 5);
+	checkTrue("the sensor gone: the blind note instead",
+	          s_st.running && logLineIs(SERVO_UI_OWN_NO_CUTS, C_DIM) &&
+	          !logLineIs("LOGGING TO SRV00003.CSV", C_DIM));
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	leaveServo();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	lg = ServoLogStatus{};
+	fakeServoLogSet(&lg);
+	fakeServoLogOpen(false, 0);
+	freshUi();
+}
+
+/**
+ * @brief HOLD TO START with a log to open: the note in the frame the hold
+ *        fires, the open in the next, the Start in the one after, so an open
+ *        that holds core0 800 ms, past the heartbeat's 250 ms, never makes
+ *        core1 refuse the Start. With the switch, the touch rule too.
+ */
+static void testLogStartOrder() {
+	section("Servo screen: a slow log open, then a later frame's Start");
+	for (int sw = 0; sw < 2; sw++) {
+		freshUi();
+		settings()->servoSupply = (uint8_t)sw;
+		servoSupplyConfigure((uint8_t)sw);
+		ServoLogStatus lg = {};
+		lg.active = true;
+		lg.fileNumber = 5;
+		fakeServoLogSet(&lg);
+		fakeServoLogOpen(true, 800);
+		openServo();
+		uiFrames(2);
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+		pressId(UI_FIX(ServoCtl::Start));
+		for (int i = 0; i < 80 && s_startStep == StartStep::None; i++) { fakeHold(x, y); uiFrames(1); }
+		fakeRelease();
+		checkTrue(sw ? "switched: the hold fired: the note, no open yet" : "the hold fired: the note, no open yet",
+		          s_startStep == StartStep::Note && fakeServoLogCalls().starts == 0 &&
+		          notesAre(SERVO_UI_LOG_PREP_1, C_DIM, SERVO_UI_LOG_PREP_2, C_DIM));
+		if (!sw) fakeDumpFrame("shot_servo_log_prep.ppm");
+		uint32_t before = millis();
+		uiFrames(1);
+		FakeServoLogCalls c = fakeServoLogCalls();
+		checkTrue("the next frame opens the log, 800 ms on core0, no Start sent",
+		          c.starts == 1 && c.follows == 0 && millis() - before >= 800 &&
+		          s_startStep == StartStep::Open);
+		core1();
+		ServoStatus st;
+		servoJobStatus(&st);
+		checkTrue("core1 after the open: still SAFE, no Start to take", !st.running && st.ackSeq == c.ackAtStart);
+		uiFrames(1);
+		core1();
+		c = fakeServoLogCalls();
+		servoJobStatus(&st);
+		checkTrue("the frame after: the Start sent and taken, the heartbeat and touch fresh",
+		          c.follows == 1 && c.startsAtFollow == 1 && st.running && c.seq == st.ackSeq &&
+		          s_startStep == StartStep::None);
+		uiFrames(1);
+		pressId(UI_FIX(ServoCtl::Start));
+		core1();
+		fakeRelease();
+		uiFrames(2);
+		leaveServo();
+	}
+	// BACK between the open and the Start: no Start, the log told to end.
+	freshUi();
+	settings()->servoSupply = 0;
+	servoSupplyConfigure(0);
+	ServoLogStatus open = {};
+	open.active = true;
+	fakeServoLogSet(&open);
+	fakeServoLogOpen(true, 0);
+	openServo();
+	uiFrames(2);
+	int x, y;
+	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+	pressId(UI_FIX(ServoCtl::Start));
+	for (int i = 0; i < 80 && s_startStep == StartStep::None; i++) { fakeHold(x, y); uiFrames(1); }
+	// BACK pressed in the open's frame and lifted in the next, which takes
+	// BACK before the Start.
+	UiControl back;
+	ctlGet(UI_FIX(UI_BACK), &back, IdExpect::Enabled);
+	fakePress(back.rect.x + back.rect.w / 2, back.rect.y + back.rect.h / 2);
+	uiFrames(1);
+	checkTrue("opened, the Start due next frame", s_startStep == StartStep::Open);
+	ServoStatus st;
+	servoJobStatus(&st);
+	uint16_t ack = st.ackSeq;
+	fakeRelease();
+	uiFrames(1);
+	core1();
+	servoJobStatus(&st);
+	FakeServoLogCalls c = fakeServoLogCalls();
+	checkTrue("BACK: no Start, the log given the last seq", !st.running && c.follows == 1 &&
+	          c.seq == ack && s_startStep == StartStep::None);
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
+	tapId(UI_FIX(ServoCtl::Restart));
+	uiFrames(2);
+	fakeServoLogOpen(false, 0);
+	ServoLogStatus none = {};
+	fakeServoLogSet(&none);
+	freshUi();
+}
+
 /** @brief @p n UI frames of 25 ms, rcbench's servo model behind the timed fake INA219. */
 static void uiSimFrames(FakeIna219 *ina, SimServo *sim, int n) {
 	for (int i = 0; i < n; i++) {
@@ -5478,6 +5702,8 @@ void runServoTests() {
 	testSupplyLineAndHint();
 	testSupplyScreenFaults();
 	testCutScreens();
+	testLogScreen();
+	testLogStartOrder();
 	testMoveScreen();
 	testMoveScreenNone();
 	testColourRoles();

@@ -112,7 +112,11 @@ auch im scharfen Zustand auffällt. SD LOG sagt, was geschah.
 Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder ESC SETTINGS
 öffnet: Das Werkzeug braucht die Karte für seine Sicherung. SD LOG zeigt dann
 `RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `ESC SETTINGS`). Nach dem
-Werkzeug startet `START` eine neue Aufzeichnung.
+Werkzeug startet `START` eine neue Aufzeichnung. Auch der Servotester beendet
+sie, bei `HOLD TO START` mit eingebautem Stromsensor, um seine eigene
+Aufzeichnung `LOGS/SRVnnnnn.CSV` zu schreiben
+([Servotester](Servotester#die-aufzeichnung-auf-der-karte)); SD LOG zeigt dann
+`RECORDING STOPPED BY SERVO TESTER`.
 
 **Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder die
 Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten, bis die
@@ -159,7 +163,7 @@ Sie enthält einen Wert je Zeile:
 |---|---|
 | `Log`, `Firmware` | Der Dateiname der Aufzeichnung und die Firmware-Version |
 | `Clock at start`, `Clock at stop` | Die Uhr der Platine zu Beginn und am Ende der Aufzeichnung, als `2026-11-14 15:42:07`, oder `not set`, solange die Uhr nicht gestellt ist; nach dem Stellen während der Aufzeichnung ergänzt die Zeile am Ende `(clock set during the log)` ([Die Uhr](#die-uhr)) |
-| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` oder `ESC SETTINGS` |
+| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` oder `SERVO TESTER` |
 | `Duration`, `Armed` | Die Dauer der Aufzeichnung und die Zeit, die sie davon scharf war, in Sekunden |
 | `Max RPM` | Die höchste Drehzahl: DShot-eRPM (elektrische Drehzahl), oder KISS-eRPM in einer Aufzeichnung ohne DShot-eRPM, geteilt durch die Hälfte des Werts von `MOTOR POLES` beim Beenden |
 | `Max current`, `Max temperature` | Der höchste Strom und die höchste Temperatur des ESC (Electronic Speed Controller, Motorregler): KISS, solange KISS aktuell ist, EDT (Extended DShot Telemetry) in seinen Lücken; EDT allein, wenn KISS in jedem Frame 0 sandte, ein ESC ohne diesen Sensor |
@@ -304,6 +308,7 @@ ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
 | `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder lesen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
 | `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
+| `RECORDING STOPPED BY SERVO TESTER` | Der Servotester nahm die Karte für seine eigene Aufzeichnung | `START` für eine neue Aufzeichnung |
 
 Eine volle Karte unterscheidet sich von einem fehlgeschlagenen Schreibvorgang
 durch das, was das Dateisystem meldet: Ein Schreibvorgang, der keinen freien

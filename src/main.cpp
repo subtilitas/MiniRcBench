@@ -83,6 +83,7 @@
 #include "usb_dev.h"
 #include "usb_msc.h"
 #include "card_cache.h"
+#include "servo_log.h"
 #include "settings.h"
 #include "servo_supply.h"
 #include "diag.h"
@@ -219,6 +220,12 @@ void loop() {
 	// the block in flight per pass, never a wait on the card's busy line.
 	// Nothing while the cache is off. @see card_cache.h
 	cardCachePoll();
+
+	// The servo tester's log, after the poll: its one card call of a pass
+	// is made only while nothing is queued or in flight, so a pass reads
+	// the card at most once, for this call or for the poll's batch start.
+	// Nothing while no servo log is open. @see servo_log.h
+	servoLogPoll();
 #endif
 
 #if SERIAL_TELEMETRY 

@@ -791,6 +791,7 @@ static void testEnds() {
 		{ RunSumEnd::ByKst, "Ended by: KST SERVO" },
 		{ RunSumEnd::ByHitec, "Ended by: HITEC SERVO" },
 		{ RunSumEnd::ByAm32, "Ended by: ESC SETTINGS" },
+		{ RunSumEnd::ByServo, "Ended by: SERVO TESTER" },
 		{ RunSumEnd::WriteFailed, "Ended by: WRITE FAILED" },
 	};
 	for (const auto &c : ends) {

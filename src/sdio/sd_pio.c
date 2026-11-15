@@ -227,14 +227,19 @@ static sd_err_t busRxArm(void *ctx, uint8_t *buf, uint32_t bytes, uint32_t block
 	return SDE_OK;
 }
 
+/** @brief Every armed block in: the control channel at the table's end, both channels idle. */
+static bool busRxReady(void *ctx) {
+	sdpio_t *h = (sdpio_t *)ctx;
+	return dma_hw->ch[h->dma_ctrl].read_addr == (uint32_t)(uintptr_t)h->rx_end &&
+	       !dma_channel_is_busy(h->dma_ctrl) && !dma_channel_is_busy(h->dma_data);
+}
+
 static sd_err_t busRxWait(void *ctx, uint32_t timeout_us) {
 	sdpio_t *h = (sdpio_t *)ctx;
 	uint32_t t0 = time_us_32();
 	uint32_t seen = dma_hw->ch[h->dma_data].write_addr;
 	for (;;) {
-		if (dma_hw->ch[h->dma_ctrl].read_addr == (uint32_t)(uintptr_t)h->rx_end &&
-		    !dma_channel_is_busy(h->dma_ctrl) && !dma_channel_is_busy(h->dma_data))
-			break;
+		if (busRxReady(ctx)) break;
 		if (sdh_wait_hook) sdh_wait_hook();
 		uint32_t now = time_us_32();
 		uint32_t wa = dma_hw->ch[h->dma_data].write_addr;
@@ -406,6 +411,7 @@ void sdpio_bus(sdpio_t *h, sdh_bus_t *bus) {
 	bus->stop_clock = busStopClock;
 	bus->rx_arm = busRxArm;
 	bus->rx_wait = busRxWait;
+	bus->rx_ready = busRxReady;
 	bus->rx_stop = busRxStop;
 	bus->tx_block = busTxBlock;
 	bus->dat0 = busDat0;

@@ -638,8 +638,9 @@ powered after it, or by the bench.
   (`LOGS` not made or read, or the file not opened),
   `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT`
   (no number after the highest file),
-  and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `ESC SETTINGS` when
-  the tool's claim stopped the log (`cardCacheBegin()`). A USB DRIVE refusal
+  and `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` or
+  `SERVO TESTER` when the tool's claim, or the servo tester's log, stopped
+  the log (`cardCacheBegin()`). A USB DRIVE refusal
   outranks them for its 4000 ms.
 - **DROPPED FRAMES**: frames the ring buffer refused because the card was
   slower than the data. Red when non-zero. Non-zero means the buffer is too
@@ -1130,9 +1131,10 @@ with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
 Information Interchange) text, one value a line: the log's name, the
 firmware version, the clock at the start and the stop (`2026-11-14 15:42:07`
 or `not set`), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
-`HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
-RPM, current and temperature, the minimum voltage while armed, the charge
-used by the KISS counter and from the current, and the logger's counters
+`HITEC SERVO`, `ESC SETTINGS` or `SERVO TESTER`), its duration and armed
+time, the maximum RPM, current and temperature, the minimum voltage while
+armed, the charge used by the KISS counter and from the current, and the
+logger's counters
 that SD LOG shows while a log runs (frames, dropped frames, kilobytes
 written, buffer peak, worst flush). Each extreme is the value held over
 three consecutive new readings, with its source and the raw extreme beside
@@ -2153,6 +2155,101 @@ and no cut. Not tested on hardware.
   that eases its drive near the target can fall to its holding current
   while the horn still creeps. How far the time lies from the horn's
   arrival is not measured (bench test B10).
+
+**The log.** With CURRENT SENSE at `INA219` and a card mounted, each run
+from HOLD TO START to its end writes `LOGS/SRVnnnnn.CSV`, one row per
+reading of the sensor, 40 a second (slice 6 of
+`docs/design/current-sense.md`, `src/servo_log.*`). Without a sensor or a
+card no log is written and the screen shows nothing of it. Host tests only:
+no card has taken the log on the board.
+
+```text
+ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
+12345,1500,0,420,5020,0
+...
+# end=STOP rows=2400 dropped=0 up_ms=40
+```
+
+- `ms` is the reading's time from HOLD TO START; `pulse_a_us` and
+  `pulse_b_us` what SIG and AUX carry, 0 for level 0 or no second servo;
+  `current_ma` the current to the nearest mA, signed; `bus_mv` the bus
+  voltage; `flags` 1 for a clipped reading, 2 for the first reading after
+  the part was found reset. About 27 bytes a row, 1.1 kB/s.
+- The numbers are the log's own: one above the highest `SRVnnnnn.CSV` in
+  `LOGS`, read once per mount as the blackbox log's are; `LOGnnnnn.BFL` and
+  `SRVnnnnn.CSV` do not move each other's numbers. After `SRV99999.CSV` no
+  log starts.
+- HOLD TO START with a log to open draws `PREPARING THE LOG...` over `THE SERVO
+  STARTS AFTER IT.`, dim, in the dial band; the next UI frame opens the file,
+  and the frame after it sends the Start, with the heartbeat stamped and touch
+  read afresh, so core1 takes it however long the open held core0. Without a
+  sensor or a card the Start goes out in the frame of the hold, as before.
+- The open reserves 4 MiB in one run of the card (`SERVO_LOG_PREALLOC_BYTES`,
+  about an hour of rows), or 64 KiB on a card without that run free; less is `NO
+  LOG: NO 64 KIB IN ONE PIECE`. The free count from the card's FSINFO comes
+  first, so a full card costs no search of the FAT. The reserve is mapped for
+  fast seek, the entry synced with the reserved size, and every block of that is
+  on the card before the Start. An open that passes 2000 ms
+  (`SERVO_LOG_OPEN_MAX_MS`), checked between its steps, is given up: `NO LOG:
+  CARD TOO SLOW`, and the run starts without a log. Its file is closed and
+  removed at the run's end, only from the card it was opened on, by its volume
+  serial number: a card swapped in meanwhile keeps its own file of that number,
+  and the begun file stays on the first card. Its queued blocks go out during
+  the run without a wait. A running blackbox log's stop comes before the open
+  and is not counted. One search of the FAT is not cut short: the limit is
+  checked before it and between the 4 MiB and the 64 KiB try, and a whole search
+  of a fragmented card of 32 GB reads about 8,000 blocks, some 8 s at 1 ms a
+  block.
+- The file closes when the run ends: STOP, BACK, a cut, a trip, or a supply that
+  did not come up. Its last line says how (`end=STOP`, `BACK`, `OVERCURRENT`,
+  `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`, `TOUCH_SILENT`, `BUS_STUCK`,
+  `NO_START`), how many rows were taken and dropped, and the supply's start-up
+  time (`up_ms=-` without the switch). The close truncates the file to its rows.
+- A board that loses power during a run leaves the file as the open put it on
+  the card: its entry with the reserved size, then every block of rows that
+  reached the card, followed by whatever the card held in that space before, as
+  a blackbox log is left. The rows still in RAM, up to about 16 KiB, are lost.
+- A running blackbox log stops at HOLD TO START, and SD LOG then reads
+  `RECORDING STOPPED BY SERVO TESTER`; its `.TXT` says `Ended by: SERVO TESTER`.
+  SD LOG's last-run rows stay those of the blackbox log; the servo log has no
+  rows there.
+- The SD write cache is on from the open to the close
+  (`docs/design/sd-write-cache.md`). During the run core0 never waits for the
+  card. It hands FatFs one whole 512-byte block of rows at most each pass, only
+  while nothing is queued or in flight and only inside the reserve; FatFs finds
+  the block's cluster in a fast-seek table made at the open and reads nothing.
+  The run makes no f_sync(), which would read the directory. The cache's check
+  of the volume's serial number before each block is a read started in one pass
+  and collected in a later one, tried 3 times. Rows wait in a RAM ring of 16384
+  bytes (`SERVO_LOG_RING_BYTES`); a card slower than the rows drops rows,
+  counted. The close, the truncation and the cache's last flush, which may wait
+  for the card, run while the pulses are at level 0 and the supply is off.
+- While RUNNING the dial's second line reads `LOGGING TO SRV00012.CSV`, dim; in
+  amber `SRV00012.CSV: 12 ROWS DROPPED`, `LOG STOPPED AT 4 MIB`, `LOG STOPPED:
+  NO ROOM IN ONE PIECE`, `LOG STOPPED: CARD WRITE FAILED`, `NO LOG: NO 64 KIB IN
+  ONE PIECE`, `NO LOG: CARD TOO SLOW`, `NO LOG: THE CARD DID NOT ANSWER` (a card
+  mounted on which the cache did not start), `NO LOG: THE FILE DID NOT OPEN` or
+  `NO LOG: SRV99999.CSV EXISTS`. `NO SENSOR READING: NO CURRENT CUTS.` takes the
+  line before them.
+- The 64 KiB reserve used up stops the writing, `NO ROOM IN ONE PIECE`, true of
+  a full card and of a fragmented one; the whole 4 MiB used stops it at the
+  limit; the close writes the rest of the rows and the end line where the card
+  has room. A card removed, or a block the card does not take, stops the writing
+  too; at the run's end the card is mounted again (`cardCacheRecover()`), and SD
+  LOG shows whether one is there. The file then holds the blocks written before,
+  at its reserved size.
+- In the host model: the open took 558 ms the first time after a mount with a
+  blackbox log to stop and 121 ms the next, on a card that reads a block in 1 ms
+  and programs it in 5 ms; on a card at the SD specification's limits, 100 ms a
+  read and 511 ms a block, it was given up at 2.3 s and 2.1 s, and the Start was
+  taken every time. During the run a pass spends at most a block's transfer, 0.1
+  ms, on the card. The hard cut came at most 25.01 ms after a step of current
+  without the log and 24.96 ms with it; the longest gap between readings grew
+  from 25.00 ms to at most 25.06 ms, by at most the block's transfer (`make -C
+  test lognum`, `test/servo_log_fatfs.cpp`). A card pulled during the run costs
+  each pass that sends it a command 5 ms, the command's timeout, until the write
+  cache gives the card up. A real card's latency and the cuts' timing on the
+  board with the log on are not measured.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -3477,6 +3574,7 @@ src/
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
   servo_job.{h,cpp}     the servo tester's core1 job: pulses, trip, supply
   move_timer.{h,cpp}    the servo tester's move timing from the current: rcbench's servo_move fed per reading (pure)
+  servo_log.{h,cpp}     the servo tester's log LOGS/SRVnnnnn.CSV behind the write cache (core0)
   ui_kst.{h,cpp}        KST SERVO: the search, the field list, the write, FILES, the leave
   kst_view.{h,cpp}      what KST SERVO shows: rows, values with units, the stepper, the texts
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers
@@ -3686,14 +3784,16 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 15,814 of 16,077 lines in 96 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 15,932 of 16,195 lines in 96 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
 come with it), so the logging UI is tested against a fake logger in
 `fakes.cpp`. `make lognum` links `sd_log.cpp` alone, over FatFs on a RAM
-disk with the card driver faked (`test/sd_log_fatfs.cpp`). The fake is the
-observable:
+disk with the card driver faked (`test/sd_log_fatfs.cpp`), and the servo log,
+`servo_log.cpp`, faked in the suite as well, with the logger, `card_cache.cpp`
+and `sd_cache.c` over a card model (`test/servo_log_fatfs.cpp`). The fake is
+the observable:
 tapping START has to actually reach `sdLogStart()` for its state to change, which covers
 navigation, hit-testing and dispatch without production code carrying test-only
 accessors.

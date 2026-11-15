@@ -12,6 +12,7 @@
 #pragma once
 
 #include "ff.h"
+#include "diskio.h"
 
 #include <stdint.h>
 
@@ -40,14 +41,32 @@ struct RamDisk {
 	 *         @ref writeUs, a failed one included; nullptr for none. */
 	uint64_t *clockUs;
 	uint32_t writeUs;    /**< The time one disk_write() call takes, µs. */
+	/** @brief The card is out of the slot: disk_initialize() reports it
+	 *         uninitialised, and every read and write fails with RES_NOTRDY. */
+	bool     removed;
+	/**
+	 * @brief When set, FatFs's reads and writes go through these instead, as
+	 *        the board's go through its SDIO glue and the write cache;
+	 *        ramDiskRead() and ramDiskWrite() reach the image. nullptr for
+	 *        none.
+	 */
+	DRESULT (*viaRead)(BYTE *buf, LBA_t sector, UINT count);
+	DRESULT (*viaWrite)(const BYTE *buf, LBA_t sector, UINT count);  /**< @see viaRead */
 };
 
 /** @brief The disk FatFs sees. */
 extern RamDisk g_disk;
 
+/** @brief Read the card in the slot, past @ref RamDisk::viaRead. */
+DRESULT ramDiskRead(BYTE *buf, LBA_t sector, UINT count);
+
+/** @brief Write the card in the slot, past @ref RamDisk::viaWrite: the
+ *         faults and the clock of @ref RamDisk apply. */
+DRESULT ramDiskWrite(const BYTE *buf, LBA_t sector, UINT count);
+
 /**
  * @brief Format both images with @p fmt, card 0 in the slot, no faults, no
- *        clock, and mount card 0 on @p fs. Exits the program when FatFs refuses.
+ *        clock, no hooks, and mount card 0 on @p fs. Exits the program when FatFs refuses.
  * @param fs      The volume object.
  * @param fmt     FM_FAT32 or FM_EXFAT.
  * @param sectors The volume's size in sectors.

@@ -44,6 +44,51 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the servo tester's log on the card, slice 6 of
+  [current-sense.md](docs/design/current-sense.md#slice-6-as-built)
+  (`src/servo_log.*`), with CURRENT SENSE at INA219 and a card mounted. Each run
+  from HOLD TO START to its end writes `LOGS/SRVnnnnn.CSV`, one row per reading,
+  `ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags`, and an end line `#
+  end=STOP rows=2400 dropped=0 up_ms=40` that names the end (STOP, BACK, a cut,
+  a trip, a supply that did not come up), the rows taken and dropped and the
+  supply's start-up time. The numbers count apart from `LOGnnnnn.BFL`. HOLD TO
+  START draws `PREPARING THE LOG...`, opens the log in the next UI frame and
+  sends the Start in the frame after, with the heartbeat and touch read afresh,
+  so a slow open never makes core1 refuse the Start. The open reserves 4 MiB in
+  one run of the card, or 64 KiB, mapped for FatFs's fast seek, and flushes
+  every block of that to the card before the Start; past 2000 ms, checked before
+  the FAT search, between the 4 MiB and the 64 KiB try and at each flush step,
+  it is given up, `NO LOG: CARD TOO SLOW`, and the run starts without a log; its
+  file is removed at the run's end only from the card it was opened on, by the
+  volume's serial number. The SD write cache is on from the open to the close;
+  during the run core0 writes one whole 512-byte block inside the reserve, only
+  while nothing is queued or in flight, and makes no f_sync(), so the run reads
+  nothing from the card. A running blackbox log stops at HOLD TO START: SD LOG
+  reads `RECORDING STOPPED BY SERVO TESTER`, the run summary `Ended by: SERVO
+  TESTER` (`SdLogEnd::ByServo`, `RunSumEnd::ByServo`). The dial's second line
+  shows `LOGGING TO SRV00012.CSV` while RUNNING, or in amber the rows dropped,
+  the 4 MiB limit, no room in one piece, a failed write, a slow card, a card
+  that did not answer, or a log that did not open. A card removed or a failed
+  block stops the writing, and the card is mounted again at the run's end. The
+  write cache's swap check, the read of the volume's serial number before each
+  batch, no longer waits for the card: `sdh_read_start()` and `sdh_read_poll()`
+  in `src/sdio/sd_host.*`, with the bus's `rx_ready()` (`busRxReady()` in
+  `src/sdio/sd_pio.c`), start it in one flush step and collect it in a later
+  one. A read with a CRC, frame, timeout or no-response error is tried again, 3
+  reads in all, with CMD12 after a block that did not come in time but no wait
+  for its busy, and none after a whole block with a CRC error, which would cost
+  5 ms, as `sdh_read()` tries a block; another error or a different number fails
+  the batch at once. Every wait of core0 on the cache calls the driver's wait
+  hook, so KST SERVO's and HITEC SERVO's card stamp stays fresh across a check
+  read that times out. `sdLogNameNumberOf()` and the scan and open of
+  `src/sd_log_next.*` take the kind of log. Host tests in
+  `test/servo_log_fatfs.cpp` (`make lognum`) over FatFs R0.15, `card_cache.cpp`
+  and `sd_cache.c` with a card model, and in `test/test_servo.cpp`, and the read
+  in `test/test_sdio.cpp` and `test/test_sd_cache.cpp`, mutation-checked; README
+  and the wiki pages Servo-Tester, Servotester, SD-Logging and SD-Aufzeichnung
+  describe it. A real card's latency and the cuts' timing with the log on are
+  not tested on hardware.
+
 - After v0.1.0-rc1: S.BUS OUTPUT, slice 4 of
   [sbus-output.md](docs/design/sbus-output.md#slice-4-as-built), tested on the
   host only; nothing of it has driven a pin. OUTPUT on RX SIGNALS opens it,

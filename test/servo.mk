@@ -15,7 +15,9 @@
 #                      test_move_timer.cpp runMoveTimerTests()
 #   SERVO_CTESTS       rcbench's own tests of the C sources, each a program
 #                      of its own, built as C11 and run by `make run`
-#   SERVO_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`
+#   SERVO_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`:
+#                      the servo log, which writes through FatFs and the
+#                      card cache; `make lognum` runs it over FatFs itself
 SERVO_SRCS        := ../src/servo_model.cpp \
                      ../src/servo_pwm.cpp ../src/servo_job.cpp ../src/move_timer.cpp \
                      ../src/ui_slider.cpp
@@ -28,4 +30,4 @@ SERVO_INCLUDES    := -I../lib/rcbench/shared/servo/include \
 SERVO_TESTS       := test_servo.cpp test_move_timer.cpp
 SERVO_CTESTS      := rcbench/test_servo_sweep.c rcbench/test_out_pwm_map.c \
                      rcbench/test_servo_move.c
-SERVO_DEVICE_SRCS :=
+SERVO_DEVICE_SRCS := ../src/servo_log.cpp

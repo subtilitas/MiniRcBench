@@ -308,6 +308,7 @@ static void testEnds(const char *vol) {
 		{ SdLogEnd::ByKst,   RunSumEnd::ByKst,   "\nEnded by: KST SERVO\n",   "KST SERVO's claim, saved" },
 		{ SdLogEnd::ByHitec, RunSumEnd::ByHitec, "\nEnded by: HITEC SERVO\n", "HITEC SERVO's claim, saved" },
 		{ SdLogEnd::ByAm32,  RunSumEnd::ByAm32,  "\nEnded by: ESC SETTINGS\n", "ESC SETTINGS' claim, saved" },
+		{ SdLogEnd::ByServo, RunSumEnd::ByServo, "\nEnded by: SERVO TESTER\n", "SERVO TESTER's log, saved" },
 	};
 	uint32_t n = 2;
 	for (auto &k : tools) {
