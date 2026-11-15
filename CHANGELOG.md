@@ -44,6 +44,21 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the USB bridge's line and claim, slice 1 of
+  [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), tested on the
+  host only; nothing opens it yet. `PinUser::Bridge` claims SIG with no ESC
+  check and no leave page of its own and runs `Core1Job::Bridge`
+  (`src/bridge_wire.*`): DshotDisplay's frame slot and 1024-byte ring
+  between the cores, on a 19200 baud 8N1 line of two PIO state machines in
+  one block (`src/bridge_line_port.*`). The transmitter,
+  `src/bridge_line.pio`, is 7 words and sets the pad's direction by
+  side-set: driven through a frame, an input with its pull-up between
+  frames. `pio_uart_rx` receives on the same pad, and the job matches the
+  echo against the bytes sent, counting a frame whose echo differs or comes
+  short as a collision. The release finishes the frame under way, at most
+  250 ms. `test/pio_bridge_emu.py` runs both programs on one pad and CI
+  holds its assembly to pioasm; `test/test_bridge.cpp` runs the job on a
+  line fake and through the claim.
 - After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
   [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built), copied
   unchanged from rcbench e98345aa into `lib/rcbench/`: `servo_rudder.*`, the
@@ -736,6 +751,12 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: a pin claim without the leave page restores DShot only
+  once its core1 job has let the pin go, so DShot is never rebuilt on a pin
+  a job's state machines still drive. AM32, which has no job, restores
+  within BACK as before; the USB bridge, slice 1 of
+  [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), is the first
+  user with a job and no page.
 - After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
   the bench converter, slice 2 of
   [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The

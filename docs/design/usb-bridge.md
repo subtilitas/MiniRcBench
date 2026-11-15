@@ -1,7 +1,10 @@
 # USB bridge to the ESC's signal wire
 
-Status: designed, not built; the owner answered its questions on
-2026-11-15, see [decisions](#decisions); slices wait on being built. The
+Status: designed; the owner answered its questions on 2026-11-15, see
+[decisions](#decisions). Slice 1 is built, host tests only
+([slice 1 as built](#slice-1-as-built)): the pin user, the core1 job, the
+PIO line, the frame slot and the ring, which nothing opens yet; slices 2 to
+4 wait on being built. The
 feature is item (5) of the owner's
 feature choice of 2026-11-14 in [STATUS.md](../../STATUS.md) open item 28,
 "a USB one-wire bridge for desktop ESC tools"; open item 29 tracks this
@@ -318,7 +321,7 @@ page:
 | Item | Value | Source |
 |---|---|---|
 | Rate | 19200 baud 8N1, 52.08 µs a bit, 520.8 µs a byte | AM32 bootloader `main.c` 396 to 398; BLHeli_S `BLHeliBootLoad.inc` line 11; `serial_4way_avrootloader.c` 71 |
-| Gap within one bootloader message | none: the bytes go back to back | the AM32 bootloader ends a message after 5 bit times, 260 µs, of idle line (`main.c` 860) |
+| Gap within one bootloader message | none: the bytes go back to back; as built, a stop bit of 1.25 bit times, driven high ([slice 1 as built](#slice-1-as-built)) | the AM32 bootloader ends a message after 5 bit times, 260 µs, of idle line (`main.c` 860) |
 | Gap between `SET_BUFFER` and its data | at least 520 µs, 10 bit times; the 4-way handler waits 4 ms, as Betaflight | they are two messages: data closer than 260 µs behind the header become part of it and get no answer. Betaflight waits about 4 ms (`serial_4way_avrootloader.c` 267 to 278), rcbench's escwire 520 µs (`escwire/README.md` 53, 59 to 61) |
 | Turnaround | the line is let go at the end of the last stop bit | Betaflight releases the line straight after its last byte (`serial_4way_avrootloader.c` 178 to 194); AM32 answers about 0.3 to 0.35 ms after the host's last byte by rcbench's specification (`escwire/README.md`), not measured |
 | Idle | input with the pad's pull-up, as the claim leaves it in Held | `pin_claim.h` lines 42 to 44; `am32_bl.cpp` lines 74 to 78 |
@@ -339,14 +342,14 @@ machines keep the bit timing, and their FIFOs absorb a busy core1 pass.
 
 The line is one transmit SM and one receive SM on the same pin, in one
 block. The receive SM is `pio_uart_rx`'s program, 9 words, as it is; the
-transmit SM is the SDK's 8N1 transmit program with the pin's direction
-switched by side-set, about 8 words; whether it fits in fewer, and the
-exact count, is for slice 1. During a claim DShot and KISS have left
-pio2, and the claim's own line is the only program there: KST's takes 24
-of its 32 words, Hitec's 30 ([pin-claim.md](pin-claim.md#pio-and-dma-budget)).
-The bridge's line, about 17 words, fits the same way. If item (6) copies
-rcbench's `ew_line` (one SM, 25 words, two DMA channels, `ew_line.h` lines
-1 to 20), slice 1 compares the two and uses one.
+transmit SM is an 8N1 transmit program with the pin's direction switched by
+side-set, 7 words as built (`src/bridge_line.pio`). During a claim DShot
+and KISS have left pio2, and the claim's own line is the only program
+there: KST's takes 24 of its 32 words, Hitec's 30
+([pin-claim.md](pin-claim.md#pio-and-dma-budget)). The bridge's line, 16
+words, fits the same way. Item (6) copied rcbench's `ew_line` (one SM, 25
+words, two DMA channels, `ew_line.h` lines 1 to 20); slice 1 compared the
+two and uses its own line ([slice 1 as built](#slice-1-as-built)).
 
 **The echo is the wire's own.** The receive SM samples the pin while the
 transmit SM drives it, so every byte sent comes back as received, at wire
@@ -817,6 +820,117 @@ and changed lines, rough.
 Slice 2 alone serves the AM32 configurator in Direct mode and the Python
 tool; ESC-Configurator needs slice 3.
 
+### Slice 1 as built
+
+Host tests only; nothing of it has run on the chip, and nothing on core0
+opens the bridge yet: the screen, the USB side and the entry are slice 2.
+
+**Files.** `src/bridge_line.pio` (the transmitter), `src/bridge_line_port.*`
+(the line on two state machines, device-only), `src/bridge_wire.*` (the
+job, the frame slot, the ring, the counts), `src/bridge.cmake`;
+`PinUser::Bridge` and its row in `PIN_USERS` (`src/pin_claim.h`),
+`Core1Job::Bridge` and its line in the job table (`src/core1_job.*`).
+
+**The claim.** The row is `{ PinUser::Bridge, Core1Job::Bridge, false,
+false, false }`: no leave page from the row, no ESC check, the job started
+at Held, as [the pin](#the-pin) has it. The leave page per claim is the
+mechanism ESC SETTINGS brought ([bluejay-blheli-s.md, slice 2 as
+built](bluejay-blheli-s.md#slice-2-as-built)): `pinClaimWantLeavePage()`
+gives a claim that began without the page the page for its rest, and
+`pinClaimLeavePage()` reports it. Slice 1 adds no call of it; slice 3,
+which knows a write-class frame, makes it. One rule of the claim changes:
+a claim without the leave page restores DShot only once its job is idle
+(`leaveStep()` in `src/pin_claim.cpp`). Before, such a claim restored within
+`pinClaimEnd()`, which was right only for AM32, the one user without a
+page, which has no job; the bridge has a job, and DShot rebuilt while its
+state machines still drive SIG would put DShot frames and bootloader bytes
+on one pad. AM32 still restores within the call.
+
+**The line.** `bridge_tx`, 7 words: `pull`, the start bit with the pad's
+direction set by side-set, eight data bits by `out pins`, the stop bit,
+then `out pindirs` with bit 8 of the word, which keeps the pad driven for a
+byte with more of its frame behind it and lets it go after the last. The
+receiver is `pio_uart_rx` as it is, 9 words, on the same pad, in the block
+the transmitter took, at the same divider, 976 + 144/256 at 150 MHz, and
+enabled in the same cycle (`pio_enable_sm_mask_in_sync()`). Both FIFOs are
+joined: 8 words each. The pad is an input with its pull-up from the open,
+between frames and after the close. As measured in the model
+(`test/pio_bridge_emu.py`): start bit and data bits 8 cycles each, the stop
+bit driven 8 cycles; bytes of a frame 82 cycles, 10.25 bit times, apart,
+the extra 2 cycles being `out pindirs` and `pull`; the last byte's pad let
+go 80 cycles after its start bit; its echo in the receive FIFO 78 cycles
+after the start bit, 3 cycles before the transmitter waits on `pull`.
+Errors at bind are `CORE1_JOB_CLOCK` (`clk_sys` under 153,300 Hz) and
+`CORE1_JOB_PIO`.
+
+**The line against `ew_line`.** Item (6) copied rcbench's `ew_line`
+(slice 1 of [bluejay-blheli-s.md](bluejay-blheli-s.md#slice-1-as-built)).
+It runs one transaction: bits pre-expanded into FIFO words by DMA, the pad
+let go, then bytes received until a wait in ticks runs out; between
+transactions it stalls with nothing received, and it does not sample the
+pad while it sends, so it gives no echo. Passthrough needs the echo at wire
+pace, and needs every byte the ESC sends whenever it sends it, since the
+bridge does not know where a reply ends. The bridge therefore uses its own
+line: 16 words, two state machines, no DMA channel, against `ew_line`'s 25
+words, one state machine and two DMA channels. The two never run together:
+each belongs to its own claim. Slice 3 can still use escwire's frame and
+CRC code for the 4-way interface.
+
+**The job.** The slot and the ring port DshotDisplay's `bridge_wire.*`
+with release and acquire on each index and flag, and these differences:
+
+- no call blocks: the bind, a pass and the release each return at once;
+- the ring holds all 1024 bytes, not 1023;
+- the ring reads nothing while the line is closed, so the bind can empty
+  it from core1;
+- the echo is the wire's: the job keeps the bytes it put in the FIFO, at
+  most 8, the receive FIFO's depth, so its own echo never fills that FIFO
+  while core1 is away. It takes the next bytes received as their echo; a
+  differing echo makes its frame a collision, and so does an echo still
+  owed once the line is idle, which the job reads before it drains the
+  FIFO. A frame counts once. `bridgeWireKeepEcho()` keeps echoes out of
+  the ring for the 4-way interface;
+- `lost` counts bytes the full ring refused and each stall of the receiver
+  on a full FIFO (FDEBUG's RXSTALL), not the bytes the stall cost;
+- the release finishes the frame under way and drops one not started, then
+  closes the line once it is idle, or after 250 ms
+  (`BRIDGE_RELEASE_MAX_MS`), where DshotDisplay's `bridgeWireEnd()` waited
+  with `delay(1)`. A full slot, 320 bytes, takes 171 ms.
+
+**Tests.** `test/pio_bridge_emu.py`, run by `make pioemu` and held to
+pioasm's words in CI: 42 runs of the two programs on one pad, frames of
+1, 2, 21 and 64 bytes, late bytes, an ESC's reply 0.3 ms after the release
+at 8 phases with bits as long as the line's, 2 % and 3 % longer and 2 %
+shorter, a collision and a full receive FIFO. A control run with the ESC's
+bits 3 % shorter loses bytes at every phase: `pio_uart_rx` samples the stop
+bit 9.6 bit times after the start edge and looks for the next start bit
+only then, so a sender that fast, back to back, gets ahead of it. Whether
+an ESC's bootloader sends that fast is not verified. `test/test_bridge.cpp`,
+156 checks in 8 sections, against `test/fake_bridge_line.h`, a wire on the
+virtual clock with the model's cycle counts and a model ESC: the divider;
+the slot's refusals and handover; the frame on the wire whole, with a pass
+every 1 ms and every 5 ms; the echo kept and dropped, differing and lost;
+the receive FIFO and the ring full, the ring's wrap; the release; the pin
+user's row and the claim's rules for it; the claim through the job table
+from Stopping to Free, DShot never bound while the line is open and asked
+back only once the job is idle; BACK while Stopping; SIG on GP1; the leave
+page given and kept; RETRY. `bridge_line_port.cpp` is built by the firmware
+and typechecked by `make syntax` only.
+
+**Mutations.** 35 of the C++ code and 6 of the PIO program, each applied
+alone. All 6 of the program fail the model. Of the 35, 31 fail the suite;
+one, the release clearing the slot after the close, survived and showed the
+line redundant, since a closed line refuses sends and the next bind clears
+the slot, and the line is removed. Three survive, equivalent on the host:
+
+- reading the idle state after draining the receive FIFO rather than
+  before: on the chip the last echo can arrive between the two reads and be
+  written off as missing; the fake does not move its clock within a pass;
+- the release's test of the frame under way beside the idle state: on the
+  chip the line can go idle between the job's write-off and its feed while
+  8 echoes are owed; on the host no time passes there;
+- the bind setting the owed echoes to 0: every release already does.
+
 ## Decisions
 
 Decisions of the owner, 2026-11-15, answering the open questions of
@@ -867,8 +981,10 @@ None open. Questions 1 to 12 are answered by decisions 1 to 12.
 - Whether each tool sets DTR on opening the port.
 - That the RP2350's receive SM reads the pad while the transmit SM drives
   it, on this board, and the echo's timing.
-- The PIO line's word count, and the length of core1's pass during the
-  bridge's claim.
+- The length of core1's pass during the bridge's claim.
+- The bridge's line on the chip: the transmitter's timing, its release,
+  and the receiver's reading of an ESC's bytes; only a model of the two
+  programs has run them ([slice 1 as built](#slice-1-as-built)).
 - AM32's answer delay of 0.3 to 0.35 ms, from rcbench's specification;
   BLHeli_S's and Bluejay's turnaround.
 - That the pad's pull-up holds SIG high against AM32's bootloader pull-down
