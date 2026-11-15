@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
 """Trace the print and bare tin on the board's rear from Waveshare's photo.
 
 The photo is RP2350-Touch-LCD-2.8-3.jpg, as check_photo.py takes it. It

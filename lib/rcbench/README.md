@@ -5,10 +5,16 @@ The files under this directory are copied from
 the Hitec files at commit `3e29dc1b`, the S.BUS files at commit `b88593d3`,
 the sensor bus and the move timing's files at commit `5ef42efd`, the escwire
 files and the servo file store at commit `2b4f934a`, the angle meter's files
-at commit `e98345aa`, every other file at commit `453cf334`. rcbench is MIT
-licensed by the same copyright holder as MiniRcBench, subtilitas, so the
+at commit `e98345aa`, every other file at commit `453cf334`. rcbench's code is
+MIT licensed by the same copyright holder as MiniRcBench, subtilitas, so the
 copies carry the licence of this repository, [LICENSE](../../LICENSE). Each
-file keeps its `SPDX-License-Identifier: MIT` line. The directory layout is
+file keeps its `SPDX-License-Identifier: MIT` line, except the files in
+`hardware/`. Those are model generators, and they are under CC BY-NC-SA 4.0
+([hardware/LICENSE-CAD.txt](../../hardware/LICENSE-CAD.txt)). They have no
+`SPDX-License-Identifier` line in rcbench and none here, so no line in them
+reads MIT. They are copied again from rcbench once rcbench's commit that moves
+`hardware/mechanical/` and `hardware/kicad/` to that licence is merged; until
+then they are the copies listed below, unchanged. The directory layout is
 rcbench's, so a file here and its original compare with one `diff`.
 
 | File here | rcbench path |

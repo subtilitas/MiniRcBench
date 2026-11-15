@@ -36,6 +36,15 @@ run.
 > **Before you power anything on:** a motor on a bench can injure. Read
 > [First Run](First-Run#safety-first) before the first arm.
 
+**Licence.** The firmware, tests, tools and documentation are MIT. The
+models and CAD files in `hardware/cad/` and `hardware/mechanical/`, the
+board's 3D model among them, are
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/):
+non-commercial use, credit, and the same licence for what you share. The
+legal code is
+[hardware/LICENSE-CAD.txt](https://github.com/subtilitas/MiniRcBench/blob/main/hardware/LICENSE-CAD.txt).
+The Waveshare name and logo are Waveshare's trademarks.
+
 ---
 
 ## Deutsch
@@ -64,6 +73,15 @@ Strom und der erste Motorlauf.
 > **Vor dem Einschalten:** Ein Motor auf der Werkbank kann verletzen. Lies
 > [Erste Schritte](Erste-Schritte#sicherheit-zuerst) vor dem ersten
 > Scharfschalten.
+
+**Lizenz.** Firmware, Tests, Werkzeuge und Dokumentation stehen unter MIT. Die
+Modelle und CAD-Dateien in `hardware/cad/` und `hardware/mechanical/`, darunter
+das 3D-Modell der Platine, stehen unter
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.de):
+nur nicht kommerzielle Nutzung, Namensnennung, und was du weitergibst, unter
+derselben Lizenz. Der Lizenztext ist
+[hardware/LICENSE-CAD.txt](https://github.com/subtilitas/MiniRcBench/blob/main/hardware/LICENSE-CAD.txt).
+Name und Logo von Waveshare sind Marken von Waveshare.
 
 ---
 

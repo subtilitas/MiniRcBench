@@ -27,6 +27,13 @@ Enforces what actually goes wrong, and nothing else:
      no image of a removed screen; nor does a fakeDumpFrame() call or
      tools/make_previews.py. CHANGELOG.md, STATUS.md and the design notes
      keep those names as records and are not checked
+  10. the hardware models and CAD files are CC BY-NC-SA 4.0 and the rest is
+     MIT: every .py and .step file under hardware/cad/ and hardware/mechanical/
+     carries SPDX-License-Identifier: CC-BY-NC-SA-4.0 and not MIT;
+     hardware/LICENSE-CAD.txt exists and holds the legal code unchanged
+     (checked by SHA-256); a file elsewhere with an SPDX line names MIT.
+     lib/rcbench/hardware/ is exempt: its files are unchanged copies of
+     rcbench's, which have no SPDX line
 
 Deliberately narrower than Doxygen's WARN_IF_UNDOCUMENTED, which also fires on
 file-static internals. A comment on `s_scroll` saying "scroll position" is
@@ -43,6 +50,7 @@ from.
 """
 
 import glob
+import hashlib
 import functools
 import os
 import re
@@ -56,6 +64,21 @@ SOURCES = sorted(glob.glob("src/*.cpp") + glob.glob("*.ino") + HEADERS)
 LINKED_DOCS = sorted(glob.glob("STATUS.md") + glob.glob("CHANGELOG.md") +
                      glob.glob("docs/design/*.md"))
 MANUAL_DOCS = sorted(glob.glob("README.md") + glob.glob("wiki/*.md"))
+
+# Rule 10: the licence of the hardware models and CAD files.
+CC_ID = "CC-BY-NC-SA-4.0"
+CC_DIRS = ("hardware/cad", "hardware/mechanical")
+CC_FILE = "hardware/LICENSE-CAD.txt"
+CC_EXEMPT = ("lib/rcbench/hardware",)
+CC_MARK = "Legal code\n----------\n\n"
+# SHA-256 of the legal code as creativecommons.org publishes it
+# (legalcode.txt of by-nc-sa 4.0).
+CC_SHA256 = "e66c269d4819aaab34b49ef5220c4ddab6756f21bb5180761a4eb8561f2b7bbd"
+# A tag opens its line after a comment marker; a STEP file carries it in the
+# FILE_DESCRIPTION of its header, which has no comment marker.
+SPDX_RE = re.compile(r"^[\s#/*;<!-]*SPDX-License-Identifier:\s*([A-Za-z0-9.+-]+)", re.M)
+SPDX_STEP_RE = re.compile(r"SPDX-License-Identifier:\s*([A-Za-z0-9.+-]+)")
+SKIP_DIRS = {".git", "build", "wiki"}
 
 # Rule 9: what menu structure B and the decisions that revise it removed,
 # each with the decision that removed it, of docs/design/menu-b.md unless
@@ -249,6 +272,57 @@ def check_removed():
     return problems
 
 
+def spdx_id(path):
+    """The SPDX licence id in the first 4096 bytes of @p path, or None."""
+    with open(path, "rb") as f:
+        text = f.read(4096).decode("utf-8", "replace")
+    m = (SPDX_STEP_RE if path.endswith(".step") else SPDX_RE).search(text)
+    return m.group(1) if m else None
+
+
+def check_licences():
+    """Rule 10: CC BY-NC-SA 4.0 on the models and CAD files, MIT elsewhere."""
+    problems = []
+    try:
+        text = open(CC_FILE, encoding="utf-8").read()
+    except OSError:
+        return [f"{CC_FILE}: missing"]
+    if spdx_id(CC_FILE) != CC_ID:
+        problems.append(f"{CC_FILE}: no SPDX-License-Identifier: {CC_ID}")
+    head, mark, legal = text.partition(CC_MARK)
+    if not mark or hashlib.sha256(legal.encode()).hexdigest() != CC_SHA256:
+        problems.append(f"{CC_FILE}: the legal code differs from CC BY-NC-SA 4.0")
+    for d in CC_DIRS:
+        if d + "/" not in head:
+            problems.append(f"{CC_FILE}: the header does not name {d}/")
+    covered = 0
+    for root, dirs, files in os.walk("."):
+        dirs[:] = sorted(x for x in dirs if x not in SKIP_DIRS or root != ".")
+        rel_root = os.path.relpath(root, ".").replace(os.sep, "/")
+        if rel_root.startswith(CC_EXEMPT):
+            dirs[:] = []
+            continue
+        for name in sorted(files):
+            path = f"{rel_root}/{name}" if rel_root != "." else name
+            found = spdx_id(path)
+            if path.startswith(tuple(d + "/" for d in CC_DIRS)):
+                # .stp files and the Alibre files are exports; the
+                # directory's licence covers them.
+                if name.endswith((".py", ".step")):
+                    covered += 1
+                    if found != CC_ID:
+                        problems.append(
+                            f"{path}: SPDX-License-Identifier is "
+                            f"{found or 'missing'}, expected {CC_ID}")
+            elif path != CC_FILE and found is not None and found != "MIT":
+                problems.append(
+                    f"{path}: SPDX-License-Identifier {found} outside "
+                    f"{', '.join(CC_DIRS)}; only MIT is expected")
+    if not covered:
+        problems.append("no .py or .step file found under " + ", ".join(CC_DIRS))
+    return problems
+
+
 def main():
     problems = []
     documented = 0
@@ -353,6 +427,9 @@ def main():
 
     # --- 9. removed screens stay out of the manual ---
     problems.extend(check_removed())
+
+    # --- 10. licences of the hardware files ---
+    problems.extend(check_licences())
 
     print(f"checked {len(SOURCES)} files, {documented} documented signatures, "
           f"links in {len(LINKED_DOCS)} documents, removed names in "

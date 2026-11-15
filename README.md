@@ -385,7 +385,9 @@ wiring, not firmware, and builds for the RP2350-Touch-LCD-2.8 only. A plain
 tree contains no third-party source. The DShot driver in `src/dshot/` is part
 of the tree: it comes from [rcbench](https://github.com/subtilitas/rcbench),
 which has the same copyright holder and the same MIT licence, and each of its
-files names the rcbench commit it was taken from.
+files names the rcbench commit it was taken from. The copies in
+`lib/rcbench/hardware/` are model generators and are CC BY-NC-SA 4.0 (see
+[License](#license)).
 
 | Dependency | Version | Pinned by |
 |---|---|---|
@@ -3397,6 +3399,7 @@ src/
   usb_descriptors.c     USB descriptors
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
+hardware/               models and CAD files, CC BY-NC-SA 4.0: cad/ (Alibre), mechanical/ (STEP, renders, generators), LICENSE-CAD.txt
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
                         S.BUS decoder and encoder, sensor bus, escwire core and line driver,
@@ -3934,8 +3937,24 @@ The licence terms are in [LICENSE](LICENSE).
 
 ## License
 
-This repository's code is MIT throughout (see `LICENSE`), the DShot driver in
-`src/dshot/` and the SDIO card driver in `src/sdio/` included.
+This repository is MIT (see `LICENSE`), the DShot driver in `src/dshot/` and
+the SDIO card driver in `src/sdio/` included, except the models and CAD files.
+Those are licensed under
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+(Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International):
+you may use and adapt them for non-commercial purposes only, you must give
+credit, and you must share adaptations under the same licence. They are:
+
+- everything under `hardware/cad/`: the Alibre Design assemblies and parts;
+- everything under `hardware/mechanical/`: the STEP models, the renders and
+  the Python scripts that generate, check or trace them;
+- the copies of rcbench's model generators in `lib/rcbench/hardware/`.
+
+The legal code is in [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt), which
+also names the Waveshare name and logo in the board model as Waveshare's
+trademarks. Firmware, tests, tools and documentation stay MIT, the generated
+`docs/wiring.svg` included. The firmware image holds no hardware file, and
+`THIRD_PARTY_NOTICES.txt` lists none.
 
 A firmware image also contains the libraries it links, each under its own
 licence:

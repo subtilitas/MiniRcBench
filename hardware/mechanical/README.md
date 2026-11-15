@@ -120,8 +120,9 @@ positions from P are corrected by that. The table of positions is in
 
 Two STEP models of modules wired to the board, drawn part by part with the
 print of both sides. Their specs are rcbench's, copied unchanged to
-[lib/rcbench/hardware/mechanical/](../../lib/rcbench/README.md), and the two
-files are the same bytes as rcbench's.
+[lib/rcbench/hardware/mechanical/](../../lib/rcbench/README.md). The two
+files are rcbench's bytes except the licence that `gen_models.py` writes after
+the product name in the `FILE_DESCRIPTION` of the header.
 
 | | |
 | --- | --- |
@@ -189,3 +190,30 @@ the committed file: 1039 valid solids, no two sharing more than 1e-6 mm³.
 `check_photo.py` needs photo P, numpy and Pillow and is not run in CI either.
 On P it reports 13.30 pixels per mm and 1.06 pixels left at the worst
 standoff, and every box it draws lies on its part.
+
+## Licence
+
+Everything in this directory and in `hardware/cad/` is licensed under
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+(Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International):
+the STEP models, the renders and the Python scripts that generate, check or
+trace them, `_print.py` included. You may share and adapt them for
+non-commercial purposes, with credit, and must distribute adaptations under
+the same licence. The legal code is in
+[hardware/LICENSE-CAD.txt](../LICENSE-CAD.txt). The rest of the repository,
+the firmware, tests, tools and documentation, is MIT.
+
+| File type | Where the licence is stated |
+| --- | --- |
+| `*.py` | the line `# SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the top |
+| `models/*.step` | the same identifier in `FILE_DESCRIPTION` of the header; `gen_models.py` writes it, and `--check` compares it |
+| `models/*.stp`, `renders/*.png`, `hardware/cad/` | no line in the file; the licence of the directory |
+
+The Waveshare name and logo on the board's model are Waveshare's trademarks;
+the licence gives no right to them.
+
+`lib/rcbench/hardware/` holds copies of rcbench's model generators. They are
+under CC BY-NC-SA 4.0 as model generators. As in rcbench, they carry no
+`SPDX-License-Identifier` line, and they stay unchanged until they are copied
+again from rcbench. `test/check_docs.py` checks the identifiers above and that
+no file outside these directories carries CC BY-NC-SA 4.0.

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Adapted from rcbench hardware/mechanical/gen_models.py, commit fb41a46a, MIT.
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
+"""Adapted from rcbench hardware/mechanical/gen_models.py, commit fb41a46a,
+where it is MIT.
 
 Write the STEP models of the mechanical parts from their specs.
 
@@ -8,7 +10,8 @@ specs LIB_SPECS names in lib/rcbench/hardware/mechanical/, which are
 rcbench's files unchanged; each defines ``parts(colors)``, a dict of
 file stem to solids as lib/rcbench/hardware/kicad/tools/step_gen.py's
 ``write`` takes them. The models go to
-hardware/mechanical/models/<stem>.step.
+hardware/mechanical/models/<stem>.step, each with its licence in the
+FILE_DESCRIPTION of the header.
 
 Usage:
     python3 hardware/mechanical/gen_models.py           write the files
@@ -28,6 +31,9 @@ sys.path.insert(0, str(HERE.parent.parent / "lib" / "rcbench" / "hardware"
 import step_gen  # noqa: E402
 
 LIB = HERE.parent.parent / "lib" / "rcbench" / "hardware" / "mechanical"
+# The text after the product name in each file's FILE_DESCRIPTION: the kind
+# of file and the licence of the models, hardware/LICENSE-CAD.txt.
+WHAT = "model, SPDX-License-Identifier: CC-BY-NC-SA-4.0"
 # rcbench's specs of the modules this bench is built with.
 LIB_SPECS = ("ina219_cjmcu219", "boost_5v_en")
 # The helpers a spec imports. Both directories have modules of these
@@ -85,8 +91,8 @@ def outputs():
     out = {}
     for spec in load_specs():
         for stem, items in spec.parts(step_gen.COLORS).items():
-            out[MODELS / f"{stem}.step"] = (step_gen.write(stem, items),
-                                            items)
+            out[MODELS / f"{stem}.step"] = (
+                step_gen.write(stem, items, WHAT), items)
     return out
 
 

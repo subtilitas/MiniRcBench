@@ -280,7 +280,8 @@ class Inventory:
             (self.build / "sd_fatfs", "sdlib", "src"),
             (ROOT / "src", "own", "src"),
             # Copied from rcbench, MIT, the same copyright holder as this
-            # project: lib/rcbench/README.md lists the files.
+            # project: lib/rcbench/README.md lists the files. Its hardware/
+            # copies, CC BY-NC-SA 4.0, are scripts and are never compiled.
             (ROOT / "lib" / "rcbench", "own", "lib/rcbench"),
             (self.sdk / "lib" / "tinyusb", "tinyusb", ""),
             (self.sdk / "src" / "rp2_common" / "pico_printf", "printf",

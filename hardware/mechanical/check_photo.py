@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: CC-BY-NC-SA-4.0
 """Draw the model's rear parts on Waveshare's photo of the board's rear.
 
 The photo is RP2350-Touch-LCD-2.8-3.jpg, 1600 x 1200 pixels, from
