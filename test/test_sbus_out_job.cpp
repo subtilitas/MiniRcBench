@@ -1135,6 +1135,11 @@ static void testProbeRule() {
 		  {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55}, 9, false, false },
 		{ "a 0xC2 alone: none", {0xC2}, 1, false, false },
 	};
+	// The cue and the mark compare these counts with core0's marks, which
+	// take their type: 16 bits would read the cue as gone after exactly
+	// 65,536 answers.
+	checkTrue("the answer counts are 32 bits wide",
+	          sizeof(SbusOutStatus::answerSeq) == 4 && sizeof(SbusOutStatus::efm8Seq) == 4);
 	for (const Case &c : CASES) {
 		bool efm8 = !c.efm8;
 		bool answer = sbusOutProbeAnswer(blAnswerClassify(c.b, c.n), &efm8);
@@ -1220,7 +1225,7 @@ static void testProbeEfm8() {
 	escHeartbeat();
 	SbusOutStatus st;
 	sbusOutJobStatus(&st);
-	uint16_t seq0 = st.answerSeq, efm0 = st.efm8Seq;
+	uint32_t seq0 = st.answerSeq, efm0 = st.efm8Seq;
 	int ctrl0 = fakeGpioCtrlWrites(0);
 	checkTrue("bound: the probe", claimToBind(PIN_SIG) == ClaimState::Running);
 	passMs(1100);
@@ -1340,42 +1345,92 @@ static void testProbeReplies() {
 	sbusOutProbeRestart();
 	checkTrue("RESTART DSHOT: the mark and the cue gone", !sbusOutProbeEfm8() && !sbusOutRunCue(0));
 
-	// Noise: bytes that are no bootloader's answer.
+	// Noise: bytes that are no bootloader's answer. No cue, but the cycle
+	// repeats: an FC's S.BUS input sends nothing.
 	fakeEwReset(0xB2, true);
 	fakeEwAnswerEach(true);
 	memset(fakeEwSim()->answer, 0x55, sizeof(fakeEwSim()->answer));
 	freshPump(0, 1);
 	sbusOutJobStatus(&st);
-	uint16_t seq0 = st.answerSeq;
+	uint32_t seq0 = st.answerSeq;
 	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
-	checkTrue("bytes that are none: SAFE after one cycle", probeToSafe());
+	passMs(3500);
 	sbusOutJobStatus(&st);
-	checkTrue("no answer counted, no cue", st.cycles == 1 && st.answerSeq == seq0 &&
-	          !st.answered && !sbusOutRunCue(0));
-	checkTrue("they came back", fakeEwSim()->starts == 3);
+	checkTrue("bytes that are none: three cycles, still the probe",
+	          st.cycles == 3 && st.phase == SbusOutPhase::Probe && !sbusOutProbePassed());
+	checkTrue("no answer counted, no cue, no mark", st.answerSeq == seq0 && !st.answered &&
+	          !sbusOutRunCue(0) && !sbusOutProbeEfm8() &&
+	          sbusOutProbePoll() == SbusOutProbeState::Checking);
+	fakeEwSim()->dead = true;
+	checkTrue("silent: SAFE after the next whole cycle", probeToSafe());
 	checkTrue("back to free", claimEnd());
 	fakeEwAnswerEach(false);
 
-	// A greeting refused by the driver, a capture cut, a capture not whole:
-	// that cycle proves nothing, the next passes.
-	static const uint8_t FAULTS[] = { F_START_FALSE, F_ABORTED, F_OVERFLOW };
-	static const char *const WHAT[] = { "the second greeting refused",
-	                                    "the third greeting's capture cut",
-	                                    "the first greeting's capture not whole" };
-	static const int AT[] = { 1, 2, 0 };
-	for (int i = 0; i < 3; i++) {
-		freshPump(0, 1);
-		noEsc();
-		fakeEwSim()->fail = FAULTS[i];
-		fakeEwSim()->fail_at = AT[i];
-		fakeEwSim()->fail_n = 1;
-		checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
-		checkTrue("SAFE", probeToSafe());
-		sbusOutJobStatus(&st);
-		char what[96];
-		snprintf(what, sizeof(what), "%s: two cycles, six greetings", WHAT[i]);
-		checkTrue(what, st.cycles == 2 && fakeEwSim()->starts == 6 && !st.answered);
-		checkTrue("back to free", claimEnd());
+	// The EFM8 model as it is: its first answer, then 0xC2 to each later
+	// contact, its reply to a frame whose CRC fails. The 0xC2 hold START too.
+	fakeEwReset(0xB2, true);
+	freshPump(0, 1);
+	sbusOutJobStatus(&st);
+	seq0 = st.answerSeq;
+	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+	passMs(3500);
+	sbusOutJobStatus(&st);
+	checkTrue("one answer, then 0xC2 only: three cycles, still the probe",
+	          st.cycles == 3 && st.answerSeq == seq0 + 1 && !sbusOutProbePassed());
+	fakeEwSim()->dead = true;
+	checkTrue("unplugged: SAFE", probeToSafe());
+	checkTrue("back to free", claimEnd());
+	sbusOutProbeRestart();
+
+	// A greeting refused by the driver: that cycle proves nothing, the next
+	// passes.
+	freshPump(0, 1);
+	noEsc();
+	fakeEwSim()->fail = F_START_FALSE;
+	fakeEwSim()->fail_at = 1;
+	fakeEwSim()->fail_n = 1;
+	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("SAFE", probeToSafe());
+	sbusOutJobStatus(&st);
+	checkTrue("the second greeting refused: two cycles, six greetings",
+	          st.cycles == 2 && fakeEwSim()->starts == 6 && !st.answered);
+	checkTrue("back to free", claimEnd());
+
+	// A capture cut or not whole: the driver parks the pad on its pull-down;
+	// the job puts the pull-up back at once, so the line is high on every
+	// pass from the bind to SAFE, through the next quiet phase.
+	static const uint8_t FAULTS[] = { F_ABORTED, F_OVERFLOW };
+	static const char *const KIND[] = { "cut", "not whole" };
+	for (int f = 0; f < 2; f++) {
+		for (int at = 0; at < 3; at++) {
+			freshPump(0, 1);
+			noEsc();
+			fakeEwSim()->fail = FAULTS[f];
+			fakeEwSim()->fail_at = at;
+			fakeEwSim()->fail_n = 1;
+			checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+			bool up = true, quietSeen = false;
+			uint64_t until = time_us_64() + 3000000;
+			while (!sbusOutProbePassed() && time_us_64() < until) {
+				fakeAdvanceUs(500);
+				escHeartbeat();
+				core1JobPoll();
+				if (sbusOutProbePassed()) break;
+				up &= fakePin(0).pull == FakePull::Up && !fakePin(0).inputOff &&
+				      fakeEwSim()->line == EW_LINE_UP;
+				sbusOutJobStatus(&st);
+				quietSeen |= st.cycles == 1 && fakeEwSim()->starts == 3;
+			}
+			sbusOutJobStatus(&st);
+			char what[96];
+			snprintf(what, sizeof(what), "greeting %d's capture %s: two cycles, six greetings",
+			         at + 1, KIND[f]);
+			checkTrue(what, sbusOutProbePassed() && st.cycles == 2 &&
+			          fakeEwSim()->starts == 6 && !st.answered);
+			checkTrue("the pull-up on every pass, the next quiet phase among them",
+			          up && quietSeen);
+			checkTrue("back to free", claimEnd());
+		}
 	}
 }
 
@@ -1581,16 +1636,25 @@ static void listSources(const std::string &dir, std::vector<std::string> *out) {
 
 /**
  * @brief Whether @p line reaches a pin user or a core1 job by a number
- *        rather than by its name: a cast to PinUser or Core1Job, C-style,
- *        functional, braced or static_cast, or an index into the user rows
- *        or the job table, `PIN_USERS[` or `s_ops[`. A name match alone
- *        misses `(PinUser)((int)PinUser::Count - 1)`, which is SbusOut.
+ *        rather than by its name, or walks the tables that hold them.
+ *
+ * Caught: a cast to PinUser or Core1Job, a pointer or reference to one
+ * included, C-style, functional, braced, `static_cast` or
+ * `reinterpret_cast`, a `const` among them; and any use of the user rows or
+ * the job table, `PIN_USERS` or `s_ops`, an index or a range-for over them
+ * that picks a row by its fields. A name match alone misses
+ * `(PinUser)((int)PinUser::Count - 1)`, which is SbusOut.
+ *
+ * Not caught: a value of the enum made without a cast, through `memcpy()`,
+ * a union, a template's deduction or bytes read from storage; a cast hidden
+ * behind a macro or a typedef of another name. Review has to find those.
  */
 static bool byNumber(const std::string &line) {
 	static const std::regex CAST(
-		"\\(\\s*(PinUser|Core1Job)\\s*\\)|\\b(PinUser|Core1Job)\\s*[({]|"
-		"\\b(static|reinterpret)_cast\\s*<\\s*(PinUser|Core1Job)\\s*>|"
-		"\\bPIN_USERS\\s*\\[|\\bs_ops\\s*\\[");
+		"\\(\\s*(const\\s+)?(PinUser|Core1Job)\\s*(const\\s*)?[*&]?\\s*\\)|"
+		"\\b(PinUser|Core1Job)\\s*[({]|"
+		"\\b(static|reinterpret|const)_cast\\s*<\\s*(const\\s+)?(PinUser|Core1Job)\\b|"
+		"\\bPIN_USERS\\b|\\bs_ops\\b");
 	return std::regex_search(line, CAST);
 }
 
@@ -1611,28 +1675,36 @@ static bool byNumber(const std::string &line) {
 static void testUnreachable() {
 	section("S.BUS output: nothing outside the job, its table line and the claim's row names it");
 
-	struct Allowed { const char *file; const char *line; };
+	struct Allowed { const char *file; const char *line; int times; };
 	static const Allowed ALLOWED[] = {
-		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false }," },
-		{ "../src/pin_claim.h", "static constexpr PinUserInfo PIN_USERS[] = {" },
-		{ "../src/pin_claim.h", "return PIN_USERS[0];" },
-		{ "../src/core1_job.cpp", "static const Core1JobOps *s_ops[] = {" },
-		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS," },
+		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false },", 1 },
+		{ "../src/pin_claim.h", "static constexpr PinUserInfo PIN_USERS[] = {", 1 },
+		// pinUserInfo() and pinUsersComplete(): each row by its user.
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS)", 1 },
+		{ "../src/pin_claim.h", "return PIN_USERS[0];", 1 },
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;", 1 },
+		{ "../src/pin_claim.h",
+		  "static_assert(pinUsersComplete(), \"a pin user has no row in PIN_USERS, or two\");", 1 },
+		{ "../src/core1_job.cpp", "static const Core1JobOps *s_ops[] = {", 1 },
+		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS,", 1 },
 		{ "../src/core1_job.cpp",
-		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1," },
-		{ "../src/core1_job.cpp", "if (s_ops[(uint8_t)job] == nullptr) return false;" },
-		{ "../src/core1_job.cpp", "const Core1JobOps *ops = s_ops[(uint8_t)s_job];" },
-		{ "../src/sbus_out_job.h", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);" },
-		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);" },
-		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;" },
-		{ "../src/sbus_out_job.cpp", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {" },
-		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {" },
-		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {" },
+		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1,", 1 },
+		// core1JobInit(): each job's init, no bind.
+		{ "../src/core1_job.cpp", "for (const Core1JobOps *ops : s_ops)", 1 },
+		{ "../src/core1_job.cpp", "if (s_ops[(uint8_t)job] == nullptr) return false;", 1 },
+		{ "../src/core1_job.cpp", "const Core1JobOps *ops = s_ops[(uint8_t)s_job];", 1 },
+		{ "../src/sbus_out_job.h", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);", 1 },
+		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);", 1 },
+		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;", 1 },
+		{ "../src/sbus_out_job.cpp", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {", 1 },
+		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {", 1 },
+		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {", 1 },
 		// An EFM8 answer to the probe asks for the leave page: it lets go of
 		// nothing and starts nothing.
 		{ "../src/sbus_out_job.cpp",
-		  "if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);" },
+		  "if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);", 1 },
 	};
+
 	static const char *const NAMES[] = {
 		"PinUser::SbusOut", "Core1Job::SbusOut", "sbusOutJobCommand", "SBUS_OUT_JOB_OPS",
 		"sbusOutClaimRoles",
@@ -1667,7 +1739,8 @@ static void testUnreachable() {
 	checkTrue("no other line names it or reaches it by a number", hits.empty());
 	if (!hits.empty()) printf("   %s\n", hits.c_str());
 	bool each = true;
-	for (int u : used) each &= u == 1;
+	for (size_t a = 0; a < sizeof(ALLOWED) / sizeof(ALLOWED[0]); a++)
+		each &= used[a] == ALLOWED[a].times;
 	checkTrue("each allowed line found once: the list is current", each);
 	checkTrue("a call in a comment is blanked, one in code is not",
 	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
@@ -1685,6 +1758,12 @@ static void testUnreachable() {
 		"auto j = reinterpret_cast<Core1Job>(n);",
 		"pinClaimBegin(PIN_USERS[7].who, 1);",
 		"s_ops[7]->bind(0, 1);",
+		"pinClaimBegin(*(PinUser *)&n, 1);",
+		"pinClaimBegin(*( const PinUser* )p, 1);",
+		"auto u = *reinterpret_cast<PinUser *>(&n);",
+		"auto u = *reinterpret_cast<const PinUser*>(p);",
+		"for (const PinUserInfo &u : PIN_USERS) if (u.unplug && u.escCheck && !u.deferJob) pinClaimBegin(u.who, 1);",
+		"for (const Core1JobOps *o : s_ops) o->bind(0, 1);",
 	};
 	bool all = true;
 	for (const char *l : BY_NUMBER) all &= byNumber(l);
@@ -1694,8 +1773,8 @@ static void testUnreachable() {
 		"enum class PinUser : uint8_t {",
 		"enum class Core1Job : uint8_t {",
 		"bool core1JobStart(Core1Job job, uint8_t sigGpio, uint8_t auxGpio);",
-		"for (const PinUserInfo &u : PIN_USERS)",
 		"Core1Job core1JobRunning() {",
+		"const PinUserInfo &u = pinUserInfo(who);",
 		"uint8_t n = (uint8_t)job;",
 	};
 	bool none = true;

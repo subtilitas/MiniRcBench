@@ -116,7 +116,12 @@ static bool fStart(void *ctx, const ew_xfer_t *x) {
 static bool fPoll(void *ctx, ew_capture_t *out) {
 	sync();
 	if (!sim_poll(ctx, out)) return false;
-	if (out->aborted || out->overflow) padPark();
+	// The driver parks the pad after a capture cut or not whole (ew_line.c,
+	// ew_line_poll()); the model's line says so too.
+	if (out->aborted || out->overflow) {
+		g_sim.line = EW_LINE_PARK;
+		padPark();
+	}
 	return true;
 }
 static void fAbort(void *ctx) { sync(); sim_abort(ctx); padPark(); }

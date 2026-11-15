@@ -30,9 +30,13 @@
  * (escwire_port.h), rcbench's first contact for a greeting, each answer
  * read by blAnswerClassify(). An EFM8 bootloader's answer (Bluejay,
  * BLHeli_S), a piece of one, or an AM32 bootloader's answer is an ESC on
- * GP0: the cycle repeats, and only a cycle whose greetings all went out and
- * came back silent, or with bytes that are no bootloader's answer, lets the
- * job go on to the UART. No command is taken during the probe, and the
+ * GP0: it sets MENU's run cue, and the cycle repeats. Bytes that are no
+ * bootloader's answer set no cue but hold the cycle too: an FC's S.BUS input
+ * sends nothing. Only a cycle whose greetings all went out and came back with
+ * no byte, each capture whole, lets the job go on to the UART. After every
+ * greeting's capture the line goes back to the pull-up, which the driver
+ * leaves for its pull-down after a capture cut or not whole, so every quiet
+ * phase is on the pull-up. No command is taken during the probe, and the
  * switch takes the command block's seq as acknowledged, so a START sent
  * before it is never taken: START is impossible until a probe cycle with no
  * answer has passed in this bind, and each bind probes again.
@@ -165,8 +169,8 @@ struct SbusOutStatus {
 	bool         efm8;         /**< That answer, or one of them, was an EFM8 bootloader's or a piece of one. */
 	uint16_t     signature;    /**< The last EFM8 answer's signature, 0xE8B2 and its kin; 0 for a piece or none. */
 	uint32_t     cycles;       /**< Probe cycles ended in this bind. */
-	uint16_t     answerSeq;    /**< Answers of either kind since the board's start; never cleared. */
-	uint16_t     efm8Seq;      /**< EFM8 answers and pieces since the board's start; never cleared. */
+	uint32_t     answerSeq;    /**< Answers of either kind since the board's start; never cleared. At one a greeting, 2^32 take over 5 years. */
+	uint32_t     efm8Seq;      /**< EFM8 answers and pieces since the board's start; never cleared. */
 	uint32_t     answerMs;     /**< millis() of the pass that read the last answer; never cleared. */
 	uint16_t     ackSeq;       /**< Seq of the last command taken. */
 	bool         running;      /**< RUNNING: frames go out. */
@@ -296,8 +300,10 @@ uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);
  *
  * An answer is a bootloader on GP0: an EFM8 bootloader's (@ref
  * BlAnswerKind::Efm8), a reply that holds a piece of one
- * (@ref BlAnswer::fragment), or an AM32 bootloader's. Bytes that are none
- * of these are no answer, as ESC SETTINGS reads them.
+ * (@ref BlAnswer::fragment), or an AM32 bootloader's. An answer sets MENU's
+ * run cue and, for an EFM8 one, the EFM8 mark. Bytes that are none of these
+ * set neither, as ESC SETTINGS reads them; the probe still repeats the cycle
+ * they came in (sbus_out_job.cpp, judge()).
  *
  * @param a        blAnswerClassify() of the bytes.
  * @param[out] efm8 Set when the answer is an EFM8 bootloader's or a piece of one.

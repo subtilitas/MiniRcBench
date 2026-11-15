@@ -173,15 +173,15 @@ static GreetCycle  s_cycle;         /**< ESC SETTINGS' connect cycle. */
 static bool        s_greeting;      /**< A greeting is on the wire. */
 /**
  * @brief Every greeting of the running cycle went out and came back with no
- *        answer and its capture whole: at the cycle's end the UART takes GP0.
+ *        byte and its capture whole: at the cycle's end the UART takes GP0.
  */
 static bool        s_clean;
 static bool        s_answered;      /**< A bootloader answered in this bind. */
 static bool        s_efm8;          /**< An EFM8 bootloader, or a piece of its answer, in this bind. */
 static uint16_t    s_signature;     /**< The last EFM8 answer's signature. */
 static uint32_t    s_cycles;        /**< Cycles ended in this bind. */
-static uint16_t    s_answerSeq;     /**< Answers since the start; never cleared. */
-static uint16_t    s_efm8Seq;       /**< EFM8 answers and pieces since the start; never cleared. */
+static decltype(SbusOutStatus::answerSeq) s_answerSeq; /**< Answers since the start; never cleared. */
+static decltype(SbusOutStatus::efm8Seq)   s_efm8Seq;   /**< EFM8 answers and pieces since the start; never cleared. */
 static uint32_t    s_answerMs;      /**< millis() of the last answer; never cleared. */
 static uint8_t     s_greet[EW_A_CONTACT_LEN];     /**< rcbench's first contact. */
 static uint8_t     s_reply[SBUS_OUT_PROBE_RX_MAX]; /**< What came back. */
@@ -323,12 +323,19 @@ static void toUart() {
 	clearState(heldSeq());
 }
 
-/** @brief Judge the capture of one greeting, read at @p nowMs. */
+/**
+ * @brief Judge the capture of one greeting, read at @p nowMs. Any byte, a
+ *        bootloader's answer or not, and a capture not whole make the cycle
+ *        prove no silence; only a bootloader's answer sets the cue and the
+ *        counts.
+ */
 static void judge(const ew_capture_t *cap, uint32_t nowMs) {
+	// An FC's S.BUS input sends nothing: a byte here is something that
+	// transmits on GP0, a bootloader's garbled answer among the candidates.
+	if (cap->n != 0 || cap->aborted || cap->overflow) s_clean = false;
 	BlAnswer a = blAnswerClassify(s_reply, cap->n);
 	bool efm8;
 	if (sbusOutProbeAnswer(a, &efm8)) {
-		s_clean = false;
 		s_answered = true;
 		s_answerSeq++;
 		s_answerMs = nowMs;
@@ -337,9 +344,6 @@ static void judge(const ew_capture_t *cap, uint32_t nowMs) {
 			s_efm8Seq++;
 			s_signature = a.signature;
 		}
-	} else if (cap->aborted || cap->overflow) {
-		// A capture not whole proves no silence.
-		s_clean = false;
 	}
 }
 
@@ -359,6 +363,10 @@ static void probeStep(uint32_t nowMs) {
 		ew_capture_t cap;
 		if (!s_line.poll(s_line.ctx, &cap)) return;
 		s_greeting = false;
+		// The driver parks the pad on its pull-down after a capture cut or
+		// not whole (ew_wire.h): the line back on the pull-up at once, so
+		// every quiet phase and every wait between greetings is high.
+		s_line.line(s_line.ctx, EW_LINE_UP);
 		judge(&cap, nowMs);
 		greeted(nowMs);
 		return;
@@ -473,9 +481,9 @@ void sbusOutJobStatus(SbusOutStatus *out) {
  * @{
  */
 /** @brief efm8Seq at the last sbusOutProbeRestart(): a later one marks the claim. */
-static uint16_t s_efm8Mark = 0;
+static decltype(SbusOutStatus::efm8Seq) s_efm8Mark = 0;
 /** @brief answerSeq when the run cue last went: a later one sets it again. */
-static uint16_t s_cueMark = 0;
+static decltype(SbusOutStatus::answerSeq) s_cueMark = 0;
 /** @} */
 
 bool sbusOutProbePassed() {
