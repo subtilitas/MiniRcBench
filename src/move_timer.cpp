@@ -283,7 +283,7 @@ bool moveTimerText(const MoveResult *r, char *buf, size_t n) {
 	if (n == 0) return false;
 	buf[0] = '\0';
 	if (r->state == MoveState::None) return false;
-	char time[12], peak[12], hold[12];
+	char time[16], peak[16], hold[16];
 	switch (r->state) {
 		case MoveState::Arrived: {
 			unsigned cs = ((unsigned)r->ms + 5u) / 10u;
@@ -296,7 +296,7 @@ bool moveTimerText(const MoveResult *r, char *buf, size_t n) {
 	}
 	amps(peak, sizeof(peak), r->peakOk, r->peakMa);
 	amps(hold, sizeof(hold), r->holdOk, r->holdMa);
-	char line[64];
+	char line[80];
 	snprintf(line, sizeof(line), "MOVE %s  PEAK %s  HOLD %s", time, peak, hold);
 	snprintf(buf, n, "%s", line);
 	return true;
