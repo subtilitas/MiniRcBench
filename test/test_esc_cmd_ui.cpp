@@ -235,8 +235,9 @@ static void testLayout() {
 		{ "SENT 7 (NORMAL), THEN 12 (SAVE).", 191 }, { UI_ESC_CMD_UNCONFIRMED, 209 },
 		{ "SENDING 10 (3D ON), THEN 12 (SAVE).", 209 }, { "SENDING 9 (3D OFF), THEN 12 (SAVE).", 209 },
 		{ "SENT 10 (3D ON), THEN 12 (SAVE).", 191 }, { UI_ESC_CMD_3D_NOW, 197 },
-		{ UI_ESC_CMD_3D_LOW, 215 }, { UI_ESC_CMD_3D_HIGH, 191 }, { UI_ESC_CMD_3D_RESTART, 161 },
-		{ "SENT 9 (3D OFF), THEN 12 (SAVE).", 191 }, { UI_ESC_CMD_3D_STAYS, 203 },
+		{ UI_ESC_CMD_3D_LOW, 215 }, { UI_ESC_CMD_3D_HIGH, 191 }, { UI_ESC_CMD_3D_ENDS, 215 },
+		{ "SENT 9 (3D OFF), THEN 12 (SAVE).", 191 }, { UI_ESC_CMD_3D_STAYS, 191 },
+		{ UI_ESC_CMD_3D_OFF_LOST, 221 },
 		{ "SENDING 3 (BEEP 3).", 113 }, { "SENT 3 (BEEP 3).", 95 },
 		{ "NO ESC ANSWERS ON SIG GP0.", 155 }, { UI_ESC_CMD_TURNING, 209 },
 		{ UI_ESC_CMD_SETTLING, 149 }, { UI_ESC_CMD_NOT_SENT, 215 }, { UI_ESC_CMD_SAVE_LOST, 209 },
@@ -510,17 +511,17 @@ static void testOutcomes() {
 	checkTrue("3D ON expired: NOT SENT: THE ESC WAS NOT READY., and no 3D note",
 	          lineIs(0, UI_ESC_CMD_EXPIRED, C_AMBER) && blankFrom(1) && !esc3dNote());
 	sequence(EscCmdCtl::On3d, EscCmdState::SaveLost, DSHOT_CMD_3D_MODE_ON);
-	checkTrue("3D ON with the save lost: two amber lines",
-	          lineIs(0, UI_ESC_CMD_SAVE_LOST, C_AMBER) && lineIs(1, UI_ESC_CMD_CHECK, C_AMBER) &&
+	checkTrue("3D ON with the save lost: two amber lines, the second that the note is set",
+	          lineIs(0, UI_ESC_CMD_SAVE_LOST, C_AMBER) && lineIs(1, UI_ESC_CMD_3D_NOW, C_AMBER) &&
 	          blankFrom(2));
 	checkTrue("and the 3D note stands: the ESC may run in 3D", esc3dNote());
 	sequence(EscCmdCtl::Normal, EscCmdState::Sent, DSHOT_CMD_SPIN_DIRECTION_1);
 	esc3dSetNote(false);
 	sequence(EscCmdCtl::On3d, EscCmdState::Sent, DSHOT_CMD_3D_MODE_ON);
-	checkTrue("3D ON sent: two lines C_TEXT, three C_AMBER",
+	checkTrue("3D ON sent: three lines C_TEXT, two C_AMBER",
 	          lineIs(0, "SENT 10 (3D ON), THEN 12 (SAVE).", C_TEXT) &&
-	          lineIs(1, UI_ESC_CMD_3D_NOW, C_TEXT) && lineIs(2, UI_ESC_CMD_3D_LOW, C_AMBER) &&
-	          lineIs(3, UI_ESC_CMD_3D_HIGH, C_AMBER) && lineIs(4, UI_ESC_CMD_3D_RESTART, C_AMBER) &&
+	          lineIs(1, UI_ESC_CMD_3D_NOW, C_TEXT) && lineIs(2, UI_ESC_CMD_3D_ENDS, C_TEXT) &&
+	          lineIs(3, UI_ESC_CMD_3D_LOW, C_AMBER) && lineIs(4, UI_ESC_CMD_3D_HIGH, C_AMBER) &&
 	          lineBlank(5));
 	checkTrue("the 3D note stands", esc3dNote());
 	escAnswering();
@@ -530,12 +531,13 @@ static void testOutcomes() {
 	ecFrames(1);
 	checkTrue("the ESC gone after it: the outcome stays, the reason on the sixth line",
 	          lineIs(0, "SENT 10 (3D ON), THEN 12 (SAVE).", C_TEXT) &&
-	          lineIs(4, UI_ESC_CMD_3D_RESTART, C_AMBER) &&
+	          lineIs(4, UI_ESC_CMD_3D_HIGH, C_AMBER) &&
 	          lineIs(5, noAnswerLine(), C_AMBER) && allControls(false));
 	fakeSetCmdReady(EscCmdReady::Ready);
 	ecFrames(1);
 	sequence(EscCmdCtl::Off3d, EscCmdState::Sent, DSHOT_CMD_3D_MODE_OFF);
-	checkTrue("3D OFF sent: two lines", lineIs(0, "SENT 9 (3D OFF), THEN 12 (SAVE).", C_TEXT) &&
+	checkTrue("3D OFF sent with the note standing: two lines",
+	          lineIs(0, "SENT 9 (3D OFF), THEN 12 (SAVE).", C_TEXT) &&
 	          lineIs(1, UI_ESC_CMD_3D_STAYS, C_TEXT) && blankFrom(2));
 	checkTrue("and the 3D note stays (decision 4)", esc3dNote());
 	tapId(UI_FIX(UI_BACK));
@@ -551,7 +553,17 @@ static void testOutcomes() {
 	checkTrue("opened again: the idle lines", idleShown());
 	esc3dSetNote(false);
 	sequence(EscCmdCtl::Off3d, EscCmdState::Sent, DSHOT_CMD_3D_MODE_OFF);
-	checkTrue("3D OFF sent with no note standing: none set", !esc3dNote());
+	checkTrue("3D OFF sent with no note standing: none set, and no line about it",
+	          !esc3dNote() && lineIs(0, "SENT 9 (3D OFF), THEN 12 (SAVE).", C_TEXT) &&
+	          blankFrom(1));
+	sequence(EscCmdCtl::Off3d, EscCmdState::SaveLost, DSHOT_CMD_3D_MODE_OFF);
+	checkTrue("3D OFF with the save lost: the 3D line, not the direction check",
+	          lineIs(0, UI_ESC_CMD_SAVE_LOST, C_AMBER) &&
+	          lineIs(1, UI_ESC_CMD_3D_OFF_LOST, C_AMBER) && blankFrom(2));
+	sequence(EscCmdCtl::Reversed, EscCmdState::SaveLost, DSHOT_CMD_SPIN_DIRECTION_2);
+	checkTrue("REVERSED with the save lost: the direction check",
+	          lineIs(0, UI_ESC_CMD_SAVE_LOST, C_AMBER) && lineIs(1, UI_ESC_CMD_CHECK, C_AMBER) &&
+	          blankFrom(2));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
@@ -582,6 +594,64 @@ static void testBackCancels() {
 	checkTrue("BACK cancels again", fakeCommandCancels() == cancels + 2);
 	tapId(UI_FIX(UI_BACK));
 	fakeSetCmdState(EscCmdState::Idle, 0);
+
+	// A press on BACK begun while 3D ON goes out, lifted on the first frame
+	// that reads Sent: BACK does not act on it, and the note is set.
+	esc3dSetNote(false);
+	openEc();
+	holdFor(EscCmdCtl::On3d, UI_HOLD_MS);
+	fakeRelease();
+	ecFrames(1);
+	fakeSetCmdState(EscCmdState::Sending, DSHOT_CMD_3D_MODE_ON);
+	ecFrames(1);
+	cancels = fakeCommandCancels();
+	fakePress(back.x + back.w / 2, back.y + back.h / 2);
+	ecFrames(2);
+	fakeSetCmdState(EscCmdState::Sent, DSHOT_CMD_3D_MODE_ON);
+	fakeRelease();
+	ecFrames(1);
+	checkTrue("BACK pressed while 3D ON goes out, lifted at Sent: the page stays, the note is set",
+	          uiCurrentScreen() == UiScreenId::EscCmd && esc3dNote() &&
+	          fakeCommandCancels() == cancels);
+	// The same with the press lifted on the frame of SaveLost.
+	esc3dSetNote(false);
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_ESC_CMD));
+	holdFor(EscCmdCtl::On3d, UI_HOLD_MS);
+	fakeRelease();
+	ecFrames(1);
+	fakePress(back.x + back.w / 2, back.y + back.h / 2);
+	ecFrames(2);
+	fakeSetCmdState(EscCmdState::SaveLost, DSHOT_CMD_3D_MODE_ON);
+	fakeRelease();
+	ecFrames(1);
+	checkTrue("lifted at SaveLost: the page stays, the note is set",
+	          uiCurrentScreen() == UiScreenId::EscCmd && esc3dNote());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("a fresh tap on BACK then leaves", uiCurrentScreen() == UiScreenId::Menu);
+
+	// A press on BEEP 2 begun while no ESC answered, lifted once Ready.
+	tapId(menuRow(&UI_ESC_CMD));
+	fakeSetCmdReady(EscCmdReady::NoAnswer);
+	ecFrames(1);
+	int before = fakeBeepRequests();
+	const UiRect b2 = ctlRect(UI_FIX(EscCmdCtl::Beep2));
+	fakePress(b2.x + b2.w / 2, b2.y + b2.h / 2);
+	ecFrames(1);
+	fakeSetCmdReady(EscCmdReady::Ready);
+	ecFrames(2);
+	fakeRelease();
+	ecFrames(1);
+	checkInt("a press on BEEP 2 that landed while it was disabled sends nothing when lifted live",
+	         fakeBeepRequests(), before);
+	tapId(UI_FIX(EscCmdCtl::Beep2));
+	checkInt("a fresh tap sends beacon 2", fakeBeepRequests(), before + 1);
+	fakeSetCmdState(EscCmdState::Sent, 2);
+	ecFrames(1);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	fakeSetCmdState(EscCmdState::Idle, 0);
+	esc3dSetNote(false);
 }
 
 void runEscCmdUiTests() {

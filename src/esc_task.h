@@ -871,20 +871,24 @@ static inline void escCmdExpire(EscCmdSeq *s, uint8_t cmd) {
 
 /**
  * @brief A teardown: the pump lets go of the pin, and a request that still
- *        waits expires with it. Pure.
+ *        waits goes with it. Pure.
  *
  * escPumpRelease(), then the request: left waiting, it would start on the
  * next bind's ESC once that settled within @ref ESC_CMD_WAIT_MS, on whatever
- * screen is open by then.
+ * screen is open by then. It is dropped either way. With no sequence
+ * running it reads EscCmdState::Expired about its command; a sequence the
+ * teardown cut keeps its outcome, NotSent or SaveLost, which says more
+ * about the ESC than the request that waited behind it.
  *
  * @param p   State to update.
  * @param req The request core0 made; @c cmd 0 for none.
- * @return True when a request expired: clear it.
+ * @return True when a request was dropped: clear it.
  */
 static inline bool escPumpTeardown(EscPump *p, const EscCmdRequest *req) {
+	bool running = p->seq.cmd != 0;
 	escPumpRelease(p);
 	if (!req->cmd) return false;
-	escCmdExpire(&p->seq, req->cmd);
+	if (!running) escCmdExpire(&p->seq, req->cmd);
 	return true;
 }
 

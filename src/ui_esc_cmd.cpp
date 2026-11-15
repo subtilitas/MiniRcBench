@@ -69,7 +69,8 @@ static constexpr bool linesFit() {
 	const char *plain[] = {
 		UI_ESC_CMD_IDLE_1, UI_ESC_CMD_IDLE_2, UI_ESC_CMD_CHECK, UI_ESC_CMD_IDLE_5,
 		UI_ESC_CMD_IDLE_6, UI_ESC_CMD_UNCONFIRMED, UI_ESC_CMD_3D_NOW, UI_ESC_CMD_3D_LOW,
-		UI_ESC_CMD_3D_HIGH, UI_ESC_CMD_3D_RESTART, UI_ESC_CMD_3D_STAYS, UI_ESC_CMD_TURNING,
+		UI_ESC_CMD_3D_HIGH, UI_ESC_CMD_3D_ENDS, UI_ESC_CMD_3D_STAYS, UI_ESC_CMD_3D_OFF_LOST,
+		UI_ESC_CMD_TURNING,
 		UI_ESC_CMD_SETTLING, UI_ESC_CMD_NOT_SENT, UI_ESC_CMD_SAVE_LOST, UI_ESC_CMD_EXPIRED,
 	};
 	for (const char *p : plain)
@@ -112,6 +113,19 @@ static uint32_t s_drawnKey = 0;
 static UiHold   s_hold[4];
 /** @brief Each hold's bar as last drawn, percent; -1 forces a redraw. */
 static int      s_barPct[4];
+/**
+ * @brief A tap target's press: whether it landed on the live control and
+ *        stayed live, as `ui_hold` keeps it for a hold.
+ */
+struct TapGate {
+	bool    live;   /**< The press landed while live and has stayed live. */
+	int16_t downX;  /**< Where that press landed. */
+	int16_t downY;
+};
+/** @brief BACK's gate. */
+static TapGate  s_backGate;
+/** @brief BEEP 1 to 5's gates. */
+static TapGate  s_beepGate[5];
 /** @brief The page's own request was taken: its outcome is the one shown. */
 static bool     s_own = false;
 /** @brief That request's command. */
@@ -197,11 +211,11 @@ static void outcomeLines(View *v) {
 			setLine(v, 0, C_TEXT, UI_ESC_CMD_SENT_FMT, (unsigned)c, changeName(c));
 			if (c == DSHOT_CMD_3D_MODE_ON) {
 				setLine(v, 1, C_TEXT, "%s", UI_ESC_CMD_3D_NOW);
-				setLine(v, 2, UI_COL_WARN, "%s", UI_ESC_CMD_3D_LOW);
-				setLine(v, 3, UI_COL_WARN, "%s", UI_ESC_CMD_3D_HIGH);
-				setLine(v, 4, UI_COL_WARN, "%s", UI_ESC_CMD_3D_RESTART);
+				setLine(v, 2, C_TEXT, "%s", UI_ESC_CMD_3D_ENDS);
+				setLine(v, 3, UI_COL_WARN, "%s", UI_ESC_CMD_3D_LOW);
+				setLine(v, 4, UI_COL_WARN, "%s", UI_ESC_CMD_3D_HIGH);
 			} else if (c == DSHOT_CMD_3D_MODE_OFF) {
-				setLine(v, 1, C_TEXT, "%s", UI_ESC_CMD_3D_STAYS);
+				if (esc3dNote()) setLine(v, 1, C_TEXT, "%s", UI_ESC_CMD_3D_STAYS);
 			} else {
 				setLine(v, 1, C_TEXT, "%s", UI_ESC_CMD_UNCONFIRMED);
 				setLine(v, 2, C_TEXT, "%s", UI_ESC_CMD_CHECK);
@@ -211,8 +225,13 @@ static void outcomeLines(View *v) {
 			setLine(v, 0, UI_COL_WARN, "%s", UI_ESC_CMD_NOT_SENT);
 			break;
 		case EscCmdState::SaveLost:
+			// The second line fits the change: the tester check for a
+			// direction, the note for 3D ON, the RAM-only change for 3D OFF.
 			setLine(v, 0, UI_COL_WARN, "%s", UI_ESC_CMD_SAVE_LOST);
-			setLine(v, 1, UI_COL_WARN, "%s", UI_ESC_CMD_CHECK);
+			setLine(v, 1, UI_COL_WARN, "%s",
+			        c == DSHOT_CMD_3D_MODE_ON  ? UI_ESC_CMD_3D_NOW
+			      : c == DSHOT_CMD_3D_MODE_OFF ? UI_ESC_CMD_3D_OFF_LOST
+			                                   : UI_ESC_CMD_CHECK);
 			break;
 		case EscCmdState::Expired:
 			setLine(v, 0, UI_COL_WARN, "%s", UI_ESC_CMD_EXPIRED);
@@ -237,6 +256,13 @@ static void buildView(View *v) {
 	// Busy is live too: a request taken then waits in the slot, and an EDT
 	// enable's 11 ms of Busy would otherwise end a hold under way.
 	v->live = (v->ready == EscCmdReady::Ready || v->ready == EscCmdReady::Busy) && !v->going;
+	// 3D ON may have reached the ESC once it is sent, or stopped after its
+	// first block's frame 6: the tester's note stands from then, set here,
+	// on every view, before any control or BACK is read. 3D OFF leaves the
+	// note (decision 4). @see esc3dNote()
+	if (s_own && s_ownCmd == DSHOT_CMD_3D_MODE_ON &&
+	    (v->state == EscCmdState::Sent || v->state == EscCmdState::SaveLost))
+		esc3dSetNote(true);
 	if (s_own && v->state != EscCmdState::Idle) {
 		outcomeLines(v);
 		readinessLine(v, UI_ESC_CMD_LINES - 1);
@@ -318,6 +344,33 @@ static void draw(const View *v, Chip chip) {
 			        v->lines[i].col, 1);
 }
 
+/** @brief Make @p g hold no press. */
+static void tapGateReset(TapGate *g) {
+	g->live = false;
+	g->downX = g->downY = -1;
+}
+
+/**
+ * @brief Feed one frame to @p g; true on the frame a tap of @p r completes
+ *        whose press landed while the control was live and stayed live on
+ *        every frame since. A press begun on a control drawn disabled never
+ *        taps it, whenever it lifts.
+ */
+static bool gatedTap(TapGate *g, const UiRect &r, const TouchState *t, bool live) {
+	if (t->pressed) {
+		g->live = true;
+		g->downX = t->downX;
+		g->downY = t->downY;
+	} else if ((t->down || t->released) && (t->downX != g->downX || t->downY != g->downY)) {
+		g->live = false;
+	}
+	if (!live) g->live = false;
+	if (!t->released) return false;
+	bool tapped = g->live && uiTapped(r, t);
+	g->live = false;
+	return tapped;
+}
+
 /** @brief Hand a request to core1; the page shows its outcome once taken. */
 static void request(uint8_t cmd, bool save) {
 	// Refused only if the readiness changed since core1 last published, or
@@ -330,6 +383,8 @@ static void request(uint8_t cmd, bool save) {
 void uiEscCmdEnter() {
 	s_own = false;
 	s_ownCmd = 0;
+	tapGateReset(&s_backGate);
+	for (TapGate &g : s_beepGate) tapGateReset(&g);
 	for (int i = 0; i < 4; i++) {
 		uiHoldReset(&s_hold[i]);
 		s_barPct[i] = -1;
@@ -343,14 +398,15 @@ bool uiEscCmdTick(const TouchState *t) {
 	View v;
 	buildView(&v);
 	// Leaving cancels a request that still waits, so it cannot fire later on
-	// another screen; BACK is drawn disabled while one does.
-	if (!v.going && uiBackTapped(s_t)) {
+	// another screen; BACK is drawn disabled while one does, and a press
+	// begun then does not leave when it lifts.
+	if (gatedTap(&s_backGate, uiBackRect(), s_t, !v.going)) {
 		escCancelCommand();
 		return false;
 	}
 	uint32_t now = millis();
 	for (int i = 0; i < 5; i++) {
-		if (v.live && uiTapped(beepRect(i), s_t)) {
+		if (gatedTap(&s_beepGate[i], beepRect(i), s_t, v.live)) {
 			request((uint8_t)(DSHOT_CMD_BEEP1 + i), false);
 			buildView(&v);
 		}
@@ -361,13 +417,6 @@ bool uiEscCmdTick(const TouchState *t) {
 			buildView(&v);
 		}
 	}
-	// 3D ON may have reached the ESC once it is sent, or stopped after its
-	// first block's frame 6: the tester's note stands from then. 3D OFF
-	// leaves the note (decision 4). @see esc3dNote()
-	if (s_own && s_ownCmd == DSHOT_CMD_3D_MODE_ON &&
-	    (v.state == EscCmdState::Sent || v.state == EscCmdState::SaveLost))
-		esc3dSetNote(true);
-
 	Chip chip = chipNow();
 	uint32_t key = frameKey(&v, chip);
 	if (key != s_drawnKey) {

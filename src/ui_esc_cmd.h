@@ -56,7 +56,7 @@ struct TouchState;
 #define UI_ESC_CMD_IDLE_1 "HOLD 1 S: SETS IT, THEN SAVES IT."
 /** @brief Idle, line 2. */
 #define UI_ESC_CMD_IDLE_2 "THE ESC SENDS NO ANSWER TO A COMMAND:"
-/** @brief Idle, line 3; after a direction or a lost save, line 3 or 2. */
+/** @brief Idle, line 3; after a direction sent, line 3, or its lost save, line 2. */
 #define UI_ESC_CMD_CHECK  "CHECK IT ON THE TESTER WITH 3D OFF."
 /** @brief Idle, line 5. */
 #define UI_ESC_CMD_IDLE_5 "AM32 BEEPS AS BEEP 1 ON SAVE (NORMAL)"
@@ -72,16 +72,24 @@ struct TouchState;
 #define UI_ESC_CMD_BEEP_SENT_FMT "SENT %u (BEEP %u)."
 /** @brief After a direction, `C_TEXT`, line 2. */
 #define UI_ESC_CMD_UNCONFIRMED "NOTHING CONFIRMS THE ESC TOOK THEM."
-/** @brief After 3D ON, `C_TEXT`, line 2. */
+/** @brief After 3D ON, `C_TEXT`, line 2, and after its lost save, `C_AMBER`. */
 #define UI_ESC_CMD_3D_NOW "THE TESTER SHOWS THE 3D NOTE NOW."
-/** @brief After 3D ON, `C_AMBER`, line 3. */
-#define UI_ESC_CMD_3D_LOW "IN 3D, 0 TO 50% RUNS REVERSED AT 2X;"
 /** @brief After 3D ON, `C_AMBER`, line 4. */
+#define UI_ESC_CMD_3D_LOW "IN 3D, 0 TO 50% RUNS REVERSED AT 2X;"
+/** @brief After 3D ON, `C_AMBER`, line 5. */
 #define UI_ESC_CMD_3D_HIGH "ABOVE 50% THE SET WAY, FROM LOW."
-/** @brief After 3D ON, `C_AMBER`, line 5: the note is not stored (decision 4). */
-#define UI_ESC_CMD_3D_RESTART "THE NOTE ENDS AT A RESTART."
-/** @brief After 3D OFF, `C_TEXT`, line 2 (decision 4). */
-#define UI_ESC_CMD_3D_STAYS "THE 3D NOTE STAYS UNTIL A RESTART."
+/**
+ * @brief After 3D ON, `C_TEXT`, line 3: what ends the note, which is not
+ *        stored (decision 4).
+ */
+#define UI_ESC_CMD_3D_ENDS "ESC SETTINGS OR A RESTART CLEARS IT."
+/** @brief After 3D OFF, `C_TEXT`, line 2, while the note stands (decision 4). */
+#define UI_ESC_CMD_3D_STAYS "THE 3D NOTE STAYS ON THE TESTER."
+/**
+ * @brief After a lost save of 3D OFF, `C_AMBER`, line 2: the change may sit
+ *        in the ESC's RAM only.
+ */
+#define UI_ESC_CMD_3D_OFF_LOST "AFTER A POWER CYCLE IT MAY RUN IN 3D."
 /** @brief EscCmdReady::NoAnswer, `C_AMBER`, with SIG's GPIO (decision 5). */
 #define UI_ESC_CMD_NO_ANSWER_FMT "NO ESC ANSWERS ON SIG GP%u."
 /** @brief EscCmdReady::Turning, `C_AMBER`. */
