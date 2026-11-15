@@ -52,9 +52,13 @@ protocol.
   RPM × 2000 / (V × t), t the throttle sent, 0 to 2000, rounded and clamped
   to 99999. A figure needs eRPM within 500 ms, an RPM above 0 and a fresh
   voltage above 0.5 V, else `RPM/V --` and `KV EST --`; the estimate also
-  needs t from 1500 (75 %) to 2000, unchanged for 1000 ms
-  (`KV_EST_MIN_THROTTLE`, `KV_EST_SETTLE_MS`), and no 3D note, and reads
-  `KV EST 75%+` below 1500. Nothing is kept after the disarm. Host tests in
+  needs t from 1500 (75 %) to 2000, within 20 of one value for 1000 ms
+  (`KV_EST_MIN_THROTTLE`, `KV_EST_SETTLE_BAND`, `KV_EST_SETTLE_MS`), so that
+  a finger resting on the bar does not hold it off, the filtered eRPM
+  within 0.5 % of the last reply (`KV_EST_ERPM_SETTLE_PERMILLE`), and no 3D
+  note, and reads `KV EST 75%+` below 1500. Nothing is kept after the
+  disarm. An ESC in 3D mode the tester does not know of gives a wrong figure
+  with no warning, about × 0.67 on AM32 at 75 %. Host tests in
   `test/test_kv_est.cpp` and `test/test_ui.cpp`; the wiki's `tester-kv.png`
   and `docs/ui-preview.png`. Not measured on a motor.
 - After v0.1.0-rc1: the host suite sets the fake clock before each screenshot

@@ -15,7 +15,8 @@
  * The estimate assumes the ESC's duty is t / 2000 and that the motor, with no
  * propeller, turns at kV times the voltage that duty gives it. Neither holds
  * exactly: AM32 2.22's duty map puts it at x 0.92 to x 1.08 of the rating at
- * 75 % throttle, and the maps of Bluejay, BLHeli_S and BLHeli_32 are not
+ * 75 % throttle, with RUNNING LEVEL 10 and on a target built without
+ * USE_STARTUP_BOOST, and the maps of Bluejay, BLHeli_S and BLHeli_32 are not
  * verified. It is therefore labelled `KV EST`, never `KV`, and shown only
  * under the note's conditions; @see kvEstView().
  *
@@ -99,16 +100,23 @@ static inline uint32_t kvEstKv(uint32_t rpm, uint32_t volts100, uint32_t t) {
 }
 
 /**
- * @brief Whether the throttle has stood still for @ref KV_EST_SETTLE_MS.
+ * @brief Whether the throttle has stood within @ref KV_EST_SETTLE_BAND of
+ *        one value for @ref KV_EST_SETTLE_MS.
+ *
+ * A finger held on the throttle bar sets the throttle from its x on every
+ * frame, and at MAX 100% one pixel is about 11 units: a settle that
+ * restarted on every change would never end under a resting finger. So it
+ * restarts only when the throttle leaves the band around the value it
+ * started at, and that value becomes the new start.
  *
  * Zero-initialised it holds a throttle of 0 since time 0. Once settled it
- * stays settled until the throttle changes, so a throttle held across the
- * millis() wrap does not read unsettled again.
+ * stays settled until the throttle leaves the band, so a throttle held
+ * across the millis() wrap does not read unsettled again.
  */
 struct KvSettle {
-	uint16_t t;        /**< The throttle last seen. */
-	uint32_t sinceMs;  /**< When it was first seen, millis(). */
-	bool     settled;  /**< It has been seen for KV_EST_SETTLE_MS or more. */
+	uint16_t t;        /**< The throttle the settle started at. */
+	uint32_t sinceMs;  /**< When it started, millis(). */
+	bool     settled;  /**< In the band for KV_EST_SETTLE_MS or more. */
 };
 
 /**
@@ -116,10 +124,12 @@ struct KvSettle {
  * @param[in,out] s Settle state.
  * @param t         The throttle sent on this frame.
  * @param nowMs     millis() of this frame.
- * @return True once @p t has been unchanged for KV_EST_SETTLE_MS.
+ * @return True once @p t has stayed within KV_EST_SETTLE_BAND of the value
+ *         the settle started at for KV_EST_SETTLE_MS.
  */
 static inline bool kvSettleStep(KvSettle *s, uint16_t t, uint32_t nowMs) {
-	if (t != s->t) {
+	const int32_t d = (int32_t)t - (int32_t)s->t;
+	if (d > KV_EST_SETTLE_BAND || d < -KV_EST_SETTLE_BAND) {
 		s->t = t;
 		s->sinceMs = nowMs;
 		s->settled = false;
@@ -141,6 +151,7 @@ struct KvEstIn {
 	bool     armed;       /**< The tester is armed. */
 	bool     alive;       /**< An eRPM answer is younger than ESC_LINK_STALE_MS. */
 	uint32_t erpm;        /**< The filtered eRPM the readout shows. */
+	uint32_t erpmRaw;     /**< The last eRPM reply, unfiltered. */
 	uint8_t  poles;       /**< MOTOR POLES. */
 	bool     voltsFresh;  /**< The merged voltage has a fresh source, KISS or EDT. */
 	int32_t  volts100;    /**< That voltage in hundredths of a volt. */
@@ -166,7 +177,9 @@ struct KvEstView {
  *    over half the pole count, so eRPM above 0 with it).
  * 2. A fresh voltage above 0.5 V.
  * 3. t at least KV_EST_MIN_THROTTLE (else KvEstShow::Low) and at most 2000.
- * 4. t settled, KV_EST_SETTLE_MS.
+ * 4. t settled, KV_EST_SETTLE_MS within KV_EST_SETTLE_BAND, and the
+ *    filtered eRPM within KV_EST_ERPM_SETTLE_PERMILLE of the last reply: a
+ *    motor still spinning up, or a filter still catching up, shows none.
  * 5. The 3D note not standing.
  *
  * A missing 1 or 2 reads Unknown before a low throttle reads Low: with no
@@ -190,6 +203,9 @@ static inline KvEstView kvEstView(const KvEstIn *in) {
 		return v;
 	}
 	if (!in->settled) return v;
+	const uint64_t gap = in->erpm > in->erpmRaw ? in->erpm - in->erpmRaw
+	                                            : in->erpmRaw - in->erpm;
+	if (gap * 1000 > (uint64_t)in->erpmRaw * KV_EST_ERPM_SETTLE_PERMILLE) return v;
 	v.kv = KvEstShow::Value;
 	v.kvValue = kvEstKv(rpm, volts100, in->t);
 	return v;

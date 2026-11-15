@@ -6630,7 +6630,7 @@ static void testTesterKvEst() {
 	// --- armed at 0 %: RPM/V, and the estimate asks for 75 % ---
 	holdToArm();
 	kvFrames(2, erpm, 15.75f);
-	char line[40], want[40];
+	char want[40];
 	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1575));
 	checkTrue("armed: ERPM 156800  RPM/V 1422, EDT's 15.75 V", fakeArmed() &&
 	          textAlone(10, 102, want, C_DIM));
@@ -6688,8 +6688,17 @@ static void testTesterKvEst() {
 		         (unsigned)kvEstRpmPerVolt(shown / 7, 1600));
 		checkTrue("a step in eRPM: RPM/V from the filtered 157675, 1408",
 		          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(shown / 7, 1600) == 1408);
+		checkTrue("  the filter 3.7 % off the reply: KV EST --",
+		          textAlone(10, 114, "KV EST --", C_TEXT));
 	}
-	kvFrames(40, erpm, 15.75f, 16.0f);
+	kvFrames(80, 163800, 15.75f, 16.0f);   // past the snap: the reply exactly
+	{
+		char k2[16];
+		snprintf(k2, sizeof(k2), "KV EST %u", (unsigned)kvEstKv(163800 / 7, 1600, t));
+		checkTrue("the filter caught up with 163,800: the figure again",
+		          textAlone(10, 114, k2, C_TEXT));
+	}
+	kvFrames(80, erpm, 15.75f, 16.0f);
 
 	// A voltage step that moves the estimate and leaves RPM/V as it was:
 	// the estimate is redrawn on its own change.
@@ -6708,6 +6717,38 @@ static void testTesterKvEst() {
 		checkTrue("  the estimate follows a step of 0.01 V that RPM/V does not",
 		          first && textAlone(10, 114, a2, C_TEXT));
 		kvFrames(2, erpm, 15.75f, 16.0f);
+	}
+
+	// --- a finger resting on the bar: jitter of a pixel each frame ---
+	{
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		const uint16_t t85 = kvHoldTrack(85, erpm, 15.75f, 16.0f);
+		const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
+		const int ty = thr.y + thr.h / 2;
+		const int tx = thr.x + THR_EDGE_SAT_T + ((thr.w - 2 * THR_EDGE_SAT_T) * 85 / 100);
+		int lo = t85, hi = t85;
+		bool early = false;
+		for (int i = 0; i < 38; i++) {
+			fakeHold(tx + (i % 2 ? 0 : 1), ty);
+			kvFrames(1, erpm, 15.75f, 16.0f);
+			lo = uiThrottle() < lo ? uiThrottle() : lo;
+			hi = uiThrottle() > hi ? uiThrottle() : hi;
+			early = early || !textAlone(10, 114, "KV EST --", C_TEXT);
+		}
+		checkTrue("85 %, a pixel of jitter a frame: the throttle moves 1 to 20",
+		          hi - lo >= 1 && hi - lo <= KV_EST_SETTLE_BAND);
+		checkTrue("  KV EST -- for 975 ms", !early);
+		fakeHold(tx + 1, ty);
+		kvFrames(1, erpm, 15.75f, 16.0f);
+		char kj[16];
+		snprintf(kj, sizeof(kj), "KV EST %u", (unsigned)kvEstKv(rpm, 1600, uiThrottle()));
+		checkTrue("  the figure at 1000 ms, the jitter notwithstanding",
+		          textAlone(10, 114, kj, C_TEXT));
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+		kvFrames(41, erpm, 15.75f, 16.0f);
+		checkTrue("back at 80 %, settled: the figure", t == uiThrottle() &&
+		          textAlone(10, 114, kvText, C_TEXT));
 	}
 
 	// --- the voltage goes stale: no figure in either field ---

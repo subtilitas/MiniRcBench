@@ -724,6 +724,7 @@ static void drawRpm() {
 	kin.armed = s_armed;
 	kin.alive = alive;
 	kin.erpm = erpm;
+	kin.erpmRaw = s_tel.erpm;
 	kin.poles = s_poles;
 	kin.voltsFresh = r.voltsFrom != EscSource::None;
 	kin.volts100 = (int32_t)(r.volts * 100.0f + 0.5f);

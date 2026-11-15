@@ -121,7 +121,8 @@
  * @brief The lowest throttle the tester's kV estimate is shown at, 0 to 2000.
  *
  * 1500, 75 %: the owner's decision 7 in docs/design/esc-commands.md. There
- * AM32 2.22's duty map puts the estimate at x 0.92 to x 1.08 of the rating;
+ * AM32 2.22's duty map puts the estimate at x 0.92 to x 1.08 of the rating,
+ * with RUNNING LEVEL 10 and on a target built without USE_STARTUP_BOOST;
  * below it, with sine start, as low as x 0.41 at 30 %. Below it the field
  * reads `KV EST 75%+`. @see kv_est.h
  */
@@ -136,6 +137,25 @@
  * spin-up time is not measured. @see kvSettleStep()
  */
 #define KV_EST_SETTLE_MS       1000
+
+/**
+ * @brief How far the throttle may move, either way, without restarting the
+ *        kV estimate's settle: 20 of 2000, 1 %.
+ *
+ * A finger resting on the throttle bar moves the throttle with touch jitter:
+ * at MAX 100% one pixel is about 11 units. @see kvSettleStep()
+ */
+#define KV_EST_SETTLE_BAND     20
+
+/**
+ * @brief How close the filtered eRPM must be to the last reply before the kV
+ *        estimate shows, in thousandths: 5, 0.5 %.
+ *
+ * Covers a motor still spinning up after the throttle settled, and the
+ * display filter catching up. One eRPM step is 0.20 % to 0.39 % of the value
+ * (a normalised frame's mantissa of 256 to 511). @see kvEstView()
+ */
+#define KV_EST_ERPM_SETTLE_PERMILLE 5
 
 /** @} */
 

@@ -71,7 +71,8 @@ An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
 ESC from this board yet). The armed tester shows RPM per volt on its
-`ERPM` line and a kV estimate, `KV EST`, in place of the pole count (slice
+`ERPM` line and an estimate of the motor's kV, its speed constant in RPM per
+volt with no load, as `KV EST`, in place of the pole count (slice
 3 of the same note, host tests only, not measured on a motor); see
 [Telemetry and logging](#telemetry-and-logging). The owner answered the
 note's questions on 2026-11-15.
@@ -983,14 +984,15 @@ refused and a write of 3D MODE off that is not verified leave it. It describes
 the last ESC those two tools reached, not the one on the pin now: a swapped ESC
 is not detected.
 
-**RPM/V and the kV estimate.** While armed, the `ERPM` line, y 102, carries
-`RPM/V` after two spaces, `ERPM 156800  RPM/V 1400`, and the bottom row's
-pole count gives its place to `KV EST`, `C_TEXT` at x 10, y 114, until the
-disarm (decisions 6 and 7 of `docs/design/esc-commands.md`, slice 3). With
-RPM the readout's figure, eRPM from the display filter over half of MOTOR
-POLES, V the voltage the `VOLTAGE` tile shows, KISS where fresh, EDT
-otherwise, and t the throttle sent, 0 to 2000, `src/kv_est.h` computes, in
-64-bit integers, rounded half up and clamped to 99999:
+**RPM/V and the kV estimate.** kV is a motor's speed constant, RPM per volt with
+no load. While armed, the `ERPM` line, y 102, carries `RPM/V` after two spaces,
+`ERPM 156800  RPM/V 1400`, and the bottom row's pole count gives its place to
+`KV EST`, `C_TEXT` at x 10, y 114, until the disarm (decisions 6 and 7 of
+`docs/design/esc-commands.md`, slice 3). With RPM the eRPM from the display
+filter over half of MOTOR POLES, before the readout's clamp at 99999, V the
+voltage the `VOLTAGE` tile shows, KISS where fresh, EDT otherwise, and t the
+throttle sent, 0 to 2000, `src/kv_est.h` computes, in 64-bit integers, rounded
+half up and clamped to 99999:
 
 - RPM/V = RPM / V;
 - the kV estimate = RPM × 2000 / (V × t).
@@ -998,27 +1000,35 @@ otherwise, and t the throttle sent, 0 to 2000, `src/kv_est.h` computes, in
 The estimate assumes the ESC's duty is t / 2000 and a motor with no
 propeller. Neither is checked. On AM32 2.22 the design note works out from
 AM32's source that the estimate at 75 % throttle is × 0.92 to × 1.08 of the
-rated kV for the SINE STARTUP and MIN DUTY settings it covers; the duty maps
-of Bluejay, BLHeli_S and BLHeli_32 are not verified. Load, losses, the drops
-in the ESC and the wiring, and a wrong pole count are inside the figure. So
-it is labelled `KV EST`, never `KV`.
+rated kV for the SINE STARTUP and MIN DUTY settings it covers, with RUNNING
+LEVEL 10 and on a target built without `USE_STARTUP_BOOST`; the duty maps of
+Bluejay, BLHeli_S and BLHeli_32 are not verified. Load, losses, the drops in
+the ESC and the wiring, and a wrong pole count are inside the figure. An ESC
+in 3D mode that the 3D note does not know of, set by another tool or in an
+earlier power-up of the bench, gives a wrong figure with no warning: on AM32
+at t 1500 the motor runs in the set direction at a duty of about 0.50, and
+the estimate reads about × 0.67 of the rated kV. So it is labelled `KV EST`,
+never `KV`.
 
 | Field | Shown when | Otherwise |
 |---|---|---|
 | `RPM/V 1400` | armed; eRPM within `ESC_LINK_STALE_MS` (500 ms); RPM above 0 with MOTOR POLES 2 or more; a voltage from KISS within `KISS_STALE_MS` (500 ms) or EDT within `EDT_STALE_MS` (1000 ms), above 0.5 V | `RPM/V --`; disarmed, no `RPM/V` |
-| `KV EST 1758` | the same, and t from `KV_EST_MIN_THROTTLE` (1500, 75 %) to 2000, unchanged for `KV_EST_SETTLE_MS` (1000 ms), and the 3D note not standing | `KV EST 75%+` below 1500 when the inputs are there; else `KV EST --` |
+| `KV EST 1758` | the same, and t from `KV_EST_MIN_THROTTLE` (1500, 75 %) to 2000, within `KV_EST_SETTLE_BAND` (20) of one value for `KV_EST_SETTLE_MS` (1000 ms), the filtered eRPM within `KV_EST_ERPM_SETTLE_PERMILLE` (0.5 %) of the last reply, and the 3D note not standing | `KV EST 75%+` below 1500 when the inputs are there; else `KV EST --` |
 
-The settle counts from the UI frame on which the throttle sent last changed
-(`kvSettleStep()`, stepped in `uiTick()` after `escSetThrottle()`); 1000 ms
-leaves 0.48 % of a step in the display filter. The motor's own spin-up time
-is not measured. At the default `MAX 20%` the estimate never shows. The
-widest texts fit, held by `static_assert`s in `src/ui.cpp`:
-`ERPM 60000000  RPM/V 99999`, 26 characters at the decoder's largest eRPM,
-155 px, ends 27 px before the `RPM` label at x 192; `KV EST 99999`, 71 px,
-ends 50 px before `SWIPE = THROTTLE`. While the
-3D note stands it takes the row; `RPM/V` stays on the line above. The
-blackbox log records nothing new: `motor[0]`, `eRPM[0]`, `vbatLatest` and
-`vbatEdt` give both figures.
+The settle counts from the UI frame on which the throttle sent left the band of
+±20 around the value the settle started at (`kvSettleStep()`, stepped in
+`uiTick()` after `escSetThrottle()`): a finger resting on the bar at `MAX 100%`
+moves the throttle by about 11 a pixel, and a settle that restarted on every
+change would never end. 1000 ms leaves 0.48 % of a step in the display filter.
+The eRPM check covers a motor still spinning up; one eRPM step is 0.20 % to 0.39
+% of the value, inside the 0.5 %. The motor's own spin-up time is not measured.
+At the default `MAX 20%` the estimate never shows. The widest texts fit, held by
+`static_assert`s in `src/ui.cpp`: `ERPM 60000000  RPM/V 99999`, 26 characters at
+the decoder's largest eRPM, 155 px, ends 27 px before the `RPM` label at x 192;
+`KV EST 99999`, 71 px, ends 50 px before `SWIPE = THROTTLE`. While the 3D note
+stands it takes the row; `RPM/V` stays on the line above. The blackbox log
+records nothing new: `motor[0]`, `eRPM[0]`, `vbatLatest` and `vbatEdt` give both
+figures.
 
 An expired **ESC STATUS** reads `--`, never `OK`.
 

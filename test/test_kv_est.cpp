@@ -23,6 +23,7 @@ static KvEstIn kvBase() {
 	in.armed = true;
 	in.alive = true;
 	in.erpm = 156800;        // 14 poles: 22,400 RPM
+	in.erpmRaw = 156800;
 	in.poles = 14;
 	in.voltsFresh = true;
 	in.volts100 = 1600;
@@ -75,10 +76,35 @@ static void testSettle() {
 	checkTrue("999 ms on: not settled", !kvSettleStep(&s, 1500, 5999));
 	checkTrue("1000 ms on: settled", kvSettleStep(&s, 1500, 6000));
 	checkTrue("and stays settled", kvSettleStep(&s, 1500, 9000));
-	checkTrue("a step of 1: not settled", !kvSettleStep(&s, 1501, 9025));
-	checkTrue("  999 ms after it: not settled", !kvSettleStep(&s, 1501, 10024));
-	checkTrue("  1000 ms after it: settled", kvSettleStep(&s, 1501, 10025));
-	checkTrue("back to 1500: not settled", !kvSettleStep(&s, 1500, 10050));
+	checkTrue("a step of 21: not settled", !kvSettleStep(&s, 1521, 9025));
+	checkTrue("  999 ms after it: not settled", !kvSettleStep(&s, 1521, 10024));
+	checkTrue("  1000 ms after it: settled", kvSettleStep(&s, 1521, 10025));
+	checkTrue("a step of -21 from 1521: not settled", !kvSettleStep(&s, 1500, 10050));
+	checkTrue("  1000 ms after it: settled", kvSettleStep(&s, 1500, 11050));
+	checkTrue("a step of 20 from the start: still settled", kvSettleStep(&s, 1520, 11075));
+	checkTrue("a step of -20 from the start: still settled", kvSettleStep(&s, 1480, 11100));
+	checkTrue("1521, 21 from the start: not settled", !kvSettleStep(&s, 1521, 11125));
+
+	// Touch jitter: a resting finger moves the throttle by about 11 units a
+	// frame at MAX 100%. Within 20 of the start, the settle runs on.
+	memset(&s, 0, sizeof(s));
+	bool early = false;
+	uint32_t now = 20000;
+	kvSettleStep(&s, 1600, now);
+	for (int i = 1; i < 40; i++) {
+		now += 25;
+		early = early || kvSettleStep(&s, (uint16_t)(i % 2 ? 1611 : 1589), now);
+	}
+	checkTrue("jitter of +-11 a frame: not settled at 975 ms", !early);
+	checkTrue("  settled at 1000 ms", kvSettleStep(&s, 1611, now + 25));
+	// The start does not follow the jitter: drift 1 a frame and the settle
+	// restarts once the throttle is 21 from where it started.
+	memset(&s, 0, sizeof(s));
+	kvSettleStep(&s, 1600, 30000);
+	bool restarted = false;
+	for (int i = 1; i <= 21; i++) kvSettleStep(&s, (uint16_t)(1600 + i), 30000 + 25 * i);
+	restarted = s.t == 1621 && s.sinceMs == 30000 + 25 * 21;
+	checkTrue("a drift of 1 a frame restarts it at 21", restarted);
 
 	// Across the millis() wrap.
 	memset(&s, 0, sizeof(s));
@@ -114,7 +140,7 @@ static void testView() {
 	checkTrue("1 pole: neither", isUnknown(kvEstView(&in)));
 	in = kvBase(); in.poles = 0;
 	checkTrue("0 poles: neither, no division", isUnknown(kvEstView(&in)));
-	in = kvBase(); in.poles = 2; in.erpm = 22400;
+	in = kvBase(); in.poles = 2; in.erpm = 22400; in.erpmRaw = 22400;
 	v = kvEstView(&in);
 	checkTrue("2 poles: RPM is eRPM, both figures",
 	          v.rpv == KvEstShow::Value && v.rpvValue == 1400 && v.kvValue == 1867);
@@ -122,7 +148,7 @@ static void testView() {
 	checkTrue("eRPM 0: neither", isUnknown(kvEstView(&in)));
 	in = kvBase(); in.erpm = 6;
 	checkTrue("eRPM 6 on 14 poles, 0 RPM: neither", isUnknown(kvEstView(&in)));
-	in = kvBase(); in.erpm = 7; in.volts100 = 100;
+	in = kvBase(); in.erpm = 7; in.erpmRaw = 7; in.volts100 = 100;
 	v = kvEstView(&in);
 	checkTrue("eRPM 7 on 14 poles, 1 RPM: both", v.rpv == KvEstShow::Value &&
 	          v.rpvValue == 1 && v.kv == KvEstShow::Value);
@@ -165,6 +191,31 @@ static void testView() {
 	          v.rpv == KvEstShow::Value && v.kv == KvEstShow::Unknown);
 	in = kvBase(); in.settled = false; in.t = 1499;
 	checkTrue("not settled below 75 %: it asks for 75 %", kvEstView(&in).kv == KvEstShow::Low);
+
+	// 4. The filtered eRPM within 0.5 % of the last reply.
+	in = kvBase(); in.erpm = 201000; in.erpmRaw = 200000;
+	checkTrue("filtered 0.5 % above the reply: the estimate",
+	          kvEstView(&in).kv == KvEstShow::Value);
+	in.erpm = 201001;
+	v = kvEstView(&in);
+	checkTrue("filtered 1 eRPM more: RPM/V, no estimate",
+	          v.rpv == KvEstShow::Value && v.kv == KvEstShow::Unknown);
+	in.erpm = 199000;
+	checkTrue("filtered 0.5 % below the reply: the estimate",
+	          kvEstView(&in).kv == KvEstShow::Value);
+	in.erpm = 198999;
+	checkTrue("filtered 1 eRPM less: no estimate", kvEstView(&in).kv == KvEstShow::Unknown);
+	in.erpm = 156800; in.erpmRaw = 0;
+	checkTrue("a reply of 0 under a filtered figure: no estimate",
+	          kvEstView(&in).kv == KvEstShow::Unknown);
+	in = kvBase(); in.erpm = 4000000000u; in.erpmRaw = 4000000000u - 10000000u;
+	checkTrue("past 32 bits in the comparison: no overflow, the estimate",
+	          kvEstView(&in).kv == KvEstShow::Value);
+	// The decoder's largest eRPM and a gap whose x 1000 wraps 32 bits to
+	// 32,704: it must not pass as within 0.5 %.
+	in = kvBase(); in.erpm = 55705000u; in.erpmRaw = 60000000u;
+	checkTrue("a 7 % gap at 60,000,000 eRPM: no estimate, no overflow",
+	          kvEstView(&in).kv == KvEstShow::Unknown);
 
 	// 5. The 3D note.
 	in = kvBase(); in.esc3d = true;

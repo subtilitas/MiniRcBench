@@ -142,17 +142,20 @@ entspricht dem Gas, und der Motor läuft ohne Propeller.
 - `KV EST 75%+`: Das Gas liegt unter 75 %, dort erscheint keine Schätzung.
   Bei der voreingestellten Obergrenze `MAX 20%` erscheint sie nie; für die
   Messung `MAX` in SETTINGS anheben, Propeller ab.
-- `KV EST --`: kein Wert. Eine Eingabe fehlt, oder das Gas hat sich in der
-  letzten Sekunde bewegt.
+- `KV EST --`: kein Wert. Eine Eingabe fehlt, das Gas hat sich in der
+  letzten Sekunde um mehr als 1 % bewegt, oder der Motor wird noch
+  schneller.
 
-Beide Werte brauchen eRPM aus den letzten 500 ms, eine Drehzahl über 0 und
-eine Spannung über 0,5 V von KISS (aus den letzten 500 ms) oder EDT (aus den
-letzten 1000 ms); sonst zeigt die Zeile `RPM/V --` und die Zeile darunter
-`KV EST --`. Die Schätzung braucht außerdem mindestens 75 % Gas, 1 s lang
-unverändert, und keinen 3D-Hinweis; der 3D-Hinweis nimmt die Zeile ein wie
-bisher. Beide Werte enden bei 99999. Keiner bleibt nach dem Entschärfen
-stehen: Entschärft zeigt die Zeile nur `ERPM` und die Zeile darunter
-`14 POLES`.
+Beide Werte brauchen eRPM aus den letzten 500 ms, eine Drehzahl über 0 und eine
+Spannung über 0,5 V von KISS (aus den letzten 500 ms) oder EDT (aus den letzten
+1000 ms); sonst zeigt die Zeile `RPM/V --` und die Zeile darunter `KV EST --`.
+Die Schätzung braucht außerdem mindestens 75 % Gas, 1 s lang innerhalb von 1 %
+(20 von 2000) um einen Wert, damit ein auf dem Balken ruhender Finger sie nicht
+aufhält, einen Motor, der seine Drehzahl erreicht hat (die geglättete eRPM
+innerhalb von 0,5 % der letzten Antwort), und keinen 3D-Hinweis; der 3D-Hinweis
+nimmt die Zeile ein wie bisher. Beide Werte enden bei 99999. Keiner bleibt nach
+dem Entschärfen stehen: Entschärft zeigt die Zeile nur `ERPM` und die Zeile
+darunter `14 POLES`.
 
 Was die Schätzung nicht wissen kann:
 
@@ -160,10 +163,15 @@ Was die Schätzung nicht wissen kann:
   niedrig.
 - **Das Tastverhältnis des ESC.** Bei 75 % unter AM32 2.22 ergibt die
   Entwurfsnotiz × 0,92 bis × 1,08 des Nenn-kV für die Einstellungen von SINE
-  STARTUP und MIN DUTY, die sie durchrechnet, aus dem Quelltext von AM32;
-  nicht gemessen. Wie Bluejay,
-  BLHeli_S und BLHeli_32 das Gas auf das Tastverhältnis abbilden, ist nicht
-  geprüft.
+  STARTUP und MIN DUTY, die sie durchrechnet, mit RUNNING LEVEL 10 und auf
+  einem Target ohne Startup-Boost, aus dem Quelltext von AM32; nicht
+  gemessen. Wie Bluejay, BLHeli_S und BLHeli_32 das Gas auf das
+  Tastverhältnis abbilden, ist nicht geprüft.
+- **Einen 3D-Modus, von dem der Tester nichts weiß.** Ein ESC, den ein
+  anderes Werkzeug oder ein früheres Einschalten des Testers auf 3D gestellt
+  hat, zeigt keinen 3D-Hinweis und gibt ohne Warnung einen falschen Wert:
+  Unter AM32 läuft der Motor bei 75 % mit einem Tastverhältnis von etwa 50 %,
+  und die Schätzung liest etwa × 0,67 des Nenn-kV.
 - **Verluste.** Spannungsabfall im ESC und in den Leitungen, Reibung und
   Eisenverluste senken die Drehzahl; um wie viel, ist nicht bekannt.
 - **Die Polzahl.** Ein falsches `MOTOR POLES` skaliert beide Werte: 12
@@ -204,11 +212,11 @@ dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
-öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS
-führt zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST` nimmt
-den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl liegt
-in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also steuert
-der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu startet,
+öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS führt
+zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST` nimmt den
+Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl liegt in
+der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also steuert der
+Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu startet,
 verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts, so wie
 `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
 einnimmt, öffnet nur `MAX` SETTINGS.

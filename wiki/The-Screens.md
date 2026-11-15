@@ -131,14 +131,16 @@ propeller.
 - `KV EST 75%+`: the throttle is below 75 %, where the estimate does not
   show. At the default `MAX 20%` it never shows; raise `MAX` in SETTINGS
   for the reading, propeller off.
-- `KV EST --`: no figure. An input is missing or the throttle moved within
-  the last second.
+- `KV EST --`: no figure. An input is missing, the throttle moved by more
+  than 1 % within the last second, or the motor is still speeding up.
 
 Both figures need eRPM within the last 500 ms, an RPM above 0 and a voltage
 above 0.5 V from KISS (within 500 ms) or EDT (within 1000 ms); otherwise the
 line reads `RPM/V --` and the row `KV EST --`. The estimate also needs the
-throttle at 75 % or more, unchanged for 1 s, and no 3D note; the 3D note
-takes the row as before. Both figures stop at 99999. Neither is kept after
+throttle at 75 % or more, within 1 % (20 of 2000) of one value for 1 s, so that
+a finger resting on the bar does not hold it off, a motor that has reached its
+speed (the smoothed eRPM within 0.5 % of the last reply), and no 3D note; the 3D
+note takes the row as before. Both figures stop at 99999. Neither is kept after
 the disarm: disarmed, the line reads `ERPM` alone and the row `14 POLES`.
 
 What the estimate cannot know:
@@ -146,8 +148,13 @@ What the estimate cannot know:
 - **A propeller.** With one on, it reads low by the load's share.
 - **The ESC's duty.** At 75 % on AM32 2.22 the design note works out
   × 0.92 to × 1.08 of the rated kV for the SINE STARTUP and MIN DUTY
-  settings it covers, from AM32's source; not measured. For
-  Bluejay, BLHeli_S and BLHeli_32 the throttle-to-duty map is not verified.
+  settings it covers, with RUNNING LEVEL 10 and on a target built without
+  startup boost, from AM32's source; not measured. For Bluejay, BLHeli_S and
+  BLHeli_32 the throttle-to-duty map is not verified.
+- **3D mode it was not told of.** An ESC set to 3D by another tool, or in an
+  earlier power-up of the bench, shows no 3D note and gives a wrong figure
+  with no warning: on AM32 at 75 % the motor runs at a duty of about 50 %,
+  and the estimate reads about × 0.67 of the rated kV.
 - **Losses.** The voltage drops in the ESC and the wiring, friction and iron
   losses lower the speed; by how much is not known.
 - **The pole count.** A wrong `MOTOR POLES` scales both figures: 12 set on a
