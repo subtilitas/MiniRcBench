@@ -2,29 +2,35 @@
 
 # USB Bridge
 
-`MENU → ESC CONFIG → USB BRIDGE` turns the board into a USB-serial adapter
-on the ESC's signal wire. A desktop ESC tool on your computer opens the
-board's serial port and talks to the ESC's bootloader through it, at
-19200 baud, as through an adapter whose TX and RX are joined: every byte
-the tool sends goes to the ESC, and every byte on the wire, the echo of
-the tool's own included, comes back to the tool.
+`MENU → ESC CONFIG → USB BRIDGE` lets a desktop ESC tool on your computer
+reach the ESC's bootloader on the signal wire, through the board's serial
+port. The board works in one of two ways, chosen by the tool's first byte:
+
+- **Passthrough:** a USB-serial adapter whose TX and RX are joined, at
+  19200 baud. Every byte the tool sends goes to the ESC, and every byte on
+  the wire, the echo of the tool's own included, comes back to the tool.
+- **4-way interface:** the board answers as a flight controller with one
+  ESC. It answers the tool's MSP (MultiWii Serial Protocol) questions, then
+  runs BLHeli's 4-way interface: it turns each of the tool's requests into
+  the bootloader's commands on the signal wire and sends back the answer.
 
 Not tested on hardware: no byte of the bridge has gone to an ESC from
 this board, and no desktop tool has been run against it.
 
-<img src="img/bridge-waiting.png" width="240" alt="USB BRIDGE waiting: SIG GP0 19200 8N1, PORT CLOSED, MODE WAITING, both counters at 0 B, the six lines"> <img src="img/bridge-passthrough.png" width="240" alt="USB BRIDGE after a frame: PORT OPEN, PASSTHROUGH, 6 B and 7 B, FRAMES 1 LOST 0, LAST SET ADDRESS 7E00">
+<img src="img/bridge-waiting.png" width="240" alt="USB BRIDGE waiting: SIG GP0 19200 8N1, PORT CLOSED, MODE WAITING, both counters at 0 B, the six lines"> <img src="img/bridge-passthrough.png" width="240" alt="USB BRIDGE after a frame: PORT OPEN, PASSTHROUGH, 6 B and 7 B, FRAMES 1 LOST 0, LAST SET ADDRESS 7E00"> <img src="img/bridge-4way.png" width="240" alt="USB BRIDGE in the 4-way interface: 4-WAY INTERFACE, LAST MSP SET MOTOR, MOTOR COMMAND FROM THE PC REFUSED. in amber">
 
 ---
 
 ## Which tools
 
-- **Works, by design:** a tool that speaks the bootloader's frames itself
-  and expects the echo: the AM32 configurator with **Direct** ticked.
-- **Not yet:** ESC-Configurator, and the AM32 configurator without Direct.
-  They speak MSP (the MultiWii Serial Protocol) and the 4-way interface of
-  flight controllers, which the board does not answer yet. They get their
-  own bytes back and no answer.
+- **Passthrough, by design:** a tool that speaks the bootloader's frames
+  itself and expects the echo: the AM32 configurator with **Direct**
+  ticked.
+- **4-way interface, by design:** ESC-Configurator, for Bluejay, BLHeli_S
+  and AM32 ESCs, and the AM32 configurator without Direct.
 - **Not checked:** BLHeliSuite.
+
+The board knows which from the tool's first byte; you choose nothing.
 
 ---
 
@@ -56,14 +62,19 @@ reads `EJECT THE USB DRIVE FIRST.`. Eject the drive and it starts.
 | Line | Meaning |
 |---|---|
 | `PORT OPEN`, `PORT CLOSED` | Whether the tool has the port open |
-| `WAITING`, `PASSTHROUGH` | Waiting for the tool's first byte, or passing bytes. 2 s with no byte, or the tool closing the port, returns to `WAITING` |
-| `PC > ESC`, `ESC > PC` | Bytes each way; `ESC > PC` includes the echo |
-| `FRAMES`, `LOST` | Frames from the tool; bytes the board could not keep, amber above 0 |
-| `LAST SET ADDRESS 7E00` | The last frame's command, as the bootloader names it |
+| `WAITING`, `PASSTHROUGH`, `4-WAY INTERFACE` | Waiting for the tool's first byte, passing bytes, or answering as a flight controller. In passthrough, and while the tool still asks its first MSP questions, which already show `4-WAY INTERFACE`, 2 s with no byte, or the tool closing the port, returns to `WAITING`; once the tool has started the 4-way interface it stays until the tool disconnects or closes the port |
+| `PC > ESC`, `ESC > PC` | Bytes each way; in passthrough `ESC > PC` includes the echo, in the 4-way interface it counts the board's answers |
+| `FRAMES`, `LOST` | Frames to the ESC; bytes the board could not keep, amber above 0 |
+| `LAST SET ADDRESS 7E00` | The last command: as the bootloader names it, `LAST MSP UID` for an MSP question, `LAST READ 7C00` for a 4-way request |
 
 `THE PC CLOSED THE PORT.` shows after the tool closed the port.
 `BYTES LOST: THE BRIDGE FELL BEHIND.` shows once a byte was lost; read the
-ESC again in the tool.
+ESC again in the tool. `MOTOR COMMAND FROM THE PC REFUSED.` shows for 5 s
+when the tool's motor tab tries to spin the motor: the board never does.
+
+A settings page of an AM32 ESC that the tool reads or writes sets the
+tester's `3D MODE ESC` note as ESC SETTINGS does: on after reading or
+writing 3D mode on, off after reading it off.
 
 ---
 
@@ -73,7 +84,7 @@ ESC again in the tool.
 
 While the ESC writes or erases its flash, the first line reads
 `WRITING: DO NOT UNPLUG ESC OR USB.` and `BACK` is grey, until the ESC
-answers or 3 s pass.
+answers or 3 s pass. This holds in both ways of working.
 
 `BACK` sends nothing to the ESC. What happens next depends on the session:
 
@@ -83,6 +94,8 @@ can pass as its commands. Power the ESC off, then tap `RESTART DSHOT`,
 live 1 s after the page opens. `BRIDGE` returns to the bridge instead.
 After a write not followed by a start of the firmware the page adds
 `FLASH THE ESC AGAIN BEFORE USE.`: flash the ESC again before you use it.
+In the 4-way interface only the tool's reset of the ESC counts as that
+start, not its disconnect.
 
 MENU shows `POWER-CYCLE THE ESC TO RUN IT` once the screen has taken the
 signal pin, also after a bind that failed, until DShot restarts from the
@@ -100,6 +113,8 @@ cable in again, then flash again.
 
 - That any desktop tool works through the board.
 - That each tool signals an open port (`PORT OPEN`).
+- That ESC-Configurator and the AM32 configurator accept the board's
+  answers as a flight controller's.
 - That the board hears the ESC's answer on the signal wire, and the echo's
   timing.
 - What an ESC does with DShot after a flash cut part-way.

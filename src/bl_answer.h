@@ -61,6 +61,15 @@ struct BlAnswer {
 };
 
 /**
+ * @brief Where an AM32 family keeps its settings page: 0x7E00 for 0x2B,
+ *        0x7C00 for 0x1F, 0xF800 for 0x35 (am32_bl.h).
+ * @param family The family byte: the greeting answer's fifth byte from the
+ *               end, or the signature's high byte in the 4-way interface.
+ * @return The address; 0 for a family am32_bl.h does not know.
+ */
+uint16_t blAnswerAm32Settings(uint8_t family);
+
+/**
  * @brief Classify the bytes that came back after a greeting.
  *
  * In order: no byte is Silent; 5 bytes or more ending in

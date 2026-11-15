@@ -71,6 +71,26 @@ protocol.
   Servo-Tester, Servotester, SD-Logging and SD-Aufzeichnung describe it. A
   real card's latency and the cuts' timing with the log on are not tested on
   hardware.
+- After v0.1.0-rc1: MSP and the 4-way interface on the USB bridge, slice 3
+  of [usb-bridge.md](docs/design/usb-bridge.md#slice-3-as-built), tested on
+  the host only. The PC's first byte chooses the mode: `$` MSP (the MultiWii
+  Serial Protocol), 0x2F the 4-way interface, any other passthrough.
+  `src/bridge_msp.*` answers the MSP requests of ESC-Configurator and the
+  AM32 configurator as a flight controller named `MRCB` with one motor, and
+  refuses `MSP_SET_MOTOR` with `MOTOR COMMAND FROM THE PC REFUSED.` on the
+  screen for 5 s. `src/bridge_4way.*` runs the 4-way interface for the one
+  ESC on SIG: each frame is checked whole, its CRC included, and turned into
+  escwire's bootloader frames, with 4 ms of quiet line between SET BUFFER
+  and its data; ESC 1 and up, Atmel and C2 commands are refused. A 4-way
+  write or erase disables BACK and sets the `FLASH THE ESC AGAIN BEFORE USE.`
+  note as passthrough's do, until `cmd_DeviceReset`. Both modes read byte
+  0x12 of AM32 settings pages for the tester's 3D note (decision 12). The
+  screen reads `4-WAY INTERFACE` and names MSP and 4-way commands on its
+  last line. ESC CONFIG's second line under `USB BRIDGE` reads
+  `MSP, 4-WAY AND PASSTHROUGH.`. `blAnswerAm32Settings()` gives an AM32
+  family's settings address, which `am32_bl.cpp` now uses too.
+  `test/test_bridge_proto.cpp` runs both against model AM32 and BLHeli_S
+  bootloaders and models of the two tools' sequences.
 - After v0.1.0-rc1: the S.BUS output's core1 job, slice 2 of
   [sbus-output.md](docs/design/sbus-output.md#slice-2-as-built), tested on
   the host only; nothing opens it. `Core1Job::SbusOut`
@@ -309,8 +329,8 @@ protocol.
   (`src/bridge_log.*`), dumped on the port after BACK. DshotDisplay's bridge
   tests are ported to a CDC fake (`test/fake_cdc.*`,
   `test/test_usb_bridge.cpp`); `test/test_bridge_ui.cpp` runs the screen,
-  `test/test_bridge_log.cpp` the log built on. MSP and the 4-way interface are
-  slice 3, not built.
+  `test/test_bridge_log.cpp` the log built on. MSP and the 4-way interface
+  followed in slice 3.
 - After v0.1.0-rc1: the USB bridge's line and claim, slice 1 of
   [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), tested on the
   host only; nothing opens it yet. `PinUser::Bridge` claims SIG with no ESC

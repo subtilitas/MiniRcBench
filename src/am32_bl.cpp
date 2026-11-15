@@ -345,14 +345,8 @@ Am32Result am32BlHandshake(uint8_t *deviceInfo) {
 	// The family decides where the settings live. Getting this wrong reads
 	// the wrong flash page.
 	s_escType = s_answer.family;
-	switch (s_escType) {
-		case AM32_ESC_G071_2KB: s_eepromAddr = 0x7E00; break;
-		case AM32_ESC_F051_1KB: s_eepromAddr = 0x7C00; break;
-		case AM32_ESC_F3_2KB:   s_eepromAddr = 0xF800; break;
-		default:
-			s_eepromAddr = 0;
-			return AM32_ERR_NAK;
-	}
+	s_eepromAddr = blAnswerAm32Settings(s_escType);
+	if (s_eepromAddr == 0) return AM32_ERR_NAK;
 
 	if (deviceInfo) {
 		int from = got - 9 < 0 ? 0 : got - 9;

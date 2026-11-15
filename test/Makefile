@@ -181,11 +181,11 @@ $(MSC_CB_BIN): test_usb_msc_cb.cpp ../src/usb_msc.cpp $(wildcard ../src/*.h) \
 	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -o $@ \
 		test_usb_msc_cb.cpp ../src/usb_msc.cpp
 
-$(BRIDGE_LOG_BIN): $(BRIDGE_LOG_SRCS) $(wildcard ../src/*.h) $(wildcard *.h) \
+$(BRIDGE_LOG_BIN): $(BRIDGE_LOG_SRCS) $(BRIDGE_LOG_OBJS) $(wildcard ../src/*.h) $(wildcard *.h) \
 		$(wildcard stubs/*.h stubs/*/*.h stubs/*/*/*.h)
 	@mkdir -p $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -DUSB_BRIDGE_LOG=1 -o $@ \
-		$(BRIDGE_LOG_SRCS)
+		$(BRIDGE_LOG_SRCS) $(BRIDGE_LOG_OBJS)
 
 run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN) $(BRIDGE_LOG_BIN)
 	./$(BIN)

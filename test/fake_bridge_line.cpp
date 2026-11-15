@@ -57,6 +57,9 @@ std::vector<std::pair<int, uint8_t>> g_corrupt;
 std::vector<int>     g_drop;
 int                  g_conflicts = 0;
 std::vector<std::pair<uint64_t, uint64_t>> g_escBusy;  // the ESC's bytes
+uint64_t             g_lastLetGo = 0;  // the last frame's let-go
+bool                 g_hadFrame = false;
+uint64_t             g_gapCy = UINT64_MAX;  // idle line before the frame being answered
 
 const uint64_t BYTE_PUSH = 78;   // start bit to the receive FIFO
 const uint64_t BYTE_LET_GO = 80; // start bit to the pad let go
@@ -88,6 +91,9 @@ void letGo(uint64_t at, bool answer) {
 	g_driven = false;
 	g_releases++;
 	conflictCheck(g_drivenFrom, at);
+	g_gapCy = g_hadFrame ? g_drivenFrom - g_lastLetGo : UINT64_MAX;
+	g_hadFrame = true;
+	g_lastLetGo = at;
 	if (!g_responder || !answer) { g_frame.clear(); return; }
 	static uint8_t reply[1100];
 	uint32_t delayUs = 0;
@@ -161,6 +167,12 @@ void fakeBridgeLineReset() {
 	g_escBusy.clear();
 	g_driven = false;
 	g_sentSinceOpen = 0;
+	g_hadFrame = false;
+	g_gapCy = UINT64_MAX;
+}
+
+uint32_t fakeBridgeLineGapUs() {
+	return g_gapCy == UINT64_MAX ? UINT32_MAX : (uint32_t)(g_gapCy * 10000u / 1536u);
 }
 
 void fakeBridgeLineRefuse(uint8_t err) { g_refuse = err; }
@@ -179,6 +191,14 @@ int fakeBridgeLineReleases() { advance(now()); return g_releases; }
 uint64_t fakeBridgeLineCycle() { return now(); }
 
 void fakeBridgeLineWire(int i, uint8_t *b, uint64_t *startCy, bool *keep) {
+	advance(now());
+	if (i < 0 || (size_t)i >= g_wire.size()) {
+		// Past the wire: nothing, so a test that asks too far fails, not crashes.
+		*b = 0;
+		*startCy = 0;
+		*keep = false;
+		return;
+	}
 	*b = g_wire[(size_t)i].b;
 	*startCy = g_wire[(size_t)i].start;
 	*keep = g_wire[(size_t)i].keep;

@@ -7,8 +7,15 @@
 #include "am32_bl.h"
 
 /** @brief Whether @p b is an AM32 family byte am32_bl.h knows. */
-static bool am32Family(uint8_t b) {
-	return b == AM32_ESC_G071_2KB || b == AM32_ESC_F051_1KB || b == AM32_ESC_F3_2KB;
+static bool am32Family(uint8_t b) { return blAnswerAm32Settings(b) != 0; }
+
+uint16_t blAnswerAm32Settings(uint8_t family) {
+	switch (family) {
+		case AM32_ESC_G071_2KB: return 0x7E00;
+		case AM32_ESC_F051_1KB: return 0x7C00;
+		case AM32_ESC_F3_2KB:   return 0xF800;
+		default:                return 0;
+	}
 }
 
 BlAnswer blAnswerClassify(const uint8_t *reply, int n) {
