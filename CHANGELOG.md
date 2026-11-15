@@ -57,10 +57,10 @@ protocol.
   `.BFL` as it was and the logger `READY`, and is removed when the card
   still allows it. `.TXT` files do not move the next log's number.
   `SdLogStatus` carries the last summary for SD LOG, which does not show it
-  yet; a mount and USB DRIVE forget it. `make -C test lognum` runs `src/sd_log.cpp` over FatFs R0.15 on a
-  RAM disk (`test/sd_log_fatfs.cpp`, `test/ram_disk.*`). README and the
-  wiki pages SD-Logging and SD-Aufzeichnung describe the file. Not tested
-  on hardware.
+  yet; a mount and USB DRIVE forget it. `make -C test lognum` runs
+  `src/sd_log.cpp` over FatFs R0.15 on a RAM disk (`test/sd_log_fatfs.cpp`,
+  `test/ram_disk.*`). README and the wiki pages SD-Logging and
+  SD-Aufzeichnung describe the file. Not tested on hardware.
 - After v0.1.0-rc1: the run summary's core, slice 1 of
   [run-summary.md](docs/design/run-summary.md#slice-1-as-built), in
   `src/run_summary.*`. From each logged frame's telemetry it keeps the
