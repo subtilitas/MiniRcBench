@@ -580,19 +580,20 @@ Aufzeichnung. `BACK` führt zu `MENU` zurück. Siehe
 
 ---
 
-## AM32
+## ESC SETTINGS
 
 <img src="img/am32-list.png" width="240" alt="AM32-Einstellungsliste">
 
-Liest, ändert und schreibt die Einstellungen eines AM32-ESC über das
-Signalkabel. `WRITE...` öffnet mit einem Tippen `ESC WRITE`: Die Seite
-listet jede Änderung, alt und neu, und ihr `HOLD TO WRITE`, 1 s, schreibt,
-zuvor mit einer Sicherung auf der SD-Karte. `HEX` zeigt die Bytes unter dem
-Titel `ESC HEX`. Einstellungen in einem Layout, das der Tester nicht kennt,
-also nicht 2 bis 4, öffnen nur zum Lesen: die Bytes hexadezimal,
-`NOT VERIFIED.`, eine Sicherung auf der SD-Karte und kein Schreiben. `BACK`
-führt zu `MENU` zurück, bei ungeschriebenen Änderungen nach einer Warnung.
-Siehe [AM32-Konfiguration](AM32-Konfiguration).
+Liest, ändert und schreibt die Einstellungen eines AM32-, Bluejay- oder
+BLHeli_S-ESC über das Signalkabel. `WRITE...` öffnet mit einem Tippen
+`ESC WRITE`: Die Seite listet jede Änderung, alt und neu, und ihr
+`HOLD TO WRITE`, 1 s, schreibt, zuvor mit einer Sicherung auf der SD-Karte.
+`HEX` zeigt die Bytes unter dem Titel `ESC HEX`. Einstellungen in einem
+Layout, das der Tester nicht kennt, also nicht 2 bis 4, öffnen nur zum
+Lesen: die Bytes hexadezimal, `NOT VERIFIED.`, eine Sicherung auf der
+SD-Karte und kein Schreiben. `BACK` führt zu `MENU` zurück, bei
+ungeschriebenen Änderungen nach einer Warnung. Siehe
+[AM32-Konfiguration](AM32-Konfiguration).
 
 ---
 

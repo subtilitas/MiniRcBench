@@ -11,7 +11,7 @@ names, what the ring holds and the write cache's scope; the SD write cache of
 | Tool | Device | Backup | Prefix |
 |---|---|---|---|
 | KST SERVO | KST and Chaservo servos | the image read at entry, rcbench's text format ([kst-programming.md](kst-programming.md#storage)) | `KST` |
-| AM32 CONFIG | AM32 ESCs (electronic speed controllers) | the settings block read at entry, as text (`src/am32_backup.*`) | `AM` |
+| ESC SETTINGS | AM32 ESCs (electronic speed controllers) | the settings block read at entry, as text (`src/am32_backup.*`) | `AM` |
 | Hitec | Hitec servos | the first full read after the entry, rcbench's servo file text, saved by `hitecFilesFirstWrite()` (`src/hitec_files.h`, [hitec-programming.md](hitec-programming.md#storage)) | `HT` |
 | ESC SETTINGS | Bluejay ESCs | the settings page as first read in the escwire session, rcbench's ESC settings text (`src/efm8_backup.h`, [bluejay-blheli-s.md](bluejay-blheli-s.md#slice-4-as-built)) | `BJ` |
 | ESC SETTINGS | BLHeli_S ESCs | as Bluejay's | `BH` |
@@ -111,10 +111,11 @@ Automatic backups only: one per session, before the session's first write.
 
 ## AM32 backup
 
-Before the first WRITE of an AM32 CONFIG session, the 48 bytes of the
-settings block as read at entry (`AM32_SETTINGS_SIZE`, `src/am32_eeprom.h`)
-go to the ring as `AMnnn.TXT`. The melody and the CAN (Controller Area
-Network) block, 0x30 to 0xBF, are not written by the editor and not saved.
+Before the first WRITE of an ESC SETTINGS session on an AM32 ESC, the 48 bytes
+of the settings block as read at entry (`AM32_SETTINGS_SIZE`,
+`src/am32_eeprom.h`) go to the ring as `AMnnn.TXT`. The melody and the CAN
+(Controller Area Network) block, 0x30 to 0xBF, are not written by the editor and
+not saved.
 
 ```text
 AM32 ESC settings, format 1
@@ -159,14 +160,13 @@ the AM32 backup among them, are in
 
 ## The write cache
 
-The cache of [sd-write-cache.md](sd-write-cache.md) runs during the pin
-claims of KST SERVO, AM32 CONFIG and HITEC SERVO, the tools that save
-backups, and not during SERVO
-([hitec-programming.md](hitec-programming.md#decisions-of-the-owner),
-decision 11). Its rules are that note's; a tool's write to
-its device starts only once the flush of its backup ends clean. A claim of
-any of them stops a blackbox log that runs when it opens: during a claim the
-DShot pump stops, so the log has nothing to record.
+The cache of [sd-write-cache.md](sd-write-cache.md) runs during the pin claims
+of KST SERVO, ESC SETTINGS and HITEC SERVO, the tools that save backups, and in
+SERVO TESTER only while its log runs
+([current-sense.md](current-sense.md#slice-6-as-built)). Its rules are that
+note's; a tool's write to its device starts only once the flush of its backup
+ends clean. A claim of any of them stops a blackbox log that runs when it opens:
+during a claim the DShot pump stops, so the log has nothing to record.
 
 ## Tests
 

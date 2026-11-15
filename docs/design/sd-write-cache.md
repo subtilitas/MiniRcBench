@@ -1,13 +1,13 @@
 # SD write cache for the backup claims
 
 Built, host tests only, not tested on hardware. While the pin claim of KST
-SERVO, AM32 CONFIG or HITEC SERVO holds, the tools that save device backups
-([backups.md](backups.md)), block writes to the SD (Secure Digital) card go
-into a queue in SRAM (static random-access memory) and return at once. A
-flush step on core0 sends them to the card in the order FatFs wrote them, one
-block per loop pass, without waiting on the card's busy line or on the swap
-check's read ([card swap](#card-swap)). Block reads come
-from the queue, from a read cache, or from the card. Core0 keeps drawing,
+SERVO, ESC SETTINGS or HITEC SERVO holds, the tools that save device backups
+([backups.md](backups.md)), and while SERVO TESTER's log runs, block writes to
+the SD (Secure Digital) card go into a queue in SRAM (static random-access
+memory) and return at once. A flush step on core0 sends them to the card in the
+order FatFs wrote them, one block per loop pass, without waiting on the card's
+busy line or on the swap check's read ([card swap](#card-swap)). Block reads
+come from the queue, from a read cache, or from the card. Core0 keeps drawing,
 reading touch and sending the heartbeat while the card programs.
 
 The HITEC SERVO claim runs it too
@@ -153,16 +153,17 @@ still to go, or `Failed`.
   LOAD or the FILES page that finds the cache at `Failed` recovers first.
   The card mounted again may be another one, so LOAD then reads the list
   again, loads nothing and reads `CARD MOUNTED AGAIN: CHOOSE AGAIN`.
-- **AM32 CONFIG** recovers after any failed batch of its backup, the save's
-  own included, so the next WRITE saves the backup again.
+- **ESC SETTINGS** recovers after any failed batch of its backup, the save's
+  own included, so the next WRITE saves the backup again. `backupFirst()`
+  (`src/ui_am32.cpp`) flushes on the spot after the backup, before `doWrite()`
+  writes an AM32 ESC, whose transport blocks core0 anyway, and before
+  `ewStartWrite()` starts the escwire write of a Bluejay or BLHeli_S ESC on
+  core1. A failed flush reads `NO BACKUP ON THE CARD: NOT WRITTEN`.
 - **KST SAVE AS** flushes on the spot (`cardCacheFlush()`) and reports what
   the card holds: a failed flush is `THE CARD TOOK NO FILE`, and the next
   write saves the backup again.
 - **The record's removal** after a verify, or at LEAVE, stays queued and goes
   to the card in the flush that follows, at the claim's end at the latest.
-- **AM32 CONFIG.** Its transport blocks core0 anyway, so after the backup
-  `doWrite()` flushes on the spot and writes the ESC only at `Idle`. A failed
-  flush reads `NO BACKUP ON THE CARD: NOT WRITTEN`.
 
 `kstFilesWriteAllowed()` lets the write run when the card took either file.
 With the queue, a failed batch does not say which file reached the card, so
@@ -188,10 +189,11 @@ card the rule is unchanged: the write runs, and the backup stays in memory.
 
 ## Card swap
 
-The board has no card-detect line. A card swapped during the claim answers
-the first command after the swap, and a block written from the queue would
-then land on the new card, built from the old card's directory and FAT: the
-new card's volume would be corrupted.
+The board has no card-detect line. The check below guards against a swapped
+card that answers: a block written from the queue would land on the new card,
+built from the old card's directory and FAT, and corrupt its volume. A newly
+inserted card is uninitialised and most likely refuses the writes; how a real
+card behaves is not verified.
 
 `cardCacheBegin()` reads the volume's serial number from its boot sector
 (`sdLogVolumeId()`: `BS_VolID`, offset 67, on FAT32; `VolumeSerialNumber`,
@@ -227,9 +229,8 @@ fresh check. The servo log's run end after an open given up calls it before
 its flush (`endGiveUp()` in `src/servo_log.cpp`); nothing calls it during a
 run. A card swapped between a batch's first block and its last therefore
 takes that batch's remaining blocks: a current limitation of every claim
-that queues blocks, the servo log's drain, KST, HITEC and AM32 among them. On
-the board a newly inserted card is uninitialised and most likely refuses
-the writes; that is not verified.
+that queues blocks, the servo log's drain, KST, HITEC and ESC SETTINGS among
+them.
 
 Every loop in which core0 waits on the card calls the driver's wait hook
 (`sdh_wait_hook`), as the driver's own waits do: `sdc_flush()`,
@@ -289,15 +290,15 @@ A batch that fails:
 
 ## Turning on and off
 
-- `cardCacheBegin()` runs when the KST SERVO, AM32 CONFIG or HITEC SERVO screen's claim
-  is taken. A blackbox log that runs then stops first: during a claim the
-  DShot pump stops, so the log has nothing to record, and its writes, 7.3
-  kB/s or 14.3 blocks a second, would fill the queue behind the backup in
-  under 3 s at 511 ms a block (the owner's decision of 2026-10-27). The stop
-  is recorded with the tool's name (`sdLogStopFor()`), and SD LOG reads
-  `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` until the
-  next start; a mount keeps it. Without a mounted card the cache stays off
-  for the claim.
+- `cardCacheBegin()` runs when the KST SERVO, ESC SETTINGS or HITEC SERVO
+  screen's claim is taken. A blackbox log that runs then stops first: during
+  a claim the DShot pump stops, so the log has nothing to record, and its
+  writes, 7.3 kB/s or 14.3 blocks a second, would fill the queue behind the
+  backup in under 3 s at 511 ms a block (the owner's decision of 2026-10-27).
+  The stop is recorded with the tool's name (`sdLogStopFor()`), and SD LOG
+  reads `RECORDING STOPPED BY KST SERVO`, `RECORDING STOPPED BY HITEC SERVO`
+  or `RECORDING STOPPED BY ESC SETTINGS` until the next start; a mount keeps
+  it. Without a mounted card the cache stays off for the claim.
 - SERVO TESTER's servo log calls `cardCacheBegin()` at HOLD TO START, with
   a current sensor declared and a card mounted, and `cardCacheEnd()` once
   the run is over, after its close; it stops a running blackbox log as

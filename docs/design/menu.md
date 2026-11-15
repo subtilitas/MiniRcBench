@@ -104,7 +104,9 @@ TESTER (root)   HOLD TO ARM | LATCH | MENU        MENU disarms, LATCH off
      │   └─ HITEC CLASSIC    HITEC SERVO; disabled while SERVO SUPPLY is OWN
      ├─ RX SIGNALS        RX SIGNALS, a chooser; claims nothing
      │   ├─ MONITOR          S.BUS MONITOR; the tap claims GP1
-     │   └─ OUTPUT           drawn disabled, NOT BUILT
+     │   └─ OUTPUT           S.BUS OUTPUT; the tap claims GP0
+     ├─ TOOLS             TOOLS, a chooser, freePins; claims nothing
+     │   └─ ANGLE METER      the meter; no claim
      ├─ SD LOG            tool
      └─ SETTINGS          tool: one list in sections
  Every tool: BACK ──> MENU; SETTINGS opened on the tester: BACK ──> TESTER.
@@ -137,16 +139,17 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
   146 | SERVO TESTER                              |
   188 | SERVO PROGRAMMER                          |  no status
   230 | RX SIGNALS                                |  no status
-  272 | SD LOG                           NO CARD  |  sixth row, ends at y 311
-  314 | SETTINGS                         UNSAVED  |  6 px at scroll 0
+  272 | TOOLS                                     |  sixth row, ends at y 311
+  314 | SD LOG                           NO CARD  |  6 px at scroll 0
   320 +-------------------------------------------+
+  356   SETTINGS                         UNSAVED     below the fold at scroll 0
 ```
 
 | Item | Value |
 |---|---|
 | Viewport | y 62 to 319, 258 px (`MENU_VIEW_H`) |
 | Rows | 40 px tall (`MENU_ROW_H`) at a 42 px pitch (`MENU_ROW_PITCH`), x 8 to 231 |
-| Seven rows | 294 px of content: scroll range 0 px to 36 px. SD LOG, the sixth, is whole at 0 px; SETTINGS, the seventh, shows 6 px and is whole from y 278 to y 317 after a 36 px drag |
+| Eight rows | 336 px of content: scroll range 0 px to 78 px. TOOLS, the sixth, is whole at 0 px; SD LOG, the seventh, shows 6 px and is whole after a 34 px drag; SETTINGS, the eighth, shows nothing at 0 px, is whole after a 76 px drag, and sits at y 278 to 317 at the 78 px limit |
 | Label | scale 2 at x 16, 13 px below the row's top |
 | Status | scale 1, right-aligned to x 222, 16 px below the row's top, in the fact's colour |
 | Scroll bar | 3 px wide at x 235, drawn only while the list scrolls |
@@ -155,10 +158,11 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 | Row | Kind | Status | A tap |
 |---|---|---|---|
 | ESC COMMANDS | tool, `freePins` | none | opens ESC COMMANDS, which claims nothing ([esc-commands.md](esc-commands.md#slice-2-as-built)) |
-| ESC CONFIG | chooser, `freePins` | none | opens ESC CONFIG, which claims nothing; its ESC SETTINGS claims SIG on the tap, and USB BRIDGE is drawn disabled, `NOT BUILT` ([bluejay-blheli-s.md](bluejay-blheli-s.md)) |
+| ESC CONFIG | chooser, `freePins` | none | opens ESC CONFIG, which claims nothing; its ESC SETTINGS claims SIG on the tap, and USB BRIDGE opens the bridge, claiming SIG on the tap ([bluejay-blheli-s.md](bluejay-blheli-s.md)) |
 | SERVO TESTER | tool, SIG and AUX | none | opens SERVO TESTER |
 | SERVO PROGRAMMER | chooser, `freePins` | none | opens PROGRAMMER, which claims nothing; its entries open KST SERVO and HITEC SERVO and claim SIG on the tap |
-| RX SIGNALS | chooser, `freePins` | none | opens RX SIGNALS, which claims nothing; its MONITOR opens S.BUS MONITOR and claims GP1 on the tap; OUTPUT is drawn disabled, `NOT BUILT` ([rx-signals.md](rx-signals.md#menu)) |
+| RX SIGNALS | chooser, `freePins` | none | opens RX SIGNALS, which claims nothing; its MONITOR opens S.BUS MONITOR and claims GP1 on the tap; its OUTPUT opens S.BUS OUTPUT and claims GP0 on the tap ([rx-signals.md](rx-signals.md#menu)) |
+| TOOLS | chooser, `freePins` | none | opens TOOLS, which claims nothing; its ANGLE METER opens the meter ([angle-meter.md](angle-meter.md#slice-4-as-built)) |
 | SD LOG | tool | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a host holds the card, in the SD LOG screen's colours | opens SD LOG |
 | SETTINGS | tool, `freePins` | `UNSAVED` in `C_AMBER` while `settingsDirty()`; else `UPDATED` in `C_AMBER` while an update's reset or carry-over is not saved over; else none | opens SETTINGS |
 
@@ -168,12 +172,12 @@ than the viewport and never fires.
 
 While the claim is not Free, each row whose screen claims pins or sets
 `freePins`, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
-SIGNALS and SETTINGS, is drawn disabled under its own status and a tap on it
-opens nothing (`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption reads
-`DSHOT RESTARTING ON SIG GP0` in amber and says why. The state is
+SIGNALS, TOOLS and SETTINGS, is drawn disabled under its own status and a tap on
+it opens nothing (`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption
+reads `DSHOT RESTARTING ON SIG GP0` in amber and says why. The state is
 reachable: RESTART DSHOT on the leave page returns to MENU at once, and the
-claim stays Restoring until `escTaskSuspended()` turns false. SD LOG acts
-in every claim state.
+claim stays Restoring until `escTaskSuspended()` turns false. SD LOG acts in
+every claim state.
 
 Revised by slice 2 of [esc-commands.md](esc-commands.md#slice-2-as-built):
 ESC COMMANDS takes BEEP THE ESC's place, and BEEP THE ESC, its flash and
@@ -704,8 +708,9 @@ Slice C is built. The code differs from the sketches above in these places:
 - SETTINGS shows no tool section yet, since no registry entry has one.
 
 Revised by [menu-b.md](menu-b.md#decisions): the registry's rows are those
-of [MENU](#menu), SD LOG the sixth and SETTINGS the seventh, reached with a
-36 px drag (decisions 32 and 33); a row refused while the claim is not Free
+of [MENU](#menu), SD LOG the seventh and SETTINGS the eighth, whole after
+drags of 34 px and 76 px (decisions 32 and 33, and the eight rows of
+menu-b.md's revision of 2026-11-15); a row refused while the claim is not Free
 is drawn disabled under its own status, and `PINS BUSY` is gone (decision
 15 f); `SettingsCtl::Reset` is `Defaults` (decision 14); `UiScreenId` adds
 `ServoProg` and `RxSignals` (decisions 19 and 35), and `Hitec` came with
@@ -792,7 +797,7 @@ Tests slice C adds:
 Revised by [menu-b.md](menu-b.md#decisions): the registry walk passes the
 leave page, not the unplug page (owner decision 3); the refused rows are drawn
 disabled under the restarting caption in place of `PINS BUSY` (decision
-15 f); RESET is HOLD DEFAULTS (decision 14). The built registry has seven
+15 f); RESET is HOLD DEFAULTS (decision 14). The built registry has eight
 rows; the scroll test keeps its test-only registries of six and seven.
 
 ## Slices
@@ -921,6 +926,8 @@ is accepted.
    servo programmers in place of a row per programmer; MENU has seven rows
    and scrolls 36 px; the tester's pole count and MAX open SETTINGS too,
    through `uiOpenTool()`, which disarms as opening MENU does.
+   Revised again by menu-b.md's decisions of 2026-11-15: MENU has eight
+   rows and scrolls 78 px.
 2. **BEEP.** An action row on MENU, with the sent or refused flash on the
    row.
 3. **Poles and ceiling.** Motor poles and throttle ceiling move to the top

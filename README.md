@@ -16,7 +16,8 @@ voltage, current, ESC temperature, stress and status. The touch panel shows all
 of it. An optional third wire carries KISS telemetry, with finer voltage and
 current steps. The board records the telemetry to microSD as a Betaflight
 blackbox log, offers the card to a USB (Universal Serial Bus) host as a
-read-only drive, and reads and writes AM32 ESC settings over the signal wire.
+read-only drive, and reads and writes AM32, Bluejay and BLHeli_S ESC settings
+over the signal wire.
 
 It is also a servo tester: PWM (pulse-width modulation) servo output on the
 same two signal pins, with manual position, sweep and two servos at once (see
@@ -25,14 +26,16 @@ It programs KST and Chaservo servos on the ESC pin (see
 [KST servo programming](#kst-servo-programming); design note
 `docs/design/kst-programming.md`), and Hitec D series and classic servos (see
 [Hitec servo programming](#hitec-servo-programming); design note
-`docs/design/hitec-programming.md`). The AM32 editor, the servo tester and
+`docs/design/hitec-programming.md`). ESC SETTINGS, the servo tester and
 the two servo programmers take the pins through the pin claim of
 `docs/design/pin-claim.md`. An optional INA219 current sensor on the
 board's I2C (Inter-Integrated Circuit) bus reads the servo supply's current
 and voltage (see [Current sensor](#current-sensor); design note
 `docs/design/current-sense.md`). SETTINGS shows the firmware version and,
 under DIAGNOSTICS, the reason for the last restart and the time since boot
-(design note `docs/design/diagnostics.md`).
+(design note `docs/design/diagnostics.md`). With a sensor and a card, each
+servo tester run is logged to `LOGS/SRVnnnnn.CSV` (see
+[Servo tester](#servo-tester)).
 
 An S.BUS (Futaba's serial bus for receiver channels) receiver monitor, MENU →
 RX SIGNALS → MONITOR, shows a receiver's 16 channels, its two digital
@@ -57,7 +60,7 @@ three-pose calibration (see [Angle meter](#angle-meter); design note
 nothing of it has run on a board, and its accuracy is not measured. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
-designed in `docs/design/run-summary.md`; the owner answered its questions
+described in `docs/design/run-summary.md`; the owner answered its questions
 on 2026-11-15. Its slices 1 to 5 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
@@ -69,8 +72,9 @@ over the USB serial port with `tools/set_clock.py`
 in the RTC socket J2, so its clock is set again after each power-up, and
 files written before the set have FAT date 0. Nothing of it has run on the
 board.
-An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
-3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
+An ESC COMMANDS page, MENU's first row (see [ESC commands](#esc-commands)),
+sends DShot beacons, direction and 3D mode, each change saved in the ESC
+behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
 ESC from this board yet). The armed tester shows RPM per volt on its
 `ERPM` line and an estimate of the motor's kV, its speed constant in RPM per
@@ -81,7 +85,7 @@ note's questions on 2026-11-15.
 A USB bridge, through which an ESC tool on a desktop computer reaches the
 ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
-interface of flight controllers, is designed in `docs/design/usb-bridge.md`;
+interface of flight controllers, is described in `docs/design/usb-bridge.md`;
 the owner answered its questions on 2026-11-15. It
 is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`. Its
 slices 1 to 3 are built, tested on the host only: its pin user, its core1
@@ -90,19 +94,22 @@ screen `USB BRIDGE`, and MSP with the 4-way interface, see
 [USB bridge](#usb-bridge).
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
-module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
-answered its questions on 2026-11-15. Its slice 2 is built, tested on the
-host only: the `ESC CONFIG` chooser on MENU, the title `ESC SETTINGS`, and
-a Bluejay or BLHeli_S answer named on the connect page with nothing read,
-after which SIG returns to DShot only from a leave page. Reading and
-writing their settings are not built.
+module, is described in `docs/design/bluejay-blheli-s.md`; the owner
+answered its questions on 2026-11-15. Its slices 1 to 4 are built, tested on
+the host only: the copies, the `ESC CONFIG` chooser on MENU, the title
+`ESC SETTINGS`, the connect cycle and the read, and the write with its
+backup; nothing has been sent to an ESC from this board (see
+[A Bluejay or BLHeli_S ESC](#a-bluejay-or-blheli_s-esc)). The restore is
+not built.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the
 one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
 readouts that open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's
 label, MENU's rows by device with PROGRAMMER, the chooser of the servo
-programmers, and the design notes and checks no single slice owned.
+programmers, and the design notes and checks no single slice owned. MENU has
+eight rows: ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
+SIGNALS, TOOLS, SD LOG and SETTINGS.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
 
@@ -117,10 +124,10 @@ interface) code.
 > **[English](https://github.com/subtilitas/MiniRcBench/wiki/Setup)** ·
 > **[Deutsch](https://github.com/subtilitas/MiniRcBench/wiki/Einrichtung)**
 >
-> Setup, wiring, first run, every screen, telemetry, logging, AM32
-> configuration, the servo tester, KST and Hitec programming, and
-> troubleshooting, for someone using the board. This README describes the
-> firmware and the build.
+> Setup, wiring, first run, every screen, telemetry, logging, ESC commands
+> and ESC configuration, the servo tester, KST and Hitec programming, RX
+> signals, the USB bridge, the angle meter, and troubleshooting, for someone
+> using the board. This README describes the firmware and the build.
 
 Project state and open items: [STATUS.md](https://github.com/subtilitas/MiniRcBench/blob/main/STATUS.md). Changes by release: [CHANGELOG.md](https://github.com/subtilitas/MiniRcBench/blob/main/CHANGELOG.md).
 Hardware bench plan, every bring-up test in order: [docs/bench-plan.md](https://github.com/subtilitas/MiniRcBench/blob/main/docs/bench-plan.md).

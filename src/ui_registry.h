@@ -15,8 +15,8 @@
  * the pins (decision 18). ESC CONFIG, RX SIGNALS and TOOLS open their
  * choosers, whose entries are `UI_ESC_CFG_ENTRIES` (ui_esc_config.h),
  * `UI_RX_ENTRIES` (ui_rx_signals.h) and `UI_TOOLS_ENTRIES` (ui_tools.h),
- * checked to fit as PROGRAMMER's are. ESC CONFIG takes AM32 CONFIG's place by decision 1 of
- * docs/design/bluejay-blheli-s.md.
+ * checked to fit as PROGRAMMER's are. ESC CONFIG takes AM32 CONFIG's place by
+ * decision 1 of docs/design/bluejay-blheli-s.md.
  *
  * A servo programmer is not a MENU row but a line of `UI_PROGRAMMERS`, the
  * entries of PROGRAMMER (ui_servo_prog.h), with a build-time check that

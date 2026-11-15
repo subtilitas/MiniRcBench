@@ -1,19 +1,17 @@
 # ESC commands and the kV estimate
 
-Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slice 1, the command slot on core1, slice 2, the
-ESC COMMANDS page, and slice 3, the kV estimate, are built and tested on
-the host only ([slice 1 as built](#slice-1-as-built),
-[slice 2 as built](#slice-2-as-built),
-[slice 3 as built](#slice-3-as-built)); slice 5, the bring-up, waits. The
-feature is item (1) of the owner's feature choice of 2026-11-14, recorded
-in [STATUS.md](../../STATUS.md) open item 28: an ESC commands page and an
-RPM-per-volt and kV estimate on the tester, a design note first, then
-slices with reviews. No command of this design has gone to an ESC from
-this board. The firmware
-facts below are read from the sources under [sources](#sources), with the
-file and line; the ones no readable source settles are marked "not
-verified" and listed again under [not verified](#not-verified).
+Status: slice 1, the command slot on core1, slice 2, the ESC COMMANDS page, and
+slice 3, the kV estimate, are built and tested on the host only ([slice 1 as
+built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built), [slice 3 as
+built](#slice-3-as-built)); slice 4 is left out by decision 8; slice 5, the
+bring-up, waits. The owner answered its questions on 2026-11-15, see
+[decisions](#decisions). The feature is item (1) of the owner's feature choice
+of 2026-11-14, recorded in [STATUS.md](../../STATUS.md) open item 28: an ESC
+commands page and an RPM-per-volt and kV estimate on the tester, a design note
+first, then slices with reviews. No command of this design has gone to an ESC
+from this board. The firmware facts below are read from the sources under
+[sources](#sources), with the file and line; the ones no readable source settles
+are marked "not verified" and listed again under [not verified](#not-verified).
 
 ## Terms
 
@@ -374,12 +372,12 @@ not read (decision 8).
 
 ### MENU entry
 
-Since PR #66, MENU has seven rows: BEEP THE ESC, AM32
-CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, at a
-42 px pitch in a 258 px viewport, so MENU scrolls 36 px
-([menu-b.md](menu-b.md#menu), decision 33). The page needs a way in, and
-each way changes something menu-b.md decides. The owner chose option (a)
-(decision 1). The options:
+From PR #66 until decision 1 of 2026-11-15, MENU had seven rows: BEEP THE
+ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS,
+at a 42 px pitch in a 258 px viewport, so MENU scrolled 36 px
+([menu-b.md](menu-b.md#menu), decision 33). The page needs a way in, and each
+way changes something menu-b.md decides. The owner chose option (a) (decision
+1). The options:
 
 | Option | MENU | Taps to a direction change | Changes |
 |---|---|---|---|

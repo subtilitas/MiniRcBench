@@ -1,6 +1,6 @@
 # Angle meter on the board's IMU
 
-Status: designed; slices 1 to 5 built, host tests only. Slice 1, the copies from
+Status: slices 1 to 5 of 6 built, host tests only. Slice 1, the copies from
 rcbench ([slice 1 as built](#slice-1-as-built)). Slice 2, the driver ([slice 2
 as built](#slice-2-as-built)). Slice 3, the model ([slice 3 as
 built](#slice-3-as-built)): it calls the copies, and it adapts the cases of
@@ -648,15 +648,15 @@ settings block (decision 4). BACK leaves without keeping it.
 
 ## Entry
 
-Menu structure B gives MENU seven rows, as built, BEEP THE ESC, AM32 CONFIG,
-SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, scrolling 36 px
-([menu-b.md](menu-b.md#menu), decisions 32 and 33). The owner decided on
-2026-11-15 (decision 1) that the meter takes an eighth row, `TOOLS`, as in
-option (b) of the table below. The resulting MENU, with the rows of the other
-notes decided the same day, is the revision line in [menu-b.md](menu-b.md#menu).
-`TOOLS` is built with the angle meter's first screen slice (design call,
-2026-11-15), and is: [slice 4 as built](#slice-4-as-built). The table lists
-the options the decision chose from.
+On 2026-11-15, before decision 1, menu structure B gave MENU seven rows, BEEP
+THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG,
+SETTINGS, scrolling 36 px ([menu-b.md](menu-b.md#menu), decisions 32 and 33).
+The owner decided on 2026-11-15 (decision 1) that the meter takes an eighth row,
+`TOOLS`, as in option (b) of the table below. The resulting MENU, with the rows
+of the other notes decided the same day, is the revision line in
+[menu-b.md](menu-b.md#menu). `TOOLS` is built with the angle meter's first
+screen slice (design call, 2026-11-15), and is: [slice 4 as
+built](#slice-4-as-built). The table lists the options the decision chose from.
 
 MENU's scroll range is rows × 42 px − 258 px (`uiListMaxScroll()`). At
 scroll 0 row n starts at y 62 + 42 × (n − 1) in a viewport that ends at

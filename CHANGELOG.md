@@ -1194,6 +1194,22 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: the documentation follows the code. STATUS.md's "Next
+  steps" states what is open now: the draft pull request #49, the tags
+  (v0.1.0-rc1 exists, v0.1.0-rc2 is not tagged), the bench plan as the next
+  work and what waits on the owner. The design index and the status lines of
+  the design notes name the built slices, and the notes of the write cache
+  and the backups name ESC SETTINGS in place of AM32 CONFIG. The write
+  cache's note says that the swap check guards against a card that answers
+  and that how a real card behaves is not verified. README's feature list
+  describes the Bluejay and BLHeli_S write as built and names the servo log;
+  the wiki's Home page, in English and German, names ESC COMMANDS, ESC
+  SETTINGS for all three firmwares, S.BUS OUTPUT, SETTINGS with DIAGNOSTICS,
+  the servo log and the run summary, with links. menu.md's tree and MENU show
+  the eight rows and their live entries; the wiki's screens pages title the
+  ESC SETTINGS section by its name. The unused `UI_ESC_CFG_NOT_BUILT` macro is
+  removed, and the comments on MENU's row count and scroll range read eight
+  rows and 78 px.
 - After v0.1.0-rc1: the run's end after a servo log's open given up asks the
   write cache for a fresh swap check, then flushes the queued blocks, then
   reads the volume's serial number (`endGiveUp()` in `src/servo_log.cpp`,

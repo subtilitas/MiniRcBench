@@ -506,43 +506,33 @@ ports the first branch's frame slot and ring.
 
 ## Next steps
 
-State on 2026-11-14: one pull request is open as a draft, #49, the touch-loss
-stop of item 23; all seven CI jobs pass on `main` at 22c1e4b (#51). The owner
-answered the questions of items 18 to 21 and 24 on 2026-11-14. Eight of the
-decisions are built: the settings carried over from older versions, 2 to 5 into
-version 6 (item 19), the log numbering (item 20), the write refusal on a
-red BOARD voltage (item 21), and all five of item 24: the tester's 3D note,
-HITEC SERVO's claim at opening, the servo tester's hold past the travel,
-SETTINGS' 1 s defaults hold and ESC SETTINGS' read-only AM32 view. The rest
-waits on building where it changes anything, and items 22 and 23 wait on the
-bench. Still open to the owner: the converter module's name (item 19) and the
-second contact once it is measured (item 21). The order of work the owner
-decided: the eight small decisions of items 20, 21 and 24 first, then menu
-structure B. The bench parts, in the order they depend on each other:
+The draft pull request #49, the touch-loss stop of item 23, waits for a bench
+check. The open pull requests were read from the GitHub REST (Representational
+State Transfer) API (application programming interface) on 2026-11-15.
 
-1. The pins of item 15: DShot on GP0, KISS on GP1, the backlight, EN on
-   GP28 or GP29 with the converter fitted.
-2. The pin claim (item 8), which every tool below uses, and the SDIO driver
-   (item 6), which KST and Hitec use for their backups and files.
-3. The servo tester (item 9).
-4. KST bring-up (item 10, design note step 7), which also checks the
-   converter.
-5. Hitec bring-up (item 14, design note step 6): the classic line on a
-   scope, then one write with read-back per family before a write is
-   relied on.
+The release: v0.1.0-rc1 exists, the tag at a93e1c1, published as a pre-release
+with `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes),
+`SHA256SUMS.txt` and `THIRD_PARTY_NOTICES.txt`. Its Docs run was skipped, as a
+suffixed tag's is, so no manual is published. That image has not run on hardware
+and predates menu structure B and the tools after it. v0.1.0-rc2 is not tagged.
+The owner pushes the tags.
 
-A `v*` tag runs Release; a tag without a pre-release suffix then publishes
-the manual (item 7), a suffixed one does not. Release, by the owner's
-decision of 2026-11-14: v0.1.0-rc1 as a pre-release, an image for testing
-with no manual published, and v0.1.0 after the bench checks above.
-v0.1.0-rc1 exists: the tag points at a93e1c1, and its Release run of
-2026-11-14 published a GitHub pre-release with
-`MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes),
-`SHA256SUMS.txt` and `THIRD_PARTY_NOTICES.txt`. The Docs run it started
-was skipped, as a suffixed tag's is, so no manual is published. That image
-has not run on hardware. v0.1.0 waits on the bench checks; the owner pushes
-the tag. Menu structure B is built in its 10 slices, host tests only; it has
-not run on hardware (item 18).
+The next work is the bench. [docs/bench-plan.md](docs/bench-plan.md) orders
+every bench test of the design notes and of the open items below into ten
+sessions that build on each other, from the board and the SD card to the
+destructive tests on spare parts, with the setups, pass criteria and the place
+each result goes. v0.1.0 follows the bench checks; a tag without a pre-release
+suffix then publishes the manual (item 7). Menu structure B and the tools after
+it are built, host tests only; none has run on hardware (item 18).
+
+Waiting on the owner:
+
+- the bench, which needs the hardware and the instruments the plan lists;
+- the converter module's name (item 19) and item 21's open question on a
+  second contact;
+- rcbench pull request 860, the licence change: once it is merged, the
+  `lib/rcbench/hardware/` copies are copied again with the CC line. Its state
+  is not checked here.
 
 ## Open items
 

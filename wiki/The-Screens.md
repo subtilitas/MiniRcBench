@@ -532,11 +532,12 @@ Recording state and counters, and after a stop the last log's run.
 
 ---
 
-## AM32
+## ESC SETTINGS
 
 <img src="img/am32-list.png" width="240" alt="The AM32 settings list">
 
-Reads, edits and writes the settings of an AM32 ESC over the signal wire.
+Reads, edits and writes the settings of an AM32, Bluejay or BLHeli_S ESC over
+the signal wire.
 `WRITE...` opens `ESC WRITE` on a tap: it lists each change, old and new,
 and its `HOLD TO WRITE`, 1 s, writes, with a backup on the SD card first.
 `HEX` shows the bytes under the title `ESC HEX`. Settings in a layout the
