@@ -357,8 +357,9 @@ SbusOutProbeState sbusOutProbePoll();
 
 /**
  * @brief An EFM8 bootloader, or a piece of its answer, answered the probe
- *        since the last sbusOutProbeRestart(): the leave page takes decision
- *        8's first step, `1 UNPLUG THE ESC BATTERY, THEN LEAVE.` Core0.
+ *        since the last sbusOutProbeRestart(). Core0. The leave page then
+ *        takes the first step of decision 8 (docs/design/bluejay-blheli-s.md),
+ *        which asks for the ESC's battery to come off before LEAVE.
  * @return True after such an answer.
  */
 bool sbusOutProbeEfm8();
