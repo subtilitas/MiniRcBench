@@ -14,9 +14,9 @@ file keeps its `SPDX-License-Identifier: MIT` line, except the files in
 listed here they have no `SPDX-License-Identifier` line, so no line in them
 reads MIT. rcbench's licence change (pull request 860) puts
 `SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the end of each module
-docstring, and the copies take it when they are copied again. The directory
-layout is
-rcbench's, so a file here and its original compare with one `diff`.
+docstring, generated `_font.py` excepted, and the copies take it when they
+are copied again. The directory layout is rcbench's, so a file here and its
+original compare with one `diff`.
 
 | File here | rcbench path |
 | --- | --- |

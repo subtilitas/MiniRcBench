@@ -377,12 +377,13 @@ scripts that generate or trace them or check the models; the wiring drawing
 `docs/wiring.svg` (and the wiki's copy) with `tools/make_wiring.py`; and the
 copies of rcbench's model generators in `lib/rcbench/hardware/`. The rest of
 the repository is MIT, `LICENSE` and `check_photo.py` included.
-[hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt) holds the legal code, as
-copied from creativecommons.org, and the Waveshare name and logo as
+[hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt) holds the legal code of
+creativecommons.org unchanged, and names the Waveshare name and logo as
 Waveshare's trademarks.
 
-The `.py` files and the SVG carry the identifier. The STEP files, the Alibre
-files and the renders carry none; the licence file covers them.
+The covered `.py` files and the SVG carry the identifier; `check_photo.py`
+carries MIT. The STEP files, the Alibre files and the renders carry none; the
+licence file covers them.
 `test/check_docs.py` checks every tracked file, mutation-checked. The
 `lib/rcbench/hardware/` copies have no licence line at the rcbench commits
 they come from. rcbench pull request 860 puts the CC line at the end of each

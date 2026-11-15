@@ -92,7 +92,8 @@ CC_NAMED = ("hardware/cad/", "hardware/mechanical/", "docs/wiring.svg",
 # A tag opens its line after a comment marker, or sits bare in a docstring;
 # its expression runs to the end of the line.
 SPDX_RE = re.compile(
-    r"^[\s#/*;<!-]*SPDX-License-Identifier:[ \t]*(.*?)[ \t]*(?:\*/|-->)?[ \t]*$",
+    r"^[\s#/*;<!-]*SPDX-License-Identifier:[ \t]*(.*?)[ \t]*"
+    r"(?:\*/|-->|\"\"\"|\'\'\')?[ \t]*$",
     re.M)
 
 # Rule 9: what menu structure B and the decisions that revise it removed,
@@ -294,16 +295,30 @@ def spdx_ids(path):
     return SPDX_RE.findall(text)
 
 
+# Outside git, the walk skips what .gitignore keeps out of the tree: build
+# output carries the SDK's and the libraries' own SPDX lines.
+WALK_SKIP = {".git", "build", ".pio", "wiki"}
+
+
 def tracked_files():
-    """The repository's tracked files, or every file outside git."""
+    """The repository's tracked files, or every file outside git.
+
+    The wiki's copy of the drawing is checked on its own (rule 10)."""
     try:
         out = subprocess.run(["git", "ls-files", "-z"], check=True,
                              capture_output=True).stdout.decode()
         return sorted(x for x in out.split("\0") if x and os.path.isfile(x))
     except (OSError, subprocess.CalledProcessError):
+        print("check_docs: git ls-files failed; walking the tree",
+              file=sys.stderr)
         found = []
         for root, dirs, files in os.walk("."):
-            dirs[:] = [d for d in dirs if d != ".git"]
+            top = root == "."
+            dirs[:] = [d for d in dirs if d != ".git"
+                       and not (top and d in WALK_SKIP)
+                       and not (top and d.startswith("build"))
+                       and os.path.join(root, d) not in
+                       ("./docs/html", "./docs/latex")]
             found += [os.path.relpath(os.path.join(root, f), ".")
                       .replace(os.sep, "/") for f in files]
         return sorted(found)
