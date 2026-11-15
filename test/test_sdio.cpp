@@ -1280,9 +1280,11 @@ static void testReadAsync() {
 	s.log.clear();
 	sdh_read_start(&b, &c, 10, buf, &r);
 	s.t += 900;
+	t0 = s.t;
 	checkInt("a corrupt block: CRC error", sdh_read_poll(&b, &c, &r, &done), SDE_CRC);
-	checkTrue("done, CMD12 after it as sdh_read() sends it, the card still ready",
-	          done && count(s, 12) == 1 && c.ready);
+	checkTrue("done, no CMD12: the whole block came, the card back in transfer, the card ready",
+	          done && count(s, 12) == 0 && c.ready);
+	checkInt("no time spent on a command", (long)(s.t - t0), 0);
 	checkInt("the next attempt reads it", sdh_read_start(&b, &c, 10, buf, &r), SDE_OK);
 	s.t += 900;
 	checkInt("clean", sdh_read_poll(&b, &c, &r, &done), SDE_OK);

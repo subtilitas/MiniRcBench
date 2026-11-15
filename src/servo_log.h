@@ -28,9 +28,10 @@
  * the Start command, the pulses at level 0 and the switched supply off; the
  * last rows, the end line, the truncation, the close and the cache's last
  * flush run after the job has reported the run over. An open given up, too
- * slow or failed, closes and removes its file: those blocks go out one flush
- * step a pass during the run, without a wait, and the cache goes off once
- * they are out or at the run's end.
+ * slow or failed, makes no further card call: its blocks go out one flush
+ * step a pass during the run, without a wait, and at the run's end its file
+ * is closed and removed, from the card it was opened on only, by the
+ * volume's serial number, and the cache goes off.
  *
  * Core1 runs the pulses, the cuts and the move timing and calls nothing here.
  *
@@ -199,15 +200,19 @@ bool servoLogWanted();
  * card mounted on which the cache does not start records
  * ServoLogStatus::noCache. Otherwise the write cache goes on
  * (cardCacheBegin()), which stops a running blackbox log as SERVO TESTER's
- * (SdLogEnd::ByServo), and the file is created: N one above the highest
- * `SRVnnnnn.CSV` in `LOGS/`, numbered apart from `LOGnnnnn.BFL`, read once
- * per mount (sd_log_next.h). Its reserve, @ref SERVO_LOG_PREALLOC_BYTES, or
+ * (SdLogEnd::ByServo), the volume's serial number is read
+ * (cardVolumeSerial(), OpenFailed when it does not read), and the file is
+ * created: N one above the highest `SRVnnnnn.CSV` in `LOGS/`, numbered
+ * apart from `LOGnnnnn.BFL`, read once per mount (sd_log_next.h). Its
+ * reserve, @ref SERVO_LOG_PREALLOC_BYTES, or
  * @ref SERVO_LOG_RESERVE_MIN_BYTES on a card without that run free, is
  * allocated, mapped for fast seek and synced, every block of that is flushed
  * to the card, and the header row goes into the ring. No 64 KiB in one run
  * (CardFull), a map, sync or flush that fails (OpenFailed), or
- * @ref SERVO_LOG_OPEN_MAX_MS passed (ServoLogStatus::slow) gives the file up
- * (servo_log.h, "The card while a log runs").
+ * @ref SERVO_LOG_OPEN_MAX_MS passed (ServoLogStatus::slow), checked before
+ * the FAT's search, between the two tries and at each flush step, gives the
+ * file up: at the run's end it is removed if the card has the same serial
+ * number, else left where it is (servo_log.h, "The card while a log runs").
  *
  * @param nowMs millis(): the rows' time 0.
  * @return True with a log open.

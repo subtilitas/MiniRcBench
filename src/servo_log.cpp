@@ -118,6 +118,11 @@ static bool     s_draining = false;
 static bool     s_fileOpen = false;
 /** @brief The given-up open's number: endGiveUp() removes `SRVnnnnn.CSV`; 0 for none. */
 static uint32_t s_dropNo = 0;
+/**
+ * @brief The volume's serial number at the open: endGiveUp() removes the
+ *        file only from a card with the same number.
+ */
+static uint32_t s_serial = 0;
 static bool     s_followed = false; /**< servoLogFollow() gave the Start's seq since the open. */
 static bool     s_slow = false;     /**< The last open took longer than SERVO_LOG_OPEN_MAX_MS. */
 static bool     s_noCache = false;  /**< The last open found the card mounted and the cache would not start. */
@@ -167,18 +172,29 @@ static bool late(uint32_t t0) { return servoLogOpenLate(t0, millis()); }
  *        off: the file closed and removed, the cache's last blocks flushed
  *        and the cache off. A cache that failed meanwhile is recovered
  *        first, which leaves FatFs's file object behind: only the removal
- *        is tried then.
+ *        is tried then. The removal needs the card of the open, by its
+ *        serial number: on another card, or one whose number does not
+ *        read, the file of that number is that card's own. Then the card is
+ *        mounted again, nothing is removed, and the open's file stays on
+ *        its own card, as after a power loss.
  */
 static void endGiveUp() {
+	bool recovered = false;
 	if (cardCacheState() == CardCache::Failed) {
 		cardCacheRecover();
-		s_fileOpen = false;
+		recovered = true;
 	}
-	if (s_fileOpen) {
+	uint32_t serial = 0;
+	bool same = cardVolumeSerial(&serial) && serial == s_serial;
+	if (!same && !recovered) {
+		cardCacheRecover();
+		recovered = true;
+	}
+	if (s_fileOpen && !recovered) {
 		s_file.cltbl = nullptr;
 		f_close(&s_file);
 	}
-	if (s_dropNo) {
+	if (s_dropNo && same) {
 		char path[40];
 		srvPath(path, sizeof(path), s_dropNo);
 		f_unlink(path);
@@ -214,6 +230,10 @@ bool servoLogStart(uint32_t nowMs) {
 		return false;
 	}
 	uint32_t t0 = millis();
+	// The card's serial number, so the removal of an open given up touches
+	// this card only (endGiveUp()). The cache has just read it; a card that
+	// does not give it again is a card fault, before any file exists.
+	if (!cardVolumeSerial(&s_serial)) return giveUp(0, SdLogEnd::OpenFailed, false);
 	uint32_t n = 0;
 	SdLogEnd why = sdLogOpenNext(&s_next, sdLogFs(), SD_LOG_DIR_PATH, &s_file, &n,
 	                             &SD_LOG_KIND_SRV);
@@ -237,6 +257,9 @@ bool servoLogStart(uint32_t nowMs) {
 	uint32_t reserve = SERVO_LOG_PREALLOC_BYTES;
 	FRESULT fr = freeBytes < reserve ? FR_DENIED : f_expand(&s_file, reserve, 1);
 	if (fr == FR_DENIED) {
+		// The large try's search can take long on a fragmented card: past
+		// the limit the small one's does not start.
+		if (late(t0)) return giveUp(n, SdLogEnd::None, true);
 		reserve = SERVO_LOG_RESERVE_MIN_BYTES;
 		fr = f_expand(&s_file, reserve, 1);
 	}

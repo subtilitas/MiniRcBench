@@ -310,10 +310,13 @@ sd_err_t sdh_read_poll(const sdh_bus_t *b, sdh_card_t *c, sdh_rd_t *r, bool *don
 	r->active = false;
 	b->rx_stop(b->ctx);
 	if (e == SDE_OK && !sdp_rx_check(r->buf, SDP_BLOCK_BYTES, s_crc)) e = SDE_CRC;
-	/* A read that failed: CMD12 pulls a card that stalled back to the
-	 * transfer state, as sdh_read() sends it, but without the wait for its
-	 * busy: the caller's next attempt comes in a later call. */
-	if (e != SDE_OK) cmd(b, 12, 0, SDP_RESP_R1, NULL, NULL);
+	/* A block that did not come: CMD12 pulls a card that stalled back to
+	 * the transfer state, as sdh_read() sends it, but without the wait for
+	 * its busy: the caller's next attempt comes in a later call. A whole
+	 * block with a CRC error leaves the card in the transfer state already,
+	 * where CMD12 is illegal and unanswered: it would cost the command's
+	 * timeout, SDH_CMD_TIMEOUT_US, in this call, so none is sent. */
+	if (e == SDE_TIMEOUT) cmd(b, 12, 0, SDP_RESP_R1, NULL, NULL);
 	b->stop_clock(b->ctx);
 	return e;
 }
