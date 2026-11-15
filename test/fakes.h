@@ -26,6 +26,37 @@ void fakeAdvance(uint32_t ms);
  */
 void fakeAdvanceUs(uint32_t us);
 
+/**
+ * @brief Move the clock forward to the next whole millisecond at which
+ *        millis() is a multiple of @p periodMs; the clock keeps no
+ *        sub-millisecond part afterwards.
+ *
+ * A screen that animates from millis() (a 12-dot spinner steps every 150 ms,
+ * so a period of 1800 ms) draws the same picture whatever ran before. Call it
+ * before the frames of the shot. The move is under @p periodMs.
+ */
+void fakeClockAlign(uint32_t periodMs);
+
+/** @brief One turn of a 12-dot spinner that steps every 150 ms, in ms. */
+constexpr uint32_t FAKE_SPINNER_TURN_MS = 12 * 150;
+
+/**
+ * @brief The time since boot, in ms, at which the shot of SETTINGS' UPTIME is
+ *        taken: 10000 h, so UPTIME reads 10000:00:00. It is later than any
+ *        test reaches before that shot.
+ */
+constexpr uint64_t FAKE_SHOT_UPTIME_MS = 10000ull * 3600u * 1000u;
+
+/**
+ * @brief Move the clock forward to the absolute time @p ms since boot.
+ *
+ * A screen that prints the time since boot (SETTINGS' UPTIME) reads the same
+ * text whatever ran before. The clock never moves back, so a time already
+ * past is refused: the call returns false and the test fails on it. Call it
+ * before the frames of the shot.
+ */
+bool fakeClockSetMs(uint64_t ms);
+
 /*
  * Deviation from the SDK: sleep_us() moves the clock by whole milliseconds
  * only, and drops the rest, so delayMicroseconds() of a few microseconds

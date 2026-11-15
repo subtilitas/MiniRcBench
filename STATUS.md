@@ -1172,7 +1172,10 @@ tables in [kst-programming.md](docs/design/kst-programming.md) and
 `kstcount-write` rewrites; `lognum` runs `src/sd_log_next.cpp`, and
 `src/sd_log.cpp` with its run summary, over the same FatFs on a RAM disk
 with two card images and write faults (`test/ram_disk.*`); `previews`
-and `wiki` rebuild screenshots;
+and `wiki` rebuild screenshots; the fake clock is not reset between tests, so
+a shot of a screen that draws from `millis()` (the KST and ESC SETTINGS
+connect spinners, SETTINGS' UPTIME) sets it first with `fakeClockAlign()` or
+`fakeClockSetMs()` and does not change when a test is added or removed;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
 `test/pio_sdio_emu.py`, `test/pio_backlight_emu.py`,

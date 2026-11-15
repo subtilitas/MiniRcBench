@@ -44,6 +44,13 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the host suite sets the fake clock before each screenshot
+  that draws from `millis()`: `fakeClockAlign()` before the KST and ESC
+  SETTINGS connect spinners (`shot_kst_search`, `shot_kst_switched`,
+  `shot_am32_connect`, `shot_am32_connect_garbled`, `shot_am32_efm8`) and
+  `fakeClockSetMs()` before SETTINGS' UPTIME (`shot_settings_scrolled`). The
+  previews no longer change when a test is added or removed. No firmware
+  change.
 - After v0.1.0-rc1: SD LOG shows the last log's run after a stop, slice 3
   of [run-summary.md](docs/design/run-summary.md#slice-3-as-built). Rows 2
   to 8 read `MAX RPM`, `MAX CURRENT`, `MAX TEMP`, `MIN VOLTAGE`, `USED` or

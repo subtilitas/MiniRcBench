@@ -58,6 +58,16 @@ static uint64_t g_us = 0;
 
 void fakeAdvance(uint32_t ms) { g_us += (uint64_t)ms * 1000u; }
 void fakeAdvanceUs(uint32_t us) { g_us += us; }
+void fakeClockAlign(uint32_t periodMs) {
+	uint64_t ms = g_us / 1000u;
+	while ((uint32_t)ms % periodMs) ms++;
+	g_us = ms * 1000u;
+}
+bool fakeClockSetMs(uint64_t ms) {
+	if (ms * 1000u < g_us) return false;
+	g_us = ms * 1000u;
+	return true;
+}
 uint64_t time_us_64() { return g_us; }
 uint32_t time_us_32() { return (uint32_t)g_us; }
 void sleep_ms(uint32_t d) { g_us += (uint64_t)d * 1000u; }
