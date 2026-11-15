@@ -855,10 +855,12 @@ not run on hardware (item 18).
     COMMANDS page as MENU's first row, with the 3D note in `src/esc_3d.h`
     and its new text ([slice 2 as
     built](docs/design/esc-commands.md#slice-2-as-built)). The estimate is
-    not built. With an ESC that answers eRPM without EDT, the EDT enable's
-    retry every 1000 ms makes the page's controls not live for about 11 ms,
-    and a hold that sees it ends (slice 2 as built, last choice); not
-    measured.
+    not built. The page's controls stay live while the slot is busy, so the
+    EDT enable's retry every 1000 ms, about 11 ms of busy with an ESC that
+    sends no EDT, no longer ends a hold; a request made then waits in the
+    slot, at most 2000 ms. They are drawn disabled only with no ESC
+    answering, the motor turning, the ESC starting, or the page's own
+    request waiting or going out (slice 2 as built, last choice).
     The owner answered the note's ten questions on 2026-11-15: `ESC COMMANDS` in
     place of `BEEP THE ESC` as MENU's first row; a save after each change; the
     hold on the page; the 3D note stays until a restart or an AM32 read;

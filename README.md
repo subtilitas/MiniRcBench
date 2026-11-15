@@ -1161,9 +1161,10 @@ has no arm control.
 | **NORMAL**, **REVERSED** under DIRECTION, 111 x 44 px | 1 s hold | 7 or 8, 10 frames, 300 ms of zero throttle, then 12 (save), 10 frames, 300 ms: 620 ms |
 | **3D OFF**, **3D ON** under 3D MODE | 1 s hold | 9 or 10, then 12, as above |
 
-A control is live only while core1 reads the ESC as ready: an eRPM answer
-younger than 500 ms, eRPM 0, the ESC answering for 1500 ms, and no EDT enable,
-command or gap on the wire. Otherwise the controls are drawn disabled and the
+A control is live while core1 reads an eRPM answer younger than 500 ms, eRPM
+0 and the ESC answering for 1500 ms. A request made while an EDT enable,
+command or gap is on the wire waits in the slot, at most 2000 ms, so an EDT
+retry does not end a hold. Otherwise the controls are drawn disabled and the
 lines under them say why, in amber: `NO ESC ANSWERS ON SIG GP0.`, `MOTOR
 TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`. While the page's
 request waits or its sequence goes out, BACK is drawn disabled too; a request

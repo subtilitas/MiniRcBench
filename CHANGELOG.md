@@ -50,8 +50,10 @@ protocol.
   1 to 5 are taps, one beacon each; NORMAL and REVERSED, and 3D OFF and
   3D ON, are 1000 ms holds that send 7, 8, 9 or 10, then 12, the save
   (decisions 2 and 3). The page claims no pin and opens only while the pin
-  claim is free; opening it disarms. Its controls act only while the command
-  slot reads ready; otherwise one amber line says why:
+  claim is free; opening it disarms. Its controls act while an ESC answers,
+  the motor is stopped and the ESC has answered for 1500 ms; a request made
+  while the slot is busy, an EDT enable among them, waits there, at most
+  2000 ms. Otherwise one amber line says why:
   `NO ESC ANSWERS ON SIG GP0.` (decision 5),
   `MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`.
   While its request waits or its sequence goes out, BACK is drawn disabled.

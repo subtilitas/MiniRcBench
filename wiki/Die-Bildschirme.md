@@ -287,13 +287,15 @@ zeigt `SIG GP0  DSHOT600` und den EDT-Chip von MENU.
 
 Eine Halte-Taste füllt sich beim Halten rot, und ein Balken darunter füllt
 sich über die Sekunde; nach 1 s wirkt sie. Eine Richtungs- oder 3D-Änderung
-dauert auf der Leitung 620 ms. Die Tasten wirken nur, solange der ESC bereit
+dauert auf der Leitung 620 ms. Die Tasten wirken, solange der ESC bereit
 ist; sonst sind sie als Umriss gezeichnet, und eine bernsteinfarbene Zeile
 sagt warum: `NO ESC ANSWERS ON SIG GP0.`,
 `MOTOR TURNING: WAIT UNTIL IT STOPS.` oder `ESC STARTING: WAIT 1.5 S.` (AM32
-nimmt einen Befehl erst nach einer Sekunde Nullgas an). Nach einem Beacon
-bleiben die Tasten 260 ms grau, nach Beacon 5 bis zu 1020 ms. Solange ein
-Befehl wartet oder gesendet wird, ist auch `BACK` grau.
+nimmt einen Befehl erst nach einer Sekunde Nullgas an). Ein Druck,
+während das Board noch etwas anderes sendet, etwa die Pause von 260 ms bis
+1020 ms nach einem Beacon, wartet bis zu 2 s und geht dann hinaus. Solange
+ein Befehl der Seite wartet oder gesendet wird, sind die Tasten und `BACK`
+grau.
 
 Die Zeilen unter den Tasten sagen, was gesendet wurde, zum Beispiel
 `SENT 8 (REVERSED), THEN 12 (SAVE).`, oder warum nicht:

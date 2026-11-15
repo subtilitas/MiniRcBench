@@ -266,12 +266,13 @@ and carries MENU's EDT chip.
 
 A hold fills red while held, and a bar under it fills over the second; it
 acts at 1 s. A direction or 3D change takes 620 ms on the wire. The buttons
-act only while the ESC is ready, otherwise they are drawn as outlines and
-an amber line says why: `NO ESC ANSWERS ON SIG GP0.`,
+act while the ESC is ready, otherwise they are drawn as outlines and an
+amber line says why: `NO ESC ANSWERS ON SIG GP0.`,
 `MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.` (AM32
-takes a command only after a second of zero throttle). After a beacon the
-buttons stay grey for 260 ms, or up to 1020 ms after beacon 5. While a
-command waits or goes out, `BACK` is grey too.
+takes a command only after a second of zero throttle). A press while the
+board is still sending something else, such as the 260 ms to 1020 ms
+pause after a beacon, waits up to 2 s and then goes out. While a command
+of the page waits or goes out, the buttons and `BACK` are grey.
 
 The lines under the buttons say what was sent, for example
 `SENT 8 (REVERSED), THEN 12 (SAVE).`, or why it was not:
