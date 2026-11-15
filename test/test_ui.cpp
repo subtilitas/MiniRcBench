@@ -46,6 +46,7 @@
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
 #include "fake_escwire_port.h"
 #include "ew_line.h"
+#include "ew_file.h"
 
 // --- probes into the included translation unit ---
 static uint8_t uiByte(int o)     { return s_eeprom[o]; }
@@ -5840,6 +5841,460 @@ static bool efm8Exit(int *leaveFrame) {
 	       fakeResumeCount() == resumes + 1;
 }
 
+/** @brief ESC WRITE's hold, held past its 1000 ms; true once the write page's write began. */
+static bool efm8HoldWrite() {
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease();
+	frames(1);
+	return s_state == S_EW_WRITING;
+}
+
+/** @brief Frames until the EFM8 write or READ AGAIN ends, at most @p max. */
+static bool efm8UntilDone(int max = 600) {
+	for (int i = 0; i < max && s_ewOpRun; i++) frames(1);
+	return !s_ewOpRun;
+}
+
+/** @brief The result lines at y 196 and 208: @p l1 in @p c1, @p l2 in @p c2. */
+static bool ewResultIs(const char *l1, uint16_t c1, const char *l2, uint16_t c2) {
+	return fakeTextIs(UI_MARGIN, 196, l1, c1, C_BG, 1) && fakeTextIs(UI_MARGIN, 208, l2, c2, C_BG, 1);
+}
+
+/** @brief Select row @p name and step it @p n times by - or +. */
+static bool ewEditRow(const char *name, int n) {
+	if (!ewTapRow(name)) return false;
+	for (int i = 0; i < (n < 0 ? -n : n); i++) tapId(UI_FIX(n < 0 ? Am32Ctl::EditMinus : Am32Ctl::EditPlus));
+	return true;
+}
+
+/** @brief Whether BACKUP/<name> holds rcbench's text of @p page, read under 0xE8 @p sig. */
+static bool efm8BackupHolds(const char *path, uint8_t sig, const uint8_t *page) {
+	static char want[EW_FILE_MAX], got[EW_FILE_MAX];
+	const uint8_t ans[9] = { 0x34, 0x37, 0x31, 0x64, 0xE8, sig, 0x06, 0x01, 0x30 };
+	ew_contact_t c;
+	ew_ident_t id;
+	ew_id_contact(ans, &c);
+	ew_id_efm8(&c, page, &id);
+	size_t n = efm8BackupFormat(&c, &id, page, want, sizeof(want));
+	int32_t g = fakeFatGet(path, got, sizeof(got));
+	return n > 0 && g == (int32_t)n && memcmp(got, want, n) == 0;
+}
+
+/**
+ * @brief Slice 4 of docs/design/bluejay-blheli-s.md through the screen,
+ *        against rcbench's simulated ESC: the editable list, ESC WRITE, the
+ *        backup before the first write, the results, READ AGAIN, the
+ *        guarded BACK and the leave page after a half-written page, the
+ *        heartbeat's stop, and that nothing but the settings page is erased
+ *        or programmed.
+ */
+static void testEfm8Write() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	s_blReached = false;
+
+	section("ESC WRITE: a Bluejay 0.21 page edited");
+	am32Card();
+	efm8Esc(0xB2, true);
+	uint8_t orig[EW_PAGE_MAX];
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	sim_t *e = fakeEwSim();
+	checkTrue("TIMING - : MEDIUM", ewEditRow("TIMING", -1) && s_ewDraft[0x15] == 3);
+	frames(1);
+	checkTrue("the bar: TIMING  MEDIUM HIGH -> over MEDIUM, cyan",
+	          fakeTextIs(BTN_MINUS_X + EDIT_BTN_W + (BTN_PLUS_X - BTN_MINUS_X - EDIT_BTN_W -
+	                                                  gfxTextW("TIMING  MEDIUM HIGH ->", 1)) / 2,
+	                     EDIT_Y + 2, "TIMING  MEDIUM HIGH ->", C_DIM, C_BG, 1));
+	UiRect rt = ctlRect(UI_ROW(s_ewSel, Row));
+	checkTrue("the row's value cyan, its bar", fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("MEDIUM", 2), rt.y + 13,
+	                                                     "MEDIUM", UI_COL_CHANGED, C_PANEL, 2));
+	checkTrue("WRITE... and REVERT live", ctlEnabled(UI_FIX(Am32Ctl::Write)) && ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	checkTrue("DIRECTION + : REVERSED", ewEditRow("DIRECTION", +1) && s_ewDraft[0x0B] == 2);
+	checkTrue("+ at the top rail: 3D REVERSED, then nothing", ewEditRow("DIRECTION", +4) && s_ewDraft[0x0B] == 4);
+	checkTrue("back to REVERSED", ewEditRow("DIRECTION", -2) && s_ewDraft[0x0B] == 2);
+	const uint8_t beep = s_ewDraft[0x1B];
+	checkTrue("BEEP STRENGTH selected", ewTapRow("BEEP STRENGTH"));
+	UiRect rb = ctlRect(UI_ROW(s_ewSel, Row));
+	swipe(rb.x + 40, rb.x + 40 + UI_AXIS_LOCK_PX + 2 * UI_SWIPE_STEP_PX + 4, rb.y + rb.h / 2, 2);
+	checkInt("a swipe of 2 coarse steps: 48 more", s_ewDraft[0x1B], beep + 48);
+	frames(1);
+	checkTrue("3 rows changed, nothing sent", ewPending() == 3 && e->erases == 0 && e->programs == 0);
+	uiListScrollTo(&s_list, 0);
+	frames(1);
+	checkControlTable("ESC SETTINGS, the EFM8 list edited");
+	fakeDumpFrame("shot_efm8_edit.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with edits: the guard, 3 CHANGES NOT WRITTEN.",
+	          s_state == S_EW_LIST && s_guard.armed &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "3 CHANGES NOT WRITTEN.", UI_COL_WARN, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("a press elsewhere disarms it", !s_guard.armed && s_state == S_EW_LIST);
+
+	section("ESC WRITE: the page");
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("WRITE...: ESC WRITE", s_state == S_EW_PAGE &&
+	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE_WRITE, C_TEXT, C_PANEL, 2));
+	checkTrue("3 CHANGES", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "3 CHANGES", C_DIM, C_BG, 1));
+	checkTrue("DIRECTION first: NORMAL -> REVERSED", fakeTextIs(UI_MARGIN, WP_LINE_Y, "DIRECTION", C_TEXT, C_BG, 1) &&
+	          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("NORMAL -> REVERSED", 1), WP_LINE_Y, "NORMAL", C_DIM, C_BG, 1));
+	checkTrue("TIMING: MEDIUM HIGH -> MEDIUM", fakeTextIs(UI_MARGIN, WP_LINE_Y + WP_PITCH, "TIMING", C_TEXT, C_BG, 1));
+	checkTrue("the backup line: BACKUP FIRST: BACKUP/BJ001.TXT",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP FIRST: BACKUP/BJ001.TXT", C_DIM, C_BG, 1));
+	checkTrue("HOLD TO WRITE live", ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	checkControlTable("ESC SETTINGS, ESC WRITE of an EFM8 page");
+	fakeDumpFrame("shot_efm8_write.ppm");
+	tapId(UI_FIX(Am32Ctl::WriteHold));
+	checkTrue("a tap writes nothing", s_state == S_EW_PAGE && e->starts == 5);
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 20);
+	fakeRelease();
+	frames(1);
+	checkTrue("a hold let go at 500 ms writes nothing", s_state == S_EW_PAGE && e->starts == 5 &&
+	          !fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the list, the edits kept", s_state == S_EW_LIST && ewPending() == 3);
+	tapId(UI_FIX(Am32Ctl::Write));
+
+	section("ESC WRITE: written and read back");
+	uint8_t draft[EW_PAGE_MAX];
+	memcpy(draft, s_ewDraft, sizeof(draft));
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 45);
+	checkTrue("the hold: WRITING, BACK drawn disabled", s_state == S_EW_WRITING && s_ewOpRun &&
+	          !ctlEnabled(UI_FIX(UI_BACK)) &&
+	          fakeTextIs(UI_MARGIN, WP_STATE_Y, AM32_UI_WRITING, UI_COL_WARN, C_BG, 1));
+	checkTrue("the backup first: BJ001.TXT, the page as first read", fakeFatExists("BACKUP/BJ001.TXT") &&
+	          efm8BackupHolds("BACKUP/BJ001.TXT", 0xB2, orig));
+	fakeRelease();
+	frames(1);
+	checkControlTable("ESC SETTINGS, ESC WRITE writing");
+	fakeDumpFrame("shot_efm8_writing.ppm");
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK does nothing; a lifted finger stops nothing", s_state == S_EW_WRITING);
+	checkTrue("the write ends", efm8UntilDone());
+	checkTrue("WRITE VERIFIED. BACKUP BJ001, green; LEAVING STARTS THE ESC WITH THEM.",
+	          ewResultIs("WRITE VERIFIED. BACKUP BJ001", UI_COL_SAFE, EFM8_UI_LEAVING_2, C_TEXT));
+	checkTrue("the ESC holds the draft, tags as read", memcmp(efm8Page(), draft, 255) == 0 &&
+	          memcmp(efm8Page() + 0x40, orig + 0x40, 48) == 0);
+	checkTrue("one erase, one program, the settings page only",
+	          e->erases == 1 && e->programs == 1 && fakeEwOnlySettingsPage());
+	checkControlTable("ESC SETTINGS, ESC WRITE verified");
+	fakeDumpFrame("shot_efm8_verified.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the list, nothing changed now", s_state == S_EW_LIST && ewPending() == 0 &&
+	          !ctlEnabled(UI_FIX(Am32Ctl::Write)));
+	checkTrue("a second write", ewEditRow("DEMAG", +1) && s_ewDraft[0x1F] == 3);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("its backup line names the backup made", fakeTextIs(UI_MARGIN, WP_BACKUP_Y,
+	                                                              "BACKUP: BACKUP/BJ001.TXT", C_DIM, C_BG, 1));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("verified, no second backup", s_verified && efm8Page()[0x1F] == 3 &&
+	          !fakeFatExists("BACKUP/BJ002.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	int leaveAt = -1;
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt == e->starts - 1);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: BLHeli_S 16.7 with no card; the 3D note");
+	am32NoCard();
+	efm8Esc(0xB1, false);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("DIRECTION to 3D", ewEditRow("DIRECTION", +2) && s_ewDraft[0x0B] == 3);
+	checkTrue("the note: 3D", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("no card: NO CARD: OLD VALUES LOST ON LEAVING, amber",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, AM32_UI_NO_CARD_LOST, UI_COL_WARN, C_BG, 1));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("WRITE VERIFIED alone", strcmp(s_status, "WRITE VERIFIED") == 0 && efm8Page()[0x0B] == 3);
+	checkTrue("the tester's 3D note set", esc3dNote());
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DIRECTION back to NORMAL", ewEditRow("DIRECTION", -2) && s_ewDraft[0x0B] == 1);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone() && s_verified);
+	checkTrue("the note cleared", !esc3dNote());
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a card that refuses the backup; the BOARD voltage red");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	int n0 = e->starts;
+	checkTrue("an edit", ewEditRow("TIMING", -1));
+	fakeFatWriteProtect(true);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("NO BACKUP ON THE CARD: NOT WRITTEN, nothing sent",
+	          strcmp(s_status, "NO BACKUP ON THE CARD: NOT WRITTEN") == 0 && e->starts == n0 &&
+	          ewResultIs("NO BACKUP ON THE CARD: NOT WRITTEN", UI_COL_WARN, AM32_UI_CHECK_CARD, UI_COL_WARN));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeFatWriteProtect(false);
+	boardVolts(3.20f);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held at 3.20 V", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("BOARD VOLTAGE IS RED: NOT WRITTEN., nothing sent, no backup",
+	          ewResultIs(UI_BOARD_LOW_1, UI_COL_WARN, AM32_UI_BOARD_LOW_2, UI_COL_WARN) && e->starts == n0 &&
+	          !fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeAdcSet(fakeAdcDefault());
+	frames(80);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("then written", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          fakeFatExists("BACKUP/BJ001.TXT") && efm8Page()[0x15] == 3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: the ESC's page changed since the read; READ AGAIN");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	efm8Page()[0x1B] = 41;
+	fakeEwSnapshot();
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("ESC PAGE CHANGED: NOT WRITTEN. / TAP OK, READ AGAIN.",
+	          ewResultIs(EFM8_UI_CHANGED_1, UI_COL_WARN, EFM8_UI_READ_AGAIN_2, UI_COL_WARN) && e->erases == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("READ AGAIN in WRITE...'s place", ctlEnabled(UI_FIX(Am32Ctl::ReadAgain)) &&
+	          !ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+	          fakeTextIs(BTN_WRITE.x + (BTN_WRITE.w - gfxTextW("READ AGAIN", 1)) / 2, BTN_WRITE.y + (BTN_WRITE.h - 7) / 2,
+	                     "READ AGAIN", C_TEXT, C_PANEL, 1));
+	checkControlTable("ESC SETTINGS, the EFM8 list with READ AGAIN");
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("read", efm8UntilDone() && s_state == S_EW_LIST && !s_ewMustRead);
+	checkTrue("the page as it is now, the edit kept", s_ewPage[0x1B] == 41 && s_ewDraft[0x1B] == 41 &&
+	          s_ewDraft[0x15] == 3 && ewPending() == 1);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("then written", efm8HoldWrite() && efm8UntilDone() && s_verified && efm8Page()[0x15] == 3 &&
+	          efm8Page()[0x1B] == 41);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: the ESC's power cut after the erase");
+	am32Card();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	// The write's transactions 0 to 3 are the re-read and the erase: the ESC
+	// is gone from the data on.
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("NO ANSWER IN THE WRITE: KEEP POWER. / TAP OK, THEN READ AGAIN.",
+	          ewResultIs(EFM8_UI_LOST_1, UI_COL_WARN, EFM8_UI_LOST_2, UI_COL_WARN));
+	checkTrue("the page erased, tags and all; nothing else", e->erases == 1 && efm8Page()[0x40] == 0xFF &&
+	          fakeEwOnlySettingsPage());
+	checkTrue("the backup holds the page as read, tags included", efm8BackupHolds("BACKUP/BJ001.TXT", 0xB2, orig));
+	fakeDumpFrame("shot_efm8_lost.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	frames(1);
+	checkTrue("the list: READ AGAIN, no editor", s_state == S_EW_LIST && ctlPresent(UI_FIX(Am32Ctl::ReadAgain)) &&
+	          !ctlPresent(UI_FIX(Am32Ctl::EditMinus)));
+	checkTrue("the strip: HALF WRITTEN: KEEP THE ESC POWERED. / READ AGAIN, THEN WRITE.",
+	          stripNoteIs(EFM8_UI_TORN_1, EFM8_UI_DIRTY_READ));
+	checkTrue("a swipe edits nothing", ewTapRow("BEEP STRENGTH"));
+	UiRect rs = ctlRect(UI_ROW(s_ewSel, Row));
+	swipe(rs.x + 40, rs.x + 120, rs.y + rs.h / 2, 8);
+	checkTrue("the draft as it was", s_ewDraft[0x1B] == orig[0x1B]);
+	int resumes = fakeResumeCount();
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the guard names the page", s_guard.armed &&
+	          stripNoteIs(EFM8_UI_GUARD_1, EFM8_UI_GUARD_2));
+	checkTrue("35 and 34 characters", strlen(EFM8_UI_GUARD_1) == 35 && strlen(EFM8_UI_GUARD_2) == 34);
+	fakeDumpFrame("shot_efm8_guard.ppm");
+	tapId(UI_FIX(Am32Ctl::Hex));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("a press elsewhere disarms it", !s_guard.armed);
+	e->dead = false;
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN: read, half written, read since", efm8UntilDone() && s_ewDirty && s_ewReread &&
+	          !s_ewMustRead);
+	frames(1);
+	checkTrue("the strip: WRITE AGAIN NOW. REVERT: AS READ.", stripNoteIs(EFM8_UI_TORN_1, EFM8_UI_DIRTY_WRITE));
+	checkTrue("the page as first read kept", memcmp(s_ewPage, orig, 255) == 0);
+	checkTrue("WRITE... and REVERT live", ctlEnabled(UI_FIX(Am32Ctl::Write)) && ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("REVERT: the page as read; WRITE... still live", !ewEdited() && ctlEnabled(UI_FIX(Am32Ctl::Write)));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("ESC WRITE: 0 CHANGES, THE PAGE AS READ, TAGS INCLUDED.",
+	          s_state == S_EW_PAGE && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "0 CHANGES", C_DIM, C_BG, 1) &&
+	          fakeTextIs(UI_MARGIN, WP_LINE_Y, EFM8_UI_AS_READ, C_TEXT, C_BG, 1));
+	checkTrue("its hold live", ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	fakeDumpFrame("shot_efm8_asread.ppm");
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("verified: the page as read, tags included", s_verified && memcmp(efm8Page(), orig, 255) == 0);
+	checkTrue("still the settings page only", fakeEwOnlySettingsPage());
+	checkTrue("no second backup", !fakeFatExists("BACKUP/BJ002.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("no DShot all along", fakeResumeCount() == resumes);
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: programs that do not take: half written, then the draft again");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	memcpy(draft, s_ewDraft, sizeof(draft));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_NO_TAKE, 0, 40, 0);
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone(1200));
+	checkTrue("HALF WRITTEN: KEEP THE ESC POWERED. / TAP OK, WRITE AGAIN NOW.",
+	          ewResultIs(EFM8_UI_TORN_1, UI_COL_WARN, EFM8_UI_TORN_2, UI_COL_WARN) && e->erases == 3);
+	e->fail = F_NONE;
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("the list: WRITE... live, no READ AGAIN", ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
+	          !ctlPresent(UI_FIX(Am32Ctl::ReadAgain)));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("the draft's change listed, its hold live", fakeTextIs(UI_MARGIN, WP_LINE_Y, "TIMING", C_TEXT, C_BG, 1) &&
+	          ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	checkTrue("held: verified", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          memcmp(efm8Page(), draft, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: BACK on a half-written page aborts with no LEAVE");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held: lost", efm8HoldWrite() && efm8UntilDone() && strcmp(s_status, EFM8_UI_LOST_1) == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	resumes = fakeResumeCount();
+	int starts = e->starts;
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the second BACK: the leave page", s_state == S_LEAVE);
+	frames(2);
+	EwJobStatus st;
+	escwireJobStatus(&st);
+	checkTrue("the session aborted: no frame, no LEAVE, the line parked", st.job == EwJobState::Ended &&
+	          e->starts == starts && e->line == EW_LINE_PARK);
+	checkTrue("no DShot", fakeResumeCount() == resumes && escTaskSuspended());
+	tapId(UI_FIX(Am32Ctl::Stay));
+	checkTrue("STAY: the session ended, the cycle greets again", untilState(S_CONNECT, 60) &&
+	          pinClaimLeavePage() && fakeResumeCount() == resumes);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot back once", uiCurrentScreen() == UiScreenId::Menu &&
+	          fakeResumeCount() == resumes + 1);
+	bool left = false;
+	for (int i = 0; i < e->starts; i++) left = left || fakeEwSentLeave(i);
+	checkTrue("no LEAVE frame went to the half-written page", !left);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a heartbeat lapse after the erase");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	memcpy(draft, s_ewDraft, sizeof(draft));
+	tapId(UI_FIX(Am32Ctl::Write));
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 45);
+	fakeRelease();
+	for (int i = 0; i < 400 && e->erases == 0; i++) frames(1);
+	checkTrue("erased", e->erases == 1);
+	// Core0 stalls: core1 runs on alone, the heartbeat lapses.
+	for (int ms = 0; ms < 3000; ms++) {
+		fakeAdvance(1);
+		core1JobPoll();
+	}
+	escwireJobStatus(&st);
+	checkTrue("the write ran to its read-back, then parked", st.stalled && st.result == EW_SES_OK &&
+	          st.job == EwJobState::Ended && memcmp(efm8Page(), draft, 255) == 0 && e->line == EW_LINE_PARK);
+	checkTrue("the screen: verified, the session ended", efm8UntilDone() &&
+	          ewResultIs("WRITE VERIFIED", UI_COL_SAFE, EFM8_UI_ENDED_2, C_TEXT));
+	resumes = fakeResumeCount();
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again, no DShot", untilState(S_CONNECT, 60) && fakeResumeCount() == resumes &&
+	          pinClaimLeavePage());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: read-only lists save their backup and never write");
+	am32Card();
+	efm8Esc(0xB2, false);
+	memset(efm8Page() + 0x40, 0xFF, 48);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("lost tags: the list", efm8Read());
+	e = fakeEwSim();
+	frames(1);
+	checkTrue("REFLASH ON A COMPUTER. BACKUP BH001", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. BACKUP BH001"));
+	checkTrue("BH001.TXT holds the page as read", efm8BackupHolds("BACKUP/BH001.TXT", 0xB2, orig));
+	checkTrue("the bar: SHOWN ONLY: NOTHING IS WRITTEN.",
+	          fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_SHOWN, C_GRID, C_BG, 1));
+	checkTrue("DIRECTION selected: no -, no +", ewTapRow("DIRECTION") && !ctlPresent(UI_FIX(Am32Ctl::EditMinus)));
+	tapId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
+	checkTrue("WRITE... does nothing", s_state == S_EW_LIST && e->erases == 0 && e->programs == 0);
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, true);
+	efm8Page()[0x01] = 19;
+	efm8Page()[0x02] = 206;
+	checkTrue("Bluejay 206: the list", efm8Read());
+	frames(1);
+	checkTrue("SHOWN ONLY. BACKUP BJ002", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "SHOWN ONLY. BACKUP BJ002",
+	                                                  UI_COL_WARN, C_BG, 1));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	fakeFatWriteProtect(true);
+	efm8Esc(0xB2, true);
+	efm8Page()[0x0E] = 0;
+	checkTrue("a wrong marker on a card that refuses: the list", efm8Read());
+	frames(1);
+	checkTrue("SHOWN ONLY. BACKUP FAILED.", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "SHOWN ONLY. BACKUP FAILED.",
+	                                                    UI_COL_WARN, C_BG, 1));
+	fakeFatWriteProtect(false);
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	am32NoCard();
+	efm8Esc(0xB2, false);
+	memset(efm8Page() + 0x40, 0xFF, 48);
+	checkTrue("lost tags, no card: the list", efm8Read());
+	frames(1);
+	checkTrue("REFLASH ON A COMPUTER. NO CARD.", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. NO CARD."));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+}
+
 /**
  * @brief Slices 2 and 3 of docs/design/bluejay-blheli-s.md through the
  *        screen: the connect cycle; an EFM8 answer hands SIG to the escwire
@@ -7936,6 +8391,7 @@ void runUiTests() {
 	testAm32ClaimWords();
 	testAm32Guidance();
 	testAm32Efm8();
+	testEfm8Write();
 	testAm32TesterNote();
 	testAm32ReadOnly();
 	testAm32BoardLow();
