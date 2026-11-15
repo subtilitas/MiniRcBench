@@ -110,7 +110,9 @@ nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
 - **Versorgung steht:** mit dem Stromsensor (SETTINGS > CURRENT SENSE
   `INA219`) beim ersten Messwert von 4,5 V oder mehr, ohne ihn nach 500 ms.
   Das Servo fährt in die Mitte, die Zeile zeigt `GP28 SUPPLY ON`. Der
-  SET-Bildschirm zeigt, wie lange es dauerte, `SUPPLY UP IN 25 MS`.
+  SET-Bildschirm zeigt, wie lange es dauerte, `SUPPLY UP IN 25 MS`, bis
+  die erste gemessene Bewegung ([Stellzeit messen](#stellzeit-messen)) an
+  ihre Stelle tritt.
 - **Wieder aus:** bei `STOP`, wenn der Bildschirm 250 ms hängt, wenn das
   Touchpanel 250 ms nicht antwortet (`STOPPED: TOUCH DID NOT ANSWER`), wenn
   der I2C-Bus hängt (`STOPPED: TOUCH BUS STUCK`), bei einer Abschaltung
@@ -269,6 +271,56 @@ Platine.
   333 Hz mit einem Servo `SIG  333 HZ`.
 
 <img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in Magenta, STOPPED: CURRENT 3.0 A OR MORE auf dem Zifferblatt"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in Magenta, CURRENT SENSOR LOST: SUPPLY OFF. über START WAITS FOR THE CURRENT SENSOR.">
+
+### Stellzeit messen
+
+Mit dem Stromsensor misst der Servotester, wie lange das Servo bis zur
+angetippten Position braucht, aus seinem Strom: Ein laufendes Servo zieht
+mehr als ein ruhendes. Der SET-Bildschirm zeigt die letzte Bewegung in der
+zweiten Zeile unter dem Titel, in Grau:
+
+`MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`
+
+| Angabe | Bedeutung |
+|---|---|
+| `MOVE 0.42 S` | vom Antippen bis zur ersten Messung, die das Servo wieder in Ruhe zeigt |
+| `MOVE LATE` | das Servo lief, aber sein Strom kam nicht innerhalb von 3 s zur Ruhe |
+| `MOVE UNSEEN` | der Strom änderte sich innerhalb von 3 s nicht: Das Servo lief nicht, oder zu leicht, um es zu sehen |
+| `PEAK 1.21 A` | die höchste Messung vom Antippen bis zur Ankunft |
+| `HOLD 0.12 A` | der mittlere Strom in der halben Sekunde nach der Ankunft |
+| `--` | diese Angabe ist nicht bekannt: siehe unten |
+
+So entsteht eine gemessene Bewegung:
+
+1. Das Servo mit dem Sensor starten (SETTINGS > CURRENT SENSE `INA219`).
+2. `SPEED` auf 100 % stellen.
+3. Nach `HOLD TO START`, nach einem Ziehen, einem Sweep oder einer Bewegung
+   mit kleinerer `SPEED` 4 s warten; nach einer gemessenen Bewegung genügt
+   eine halbe Sekunde.
+4. `MIN`, `CENTRE` oder `MAX` antippen, das Servo abwarten, dann `SET`
+   öffnen.
+
+- Zu frühes Antippen, Antippen mit kleinerer `SPEED` oder eine Bewegung,
+  die `STOP`, eine Abschaltung, ein weiteres Antippen oder Ziehen oder ein
+  verlorener Sensor beendet, zeigt `MOVE -- S  PEAK -- A  HOLD -- A`. `HOLD`
+  zeigt in der ersten halben Sekunde nach der Ankunft `--`.
+- Fährt das Servo zum ersten Mal an ein Ende, an dem es gegen seinen
+  Anschlag drückt, zeigt es `LATE`: Die Bank weiß noch nicht, wie viel es
+  dort zieht. Die nächste Bewegung an dieses Ende wird gemessen.
+- Die Zeit ist eine Obergrenze dafür, wann der Strom die Ankunft zeigt.
+  Der Sensor zeigt sie bis 61 ms zu spät (berechnet: eine Messung und zwei
+  Mittelungszeiten des Sensors), und der Impuls geht bei 50 Hz bis 20 ms
+  nach dem Antippen hinaus. Ein Servo, das kurz vor dem Ziel nachlässt,
+  kann schon auf seinen Haltestrom fallen, während das Servohorn noch
+  kriecht; dann zeigt der Strom die Ankunft, bevor das Horn steht. Wie nah
+  die Zeit an der wirklichen Ankunft des Servohorns liegt, ist nicht
+  gemessen.
+- Mit CURRENT SENSE auf `NONE` wird nichts gemessen, und die Zeile bleibt,
+  wie sie ist.
+- Die Zeile verschwindet beim nächsten `HOLD TO START` und erscheint nicht,
+  solange dort eine zweizeilige Warnung steht.
+
+<img src="img/servo-set-move.png" width="240" alt="SERVO SET mit einer gemessenen Bewegung, MOVE, PEAK und HOLD, unter STOP TO CHANGE THE PROFILE">
 
 ---
 

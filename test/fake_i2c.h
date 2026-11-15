@@ -19,7 +19,10 @@
  * the range of the PG setting, ±32000 at /8; the bus code at IN-, the
  * converter's output less I × R, 4 mV a code. With a clock, the shunt and bus
  * registers change only at the end of each conversion cycle the
- * configuration sets.
+ * configuration sets: the newest cycle completed, shunt first, then bus.
+ * With a clock and a current function, the shunt code is the mean of the
+ * current over that cycle's shunt conversion, sampled every 10 µs, as the
+ * part's 32-sample average would give it.
  *
  * The QMI8658 model: a register file of 128 bytes with the power-on values
  * the design note gives (CTRL1 20h, big-endian), WHO_AM_I and REVISION_ID as
@@ -80,6 +83,9 @@ struct FakeIna219 {
 	double   shuntOhm;    /**< The module's shunt. Test; 0.1 by default. */
 	double   voutV;       /**< The converter's output at IN+. Test. */
 	bool     timed;       /**< Conversions take their configured time. Test. */
+	/** @brief With timed: the current at a time_us_64(), A, in place of currentA. Test. */
+	double (*currentAt)(uint64_t us, void *ctx);
+	void    *currentCtx;  /**< Handed to currentAt. Test. */
 	bool     deaf;        /**< Takes RST and no other configuration. Test. */
 	uint64_t cycleUs;     /**< When the running conversion cycle started. */
 	int16_t  shuntCode;   /**< The last completed shunt conversion. */
