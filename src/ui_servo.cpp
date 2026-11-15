@@ -500,8 +500,9 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
  *
  * First wins: a trip, by its cause (the heartbeat, a silent touch
  * controller, a stuck bus); with the switch, a supply that did not come
- * up, then a current sensor START waits for, then the ESC warning; without
- * it, CENTRE at START and the throttle warning.
+ * up, then why START is refused (a current sensor not found, a stuck bus,
+ * a silent touch controller), then the ESC warning; without it, CENTRE at
+ * START and the throttle warning.
  */
 static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	unsigned sig = gpioOf(PIN_SIG);
@@ -521,9 +522,15 @@ static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 		*ca = C_AMBER;
 		return;
 	}
-	if (s_st.switched && s_st.startBlock == ServoStartBlock::NoSensor) {
-		snprintf(a, n, SERVO_UI_NO_SENSOR_1);
-		snprintf(b, n, SERVO_UI_NO_SENSOR_2);
+	if (s_st.switched && s_st.startBlock != ServoStartBlock::None) {
+		const char *l1 = SERVO_UI_NO_SENSOR_1, *l2 = SERVO_UI_NO_SENSOR_2;
+		if (s_st.startBlock == ServoStartBlock::BusStuck) {
+			l1 = SERVO_UI_BUS_WAIT_1; l2 = SERVO_UI_BUS_WAIT_2;
+		} else if (s_st.startBlock == ServoStartBlock::TouchSilent) {
+			l1 = SERVO_UI_TOUCH_WAIT_1; l2 = SERVO_UI_TOUCH_WAIT_2;
+		}
+		snprintf(a, n, "%s", l1);
+		snprintf(b, n, "%s", l2);
 		*ca = C_AMBER;
 		return;
 	}
@@ -713,9 +720,11 @@ static void drawSpeed() {
 /** @brief MIN, CENTRE, MAX, SWEEP; HOLD TO START or STOP; SET. */
 static void drawButtons(bool startOk, int holdPct) {
 	bool run = driving();
-	struct { bool run, sweeping, startOk, holding; int pct; bool p[6]; } k;
+	struct { bool run, running, sweeping, startOk, holding; int pct; bool p[6]; } k;
 	memset(&k, 0, sizeof(k));
-	k.run = run; k.sweeping = s_st.sweeping; k.startOk = startOk; k.holding = s_hold.holding;
+	// RUNNING apart from run: STOP is drawn while RUNNING, and run is false
+	// while the supply comes up, so a cut from there to SAFE changes only it.
+	k.run = run; k.running = s_st.running; k.sweeping = s_st.sweeping; k.startOk = startOk; k.holding = s_hold.holding;
 	k.pct = holdPct;
 	k.p[0] = pressing(BTN_MIN); k.p[1] = pressing(BTN_CENTRE); k.p[2] = pressing(BTN_MAX);
 	k.p[3] = pressing(BTN_SWEEP); k.p[4] = pressing(BTN_START); k.p[5] = pressing(BTN_SET);

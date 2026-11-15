@@ -645,6 +645,8 @@ The second line ends at y 58, before the dial band at y 62. `main` draws it,
 `GP28 SUPPLY STAYS OFF HERE.` under the caption `GP0  50 HZ  1000-2000 US`,
 through `uiStripTwoLines()` (decision 12); structure B adds `SIG` to the
 caption (decision 10) and the title (decision 13).
+Revised by current-sense.md slice 3: the second line names the supply's
+phase, `GP28 SUPPLY ON AT START` and others (decision 12's revision note).
 
 ## Other views
 

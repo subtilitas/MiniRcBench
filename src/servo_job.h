@@ -78,6 +78,18 @@
 #define SUPPLY_NOT_OFF_MV   2500u
 /** @brief ... taken this long or longer after the switch-off, ms. */
 #define SUPPLY_NOT_OFF_MS   2000u
+/**
+ * @brief A reading counts for the read-back only when core0 took it more
+ *        than this long after the switch command, ms.
+ *
+ * SenseSample::takenMs is when core0 read the result, not when the INA219
+ * measured it: the bus sample of the bench's configuration is up to one
+ * conversion cycle, 17.55 ms, older than the read. A reading taken this
+ * long or less after the command can still carry the output's voltage from
+ * before it. 18 is 17.55 ms rounded up; "more than" covers the part of a
+ * millisecond that millis() hides.
+ */
+#define SUPPLY_READ_LAG_MS  18u
 /** @brief ServoPower::upMs while no start-up time was measured. */
 #define SUPPLY_UP_NONE      0xFFFFu
 /** @} */
@@ -296,15 +308,15 @@ void servoPowerOff(ServoPower *p, bool sensed, uint32_t nowMs);
  *    and the sweep, latches the trip and records the fault.
  * 2. Not RUNNING: the supply off (servoPowerOff()). RUNNING with the supply
  *    off: the switch-on, which clears the fault and the start-up time.
- * 3. Starting: with a sensor, a fresh reading taken after the switch-on at
- *    or above @ref SUPPLY_ON_MIN_MV makes it On and its age at the
+ * 3. Starting: with a sensor, a fresh reading taken more than
+ *    @ref SUPPLY_READ_LAG_MS after the switch-on at or above @ref SUPPLY_ON_MIN_MV makes it On and its age at the
  *    switch-on the start-up time; without one, On at
  *    @ref SUPPLY_START_MAX_MS. With a sensor and no such reading by then,
  *    the pulses end, the supply goes off and the fault is NoStart.
  * 4. While Starting both outputs are held at CENTRE and the sweep ends;
  *    while not On, outUs is 0 on both pins.
- * 5. After a switch-off, with a sensor: a fresh reading taken after it at
- *    or below @ref SUPPLY_OFF_MAX_MV is Off; one above
+ * 5. After a switch-off, with a sensor: a fresh reading taken more than
+ *    @ref SUPPLY_READ_LAG_MS after it at or below @ref SUPPLY_OFF_MAX_MV is Off; one above
  *    @ref SUPPLY_NOT_OFF_MV taken @ref SUPPLY_NOT_OFF_MS or more after it is
  *    NotOff, until a reading at or below @ref SUPPLY_OFF_MAX_MV.
  *

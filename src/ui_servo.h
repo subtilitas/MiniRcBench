@@ -68,6 +68,14 @@ struct TouchState;
 #define SERVO_UI_NO_SENSOR_1 "START WAITS FOR THE CURRENT SENSOR."
 /** @brief ...and its second line, dim. */
 #define SERVO_UI_NO_SENSOR_2 "NONE IN CURRENT SENSE SKIPS IT."
+/** @brief START refused while the shared bus is stuck, no trip: first line, amber. */
+#define SERVO_UI_BUS_WAIT_1 "START WAITS: THE I2C BUS IS STUCK."
+/** @brief ...and its second line, dim. */
+#define SERVO_UI_BUS_WAIT_2 "HOLD TO START WORKS ONCE IT IS FREE."
+/** @brief START refused while the touch controller has not answered for 250 ms, no trip: first line, amber. */
+#define SERVO_UI_TOUCH_WAIT_1 "START WAITS: TOUCH DOES NOT ANSWER."
+/** @brief ...and its second line, dim. */
+#define SERVO_UI_TOUCH_WAIT_2 "HOLD TO START WORKS ONCE IT ANSWERS."
 /** @brief The supply cut because the touch controller did not answer for 250 ms. */
 #define SERVO_UI_TOUCH_SILENT "STOPPED: TOUCH DID NOT ANSWER"
 /** @brief The supply cut because the shared bus was stuck. */

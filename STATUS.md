@@ -34,8 +34,8 @@ pin, or two on the ESC and KISS pins, with PWM (pulse-width modulation)
 pulses. KST and Chaservo servo programming, on the same pins, is slice 3 of
 [pin-claim.md](docs/design/pin-claim.md), with an optional bench-switched
 servo supply whose enable is on GP28 or GP29, which the servo tester switches
-too (slice 3 of [current-sense.md](docs/design/current-sense.md)). Steps 1 to 5 of
-[kst-programming.md](docs/design/kst-programming.md) are built:
+too (slice 3 of [current-sense.md](docs/design/current-sense.md)). Steps 1 to
+5 of [kst-programming.md](docs/design/kst-programming.md) are built:
 rcbench's KST core, line driver and file store are copied into `lib/rcbench/`,
 with rcbench's tests of them, 298 cases; the search (`src/kst_seek.h`) and the
 core1 job (`src/kst_job.h`) run the session on the line, tested against
@@ -581,8 +581,8 @@ not run on hardware (item 18).
     [current-sense.md](docs/design/current-sense.md) is built and runs in
     the host suite only, slice 2 draws the sensor and the boost
     converter in `docs/wiring.svg`, and slice 3, the servo tester switching
-    the supply, runs in the host suite only: no INA219 has been on the board's bus,
-    no boost converter on GP28 or GP29, and the
+    the supply, runs in the host suite only: no INA219 has been on the
+    board's bus, no boost converter on GP28 or GP29, and the
     first boot over a version 4 settings block, which carries over, is not
     tested on hardware.
     The datasheet facts the design marks "to confirm" are not checked
@@ -598,9 +598,9 @@ not run on hardware (item 18).
       2 A;
     - B6 to B13, with slices 3 to 6: the converter, its disconnect and
       start-up time, the servo tester's switch-on, its pulses at 4.5 V and
-      its switch-off at STOP, a trip and BACK, its current limit, the owner's servos, the cuts, move
-      timing, the heartbeat with the supply on, a 60 s log, the voltage at
-      the servo at a stall.
+      its switch-off at STOP, a trip and BACK, its current limit, the
+      owner's servos, the cuts, move timing, the heartbeat with the supply
+      on, a 60 s log, the voltage at the servo at a stall.
 17. **Restart reason on hardware.** LAST RESTART has not run on a chip.
     Bench tests needed, reading the row after each: power applied from off
     (`POWER-ON`), the RUN pin pulled low (`RUN PIN`), a supply dip below the

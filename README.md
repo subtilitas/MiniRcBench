@@ -658,7 +658,7 @@ colour, read-only values grey, and a toggle that is on fills blue.
 | WIRING | **DSHOT** | The DShot bitrate in kbit/s, 150 / 300 / 600 / 1200, wrapping at the ends. Applies at once: the driver is rebuilt on the new pin and rate before the next frame |
 | WIRING | **KISS TELEM** | Whether to listen for the telemetry wire, on AUX. A toggle; it moves no pin |
 | WIRING | **AUX PIN** | AUX, the GPIO of the KISS telemetry wire and of the servo tester's second servo, with its J5 pin under the value. Acts whatever KISS is, and swaps with SIG as SIG PIN does. The receiver is a PIO state machine, so any free GPIO works |
-| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the programmed servo's supply is wired, and to which pin. `OWN`: the servo has a supply of its own and the bench switches nothing. With `GP28` the value has `J4 PIN 11` under it, with `GP29` `J4 PIN 12` (design note `docs/design/kst-programming.md`, "Switched servo supply"). A core section after WIRING, whichever tools MENU lists. A stepper: - and + step OWN, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a servo tester, KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply ([Servo tester](#servo-tester), KST servo programming, Hitec servo programming) |
+| SERVO SUPPLY | **SERVO SUPPLY** | `OWN`, the default, `GP28` or `GP29`: whether the enable input of a DC-DC converter for the servo's supply is wired, and to which pin. `OWN`: the servo has a supply of its own and the bench switches nothing. With `GP28` the value has `J4 PIN 11` under it, with `GP29` `J4 PIN 12` (design note `docs/design/kst-programming.md`, "Switched servo supply"). A core section after WIRING, whichever tools MENU lists. A stepper: - and + step OWN, GP28, GP29 and stop at the ends; it applies at once. With a pin chosen, that pin is an input with both pulls off and its input disabled outside a servo tester, KST or Hitec claim, so the converter's external pull-down holds it off; during a claim the bench switches the servo's supply ([Servo tester](#servo-tester), KST servo programming, Hitec servo programming) |
 | SERVO SUPPLY | **CURRENT SENSE** | `NONE`, the default, or `INA219`: whether an INA219 current sensor is on the I2C bus at 0x40 ([Current sensor](#current-sensor)). A toggle; it applies at once. With `NONE` nothing is sent to 0x40. With `INA219` the bench probes the part at once and every 1000 ms while it is not found, and a caption under the label reads `FOUND`, `NOT FOUND` or `OTHER PART`. `OTHER PART` is another chip at 0x40, or an INA219 left on another configuration, which a power-cycle of the module clears |
 | DISPLAY | **CONTRAST** | `NORMAL` or `HIGH`. See below |
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
@@ -1773,9 +1773,9 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
   gets the converter's output on its BEC wire**, its own regulated supply.
   The claim's ESC check sees only an ESC that answers bidirectional DShot.
 - The enable pin is driven only during a servo tester, KST or Hitec claim;
-  outside it the pull-down alone holds EN low. A reset or a power-off of the board returns
-  the pin to that state; nothing in the firmware switches the supply off if
-  core1 hangs.
+  outside it the pull-down alone holds EN low. A reset or a power-off of the
+  board returns the pin to that state; nothing in the firmware switches the
+  supply off if core1 hangs.
 
 ### Using it
 
@@ -2543,7 +2543,7 @@ src/
   ui_slider.{h,cpp}     slider with delta drag, tap-to-set and presets, from rcbench
   servo_model.{h,cpp}   servo profiles, limits, steppers and mappings (pure)
   servo_pwm.{h,cpp}     hardware PWM servo outputs, from rcbench
-  servo_job.{h,cpp}     the servo tester's core1 job: SAFE, START, slew, sweep, trip, switched supply
+  servo_job.{h,cpp}     the servo tester's core1 job: pulses, trip, supply
   ui_kst.{h,cpp}        KST SERVO: the search, the field list, the write, FILES, the leave
   kst_view.{h,cpp}      what KST SERVO shows: rows, values with units, the stepper, the texts
   kst_seek.{h,cpp}      the KST search: the entry sequence repeated until a servo answers

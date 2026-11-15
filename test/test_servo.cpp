@@ -914,6 +914,10 @@ static void testPowerStart() {
 	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), before, t0);
 	checkTrue("a 5 V reading taken in the switch-on's ms does not count",
 	          p.phase == ServoPowerPhase::Starting);
+	ServoPowerIn lag = powerInOf(SenseState::Online, 5000, t0 + SUPPLY_READ_LAG_MS, true);
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), lag, t0 + SUPPLY_READ_LAG_MS);
+	checkTrue("5 V taken 18 ms after: within one conversion, not counted",
+	          p.phase == ServoPowerPhase::Starting);
 	ServoPowerIn low = powerInOf(SenseState::Online, 4499, t0 + 40, true);
 	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), low, t0 + 41);
 	checkTrue("4499 mV: still Starting", p.phase == ServoPowerPhase::Starting && c.outUs[0] == 0);
@@ -1084,6 +1088,10 @@ static void testPowerReadBack() {
 	ServoPowerIn at = powerInOf(SenseState::Online, 900, 2000, true);
 	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Safe), at, 2001);
 	checkTrue("900 mV taken in the switch-off's ms: not counted",
+	          p.offCheck == ServoOffCheck::Waiting);
+	ServoPowerIn lagOff = powerInOf(SenseState::Online, 900, 2000 + SUPPLY_READ_LAG_MS, true);
+	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Safe), lagOff, 2000 + SUPPLY_READ_LAG_MS);
+	checkTrue("900 mV taken 18 ms after: within one conversion, not counted",
 	          p.offCheck == ServoOffCheck::Waiting);
 	ServoPowerIn high = powerInOf(SenseState::Online, 1001, 2030, true);
 	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Safe), high, 2031);
@@ -1419,6 +1427,7 @@ static void testJobSupply() {
 	          st.power == ServoPowerPhase::On);
 	send(cmdOf(0, ServoCmdKind::Safe));
 	checkTrue("STOP: GP28 low and level 0 in the same pass", enLow(EN) && fakePin(SIG).level == 0);
+	checkTrue("and GP28 low first", fakePin(EN).putAt < fakePin(SIG).levelAt);
 
 	// STOP while the supply comes up.
 	send(cmdOf(0, ServoCmdKind::Start));
@@ -1484,6 +1493,7 @@ static void testJobSupply() {
 	core1JobPoll();
 	checkTrue("after the quiet wait: GP28 undriven, SIG released", enUndriven(EN) &&
 	          fakePin(SIG).function == GPIO_FUNC_SIO);
+	checkTrue("GP28 an input before SIG leaves PWM", fakePin(EN).dirAt < fakePin(SIG).functionAt);
 	servoJobStatus(&st);
 	checkTrue("status after the release: not switched, Off", !st.switched &&
 	          st.power == ServoPowerPhase::Off);
@@ -1492,6 +1502,23 @@ static void testJobSupply() {
 	fakePumpPoll();
 	checkTrue("DShot back, GP28 still undriven", pinClaimState() == ClaimState::Free &&
 	          enUndriven(EN));
+
+	// BACK while the supply comes up.
+	stamps();
+	checkTrue("the claim again", claimRunning(PIN_SIG) && enLow(EN));
+	send(cmdOf(0, ServoCmdKind::Start));
+	passAfter(100);
+	servoJobStatus(&st);
+	checkTrue("COMING UP: GP28 high, no pulse", enHigh(EN) && st.power == ServoPowerPhase::Starting &&
+	          fakePin(SIG).level == 0);
+	pinClaimEnd(PinUser::Servo);
+	core1JobPoll();
+	checkTrue("BACK while coming up, first pass: GP28 off and SIG never pulsed: no pulse to "
+	          "wait for, both let go at once", enUndriven(EN) && fakePin(SIG).level == 0 &&
+	          fakePin(SIG).function == GPIO_FUNC_SIO);
+	checkTrue("GP28 low before it became an input", fakePin(EN).putAt < fakePin(EN).dirAt &&
+	          !fakePin(EN).high);
+	checkTrue("released", claimEnd() && enUndriven(EN));
 
 	// A refused bind leaves the enable pin undriven.
 	fakePwmBreakSliceMap(true);
@@ -4131,7 +4158,9 @@ static void testSupplyLineAndHint() {
 	snprintf(b1, sizeof(b1), SERVO_UI_ESC_1_FMT, 1u);
 	snprintf(b2, sizeof(b2), SERVO_UI_NO_START_2_FMT, 29u);
 	const char *band[] = { b1, SERVO_UI_ESC_2, SERVO_UI_NO_START_1, b2, SERVO_UI_NO_SENSOR_1,
-	                       SERVO_UI_NO_SENSOR_2, SERVO_UI_TOUCH_SILENT, SERVO_UI_BUS_STUCK };
+	                       SERVO_UI_NO_SENSOR_2, SERVO_UI_TOUCH_SILENT, SERVO_UI_BUS_STUCK,
+	                       SERVO_UI_BUS_WAIT_1, SERVO_UI_BUS_WAIT_2, SERVO_UI_TOUCH_WAIT_1,
+	                       SERVO_UI_TOUCH_WAIT_2 };
 	for (const char *t : band) checkTrue(t, gfxTextW(t, 1) <= GFX_W - 2 * UI_MARGIN);
 	settings()->servoSupply = 0;
 	servoSupplyConfigure(0);
@@ -4255,6 +4284,43 @@ static void testSupplyScreenFaults() {
 	senseFrames(ina, 2);
 	checkTrue("touch back: START live, the cause kept",
 	          ctlEnabled(UI_FIX(ServoCtl::Start)) && s_st.powerFault == ServoPowerFault::TouchSilent);
+
+	// The bus stuck while the supply comes up: STOP gives way to HOLD TO
+	// START, drawn disabled, and the notes say why.
+	holdStartFrames();
+	senseFrames(ina, 2, 3.6);
+	checkTrue("coming up: STOP in red", s_st.running && supplyStarting() &&
+	          fillOf(BTN_START) == C_RED);
+	fakeI2cHoldSda(true);
+	senseFrames(ina, 2, 3.6);
+	checkTrue("SDA held while coming up: off, STOP gone, HOLD TO START disabled",
+	          !s_st.running && !fakePin(28).high && fillOf(BTN_START) == C_BG &&
+	          !ctlEnabled(UI_FIX(ServoCtl::Start)));
+	fakeI2cHoldSda(false);
+	senseFrames(ina, 80);
+	checkTrue("freed", s_st.startBlock == ServoStartBlock::None);
+
+	// START refused with no trip: the notes name the block.
+	fakeI2cHoldSda(true);
+	senseFrames(ina, 2);
+	s_st.tripped = false;   // as after a new visit: the block alone
+	s_full = true;
+	drawDial();
+	checkTrue("SAFE, bus stuck: START WAITS: THE I2C BUS IS STUCK.",
+	          s_st.startBlock == ServoStartBlock::BusStuck &&
+	          notesAre(SERVO_UI_BUS_WAIT_1, C_AMBER, SERVO_UI_BUS_WAIT_2, C_DIM));
+	fakeI2cHoldSda(false);
+	senseFrames(ina, 80);
+	fakeTouchAnswers(false);
+	senseFrames(ina, 11);
+	s_st.tripped = false;
+	s_full = true;
+	drawDial();
+	checkTrue("SAFE, touch silent: START WAITS: TOUCH DOES NOT ANSWER.",
+	          s_st.startBlock == ServoStartBlock::TouchSilent &&
+	          notesAre(SERVO_UI_TOUCH_WAIT_1, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+	fakeTouchAnswers(true);
+	senseFrames(ina, 2);
 
 	// The shared bus stuck while the supply is on.
 	holdStartFrames();

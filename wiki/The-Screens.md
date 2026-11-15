@@ -446,9 +446,9 @@ touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 off at `STOP`, at a stall and at `BACK`. The strip's second line says where
 it is, in amber: `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`,
 `GP28 SUPPLY ON`, or `GP28 SUPPLY NOT OFF` when the current sensor still
-reads more than 2.5 V 2 s after the switch-off. `SET` opens the profile and sweep settings;
-its `BACK` with a change waiting for `HOLD TO APPLY` warns first,
-`1 CHANGE NOT APPLIED.`
+reads more than 2.5 V 2 s after the switch-off. `SET` opens the profile and
+sweep settings; its `BACK` with a change waiting for `HOLD TO APPLY` warns
+first, `1 CHANGE NOT APPLIED.`
 `BACK` opens the leave page at `1 UNPLUG THE SERVO.` before the ESC driver
 takes the pins back; `BACK TO SERVO` returns to the tester, and
 `RESTART DSHOT` returns to `MENU`. With CURRENT SENSE at `INA219` the

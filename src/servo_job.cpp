@@ -146,9 +146,14 @@ static bool sensed(const ServoPowerIn *in) {
 	return in->sample.state != (uint8_t)SenseState::None;
 }
 
-/** @brief A fresh reading of @p in taken after @p sinceMs, across a wrap. */
+/**
+ * @brief A fresh reading of @p in taken more than @ref SUPPLY_READ_LAG_MS
+ *        after @p sinceMs, across a wrap: one that cannot carry the voltage
+ *        from before the switch command.
+ */
 static bool readingAfter(const ServoPowerIn *in, uint32_t sinceMs, uint32_t nowMs) {
-	return senseFresh(&in->sample, nowMs) && (int32_t)(in->sample.takenMs - sinceMs) > 0;
+	return senseFresh(&in->sample, nowMs) &&
+	       (int32_t)(in->sample.takenMs - sinceMs) > (int32_t)SUPPLY_READ_LAG_MS;
 }
 
 ServoStartBlock servoPowerStartBlock(const ServoPower *p, const ServoPowerIn *in) {

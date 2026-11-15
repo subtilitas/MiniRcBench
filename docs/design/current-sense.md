@@ -12,13 +12,13 @@ is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V boost
 board the owner modelled names no chip, and the owner does not know it, so its
 ratings come only from bench tests B6 and B7. Slices 4 to 6 wait on being built
 and on that module; the protection section is to be redesigned for the
-decisions. Slice 3 relies on no rating of the module: its 500 ms start-up
-limit is this note's value until B6. The settings carry-over of decision 14 is built and host-tested. No
-INA219 has been on the board's bus, and no boost converter has been on GP28 or
-GP29: every figure below is from a datasheet, from rcbench's records or
-computed, and the ones that are not known are stated as unknown. The slices are
-at the end ([slices](#slices)); each builds, passes the host suite and merges
-alone.
+decisions. Slice 3 relies on no rating of the module: its 500 ms start-up limit
+is this note's value until B6. The settings carry-over of decision 14 is built
+and host-tested. No INA219 has been on the board's bus, and no boost
+converter has been on GP28 or GP29: every figure below is from a datasheet,
+from rcbench's records or computed, and the ones that are not known are
+stated as unknown. The slices are at the end ([slices](#slices)); each builds,
+passes the host suite and merges alone.
 
 Terms: INA219 is Texas Instruments' (TI) current and power monitor with an
 I2C (Inter-Integrated Circuit) interface; SDA is the I2C serial data line
@@ -1051,8 +1051,8 @@ bench tests B1 to B13, follows slice 3 and is no slice of its own.
   the supply line of its strip), so a title naming it would show a wiring
   that leaves its servo unpowered. Slice 3 changes both. The Setup row for
   the converter names KST and Hitec programming for the same reason.
-  Changed in slice 3: the panel title names the servo tester, the note says
-  when EN is high in each tool, and the Setup rows name the servo tester.
+  With slice 3 the panel title names the servo tester, the note says when
+  EN is high in each tool, and the Setup rows name the servo tester.
 - **Documents.** README.md: the pin sketch with `^`, the wiring table's
   part C, the script's checks, "Switched supply (optional)" with the
   boost, the cell, the sensor and the unnamed module, and a pointer from
@@ -1094,8 +1094,9 @@ before.
   converter's pull-down holds EN low until the job's bind.
 - **On.** START switches on in the pass that takes it. The pulses stay at
   level 0, both outputs held at CENTRE and a sweep ended, until the supply
-  is up: with a sensor, the first fresh reading taken after the switch-on's
-  millisecond at or above `SUPPLY_ON_MIN_MV`, 4500 mV, whose age at the
+  is up: with a sensor, the first fresh reading taken more than
+  `SUPPLY_READ_LAG_MS`, 18 ms, after the switch-on at or above
+  `SUPPLY_ON_MIN_MV`, 4500 mV, whose age at the
   switch-on is the start-up time (`ServoStatus::upMs`); without one,
   `SUPPLY_START_MAX_MS`, 500 ms, after the switch-on. With a sensor and no
   such reading by 500 ms the pulses end, the supply goes off and the fault
@@ -1108,7 +1109,7 @@ before.
   online: absent, another part, not probed yet, or offline
   (`servoPowerStartBlock()`).
 - **The read-back after a switch-off,** with a sensor: Off at the first
-  fresh reading taken after the switch-off's millisecond at or below
+  fresh reading taken more than 18 ms after the switch-off at or below
   `SUPPLY_OFF_MAX_MV`, 1000 mV; NotOff at a reading above
   `SUPPLY_NOT_OFF_MV`, 2500 mV, taken `SUPPLY_NOT_OFF_MS`, 2000 ms, or more
   after it, until a reading at or below 1000 mV. A warning only. The
@@ -1145,9 +1146,12 @@ before.
   trip: the chip reads SAFE, and the note stays until START or a new visit.
   The touch and bus cuts apply with the switch only, as the table of
   [safety and interlocks](#safety-and-interlocks) is headed; with `OWN`
-  neither stops the pulses. A reading
-  counts only when taken after the switch command's millisecond, so a
-  reading of the decaying output before the command never ends a start.
+  neither stops the pulses. `SenseSample::takenMs` is when core0 read the
+  result, not when the INA219 measured it: the bus sample of a reading is
+  up to one conversion cycle, 17.55 ms, older than the read. A reading
+  therefore counts for the read-back only when taken more than
+  `SUPPLY_READ_LAG_MS`, 18 ms, after the switch command, so the output's
+  voltage from before the command never ends a start or a switch-off.
   Unlike KST's close rule there is no 2000 ms off wait before DShot: the
   table above gives BACK the quiet wait alone.
 - **Tests.** In `test/test_servo.cpp`: the rules alone

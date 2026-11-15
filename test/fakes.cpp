@@ -81,6 +81,8 @@ uint16_t fakeAdcDefault() { return (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f); }
 //     Nothing here models a counter or an edge: a level is what the compare
 //     register was last set to ---
 static FakePin   g_pins[FAKE_GPIOS];
+/** @brief Counts every pin write the order stamps of FakePin record; never reset. */
+static uint32_t  g_pinSeq = 0;
 static FakeSlice g_slices[FAKE_SLICES];
 static bool      g_sliceMapBroken = false;
 
@@ -183,6 +185,7 @@ void pwm_set_enabled(unsigned slice, bool on) {
 }
 void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].levelAt = ++g_pinSeq;
 	g_pins[gpio].level = level;
 	g_pins[gpio].levelWrites++;
 	logWrite(gpio, time_us_64(), level);
@@ -190,6 +193,7 @@ void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
+	g_pins[gpio].functionAt = ++g_pinSeq;
 	g_pins[gpio].function = (int)fn;
 	// As the SDK does: selecting a function turns the pad's input on, and
 	// writes the whole control register, which zeroes the overrides.
@@ -204,6 +208,7 @@ extern "C" void gpio_set_inover(unsigned gpio, unsigned value) {
 extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (out && !g_pins[gpio].output && g_pins[gpio].high) g_pins[gpio].highEnables++;
+	g_pins[gpio].dirAt = ++g_pinSeq;
 	g_pins[gpio].output = out != 0;
 	fakeI2cPinDir(gpio, out != 0);
 }
@@ -220,6 +225,7 @@ extern "C" void gpio_put(uint32_t gpio, int value) {
 	if (gpio >= FAKE_GPIOS) return;
 	g_pins[gpio].high = value != 0;
 	g_pins[gpio].puts++;
+	g_pins[gpio].putAt = ++g_pinSeq;
 }
 extern "C" void gpio_set_input_enabled(uint32_t gpio, bool on) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].inputOff = !on;

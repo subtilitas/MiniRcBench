@@ -486,9 +486,9 @@ Bildschirm den Wandler: ein bei `HOLD TO START`, aus bei `STOP`, bei einem
 Hänger und bei `BACK`. Die zweite Zeile der Leiste zeigt in Bernstein, wo er
 steht: `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`, `GP28 SUPPLY ON`,
 oder `GP28 SUPPLY NOT OFF`, wenn der Stromsensor 2 s nach dem Ausschalten
-noch mehr als 2,5 V misst. `SET` öffnet die Einstellungen für Profil und Sweep; sein `BACK`
-warnt bei einer Änderung, die auf `HOLD TO APPLY` wartet, zuerst:
-`1 CHANGE NOT APPLIED.` `BACK`
+noch mehr als 2,5 V misst. `SET` öffnet die Einstellungen für Profil und
+Sweep; sein `BACK` warnt bei einer Änderung, die auf `HOLD TO APPLY`
+wartet, zuerst: `1 CHANGE NOT APPLIED.` `BACK`
 öffnet die Verlassenseite bei `1 UNPLUG THE SERVO.`, bevor der ESC-Treiber
 die Pins zurückbekommt; `BACK TO SERVO` führt zum Tester zurück, und
 `RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219`
