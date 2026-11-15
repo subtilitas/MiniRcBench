@@ -136,17 +136,17 @@ protocol.
   `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, `LATE` or `UNSEEN` in the time's
   place, `--` for a figure whose conditions do not hold; before the first
   step after START, the supply's start-up time. With CURRENT SENSE at NONE
-  nothing is timed. A step is timed 500 ms after the servo came to rest:
-  the last timed move's arrival or the end of a late or unseen move's
-  window, or 3061 ms after any other change of the pulse. The time is an
-  upper bound on when the current shows the arrival, by up to 61 ms of the
-  sensor's lag, one read and two conversion cycles, and a PWM frame; a
-  servo easing its drive near the target can show the arrival before the
-  horn stops. The timing changes no pulse and no cut. Host tests in
+  nothing is timed, and a move under way when it turns NONE is void as lost
+  (not reachable through the screens). A step is timed 500 ms after the servo
+  came to rest: the last timed move's arrival or the end of a late or unseen
+  move's window, or 3061 ms after any other change of the pulse. The time is
+  an upper bound on when the current shows the arrival, by up to 61 ms of the
+  sensor's lag, one read and two conversion cycles, and a PWM frame; a servo
+  easing its drive near the target can show the arrival before the horn stops.
+  The timing changes no pulse and no cut. Host tests in
   `test/test_move_timer.cpp` and `test/test_servo.cpp`, against rcbench's
-  servo model too, mutation-checked;
-  README and the wiki pages Servo-Tester and Servotester describe it. Not
-  tested on hardware.
+  servo model too, mutation-checked; README and the wiki pages Servo-Tester
+  and Servotester describe it. Not tested on hardware.
 - After v0.1.0-rc1: a Bluejay or BLHeli_S ESC's settings are written, slice 4
   of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-4-as-built).
   On Bluejay 208 and BLHeli_S 33 the list edits the fields rcbench's map lets

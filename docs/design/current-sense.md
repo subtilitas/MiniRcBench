@@ -1414,8 +1414,14 @@ timed and SET shows what it showed before.
   reading comes for `SENSE_STALE_MS`, 250 ms, counted from the command at
   the earliest; a hold under way is then not shown. A bind voids a move
   under way; a profile's rebind and a new screen session drop the result.
-  With CURRENT SENSE at `NONE` no step is timed, a move or hold under way
-  ends, and the result stays as it is.
+  With CURRENT SENSE at `NONE` no step is timed and a step leaves the result
+  as it is; the stale rule voids a move under way as lost and does not show
+  a hold under way, because `NONE` is not `Online`. The mode changes at boot
+  (`senseInit()`) and in SETTINGS (`applyLive()` in `src/ui_settings.cpp`).
+  SETTINGS opens only after SERVO is left, and the job's release passes no
+  pulses (`servoJobRelease()`), which voids a move as ended; opening SERVO
+  starts a new session (`servoJobNewSession()`). The case is not reachable
+  through the screens; the stale rule covers it.
 - **The screen.** SERVO SET's note band, second line, in `C_DIM`, when the
   line is free (`moveNote()`): `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`,
   `MOVE LATE  ...`, `MOVE UNSEEN  ...`, and `--` for each figure not shown,
@@ -1466,7 +1472,9 @@ timed and SET shows what it showed before.
   from the command; CURRENT SENSE at `NONE`; clipped readings high and low;
   a negative peak; readings seen twice, stale, not online, and taken 8 ms
   before core1's pass, which count at their time taken; a bind; the line's
-  texts, rounding and width.
+  texts, rounding and width; a hold closed by the reading taken 502 ms
+  after the arrival, passed 8 ms later, which a hold counted from core1's
+  pass does not close; NONE during a move, void as lost with dashes.
   `test/test_servo.cpp`: `testJobMoveTiming()` through the job table on the
   fake INA219 on its conversion clock, each reading the mean of rcbench's
   servo model over the 17.02 ms shunt conversion, 0.95 A moving at 1.2 µs a
@@ -1483,16 +1491,21 @@ timed and SET shows what it showed before.
   `testMoveScreen()`, on the same model: SET's line through the screen,
   the start-up time before the first step, the line while running and kept
   while SAFE, gone at a profile's rebind, under a two-line note, gone at
-  START, dashes for a step too soon; the
+  START, dashes for a step too soon; `testMoveScreenNone()`: with CURRENT
+  SENSE at `NONE` two steps leave SET's second line free, no move and no
+  dashes; the
   frame `shot_servo_set_move.ppm`. rcbench's `test_servo_move.c` runs as a
-  C11 program. Mutation check: 101 mutants of `src/move_timer.cpp`, the
-  timing's lines of `src/servo_job.cpp` and of `src/ui_servo.cpp`, among
-  them each use of a reading's `takenMs` replaced by the pass's time; 99
-  fail the suite, 2 do not, both equivalent: `< 0` for `<= 0` where the hold
-  skips a reading taken in the arrival's millisecond, which core0's one
-  read a frame never gives; `>= 0` for `> 0` where the stale rule takes the
-  later of the command and the newest reading, the same time either way
-  when they are equal.
+  C11 program. Mutation check: 100 mutants of `src/move_timer.cpp`, the
+  timing's lines of `src/servo_job.cpp` and of `src/ui_servo.cpp`, run one
+  at a time against the whole suite: each use of a reading's `takenMs`
+  replaced by the pass's time (the ring, the move's sample, `finish()`, the
+  hold), `sensed` dropped from the slewed-step test and from the step test,
+  and the stale rule without its `Online` test, which is what voids a move
+  at `NONE`; 98 fail the suite, 2 do not, both equivalent: #43, `< 0` for
+  `<= 0` where the hold skips a reading taken in the arrival's millisecond,
+  which core0's one read a frame never gives; #61, `>= 0` for `> 0` where
+  the stale rule takes the later of the command and the newest reading, the
+  same time either way when they are equal.
 - **Not on hardware.** No INA219 and no converter has been on the board:
   how far the time lies from the horn's arrival, against a scope on SIG and
   on the current beside rcbench's record of an MG90S, is bench test B10;
