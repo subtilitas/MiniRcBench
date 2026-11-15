@@ -57,8 +57,8 @@ or `CLOCK` in place of `PIO`, and `RETRY` appears:
 
 - `PIO` (programmable I/O): no PIO block has room for the line's transmitter
   and receiver;
-- `CLOCK`: `clk_sys` is too slow for the line's rate;
-- `REFUSED`: core1 refused the job.
+- `CLOCK`: the system clock (`clk_sys`) is too slow for the line's rate;
+- `REFUSED`: the board's second core did not take the job.
 
 `RETRY` tries again. `BACK` goes straight to `MENU`, with no leave page, while
 DShot stops and after a failed bind: the bridge never took the line.
