@@ -144,7 +144,6 @@ static void endSession() {
 	s_dropRx = s_mode == BridgeMode::Msp || s_mode == BridgeMode::FourWay;
 	s_mode = BridgeMode::Waiting;
 	s_afterSetBuffer = false;
-	bridge4wayAbort();
 	bridge4wayReset();
 	bridgeMspReset(&s_msp);
 	bridge4wayReaderReset(&s_4w);

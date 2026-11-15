@@ -2,31 +2,39 @@
 
 # USB-Brücke
 
-`MENU → ESC CONFIG → USB BRIDGE` macht die Platine zu einem
-USB-Seriell-Adapter am Signaldraht des ESC. Ein ESC-Programm auf deinem
-Computer öffnet den seriellen Anschluss der Platine und spricht durch ihn mit
-dem Bootloader des ESC, mit 19200 Baud, wie durch einen Adapter mit
-verbundenem TX und RX: Jedes Byte des Programms geht an den ESC, und jedes
-Byte auf dem Draht, das Echo der eigenen Bytes eingeschlossen, kommt an das
-Programm zurück.
+`MENU → ESC CONFIG → USB BRIDGE` lässt ein ESC-Programm auf deinem
+Computer über den seriellen Anschluss der Platine den Bootloader des ESC am
+Signaldraht erreichen. Die Platine arbeitet auf eine von zwei Arten, die das
+erste Byte des Programms wählt:
+
+- **Durchreichen (Passthrough):** ein USB-Seriell-Adapter mit verbundenem
+  TX und RX, mit 19200 Baud. Jedes Byte des Programms geht an den ESC, und
+  jedes Byte auf dem Draht, das Echo der eigenen Bytes eingeschlossen,
+  kommt an das Programm zurück.
+- **4-Way-Schnittstelle:** Die Platine antwortet wie ein Flugcontroller mit
+  einem ESC. Sie beantwortet die MSP-Fragen (MultiWii Serial Protocol) des
+  Programms und führt dann BLHelis 4-Way-Schnittstelle aus: Jede Anfrage
+  des Programms wird zu Befehlen des Bootloaders auf dem Signaldraht, und
+  die Antwort geht zurück.
 
 Nicht auf Hardware getestet: Noch kein Byte der Brücke ging von dieser
 Platine an einen ESC, und noch kein Programm auf dem Computer lief damit.
 
-<img src="img/bridge-waiting.png" width="240" alt="USB BRIDGE wartet: SIG GP0 19200 8N1, PORT CLOSED, MODE WAITING, beide Zähler bei 0 B, die sechs Zeilen"> <img src="img/bridge-passthrough.png" width="240" alt="USB BRIDGE nach einem Frame: PORT OPEN, PASSTHROUGH, 6 B und 7 B, FRAMES 1 LOST 0, LAST SET ADDRESS 7E00">
+<img src="img/bridge-waiting.png" width="240" alt="USB BRIDGE wartet: SIG GP0 19200 8N1, PORT CLOSED, MODE WAITING, beide Zähler bei 0 B, die sechs Zeilen"> <img src="img/bridge-passthrough.png" width="240" alt="USB BRIDGE nach einem Frame: PORT OPEN, PASSTHROUGH, 6 B und 7 B, FRAMES 1 LOST 0, LAST SET ADDRESS 7E00"> <img src="img/bridge-4way.png" width="240" alt="USB BRIDGE in der 4-Way-Schnittstelle: 4-WAY INTERFACE, LAST MSP SET MOTOR, MOTOR COMMAND FROM THE PC REFUSED. in Bernstein">
 
 ---
 
 ## Welche Programme
 
-- **Geht, der Auslegung nach:** ein Programm, das die Frames des
+- **Durchreichen, der Auslegung nach:** ein Programm, das die Frames des
   Bootloaders selbst spricht und das Echo erwartet: der AM32-Konfigurator
   mit angehaktem **Direct**.
-- **Noch nicht:** ESC-Configurator und der AM32-Konfigurator ohne Direct.
-  Sie sprechen MSP (MultiWii Serial Protocol) und die 4-Way-Schnittstelle
-  von Flugcontrollern, auf die die Platine noch nicht antwortet. Sie
-  bekommen ihre eigenen Bytes zurück und keine Antwort.
+- **4-Way-Schnittstelle, der Auslegung nach:** ESC-Configurator, für
+  Bluejay-, BLHeli_S- und AM32-ESCs, und der AM32-Konfigurator ohne
+  Direct.
 - **Nicht geprüft:** BLHeliSuite.
+
+Die Platine erkennt die Art am ersten Byte des Programms; du wählst nichts.
 
 ---
 
@@ -60,14 +68,22 @@ Auswerfen startet sie.
 | Zeile | Bedeutung |
 |---|---|
 | `PORT OPEN`, `PORT CLOSED` | Ob das Programm den Anschluss offen hat |
-| `WAITING`, `PASSTHROUGH` | Warten auf das erste Byte des Programms, oder Bytes durchreichen. 2 s ohne Byte, oder das Programm schließt den Anschluss: zurück zu `WAITING` |
-| `PC > ESC`, `ESC > PC` | Bytes in jede Richtung; `ESC > PC` enthält das Echo |
-| `FRAMES`, `LOST` | Frames vom Programm; Bytes, die die Platine nicht halten konnte, über 0 in Bernstein |
-| `LAST SET ADDRESS 7E00` | Der Befehl des letzten Frames, wie der Bootloader ihn nennt |
+| `WAITING`, `PASSTHROUGH`, `4-WAY INTERFACE` | Warten auf das erste Byte des Programms, Bytes durchreichen, oder als Flugcontroller antworten. Beim Durchreichen führen 2 s ohne Byte, oder das Programm schließt den Anschluss, zurück zu `WAITING`; die 4-Way-Schnittstelle bleibt, bis das Programm trennt oder den Anschluss schließt |
+| `PC > ESC`, `ESC > PC` | Bytes in jede Richtung; beim Durchreichen enthält `ESC > PC` das Echo, in der 4-Way-Schnittstelle zählt es die Antworten der Platine |
+| `FRAMES`, `LOST` | Frames an den ESC; Bytes, die die Platine nicht halten konnte, über 0 in Bernstein |
+| `LAST SET ADDRESS 7E00` | Der letzte Befehl: wie der Bootloader ihn nennt, `LAST MSP UID` für eine MSP-Frage, `LAST READ 7C00` für eine 4-Way-Anfrage |
 
 `THE PC CLOSED THE PORT.` erscheint, nachdem das Programm den Anschluss
 geschlossen hat. `BYTES LOST: THE BRIDGE FELL BEHIND.` erscheint, sobald ein
 Byte verloren ging; den ESC im Programm neu lesen.
+`MOTOR COMMAND FROM THE PC REFUSED.` (Motorbefehl vom PC abgelehnt)
+erscheint für 5 s, wenn der Motor-Reiter des Programms den Motor drehen
+will: Die Platine tut das nie.
+
+Eine Einstellungsseite eines AM32-ESC, die das Programm liest oder
+schreibt, setzt den Hinweis `3D MODE ESC` des Testers wie ESC SETTINGS:
+an nach dem Lesen oder Schreiben von eingeschaltetem 3D-Modus, aus nach dem
+Lesen von ausgeschaltetem.
 
 ---
 
@@ -78,6 +94,7 @@ Byte verloren ging; den ESC im Programm neu lesen.
 Während der ESC seinen Flash schreibt oder löscht, zeigt die erste Zeile
 `WRITING: DO NOT UNPLUG ESC OR USB.` (schreibt: ESC und USB nicht
 abziehen), und `BACK` ist grau, bis der ESC antwortet oder 3 s vergehen.
+Das gilt für beide Arten.
 
 `BACK` sendet nichts an den ESC. Was danach geschieht, hängt von der
 Sitzung ab:
@@ -89,6 +106,8 @@ ESC ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s nach dem Öffnen
 der Seite. `BRIDGE` führt stattdessen zur Brücke zurück. Nach einem
 Schreiben ohne anschließenden Start der Firmware zeigt die Seite zusätzlich
 `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu flashen).
+In der 4-Way-Schnittstelle zählt nur das Zurücksetzen des ESC durch das
+Programm als dieser Start, nicht sein Trennen.
 
 MENU zeigt `POWER-CYCLE THE ESC TO RUN IT` (den ESC aus- und einschalten,
 damit er läuft), nachdem die Brücke lief, bis DShot von der Verlassenseite
@@ -106,6 +125,8 @@ ESC ausschalten, bevor das Kabel wieder eingesteckt wird, dann neu flashen.
 
 - Dass irgendein Programm auf dem Computer durch die Platine arbeitet.
 - Dass jedes Programm einen offenen Anschluss meldet (`PORT OPEN`).
+- Dass ESC-Configurator und der AM32-Konfigurator die Antworten der
+  Platine als die eines Flugcontrollers annehmen.
 - Dass die Platine die Antwort des ESC auf dem Signaldraht hört, und das
   Timing des Echos.
 - Was ein ESC nach einem abgebrochenen Flashen mit DShot macht.

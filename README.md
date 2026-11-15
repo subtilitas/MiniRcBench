@@ -83,10 +83,10 @@ ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 interface of flight controllers, is designed in `docs/design/usb-bridge.md`;
 the owner answered its questions on 2026-11-15. It
 is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`. Its
-slices 1 and 2 are built, tested on the host only: its pin user, its core1
-job and its line, two PIO state machines on SIG, and passthrough with the
-screen `USB BRIDGE`, see [USB bridge](#usb-bridge). MSP and the 4-way
-interface are its slice 3, not built.
+slices 1 to 3 are built, tested on the host only: its pin user, its core1
+job and its line, two PIO state machines on SIG, passthrough with the
+screen `USB BRIDGE`, and MSP with the 4-way interface, see
+[USB bridge](#usb-bridge).
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
 module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
@@ -1424,7 +1424,7 @@ MENU's second row, **ESC CONFIG**, opens a chooser
 (`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
 scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
 `BLUEJAY, BLHELI_S: READ AND WRITTEN.`, and `USB BRIDGE` (118 px) with
-`A DESKTOP ESC TOOL OVER USB.` and `PASSTHROUGH: AM32 DIRECT MODE.` under
+`A DESKTOP ESC TOOL OVER USB.` and `MSP, 4-WAY AND PASSTHROUGH.` under
 it ([USB bridge](#usb-bridge)). The strip reads `SIG GP0`. The chooser
 claims nothing; the tap on an entry claims SIG. Its BACK, and the tools'
 BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
@@ -2799,23 +2799,25 @@ Not verified:
 **MENU → ESC CONFIG → USB BRIDGE** lets a desktop ESC tool on the board's
 USB serial port reach the ESC's bootloader on SIG at 19200 baud 8N1
 (eight data bits, no parity, one stop bit). The board is then a USB-serial
-adapter whose TX and RX are joined on the ESC's signal wire: every byte
-the PC sends goes to the wire, and every byte on the wire, the echo of the
-PC's own included, goes back to the PC. It ports DshotDisplay's bridge.
-Slice 2 of `docs/design/usb-bridge.md`; host tests only. No byte of it has
+adapter whose TX and RX are joined on the ESC's signal wire, or a flight
+controller with one ESC that answers MSP (the MultiWii Serial Protocol)
+and runs the 4-way interface. In passthrough every byte the PC sends goes
+to the wire, and every byte on the wire, the echo of the PC's own
+included, goes back to the PC; it ports DshotDisplay's bridge. Slices 2
+and 3 of `docs/design/usb-bridge.md`; host tests only. No byte of it has
 gone to an ESC from this board, and no desktop tool has been run against
 it.
 
 ![USB bridge](docs/bridge-preview.png)
 
-**Which tools.** Passthrough serves a tool that speaks the bootloader's
-frames itself and expects the echo: the AM32 configurator with Direct
-ticked, and the Python AM32 configurator DshotDisplay's bridge was written
-for. ESC-Configurator and the AM32 configurator's default speak MSP (the
-MultiWii Serial Protocol) and the 4-way interface of flight controllers;
-they need slice 3, not built. Slice 2 passes their bytes to the wire too,
-as a USB-serial adapter would, and they get their own bytes back and no
-answer. Which of BLHeliSuite's interfaces work is not verified.
+**Which tools.** The PC's first byte chooses the mode. Passthrough, for
+any first byte but `$` and 0x2F, serves a tool that speaks the
+bootloader's frames itself and expects the echo: the AM32 configurator
+with Direct ticked, and the Python AM32 configurator DshotDisplay's bridge
+was written for. MSP, first byte `$`, and the 4-way interface, first byte
+0x2F, serve ESC-Configurator (Bluejay, BLHeli_S, AM32) and the AM32
+configurator's default. Which of BLHeliSuite's interfaces work is not
+verified.
 
 **Wiring.** As for DShot: the ESC on SIG and GND, on its own battery. Then
 the board's USB cable to the PC. The PC sees the board's one serial port,
@@ -2834,9 +2836,13 @@ no USB interface.
   `src/usb_dev.h`), so neither the telemetry line nor any other `printf()`
   reaches the port, and drops what the PC queued before, the 64 bytes
   TinyUSB holds at most. The mode reads `WAITING` until the PC's first
-  byte, then `PASSTHROUGH`. 2000 ms with no byte either way, or the port
+  byte, then `PASSTHROUGH` or `4-WAY INTERFACE`. In passthrough and in MSP
+  before `MSP_SET_PASSTHROUGH`, 2000 ms with no byte either way, or the port
   closed by the PC (DTR, data terminal ready, falling after it was set),
-  return it to `WAITING`; the bridge forwards whether DTR is set or not.
+  return it to `WAITING`; the 4-way interface ends on `cmd_InterfaceExit`
+  or a closed port, not on a pause, and keeps its ESC across pauses. The
+  bridge forwards whether DTR is set or not. Later bytes never switch the
+  mode: a bootloader session holds 0x24 and 0x2F in its data.
 - Each PC frame is gathered until 2 ms pass with no byte, or 320 bytes are
   in, and goes to the wire back to back; the bridge never waits for the
   ESC before the next. The ring from the wire, 1024 bytes, absorbs a
@@ -2849,6 +2855,35 @@ no USB interface.
   drove the line while the bench did, as when the PC sends its next frame
   before the ESC has answered the last. The bytes reach the PC as the wire
   read them, and the session goes on.
+
+**MSP and the 4-way interface** (`src/bridge_msp.h`, `src/bridge_4way.h`).
+The board answers the MSP requests the tools make before they ask for the
+4-way interface, as a flight controller named `MRCB` with one motor, no
+battery and no receiver: `MSP_API_VERSION` (API 1.49), `MSP_FC_VARIANT`,
+`MSP_FC_VERSION`, `MSP_BOARD_INFO`, `MSP_BUILD_INFO`, `MSP_FEATURE_CONFIG`,
+`MSP_STATUS` (RX_FAILSAFE set), `MSP_MOTOR`, `MSP_MOTOR_CONFIG`,
+`MSP_BATTERY_STATE`, `MSP_UID` and `MSP_SET_PASSTHROUGH`, whose answer 1
+starts the 4-way interface. Every other command, `MSP_SET_MOTOR` among
+them, is answered `$M!`; a motor command shows `MOTOR COMMAND FROM THE PC
+REFUSED.` for 5 s. In the 4-way interface each frame from the PC is checked
+whole, its CRC (cyclic redundancy check) included, before anything goes to
+the wire, then turned into the bootloader's frames on SIG: the greeting,
+SET ADDRESS, READ, SET BUFFER with 4 ms of quiet line before its data,
+PROGRAM, ERASE, VERIFY, the keep-alive and RUN, built by rcbench's escwire
+code. The answer waits are escwire's: SET ADDRESS 4 ms, READ 80 ms and
+2 ms a byte, PROGRAM 500 ms, ERASE 3000 ms. The interface mode comes from
+the bootloader's signature: SiLabs (Bluejay, BLHeli_S) or ARM (AM32,
+BLHeli_32). The ESC on SIG is ESC 0; a command for any other answers
+`ACK_I_INVALID_CHANNEL`, and Atmel and C2 commands `ACK_I_INVALID_CMD`.
+A frame with a wrong CRC is answered `ACK_I_INVALID_CRC`, and a frame left
+unfinished for 50 ms is dropped; neither reaches the wire. The counters
+then count the bytes sent on SIG and the bytes of the answers to the PC.
+
+**The 3D note.** Both modes read byte 0x12 of an AM32 settings page they
+carry, by item 24's rule: a read of the page sets or clears the tester's
+`3D MODE ESC` note, a write with 3D on that the bootloader accepts sets
+it. The page's address comes from the AM32 family in the greeting's
+answer, or in the 4-way interface's signature: 0x7C00, 0x7E00 or 0xF800.
 
 **The screen.** The strip reads `SIG GP0  19200 8N1` and a chip,
 `PORT OPEN` on lime while DTR is set, `PORT CLOSED` on grey otherwise.
@@ -2863,7 +2898,10 @@ FELL BEHIND.`, amber, the second once a byte is lost. A failed bind reads
 `SIG GP0 COULD NOT BE TAKEN (PIO)` with RETRY under it.
 
 **Writes and BACK.** PROGRAM, ERASE and a SET BUFFER payload are
-write-class.
+write-class, in passthrough as frames from the PC, in the 4-way interface
+as the frames its Write and PageErase send; there a write waits until the
+4-way command's answer, and only `cmd_DeviceReset`'s RUN ends the
+unfinished write, not `cmd_InterfaceExit`.
 
 | When | BACK |
 |---|---|
@@ -3252,7 +3290,9 @@ src/
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
-  usb_bridge.{h,cpp}    the bridge's USB side: the port to the frame slot and the ring back
+  usb_bridge.{h,cpp}    the bridge's USB side: the port to the frame slot and the ring back, the modes
+  bridge_msp.{h,cpp}    the bridge's MSP answers, before the 4-way interface
+  bridge_4way.{h,cpp}   the bridge's 4-way interface: PC frames to escwire's bootloader frames on SIG
   bridge_log.{h,cpp}    the bridge's traffic log, a build option off by default
   ui_bridge.{h,cpp}     USB BRIDGE: the claim, the counts, BACK's rules, the leave page
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
@@ -3592,6 +3632,11 @@ serial port with 64-byte packets and TinyUSB's buffers: DshotDisplay's
 bridge tests ported, models of the Python tool's 25 ms reads and of the
 AM32 configurator's Direct rule, the gather, the modes, the write rules
 and the console. `test/test_bridge_ui.cpp` runs USB BRIDGE through the UI.
+`test/test_bridge_proto.cpp` runs MSP and the 4-way interface against a
+model AM32 bootloader, which drops data joined to SET BUFFER's header, and
+a model BLHeli_S bootloader, with models of ESC-Configurator's and the AM32
+configurator's sequences whose MSP readers fail on a read past the end, as
+the tools' do.
 `test/test_bridge_log.cpp` is a program of its own, built with the log on.
 
 ### Continuous integration

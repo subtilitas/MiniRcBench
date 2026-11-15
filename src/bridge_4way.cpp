@@ -170,11 +170,6 @@ bool bridge4wayBusy() { return s_busy; }
 
 Bridge4wayDevice bridge4wayDevice() { return s_dev; }
 
-void bridge4wayAbort() {
-	s_busy = false;
-	s_ansLen = 0;
-}
-
 uint16_t bridge4wayTakeAnswer(uint8_t *out) {
 	uint16_t n = s_ansLen;
 	if (n) memcpy(out, s_ans, n);

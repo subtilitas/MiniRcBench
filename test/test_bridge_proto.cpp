@@ -161,6 +161,12 @@ struct ModelBl {
 	uint32_t eraseUs;        // after ERASE
 	uint32_t programUs;      // after PROGRAM
 	bool     mute;           // answers nothing
+	uint32_t dataUs;         // after the data that follow SET BUFFER
+	bool     answerHeader;   // answers SET BUFFER's header 0xC1, as to an unknown command
+	bool     badReadCrc;     // READ's CRC off by one
+	uint8_t  readAck;        // READ's last byte
+	uint8_t  greetBad;       // 1: `4x1` in place of `471`; 2: the greeting's last byte 0xC1
+	bool     refuseProgram;  // PROGRAM answered 0xC5
 	int      greetings, erases, programs, runs, keepAlives, joined, badCrc, verifies;
 };
 static ModelBl g_bl;
@@ -175,6 +181,8 @@ static void blReset(bool efm8) {
 	g_bl.delayUs = 300;
 	g_bl.eraseUs = 300;
 	g_bl.programUs = 300;
+	g_bl.dataUs = 300;
+	g_bl.readAck = 0x30;
 }
 
 /** @brief AM32 settings at 0x7C00: boot byte 1, layout 2, 14 poles; byte 0x12 the 3D mode. */
@@ -201,6 +209,8 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 		g_bl.bufWant = 0;
 		const uint8_t a[9] = {'4', '7', '1', 'd', g_bl.sigHi, g_bl.sigLo, 0x06, 0x40, 0x30};
 		memcpy(r, a, 9);
+		if (g_bl.greetBad == 1) r[1] = 'x';
+		if (g_bl.greetBad == 2) r[8] = 0xC1;
 		return 9;
 	}
 	if (g_bl.bufWant) {
@@ -216,6 +226,7 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 		if (n != want + 2 || crcArc(f, n) != 0) return blAck(r, 0xC2);
 		memcpy(g_bl.buf, f, want);
 		g_bl.bufLen = want;
+		*d = g_bl.dataUs;
 		return blAck(r, 0x30);
 	}
 	if (n < 4 || crcArc(f, n) != 0) {
@@ -231,19 +242,20 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 				g_bl.joined++;
 				return 0;
 			}
+			if (g_bl.answerHeader) return blAck(r, 0xC1);  // refused: no data expected
 			g_bl.bufWant = (f[2] << 8 | f[3]);
 			return 0;
 		case 0x03: {
 			int c = f[1] ? f[1] : 256;
 			memcpy(r, g_bl.flash + g_bl.addr, c);
-			uint16_t crc = crcArc(r, c);
+			uint16_t crc = (uint16_t)(crcArc(r, c) + (g_bl.badReadCrc ? 1 : 0));
 			r[c] = (uint8_t)crc;
 			r[c + 1] = (uint8_t)(crc >> 8);
-			r[c + 2] = 0x30;
+			r[c + 2] = g_bl.readAck;
 			return c + 3;
 		}
 		case 0x01:
-			if (!g_bl.bufLen) return blAck(r, 0xC5);
+			if (!g_bl.bufLen || g_bl.refuseProgram) return blAck(r, 0xC5);
 			memcpy(g_bl.flash + g_bl.addr, g_bl.buf, g_bl.bufLen);
 			g_bl.programs++;
 			*d = g_bl.programUs;
@@ -707,6 +719,36 @@ static void testRecovery() {
 	r = fw(B4W_EXIT);
 	run(5);
 	checkTrue("Exit alone: answered, Waiting", r.ok && r.cmd == B4W_EXIT && usbBridgeMode() == BridgeMode::Waiting);
+	// MSP first, then a 4-way frame with no MSP_SET_PASSTHROUGH: the 4-way
+	// interface, which no pause ends.
+	g_bl.inBoot = true;  // the ESC power-cycled after the RUN
+	MspReply m = msp(MSP_API_VERSION);
+	r = fwOne(B4W_INIT_FLASH, 0);
+	checkTrue("MSP, then a 4-way frame: the 4-way interface", m.ok && r.ok && r.ack == 0 &&
+	          usbBridgeMode() == BridgeMode::FourWay);
+	run(3000);
+	checkTrue("3 s later: still, the device kept", usbBridgeMode() == BridgeMode::FourWay &&
+	          bridge4wayDevice().connected);
+	// Two frames in one write: the second waits for the first's answer.
+	uint8_t two[32];
+	const uint8_t sixteen = 16;
+	int n = fwFrame(two, B4W_READ, 0x7C00, &sixteen, 1);
+	const uint8_t zero = 0;
+	n += fwFrame(two + n, B4W_TEST_ALIVE, 0, &zero, 1);
+	fakeCdcHostWrite(two, n);
+	FwReply a1 = fwRead(500);
+	FwReply a2 = fwRead(500);
+	checkTrue("two 4-way frames in one write: both answered, in order",
+	          a1.ok && a1.cmd == B4W_READ && a1.ack == 0 && a1.n == 16 && a2.ok && a2.cmd == B4W_TEST_ALIVE &&
+	          a2.ack == 0);
+	uint8_t twoMsp[12] = {'$', 'M', '<', 0, MSP_API_VERSION, MSP_API_VERSION,
+	                      '$', 'M', '<', 0, MSP_FC_VARIANT, MSP_FC_VARIANT};
+	fakeCdcHostWrite(twoMsp, 12);
+	run(20);
+	uint8_t in[64];
+	int got = fakeCdcHostRead(in, sizeof(in));
+	checkTrue("two MSP frames in one write: both answered, in order",
+	          got == 9 + 10 && in[4] == MSP_API_VERSION && in[9 + 4] == MSP_FC_VARIANT);
 	endBridge();
 }
 
@@ -744,6 +786,14 @@ static void testCommands() {
 	r = fwOne(B4W_READ, 16, 0x7C00);
 	checkTrue("Read in ARM mode before InitFlash: 0x0F, nothing sent",
 	          r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR && fakeBridgeLineWireCount() == w);
+	r = fwOne(B4W_PAGE_ERASE, 0x1F);
+	checkTrue("PageErase in ARM mode before InitFlash: 0x0F, nothing sent",
+	          r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR && fakeBridgeLineWireCount() == w);
+	uint8_t four[4] = {1, 2, 3, 4};
+	r = fw(B4W_WRITE, 0x2000, four, 4);
+	checkTrue("Write in ARM mode before InitFlash: 0x0F, nothing sent, no write",
+	          r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR && fakeBridgeLineWireCount() == w &&
+	          !usbBridgeWriteUnfinished());
 	r = fwOne(B4W_INIT_FLASH, 1);
 	checkTrue("InitFlash of ESC 1: 0x08, nothing sent", r.ok && r.ack == B4W_ACK_I_INVALID_CHANNEL &&
 	          fakeBridgeLineWireCount() == w);
@@ -794,12 +844,50 @@ static void testCommands() {
 	          r.ok && r.ack == 0 && r.addr == 0x7C00 && wireAt(w + 2) == 0x7C && wireAt(w + 3) == 0x00 &&
 	          wireAt(w + 6) == 0x02 && wireAt(w + 7) == 0x01 && g_bl.erases == 1);
 	checkTrue("an erase: unfinished", usbBridgeWriteUnfinished());
+	g_bl.badReadCrc = true;
+	r = fwOne(B4W_READ, 16, 0x2000);
+	checkTrue("a READ answer whose CRC does not fit: 0x0F", r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR && r.n == 1);
+	g_bl.badReadCrc = false;
+	g_bl.readAck = 0xC2;
+	r = fwOne(B4W_READ, 16, 0x2000);
+	checkTrue("one that does not end in 0x30: 0x0F", r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR);
+	g_bl.readAck = 0x30;
+	g_bl.answerHeader = true;
+	int programs = g_bl.programs;
+	w = fakeBridgeLineWireCount();
+	r = fw(B4W_WRITE, 0x2000, data, 4);
+	checkTrue("SET BUFFER's header answered: 0x0F, no data, no PROGRAM", r.ok &&
+	          r.ack == B4W_ACK_D_GENERAL_ERROR && g_bl.programs == programs &&
+	          fakeBridgeLineWireCount() == w + 12);
+	g_bl.answerHeader = false;
+	// A lost echo: the frame counts as out by its length and 20 ms.
+	w = fakeBridgeLineWireCount();
+	fakeBridgeLineDropEcho(w + 1);
+	r = fw(B4W_TEST_ALIVE);
+	checkTrue("the keep-alive's second echo lost: answered all the same", r.ok && r.ack == 0);
+	// RUN has no answer: with an echo lost it counts as out by its length.
+	w = fakeBridgeLineWireCount();
+	fakeBridgeLineDropEcho(w + 3);
+	r = fwOne(B4W_RESET, 0);
+	checkTrue("RUN's last echo lost: Reset answered", r.ok && r.ack == 0 && g_bl.runs == 1);
+	g_bl.inBoot = true;
+	r = fwOne(B4W_INIT_FLASH, 0);
+	checkTrue("power-cycled: InitFlash", r.ok && r.ack == 0);
 	g_bl.addr = 0x1234;
 	g_bl.mute = true;
 	r = fwOne(B4W_INIT_FLASH, 0, 0, 2000);
 	checkTrue("InitFlash with no answer: 3 greetings, 0x0F, 4 bytes of 0, no device",
 	          r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR && r.n == 4 && r.par[3] == 0 && !bridge4wayDevice().connected);
 	g_bl.mute = false;
+	g_bl.greetBad = 1;
+	r = fwOne(B4W_INIT_FLASH, 0);
+	checkTrue("an answer starting `4x1`: no device", r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR &&
+	          !bridge4wayDevice().connected);
+	g_bl.greetBad = 2;
+	r = fwOne(B4W_INIT_FLASH, 0);
+	checkTrue("one ending in 0xC1: no device", r.ok && r.ack == B4W_ACK_D_GENERAL_ERROR &&
+	          !bridge4wayDevice().connected);
+	g_bl.greetBad = 0;
 	checkInt("no byte outside the claim", g_stray, 0);
 	endBridge();
 }
@@ -982,6 +1070,33 @@ static void testWriteRules() {
 	r = fwOne(B4W_RESET, 0);
 	checkTrue("Reset's RUN: finished", !usbBridgeWriteUnfinished());
 
+	// The data after SET BUFFER are write-class themselves.
+	g_bl.inBoot = true;
+	fwOne(B4W_INIT_FLASH, 0);
+	g_bl.dataUs = 60000;
+	int programs = g_bl.programs;
+	fakeCdcHostWrite(f, n);
+	bool dataWait = false;
+	for (int i = 0; i < 4 * 50; i++) {
+		pass();
+		dataWait |= usbBridgeWriteWaiting() && g_bl.programs == programs;
+	}
+	checkTrue("BACK disabled from the data's handover, before PROGRAM", dataWait && usbBridgeWriteUnfinished());
+	r = fwRead(1000);
+	g_bl.dataUs = 300;
+	fwOne(B4W_RESET, 0);
+	// ERASE is write-class.
+	g_bl.inBoot = true;
+	fwOne(B4W_INIT_FLASH, 0);
+	g_bl.eraseUs = 200000;
+	fakeCdcHostWrite(f, fwFrame(f, B4W_PAGE_ERASE, 0, (const uint8_t *)"\x08", 1));
+	run(100);
+	checkTrue("an ERASE under way: BACK disabled, unfinished", usbBridgeWriteWaiting() && usbBridgeWriteUnfinished());
+	r = fwRead(1000);
+	checkTrue("its answer: BACK live", r.ok && r.ack == 0 && !usbBridgeWriteWaiting());
+	g_bl.eraseUs = 300;
+	n = fwFrame(f, B4W_WRITE, 0x3000, data, 16);
+
 	// The port closed during a write: the claim kept, nothing more sent.
 	g_bl.inBoot = true;  // the ESC power-cycled into its bootloader
 	r = fwOne(B4W_INIT_FLASH, 0);
@@ -1145,6 +1260,31 @@ static void testPassthrough3d() {
 	run(30);
 	checkTrue("a PROGRAM not answered: no note", !esc3dNote());
 	g_bl.mute = false;
+	g_bl.refuseProgram = true;
+	fakeCdcHostWrite(sb, 6);
+	run(30);
+	fakeCdcHostWrite(page, sizeof(page));
+	run(60);
+	fakeCdcHostWrite(pg, 4);
+	run(30);
+	checkTrue("a PROGRAM answered 0xC5: no note", !esc3dNote());
+	g_bl.refuseProgram = false;
+	page[0x31] ^= 0x01;  // the payload's CRC wrong
+	fakeCdcHostWrite(sb, 6);
+	run(30);
+	fakeCdcHostWrite(page, sizeof(page));
+	run(60);
+	fakeCdcHostWrite(pg, 4);
+	run(30);
+	checkTrue("a payload whose CRC does not fit, its PROGRAM answered 0x30: no note", !esc3dNote());
+	page[0x31] ^= 0x01;
+	g_bl.badReadCrc = true;
+	fakeCdcHostWrite(sa, 6);
+	run(30);
+	fakeCdcHostWrite(rd, 4);
+	run(200);
+	checkTrue("a READ answer whose CRC does not fit, 3D on: no note", !esc3dNote());
+	g_bl.badReadCrc = false;
 	endBridge();
 
 	// An EFM8 greeting answer: no AM32 settings page.

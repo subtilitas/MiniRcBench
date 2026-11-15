@@ -205,7 +205,12 @@ Bridge4wayFeed bridge4wayFeed(Bridge4wayReader *r, uint8_t b);
  */
 uint16_t bridge4wayCrcAnswer(const Bridge4wayReader *r, uint8_t *out);
 
-/** @brief No device, no command, the interface mode 0: the 4-way interface left or not yet entered. */
+/**
+ * @brief No device, no command, the interface mode 0: the 4-way interface
+ *        left or not yet entered. A running command stops where it is:
+ *        nothing more is handed to the wire and nothing is answered; a
+ *        frame already in the slot still goes out.
+ */
 void bridge4wayReset();
 
 /**
@@ -233,13 +238,6 @@ Bridge4wayEvents bridge4wayStep(uint32_t nowUs);
  * @return Its length; 0 when none waits. Taken once.
  */
 uint16_t bridge4wayTakeAnswer(uint8_t *out);
-
-/**
- * @brief Stop the running command where it is: nothing more is handed to
- *        the wire and nothing is answered. A frame already in the slot
- *        still goes out. The device is kept.
- */
-void bridge4wayAbort();
 
 /** @brief The connected device. @return Its state. */
 Bridge4wayDevice bridge4wayDevice();
