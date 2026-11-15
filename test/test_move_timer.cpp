@@ -621,7 +621,7 @@ static void testVoid() {
 	stepTo(&r, 2000, 0.10f);
 	r.state = SenseState::None;
 	tick(&r, 25, 0.90f);
-	checkTrue("NONE during a move: it ends, void as lost, SET shows dashes",
+	checkTrue("NONE during a move: it ends, void as lost, the line reads dashes",
 	          stateIs(r, MoveState::Void, MoveVoid::Lost) && !r.t.timing);
 	char dashes[MOVE_TEXT_MAX + 1];
 	checkTrue("the line reads MOVE -- S  PEAK -- A  HOLD -- A",

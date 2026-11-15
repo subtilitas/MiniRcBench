@@ -46,8 +46,8 @@
  * still creeps. Not measured on hardware (bench test B10).
  *
  * With CURRENT SENSE at NONE nothing is timed: a step leaves the result as
- * it is, a move under way is void as Lost, and a hold under way is not
- * shown.
+ * it is. A move under way is void as Lost and a hold under way is not shown,
+ * as with any sensor that is not Online.
  *
  * @see docs/design/current-sense.md, "Slice 5 as built"
  */
@@ -104,7 +104,7 @@ enum class MoveVoid : uint8_t {
 	Reversed,  /**< The level before was below -@ref MOVE_REVERSED_MA mA. */
 	Ended,     /**< The pulses ended: STOP, a trip or a cut. */
 	Changed,   /**< Another command changed the pulses. */
-	Lost,      /**< The sensor left Online or CURRENT SENSE went to NONE, or no reading for @ref SENSE_STALE_MS. */
+	Lost,      /**< The sensor is not Online, CURRENT SENSE at NONE included, or no reading for @ref SENSE_STALE_MS. */
 };
 
 /** @brief The last step's result, as the servo job publishes it. */
