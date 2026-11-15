@@ -124,6 +124,15 @@ struct FakeQmi8658 {
 	uint32_t  logN;          /**< Accesses logged; the log stops at FAKE_QMI_LOG. */
 };
 
+/** @brief Write transfers the PCF85063A model logs. */
+#define FAKE_RTC_LOG 8
+
+/** @brief One write transfer to the PCF85063A model, as sent. */
+struct FakeRtcWrite {
+	uint8_t len;      /**< Bytes after the address, the pointer included. */
+	uint8_t b[12];    /**< The first 12 of them. */
+};
+
 /** @brief One PCF85063A on the bus. Fields a test may set are marked. */
 struct FakePcf85063 {
 	uint8_t  addr;
@@ -133,6 +142,10 @@ struct FakePcf85063 {
 	uint32_t resets;      /**< Software resets taken. */
 	uint32_t writes;      /**< Write transfers that carried data after the pointer. */
 	uint32_t reads;       /**< Read transfers. */
+	bool     refuse;      /**< Writes of data to register refuseReg are acknowledged and dropped. Test. */
+	uint8_t  refuseReg;   /**< That register. Test. */
+	FakeRtcWrite log[FAKE_RTC_LOG];  /**< The write transfers, oldest first. */
+	uint32_t logN;        /**< Write transfers logged; the log stops at FAKE_RTC_LOG. */
 };
 
 /** @brief What the bus has carried since fakeI2cReset(). */

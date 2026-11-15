@@ -259,6 +259,7 @@ add_executable(MiniRcBench
     src/blackbox_encode.cpp
     src/run_summary.cpp
     src/clock.cpp
+    src/clock_line.cpp
     src/log_ring.cpp
     src/sd_log.cpp
     src/sd_log_next.cpp

@@ -6,6 +6,7 @@
  */
 
 #include "usb_dev.h"
+#include "clock_line.h"
 #include "config.h"
 
 #include "tusb.h"
@@ -104,4 +105,29 @@ void usbDevInit() {
 	stdio_set_driver_enabled(&s_cdcDriver, true);
 }
 
-void usbDevTask() { tud_task(); }
+// ---------------------------------------------------------------------------
+// the clock's line command
+// ---------------------------------------------------------------------------
+
+/** @brief One byte the host sent, or -1 when none waits. Never waits itself. */
+static int cdcGetByte() {
+	uint8_t c;
+	return tud_cdc_available() && tud_cdc_read(&c, 1) == 1 ? c : -1;
+}
+
+/**
+ * @brief The bytes the host sent, up to one line, and that line's answer,
+ *        dropped as printf() output is when the host does not read.
+ * @see clock_line.h
+ */
+static void cdcClockLine() {
+	static ClockLineIn s_in;
+	char ans[CLOCK_ANSWER_BYTES];
+	size_t n = clockLinePoll(&s_in, cdcGetByte, ans);
+	if (n) cdcOutChars(ans, (int)n);
+}
+
+void usbDevTask() {
+	tud_task();
+	cdcClockLine();
+}

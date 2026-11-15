@@ -91,6 +91,10 @@ void clockFromSecs(uint32_t secs, ClockTime *out) {
 	out->day   = (uint8_t)(days + 1u);
 }
 
+uint8_t clockWeekday(const ClockTime *t) {
+	return (uint8_t)((clockToSecs(t) / 86400u + 6u) % 7u);
+}
+
 uint32_t clockFatTime(const ClockTime *t) {
 	if (t->year < 1980 || t->year > 2107) return 0;
 	return (uint32_t)(t->year - 1980u) << 25 | (uint32_t)t->month << 21 |
@@ -136,11 +140,22 @@ static bool readRegs(uint8_t *r) {
 	                 CLOCK_READ_BYTES) == SENSE_OK;
 }
 
-/** @brief One register written in a transfer of its own: a START and a STOP around it. */
-static void writeReg(uint8_t reg, uint8_t v) {
-	if (senseBus()->stuck) return;
+/**
+ * @brief @p len bytes, the register pointer first, in a transfer of its
+ *        own: a START and a STOP around it.
+ * @return true when the part took every byte.
+ */
+static bool writeRegs(const uint8_t *b, size_t len) {
+	if (senseBus()->stuck) return false;
+	return senseNote(i2c_write_timeout_us(bus(), PCF85063_I2C_ADDR, b, len, false,
+	                                      SENSE_TIMEOUT_US),
+	                 len) == SENSE_OK;
+}
+
+/** @brief One register written in a transfer of its own. */
+static bool writeReg(uint8_t reg, uint8_t v) {
 	uint8_t b[2] = { reg, v };
-	senseNote(i2c_write_timeout_us(bus(), PCF85063_I2C_ADDR, b, 2, false, SENSE_TIMEOUT_US), 2);
+	return writeRegs(b, 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -184,4 +199,32 @@ extern "C" uint32_t get_fattime(void) {
 	ClockReading c;
 	clockNow(&c);
 	return c.set ? clockFatTime(&c.t) : 0;
+}
+
+ClockSetResult clockSet(const ClockTime *t) {
+	if (!clockValid(t)) return ClockSetResult::BadDate;
+	// 1: the software reset, as at a power-up with OS set. 2: STOP and
+	// CAP_SEL 0 in Control_1, CLKOUT off in Control_2, from 00h.
+	const uint8_t stop[3] = { CLOCK_REG_CONTROL_1, CLOCK_CTL1_STOP, CLOCK_CTL2_QUIET };
+	// 3: the time from 04h, OS clear; years from 2000.
+	const uint8_t time[CLOCK_TIME_WRITE_BYTES] = {
+		CLOCK_REG_SECONDS,      clockBcdOut(t->second), clockBcdOut(t->minute),
+		clockBcdOut(t->hour),   clockBcdOut(t->day),    clockWeekday(t),
+		clockBcdOut(t->month),  clockBcdOut((uint8_t)(t->year - 2000u)),
+	};
+	if (!writeReg(CLOCK_REG_CONTROL_1, CLOCK_SOFT_RESET) || !writeRegs(stop, sizeof(stop)) ||
+	    !writeRegs(time, sizeof(time)) || !writeReg(CLOCK_REG_CONTROL_1, 0x00u))
+		return ClockSetResult::NoAnswer;
+	// 4 done: the part counts its first second about 0.508 s from here.
+	uint64_t us = time_us_64();
+	uint8_t r[CLOCK_READ_BYTES];
+	if (!readRegs(r)) return ClockSetResult::NoAnswer;
+	ClockTime back = {};
+	if (clockDecode(r, &back) != ClockBoot::Running || clockToSecs(&back) != clockToSecs(t))
+		return ClockSetResult::ReadBack;
+	s_baseSecs = clockToSecs(t);
+	s_baseUs = us;
+	s_set = true;
+	s_sets++;
+	return ClockSetResult::Set;
 }

@@ -66,7 +66,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/ui_leave.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/bl_answer.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
-        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp ../src/clock.cpp \
+        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp ../src/clock.cpp ../src/clock_line.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
         $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \

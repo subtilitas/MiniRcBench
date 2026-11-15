@@ -21,7 +21,8 @@
  * One composite device, two functions:
  *
  * - **CDC ACM** on interfaces 0 and 1 — the serial port, exactly as before, so
- *   `SD_DEBUG` output still arrives and picocom still works.
+ *   `SD_DEBUG` output still arrives and picocom still works. It reads one
+ *   line command, the clock's (clock_line.h).
  * - **MSC** on interface 2 — a removable drive that reports *no medium* until
  *   the user asks for it. @see usb_msc.h
  *
@@ -50,6 +51,8 @@ void usbDevInit();
  *
  * Must be called from core0 only, and must keep being called while a host is
  * reading the card — this is what moves the data. It is bounded work: TinyUSB
- * processes what has arrived and returns.
+ * processes what has arrived and returns. Then the bytes the host sent on the
+ * serial port go to the clock's line command, up to one line a call, which
+ * a set of the clock answers after 770 µs on the bus (clock_line.h).
  */
 void usbDevTask();
