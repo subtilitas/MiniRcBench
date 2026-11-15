@@ -100,6 +100,12 @@ struct TouchState;
 #define SERVO_UI_CUT_LOW "STOPPED: UNDER 4.0 V FOR 1000 MS"
 /** @brief The sensor-lost cut's note, the design note's text. */
 #define SERVO_UI_CUT_LOST "CURRENT SENSOR LOST: SUPPLY OFF."
+/**
+ * @brief RUNNING with SERVO SUPPLY at OWN and the declared sensor not
+ *        online: the dial band's second line, dim. The hard and the stall
+ *        cut need its readings, and OWN has no sensor-lost cut.
+ */
+#define SERVO_UI_OWN_NO_CUTS "NO SENSOR READING: NO CURRENT CUTS."
 /** @brief SET's note with the last start-up time measured, `%u` in ms. */
 #define SERVO_UI_UP_FMT "SUPPLY UP IN %u MS"
 /** @brief The leave page's note while the job lets SIG and AUX go: 18 characters. */

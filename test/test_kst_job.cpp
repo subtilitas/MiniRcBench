@@ -947,6 +947,7 @@ static void testSwitchedClose() {
 static void sensorOn() {
 	fakeI2cReset();
 	settings()->currentSense = 1;
+	senseConfigure(0);   // a fresh part record: probed at the next read
 	senseConfigure(1);
 	g_ina = fakeI2cAddIna219(INA219_ADDR);
 	g_vout = 5.0;
@@ -1057,6 +1058,54 @@ static void testSwitchedCuts() {
 	checkTrue("no new attempt", g_sup.switchOns == ons && !enHigh());
 	g_sup.windowUs = 0;
 	g_ina->currentA = 0;
+
+	// A cut while an entry frame is on the wire: the search finishes that
+	// frame, the supply off throughout, then SearchEnded.
+	fakeKstFrameHold(5000);
+	g_sup.windowUs = 1;
+	send(KstOp::Search);
+	for (int i = 0; i < 4000 && !(enHigh() && fakeKstLineBusy()); i++) passes(1);
+	checkTrue("an entry frame on the wire, the supply on", enHigh() && fakeKstLineBusy());
+	ons = g_sup.switchOns;
+	g_ina->currentA = 3.2;
+	g_senseMs = millis() - 25;
+	passes(1);
+	checkTrue("3.2 A: off, the search still finishing its frame",
+	          !enHigh() && status().job == KstJobState::Searching && fakeKstLineBusy());
+	bool rose = false;
+	for (int i = 0; i < 20 && status().job == KstJobState::Searching; i++) {
+		passes(1);
+		rose = rose || enHigh();
+	}
+	checkTrue("then SearchEnded, the search ended, the supply never on again",
+	          status().job == KstJobState::SearchEnded && status().seek != KstSeek::Searching &&
+	          !rose && g_sup.switchOns == ons);
+	// The same with BACK in the cut's pass: the leave drains the search.
+	g_ina->currentA = 0;
+	send(KstOp::Search);
+	for (int i = 0; i < 4000 && !(enHigh() && fakeKstLineBusy()); i++) passes(1);
+	checkTrue("again an entry frame on the wire, the supply on", enHigh() && fakeKstLineBusy() &&
+	          status().job == KstJobState::Searching);
+	ons = g_sup.switchOns;
+	g_ina->currentA = 3.2;
+	g_senseMs = millis() - 25;
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("3.2 A and BACK while a frame is out: off, Leaving",
+	          !enHigh() && status().job == KstJobState::Leaving && status().cut == GuardCut::Hard);
+	rose = false;
+	for (int i = 0; i < 2100 && status().job != KstJobState::Closed; i++) {
+		passes(1);
+		rose = rose || enHigh();
+	}
+	checkTrue("closed, the supply never on again", status().job == KstJobState::Closed && !rose &&
+	          g_sup.switchOns == ons);
+	fakeKstFrameHold(0);
+	g_sup.windowUs = 0;
+	g_ina->currentA = 0;
+	finishSwitched();
+	sensorOn();
+	startSwitched();
 
 	// A cut in a positive entry delay: the supply on, no frame yet.
 	send(KstOp::Search);

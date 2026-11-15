@@ -1204,8 +1204,8 @@ The cuts of [protection](#protection) and the sensor-lost cut of
   1000 ms, or more after the first of such a run, counted from the start-up
   reading on: the first fresh reading taken more than `SUPPLY_READ_LAG_MS`,
   18 ms, after the arm at or above `SUPPLY_ON_MIN_MV`, 4500 mV, the
-  read-back's rule (`supplyReadingAfter()`; both constants move from
-  `src/servo_job.h` to `src/supply_guard.h`). A reading at or below the
+  read-back's rule (`supplyReadingAfter()`; both constants are in
+  `src/supply_guard.h`, which `src/servo_job.h` includes). A reading at or below the
   stall's threshold ends that run, one at or above 4000 mV the collapse's.
   The sensor-lost cut is a state but `Online`, or `SENSE_STALE_MS`, 250 ms,
   since the later of the arm and the newest reading's time. In one pass:
@@ -1272,14 +1272,23 @@ The cuts of [protection](#protection) and the sensor-lost cut of
     taken one pass late, never lost.
   - The KST and Hitec texts are amber, as their stall texts; the servo
     tester's chips are magenta, as the note gives.
-  - Beside a chip wider than RUNNING, `OVERCURRENT` (x 155), `LOW SUPPLY`
-    (x 161) or `NO SENSOR` (x 167), the caption ends 4 px before the chip:
+  - Beside a chip wider than RUNNING, `OVERCURRENT` (from x 155 px),
+    `LOW SUPPLY` (x 161 px) or `NO SENSOR` (x 167 px), the caption ends 4 px before the chip:
     by its role alone, `SIG  50 HZ  1000-2000 US`, and at 333 Hz with one
     servo the travel goes too, `SIG  333 HZ`, decision 14's rule of
     [menu-b.md](menu-b.md#decisions). At SAFE, RUNNING and STALLED the
     caption is menu-b.md's. The strip's second line, at most
     `GP29 SUPPLY NOT OFF` or `GP28 SUPPLY ON AT START` after a cut, ends by
-    x 145, clear of the chip.
+    x 145 px, clear of the chip.
+  - With `OWN`, while RUNNING with the declared sensor not online, the dial
+    band's second line reads `NO SENSOR READING: NO CURRENT CUTS.`, dim:
+    the hard and the stall cut get no reading, and `OWN` has no
+    sensor-lost cut. The KST and Hitec claims have no sensor-lost cut
+    either; there the strip's current reads `-- A`, and the wiki says that
+    the cuts then do not act.
+  - The chip's redraw key holds the fault: START and a new cut can both
+    fall between two screen frames, so the screen sees one trip follow
+    another without RUNNING between them.
 - **The Hitec job's stack.** CI's "Hitec job stack on core1" reads the call
   graphs of `src/sense.cpp` and `src/supply_guard.cpp` too, 11 files.
   The deepest chain from the job's three entry points is 1184 bytes of the
@@ -1303,27 +1312,35 @@ The cuts of [protection](#protection) and the sensor-lost cut of
   write and the release, the collapse at 1000 ms, 2.9 A for 1 s without a
   cut, no switch-on until RETRY, the close 2000 ms after the cut, nothing
   with `NONE`; on Hitec the transaction on the line cut.
-  `test_kst_ui.cpp` and `test_hitec_ui.cpp`: both texts and RETRY.
-  Mutation check: 130 mutants of `src/supply_guard.cpp`,
+  `test_kst_ui.cpp` and `test_hitec_ui.cpp`: both texts and RETRY. KST with
+  `fakeKstFrameHold()`, which holds a frame on the wire: a cut while an
+  entry frame is out, alone and with BACK in the same pass, the supply never
+  on again; Hitec with `fakeHitecCutDelay()`, a cut transaction handed back
+  late. The servo screen: START and a cut between two frames, the chip
+  `OVERCURRENT` after `STALL`; the dim note with `OWN` and the sensor gone.
+  Mutation check: 137 mutants of `src/supply_guard.cpp`,
   `src/servo_job.cpp`, `src/ui_servo.cpp`, `src/kst_job.cpp`,
-  `src/hitec_job.cpp`, `src/ui_kst.cpp` and `src/ui_hitec.cpp`; 122 fail
-  the suite and 8 do not. Equivalent: `>=` for `>` where the sensor-lost
-  rule takes a reading's time as its reference, since a reading in the
-  arm's millisecond gives the arm's time either way; `-ua` for
-  `-(int64_t)ua` in the current's size, which differs only at `INT32_MIN`,
-  undefined in C++ and the same value with GCC; no refusal of a switch-on
-  while a cut is latched, in KST and in Hitec, since no path switches on
-  before RETRY clears the latch: a guard kept for safety; KST's leave not
+  `src/hitec_job.cpp`, `src/ui_kst.cpp` and `src/ui_hitec.cpp` as they
+  stand; 130 fail the suite and 7 do not. Equivalent: `>=` for `>` where
+  the sensor-lost rule takes a reading's time as its reference, since a
+  reading in the arm's millisecond gives the arm's time either way; `-ua`
+  for `-(int64_t)ua` in the current's size, which differs only at
+  `INT32_MIN`, undefined in C++ and the same value with GCC; Hitec's refusal
+  of a switch-on while a cut is latched, since only an entry's POWER step
+  switches on, and Enter clears the latch first. Not killed: KST's leave not
   taking over a cut's drain, which differs only after a cut in REBOOT's
-  entry, whose frame ends long before the close 2000 ms later. Not killed,
-  not shown equivalent: the KST cut's drain ending a search on its first
-  pass, which differs only when the cut lands while an entry frame is on
-  the wire, which no test times; Hitec's leave stepping the session before
-  it polls a cut transaction back, which the session ends as cut either way
-  in the fake; KST's note of a write in doubt after a cut, which no screen
-  test reaches. Six more mutants hit code the survivors showed redundant,
-  since removed or reverted: the chip's key by fault, the power cycle of a
-  cut search, and four paths of the Hitec cut in a leave.
+  entry, whose frame ends long before the close 2000 ms later; Hitec's leave
+  stepping the session before it polls a cut transaction back, which the
+  session ends as cut either way in the fake; KST's note of a write in doubt
+  after a cut, which no screen test reaches; the servo screen's `OWN` note
+  shown with the switch too, which differs for at most one frame, since the
+  sensor-lost cut ends RUNNING in the pass the part leaves `Online`. KST's
+  refusal of a switch-on while a cut is latched is not equivalent: a leave
+  that drains a cut search steps it, and `syncSeek()` asks for the supply
+  the stopped search still wants; the test with `fakeKstFrameHold()` kills
+  it. Five mutants of the first run hit code that is not in the files, the
+  power cycle of a cut search and four paths of the Hitec cut in a leave;
+  they are not among the 137.
 - **Not on hardware.** No INA219 and no converter has been on the board:
   the time from a step of current to EN low, about 60 ms computed, is bench
   test B9; whether the stall cut trips at MIN and MAX on the owner's servos

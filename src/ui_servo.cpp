@@ -577,6 +577,17 @@ static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	snprintf(b, n, "PULSES ON GP%u ARE THROTTLE TO AN ESC.", sig);
 }
 
+/**
+ * @brief RUNNING with OWN and the declared sensor not online: the hard and
+ *        the stall cut get no readings, and OWN has no sensor-lost cut.
+ */
+static bool cutsBlind() {
+	if (!s_st.running || s_st.switched || !senseDeclared()) return false;
+	SenseSample smp;
+	senseSample(&smp);
+	return smp.state != (uint8_t)SenseState::Online;
+}
+
 /** @brief The horn of one servo at its pulse. */
 static void drawHorn(uint16_t us, uint16_t col, bool selected) {
 	float deg = servoUsToDeg(&s_profile, us);
@@ -605,7 +616,7 @@ static void drawDial() {
 	uint16_t c1, c2;
 	safeNotes(n1, n2, sizeof(n1), &c1, &c2);
 	struct { uint32_t l1, l2, l3, sw, n1, n2; bool retry, rp; uint16_t us[2]; uint8_t mask, servos;
-	         bool running, tripped; uint16_t c1, c2; } k;
+	         bool running, tripped, blind; uint16_t c1, c2; } k;
 	memset(&k, 0, sizeof(k));
 	k.sw = textKey(sw[0] ? sw : nullptr);
 	k.n1 = textKey(n1); k.n2 = textKey(n2); k.c1 = c1; k.c2 = c2;
@@ -614,6 +625,7 @@ static void drawDial() {
 	k.us[0] = s_st.outUs[0]; k.us[1] = s_st.outUs[1];
 	k.mask = s_mask; k.servos = s_profile.servos;
 	k.running = s_st.running; k.tripped = s_st.tripped;
+	k.blind = cutsBlind();
 	if (!changed(1, &k, sizeof(k))) return;
 
 	gfxRect(0, SERVO_DIAL_Y0, GFX_W, SERVO_DIAL_Y1 - SERVO_DIAL_Y0 + 1, C_BG);
@@ -630,6 +642,7 @@ static void drawDial() {
 	} else if (sw[0]) {
 		line(64, sw, UI_COL_LIVE);
 	}
+	if (k.blind) line(76, SERVO_UI_OWN_NO_CUTS, C_DIM);
 	gfxArcDots(SERVO_DIAL_X, SERVO_DIAL_Y, SERVO_DIAL_ARC_R, -90, 90, 10, 3, C_GRID);
 	gfxLine(SERVO_DIAL_X, SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4, SERVO_DIAL_X,
 	        SERVO_DIAL_Y - SERVO_DIAL_ARC_R + 4, 1, C_DIM);

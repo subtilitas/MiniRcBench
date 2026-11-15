@@ -1922,6 +1922,8 @@ seen, or one 250 ms old or older, never counts. Not tested on hardware.
   sensor-lost cut.
 - With `OWN` only the hard and the stall cut apply: the bench knows neither
   the user's supply voltage nor whether it runs through the sensor.
+  While RUNNING with `OWN` and the sensor not online, the dial's second line
+  reads `NO SENSOR READING: NO CURRENT CUTS.`, dim.
 - The stall rule, decision 13's, trips on many servos held at MIN or MAX
   against their end stop; bench test B8 checks it on the owner's servos.
 - Beside a chip wider than RUNNING, `OVERCURRENT`, `LOW SUPPLY` or
@@ -2176,7 +2178,9 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    cannot cut one. The session is power-cycled as at a stall and the page
    reads `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY
    OFF.` or `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT
-   OFF.`; the supply stays off until RETRY. Not tested on hardware.
+   OFF.`; the supply stays off until RETRY. With the sensor not answering,
+   `-- A` on the strip, nothing is cut and the session goes on. Not tested
+   on hardware.
 
 | Result | Colour | Meaning |
 |---|---|---|

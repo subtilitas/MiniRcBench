@@ -54,7 +54,8 @@ protocol.
   without a reading (`NO SENSOR`, `CURRENT SENSOR LOST: SUPPLY OFF.`). The
   pulses end and the enable pin goes low in the same core1 pass; the chip,
   magenta, and the dial's note stay until HOLD TO START. With `OWN` only
-  the first two apply. KST SERVO and HITEC SERVO switch the supply off on the
+  the first two apply, and while RUNNING with the sensor not online the dial
+  reads `NO SENSOR READING: NO CURRENT CUTS.` KST SERVO and HITEC SERVO switch the supply off on the
   hard and the collapse cut while it is on, during a read or a write too:
   the session is power-cycled, Hitec cuts the transaction on the line, and
   the page names the cut over RETRY; no switch-on follows until RETRY. Each

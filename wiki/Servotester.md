@@ -250,11 +250,14 @@ Platine.
   selben Schritt des zweiten Prozessorkerns aus. Die Anzeige bleibt bis zum
   nächsten `HOLD TO START`; die zweite Zeile des Zifferblatts zeigt
   `HOLD TO START AGAIN.`
-- Nach `NO SENSOR` wartet der Start auf den Sensor:
-  `START WAITS FOR THE CURRENT SENSOR.`
+- Solange der Sensor nach einer Abschaltung nicht antwortet, zeigt die
+  zweite Zeile des Zifferblatts `START WAITS FOR THE CURRENT SENSOR.`, und
+  `HOLD TO START` ist grau; antwortet er wieder, `HOLD TO START AGAIN.`
 - Mit `OWN` gelten nur `OVERCURRENT` und `STALL`: Die Bank kennt weder die
   Spannung deiner Versorgung noch, ob ihr Strom durch den Sensor fließt.
-  Was das Servo ohne Impulse tut, ist Sache des Servos.
+  Was das Servo ohne Impulse tut, ist Sache des Servos. Antwortet der
+  Sensor mit `OWN` im Lauf nicht mehr, wird nichts abgeschaltet, und das
+  Zifferblatt zeigt `NO SENSOR READING: NO CURRENT CUTS.` in Grau.
 - Die Stall-Abschaltung löst auch bei vielen Servos aus, die bei MIN oder
   MAX an ihrem eigenen Endanschlag stehen und dort Blockierstrom ziehen.
   Nicht gemessen; der Banktest B8 der Entwurfsnotiz prüft es.
@@ -262,7 +265,8 @@ Platine.
   Abschaltungen schützen das Servo und den Shunt des Sensors; sie sind
   keine Sicherung.
 - Neben `OVERCURRENT`, `LOW SUPPLY` und `NO SENSOR` nennt die Zeile unter
-  dem Titel den Pin nur mit der Rolle, `SIG  50 HZ  1000-2000 US`.
+  dem Titel den Pin nur mit der Rolle, `SIG  50 HZ  1000-2000 US`, und bei
+  333 Hz mit einem Servo `SIG  333 HZ`.
 
 <img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in Magenta, STOPPED: CURRENT 3.0 A OR MORE auf dem Zifferblatt"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in Magenta, CURRENT SENSOR LOST: SUPPLY OFF. über START WAITS FOR THE CURRENT SENSOR.">
 

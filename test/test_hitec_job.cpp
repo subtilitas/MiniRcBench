@@ -764,6 +764,7 @@ static void testCardPhase() {
 static void sensorOn() {
 	fakeI2cReset();
 	settings()->currentSense = 1;
+	senseConfigure(0);   // a fresh part record: probed at the next read
 	senseConfigure(1);
 	g_ina = fakeI2cAddIna219(INA219_ADDR);
 	g_vout = 5.0;

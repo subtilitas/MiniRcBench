@@ -234,18 +234,22 @@ Not tested on hardware: no INA219 and no converter has been on the board.
 - The pulses end at once, and with `GP28` or `GP29` the converter goes off
   in the same step of the board's second core. The chip stays until the
   next `HOLD TO START`; the dial's second line reads `HOLD TO START AGAIN.`
-- After `NO SENSOR` the start waits for the sensor:
-  `START WAITS FOR THE CURRENT SENSOR.`
+- While the sensor is not online after a cut, the dial's second line reads
+  `START WAITS FOR THE CURRENT SENSOR.` and `HOLD TO START` is greyed; once
+  it answers again, `HOLD TO START AGAIN.`
 - With `OWN` only `OVERCURRENT` and `STALL` apply: the bench knows neither
   the voltage of your supply nor whether its current runs through the
-  sensor. What the servo does without pulses is the servo's own.
+  sensor. What the servo does without pulses is the servo's own. If the
+  sensor stops answering while RUNNING with `OWN`, nothing is cut, and the
+  dial reads `NO SENSOR READING: NO CURRENT CUTS.` in grey.
 - The stall cut also trips on many servos held at MIN or MAX against their
   own end stop, where they draw stall current. Not measured; the design
   note's bench test B8 checks it.
 - A cut takes up to about 60 ms after a step of current. The cuts protect
   the servo and the sensor's shunt; they are no fuse.
 - Beside `OVERCURRENT`, `LOW SUPPLY` and `NO SENSOR` the line under the
-  title reads by role alone, `SIG  50 HZ  1000-2000 US`.
+  title reads by role alone, `SIG  50 HZ  1000-2000 US`, and at 333 Hz with
+  one servo `SIG  333 HZ`.
 
 <img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in magenta, STOPPED: CURRENT 3.0 A OR MORE on the dial"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in magenta, CURRENT SENSOR LOST: SUPPLY OFF. over START WAITS FOR THE CURRENT SENSOR.">
 

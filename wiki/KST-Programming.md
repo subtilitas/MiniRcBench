@@ -522,16 +522,17 @@ this lead gets the converter's output on its BEC wire.**
 - **A screen that stalls** for 250 ms switches the supply off once a running
   operation has ended. The servo leaves programming mode and its backup in
   memory goes. RETRY powers it up and reads it again.
-- **The current sensor's cuts**, with SETTINGS → CURRENT SENSE at `INA219`:
-  while the supply is on, one reading of 3.0 A or more, or readings under
+- **The current sensor's cuts**, with SETTINGS → CURRENT SENSE at `INA219`
+  and the sensor answering: while the supply is on, one reading of 3.0 A or more, or readings under
   4.0 V for 1 s after the supply came up, switch it off at once, during a
   read or a write too. The frame on the wire finishes: the line driver
   cannot cut one. The servo leaves programming mode, and the page reads
   `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` or
   `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, then
   `RETRY POWERS IT UP AND READS IT AGAIN.` The supply stays off until
-  RETRY. A write it cut is in doubt, as after a stall. Not tested on
-  hardware.
+  RETRY. A write it cut is in doubt, as after a stall. A sensor that does
+  not answer, `-- A` on the strip, cuts nothing, and the session goes on.
+  Not tested on hardware.
 
 <img src="img/kst-cut.png" width="240" alt="The hard cut: SIG GP0  SUPPLY OFF, THE SERVO DREW 3.0 A OR MORE, RETRY">
 

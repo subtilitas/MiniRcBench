@@ -566,7 +566,7 @@ BEC-Leitung.**
   Programmiermodus, und seine Sicherung im Speicher geht verloren. RETRY
   schaltet es ein und liest es erneut.
 - **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
-  `INA219`: Solange die Versorgung an ist, schalten ein Messwert von 3,0 A
+  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein Messwert von 3,0 A
   oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die Versorgung
   hochkam, sie sofort ab, auch während eines Lesens oder Schreibens. Der
   Rahmen auf der Leitung läuft zu Ende: Der Leitungstreiber kann keinen
@@ -575,7 +575,8 @@ BEC-Leitung.**
   `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, dann
   `RETRY POWERS IT UP AND READS IT AGAIN.` Die Versorgung bleibt bis RETRY
   aus. Ein abgebrochenes Schreiben ist zweifelhaft, wie nach einem Hängen.
-  Nicht auf Hardware getestet.
+  Ein Sensor, der nicht antwortet, `-- A` in der Leiste, schaltet nichts
+  ab, und die Sitzung läuft weiter. Nicht auf Hardware getestet.
 
 <img src="img/kst-cut.png" width="240" alt="Die harte Abschaltung: SIG GP0  SUPPLY OFF, THE SERVO DREW 3.0 A OR MORE, RETRY">
 

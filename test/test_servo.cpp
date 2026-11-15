@@ -4785,10 +4785,19 @@ static void testCutScreens() {
 	// START and a new cut between two screen frames: the screen never sees
 	// RUNNING, and the chip still names the new cut.
 	ina->currentA = 3.2;
-	holdStartFrames();
+	{
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+		pressId(UI_FIX(ServoCtl::Start));
+		fakeHold(x, y);
+		uiFrames(UI_HOLD_MS / 25);   // the hold completes: START sent
+	}
 	ServoStatus mid;
 	servoJobStatus(&mid);
-	checkTrue("START taken by core1 after the screen's last frame", mid.running);
+	checkTrue("the screen's last frame saw no RUNNING", !s_st.running && !mid.running);
+	core1JobPoll();
+	servoJobStatus(&mid);
+	checkTrue("START taken by core1 after that frame", mid.running);
 	fakeAdvance(25);
 	followEn(ina, 28);
 	senseTick(millis());
@@ -4796,6 +4805,7 @@ static void testCutScreens() {
 	servoJobStatus(&mid);
 	checkTrue("the next reading, 3.2 A, cuts before the screen's next frame",
 	          !mid.running && mid.powerFault == ServoPowerFault::Overcurrent && !fakePin(28).high);
+	fakeRelease();
 	uiTick();
 	checkTrue("the screen's next frame: OVERCURRENT, not STALL",
 	          chipIs(SERVO_UI_CHIP_HARD, C_MAGENTA) &&
@@ -4833,11 +4843,48 @@ static void testCutScreens() {
 
 	leaveServo();
 	checkTrue("BACK: GP28 undriven", enUndriven(28));
+
+	// OWN: a sensor that stops answering while RUNNING leaves no cut; the
+	// dial says so.
+	freshUi();
+	servoSupplyConfigure(0);
+	fakeI2cReset();
+	senseConfigure(0);
+	int w = gfxTextW(SERVO_UI_OWN_NO_CUTS, 1);
+	openServo();
+	holdStartFrames();
+	uiFrames(2);
+	checkTrue("OWN, CURRENT SENSE NONE, RUNNING: no note",
+	          s_st.running && !someOf(0, 76, GFX_W, 7, C_DIM));
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	uiFrames(2);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	ina = fakeI2cAddIna219(INA219_ADDR);
+	senseFrames(ina, 42);
+	holdStartFrames();
+	senseFrames(ina, 2);
+	checkTrue("OWN, RUNNING, the sensor online: no note",
+	          s_st.running && !textAt((GFX_W - w) / 2, 76, SERVO_UI_OWN_NO_CUTS, C_DIM, 1));
+	fakeI2cRemove(INA219_ADDR);
+	senseFrames(ina, 5);
+	checkTrue("the sensor gone: still RUNNING, the dim note",
+	          s_st.running && textAt((GFX_W - w) / 2, 76, SERVO_UI_OWN_NO_CUTS, C_DIM, 1));
+	checkTrue("the note fits the panel", w <= GFX_W - 2 * UI_MARGIN);
+	pressId(UI_FIX(ServoCtl::Start));
+	core1();
+	fakeRelease();
+	senseFrames(ina, 2);
+	char safe2[48];
+	snprintf(safe2, sizeof(safe2), "PULSES ON GP%u ARE THROTTLE TO AN ESC.", (unsigned)gpioOf(PIN_SIG));
+	checkTrue("STOP: the note gone, SAFE's notes alone", !s_st.running &&
+	          notesAre("THE SERVO MOVES TO CENTRE AT START.", C_DIM, safe2, C_DIM));
+	leaveServo();
 	settings()->currentSense = 0;
 	senseConfigure(0);
 	fakeI2cReset();
-	settings()->servoSupply = 0;
-	servoSupplyConfigure(0);
 	freshUi();
 }
 
