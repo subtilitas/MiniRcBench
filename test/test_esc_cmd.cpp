@@ -629,10 +629,38 @@ static void testCmdReplyCheck() {
 	}
 	checkInt("cases with a wrong outcome", wrong, 0);
 
-	// EDT replies are replies, eRPM or EDT alike.
+	// The allowance is per block: one miss in each passes.
 	Bench *b = benchBoot(Fw::Am32, 5000);
 	benchReady(b);
 	unsigned at = b->slot;
+	b->fault[at + 2] = b->fault[at + blockAt[1] + 3] = Fault::NoReply;
+	benchHold(b, DSHOT_CMD_SPIN_DIRECTION_2);
+	checkTrue("one miss in each block: sent", b->pump.seq.state == EscCmdState::Sent);
+	// A reply before a block, to a 0 frame, is not the block's.
+	b->fault[b->slot] = Fault::NoReply;
+	benchSlot(b);
+	at = b->slot;
+	b->fault[at + blockAt[1] - 1] = Fault::NoReply;
+	b->fault[at + 1] = b->fault[at + blockAt[1] + 1] = Fault::NoReply;
+	benchHold(b, DSHOT_CMD_SPIN_DIRECTION_1);
+	checkTrue("the reply to the frame before each block is not counted",
+	          b->pump.seq.state == EscCmdState::Sent && !b->esc.savedReversed);
+	// A sequence after a stopped one starts whole, its allowance whole.
+	at = b->slot;
+	b->fault[at] = b->fault[at + 1] = Fault::NoReply;
+	benchHold(b, DSHOT_CMD_SPIN_DIRECTION_2);
+	checkTrue("stopped at frame 2: not sent", b->pump.seq.state == EscCmdState::NotSent);
+	at = b->slot;
+	b->fault[at + 4] = Fault::NoReply;
+	benchHold(b, DSHOT_CMD_SPIN_DIRECTION_2);
+	checkTrue("the next, with one miss: sent, 20 frames",
+	          b->pump.seq.state == EscCmdState::Sent &&
+	          commandFrames(b, at, b->slot) == 20 && b->esc.savedReversed);
+
+	// EDT replies are replies, eRPM or EDT alike.
+	b = benchBoot(Fw::Am32, 5000);
+	benchReady(b);
+	at = b->slot;
 	for (unsigned k = 0; k < 6; k++) {
 		b->fault[at + k] = Fault::EdtReply;
 		b->fault[at + blockAt[1] + k] = Fault::EdtReply;

@@ -1,8 +1,9 @@
 # ESC commands and the kV estimate
 
-Status: designed, not built; the owner answered its questions on
-2026-11-15, see [decisions](#decisions); slices wait on being built. The
-feature is item (1) of the owner's
+Status: designed; the owner answered its questions on 2026-11-15, see
+[decisions](#decisions). Slice 1, the command slot on core1, is built and
+tested on the host only ([slice 1 as built](#slice-1-as-built)); slices 2
+and 3 wait on being built. The feature is item (1) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: an ESC commands page and an RPM-per-volt and kV estimate on
 the tester, a design note first, then slices with reviews. No command of
@@ -700,6 +701,114 @@ Slices 1 and 3 share no source file. Both edit README.md (slice 1 the
 MENU table's BEEP row, slice 3 the tester's description), STATUS.md and
 CHANGELOG.md; whichever merges second resolves those hunks. They can merge
 in either order.
+
+### Slice 1 as built
+
+`src/esc_task.h` holds the rules, pure: `EscCmdReady`, `EscCmdState`,
+`escCmdValid()`, `escCmdAccept()`, `EscCmdRequest`, the sequence
+`EscCmdSeq` with `escCmdStart()`, `escCmdCheckReply()`,
+`escCmdFrameSent()`, `escCmdInterrupt()` and `escCmdStopState()`,
+`escCmdReadiness()`, `escPumpRelease()`, `escFrameWire()`, and
+`escPumpSlot()` with the request and the reply as parameters in place of the
+beacon request. `EscPump` keeps the sequence in `seq` and the readiness in
+`ready`; the beacon's `beepCmd` and `beepReps` are gone. `escRequestBeep(n)`
+is an inline in the header: it clamps `n` to 1 to 5 and calls
+`escRequestCommand(n, false)`. `src/esc_task.cpp` does the I/O: the request
+under the shared critical section, `escCancelCommand()`,
+`escCommandReady()`, `escCommandState()`, the reply of `out_dshot_poll()`
+handed to the slot, `escPumpRelease()` at a teardown, and one locked
+publish of the state after each frame. `src/config.h` has
+`ESC_CMD_GAP_MS` (300), `ESC_CMD_BEEP_GAP_MS` (260, 260, 280, 280, 1020),
+`ESC_CMD_SETTLE_MS` (1500) and `ESC_CMD_WAIT_MS` (2000). The host suite's
+`test/test_esc_cmd.cpp` drives the slot against the model ESCs; the EDT
+tests of `test/test_ui.cpp`, the handover of `test/test_claim.cpp`, MENU's
+BEEP in `test/test_menu.cpp` and the fakes take the new interface. No page
+is built; MENU's BEEP THE ESC is the only caller.
+
+Choices the note left open:
+
+- **Which requests.** 1 to 5 and 12 go alone; 7 to 10 only with the save
+  after them (`escCmdValid()`), so no caller can send a change that reverts
+  at the ESC's next power cycle (decision 2). `escRequestCommand(7, false)`
+  is refused.
+- **A stopped block** is followed by its gap of 0 frames, 300 ms after 7 to
+  10 or 12, and the sequence ends after it, with no save block. The outcome
+  is set at the stop. The readiness reads Busy through that gap, so a retry
+  or a scheduled EDT enable keeps the gap from the frames before.
+- **When the outcome is Sent.** A beacon from its first frame. A sequence of
+  7 to 10 or 12 once its last block's tenth frame has gone out with the
+  check passed: Bluejay and BLHeli_S act on the seventh frame, so frame 6's
+  reply alone does not make it sent. A stop after frame 6 of the first
+  block, and before that tenth frame, is SaveLost.
+- **An arm, a bind, a teardown,** and a drain frame inside a block, which
+  only a resume during the drain can send there, stop the sequence at once,
+  without a gap: the frames that follow are the throttle or the pin's next
+  user. The outcome follows the same rule, NotSent before frame 6 of the
+  first block, SaveLost after it; an outcome already set stays. An arm also
+  drops a waiting request, reported as Expired.
+- **The allowance is per block.** One missing or bad reply among frames 1 to
+  5 of each block; the count starts again at the save block. The reply read
+  on a block's first slot answers the frame before the block, a 0 frame,
+  and is not counted.
+- **Gaps are counted in frames,** one per slot. A slot core1 skips makes a
+  gap longer in time, never shorter.
+- **KISS requests in a gap.** Only a block's command frames hold the KISS
+  requests back; the gap's 0 frames carry them at the usual cadence of 1 in
+  20.
+- **The wait** counts from core0's `millis()` stamp of the request. Core1
+  reads the request before its clock and compares the age signed, so a
+  request stamped after the slot's clock reads as new, not 2^32 − 1 ms
+  old. A request that waits is replaced by a newer one; a generation count
+  keeps core1 from clearing a request it did not read.
+- **`escCancelCommand()`** removes a waiting request; a sequence already
+  going out goes on. `escCommandState()` then reads the last sequence's
+  outcome, or Idle before any.
+- **The published readiness** is the one after the slot's decision: Busy
+  from the slot a request starts, and Busy for one slot after the last gap
+  frame, the slot whose frame ended the gap. It reads NoAnswer before
+  core1's first slot and from a teardown until the next bind's ESC answers,
+  so a BEEP while the pin is claimed is refused.
+- **The telemetry bit** is set in `escFrameWire()`, pure, which
+  `escTaskPoll()` sends from, so the host suite checks it.
+
+MENU's BEEP THE ESC shows `REFUSED` while no ESC answers, while the motor
+turns and for 1500 ms after an ESC starts answering, as the note says.
+`SENT` means the request was taken, waiting included: a beacon taken at Busy
+that then cannot start, its ESC unplugged within the wait, expires unseen
+on MENU. Nothing else on existing screens changes.
+
+The model ESCs of `test/test_esc_cmd.cpp`, from the rules table above: AM32
+acts on the sixth equal frame, a beacon on the first, only after more than
+1000 frames of zero input, a 0 frame clears its count, a lost or damaged
+frame leaves it, and it answers a damaged frame, before decoding it; Bluejay
+acts on the seventh, clears on a 0 frame and on a command frame without the
+telemetry bit, and does not answer a damaged frame (not verified);
+BLHeli_S acts on the seventh and keeps its count over a 0 frame. Each
+clears its command after acting. BLHeli_S 16.7 sends no eRPM; the model
+answers as a stand-in so that its count meets the bench's sequence, and one
+case keeps it silent and sees nothing sent. The silences after a save, 20
+frames, and after a beacon, 200 frames on Bluejay and 100 on BLHeli_S, are
+the model's, not measured. The cases: a hold's 10 frames of 8, 300 of 0, 10
+of 12 and 300 of 0, each command frame with the telemetry bit, no KISS
+request in a block; every model reversed, in 3D, back, and saved, AM32 on
+its sixth frame and Bluejay and BLHeli_S on their seventh; six frames act
+on AM32 only; a lost or damaged frame 1 to 5 of either block on every
+model; the reply check at each of frames 1 to 10 of both blocks, once and
+after a first miss, missing and bad, with its outcome, its frames and its
+gap; EDT replies in frames 1 to 6; no reply read after frame 6; 12 alone; a
+beacon unanswered; an arm at five places and while a request waits; eRPM
+not 0; the settle at 1499 and 1500 ms with an AM32 plugged in; the wait at
+1999 and 2000 ms from Busy; a stamp 1 ms ahead; a cancel; the heartbeat
+lapsed; the EDT enable before a sequence and after its last gap; each
+beacon's gap; a sequence and a wait across the `millis()` wrap; a bind, a
+teardown and a drain frame.
+
+Not changed, found while building: `escFoldReply()` stamps `lastRpmMs` with
+`millis()`, and 0 there means "never". The slot at `millis()` 0, once every
+2^32 ms, about 49.7 days, reads the link as down, which resets
+`linkUpSinceMs` and with it the 1500 ms settle and the EDT enable's 300 ms.
+A sequence under way is not affected: within a block only the replies
+count.
 
 ## Decisions
 

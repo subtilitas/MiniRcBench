@@ -44,6 +44,27 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1 (a93e1c1): the DShot command slot on core1, slice 1 of
+  [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built). The
+  beacon's slot in `EscPump` becomes one sequence: beacons 1 to 5 as 6
+  frames, then 260, 260, 280, 280 or 1020 ms of zero throttle; command 12
+  alone; commands 7 to 10 with 12 after them, each a block of 10 frames
+  followed by 300 ms of zero throttle. Core0 asks with
+  `escRequestCommand()`, reads `escCommandReady()` and `escCommandState()`
+  and drops a waiting request with `escCancelCommand()`. A sequence starts
+  only disarmed, with an eRPM answer younger than 500 ms, eRPM 0, the ESC
+  answering for 1500 ms (`ESC_CMD_SETTLE_MS`) and no EDT enable or other
+  sequence on the wire; a request that cannot start within 2000 ms
+  (`ESC_CMD_WAIT_MS`) expires. Frames 1 to 6 of each block of 7 to 10 and 12
+  need an answer, eRPM or EDT: one of frames 1 to 5 may go unanswered, a
+  second or none to frame 6 stops the block, reported as not sent before
+  frame 6 of the first block and as a save not sent after it. An arm drops
+  the sequence; no scheduled EDT enable goes out inside one. The rules are
+  pure in `src/esc_task.h`, among them `escFrameWire()`, which sets the
+  telemetry bit on every command frame. Host tests in
+  `test/test_esc_cmd.cpp` run the slot against AM32, Bluejay and BLHeli_S
+  models read from their sources. No page sends commands yet; MENU's BEEP
+  THE ESC is the only caller. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is
@@ -626,6 +647,12 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): MENU's BEEP THE ESC goes through the command
+  slot (`escRequestBeep()` calls `escRequestCommand(n, false)`). It shows
+  `REFUSED` while no ESC answers, while the motor turns and for 1500 ms after
+  an ESC starts answering, where before it sent the beacon with no check of
+  the link. A press while an EDT enable or an earlier beacon and its gap go
+  out waits, at most 2000 ms. Host test in `test/test_menu.cpp`.
 - After v0.1.0-rc1 (a93e1c1): MENU's RX SIGNALS row acts: it opens the RX
   SIGNALS chooser, has no status, and is drawn disabled while the pin claim
   is not free, as SERVO PROGRAMMER's row. `UI_RX_SIGNALS` moves from
