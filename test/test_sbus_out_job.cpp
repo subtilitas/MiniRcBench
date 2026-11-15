@@ -20,6 +20,7 @@
 #include "esc_task.h"
 #include "pin_claim.h"
 #include "sbus_out_job.h"
+#include "settings.h"
 #include "plat.h"
 
 #include <hardware/gpio.h>
@@ -99,10 +100,10 @@ static void testCoreStart() {
 	checkTrue("SAFE: no frame in 100 ms", !any);
 	SbusOutCmd old = cmdOf(SbusOutCmdKind::Start, 7);
 	checkTrue("a command of the seq at the reset is not taken",
-	          !sbusOutCoreTake(&c, &old, 100000, true) && !c.running);
+	          !sbusOutCoreTake(&c, &old, 100000, true, 1811) && !c.running);
 	SbusOutCmd fr = cmdOf(SbusOutCmdKind::Frame, 8, 1700);
 	fr.ch17 = fr.failsafe = true;
-	checkTrue("a Frame while SAFE is taken", sbusOutCoreTake(&c, &fr, 100000, true));
+	checkTrue("a Frame while SAFE is taken", sbusOutCoreTake(&c, &fr, 100000, true, 1811));
 	checkTrue("and moves nothing", !c.running && c.ackSeq == 8 &&
 	                               !sbusOutCoreStep(&c, 100000, true, true, out));
 	sbus_frame_t start;
@@ -113,10 +114,10 @@ static void testCoreStart() {
 	for (uint8_t thr = 0; thr < 4; thr++) {
 		sbusOutCoreReset(&c, 0);
 		SbusOutCmd f = cmdOf(SbusOutCmdKind::Frame, 1, 1811);
-		sbusOutCoreTake(&c, &f, 0, true);
+		sbusOutCoreTake(&c, &f, 0, true, 1811);
 		SbusOutCmd s = cmdOf(SbusOutCmdKind::Start, 2, 1811, thr, 1811);
 		s.ch17 = s.ch18 = s.failsafe = s.frameLost = true;
-		checkTrue("Start taken", sbusOutCoreTake(&c, &s, 1000, true) && c.running);
+		checkTrue("Start taken", sbusOutCoreTake(&c, &s, 1000, true, 1811) && c.running);
 		memset(out, 0xAA, sizeof(out));
 		checkTrue("the first frame on the pass that took Start",
 		          sbusOutCoreStep(&c, 1000, true, true, out));
@@ -147,20 +148,20 @@ static void testCoreStart() {
 	// Refusals: the heartbeat lapsed, a throttle index past channel 4.
 	sbusOutCoreReset(&c, 0);
 	SbusOutCmd s = cmdOf(SbusOutCmdKind::Start, 1);
-	checkTrue("Start with the heartbeat lapsed: taken", sbusOutCoreTake(&c, &s, 0, false));
+	checkTrue("Start with the heartbeat lapsed: taken", sbusOutCoreTake(&c, &s, 0, false, 1811));
 	checkTrue("and refused: SAFE", !c.running && c.ackSeq == 1 &&
 	                               !sbusOutCoreStep(&c, 0, true, true, out));
 	s = cmdOf(SbusOutCmdKind::Start, 2, 992, 4);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	checkTrue("Start with throttle index 4: refused", !c.running && c.ackSeq == 2);
 	s = cmdOf(SbusOutCmdKind::Start, 3, 992, 3);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	checkTrue("index 3: taken", c.running && c.thrCh == 3);
 	s.seq = 3;
 	s.kind = SbusOutCmdKind::Safe;
-	checkTrue("a Safe of the taken seq: not new", !sbusOutCoreTake(&c, &s, 0, true) && c.running);
+	checkTrue("a Safe of the taken seq: not new", !sbusOutCoreTake(&c, &s, 0, true, 1811) && c.running);
 	s.seq = 4;
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	checkTrue("Safe: no frame on the same pass, though one is due",
 	          !c.running && !sbusOutCoreStep(&c, 0, true, true, out));
 }
@@ -174,12 +175,12 @@ static void testCoreClamp() {
 		SbusOutCore c;
 		sbusOutCoreReset(&c, 0);
 		SbusOutCmd s = cmdOf(SbusOutCmdKind::Start, 1, 992, thr, 499);
-		sbusOutCoreTake(&c, &s, 0, true);
+		sbusOutCoreTake(&c, &s, 0, true, 1811);
 		bool ok = true;
 		uint16_t seq = 2;
 		for (uint16_t raw : RAW) {
 			SbusOutCmd f = cmdOf(SbusOutCmdKind::Frame, seq++, raw, (uint8_t)((thr + 1) % 4), 1811);
-			sbusOutCoreTake(&c, &f, 0, true);
+			sbusOutCoreTake(&c, &f, 0, true, 1811);
 			uint16_t lo = raw < 172 ? 172 : raw;
 			for (unsigned i = 0; i < SBUS_CHANNELS; i++) {
 				uint16_t hi = i == thr ? 499 : 1811;
@@ -194,22 +195,41 @@ static void testCoreClamp() {
 	SbusOutCore c;
 	sbusOutCoreReset(&c, 0);
 	SbusOutCmd s = cmdOf(SbusOutCmdKind::Start, 1, 992, 2, 5000);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	checkInt("a ceiling above 1811 is taken as 1811", c.ceilRaw, 1811);
+	{
+		SbusOutCore m;
+		sbusOutCoreReset(&m, 0);
+		SbusOutCmd w = cmdOf(SbusOutCmdKind::Start, 1, 992, 2, 1811);
+		sbusOutCoreTake(&m, &w, 0, true, 499);
+		checkInt("a screen's ceiling of 1811 at MAX THROTTLE 400: 499", m.ceilRaw, 499);
+		SbusOutCmd f2 = cmdOf(SbusOutCmdKind::Frame, 2, 2047);
+		sbusOutCoreTake(&m, &f2, 0, true, 499);
+		checkInt("the throttle at 2047 sends 499", m.frame.channel[2], 499);
+		w = cmdOf(SbusOutCmdKind::Start, 3, 992, 2, 300);
+		sbusOutCoreTake(&m, &w, 0, true, 499);
+		checkInt("a lower ceiling from the screen is kept: 300", m.ceilRaw, 300);
+		w = cmdOf(SbusOutCmdKind::Start, 4, 992, 2, 500);
+		sbusOutCoreTake(&m, &w, 0, true, 499);
+		checkInt("500 at MAX THROTTLE's 499: 499", m.ceilRaw, 499);
+		w = cmdOf(SbusOutCmdKind::Start, 5, 992, 2, 1811);
+		sbusOutCoreTake(&m, &w, 0, true, 5000);
+		checkInt("a maximum above 1811 is taken as 1811", m.ceilRaw, 1811);
+	}
 	SbusOutCmd f = cmdOf(SbusOutCmdKind::Frame, 2, 2047);
-	sbusOutCoreTake(&c, &f, 0, true);
+	sbusOutCoreTake(&c, &f, 0, true, 1811);
 	checkInt("the throttle at 2047 sends 1811", c.frame.channel[2], 1811);
 	s = cmdOf(SbusOutCmdKind::Start, 3, 992, 2, 100);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	checkInt("a ceiling below 172 is taken as 172", c.ceilRaw, 172);
 	f = cmdOf(SbusOutCmdKind::Frame, 4, 900);
-	sbusOutCoreTake(&c, &f, 0, true);
+	sbusOutCoreTake(&c, &f, 0, true, 1811);
 	checkInt("the throttle stays at 172", c.frame.channel[2], 172);
 	checkInt("the others move", c.frame.channel[0], 900);
 	f = cmdOf(SbusOutCmdKind::Frame, 5, 900, 2, 1811);
 	f.ch17 = true;
 	f.frameLost = true;
-	sbusOutCoreTake(&c, &f, 0, true);
+	sbusOutCoreTake(&c, &f, 0, true, 1811);
 	checkTrue("a Frame's ceiling is ignored", c.frame.channel[2] == 172);
 	checkTrue("its flags taken", c.frame.ch17 && !c.frame.ch18 && c.frame.frame_lost &&
 	                             !c.frame.failsafe);
@@ -218,7 +238,7 @@ static void testCoreClamp() {
 	f.failsafe = true;
 	f.frameLost = false;
 	f.seq = 6;
-	sbusOutCoreTake(&c, &f, 0, true);
+	sbusOutCoreTake(&c, &f, 0, true, 1811);
 	checkTrue("each flag on its own", !c.frame.ch17 && c.frame.ch18 && !c.frame.frame_lost &&
 	                                  c.frame.failsafe);
 }
@@ -240,7 +260,7 @@ static void testCoreSchedule() {
 	SbusOutCore c;
 	sbusOutCoreReset(&c, 0);
 	SbusOutCmd s = cmdOf(SbusOutCmdKind::Start, 1);
-	sbusOutCoreTake(&c, &s, 1000, true);
+	sbusOutCoreTake(&c, &s, 1000, true, 1811);
 	// Passes every 333 us: a deadline lands between passes.
 	std::vector<uint32_t> at = coreRun(&c, 1000, 1000 + 100 * 14000, 333);
 	checkInt("100 frames in 1.4 s", (long)at.size(), 100);
@@ -254,7 +274,7 @@ static void testCoreSchedule() {
 
 	// A pass 30 ms late: one frame, then a period from that pass.
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	at = coreRun(&c, 0, 14000, 500);
 	uint8_t out[SBUS_FRAME_BYTES];
 	checkTrue("a pass 30 ms late sends", sbusOutCoreStep(&c, 44000, true, true, out));
@@ -265,7 +285,7 @@ static void testCoreSchedule() {
 	          at.size() == 3 && at[0] == 58000 && at[1] == 72000 && at[2] == 86000);
 	// Exactly a period late: also a new grid.
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	coreRun(&c, 0, 1, 1);
 	checkTrue("a pass one period late sends", sbusOutCoreStep(&c, 28000, true, true, out));
 	at = coreRun(&c, 28500, 43000, 500);
@@ -273,14 +293,14 @@ static void testCoreSchedule() {
 
 	// A pass 13 ms late: the grid holds, but never under 7 ms apart.
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	coreRun(&c, 0, 1, 1);
 	checkTrue("a pass 13 ms late sends", sbusOutCoreStep(&c, 27000, true, true, out));
 	at = coreRun(&c, 27500, 56500, 500);
 	checkTrue("the next 7 ms on, not at 28 ms: then the grid",
 	          at.size() == 3 && at[0] == 34000 && at[1] == 42000 && at[2] == 56000);
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	coreRun(&c, 0, 1, 1);
 	sbusOutCoreStep(&c, 27000, true, true, out);
 	at = coreRun(&c, 27001, 34002, 1);
@@ -289,7 +309,7 @@ static void testCoreSchedule() {
 
 	// The FIFO not yet empty at the deadline.
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	checkTrue("FIFO not empty at the deadline: waits", !sbusOutCoreStep(&c, 0, true, false, out));
 	checkTrue("still not: waits", !sbusOutCoreStep(&c, 500, true, false, out));
 	checkTrue("empty: sends", sbusOutCoreStep(&c, 1000, true, true, out));
@@ -298,7 +318,7 @@ static void testCoreSchedule() {
 
 	// Across the micros() wrap.
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0xFFFFC000u, true);
+	sbusOutCoreTake(&c, &s, 0xFFFFC000u, true, 1811);
 	at = coreRun(&c, 0xFFFFC000u, 0xFFFFC000u + 5 * 14000, 500);
 	grid = at.size() == 5;
 	for (size_t i = 0; grid && i < at.size(); i++) grid = at[i] == 0xFFFFC000u + (uint32_t)i * 14000;
@@ -306,12 +326,12 @@ static void testCoreSchedule() {
 
 	// STOP and START again soon: 7 ms after the last frame.
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	coreRun(&c, 0, 1, 1);
 	SbusOutCmd st = cmdOf(SbusOutCmdKind::Safe, 2);
-	sbusOutCoreTake(&c, &st, 2000, true);
+	sbusOutCoreTake(&c, &st, 2000, true, 1811);
 	SbusOutCmd again = cmdOf(SbusOutCmdKind::Start, 3);
-	sbusOutCoreTake(&c, &again, 3000, true);
+	sbusOutCoreTake(&c, &again, 3000, true, 1811);
 	at = coreRun(&c, 3000, 8000, 500);
 	checkTrue("START 3 ms after a frame: the first 7 ms after it", at.size() == 1 && at[0] == 7000);
 	checkInt("the count starts again at START", c.frames, 1);
@@ -325,17 +345,17 @@ static void testCoreStops() {
 	uint8_t out[SBUS_FRAME_BYTES];
 	sbusOutCoreReset(&c, 0);
 	SbusOutCmd s = cmdOf(SbusOutCmdKind::Start, 1);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	sbusOutCoreStep(&c, 0, true, true, out);
 	checkTrue("a lapsed heartbeat while RUNNING: no frame", !sbusOutCoreStep(&c, 14000, false, true, out));
 	checkTrue("SAFE, tripped", !c.running && c.tripped);
 	std::vector<uint32_t> at = coreRun(&c, 14500, 60000, 500);
 	checkTrue("the heartbeat back: still nothing, still tripped", at.empty() && c.tripped);
 	SbusOutCmd lapsed = cmdOf(SbusOutCmdKind::Start, 2);
-	sbusOutCoreTake(&c, &lapsed, 60000, false);
+	sbusOutCoreTake(&c, &lapsed, 60000, false, 1811);
 	checkTrue("Start while lapsed: refused, the trip kept", !c.running && c.tripped);
 	SbusOutCmd ok = cmdOf(SbusOutCmdKind::Start, 3);
-	sbusOutCoreTake(&c, &ok, 60500, true);
+	sbusOutCoreTake(&c, &ok, 60500, true, 1811);
 	checkTrue("Start: RUNNING, the trip cleared", c.running && !c.tripped);
 	sbusOutCoreReset(&c, 0);
 	checkTrue("a lapse while SAFE trips nothing",
@@ -343,7 +363,7 @@ static void testCoreStops() {
 
 	// A frame the encoder refuses: only by a channel the clamp did not make.
 	sbusOutCoreReset(&c, 0);
-	sbusOutCoreTake(&c, &s, 0, true);
+	sbusOutCoreTake(&c, &s, 0, true, 1811);
 	c.frame.channel[9] = 2048;
 	memset(out, 0xAA, sizeof(out));
 	checkTrue("a channel at 2048: no frame", !sbusOutCoreStep(&c, 0, true, true, out));
@@ -352,7 +372,7 @@ static void testCoreStops() {
 	checkTrue("SAFE, refused, the bytes unwritten", !c.running && c.refused && untouched);
 	checkInt("nothing counted", c.frames, 0);
 	SbusOutCmd again = cmdOf(SbusOutCmdKind::Start, 2);
-	sbusOutCoreTake(&c, &again, 100, true);
+	sbusOutCoreTake(&c, &again, 100, true, 1811);
 	checkTrue("START clears the refusal and sends", !c.refused &&
 	                                                sbusOutCoreStep(&c, 100, true, true, out));
 	c.frame.channel[0] = 2047;
@@ -374,11 +394,17 @@ static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
 	fakePumpPoll();
 }
 
-/** @brief GP0 as the DShot teardown leaves it: an SIO input with the pull-up (out_dshot.c). */
+/** @brief SIG as the pump's teardown leaves it: an SIO input with the pull-up (esc_task.cpp). */
 static void teardownState(unsigned gpio) {
 	gpio_set_function(gpio, GPIO_FUNC_SIO);
 	gpio_pull_up(gpio);
 	gpio_set_dir(gpio, GPIO_IN);
+}
+
+/** @brief AUX as the KISS receiver's end leaves it: the NULL function, the pulls off (pio_uart_rx.cpp). */
+static void kissEndState(unsigned gpio) {
+	gpio_set_function(gpio, GPIO_FUNC_NULL);
+	gpio_disable_pulls(gpio);
 }
 
 /** @brief An S.BUS output claim with @p roles through to the job's bind. */
@@ -469,8 +495,12 @@ static void testJobBind() {
 	fakeUartReset();
 	freshPump(0, 1);
 	teardownState(0);
-	// The pad isolated with its output disabled, as at reset.
+	// OD and ISO set by hand: no firmware path leaves the pad so, and the
+	// bind must not rely on either being clear.
 	pads_bank0_hw->io[0].value |= PADS_BANK0_GPIO0_OD_BITS | PADS_BANK0_GPIO0_ISO_BITS;
+	// SIO left driving GP0 high by an earlier owner.
+	gpio_set_dir(0, GPIO_OUT);
+	gpio_put(0, 1);
 	FakePin gp1 = fakePin(1);
 	int ctrl0 = fakeGpioCtrlWrites(0);
 	checkTrue("the claim runs the shipped job",
@@ -489,6 +519,8 @@ static void testJobBind() {
 	checkInt("FUNCSEL UART and OUTOVER inverted in that write", w.value, CTRL_UART_INV);
 	checkTrue("after the UART is set up", w.at > u.crAt);
 	checkTrue("the pad first: IE on, OD off", p.padMaskAt != 0 && p.padMaskAt < w.at);
+	checkTrue("SIO's output enable off and its output low first",
+	          !p.output && !p.high && p.dirAt < p.pullAt && p.putAt < p.pullAt);
 	checkTrue("then isolation cleared", p.padIsoAt > w.at);
 	uint32_t pad = fakePad(0);
 	checkTrue("the pad: IE set, OD and ISO clear",
@@ -636,6 +668,38 @@ static void testJobLine() {
 	runTo(time_us_64() + 50000, 500);
 	sbusOutJobStatus(&st);
 	checkTrue("SAFE, no frame after it", !st.running && st.ackSeq == stop && fakeUartTxCount() == n);
+	checkTrue("back to free", claimEnd());
+}
+
+/** @brief A ceiling the screen gets wrong: core1 holds MAX THROTTLE's. */
+static void testJobCeiling() {
+	section("S.BUS output job: core1 holds the throttle to MAX THROTTLE's ceiling");
+
+	uint16_t saved = settings()->maxThrottle;
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	g_beat = true;
+	static const uint16_t MT[] = { 400, 1000 };
+	for (uint16_t mt : MT) {
+		settings()->maxThrottle = mt;
+		SbusOutCmd c = cmdOf(SbusOutCmdKind::Start, 0, 992, 2, 1811);
+		sbusOutJobCommand(&c);
+		runTo(time_us_64() + 2000, 500);
+		c = cmdOf(SbusOutCmdKind::Frame, 0, 2047);
+		sbusOutJobCommand(&c);
+		SbusOutStatus st;
+		sbusOutJobStatus(&st);
+		checkTrue("a frame", runToFrame(st.frames, 500));
+		sbusOutJobStatus(&st);
+		char what[72];
+		snprintf(what, sizeof(what), "MAX THROTTLE %u, the screen's ceiling 1811: CH3 at", mt);
+		checkInt(what, st.sent.channel[2], sbusOutCeilRaw(mt));
+		send(SbusOutCmdKind::Safe);
+		runTo(time_us_64() + 2000, 500);
+	}
+	settings()->maxThrottle = saved;
 	checkTrue("back to free", claimEnd());
 }
 
@@ -806,11 +870,13 @@ static void testJobWirings() {
 	fakePwmReset();
 	fakeUartReset();
 	freshPump(1, 0);
-	teardownState(0);
+	kissEndState(0);
 	FakePin gp1 = fakePin(1);
 	checkTrue("SIG GP1, AUX GP0: runs with SIG and AUX",
 	          claimToBind(sbusOutClaimRoles(1, 0)) == ClaimState::Running);
 	checkTrue("it binds GP0", fakePin(0).ctrl == CTRL_UART_INV);
+	checkTrue("from the KISS receiver's NULL and no pulls: the pull-down on",
+	          fakePin(0).pull == FakePull::Down);
 	checkTrue("GP1, SIG here, untouched", samePin(fakePin(1), gp1) && fakeGpioCtrlWrites(1) == 0);
 	g_beat = true;
 	escHeartbeat();
@@ -942,48 +1008,137 @@ static std::string readFile(const std::string &path) {
 }
 
 /**
- * @brief Nothing in `src/` but the job, its table and the claim's row names
- *        the output, so no screen and no path can claim or command it
+ * @brief @p text with its comments blanked, line breaks kept: `//` to the
+ *        end of the line and block comments, outside string and character
+ *        literals. A comment calls nothing.
+ */
+static std::string stripComments(const std::string &text) {
+	std::string out;
+	out.reserve(text.size());
+	enum { Code, Line, Block, Str, Chr } st = Code;
+	for (size_t i = 0; i < text.size(); i++) {
+		char ch = text[i], nx = i + 1 < text.size() ? text[i + 1] : '\0';
+		switch (st) {
+			case Code:
+				if (ch == '/' && nx == '/') { st = Line; i++; continue; }
+				if (ch == '/' && nx == '*') { st = Block; i++; continue; }
+				if (ch == '"') st = Str;
+				else if (ch == '\'') st = Chr;
+				out += ch;
+				break;
+			case Line:
+				if (ch == '\n') { st = Code; out += ch; }
+				break;
+			case Block:
+				if (ch == '*' && nx == '/') { st = Code; i++; }
+				else if (ch == '\n') out += ch;
+				break;
+			case Str:
+			case Chr:
+				out += ch;
+				if (ch == '\\' && nx) { out += nx; i++; }
+				else if ((st == Str && ch == '"') || (st == Chr && ch == '\'')) st = Code;
+				break;
+		}
+	}
+	return out;
+}
+
+/** @brief @p s without its leading and trailing blanks. */
+static std::string trim(const std::string &s) {
+	size_t a = s.find_first_not_of(" \t\r"), b = s.find_last_not_of(" \t\r");
+	return a == std::string::npos ? std::string() : s.substr(a, b - a + 1);
+}
+
+/** @brief Every source file under @p dir, its subdirectories too. */
+static void listSources(const std::string &dir, std::vector<std::string> *out) {
+	DIR *d = opendir(dir.c_str());
+	if (!d) return;
+	while (struct dirent *e = readdir(d)) {
+		std::string name = e->d_name;
+		if (name == "." || name == "..") continue;
+		std::string path = dir + "/" + name;
+		DIR *sub = opendir(path.c_str());
+		if (sub) {
+			closedir(sub);
+			listSources(path, out);
+			continue;
+		}
+		size_t dot = name.rfind('.');
+		std::string ext = dot == std::string::npos ? "" : name.substr(dot);
+		if (ext == ".c" || ext == ".cpp" || ext == ".h" || ext == ".cmake" || ext == ".pio" ||
+		    name == "CMakeLists.txt")
+			out->push_back(path);
+	}
+	closedir(d);
+}
+
+/**
+ * @brief Nothing in `src/` but the job's declarations and definitions, its
+ *        line in the job table and the claim's row names the output, so no
+ *        screen and no path can claim or command it
  *        (docs/design/sbus-output.md, decision 1: the probe first).
+ *
+ * Every source file under `src/` is read, with its comments blanked, line by
+ * line. A line that names the output must be one of the lines below, in the
+ * file named: an inline function in pin_claim.h that claimed the output, or a
+ * call anywhere else, fails.
  */
 static void testUnreachable() {
-	section("S.BUS output: nothing outside the job, the job table and the claim names it");
+	section("S.BUS output: nothing outside the job's declarations, its table line and the claim's row names it");
 
-	static const char *const ALLOWED[] = {
-		"sbus_out_job.h", "sbus_out_job.cpp", "core1_job.h", "core1_job.cpp", "pin_claim.h",
+	struct Allowed { const char *file; const char *line; };
+	static const Allowed ALLOWED[] = {
+		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false }," },
+		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS," },
+		{ "../src/core1_job.cpp",
+		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1," },
+		{ "../src/sbus_out_job.h", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);" },
+		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);" },
+		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;" },
+		{ "../src/sbus_out_job.cpp", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {" },
+		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {" },
+		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {" },
 	};
 	static const char *const NAMES[] = {
 		"PinUser::SbusOut", "Core1Job::SbusOut", "sbusOutJobCommand", "SBUS_OUT_JOB_OPS",
 		"sbusOutClaimRoles",
 	};
-	std::vector<std::string> dirs = { "../src", "../src/dshot", "../src/sdio" };
-	int files = 0;
+	std::vector<std::string> files;
+	listSources("../src", &files);
+	files.push_back("../CMakeLists.txt");
+	bool deep = false;
+	for (const std::string &f : files) deep |= f.find("../src/sdio/compat/") == 0;
+	int used[sizeof(ALLOWED) / sizeof(ALLOWED[0])] = {};
 	std::string hits;
-	for (const std::string &dir : dirs) {
-		DIR *d = opendir(dir.c_str());
-		if (!d) continue;
-		while (struct dirent *e = readdir(d)) {
-			std::string name = e->d_name;
-			size_t dot = name.rfind('.');
-			if (dot == std::string::npos) continue;
-			std::string ext = name.substr(dot);
-			if (ext != ".c" && ext != ".cpp" && ext != ".h" && ext != ".cmake" && ext != ".pio")
-				continue;
-			files++;
-			bool allowed = false;
-			for (const char *a : ALLOWED) allowed |= dir == "../src" && name == a;
-			if (allowed) continue;
-			std::string text = readFile(dir + "/" + name);
-			for (const char *n : NAMES)
-				if (text.find(n) != std::string::npos) hits += " " + name + ":" + n;
+	for (const std::string &f : files) {
+		std::string code = stripComments(readFile(f));
+		size_t pos = 0;
+		int lineNo = 0;
+		while (pos <= code.size()) {
+			size_t nl = code.find('\n', pos);
+			if (nl == std::string::npos) nl = code.size();
+			std::string line = trim(code.substr(pos, nl - pos));
+			pos = nl + 1;
+			lineNo++;
+			bool names = false;
+			for (const char *n : NAMES) names |= line.find(n) != std::string::npos;
+			if (!names) continue;
+			bool ok = false;
+			for (size_t a = 0; a < sizeof(ALLOWED) / sizeof(ALLOWED[0]); a++)
+				if (f == ALLOWED[a].file && line == ALLOWED[a].line) { ok = true; used[a]++; }
+			if (!ok) hits += " " + f + ":" + std::to_string(lineNo);
 		}
-		closedir(d);
 	}
-	checkTrue("the sources were read", files > 100);
-	checkTrue("no other source names it", hits.empty());
+	checkTrue("the sources were read, subdirectories too", files.size() > 100 && deep);
+	checkTrue("no other line names it", hits.empty());
 	if (!hits.empty()) printf("   %s\n", hits.c_str());
-	std::string cmake = readFile("../CMakeLists.txt");
-	checkTrue("nor CMakeLists.txt", !cmake.empty() && cmake.find("SbusOut") == std::string::npos);
+	bool each = true;
+	for (int u : used) each &= u == 1;
+	checkTrue("each allowed line found once: the list is current", each);
+	checkTrue("a call in a comment is blanked, one in code is not",
+	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
+	              == "x(); \n y(\"//\");");
 }
 
 void runSbusOutJobTests() {
@@ -995,6 +1150,7 @@ void runSbusOutJobTests() {
 	testCoreStops();
 	testJobBind();
 	testJobLine();
+	testJobCeiling();
 	testJobRelease();
 	testJobHeartbeat();
 	testJobWirings();

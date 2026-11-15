@@ -6,6 +6,7 @@
 #include "sbus_out_job.h"
 #include "sbus_job.h"
 #include "pin_claim.h"
+#include "settings.h"
 
 #include "plat.h"
 #include <hardware/gpio.h>
@@ -49,7 +50,7 @@ void sbusOutStartFrame(sbus_frame_t *f, uint8_t thrCh) {
 }
 
 bool sbusOutCoreTake(SbusOutCore *c, const SbusOutCmd *cmd, uint32_t nowUs,
-                     bool uiAlive) {
+                     bool uiAlive, uint16_t ceilMax) {
 	if (cmd->seq == c->ackSeq) return false;
 	c->ackSeq = cmd->seq;
 	switch (cmd->kind) {
@@ -63,7 +64,8 @@ bool sbusOutCoreTake(SbusOutCore *c, const SbusOutCmd *cmd, uint32_t nowUs,
 			c->refused = false;
 			c->frames = 0;
 			c->thrCh = cmd->thrCh;
-			c->ceilRaw = clampRaw(cmd->ceilRaw, SBUS_OUT_RAW_HI);
+			// The screen's ceiling, never above MAX THROTTLE's.
+			c->ceilRaw = clampRaw(cmd->ceilRaw, clampRaw(ceilMax, SBUS_OUT_RAW_HI));
 			// core1's frame, whatever the screen sent before: no value set
 			// while SAFE reaches the FC.
 			sbusOutStartFrame(&c->frame, c->thrCh);
@@ -207,8 +209,14 @@ static void sbusOutJobInit() {
 static uint8_t sbusOutJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	if (sigGpio != SBUS_OUT_GPIO && auxGpio != SBUS_OUT_GPIO) return CORE1_JOB_NO_GP0;
 
-	// The DShot teardown leaves GP0 an input with the pull-up on: the
-	// pull-down holds the line at its idle level from here on.
+	// SIO drives nothing, whatever an earlier owner left. As SIG, the pump's
+	// teardown leaves GP0 an SIO input with the pull-up (esc_task.cpp,
+	// escTaskPoll()'s teardown); as AUX with KISS on, the KISS receiver's
+	// end leaves it on the NULL function with the pulls off (pio_uart_rx.cpp,
+	// pioUartRxEnd()). The pull-down holds the line at its idle level from
+	// here on.
+	gpio_set_dir(SBUS_OUT_GPIO, GPIO_IN);
+	gpio_put(SBUS_OUT_GPIO, 0);
 	gpio_pull_down(SBUS_OUT_GPIO);
 	if (!sbusBaudOk(uart_init(uart0, SBUS_BAUD))) {
 		uart_deinit(uart0);
@@ -236,7 +244,9 @@ static void sbusOutJobStep(uint32_t nowMs, bool uiAlive) {
 
 	uint32_t nowUs = micros();
 	uart_hw_t *hw = uart_get_hw(uart0);
-	sbusOutCoreTake(&s_core, &cmd, nowUs, uiAlive);
+	// MAX THROTTLE cannot change during a claim: SETTINGS opens only while
+	// the claim is Free.
+	sbusOutCoreTake(&s_core, &cmd, nowUs, uiAlive, sbusOutCeilRaw(settings()->maxThrottle));
 	uint8_t out[SBUS_FRAME_BYTES];
 	if (sbusOutCoreStep(&s_core, nowUs, uiAlive, (hw->fr & UART_UARTFR_TXFE_BITS) != 0, out)) {
 		// 25 bytes into an empty 32-entry FIFO: the UART sends them back

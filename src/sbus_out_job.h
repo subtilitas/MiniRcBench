@@ -22,8 +22,9 @@
  * job around them copies the command block, loads the TX FIFO
  * (first-in, first-out buffer) and publishes the status.
  *
- * **The bind**, in this order: the pull-down on GP0, which holds the line at
- * its idle level; uart_init() at 100,000 baud, refused with
+ * **The bind**, in this order: SIO's output enable for GP0 off and its
+ * output low, so whatever an earlier owner left driving, SIO drives nothing;
+ * the pull-down on GP0, which holds the line at its idle level; uart_init() at 100,000 baud, refused with
  * CORE1_JOB_CLOCK more than 1 % off (sbusBaudOk()); 8E2 and the receiver
  * off (UARTCR.RXE), since no pad carries UART0's RX during this claim; then
  * GP0 to the UART with its output inverted. gpio_set_function() writes the
@@ -111,7 +112,7 @@ struct SbusOutCmd {
 	bool           failsafe;   /**< The failsafe bit, for SbusOutCmdKind::Frame. */
 	bool           frameLost;  /**< The frame-lost bit, for SbusOutCmdKind::Frame. */
 	uint8_t        thrCh;      /**< The throttle channel's index, 0 to 3; taken by SbusOutCmdKind::Start. */
-	uint16_t       ceilRaw;    /**< The throttle ceiling, raw, sbusOutCeilRaw(); taken by SbusOutCmdKind::Start. */
+	uint16_t       ceilRaw;    /**< The throttle ceiling, raw, sbusOutCeilRaw(); taken by SbusOutCmdKind::Start, never above MAX THROTTLE's. */
 };
 
 /** @brief What core1 publishes for core0. The release clears it. */
@@ -135,7 +136,7 @@ struct SbusOutCore {
 	bool         tripped;   /**< Latched by a heartbeat lapse while RUNNING. */
 	bool         refused;   /**< Latched by a frame sbus_encode() refused. */
 	uint8_t      thrCh;     /**< The throttle channel's index, from Start. */
-	uint16_t     ceilRaw;   /**< The throttle ceiling, raw, from Start, within 172 to 1811. */
+	uint16_t     ceilRaw;   /**< The throttle ceiling, raw, from Start: 172 to MAX THROTTLE's ceiling. */
 	uint16_t     ackSeq;    /**< Seq of the last command taken. */
 	uint32_t     nextUs;    /**< When the next frame is due. */
 	bool         sentAny;   /**< A frame was loaded since the reset. */
@@ -169,8 +170,9 @@ void sbusOutStartFrame(sbus_frame_t *f, uint8_t thrCh);
  *
  * - **Safe** ends the frames; the frame on the wire completes.
  * - **Start** is refused while @p uiAlive is false and for a throttle index
- *   above 3. Otherwise it takes the throttle channel and the ceiling, clamped
- *   to raw 172 to 1811, sets the START frame (sbusOutStartFrame()) whatever
+ *   above 3. Otherwise it takes the throttle channel and the ceiling: the
+ *   command's, clamped to raw 172 to @p ceilMax, so a wrong ceiling from the
+ *   screen never passes MAX THROTTLE's; it sets the START frame (sbusOutStartFrame()) whatever
  *   was sent before, clears the trip, the refusal and the frame count, and
  *   makes a frame due at @p nowUs.
  * - **Frame** while RUNNING replaces the channels and flags, every channel
@@ -182,10 +184,13 @@ void sbusOutStartFrame(sbus_frame_t *f, uint8_t thrCh);
  * @param cmd       The command block.
  * @param nowUs     micros() of the pass.
  * @param uiAlive   core1UiAlive().
+ * @param ceilMax   The highest ceiling Start takes, raw:
+ *                  sbusOutCeilRaw(`settings()->maxThrottle`), which the job
+ *                  reads on core1. Above 1811 reads as 1811.
  * @return True when the command was new.
  */
 bool sbusOutCoreTake(SbusOutCore *c, const SbusOutCmd *cmd, uint32_t nowUs,
-                     bool uiAlive);
+                     bool uiAlive, uint16_t ceilMax);
 
 /**
  * @brief One pass: the heartbeat and the frame schedule. Pure.

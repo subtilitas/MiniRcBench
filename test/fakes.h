@@ -377,7 +377,13 @@ uint8_t escTaskDshotPin();
 #define FAKE_SLICES 8
 
 /** @brief Which pull a pin has, as the GPIO fake last set it. */
-enum class FakePull : uint8_t { Untouched, None, Down, Up };
+enum class FakePull : uint8_t {
+	Untouched,  /**< No pull written since fakePwmReset(). */
+	None,       /**< PUE and PDE clear. */
+	Down,       /**< PDE alone. */
+	Up,         /**< PUE alone. */
+	Keep,       /**< PUE and PDE both: the RP2350's bus keeper. */
+};
 
 /** @brief What the fake recorded for one GPIO. */
 struct FakePin {
@@ -385,7 +391,7 @@ struct FakePin {
 	uint16_t level;        /**< Compare level last set, or 0 after pwm_init(). */
 	int      levelWrites;  /**< pwm_set_gpio_level() calls. */
 	bool     output;       /**< gpio_set_dir() last set an output. */
-	FakePull pull;         /**< Pull last set. */
+	FakePull pull;         /**< The pad register's PUE and PDE, once a pull was written; read by fakePin(). */
 	bool     high;         /**< gpio_put() last drove it high. */
 	bool     inputOff;     /**< gpio_set_input_enabled() last disabled its input. */
 	int      puts;         /**< gpio_put() calls. */
@@ -439,8 +445,8 @@ uint16_t fakePwmLatched(unsigned gpio);
 
 /**
  * @brief Clear every pin and slice record, the control-register record and
- *        the broken map. Every pad register reads ISO and OD set, IE clear:
- *        a pad nothing has set up.
+ *        the broken map. Every pad register reads its reset value, 0x116:
+ *        ISO and PDE set, IE and OD clear.
  */
 void fakePwmReset();
 
@@ -468,9 +474,10 @@ int fakeGpioCtrlWrites(unsigned gpio);
 FakeCtrlWrite fakeGpioCtrlWrite(unsigned gpio, int i);
 
 /**
- * @brief A GPIO's pad register as the fake holds it: IE, OD and ISO
- *        (hardware/structs/pads_bank0.h). gpio_set_function() sets IE and
- *        clears OD and ISO, as the SDK does.
+ * @brief A GPIO's pad register as the fake holds it: IE, OD, ISO, PUE and
+ *        PDE (hardware/structs/pads_bank0.h). gpio_set_function() sets IE and
+ *        clears OD and ISO, and gpio_pull_down() and its kin set the pulls,
+ *        as the SDK does.
  * @param gpio GPIO.
  */
 uint32_t fakePad(unsigned gpio);

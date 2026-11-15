@@ -158,14 +158,28 @@ static void cutCheck(unsigned gpio) {
 //     by gpio_set_function(), gpio_set_inover() or io_bank0_hw directly, is
 //     one record with FUNCSEL and the overrides as one value, so a test sees
 //     the two fields of a single write together. The pad register holds IE,
-//     OD and ISO; the pulls are kept in FakePin::pull ---
+//     OD, ISO and the pulls, PUE and PDE: gpio_pull_down() and its kin write
+//     them there, and FakePin::pull is read from them, so a whole-register
+//     write that changes a pull is seen ---
 io_bank0_hw_t g_fakeIoBank0;
 pads_bank0_hw_t g_fakePadsBank0;
 /** @brief One control-register write and its GPIO. */
 struct FakeCtrlRec { unsigned gpio; FakeCtrlWrite w; };
 static std::vector<FakeCtrlRec> g_ctrlLog;
-/** @brief A pad nothing has set up: isolated, output disabled, input off. */
-static const uint32_t PAD_RESET = PADS_BANK0_GPIO0_ISO_BITS | PADS_BANK0_GPIO0_OD_BITS;
+/**
+ * @brief A pad at reset: PADS_BANK0_GPIO0_RESET of SDK 2.1.1, 0x116:
+ *        isolated, the pull-down on, 4 mA drive, Schmitt trigger; IE and OD
+ *        clear.
+ */
+static const uint32_t PAD_RESET = 0x116u;
+static_assert((PAD_RESET & PADS_BANK0_GPIO0_ISO_BITS) && (PAD_RESET & PADS_BANK0_GPIO0_PDE_BITS) &&
+              !(PAD_RESET & (PADS_BANK0_GPIO0_OD_BITS | PADS_BANK0_GPIO0_IE_BITS |
+                             PADS_BANK0_GPIO0_PUE_BITS)),
+              "the pad's reset value");
+/** @brief The pulls of the pad register. */
+static const uint32_t PAD_PULLS = PADS_BANK0_GPIO0_PUE_BITS | PADS_BANK0_GPIO0_PDE_BITS;
+/** @brief A pull was written since fakePwmReset(): FakePin::pull reads the pad, else Untouched. */
+static bool g_pullTouched[FAKE_GPIOS];
 
 static void uartTxPadChange();
 
@@ -203,12 +217,16 @@ fake_gpio_ctrl &fake_gpio_ctrl::operator=(uint32_t v) {
 void hw_write_masked(fake_pad_reg *r, uint32_t values, uint32_t mask) {
 	r->value = (r->value & ~mask) | (values & mask);
 	unsigned gpio = (unsigned)(r - g_fakePadsBank0.io);
-	if (gpio < FAKE_GPIOS) g_pins[gpio].padMaskAt = ++g_pinSeq;
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].padMaskAt = ++g_pinSeq;
+	if (mask & PAD_PULLS) g_pullTouched[gpio] = true;
 }
 void hw_clear_bits(fake_pad_reg *r, uint32_t mask) {
 	r->value &= ~mask;
 	unsigned gpio = (unsigned)(r - g_fakePadsBank0.io);
-	if (gpio < FAKE_GPIOS && (mask & PADS_BANK0_GPIO0_ISO_BITS)) g_pins[gpio].padIsoAt = ++g_pinSeq;
+	if (gpio >= FAKE_GPIOS) return;
+	if (mask & PADS_BANK0_GPIO0_ISO_BITS) g_pins[gpio].padIsoAt = ++g_pinSeq;
+	if (mask & PAD_PULLS) g_pullTouched[gpio] = true;
 }
 int fakeGpioCtrlWrites(unsigned gpio) {
 	int n = 0;
@@ -229,9 +247,20 @@ void fakePwmReset() {
 	g_sliceMapBroken = false;
 	g_ctrlLog.clear();
 	for (fake_pad_reg &r : g_fakePadsBank0.io) r.value = PAD_RESET;
+	memset(g_pullTouched, 0, sizeof(g_pullTouched));
 }
 void fakePwmBreakSliceMap(bool on) { g_sliceMapBroken = on; }
-FakePin fakePin(unsigned gpio) { return gpio < FAKE_GPIOS ? g_pins[gpio] : FakePin{}; }
+FakePin fakePin(unsigned gpio) {
+	if (gpio >= FAKE_GPIOS) return FakePin{};
+	FakePin p = g_pins[gpio];
+	uint32_t pulls = g_fakePadsBank0.io[gpio].value & PAD_PULLS;
+	if (!g_pullTouched[gpio])                  p.pull = FakePull::Untouched;
+	else if (pulls == PAD_PULLS)               p.pull = FakePull::Keep;
+	else if (pulls & PADS_BANK0_GPIO0_PUE_BITS) p.pull = FakePull::Up;
+	else if (pulls & PADS_BANK0_GPIO0_PDE_BITS) p.pull = FakePull::Down;
+	else                                       p.pull = FakePull::None;
+	return p;
+}
 FakeSlice fakeSlice(unsigned slice) { return slice < FAKE_SLICES ? g_slices[slice] : FakeSlice{}; }
 
 unsigned pwm_gpio_to_slice_num(unsigned gpio) {
@@ -300,10 +329,14 @@ extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	g_pins[gpio].output = out != 0;
 	fakeI2cPinDir(gpio, out != 0);
 }
-/** @brief Set a pin's pull and stamp the write. */
+/** @brief Set a pin's pulls in its pad register, as gpio_set_pulls() does, and stamp the write. */
 static void setPull(uint32_t gpio, FakePull pull) {
 	if (gpio >= FAKE_GPIOS) return;
-	g_pins[gpio].pull = pull;
+	uint32_t &pad = g_fakePadsBank0.io[gpio].value;
+	pad &= ~PAD_PULLS;
+	if (pull == FakePull::Up)   pad |= PADS_BANK0_GPIO0_PUE_BITS;
+	if (pull == FakePull::Down) pad |= PADS_BANK0_GPIO0_PDE_BITS;
+	g_pullTouched[gpio] = true;
 	g_pins[gpio].pullAt = ++g_pinSeq;
 }
 extern "C" void gpio_disable_pulls(uint32_t gpio) { setPull(gpio, FakePull::None); }

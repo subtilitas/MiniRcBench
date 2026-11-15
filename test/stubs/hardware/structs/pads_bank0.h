@@ -3,8 +3,8 @@
 //
 // Each GPIO's pad register is an object of the GPIO fake of fakes.cpp, which
 // records its value and the order of each write (fakePad() in fakes.h).
-// gpio_pull_down() and its kin keep their own record in the fake and do not
-// write it.
+// gpio_pull_down() and its kin write its pulls, and the fake reads a pin's
+// pull from them.
 #pragma once
 #include <stdint.h>
 
