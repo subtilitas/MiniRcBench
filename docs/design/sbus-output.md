@@ -962,7 +962,7 @@ and UARTCR of the UART0 fake, the record of every control-register write
 and the pad register with its pulls in the GPIO fake (`fakes.*`, the stubs
 `hardware/structs/io_bank0.h` and `pads_bank0.h`), and
 `test/test_sbus_out_job.cpp`, `runSbusOutJobTests`. CI's firmware job
-measures the job's deepest stack chain, 224 bytes against 1,792. Choices
+measures the job's deepest stack chain, 192 bytes against 1,792. Choices
 the note left open, or made more exact:
 
 - **Frames never closer than 7 ms.** A pass late by less than a period
