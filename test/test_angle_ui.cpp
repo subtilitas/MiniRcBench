@@ -31,6 +31,7 @@
 #include "theme.h"
 #include "plat.h"
 
+#include <initializer_list>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -666,7 +667,140 @@ static void testSetup() {
 	settle();
 	checkTrue("the strip names the short edge", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "SHORT EDGE  AXIS TILT ",
 	                                                      C_DIM, C_BG, 1));
+	checkTrue("flash holds the fields: no hint", !settingsAngleDirty() && blank(252, 8));
+
+	// A failed save is tried again: the hint stays while the fields differ
+	// from flash, across a new visit, and SETUP's BACK with no edit saves.
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(AngleCtl::Along));
+	fakeFlashSetWritable(false);
 	tapId(UI_FIX(UI_BACK));
+	fakeFlashSetWritable(true);
+	checkTrue("LONG not saved: the hint", lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) && settingsAngleDirty());
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_TOOLS));
+	tapId(UI_FIX(ToolsCtl::Angle));
+	frames(1);
+	checkTrue("a new visit: still LONG, the hint still there",
+	          uiAngleModel()->set.along == AngleAlong::Long && lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER));
+	int writes2 = fakeFlashWrites();
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("SETUP's BACK with no edit tries again: written, the hint gone",
+	          fakeFlashWrites() - writes2 == 1 && !settingsAngleDirty() && blank(252, 8) &&
+	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b)); return b.s.angleAlong == 0; }());
+	writes2 = fakeFlashWrites();
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("and once saved, BACK writes nothing", fakeFlashWrites() == writes2);
+
+	// SETTINGS' HOLD TO SAVE stores them too.
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(AngleCtl::Along));
+	fakeFlashSetWritable(false);
+	tapId(UI_FIX(UI_BACK));
+	fakeFlashSetWritable(true);
+	checkTrue("SHORT not saved", settingsAngleDirty());
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_SETTINGS));
+	pressId(UI_FIX(SettingsCtl::Save));
+	holdId(UI_FIX(SettingsCtl::Save), 41);
+	fakeRelease();
+	frames(1);
+	checkTrue("SETTINGS' HOLD TO SAVE stores the meter's fields",
+	          !settingsAngleDirty() &&
+	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b)); return b.s.angleAlong == 1; }());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
+/**
+ * @brief SETTINGS' HOLD DEFAULTS keeps the meter's fields, which SETTINGS
+ *        does not show: DEFAULTS left unsaved, then a save of the meter,
+ *        leaves the stored calibration as it was.
+ */
+static void testDefaultsKeepMeter() {
+	section("ANGLE METER: SETTINGS' HOLD DEFAULTS keeps the meter's setup and calibration");
+	freshBench();
+	Settings c;
+	settingsDefaults(&c);
+	c.poles = 22;
+	c.angleAlong = 1;
+	c.angleInvert = 1;
+	c.angleLengthMm = 40;
+	c.angleCalValid = 1;
+	c.angleCalOffG[0] = 0.03f;
+	c.angleCalOffG[2] = 0.04f;
+	c.angleCalGain[2] = 1.02f;
+	*settings() = c;
+	checkTrue("a calibrated setup saved", settingsSave());
+	settingsLoad();
+	uiInit();
+	frames(2);
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_SETTINGS));
+	pressId(UI_FIX(SettingsCtl::Defaults));
+	holdId(UI_FIX(SettingsCtl::Defaults), 41);
+	fakeRelease();
+	frames(1);
+	Settings d;
+	settingsDefaults(&d);
+	checkTrue("HOLD DEFAULTS: the pole count back to its default",
+	          settings()->poles == d.poles && settingsDirty());
+	checkTrue("the meter's fields kept", settings()->angleAlong == 1 && settings()->angleInvert == 1 &&
+	          settings()->angleLengthMm == 40 && settings()->angleCalValid == 1 &&
+	          settings()->angleCalOffG[0] == 0.03f && settings()->angleCalGain[2] == 1.02f &&
+	          !settingsAngleDirty());
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_TOOLS));
+	tapId(UI_FIX(ToolsCtl::Angle));
+	frames(1);
+	checkTrue("the meter opens calibrated", angleCalValid(&uiAngleModel()->set.cal));
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(AngleCtl::LenPlus));
+	tapId(UI_FIX(UI_BACK));
+	SettingsBlock b;
+	memcpy(&b, fakeFlashBytes(), sizeof(b));
+	checkTrue("the meter's save: LENGTH 41, the calibration stored as it was",
+	          b.s.angleLengthMm == 41 && b.s.angleCalValid == 1 && b.s.angleCalOffG[0] == 0.03f &&
+	          b.s.angleCalOffG[2] == 0.04f && b.s.angleCalGain[2] == 1.02f);
+	checkTrue("and SETTINGS' defaults not saved by it: the pole count stored 22",
+	          b.s.poles == 22 && settingsDirty());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	settingsLoad();
+	checkTrue("a restart: the calibration and the pole count as stored",
+	          settings()->angleCalValid == 1 && settings()->angleCalOffG[0] == 0.03f && settings()->poles == 22);
+}
+
+/** @brief Only BACK on the main view leaves the meter; SETUP's and FLIP CAL's stay in it. */
+static void testOnlyExit() {
+	section("ANGLE METER: only BACK on the main view leaves it");
+	freshBench();
+	openMeter();
+	frames(20);
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("SETUP's BACK: still the meter, the driver online",
+	          uiCurrentScreen() == UiScreenId::Angle && uiAngleView() == AngleView::Main &&
+	          qmi8658State() == ImuState::Online && s_q->reg[0x08] == 0x01);
+	tapId(UI_FIX(AngleCtl::Setup));
+	tapId(UI_FIX(AngleCtl::Flip));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("FLIP CAL's BACK: still the meter, on SETUP", uiCurrentScreen() == UiScreenId::Angle &&
+	          uiAngleView() == AngleView::Setup && qmi8658State() == ImuState::Online);
+	tapId(UI_FIX(UI_BACK));
+	for (AngleCtl c : { AngleCtl::Zero, AngleCtl::ResetMax }) {
+		tapId(UI_FIX(c));
+		checkTrue("ZERO and RESET MAX stay on the main view",
+		          uiCurrentScreen() == UiScreenId::Angle && uiAngleView() == AngleView::Main);
+	}
+	frames(480);
+	checkTrue("12 s on: still the meter, still reading", uiCurrentScreen() == UiScreenId::Angle &&
+	          qmi8658State() == ImuState::Online);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the main view's BACK leaves, CTRL7 00h", uiCurrentScreen() == UiScreenId::Menu &&
+	          qmi8658State() == ImuState::Closed && s_q->reg[0x08] == 0x00);
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -852,7 +986,10 @@ static void testFlip() {
 	tapId(UI_FIX(AngleCtl::Setup));
 	writes = fakeFlashWrites();
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("SETUP opened and left with nothing changed: nothing written", fakeFlashWrites() == writes);
+	checkTrue("SETUP opened and left with no edit: the calibration not yet saved is saved now",
+	          fakeFlashWrites() - writes == 1 && !settingsAngleDirty() &&
+	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b));
+	               return fabs(b.s.angleCalOffG[0] - 0.06) < 0.001; }());
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	settingsLoad();
@@ -860,9 +997,9 @@ static void testFlip() {
 	tapId(menuRow(&UI_TOOLS));
 	tapId(UI_FIX(ToolsCtl::Angle));
 	frames(1);
-	checkTrue("after a restart: the calibration saved, X's offset 30 mg",
+	checkTrue("after a restart: the calibration saved, X's offset 60 mg",
 	          angleCalValid(&uiAngleModel()->set.cal) &&
-	          fabs(uiAngleModel()->set.cal.offG[0] - OX) < 0.001);
+	          fabs(uiAngleModel()->set.cal.offG[0] - 0.06) < 0.001);
 	tapId(UI_FIX(AngleCtl::Setup));
 	checkTrue("SETUP: CALIBRATED", setupRowIs(3, "CALIBRATION", UI_ANGLE_CAL_YES, "FLIP"));
 	tapId(UI_FIX(UI_BACK));
@@ -904,6 +1041,8 @@ void runAngleUiTests() {
 	testZeroAndMax();
 	testSetup();
 	testFlip();
+	testDefaultsKeepMeter();
+	testOnlyExit();
 	qmi8658Stop();
 	fakeI2cReset();
 	fakeFlashClear();

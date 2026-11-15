@@ -27,8 +27,9 @@
  *   clears MAX; SETUP opens SETUP.
  * - **SETUP.** ALONG AXIS, LENGTH, SIGN and CALIBRATION, drawn as SETTINGS
  *   draws its rows. A row applies at once; BACK returns to the main view and
- *   saves the four fields once, when one changed (settingsSaveAngle()).
- *   CALIBRATION's FLIP opens FLIP CAL.
+ *   saves the four fields while they differ from flash (settingsAngleDirty(),
+ *   settingsSaveAngle()), so a save that failed is tried again; the main
+ *   view's hint shows while they differ. CALIBRATION's FLIP opens FLIP CAL.
  * - **FLIP CAL.** The three poses of the flip, each step's lines and the live
  *   angle. Touches are ignored while the board lies screen down. With a
  *   result, the 1 s HOLD TO KEEP applies the calibration and saves it; AGAIN
@@ -68,7 +69,7 @@ struct TouchState;
 #define UI_ANGLE_WRONG_FMT    "NOT A QMI8658: ID 0X%02X."       /**< Another part at 0x6B, its WHO_AM_I. */
 #define UI_ANGLE_HINT_ARMED   "ZERO WHEN SETTLED: HOLD STILL"   /**< ZERO armed. */
 #define UI_ANGLE_HINT_TIMEOUT "NOT SETTLED IN 10 S: NO ZERO"    /**< ZERO timed out; the old zero stays. */
-#define UI_ANGLE_HINT_UNSAVED "SETUP NOT SAVED TO FLASH."       /**< SETUP's save failed; the values stay live. */
+#define UI_ANGLE_HINT_UNSAVED "SETUP NOT SAVED TO FLASH."       /**< The meter's fields differ from flash: a save failed; the values stay live. */
 #define UI_ANGLE_CAL_YES      "CALIBRATED"                      /**< CALIBRATION's caption with a calibration. */
 #define UI_ANGLE_CAL_NO       "NOT CALIBRATED"                  /**< And without. */
 #define UI_ANGLE_KEPT         "KEPT AND SAVED."                 /**< FLIP CAL after HOLD TO KEEP. */

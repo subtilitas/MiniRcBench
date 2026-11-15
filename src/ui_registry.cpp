@@ -193,7 +193,7 @@ static_assert(escCfgEntriesFit(), "an ESC CONFIG line is too wide, or runs into 
 
 /**
  * @brief TOOLS' entries, top to bottom (docs/design/angle-meter.md,
- *        decision 1): the angle meter alone for now.
+ *        decision 1). TOOLS holds ANGLE METER.
  */
 constexpr UiToolsEntry UI_TOOLS_ENTRIES[] = {
 	{ UI_ANGLE_TITLE, { "INCIDENCE, DECALAGE, DIHEDRAL, THROW", nullptr }, &UI_ANGLE },

@@ -1114,6 +1114,7 @@ static void testSaveAngle() {
 	settings()->angleCalValid = 1;
 	settings()->angleCalOffG[0] = 0.03f;
 	settings()->angleCalGain[2] = 1.01f;
+	checkTrue("the meter's fields changed: settingsAngleDirty()", settingsAngleDirty());
 	int writes = fakeFlashWrites();
 	checkTrue("a save of the angle fields lands", settingsSaveAngle());
 	checkInt("with one write", fakeFlashWrites() - writes, 1);
@@ -1123,6 +1124,7 @@ static void testSaveAngle() {
 	          b.s.angleCalGain[2] == 1.01f);
 	checkInt("and the pole count as saved, not the live one", b.s.poles, saved.poles);
 	checkTrue("so SETTINGS still has a change to save", settingsDirty() && settings()->poles == 22);
+	checkTrue("and the meter none: settingsAngleDirty() false", !settingsAngleDirty());
 	writes = fakeFlashWrites();
 	checkTrue("the same angle fields again: nothing written",
 	          settingsSaveAngle() && fakeFlashWrites() == writes);
@@ -1141,9 +1143,10 @@ static void testSaveAngle() {
 	settings()->angleLengthMm = 120;
 	fakeFlashSetWritable(false);
 	checkTrue("a save the flash refuses fails", !settingsSaveAngle());
-	checkTrue("and the change is still to save", settingsDirty());
+	checkTrue("and the change is still to save", settingsDirty() && settingsAngleDirty());
 	fakeFlashSetWritable(true);
 	checkTrue("it lands once the flash takes it", settingsSaveAngle() && !settingsDirty() &&
+	          !settingsAngleDirty() &&
 	          stored().s.angleLengthMm == 120);
 
 	// After a carry-over flash holds the older block: the first save writes

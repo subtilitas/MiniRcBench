@@ -256,6 +256,23 @@ bool settingsSave();
  */
 bool settingsSaveAngle();
 
+/**
+ * @brief Copy the angle meter's fields, ALONG AXIS, SIGN, LENGTH, the
+ *        calibration and its spare byte, from @p src to @p dst; every other
+ *        field of @p dst stays.
+ * @param[out] dst Takes them.
+ * @param src      Gives them.
+ */
+void settingsCopyAngle(Settings *dst, const Settings *src);
+
+/**
+ * @brief True while the live angle meter's fields differ from what the last
+ *        load or save put live: the meter's setup or calibration is not in
+ *        flash. A change on SETTINGS alone does not set it.
+ * @return Whether the meter has fields to save.
+ */
+bool settingsAngleDirty();
+
 /** @brief True if a valid block was found at boot. @return Load outcome. */
 bool settingsStored();
 

@@ -569,26 +569,33 @@ bool settingsSaveAngle() {
 	// The saved settings with the live angle fields: a change on SETTINGS
 	// that was not saved is not saved by the meter either.
 	Settings out = s_saved;
-	out.angleAlong    = s_live.angleAlong;
-	out.angleInvert   = s_live.angleInvert;
-	out.angleLengthMm = s_live.angleLengthMm;
-	out.angleCalValid = s_live.angleCalValid;
-	out.angleSpare    = s_live.angleSpare;
-	memcpy(out.angleCalOffG, s_live.angleCalOffG, sizeof(out.angleCalOffG));
-	memcpy(out.angleCalGain, s_live.angleCalGain, sizeof(out.angleCalGain));
+	settingsCopyAngle(&out, &s_live);
 	settingsValidate(&out);
 	// The live fields take what the block will hold.
-	s_live.angleAlong    = out.angleAlong;
-	s_live.angleInvert   = out.angleInvert;
-	s_live.angleLengthMm = out.angleLengthMm;
-	s_live.angleCalValid = out.angleCalValid;
-	s_live.angleSpare    = out.angleSpare;
-	memcpy(s_live.angleCalOffG, out.angleCalOffG, sizeof(out.angleCalOffG));
-	memcpy(s_live.angleCalGain, out.angleCalGain, sizeof(out.angleCalGain));
+	settingsCopyAngle(&s_live, &out);
 
 	if (s_stored && !s_carriedOver && memcmp(&out, &s_saved, sizeof(Settings)) == 0)
 		return true;
 	return writeBlock(out);
+}
+
+void settingsCopyAngle(Settings *dst, const Settings *src) {
+	dst->angleAlong    = src->angleAlong;
+	dst->angleInvert   = src->angleInvert;
+	dst->angleLengthMm = src->angleLengthMm;
+	dst->angleCalValid = src->angleCalValid;
+	dst->angleSpare    = src->angleSpare;
+	memcpy(dst->angleCalOffG, src->angleCalOffG, sizeof(dst->angleCalOffG));
+	memcpy(dst->angleCalGain, src->angleCalGain, sizeof(dst->angleCalGain));
+}
+
+bool settingsAngleDirty() {
+	ensureSeeded();
+	// The live settings with the saved angle fields: equal byte for byte
+	// exactly when the angle fields are.
+	Settings a = s_live;
+	settingsCopyAngle(&a, &s_saved);
+	return memcmp(&a, &s_live, sizeof(Settings)) != 0;
 }
 
 bool settingsStored() { return s_stored; }

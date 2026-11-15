@@ -180,10 +180,6 @@ static AngleView         s_view = AngleView::Main;
 static const TouchState *s_t = nullptr;
 /** @brief Repaint every region on the next frame. */
 static bool              s_full = true;
-/** @brief SETUP's save on its last BACK failed: the main view's hint says so. */
-static bool              s_setupUnsaved = false;
-/** @brief The angle fields as SETUP opened, to tell whether BACK saves. */
-static Settings          s_setupFrom;
 /** @brief LENGTH's hold-to-repeat. */
 static Repeat            s_rep;
 /** @brief HOLD TO KEEP. */
@@ -234,14 +230,6 @@ static void setupFromSettings(AngleSetup *s) {
 	s->cal.valid = st->angleCalValid != 0;
 	memcpy(s->cal.offG, st->angleCalOffG, sizeof(s->cal.offG));
 	memcpy(s->cal.gain, st->angleCalGain, sizeof(s->cal.gain));
-}
-
-/** @brief The angle fields of @p a and @p b are the same. */
-static bool angleFieldsEqual(const Settings &a, const Settings &b) {
-	return a.angleAlong == b.angleAlong && a.angleInvert == b.angleInvert &&
-	       a.angleLengthMm == b.angleLengthMm && a.angleCalValid == b.angleCalValid &&
-	       memcmp(a.angleCalOffG, b.angleCalOffG, sizeof(a.angleCalOffG)) == 0 &&
-	       memcmp(a.angleCalGain, b.angleCalGain, sizeof(a.angleCalGain)) == 0;
 }
 
 /**
@@ -439,7 +427,7 @@ static void mainFrame() {
 	{
 		const char *h = s_r.zero == AngleZero::Armed    ? UI_ANGLE_HINT_ARMED
 		              : s_r.zero == AngleZero::TimedOut ? UI_ANGLE_HINT_TIMEOUT
-		              : s_setupUnsaved                  ? UI_ANGLE_HINT_UNSAVED
+		              : settingsAngleDirty()            ? UI_ANGLE_HINT_UNSAVED
 		                                                : "";
 		if (regionDue(R_HINT, mixText(1, h))) {
 			gfxRect(0, HINT_Y, GFX_W, LINE_H, C_BG);
@@ -464,6 +452,7 @@ static void mainFrame() {
 /** @brief The main view's taps. @return false once BACK has left. */
 static bool mainTouch(uint32_t now) {
 	if (uiBackTapped(s_t)) {
+		// The meter's only exit: SETUP's and FLIP CAL's BACK stay in it.
 		qmi8658Stop();
 		return false;
 	}
@@ -474,7 +463,6 @@ static bool mainTouch(uint32_t now) {
 	}
 	if (uiTapped(BTN_RMAX, s_t)) angleResetMax(&s_m);
 	if (uiTapped(BTN_SETUP, s_t)) {
-		memcpy(&s_setupFrom, settings(), sizeof(s_setupFrom));
 		memset(&s_rep, 0, sizeof(s_rep));
 		s_view = AngleView::Setup;
 		s_full = true;
@@ -543,8 +531,10 @@ static void setupFrame() {
 static void setupTouch(uint32_t now) {
 	Settings *st = settings();
 	if (uiBackTapped(s_t)) {
-		// One save for the visit to SETUP, and only for a change.
-		if (!angleFieldsEqual(s_setupFrom, *st)) s_setupUnsaved = !saveAngle();
+		// A save whenever the fields differ from flash: a change on this
+		// visit, a calibration FLIP CAL could not save, or a save that
+		// failed before. The hint shows while they differ.
+		if (settingsAngleDirty()) saveAngle();
 		s_view = AngleView::Main;
 		s_full = true;
 		return;
@@ -702,7 +692,6 @@ void uiAngleEnter() {
 	angleRead(&s_m, &s_r);
 	s_view = AngleView::Main;
 	s_full = true;
-	s_setupUnsaved = false;
 	s_kept = false;
 	s_keptSaved = false;
 	memset(&s_rep, 0, sizeof(s_rep));
