@@ -3494,7 +3494,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 14,360 of 14,588 lines in 91 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.5%**: 14,524 of 14,752 lines in 92 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -3527,9 +3527,12 @@ write enters a 32-entry TX FIFO and goes out at the format and rate set, 120 µs
 a character at 8E2, with TXFE, TXFF and BUSY from it, and a character still on
 its way is cut when the UART stops or GP0 leaves the UART function with its
 output inverted. The GPIO fake records every write of a control register with
-FUNCSEL and the overrides as one value, and the pad register's IE, OD and ISO.
+FUNCSEL and the overrides as one value, and the pad register's IE, OD, ISO and
+pulls from its reset value, 0x116; a pin's pull is read from the register.
 `test_sbus_out_job.cpp` checks the bind and the release write by write and
-feeds the characters sent, with their times, to rcbench's decoder.
+feeds the characters sent, with their times, to rcbench's decoder; it also
+reads every source under `src/` and fails if a code line other than the job's
+declarations, its job-table line and the claim's row names the output.
 
 `esc_task.cpp` cannot be linked either, so core0's side of the command slot is
 a copy in `fakes.cpp` on the shipped `escCmdAccept()`. A test sets the

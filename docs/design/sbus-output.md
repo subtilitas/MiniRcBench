@@ -150,8 +150,8 @@ verified, and GP0 is rated 3.63 V while IOVDD is at 0 V.
 
 UART0's TX reaches GP0 on function 2, `uart0_tx` (SDK 2.1.1, `io_bank0.h`
 line 141), `GPIO_FUNC_UART`. The firmware uses UART0 nowhere else but the
-S.BUS monitor's job (`pico_enable_stdio_uart` is 0, `CMakeLists.txt` line
-330), and the monitor and the output never hold the claim together. The
+S.BUS monitor's job (`pico_enable_stdio_uart` is 0 in `CMakeLists.txt`),
+and the monitor and the output never hold the claim together. The
 PL011 sends from a 32-entry TX FIFO; a frame of 25 bytes fits whole, so
 core1 loads a frame in one pass and the UART sends its bytes back to back.
 The baud divisor is the monitor's: 100,000 baud exactly from `clk_peri` at
@@ -159,12 +159,16 @@ The baud divisor is the monitor's: 100,000 baud exactly from `clk_peri` at
 
 **The bind**, in this order:
 
-1. `gpio_pull_down(0)`. The DShot teardown leaves GP0 an input with the
-   pull-up on (`esc_task.cpp` line 363); the pull-down holds the line at
+1. `gpio_set_dir(0, GPIO_IN)` and `gpio_put(0, 0)`, so SIO drives nothing
+   whatever an earlier owner left, then `gpio_pull_down(0)`. As SIG, the
+   pump's teardown leaves GP0 an SIO input with the pull-up on
+   (`escTaskPoll()`'s teardown in `esc_task.cpp`); as AUX with KISS on, the
+   KISS receiver's end leaves it on the NULL function with the pulls off
+   (`pioUartRxEnd()` in `pio_uart_rx.cpp`). The pull-down holds the line at
    its idle level from here on.
 2. `uart_init(uart0, 100000)`; the bind refuses with `CORE1_JOB_CLOCK` when
    the rate it returns is more than 1 % off, by the monitor's `sbusBaudOk()`
-   (`sbus_job.h` lines 180 to 183).
+   (`sbus_job.h`).
 3. `uart_set_format(uart0, 8, 2, UART_PARITY_EVEN)`, then the receiver off:
    RXE cleared in UARTCR. No pad carries UART0's RX during this claim, and
    what an unrouted UART input reads is not verified; with RXE off it is
@@ -193,7 +197,7 @@ GP1 keeps its function: in the default wiring it is AUX and not asked for.
    when it takes the pad. Then `gpio_set_function(0, GPIO_FUNC_SIO)`, which
    zeroes OUTOVER, then the pull-down: the line stays low.
 4. `uart_deinit(uart0)`, then the status cleared, as the monitor's release
-   does (`sbus_job.cpp` lines 179 to 187).
+   does (`sbusJobRelease()` in `sbus_job.cpp`).
 
 The pad leaves the UART before the UART stops, so the line never shows the
 UART's own level.
@@ -201,7 +205,7 @@ UART's own level.
 ## Pin claim
 
 A new pin user and a new job, `PinUser::SbusOut` and `Core1Job::SbusOut`:
-the monitor's rows (`pin_claim.h` lines 87 to 96) describe a receiver that
+the monitor's rows (`PinUser::Sbus` in `pin_claim.h`) describe a receiver that
 drives the line, this one a board that drives it, and the ESC check
 differs.
 
@@ -210,7 +214,7 @@ differs.
 | `SbusOut` | `SbusOut` | true | true | false | `PIN_SIG` when GP0 is SIG, `PIN_SIG \| PIN_AUX` when GP0 is AUX |
 
 `sbusOutClaimRoles(sig, aux)` gives the roles, as `sbusClaimRoles()` does
-for GP1 (`sbus_job.cpp` lines 98 to 102). SETTINGS offers only GP0 and GP1
+for GP1 (`sbus_job.cpp`). SETTINGS offers only GP0 and GP1
 and swaps SIG and AUX when one is stepped onto the other
 ([pin-claim.md](pin-claim.md#the-two-pins)), so one role is always GP0.
 A new `CORE1_JOB_NO_GP0` is the job's backstop for a wiring set some other
@@ -220,7 +224,7 @@ way, with the screen's own lines `S.BUS NEEDS GP0.`
 ### The ESC check
 
 The claim refuses while an ESC answered on SIG within `ESC_LINK_STALE_MS`,
-500 ms (`pinClaimCheck()`, `pin_claim.h` lines 183 to 196), and the screen
+500 ms (`pinClaimCheck()` in `pin_claim.h`), and the screen
 asks again every frame. `escCheck` is true for every wiring:
 
 - **GP0 is SIG**, the default: the ESC's signal wire is where the FC lead
@@ -441,7 +445,7 @@ The rules are the servo tester's ([servo-tester.md](servo-tester.md),
 Why each rule:
 
 - **START is core1's frame.** As the servo tester's START puts every pin
-  at CENTRE whatever was commanded (`servo_job.cpp` lines 56 to 69), the
+  at CENTRE whatever was commanded (`servoCoreTake()` in `servo_job.cpp`), the
   first frame is fixed, so no value set before START reaches the FC.
 - **Channels 5 to 16 start at 1000 µs**, not at the centre: they are switch
   channels on most setups, and 1500 µs can lie inside an FC's arm range.
@@ -450,8 +454,8 @@ Why each rule:
 - **The throttle channel starts at its stop and stops at the ceiling** of
   SETTINGS, the ceiling the DShot throttle obeys (rx-signals.md decision 6). The
   ceiling is in raw counts, as rcbench's `sbus.h` asks (line 149), from the same
-  fraction the tester uses: MAX THROTTLE out of 2000 (`config.h` lines 431 to
-  437). Betaflight reads raw 499 as 1191.9 µs. The ceiling bounds the throttle
+  fraction the tester uses: MAX THROTTLE out of 2000 (`MAX_THROTTLE_CEILING`
+  in `config.h`). Betaflight reads raw 499 as 1191.9 µs. The ceiling bounds the throttle
   channel, not an armed FC's motor outputs: the FC adds its idle and its
   stabilisation to them.
 
@@ -476,7 +480,7 @@ Why each rule:
   an FC without frames goes to its own failsafe, the state a pilot tests
   for. The failsafe bit is its own control on SET.
 - **The idle stop** carries the tester's `IDLE_DISARM_MS` over, with its
-  bound, more than 30 s (`ui.cpp` line 1405): an FC armed through a switch
+  bound, more than 30 s (the idle auto-disarm in `ui.cpp`): an FC armed through a switch
   channel spins its motors at idle with the throttle at its stop, and
   faster above it. So the frames stop when the throttle is above its stop
   or a switch channel, 5 to 16, CH17 or CH18, is off its START value. With
@@ -510,8 +514,8 @@ struct SbusOutCmd {
     uint16_t seq; SbusOutCmdKind kind;
     uint16_t channel[16];            // raw
     bool ch17, ch18, failsafe, frameLost;
-    uint8_t thrCh;                   // 0 to 3
-    uint16_t ceilRaw;                // from MAX THROTTLE
+    uint8_t thrCh;                   // 0 to 3, taken by Start
+    uint16_t ceilRaw;                // from MAX THROTTLE, taken by Start
 };
 struct SbusOutStatus {
     uint16_t ackSeq; bool running, tripped, refused;
@@ -519,33 +523,41 @@ struct SbusOutStatus {
     uint32_t lastFrameMs;
     sbus_frame_t sent;               // the last frame loaded
 };
-void sbusOutCoreReset(SbusOutCore *c, uint16_t ackSeq, bool tripped);
+void sbusOutCoreReset(SbusOutCore *c, uint16_t ackSeq);
+void sbusOutStartFrame(sbus_frame_t *f, uint8_t thrCh);
 bool sbusOutCoreTake(SbusOutCore *c, const SbusOutCmd *cmd,
-                     uint32_t nowUs, bool uiAlive);
+                     uint32_t nowUs, bool uiAlive, uint16_t ceilMax);
 bool sbusOutCoreStep(SbusOutCore *c, uint32_t nowUs, bool uiAlive,
-                     uint8_t out[SBUS_FRAME_BYTES]);   // true: load out
+                     bool txEmpty, uint8_t *out);      // true: load out
 uint16_t sbusOutCeilRaw(uint16_t maxThrottle);
 uint8_t  sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);
 ```
 
 - **Take.** A command whose seq was taken changes nothing. `Safe` ends the
-  frames. `Start` is refused while the heartbeat has lapsed; otherwise it
-  sets the START frame, clears the trip and makes the next step send. A
-  `Frame` while RUNNING replaces the channels and flags; core1 clamps every
-  channel to raw 172 to 1811 and the throttle channel to `ceilRaw`, behind
-  the screen's own clamp. A `Frame` while SAFE is taken and moves nothing.
+  frames. `Start` is refused while the heartbeat has lapsed and for a
+  throttle index above 3; otherwise it takes the throttle channel and the
+  ceiling, sets the START frame, clears the trip, the refusal and the frame
+  count, and makes the next step send. The ceiling is the command's, clamped
+  to raw 172 to `ceilMax`, the job's `sbusOutCeilRaw()` of
+  `settings()->maxThrottle`, so a wrong ceiling from the screen never passes
+  MAX THROTTLE's. A `Frame` while RUNNING replaces the channels and flags;
+  core1 clamps every channel to raw 172 to 1811 and the throttle channel to
+  the ceiling Start took, behind the screen's own clamp. A `Frame`'s
+  throttle channel and ceiling are ignored. A `Frame` while SAFE is taken
+  and moves nothing.
 - **Step.** A lapsed heartbeat while RUNNING ends the frames and latches
   the trip. While RUNNING a frame is due at the deadline: the first on the
-  pass that took `Start`, each next one 14,000 µs after the one before. A
-  pass more than one period late sends at once and sets the next deadline
-  from that pass, so a stall never makes a burst. A due frame is encoded
-  with `sbus_encode()` and returned for loading; the job loads it only when
-  UARTFR.TXFE says the TX FIFO is empty, which it is 11,000 µs after the
-  last one, and otherwise tries again on the next pass.
+  pass that took `Start`, each next one 14,000 µs after the one before, and
+  none less than 7,000 µs after the last one loaded (`SBUS_OUT_MIN_US`). A
+  pass a period or more late sends at once and sets the next deadline a
+  period from that pass, so a stall never makes a burst. A due frame waits
+  while `txEmpty`, UARTFR.TXFE, says the TX FIFO holds a character, which
+  it does not 11,000 µs after the last frame; then it is encoded with
+  `sbus_encode()` and returned for loading.
 - **Ceiling.** `sbusOutCeilRaw()` is 172 + 1639 × MAX THROTTLE / 2000,
-  rounded down, from `settings()->maxThrottle`. SETTINGS opens only while
-  the claim is Free (`pin_claim.cpp` lines 109, 110), so it holds for the
-  visit.
+  rounded down, from `settings()->maxThrottle`, which core1 reads. MENU
+  draws SETTINGS disabled while the claim is not Free (`ui_menu.cpp`,
+  `claimBusy()`), so it holds for the visit.
 
 **Timing.** With the claim held, core1 runs `escTaskPoll()`, which returns
 at once, and this job; no flash write parks it, since settings saves are
@@ -754,7 +766,7 @@ its bootloader until its supply goes off.
 ### The RX SIGNALS entry
 
 OUTPUT gets its screen, `&UI_SBUS_OUT`, in `UI_RX_ENTRIES`
-(`ui_registry.cpp` lines 121 to 124), and its second line replaces
+(`ui_registry.cpp`), and its second line replaces
 `NOT BUILT`:
 
 | Text | Characters | Width, scale |
@@ -947,35 +959,41 @@ each fail `test_sbus.c`. None survives.
 `Core1Job` and the job table, `CORE1_JOB_NO_GP0`, each on lines of their
 own; `src/rx.cmake` and `test/rx.mk`. In the host suite: the transmitter
 and UARTCR of the UART0 fake, the record of every control-register write
-and the pad register in the GPIO fake (`fakes.*`, the stubs
+and the pad register with its pulls in the GPIO fake (`fakes.*`, the stubs
 `hardware/structs/io_bank0.h` and `pads_bank0.h`), and
 `test/test_sbus_out_job.cpp`, `runSbusOutJobTests`. CI's firmware job
 measures the job's deepest stack chain, 224 bytes against 1,792. Choices
 the note left open, or made more exact:
 
-- **Frames never closer than 7 ms.** The note re-anchors the schedule after
-  a pass more than one period late. A pass late by less than a period
+- **Frames never closer than 7 ms.** A pass late by less than a period
   keeps the 14,000 µs grid, which brings the next frame closer: at 13 ms
   late the next is due 1 ms later, while the frame is still on the wire,
   and would follow it with no gap, which a decoder that frames on a
   2000 µs gap reads as one frame. `SBUS_OUT_MIN_US`,
   7,000 µs, the other period rcbench names, keeps every gap at 4,000 µs or
   more, and also spaces the first frame of a START soon after a STOP. A
-  pass a period or more late, not only more than one, re-anchors, so
-  exactly one period late does not send two frames in a row.
+  pass exactly one period late re-anchors as a later one does, so it does
+  not send two frames in a row.
 - **The FIFO wait is in the core.** `sbusOutCoreStep()` takes UARTFR.TXFE
   as `txEmpty`, so a due frame that waits for the FIFO is a host case of
   the pure core.
 - **The throttle channel and the ceiling are Start's.** A `Frame` carries
   them as the note's struct has it, and the core ignores them: the channel
   the FC throttles on is the one START fixed. A Start with an index above 3
-  is refused; a ceiling outside raw 172 to 1811 is clamped into it.
+  is refused.
+- **Core1 holds MAX THROTTLE's ceiling.** The job passes
+  `sbusOutCeilRaw(settings()->maxThrottle)` to `sbusOutCoreTake()` as
+  `ceilMax`, and Start clamps the command's ceiling to raw 172 to it, so a
+  screen that sends a wrong ceiling cannot pass MAX THROTTLE. A lower
+  ceiling from the screen is kept. Settings do not change during a claim.
+- **The bind starts as the release does:** SIO's output enable for GP0 off
+  and its output low, then the pull-down, whatever an earlier owner left.
 - **A backstop for the release.** The release lets GP0 go
   `SBUS_OUT_RELEASE_MAX_MS`, 10 ms, after its first pass even while BUSY
   stays set, so a UART that never finishes cannot hold the claim in
   Leaving. The last frame needs at most 3,000 µs.
 - **A clock refusal never routes the UART to the pad.** The bind has set
-  only the pull-down by then; it turns UART0 off and leaves GP0 as the
+  only SIO's output and the pull-down by then; it turns UART0 off and leaves GP0 as the
   release does, a low SIO input with the pull-down.
 - **Each bind starts SAFE with no trip**, the note's "visit", and takes no
   command sent before it: the bind takes the command block's seq as
@@ -983,10 +1001,13 @@ the note left open, or made more exact:
 - **RXE is cleared by a read-modify-write of UARTCR** after
   `uart_set_format()`, which on the chip restores UARTCR after its wait.
 - **The status is published on every pass**, as the servo job's is.
-- **Nothing reaches it.** No source in `src/` but the job, the job table and
-  the claim's row names `PinUser::SbusOut`, `Core1Job::SbusOut`,
-  `sbusOutJobCommand()`, `sbusOutClaimRoles()` or `SBUS_OUT_JOB_OPS`; a
-  host test reads the sources and fails otherwise, so no screen can claim
+- **Nothing reaches it.** A host test reads every source under `src/`,
+  subdirectories included, with comments blanked, and fails when a line
+  names `PinUser::SbusOut`, `Core1Job::SbusOut`, `sbusOutJobCommand()`,
+  `sbusOutClaimRoles()` or `SBUS_OUT_JOB_OPS` and is not one of nine: the
+  job's declarations and definitions of those names, its line and its
+  `static_assert` in the job table, and the claim's row. An inline function
+  in `pin_claim.h` that claimed the output fails it, so no screen can claim
   or command the output before slice 3's probe.
 
 The TX fake sends each UARTDR write from a 32-entry FIFO at the format and
@@ -995,34 +1016,39 @@ and BUSY follow it, and a character still on its way is cut when the UART
 stops or GP0 leaves the UART function with OUTOVER inverted. It does not
 model the bits' levels: a character counts as on the pad while GP0's
 control register held FUNCSEL UART and OUTOVER inverted from its start bit
-to its last stop bit. The pad register holds IE, OD and ISO; the pulls are
-kept apart, as before. What the PL011 drives while disabled and the level
-on the pin are not modelled.
+to its last stop bit. The pad register starts at the RP2350's reset value,
+`PADS_BANK0_GPIO0_RESET` of SDK 2.1.1, 0x116: ISO and the pull-down set, IE
+and OD clear. It holds IE, OD, ISO and the pulls: `gpio_pull_down()` and its
+kin write PUE and PDE, and a pin's pull is read from them, so a
+whole-register write that drops the pull-down is seen. What the PL011 drives
+while disabled and the level on the pin are not modelled.
 
-Mutation check: 92 mutations of `src/sbus_out_job.cpp`, each built into the
-host suite and run. 90 fail it: the clamps, the START frame and its
-channels, the seq rule, each kind's rule in Take, the trip, the 7,000 µs
-bound and the grid, the TXFE wait, the refusal, the ceiling and the roles,
-the NO GP0 refusal, the pull-down and its order, the baud check and the
-clock refusal's release of GP0, 8E2 and RXE, OUTOVER and the single
+Mutation check: 98 mutations of `src/sbus_out_job.cpp`, each built into the
+host suite and run. 94 fail it: the clamps, the START frame and its
+channels, the seq rule, each kind's rule in Take, MAX THROTTLE's ceiling on
+core1 and its clamp at 1811, the trip, the 7,000 µs bound and the grid, the
+TXFE wait, the refusal, the ceiling and the roles, the NO GP0 refusal, SIO's
+output off and low at the bind, the pull-down and its order, the pull-down
+dropped by a pad write that names PDE, the baud check and the clock
+refusal's release of GP0, 8E2 and RXE, OUTOVER and the single
 control-register write, IE, OD and ISO and their order, the stale-command
-rule at the bind, the status fields, BUSY and the backstop, each step of
-the release and its order, the critical section's initialisation, and the
-kept STOP. Six of them failed only after the tests were made stricter:
-a `Frame` while SAFE writing the held frame, the bind's own NO GP0 check
-called with SIG GP1 and AUX GP1, GP0 left an SIO output high before a
-refused bind and before a release, the pad's OD set before the bind, and
-a transmitter that never sends, which holds the next frame on TXFE. Two
-survive:
+rule at the bind, the status fields, BUSY and the backstop, the release's
+function, pull-down and order, the critical section's initialisation, and
+the kept STOP. Four survive:
 
-- `SbusOutStatus::refused` published as false. No command reaches an
-  encoder refusal through the job, since the core clamps every channel to
-  11 bits; the core's own flag is tested with a channel set past the
-  clamp.
+- `SbusOutStatus::refused` published as false. The published field is not
+  tested: no command reaches an encoder refusal through the job, since the
+  core clamps every channel to 11 bits. The core's own flag is tested with
+  a channel set past the clamp.
+- The release's `gpio_set_dir(0, GPIO_IN)` removed, and its
+  `gpio_put(0, 0)` removed: the bind has set both, and nothing writes SIO
+  for GP0 while the UART holds the pad. Equivalent on the host and, by
+  that reasoning, on the chip.
 - An extra clear of the pad's isolation before the control-register write,
-  the later one kept. GP0 is then an SIO input with the pull-down, which
-  nothing drives; judged equivalent, not verified on the chip. Moving the
-  clear before the write, with none after, fails the suite.
+  the later one kept. GP0 is then an SIO input with the pull-down that SIO
+  does not drive, as the bind has turned its output off; judged
+  equivalent, not verified on the chip. Moving the clear before the write,
+  with none after, fails the suite.
 
 ## Choices
 

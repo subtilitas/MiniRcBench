@@ -1,7 +1,9 @@
 # Receiver signals: S.BUS monitor and S.BUS output
 
-Status: slices 1a, 2 and 3 built, the rest planned. Slice 1a copied
-rcbench's S.BUS decoder and its test into `lib/rcbench/` and `test/rcbench/`.
+Status: slices 1a, 2 and 3 built, the rest planned. Slice 1a is rcbench's
+S.BUS decoder and its test in `lib/rcbench/` and `test/rcbench/`, the
+copies of b88593d3 with the encoder
+([sbus-output.md](sbus-output.md#slice-1-as-built)).
 Slice 2 is the S.BUS monitor's core1 job, `src/sbus_job.*`, with its pin user
 and its host tests ([slice 2 as built](#slice-2-as-built)). Slice 3 is the
 S.BUS MONITOR screen, `src/ui_sbus.*` and its formatter `src/sbus_view.*`,
@@ -12,13 +14,13 @@ answered the note's open questions on 2026-11-14 ([decisions](#decisions)):
 build the S.BUS monitor and an S.BUS output, no PPM output. The S.BUS
 monitor reads a receiver's S.BUS output on GP1 through UART0. The S.BUS
 output, inverted 8E2 at 100,000 baud on GP0 through UART0's TX, is designed
-in [sbus-output.md](sbus-output.md) and not built: it waits on a bootloader
-probe on GP0 and on the ESC SETTINGS slices the probe needs; its encoder is
-rcbench's, on rcbench's `main` since pull request 847. The PPM sections
+in [sbus-output.md](sbus-output.md). Its encoder, rcbench's, and its core1
+job are built, host tests only; its bootloader probe on GP0 and its screen
+are not, so nothing opens it. The PPM sections
 stay as the record of a design that is not built, by decision 1. Both
 tools sit on the pin claim of [pin-claim.md](pin-claim.md) under one MENU
 row, RX SIGNALS, which opens a chooser with MONITOR and OUTPUT (decision
-4); OUTPUT is drawn disabled with `NOT BUILT` until the output exists
+4); OUTPUT is drawn disabled with `NOT BUILT` until the output's screen exists
 ([MENU](#menu)).
 The decoder is rcbench's, host-tested there and nowhere measured on a pin.
 
@@ -47,14 +49,15 @@ works with.
 
 ## Sources
 
-rcbench at `origin/main`, commit 5ef42efd (2026-11-13):
+rcbench at `origin/main`, commit 5ef42efd (2026-11-13), read for this
+note:
 
 | rcbench path | What it is |
 |---|---|
 | `protocols/sbus/sbus.c`, `include/sbus.h` | S.BUS frame decoder, plain C11, no pin driver |
 | `protocols/ppm/ppm.c`, `include/ppm.h` | PPM frame layout as run lengths, plain C11 |
 | `protocols/ppm/rp2350/out_ppm.c`, `out_ppm.h`, `ppm.pio` | PPM pin driver: one SM and two DMA channels per pin |
-| `test/host/test_sbus.c` | 12 cases on the decoder |
+| `test/host/test_sbus.c` | 12 cases on the decoder at 5ef42efd; at b88593d3, the copy here, 19, of which 7 on the encoder |
 | `test/host/test_ppm.c` | 9 cases on the frame layout; includes rcbench's `outputs.h` |
 
 rcbench's [STATUS.md](https://github.com/subtilitas/rcbench/blob/main/STATUS.md)
@@ -64,8 +67,9 @@ drivers, PPM among them: "No instrument has been on any output pin." Both
 modules are host-tested only. Commits 453cf334 and 3e29dc1b, from which
 `lib/rcbench/` holds the servo, KST and Hitec files, already contain both
 modules; the changes since then are Doxygen comments and unit spacing, no
-change in behaviour. The copies come from 5ef42efd because it was rcbench's
-`origin/main` at the time of the copy.
+change in behaviour. The S.BUS copies here are those of b88593d3
+([sbus-output.md](sbus-output.md#slice-1-as-built)), whose decoder code is
+that of 5ef42efd.
 
 ## S.BUS frame
 

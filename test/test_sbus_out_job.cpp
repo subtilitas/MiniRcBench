@@ -212,9 +212,9 @@ static void testCoreClamp() {
 		w = cmdOf(SbusOutCmdKind::Start, 4, 992, 2, 500);
 		sbusOutCoreTake(&m, &w, 0, true, 499);
 		checkInt("500 at MAX THROTTLE's 499: 499", m.ceilRaw, 499);
-		w = cmdOf(SbusOutCmdKind::Start, 5, 992, 2, 1811);
+		w = cmdOf(SbusOutCmdKind::Start, 5, 992, 2, 3000);
 		sbusOutCoreTake(&m, &w, 0, true, 5000);
-		checkInt("a maximum above 1811 is taken as 1811", m.ceilRaw, 1811);
+		checkInt("3000 at a maximum of 5000: 1811", m.ceilRaw, 1811);
 	}
 	SbusOutCmd f = cmdOf(SbusOutCmdKind::Frame, 2, 2047);
 	sbusOutCoreTake(&c, &f, 0, true, 1811);
@@ -926,7 +926,9 @@ static void testJobWirings() {
 	fakePwmReset();
 	fakeUartReset();
 	freshPump(0, 1);
-	teardownState(0);
+	// GP0 on the NULL function, as the KISS receiver leaves AUX, and SIO
+	// set to drive it high: a refused bind leaves it an SIO input, low.
+	kissEndState(0);
 	gpio_set_dir(0, GPIO_OUT);
 	gpio_put(0, 1);
 	fakeClockSet(clk_peri, 1000000u);

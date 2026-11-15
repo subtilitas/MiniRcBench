@@ -153,8 +153,9 @@ with the encoder, `sbus_encode()`; nothing opens that job yet.
 `sbus_encode()`, `sbus_from_us()` and `SBUS_FOOTER` are new at `b88593d3`;
 between `5ef42efd` and `b88593d3` the decoder's code is the same. The module
 is built as C11, in the firmware by `src/rx.cmake` and in the host suite by
-`test/rx.mk`. Its rcbench test, copied unchanged from rcbench `test/host/test_sbus.c` into
-`test/rcbench/`, is `test_sbus.c`, 19 cases, 12 of them the decoder's.
+`test/rx.mk`. Its rcbench test, copied unchanged from rcbench
+`test/host/test_sbus.c` into `test/rcbench/`, is `test_sbus.c`, 19 cases, 12
+of them the decoder's.
 rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
 this repository lists its sources in its own `.cmake` and `.mk` files.
 
