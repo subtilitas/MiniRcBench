@@ -58,6 +58,17 @@ static uint64_t g_us = 0;
 
 void fakeAdvance(uint32_t ms) { g_us += (uint64_t)ms * 1000u; }
 void fakeAdvanceUs(uint32_t us) { g_us += us; }
+void fakeClockAlign(uint32_t periodMs) {
+	if (periodMs == 0) return;
+	uint64_t ms = (g_us + 999u) / 1000u;   // never back: round a part ms up
+	while ((uint32_t)ms % periodMs) ms++;
+	g_us = ms * 1000u;
+}
+bool fakeClockSetMs(uint64_t ms) {
+	if (ms * 1000u < g_us) return false;
+	g_us = ms * 1000u;
+	return true;
+}
 uint64_t time_us_64() { return g_us; }
 uint32_t time_us_32() { return (uint32_t)g_us; }
 void sleep_ms(uint32_t d) { g_us += (uint64_t)d * 1000u; }
@@ -558,7 +569,7 @@ static int     g_am32WriteSkews = 0;   /**< am32BlWrite() calls that store byte 
 static uint8_t g_am32Garble[16];       /**< A handshake reply other than an AM32 bootloader's. */
 static uint8_t g_am32GarbleLen = 0;    /**< Its length; 0: the handshake succeeds. */
 /** @brief The last handshake's answer, classified by the real blAnswerClassify(). */
-static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0 };
+static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0, false };
 static bool    g_am32Blank = false;    /**< Reads return an erased page. */
 static bool    g_am32Silent = false;   /**< Handshakes time out with no reply. */
 void fakeAm32FailWrites(int n) { g_am32WriteFails = n; }
@@ -570,7 +581,10 @@ void fakeAm32Garble(const uint8_t *b, uint8_t n) {
 }
 void fakeAm32Blank(bool on) { g_am32Blank = on; }
 void fakeAm32Silent(bool on) { g_am32Silent = on; }
+static int g_am32Handshakes = 0;  /**< am32BlHandshake() calls: greetings sent. */
+int fakeAm32Handshakes() { return g_am32Handshakes; }
 Am32Result am32BlHandshake(uint8_t *) {
+	g_am32Handshakes++;
 	// Nine bytes with F051's family byte fifth from the end and the ACK
 	// last, or the bytes a test set, through the classification the
 	// transport uses. The other bytes of an AM32 answer are not modelled.

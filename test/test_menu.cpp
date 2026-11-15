@@ -659,7 +659,7 @@ static void testEscConfig() {
 	          fakeTextIs(set.x + (set.w - 142) / 2, set.y + 16, "ESC SETTINGS", C_TEXT, C_PANEL, 2));
 	checkTrue("its lines at y 112 and 124, dim",
 	          lineIs(112, "AM32 SETTINGS, READ AND WRITTEN.", C_DIM) &&
-	          lineIs(124, "BLUEJAY, BLHELI_S: NAMED, NOT READ.", C_DIM));
+	          lineIs(124, "BLUEJAY, BLHELI_S: READ, NOT WRITTEN.", C_DIM));
 	checkTrue("USB BRIDGE acts, its label C_TEXT on the panel, centred at scale 2, 118 px",
 	          ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && gfxTextW("USB BRIDGE", 2) == 118 &&
 	          pixel(br.x + 4, br.y + br.h - 5) == C_PANEL &&

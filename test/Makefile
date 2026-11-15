@@ -68,12 +68,13 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_esc_cmd.cpp ../src/esc_3d.cpp ../src/ui_registry.cpp ../src/ui_servo_prog.cpp ../src/ui_esc_config.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/ui_leave.cpp ../src/board_desc.cpp \
-        ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/bl_answer.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
+        ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/bl_answer.cpp ../src/greet_cycle.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
         ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp ../src/clock.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
         $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \
         $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS) \
+        $(ESCWIRE_TESTS) $(ESCWIRE_SRCS) \
         $(BRIDGE_TESTS) $(BRIDGE_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
@@ -89,6 +90,7 @@ DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/pio_uart_rx.cpp \
                ../src/settings_flash.cpp ../src/main.cpp ../src/card_cache.cpp \
                $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS) \
+               $(ESCWIRE_DEVICE_SRCS) \
                $(BRIDGE_DEVICE_SRCS)
 
 # The DShot core in src/dshot/ and the SD card protocol layers in src/sdio/

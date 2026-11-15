@@ -1,7 +1,8 @@
 /**
  * @file ui_am32.cpp
- * @brief ESC SETTINGS: connect, browse AM32 settings, edit, write back; an
- *        EFM8 bootloader's answer named, and the leave page after it.
+ * @brief ESC SETTINGS: connect, browse AM32 settings, edit, write back; a
+ *        Bluejay or BLHeli_S page read through the escwire job and shown,
+ *        LEAVE, and the leave page after an EFM8 answer.
  *
  * The screen is a state machine. Nothing touches the ESC until the pin claim
  * holds the signal pin (pin_claim.h), and nothing writes until the user has
@@ -17,7 +18,10 @@
 #include "card_cache.h"
 #include "card_dir.h"
 #include "am32_eeprom.h"
+#include "efm8_view.h"
 #include "esc_3d.h"
+#include "escwire_job.h"
+#include "greet_cycle.h"
 #include "pin_claim.h"
 #include "touch.h"
 #include "usb_msc.h"
@@ -137,6 +141,20 @@ static_assert(sizeof(AM32_UI_NO_SETTINGS_1) - 1 <= RESULT_CHARS &&
               "a connect line runs off the panel");
 // The EFM8 status: %04X is four hex digits, the signature.
 static_assert(sizeof(AM32_UI_EFM8_FMT) - 1 - 4 + 4 <= RESULT_CHARS, "the EFM8 status runs off the panel");
+// The EFM8 pages' lines, scale 1, and their headings, scale 2, centred.
+static_assert(sizeof(AM32_UI_QUIET) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EW_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EW_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EW_3) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EW_STOPPED_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EW_STOPPED_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EW_BAR_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EW_BAR_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EXIT_1) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EXIT_2) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EXIT_3) - 1 <= RESULT_CHARS &&
+              sizeof(AM32_UI_EXIT_SENDING) - 1 <= RESULT_CHARS && sizeof(AM32_UI_EXIT_SENT) - 1 <= RESULT_CHARS,
+              "an EFM8 page's line runs off the panel");
+static_assert(12 * (int)(sizeof(AM32_UI_EW_HEAD) - 1) - 2 <= GFX_W - 2 * UI_MARGIN &&
+              12 * (int)(sizeof(AM32_UI_EXIT_HEAD) - 1) - 2 <= GFX_W - 2 * UI_MARGIN,
+              "an EFM8 page's heading runs off the panel");
+static_assert(EFM8_LINE_CHARS == RESULT_CHARS, "the EFM8 texts are measured against another line");
 // The titles, at scale 2 from x 8, end 4 px or more before BACK.
 static_assert(UI_MARGIN + 12 * (int)(sizeof(AM32_UI_TITLE) - 1) - 2 + 4 <= UI_BACK_X &&
               UI_MARGIN + 12 * (int)(sizeof(AM32_UI_TITLE_HEX) - 1) - 2 + 4 <= UI_BACK_X &&
@@ -190,10 +208,25 @@ enum Am32Screen : uint8_t {
 	S_VIEW,
 	/**
 	 * The leave page, after an EFM8 bootloader answered: BACK from any
-	 * other state opens it. STAY returns to s_leaveFrom; LEAVE lets go of
-	 * SIG; RESTART DSHOT gives it back to DShot.
+	 * other state but the EFM8 list opens it. STAY returns to s_leaveFrom;
+	 * LEAVE lets go of SIG; RESTART DSHOT gives it back to DShot.
 	 */
 	S_LEAVE,
+	/**
+	 * An EFM8 bootloader answered: the escwire job holds SIG, enters and
+	 * reads. The connect page shows it, and a page that is not taken stays
+	 * named there.
+	 */
+	S_EW,
+	/** The Bluejay or BLHeli_S list, every row read-only; with s_hexView, ESC HEX. */
+	S_EW_LIST,
+	/** BACK from the EFM8 list: LEAVE goes out, then DShot returns. BACK is drawn disabled. */
+	S_EW_EXIT,
+	/**
+	 * The session ended without the page: the job lets SIG go, and the
+	 * claim returns to Held for the AM32 transport to greet again.
+	 */
+	S_REGREET,
 };
 
 static Am32Screen s_state = S_HANDOVER;
@@ -269,7 +302,9 @@ enum ConnectNote : uint8_t {
 	CN_NONE,         /**< Silence or a read that failed: the status alone. */
 	CN_GARBLED,      /**< Bytes came back that are not a bootloader's reply. */
 	CN_NO_SETTINGS,  /**< The bootloader answered; its settings are not AM32's. */
-	CN_EFM8,         /**< An EFM8 bootloader answered: named, nothing read. */
+	CN_EFM8,         /**< An EFM8 bootloader answered: the session enters and reads. */
+	CN_EW_REFUSED,   /**< The page is not taken: s_ewNote1 and s_ewNote2 say why. */
+	CN_EW_STOPPED,   /**< The session ended without the page; the cycle greets again. */
 };
 static ConnectNote s_connectNote = CN_NONE;
 
@@ -279,6 +314,34 @@ static UiLeave    s_leave;
 static Am32Screen s_leaveFrom = S_CONNECT;
 /** @brief The signature of the EFM8 bootloader that answered in this session; 0 for none. */
 static uint16_t   s_efm8Sig = 0;
+/**
+ * @brief An EFM8 bootloader answered in this session, or a reply held a piece
+ *        of an EFM8 answer (blAnswerEfm8Fragment()): BACK opens the leave page.
+ */
+static bool       s_efm8Seen = false;
+
+/** @brief The connect cycle: quiet on the pull-up, then a burst of greetings. */
+static GreetCycle s_cycle;
+/** @brief No greeting of this cycle has had an answer yet, or the last one had none. */
+static bool       s_silent = true;
+
+/**
+ * @defgroup am32_ew The escwire session's state on core0
+ * @{
+ */
+static EwJobStatus s_ew;               /**< The job's status, read each frame of S_EW and S_EW_EXIT. */
+static bool        s_ewEntered = false; /**< Enter went to the job in this session. */
+static uint16_t    s_ewSeq = 0;         /**< The seq of the last command sent to the job. */
+static ew_ident_t  s_ewId;              /**< The page's identification, from the read. */
+static uint8_t     s_ewPage[EW_PAGE_MAX]; /**< The page as read. */
+static Efm8Row     s_ewRows[EFM8_ROWS_MAX]; /**< The list's rows. */
+static int         s_ewRowCount = 0;    /**< Rows in s_ewRows. */
+static int         s_ewSel = -1;        /**< The selected row; -1 for none. */
+static const char *s_ewNote1 = nullptr; /**< CN_EW_REFUSED's first line. */
+static const char *s_ewNote2 = nullptr; /**< CN_EW_REFUSED's second line. */
+/** @brief S_EW_EXIT: LEAVE went out, and the claim is ending. */
+static bool        s_exitLeft = false;
+/** @} */
 
 /** @brief A handshake succeeded, or an EFM8 bootloader answered, since the restart: MENU's cue stands. */
 static bool     s_blReached = false;
@@ -333,10 +396,11 @@ static int changeCount(const uint8_t *from, const uint8_t *to) {
 static bool writing() { return s_state == S_WRITING && strcmp(s_status, "WRITING...") == 0; }
 
 /**
- * @brief Header BACK acts: in every state but while the write runs and on
- *        the leave page, where it is drawn disabled (menu-b.md, decision 25).
+ * @brief Header BACK acts: in every state but while the write runs, on
+ *        the leave page and while LEAVE goes out, where it is drawn
+ *        disabled (menu-b.md, decision 25).
  */
-static bool backLive() { return !writing() && s_state != S_LEAVE; }
+static bool backLive() { return !writing() && s_state != S_LEAVE && s_state != S_EW_EXIT; }
 
 /**
  * @brief The write page's HOLD TO WRITE acts: there are edits, and the page
@@ -469,7 +533,7 @@ static bool listNote(const char **l1, const char **l2) {
  *        and the leave page are the main view's: ESC SETTINGS. @see am32_titles
  */
 static const char *title() {
-	if (s_state == S_LIST && s_hexView) return AM32_UI_TITLE_HEX;
+	if ((s_state == S_LIST || s_state == S_EW_LIST) && s_hexView) return AM32_UI_TITLE_HEX;
 	if (s_state == S_PAGE || s_state == S_WRITING) return AM32_UI_TITLE_WRITE;
 	return AM32_UI_TITLE;
 }
@@ -514,12 +578,33 @@ static void drawHeader() {
 		} else {
 			uiStripText(buf, C_DIM);
 		}
+	} else if (s_state == S_EW_LIST) {
+		// The selected row's note first, then why the list is read-only,
+		// then 3D, then the caption (docs/design/bluejay-blheli-s.md).
+		static char ro[EFM8_LINE_CHARS + 1];
+		const char *l1 = nullptr, *l2 = nullptr;
+		bool sel = !s_hexView && s_ewSel >= 0 && s_ewSel < s_ewRowCount;
+		if (sel && efm8RowNote(s_ewRows[s_ewSel].f, s_ewPage[s_ewRows[s_ewSel].f->off], &l1, &l2)) {
+			uiStripTwoLines(l1, UI_COL_WARN, l2, UI_COL_WARN);
+		} else if (efm8ReadOnlyLines(&s_ewId, s_ewPage, ro, &l2)) {
+			uiStripTwoLines(ro, UI_COL_WARN, l2, UI_COL_WARN);
+		} else if (efm8Is3d(s_ewPage)) {
+			uiStripTwoLines(AM32_UI_3D_1, UI_COL_WARN, AM32_UI_3D_2, UI_COL_WARN);
+		} else {
+			char buf[EFM8_LINE_CHARS + 1];
+			efm8Caption(&s_ewId, s_ewPage, s_efm8Sig, buf, sizeof(buf));
+			uiStripText(buf, C_DIM);
+		}
 	} else if (s_state == S_LEAVE) {
 		// The bootloader that answered, and the pin it waits on.
 		uint8_t sig = pinClaimGpio(PIN_SIG);
 		if (sig == PIN_CLAIM_NO_GPIO) sig = settings()->dshotPin;
 		char buf[32];
-		snprintf(buf, sizeof(buf), "EFM8 %04X  SIG GP%u", (unsigned)s_efm8Sig, (unsigned)sig);
+		// A piece of an answer names no part.
+		if (s_efm8Sig)
+			snprintf(buf, sizeof(buf), "EFM8 %04X  SIG GP%u", (unsigned)s_efm8Sig, (unsigned)sig);
+		else
+			snprintf(buf, sizeof(buf), "EFM8  SIG GP%u", (unsigned)sig);
 		uiStripText(buf, C_DIM);
 	} else if (s_status[0]) {
 		uiStripText(s_status, C_DIM);
@@ -529,11 +614,24 @@ static void drawHeader() {
 static void drawConnect() {
 	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
 
-	// The current step, in the warning colour: the one thing to do now.
-	gfxTextCenter(84, "POWER-CYCLE THE ESC", UI_COL_WARN, 2);
-	gfxTextCenter(116, "THE BOOTLOADER ONLY LISTENS", C_DIM, 1);
-	gfxTextCenter(130, "BRIEFLY AT POWER-UP. UNPLUG", C_DIM, 1);
-	gfxTextCenter(144, "AND REPLUG THE ESC BATTERY.", C_DIM, 1);
+	if (s_state == S_EW) {
+		// An EFM8 bootloader answered and waits: no power cycle to ask for.
+		gfxTextCenter(84, AM32_UI_EW_HEAD, C_TEXT, 2);
+		gfxTextCenter(116, AM32_UI_EW_1, C_DIM, 1);
+		gfxTextCenter(130, AM32_UI_EW_2, C_DIM, 1);
+		gfxTextCenter(144, AM32_UI_EW_3, C_DIM, 1);
+	} else if (s_state == S_EW_EXIT) {
+		gfxTextCenter(84, AM32_UI_EXIT_HEAD, C_TEXT, 2);
+		gfxTextCenter(116, AM32_UI_EXIT_1, C_DIM, 1);
+		gfxTextCenter(130, AM32_UI_EXIT_2, C_DIM, 1);
+		gfxTextCenter(144, AM32_UI_EXIT_3, UI_COL_WARN, 1);
+	} else {
+		// The current step, in the warning colour: the one thing to do now.
+		gfxTextCenter(84, "POWER-CYCLE THE ESC", UI_COL_WARN, 2);
+		gfxTextCenter(116, "THE BOOTLOADER ONLY LISTENS", C_DIM, 1);
+		gfxTextCenter(130, "BRIEFLY AT POWER-UP. UNPLUG", C_DIM, 1);
+		gfxTextCenter(144, "AND REPLUG THE ESC BATTERY.", C_DIM, 1);
+	}
 
 	gfxTextCenter(176, s_status[0] ? s_status : "SEARCHING...", C_AMBER, 1);
 
@@ -543,18 +641,28 @@ static void drawConnect() {
 	// anything about it would be noise.
 	// The status above, at y 176, names the bytes or the layout; these
 	// lines say what it means.
-	// An EFM8 bootloader's answer: the status names it, and nothing is read.
+	// An EFM8 bootloader's answer: the status names it while the session
+	// reads; a page not taken, or a session that stopped, has two lines.
+	const char *n1 = nullptr, *n2 = nullptr;
 	if (s_connectNote == CN_GARBLED) {
-		gfxTextCenter(196, "REPLY NOT UNDERSTOOD:", C_AMBER, 1);
-		gfxTextCenter(210, AM32_UI_NOT_AM32, C_AMBER, 1);
+		n1 = "REPLY NOT UNDERSTOOD:";
+		n2 = AM32_UI_NOT_AM32;
 	} else if (s_connectNote == CN_NO_SETTINGS) {
-		gfxTextCenter(196, AM32_UI_NO_SETTINGS_1, C_AMBER, 1);
-		gfxTextCenter(210, AM32_UI_NO_SETTINGS_2, C_AMBER, 1);
+		n1 = AM32_UI_NO_SETTINGS_1;
+		n2 = AM32_UI_NO_SETTINGS_2;
+	} else if (s_connectNote == CN_EW_REFUSED) {
+		n1 = s_ewNote1;
+		n2 = s_ewNote2;
+	} else if (s_connectNote == CN_EW_STOPPED) {
+		n1 = AM32_UI_EW_STOPPED_1;
+		n2 = AM32_UI_EW_STOPPED_2;
 	}
+	if (n1) gfxTextCenter(196, n1, C_AMBER, 1);
+	if (n2) gfxTextCenter(210, n2, C_AMBER, 1);
 
 	// A spinner beats a static screen: it shows we are still retrying. Under
 	// a note it shrinks and moves down, clear of the note's lines.
-	bool lines = s_connectNote == CN_GARBLED || s_connectNote == CN_NO_SETTINGS;
+	bool lines = n1 != nullptr;
 	int r = lines ? 16 : 40;
 	int cy = lines ? 266 : 240;
 	int phase = (int)((millis() / 150) % 12);
@@ -675,6 +783,59 @@ static void drawView() {
 	gfxRect(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1, C_BG);
 	gfxTextCenter(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, 1);
 	gfxTextCenter(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, 1);
+}
+
+/**
+ * @brief Draw row @p index of the EFM8 list, a field, with its top edge at
+ *        @p y: every row read-only, a value none of the field's amber.
+ */
+static void drawEwRow(int index, int y, void *) {
+	const Efm8Row &r = s_ewRows[index];
+	char val[32];
+	bool ok = efm8ValueText(r.f, s_ewPage[r.f->off], val, sizeof(val));
+	UiField row = { r.group, r.f->name, val, ok ? UiValue::ReadOnly : UiValue::Odd, UiEdge::None,
+	                s_ewSel == index };
+	uiListDrawField(y, ROW_H, row);
+}
+
+/** @brief Lines of the EFM8 hex dump: 8 bytes each, 14 or 32. */
+static int ewHexLines() { return (s_ewId.len + 7) / 8; }
+
+/**
+ * @brief Line @p index of the EFM8 hex dump: the offset and 8 bytes, or
+ *        fewer on the last line of a 255-byte page.
+ */
+static void drawEwHexLine(int index, int y, void *) {
+	int base = index * 8;
+	char line[64];
+	int n = snprintf(line, sizeof(line), "%02X ", base);
+	for (int i = 0; i < 8 && base + i < s_ewId.len; i++)
+		n += snprintf(line + n, sizeof(line) - n, "%02X ", s_ewPage[base + i]);
+	gfxText(UI_MARGIN, y, line, C_DIM, 1);
+}
+
+/** @brief Set the EFM8 list up for the current view, scrolled to 0 px. */
+static void openEwList() {
+	if (s_hexView) uiListInit(&s_list, LIST_VIEW, HEX_ROW_H, ewHexLines());
+	else {
+		uiListInit(&s_list, LIST_VIEW, ROW_PITCH, s_ewRowCount);
+		uiListSetBody(&s_list, ROW_H, UI_LIST_TAP_MIN);
+	}
+}
+
+/**
+ * @brief The EFM8 list: the rows or the hex dump, the bar's two lines,
+ *        WRITE... and REVERT drawn disabled, HEX or FIELDS.
+ */
+static void drawEwList() {
+	uiListDraw(&s_list, s_hexView ? drawEwHexLine : drawEwRow, nullptr);
+	gfxRect(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1, C_BG);
+	gfxTextCenter(EDIT_Y + 12, AM32_UI_EW_BAR_1, C_GRID, 1);
+	gfxTextCenter(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, 1);
+	uiButton(BTN_WRITE, "WRITE...", C_PANEL, C_TEXT, 1, false, false);
+	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_AMBER, 1, false, false);
+	uiButton(BTN_HEX, s_hexView ? "FIELDS" : "HEX", C_PANEL, C_TEXT, 1,
+	         uiPressing(BTN_HEX, s_frameTouch));
 }
 
 /**
@@ -877,6 +1038,12 @@ void uiAm32Enter() {
 	s_attempt = 0;
 	s_connectNote = CN_NONE;
 	s_efm8Sig = 0;
+	s_efm8Seen = false;
+	s_ewEntered = false;
+	s_ewRowCount = 0;
+	s_ewSel = -1;
+	s_exitLeft = false;
+	memset(&s_ewId, 0, sizeof(s_ewId));
 	s_leaveFrom = S_CONNECT;
 	s_editRepeat = Repeat{};
 	am32BlSetBaud(AM32_LINK_BAUD);
@@ -902,8 +1069,8 @@ static void endClaim() {
 
 void uiAm32Exit() {
 	// The transport lets go of the pin before DShot takes it back. An AM32
-	// claim has no core1 job, and no leave page unless an EFM8 answered, so
-	// pinClaimEnd() resumes the pump within the call.
+	// claim no EFM8 bootloader answered has started no core1 job and has no
+	// leave page, so pinClaimEnd() resumes the pump within the call.
 	endClaim();
 	s_state = S_HANDOVER;
 }
@@ -941,6 +1108,8 @@ static void tryConnect() {
 
 	s_attempt++;
 	Am32Result r = am32BlHandshake(info);
+	// Only silence lets the quiet phase replace the status.
+	s_silent = am32BlAnswer().kind == BlAnswerKind::Silent;
 	if (r != AM32_OK) {
 		const uint8_t *rx;
 		uint8_t n = am32BlLastRx(&rx);
@@ -949,14 +1118,20 @@ static void tryConnect() {
 		if (a.kind == BlAnswerKind::Efm8) {
 			// Bluejay's or BLHeli_S's bootloader: it waits for commands with
 			// no timeout, and DShot frames could pass as one. The claim gets
-			// the leave page, MENU the run cue; nothing is read
-			// (docs/design/bluejay-blheli-s.md, slice 2).
+			// the leave page first, MENU the run cue; then the transport lets
+			// go of SIG, last, and the claim's job takes it on core1's next
+			// pass (docs/design/bluejay-blheli-s.md, "The escwire session").
 			s_efm8Sig = a.signature;
+			s_efm8Seen = true;
 			pinClaimWantLeavePage(PinUser::Am32);
 			s_blReached = true;
 			s_blReachedMs = millis();
 			snprintf(s_status, sizeof(s_status), AM32_UI_EFM8_FMT, (unsigned)a.signature);
 			s_connectNote = CN_EFM8;
+			s_ewEntered = false;
+			am32BlEnd();
+			pinClaimStartJob(PinUser::Am32);
+			s_state = S_EW;
 			return;
 		}
 		if (n) {
@@ -966,14 +1141,21 @@ static void tryConnect() {
 			         (unsigned long)n, rx[0], n > 1 ? rx[1] : 0, n > 2 ? rx[2] : 0,
 			         (unsigned long)am32BlBaud());
 			s_connectNote = CN_GARBLED;
+			if (a.fragment) {
+				// A piece of an EFM8 answer, a byte of it lost: its
+				// bootloader may wait on the line, so DShot follows only
+				// from the leave page, and MENU gets the run cue.
+				s_efm8Seen = true;
+				pinClaimWantLeavePage(PinUser::Am32);
+				s_blReached = true;
+				s_blReachedMs = millis();
+			}
 			return;
 		}
 
-		// Silence after an EFM8 answer keeps its line: the bootloader still
-		// waits, as nothing started its firmware.
-		if (s_connectNote == CN_EFM8) return;
+		// Silence after a session that stopped keeps its two lines.
 		snprintf(s_status, sizeof(s_status), "WAITING... (TRY %d)", s_attempt);
-		s_connectNote = CN_NONE;
+		if (s_connectNote != CN_EW_STOPPED) s_connectNote = CN_NONE;
 		return;
 	}
 	// The ESC sits in its bootloader now, and leaving sends no command that
@@ -1012,6 +1194,184 @@ static void tryConnect() {
 	// Only the list reads byte 0x12 as 3D MODE: in a layout not known it
 	// may hold another field, so the read-only view leaves the note.
 	if (known) esc3dSetNote(am32Is3d(s_eeprom));
+}
+
+/**
+ * @brief The quiet phase's status: the line on the pull-up, nothing sent.
+ *        An answer's status stays until the next answer replaces it.
+ */
+static void quietStatus() {
+	if (s_silent) snprintf(s_status, sizeof(s_status), AM32_UI_QUIET);
+}
+
+/** @brief The transport takes SIG again and the connect cycle begins with its quiet phase. */
+static void beginConnect() {
+	am32BlBegin(pinClaimGpio(PIN_SIG));
+	greetCycleStart(&s_cycle, millis());
+	s_silent = true;
+	quietStatus();
+	s_state = S_CONNECT;
+}
+
+/**
+ * @brief The session ended without the page: the job lets SIG go, and the
+ *        claim, which keeps its leave page, returns to Held for the
+ *        transport (S_REGREET). The ESC may still wait in its bootloader.
+ */
+static void regreet() {
+	s_connectNote = CN_EW_STOPPED;
+	s_status[0] = '\0';
+	pinClaimEnd(PinUser::Am32);
+	s_state = S_REGREET;
+}
+
+/** @brief S_REGREET: once the job is idle the claim is Held again, and the cycle greets. */
+static void regreetTick() {
+	pinClaimPoll();
+	if (!pinClaimUnplugDue()) return;
+	pinClaimKeep(PinUser::Am32);
+	beginConnect();
+}
+
+/** @brief Send @p op to the job and keep its seq. */
+static void ewSend(EwJobOp op) { s_ewSeq = escwireJobCommand(op); }
+
+/**
+ * @brief The read ended: the list opens on the page, every row read-only.
+ *        A page whose marker is wrong leaves the tester's 3D note: its
+ *        firmware loads its defaults at its next start.
+ */
+static void openEw() {
+	s_ewId = s_ew.id;
+	memcpy(s_ewPage, s_ew.page, sizeof(s_ewPage));
+	s_ewRowCount = efm8Rows(s_ewId.fw, s_ewId.layout, s_ewRows, EFM8_ROWS_MAX);
+	s_ewSel = -1;
+	s_hexView = false;
+	openEwList();
+	if (s_ewId.why != EW_WHY_MARKER) esc3dSetNote(efm8Is3d(s_ewPage));
+	s_state = S_EW_LIST;
+	s_redraw = true;
+}
+
+/**
+ * @brief S_EW: the job binds, enters and reads. A page not taken stays
+ *        named on the connect page; anything else that ends the session
+ *        without the page greets again.
+ */
+static void ewTick() {
+	pinClaimPoll();
+	uint8_t err = pinClaimJobError();
+	if (err) {
+		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK", "GP1", "PIN"};
+		snprintf(s_status, sizeof(s_status), "SIG GP%u COULD NOT BE TAKEN (%s)",
+		         (unsigned)pinClaimGpio(PIN_SIG), WHY[err < 8 ? err : 1]);
+		return;
+	}
+	if (pinClaimState() != ClaimState::Running) return;
+	escwireJobStatus(&s_ew);
+	if (!s_ewEntered) {
+		ewSend(EwJobOp::Enter);
+		s_ewEntered = true;
+		return;
+	}
+	if (s_ew.ackSeq != s_ewSeq || s_ew.job == EwJobState::Busy) return;
+	// The page not taken: nothing more to do until BACK.
+	if (s_connectNote == CN_EW_REFUSED) return;
+	if (s_ew.refused != EwJobRefusal::None) {
+		regreet();
+		return;
+	}
+	const bool efm8 = (s_ew.contact.signature >> 8) == BL_ANSWER_EFM8_SIG_HI;
+	if (s_ew.lastOp == EwJobOp::Enter && s_ew.result == EW_SES_OK &&
+	    s_ew.contact.cpu == EW_CPU_EFM8) {
+		// The session's own contact names the part from here on.
+		s_efm8Sig = s_ew.contact.signature;
+		ewSend(EwJobOp::Read);
+		return;
+	}
+	if (s_ew.lastOp == EwJobOp::Enter && s_ew.result == EW_SES_ERR_NOT_KNOWN && efm8) {
+		s_efm8Sig = s_ew.contact.signature;
+		static char st[EFM8_LINE_CHARS + 1];
+		efm8RefusalLines(&s_ew.id, &s_ew.contact, s_ew.page, st, &s_ewNote1, &s_ewNote2);
+		snprintf(s_status, sizeof(s_status), "%s", st);
+		s_connectNote = CN_EW_REFUSED;
+		return;
+	}
+	if (s_ew.lastOp == EwJobOp::Read && s_ew.result == EW_SES_OK &&
+	    efm8ViewOf(&s_ew.id) != Efm8View::Refused) {
+		openEw();
+		return;
+	}
+	// Silence, another answer, another processor, a read that failed or a
+	// stop: the transport greets again.
+	regreet();
+}
+
+/** @brief BACK from the EFM8 list: LEAVE goes out (S_EW_EXIT). */
+static void startExit() {
+	s_exitLeft = false;
+	s_hexView = false;
+	snprintf(s_status, sizeof(s_status), AM32_UI_EXIT_SENDING);
+	ewSend(EwJobOp::Leave);
+	s_state = S_EW_EXIT;
+	s_redraw = true;
+}
+
+/**
+ * @brief S_EW_EXIT: LEAVE's `00 01` starts the ESC's firmware, so once it
+ *        went out the claim gives SIG back to DShot without the leave page's
+ *        steps (decision 3 of bluejay-blheli-s.md). LEAVE has no answer, so
+ *        MENU's run cue stays until an eRPM frame after it shows the firmware
+ *        runs (bench item B11). A LEAVE that did not go out opens the leave
+ *        page.
+ * @return false once DShot is on its way back: the screen leaves.
+ */
+static bool exitTick() {
+	pinClaimPoll();
+	if (!s_exitLeft) {
+		escwireJobStatus(&s_ew);
+		if (s_ew.ackSeq != s_ewSeq || s_ew.job == EwJobState::Busy) return true;
+		if (s_ew.refused != EwJobRefusal::None && s_ew.inMode) {
+			// Not taken, the session as it was: ask again.
+			ewSend(EwJobOp::Leave);
+			return true;
+		}
+		if (!s_ew.left) {
+			openLeave(S_EW);
+			return true;
+		}
+		s_exitLeft = true;
+		snprintf(s_status, sizeof(s_status), AM32_UI_EXIT_SENT);
+		endClaim();
+	}
+	// The job lets SIG go first; DShot restarts once it is idle.
+	if (!pinClaimUnplugDue()) return true;
+	pinClaimRestart(PinUser::Am32);
+	s_state = S_HANDOVER;
+	return false;
+}
+
+/**
+ * @brief The EFM8 list's touch: HEX or FIELDS, and the list's gesture,
+ *        which scrolls or selects; nothing edits.
+ */
+static void ewListTouch(const TouchState *t) {
+	if (uiTapped(BTN_HEX, t)) {
+		s_hexView = !s_hexView;
+		openEwList();
+		s_redraw = true;
+		return;
+	}
+	UiListEvent e = uiListTouch(&s_list, t);
+	if (e.kind == UiListEv::Scrolled) {
+		s_redraw = true;
+		return;
+	}
+	if (s_hexView || e.kind == UiListEv::None) return;
+	if (e.row != s_ewSel) {
+		s_ewSel = e.row;
+		s_redraw = true;
+	}
 }
 
 /**
@@ -1288,7 +1648,16 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Ok), BTN_OK, !writing());
 		return n;
 	}
-	// The read-only view's one control is BACK.
+	if (s_state == S_EW_LIST) {
+		// Rows select, for their strip notes; nothing edits.
+		if (!s_hexView) uiListAddRows(&s_list, out, &n, max, true);
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Write), BTN_WRITE, false);
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Revert), BTN_REVERT, false);
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Hex), BTN_HEX, true);
+		return n;
+	}
+	// The read-only view's, the connect page's and the EFM8 pages' one
+	// control is BACK.
 	if (s_state != S_LIST) return n;
 	// The hex dump takes no tap, so its lines are not controls.
 	if (!s_hexView) uiListAddRows(&s_list, out, &n, max, true);
@@ -1331,6 +1700,10 @@ bool uiAm32Tick(const TouchState *t) {
 				s_hexView = false;
 				openList();
 				s_redraw = true;
+			} else if (s_state == S_EW_LIST && s_hexView) {
+				s_hexView = false;
+				openEwList();
+				s_redraw = true;
 			} else if (s_state == S_PAGE || s_state == S_WRITING) {
 				s_okPress = false;
 				uiHoldReset(&s_writeHold);
@@ -1340,9 +1713,13 @@ bool uiAm32Tick(const TouchState *t) {
 				back = true;
 			}
 		}
-		if (back && s_efm8Sig) {
-			// An EFM8 bootloader answered: SIG goes back to DShot only from
-			// the leave page (docs/design/bluejay-blheli-s.md, decision 8).
+		if (back && s_state == S_EW_LIST) {
+			// The page was read: LEAVE starts the ESC's firmware, then DShot
+			// returns (docs/design/bluejay-blheli-s.md, decision 3).
+			startExit();
+		} else if (back && s_efm8Seen) {
+			// An EFM8 bootloader answered and no LEAVE went: SIG goes back to
+			// DShot only from the leave page (decision 8 of that note).
 			openLeave(s_state);
 		} else if (back) {
 			s_leaving = true;
@@ -1358,18 +1735,39 @@ bool uiAm32Tick(const TouchState *t) {
 				// The pin the claim latched from the pump, not the compiled
 				// default: the two part company the moment the user changes it
 				// on SETTINGS.
-				am32BlBegin(pinClaimGpio(PIN_SIG));
-				s_state = S_CONNECT;
-				snprintf(s_status, sizeof(s_status), "SEARCHING...");
+				beginConnect();
 			}
 			s_redraw = true;
 			break;
 
 		case S_CONNECT:
-			// Retry as fast as the frame loop allows. A failed attempt costs
-			// about 40 ms, and the power-up window is narrow, so retry rate is
-			// what determines whether we catch it.
-			tryConnect();
+			// The connect cycle: a burst of greetings, one a frame, about
+			// 40 ms each, then a quiet phase with nothing sent (greet_cycle.h).
+			if (greetCyclePhase(&s_cycle, millis()) == GreetPhase::Greet) {
+				tryConnect();
+				if (s_state == S_CONNECT) greetCycleSent(&s_cycle, millis());
+			} else {
+				quietStatus();
+			}
+			s_redraw = true;
+			break;
+
+		case S_EW:
+			ewTick();
+			s_redraw = true;
+			break;
+
+		case S_REGREET:
+			regreetTick();
+			s_redraw = true;
+			break;
+
+		case S_EW_LIST:
+			ewListTouch(t);
+			break;
+
+		case S_EW_EXIT:
+			if (!exitTick()) return false;
 			s_redraw = true;
 			break;
 
@@ -1418,7 +1816,11 @@ bool uiAm32Tick(const TouchState *t) {
 		drawHeader();
 		switch (s_state) {
 			case S_HANDOVER:
-			case S_CONNECT:  drawConnect(); break;
+			case S_CONNECT:
+			case S_EW:
+			case S_REGREET:
+			case S_EW_EXIT:  drawConnect(); break;
+			case S_EW_LIST:  drawEwList();  break;
 			case S_LIST:     drawList();    break;
 			case S_PAGE:
 			case S_WRITING:  drawWritePage(); break;

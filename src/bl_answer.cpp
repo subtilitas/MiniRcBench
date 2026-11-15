@@ -11,28 +11,41 @@ static bool am32Family(uint8_t b) {
 	return b == AM32_ESC_G071_2KB || b == AM32_ESC_F051_1KB || b == AM32_ESC_F3_2KB;
 }
 
-/** @brief Whether @p b follows 0xE8 in the signature of an EFM8 part the bootloader names. */
-static bool efm8Part(uint8_t b) { return b == 0xB1u || b == 0xB2u || b == 0xB5u; }
-
 BlAnswer blAnswerClassify(const uint8_t *reply, int n) {
-	BlAnswer a = { BlAnswerKind::NotUnderstood, 0, 0 };
+	BlAnswer a = { BlAnswerKind::NotUnderstood, 0, 0, false };
 	if (n <= 0) {
 		a.kind = BlAnswerKind::Silent;
 		return a;
 	}
-	if (n < 5 || reply[n - 1] != BL_ANSWER_ACK) return a;
-	// The fifth byte from the end: an AM32 family, or the signature's 0xE8.
-	const uint8_t at = reply[n - 5];
-	if (am32Family(at)) {
+	// The fifth byte from the end of a good answer: an AM32 family.
+	if (n >= 5 && reply[n - 1] == BL_ANSWER_ACK && am32Family(reply[n - 5])) {
 		a.kind = BlAnswerKind::Am32;
-		a.family = at;
+		a.family = reply[n - 5];
 		return a;
 	}
-	if (n < BL_ANSWER_EFM8_LEN) return a;
-	const uint8_t *e = reply + n - BL_ANSWER_EFM8_LEN;
-	if (e[0] != '4' || e[1] != '7' || e[2] != '1') return a;
-	if (at != BL_ANSWER_EFM8_SIG_HI || !efm8Part(e[5])) return a;
-	a.kind = BlAnswerKind::Efm8;
-	a.signature = (uint16_t)(((uint16_t)at << 8) | e[5]);
+	// `471` and 0xE8 four bytes on, the last such place: the bytes after the
+	// 0xE8 are not checked (bl_answer.h).
+	for (int i = n - 1 - BL_ANSWER_EFM8_SIG_AT; i >= 0; i--) {
+		const uint8_t *e = reply + i;
+		if (e[0] != '4' || e[1] != '7' || e[2] != '1' || e[BL_ANSWER_EFM8_SIG_AT] != BL_ANSWER_EFM8_SIG_HI)
+			continue;
+		a.kind = BlAnswerKind::Efm8;
+		uint8_t lo = i + BL_ANSWER_EFM8_SIG_AT + 1 < n ? e[BL_ANSWER_EFM8_SIG_AT + 1] : 0;
+		a.signature = (uint16_t)(((uint16_t)BL_ANSWER_EFM8_SIG_HI << 8) | lo);
+		return a;
+	}
+	a.fragment = blAnswerEfm8Fragment(reply, n);
 	return a;
+}
+
+bool blAnswerEfm8Fragment(const uint8_t *reply, int n) {
+	for (int i = 0; i < n; i++) {
+		const uint8_t *e = reply + i;
+		const int left = n - i;
+		if (left >= 3 && e[0] == '4' && e[1] == '7' && e[2] == '1') return true;
+		if (left >= 4 && e[0] == '7' && e[1] == '1' && e[3] == BL_ANSWER_EFM8_SIG_HI) return true;
+		if (left >= 2 && e[0] == BL_ANSWER_EFM8_SIG_HI && (e[1] == 0xB1u || e[1] == 0xB2u || e[1] == 0xB5u))
+			return true;
+	}
+	return false;
 }

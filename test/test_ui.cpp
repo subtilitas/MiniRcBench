@@ -44,6 +44,8 @@
 #include "usb_msc.h"
 #include "version.h"
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
+#include "fake_escwire_port.h"
+#include "ew_line.h"
 
 // --- probes into the included translation unit ---
 static uint8_t uiByte(int o)     { return s_eeprom[o]; }
@@ -62,8 +64,15 @@ static int uiRowOf(const char *name) {
 #define UI_FRAME_MS 25
 
 static void frames(int n) {
-	// Core1's pump runs between UI frames.
-	for (int i = 0; i < n; i++) { fakeAdvance(UI_FRAME_MS); fakePumpPoll(); uiTick(); }
+	// Core1 runs a job once a millisecond, then the pump, between UI frames.
+	for (int i = 0; i < n; i++) {
+		for (int ms = 0; ms < UI_FRAME_MS; ms++) {
+			fakeAdvance(1);
+			core1JobPoll();
+		}
+		fakePumpPoll();
+		uiTick();
+	}
 }
 
 // The helpers that address a control by id. They run frames() between touches.
@@ -4204,6 +4213,8 @@ static void testBoardRow() {
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Toggle)) &&
 	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)));
 	checkControlTable("SETTINGS, at the end");
+	checkTrue("the clock is set to the shot's uptime", fakeClockSetMs(FAKE_SHOT_UPTIME_MS));
+	frames(2);
 	fakeDumpFrame("shot_settings_scrolled.ppm");
 	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 500 = 140.
 	settingsDrag(120);
@@ -4841,12 +4852,18 @@ static void testSplash() {
 	frames(2);
 }
 
-/** @brief Open ESC SETTINGS from the tester, and run @p n frames. */
+/**
+ * @brief Open ESC SETTINGS from the tester, take the claim, let the connect
+ *        cycle's quiet phase pass, and run @p n frames: the first of them
+ *        greets.
+ */
 static void enterAm32(int n) {
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
 	openEscSettings();
 	checkTrue("ESC SETTINGS opens", uiCurrentScreen() == UiScreenId::Am32);
+	for (int i = 0; i < 10 && s_state == S_HANDOVER; i++) frames(1);
+	if (s_state == S_CONNECT) fakeAdvance(ESC_GREET_QUIET_MS);
 	frames(n);
 }
 
@@ -5753,12 +5770,83 @@ static void testAm32ClaimWords() {
 /** @brief An EFM8 bootloader's answer to the greeting: `471d`, E8 B2, 6, 1, 0x30. */
 static const uint8_t EFM8_ANSWER[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
 
+/** @brief Frames until the screen is in @p st, at most @p max. */
+static bool untilState(Am32Screen st, int max) {
+	for (int i = 0; i < max && s_state != st; i++) frames(1);
+	return s_state == st;
+}
+
+/** @brief Frames until MENU, at most @p max. */
+static bool untilMenu(int max) {
+	for (int i = 0; i < max && uiCurrentScreen() != UiScreenId::Menu; i++) frames(1);
+	return uiCurrentScreen() == UiScreenId::Menu;
+}
+
 /**
- * @brief Slice 2 of docs/design/bluejay-blheli-s.md through the screen: an
- *        AM32 claim with no EFM8 answer gives DShot back within BACK, as
- *        before; an EFM8 answer is named, sets MENU's run cue and gives the
- *        claim the leave page of decision 8, whose RESTART DSHOT alone gives
- *        DShot back and clears the cue.
+ * @brief A fresh simulated EFM8 ESC with signature 0xE8 @p sig, Bluejay's
+ *        page or BLHeli_S's, which answers ESC SETTINGS' greeting.
+ */
+static void efm8Esc(uint8_t sig, bool bluejay) {
+	fakeEwReset(sig, bluejay);
+	uint8_t a[9];
+	memcpy(a, EFM8_ANSWER, 9);
+	a[5] = sig;
+	fakeAm32Garble(a, 9);
+}
+
+/** @brief The simulated ESC's settings page, to edit before the read. */
+static uint8_t *efm8Page() { return fakeEwSim()->flash + fakeEwSim()->base; }
+
+/** @brief ESC SETTINGS opened on the ESC set up, its answer taken, frames until the list or @p max. */
+static bool efm8Read(int max = 120) {
+	enterAm32(1);
+	fakeAm32Garble(nullptr, 0);
+	return untilState(S_EW_LIST, max);
+}
+
+/** @brief The EFM8 list's row whose label is @p name, or -1. */
+static int ewRowOf(const char *name) {
+	for (int i = 0; i < s_ewRowCount; i++)
+		if (strcmp(s_ewRows[i].f->name, name) == 0) return i;
+	return -1;
+}
+
+/** @brief Tap the EFM8 list's row @p name, scrolled into view. */
+static bool ewTapRow(const char *name) {
+	int r = ewRowOf(name);
+	if (r < 0) return false;
+	uiListScrollTo(&s_list, r * ROW_PITCH);
+	frames(1);
+	tapId(UI_ROW(r, Row));
+	return s_ewSel == r;
+}
+
+/** @brief BACK from the EFM8 list: LEAVE, then MENU. True when DShot came back once, with no leave page. */
+static bool efm8Exit(int *leaveFrame) {
+	sim_t *e = fakeEwSim();
+	int resumes = fakeResumeCount();
+	int before = e->starts;
+	tapId(UI_FIX(UI_BACK));
+	bool exiting = s_state == S_EW_EXIT;
+	bool sawLeavePage = false;
+	for (int i = 0; i < 40 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+		frames(1);
+		sawLeavePage = sawLeavePage || s_state == S_LEAVE;
+	}
+	*leaveFrame = -1;
+	for (int i = before; i < e->starts; i++)
+		if (fakeEwSentLeave(i)) *leaveFrame = i;
+	return exiting && !sawLeavePage && uiCurrentScreen() == UiScreenId::Menu &&
+	       fakeResumeCount() == resumes + 1;
+}
+
+/**
+ * @brief Slices 2 and 3 of docs/design/bluejay-blheli-s.md through the
+ *        screen: the connect cycle; an EFM8 answer hands SIG to the escwire
+ *        job, which reads the page into a read-only list; LEAVE from the list;
+ *        a page not taken, an ESC that stops answering and BACK while reading
+ *        each end on the leave page of decision 8, whose RESTART DSHOT alone
+ *        gives DShot back and clears the cue.
  */
 static void testAm32Efm8() {
 	EscTelemetry quiet;
@@ -5781,42 +5869,292 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));
 	}
 
-	section("ESC SETTINGS: an EFM8 bootloader's answer is named, nothing read");
+	section("ESC SETTINGS: the connect cycle, 1000 ms quiet, then 3 greetings");
 	{
-		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
-		enterAm32(4);
-		checkTrue("the connect page stays: nothing read", s_state == S_CONNECT && s_visibleCount == 0);
-		checkTrue("the status names the signature",
-		          strcmp(s_status, "EFM8 E8B2 ANSWERED: NOT READ YET.") == 0);
-		checkTrue("33 characters, 197 px", strlen(s_status) == 33 && gfxTextW(s_status, 1) == 197);
-		checkTrue("at y 176, amber", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
-		checkTrue("and on the strip", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, s_status, C_DIM, C_BG, 1));
-		int x0 = 0, x1 = 0;
-		checkTrue("no REPLY NOT UNDERSTOOD: under it, y 196 to y 231",
-		          !fakeInkExtent(196, 36, C_BG, &x0, &x1) ||
-		          (x0 >= GFX_W / 2 - 42 && x1 <= GFX_W / 2 + 42));
-		checkTrue("the claim has the leave page", pinClaimLeavePage());
-		checkTrue("MENU's run cue is set", s_blReached && uiAm32RunCue(0));
-		checkTrue("ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT, C_PANEL, 2));
-		fakeDumpFrame("shot_am32_efm8.ppm");
 		fakeAm32Silent(true);
-		frames(3);
-		checkTrue("silence after it: the line stays",
-		          strcmp(s_status, "EFM8 E8B2 ANSWERED: NOT READ YET.") == 0 &&
-		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
-		fakeAm32Silent(false);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		tapId(UI_FIX(TesterCtl::Menu));
+		frames(2);
+		openEscSettings();
+		checkTrue("the claim", untilState(S_CONNECT, 10));
+		uint32_t t0 = millis();
+		int greets = fakeAm32Handshakes();
+		checkTrue("LINE HIGH, NOTHING SENT, y 176, amber",
+		          fakeTextCentredIs(176, AM32_UI_QUIET, C_AMBER, C_BG, 1) && strcmp(s_status, AM32_UI_QUIET) == 0);
+		checkTrue("23 characters, 137 px", gfxTextW(AM32_UI_QUIET, 1) == 137);
+		fakeDumpFrame("shot_am32_quiet.ppm");
+		while (fakeAm32Handshakes() == greets && millis() - t0 < 2000) frames(1);
+		checkInt("the first greeting 1000 ms after the quiet phase began", (long)(millis() - t0), 1000);
+		checkTrue("WAITING... (TRY 1)", strcmp(s_status, "WAITING... (TRY 1)") == 0);
 		frames(1);
+		frames(1);
+		checkInt("3 greetings, one a frame", fakeAm32Handshakes() - greets, 3);
+		checkTrue("WAITING... (TRY 3)", strcmp(s_status, "WAITING... (TRY 3)") == 0);
+		uint32_t t1 = millis();
+		frames(1);
+		checkTrue("then quiet: LINE HIGH, NOTHING SENT", strcmp(s_status, AM32_UI_QUIET) == 0);
+		while (fakeAm32Handshakes() == greets + 3 && millis() - t1 < 2000) frames(1);
+		checkInt("the next burst 1000 ms after the third greeting", (long)(millis() - t1), 1000);
+		checkTrue("tries counted in greet phases only: TRY 4", strcmp(s_status, "WAITING... (TRY 4)") == 0);
+		frames(2);
+		checkInt("3 greetings again", fakeAm32Handshakes() - greets, 6);
+		// An AM32 answer in a burst opens the AM32 list, as before.
+		fakeAm32Silent(false);
+		frames(50);
+		checkTrue("an AM32 answer in the next burst: the list", s_state == S_LIST && !pinClaimLeavePage());
+		checkInt("its greeting was the burst's first", fakeAm32Handshakes() - greets, 7);
+		leaveAm32ToTester();
 	}
 
-	section("ESC SETTINGS: BACK after an EFM8 answer, the leave page of decision 8");
+	section("ESC SETTINGS: a Bluejay 0.21 ESC, read through the escwire job");
 	{
-		int resumes = fakeResumeCount(), ends = fakeAm32Ends();
+		am32NoCard();
+		efm8Esc(0xB2, true);
+		int ends = fakeAm32Ends();
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the answer: the session page", s_state == S_EW);
+		checkTrue("the transport let go of SIG", fakeAm32Ends() == ends + 1);
+		checkTrue("the claim has the leave page, MENU the run cue", pinClaimLeavePage() && s_blReached);
+		checkTrue("the claim's job is asked for", core1JobRunning() == Core1Job::EscWire);
+		frames(1);
+		checkTrue("the job binds SIG on core1", fakeEwOpens() == 1 && fakeEwGpio() == settings()->dshotPin &&
+		          pinClaimState() == ClaimState::Running);
+		checkTrue("the status: EFM8 E8B2 ANSWERED: READING.",
+		          strcmp(s_status, "EFM8 E8B2 ANSWERED: READING.") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("28 characters, 167 px", gfxTextW(s_status, 1) == 167);
+		checkTrue("EFM8 BOOTLOADER, y 84, in place of POWER-CYCLE THE ESC",
+		          fakeTextCentredIs(84, AM32_UI_EW_HEAD, C_TEXT, C_BG, 2) &&
+		          !fakeTextCentredIs(84, "POWER-CYCLE THE ESC", UI_COL_WARN, C_BG, 2));
+		checkTrue("its three lines", fakeTextCentredIs(116, AM32_UI_EW_1, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(130, AM32_UI_EW_2, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(144, AM32_UI_EW_3, C_DIM, C_BG, 1));
+		checkTrue("BACK the one control", ctlEnabled(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(Am32Ctl::Write)));
+		checkControlTable("ESC SETTINGS, the EFM8 session reading");
+		fakeDumpFrame("shot_am32_efm8.ppm");
+
+		checkTrue("the list opens", untilState(S_EW_LIST, 120));
+		sim_t *e = fakeEwSim();
+		checkTrue("nothing erased or programmed", e->erases == 0 && e->programs == 0);
+		checkTrue("the page as the ESC holds it, 255 bytes", s_ewId.len == 255 &&
+		          memcmp(s_ewPage, efm8Page(), 255) == 0);
+		checkInt("17 rows", s_ewRowCount, 17);
+		frames(1);
+		checkControlTable("ESC SETTINGS, the EFM8 list");
+		checkTrue("ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT, C_PANEL, 2));
+		checkTrue("the strip: BLUEJAY 0.21  LAYOUT 208  E8B2, dim",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "BLUEJAY 0.21  LAYOUT 208  E8B2", C_DIM, C_BG, 1));
+		UiRect r0 = ctlRect(UI_ROW(0, Row));
+		checkTrue("row 0: MOTOR, DIRECTION NORMAL, read-only grey",
+		          fakeTextIs(UI_MARGIN, r0.y + 11, "MOTOR", C_GRID, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, r0.y + 21, "DIRECTION", C_GRID, C_BG, 1) &&
+		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("NORMAL", 2), r0.y + 13, "NORMAL", C_GRID, C_BG, 2));
+		checkTrue("WRITE... and REVERT drawn disabled, HEX live",
+		          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)) &&
+		          ctlEnabled(UI_FIX(Am32Ctl::Hex)));
+		checkTrue("the bar's lines", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_EW_BAR_1, C_GRID, C_BG, 1) &&
+		          fakeTextCentredIs(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, C_BG, 1));
+		checkTrue("33 characters each, 197 px", gfxTextW(AM32_UI_EW_BAR_1, 1) == 197 &&
+		          gfxTextW(AM32_UI_EW_BAR_2, 1) == 197);
+		fakeDumpFrame("shot_efm8_list.ppm");
+		tapId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
+		checkTrue("WRITE... does nothing", s_state == S_EW_LIST && e->erases == 0 && e->programs == 0);
+		checkTrue("3D off: no note", !esc3dNote());
+
+		section("ESC SETTINGS: the EFM8 list's strip notes");
+		checkTrue("TEMPERATURE selected", ewTapRow("TEMPERATURE"));
+		checkTrue("at OFF: PROTECTION OFF", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROT_2, UI_COL_WARN, C_BG, 1));
+		checkTrue("selected: the row's fill", fakeTextIs(UI_MARGIN, ctlRect(UI_ROW(s_ewSel, Row)).y + 21,
+		                                                 "TEMPERATURE", C_GRID, C_PANEL, 1));
+		checkTrue("POWER RATING selected", ewTapRow("POWER RATING"));
+		checkTrue("its note", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_RATING_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_RATING_2, UI_COL_WARN, C_BG, 1));
+		fakeDumpFrame("shot_efm8_note.ppm");
+		checkTrue("LED selected: the caption again", ewTapRow("LED") &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "BLUEJAY 0.21  LAYOUT 208  E8B2", C_DIM, C_BG, 1));
+		checkTrue("no -, no +", !ctlPresent(UI_FIX(Am32Ctl::EditMinus)) && !ctlPresent(UI_FIX(Am32Ctl::EditPlus)));
+		uint8_t led = s_ewPage[0x28];
+		UiRect rl = ctlRect(UI_ROW(s_ewSel, Row));
+		swipe(rl.x + 40, rl.x + 200, rl.y + rl.h / 2, 8);
+		checkTrue("a swipe on it changes nothing", s_ewPage[0x28] == led && e->programs == 0);
+
+		section("ESC SETTINGS: ESC HEX of a Bluejay page");
+		uiListScrollTo(&s_list, 0);
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("ESC HEX", s_hexView && fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE_HEX,
+		                                             C_TEXT, C_PANEL, 2));
+		checkTrue("32 lines of 8 bytes, the list scrolls", s_list.rows == 32 && uiListMaxScroll(&s_list) > 0);
+		char line0[40];
+		snprintf(line0, sizeof(line0), "00 %02X %02X %02X %02X %02X %02X %02X %02X ", s_ewPage[0], s_ewPage[1],
+		         s_ewPage[2], s_ewPage[3], s_ewPage[4], s_ewPage[5], s_ewPage[6], s_ewPage[7]);
+		checkTrue("line 0: the offset and 8 bytes", fakeTextIs(UI_MARGIN, LIST_Y0, line0, C_DIM, C_BG, 1));
+		fakeDumpFrame("shot_efm8_hex.ppm");
+		fakePress(120, 210);
+		frames(1);
+		for (int y = 210; y >= 0; y -= 10) {
+			fakeHold(120, y);
+			frames(1);
+		}
+		fakeRelease();
+		frames(1);
+		checkTrue("dragged up: the last line, F8 and 7 bytes", s_list.scrollPx == uiListMaxScroll(&s_list));
+		char last[40];
+		snprintf(last, sizeof(last), "F8 %02X %02X %02X %02X %02X %02X %02X ", s_ewPage[0xF8], s_ewPage[0xF9],
+		         s_ewPage[0xFA], s_ewPage[0xFB], s_ewPage[0xFC], s_ewPage[0xFD], s_ewPage[0xFE]);
+		int lastY = LIST_Y0 + 31 * HEX_ROW_H - s_list.scrollPx;
+		checkTrue("its text", fakeTextIs(UI_MARGIN, lastY, last, C_DIM, C_BG, 1));
+		checkTrue("no rows to tap", !ctlPresent(UI_ROW(0, Row)));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK on ESC HEX: the list", s_state == S_EW_LIST && !s_hexView);
+
+		section("ESC SETTINGS: BACK from the EFM8 list sends LEAVE");
+		uint32_t t0 = millis();
+		int leaveAt = -1;
+		tapId(UI_FIX(Am32Ctl::Hex));
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("the list", s_state == S_EW_LIST && !s_hexView);
+		// The exit page, one frame after BACK.
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: LEAVING, BACK drawn disabled", s_state == S_EW_EXIT && !ctlEnabled(UI_FIX(UI_BACK)) &&
+		          backLook() == BackLook::Disabled);
+		checkTrue("its lines", fakeTextCentredIs(84, AM32_UI_EXIT_HEAD, C_TEXT, C_BG, 2) &&
+		          fakeTextCentredIs(116, AM32_UI_EXIT_1, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(130, AM32_UI_EXIT_2, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(144, AM32_UI_EXIT_3, UI_COL_WARN, C_BG, 1));
+		checkControlTable("ESC SETTINGS, LEAVE going out");
+		fakeDumpFrame("shot_efm8_leaving.ppm");
+		bool page = false;
+		for (int i = 0; i < 40 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+			frames(1);
+			page = page || s_state == S_LEAVE;
+		}
+		for (int i = 0; i < e->starts; i++)
+			if (fakeEwSentLeave(i)) leaveAt = i;
+		checkTrue("LEAVE went out: 00 01 and its CRC, the last frame", leaveAt >= 0 && leaveAt == e->starts - 1);
+		checkTrue("then MENU, with no leave page", uiCurrentScreen() == UiScreenId::Menu && !page);
+		checkTrue("300 ms of low line first", millis() - t0 >= 300);
+		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
+		checkTrue("the job idle when DShot was asked back", fakeResumeJobIdle());
+		frames(2);
+		checkTrue("the claim ends; LEAVE has no answer, so the run cue stands",
+		          pinClaimState() == ClaimState::Free && s_blReached && menuRunCueShown());
+		checkTrue("an eRPM frame from before the answer leaves it", uiAm32RunCue(s_blReachedMs - 1));
+		checkTrue("one after LEAVE clears it", !uiAm32RunCue(millis()) && !s_blReached);
+		checkTrue("the line closed", fakeEwCloses() == 1 && !fakeEwOpen());
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: BLHeli_S 16.7 in 3D");
+	{
+		efm8Esc(0xB1, false);
+		efm8Page()[0x0B] = 3;
+		checkTrue("the list opens", efm8Read());
+		frames(1);
+		checkTrue("BLHeli_S 33: 15 rows, 112 bytes", s_ewRowCount == 15 && s_ewId.len == 112);
+		checkTrue("the strip: the 3D note", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_3D_2, UI_COL_WARN, C_BG, 1));
+		UiRect r1 = ctlRect(UI_ROW(1, Row));
+		checkTrue("DIRECTION, row 1: 3D", strcmp(s_ewRows[1].f->name, "DIRECTION") == 0 &&
+		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("3D", 2), r1.y + 13, "3D", C_GRID, C_BG, 2));
+		checkTrue("the tester's 3D note is set", esc3dNote());
+		fakeDumpFrame("shot_efm8_3d.ppm");
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("ESC HEX: 14 lines, no scroll", s_list.rows == 14 && uiListMaxScroll(&s_list) == 0);
+		tapId(UI_FIX(UI_BACK));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+		frames(2);
+		checkTrue("the tester shows the 3D note", tester3dShown());
+
+		efm8Esc(0xB1, false);
+		checkTrue("the same ESC at NORMAL: the list", efm8Read());
+		checkTrue("the note cleared", !esc3dNote());
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: read-only lists");
+	{
+		efm8Esc(0xB2, true);
+		efm8Page()[0x01] = 19;
+		efm8Page()[0x02] = 206;
+		efm8Page()[0x06] = 1;  // DITHERING ON: the byte Bluejay 0.19 has there
+		checkTrue("Bluejay 0.19, layout 206: the list", efm8Read());
+		frames(1);
+		checkTrue("BLUEJAY 0.19, LAYOUT 206: READ-ONLY., amber",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "BLUEJAY 0.19, LAYOUT 206: READ-ONLY.", UI_COL_WARN, C_BG, 1));
+		checkTrue("SHOWN ONLY. NO BACKUP SAVED., amber",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_SHOWN_ONLY, UI_COL_WARN, C_BG, 1));
+		checkTrue("rows read-only, WRITE... disabled", ctlPresent(UI_ROW(0, Row)) && !ctlEnabled(UI_FIX(Am32Ctl::Write)));
+		checkTrue("layout 206: POWER RATING, no SAFETY ARM", ewRowOf("POWER RATING") >= 0 && ewRowOf("SAFETY ARM") < 0);
+		fakeDumpFrame("shot_efm8_readonly.ppm");
+		checkTrue("a selected row's note outranks it", ewTapRow("POWER RATING") &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_RATING_1, UI_COL_WARN, C_BG, 1));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+
+		efm8Esc(0xB2, false);
+		memset(efm8Page() + 0x40, 0xFF, 48);
+		checkTrue("BLHeli_S whose tags read 0xFF: the list", efm8Read());
+		frames(1);
+		checkTrue("ESC LOST ITS TAGS: READ-ONLY.",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_LOST_TAGS, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_REFLASH, UI_COL_WARN, C_BG, 1));
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+
+		efm8Esc(0xB2, true);
+		efm8Page()[0x0E] = 0x00;
+		efm8Page()[0x0B] = 4;
+		checkTrue("Bluejay whose marker is wrong, DIRECTION 3D REVERSED: the list", efm8Read());
+		frames(1);
+		checkTrue("SETTINGS MARKER WRONG: READ-ONLY.",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_MARKER, UI_COL_WARN, C_BG, 1));
+		checkTrue("the tester's 3D note left as it was", !esc3dNote());
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a page not taken, then BACK: the leave page of decision 8");
+	{
+		efm8Esc(0xB2, true);
+		memset(efm8Page(), 0xFF, 256);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		for (int i = 0; i < 80 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
+		frames(1);
+		checkTrue("the connect page stays", s_state == S_EW && s_ewRowCount == 0);
+		checkTrue("EFM8 E8B2: SETTINGS PAGE EMPTY, y 176",
+		          strcmp(s_status, "EFM8 E8B2: SETTINGS PAGE EMPTY") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("its two lines, y 196 and 210", fakeTextCentredIs(196, EFM8_UI_EMPTY_1, C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(210, EFM8_UI_EMPTY_2, C_AMBER, C_BG, 1));
+		checkTrue("no POWER-CYCLE THE ESC", fakeTextCentredIs(84, AM32_UI_EW_HEAD, C_TEXT, C_BG, 2));
+		checkTrue("BACK the one control", !ctlPresent(UI_FIX(Am32Ctl::Write)) && ctlEnabled(UI_FIX(UI_BACK)));
+		fakeDumpFrame("shot_efm8_empty.ppm");
+		frames(40);
+		checkTrue("it stays: the job idle in mode", s_state == S_EW && fakeEwSim()->starts == 3);
+
+		sim_t *e = fakeEwSim();
+		int resumes = fakeResumeCount(), starts = e->starts;
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: the leave page, the screen stays", uiCurrentScreen() == UiScreenId::Am32 &&
 		          s_state == S_LEAVE);
 		frames(1);
-		checkTrue("no DShot, the transport keeps SIG", fakeResumeCount() == resumes &&
-		          fakeAm32Ends() == ends && escTaskSuspended() && pinClaimHolder() == PinUser::Am32);
+		checkTrue("no DShot, the job keeps SIG", fakeResumeCount() == resumes && fakeEwOpen() &&
+		          escTaskSuspended() && pinClaimHolder() == PinUser::Am32);
 		checkControlTable("ESC SETTINGS, the leave page before LEAVE");
 		checkTrue("BACK drawn disabled", !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
 		checkTrue("titled ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT,
@@ -5840,19 +6178,19 @@ static void testAm32Efm8() {
 		fakeDumpFrame("shot_am32_leave.ppm");
 
 		tapId(UI_FIX(Am32Ctl::Stay));
-		checkTrue("STAY: the connect page, the claim kept", s_state == S_CONNECT &&
-		          pinClaimHolder() == PinUser::Am32 && escTaskSuspended() && fakeAm32Ends() == ends);
+		checkTrue("STAY: the connect page, the claim and the job kept", s_state == S_EW &&
+		          pinClaimHolder() == PinUser::Am32 && escTaskSuspended() && fakeEwOpen());
 		frames(2);
-		checkTrue("the answer still named", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1) &&
-		          strncmp(s_status, "EFM8 E8B2", 9) == 0);
+		checkTrue("the page still named", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1) &&
+		          strcmp(s_status, "EFM8 E8B2: SETTINGS PAGE EMPTY") == 0);
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
 
 		tapId(UI_FIX(Am32Ctl::Leave));
-		checkTrue("LEAVE: the transport lets go of SIG", fakeAm32Ends() == ends + 1);
+		frames(1);
+		checkTrue("LEAVE: the job lets go of SIG, no frame sent", !fakeEwOpen() && e->starts == starts);
 		checkTrue("and DShot waits", fakeResumeCount() == resumes &&
 		          pinClaimState() == ClaimState::Leaving && pinClaimUnplugDue());
-		frames(1);
 		checkControlTable("ESC SETTINGS, the leave page after LEAVE");
 		checkTrue("step 2 current, step 1 not", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, true) &&
 		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, false));
@@ -5870,7 +6208,6 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Restart), IdExpect::Disabled);
 		checkTrue("a tap before 1000 ms restarts nothing", fakeResumeCount() == resumes &&
 		          s_state == S_LEAVE);
-		// Released on the frame after LEAVE; the tap took 3 frames more.
 		frames(37);
 		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Restart)) &&
 		          leaveWideIs("RESTART DSHOT", true));
@@ -5881,17 +6218,103 @@ static void testAm32Efm8() {
 		frames(2);
 		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
 		checkTrue("the claim ends", pinClaimState() == ClaimState::Free);
-		fakeAm32Garble(nullptr, 0);
+		checkTrue("no LEAVE frame went", e->starts == starts);
 		tapId(UI_FIX(UI_BACK));
 	}
 
-	section("ESC SETTINGS: after an EFM8 answer, BACK from the list opens the leave page");
+	section("ESC SETTINGS: a page not known");
 	{
-		am32NoCard();
-		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
-		enterAm32(4);
+		efm8Esc(0xB5, false);
+		memcpy(efm8Page() + 0x60, "SOMETHING ELSE..", 16);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
 		fakeAm32Garble(nullptr, 0);
+		for (int i = 0; i < 80 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
+		frames(1);
+		checkTrue("EFM8 E8B5: PAGE NOT KNOWN", strcmp(s_status, "EFM8 E8B5: PAGE NOT KNOWN") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("its two lines", fakeTextCentredIs(196, EFM8_UI_REFUSED_1, C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(210, EFM8_UI_REFUSED_2, C_AMBER, C_BG, 1));
+		fakeDumpFrame("shot_efm8_refused.ppm");
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
 		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: BACK while the job reads");
+	{
+		efm8Esc(0xB2, true);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(3);
+		checkTrue("entering", s_state == S_EW && fakeEwOpen());
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the session page", s_state == S_EW);
+		checkTrue("the read goes on: the list", untilState(S_EW_LIST, 120));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+
+		efm8Esc(0xB2, true);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(3);
+		tapId(UI_FIX(UI_BACK));
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(1);
+		checkTrue("LEAVE while entering: the job cut, SIG let go, DShot waits",
+		          !fakeEwOpen() && core1JobPhase() == Core1JobPhase::Idle && fakeResumeCount() == resumes);
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		          fakeResumeCount() == resumes + 1);
+		bool sent = false;
+		for (int i = 0; i < fakeEwSim()->starts; i++) sent = sent || fakeEwSentLeave(i);
+		checkTrue("no LEAVE frame went", !sent);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an ESC that answers the greeting, then not escwire");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwSim()->dead = true;
+		fakeAm32Silent(false);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
+		fakeAm32Silent(true);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the session page", s_state == S_EW);
+		int pinBefore = fakeAm32Pin();
+		fakeAm32Reset();
+		checkTrue("silent: the cycle greets again", untilState(S_CONNECT, 400));
+		(void)pinBefore;
+		checkTrue("the job idle, the transport has SIG again", core1JobPhase() == Core1JobPhase::Idle &&
+		          !fakeEwOpen() && fakeAm32Pin() == settings()->dshotPin);
+		checkTrue("the claim Held, its leave page kept", pinClaimState() == ClaimState::Held && pinClaimLeavePage());
+		frames(1);
+		checkTrue("THE ESC ANSWERED, THEN STOPPED., y 196", fakeTextCentredIs(196, AM32_UI_EW_STOPPED_1, C_AMBER, C_BG, 1));
+		checkTrue("SEARCHING AGAIN., y 210", fakeTextCentredIs(210, AM32_UI_EW_STOPPED_2, C_AMBER, C_BG, 1));
+		checkTrue("the quiet phase's status", strcmp(s_status, AM32_UI_QUIET) == 0);
+		checkTrue("POWER-CYCLE THE ESC again", fakeTextCentredIs(84, "POWER-CYCLE THE ESC", UI_COL_WARN, C_BG, 2));
+		fakeDumpFrame("shot_efm8_stopped.ppm");
+		int greets = fakeAm32Handshakes();
+		frames(42);
+		checkTrue("the next burst greets; the lines stay", fakeAm32Handshakes() > greets &&
+		          fakeTextCentredIs(196, AM32_UI_EW_STOPPED_1, C_AMBER, C_BG, 1));
+		fakeAm32Silent(false);
+
+		section("ESC SETTINGS: after an EFM8 answer, BACK from the AM32 list opens the leave page");
+		frames(45);
 		checkTrue("a later AM32 answer: the list, the leave page kept",
 		          s_state == S_LIST && pinClaimLeavePage());
 		int resumes = fakeResumeCount();
@@ -5926,10 +6349,12 @@ static void testAm32Efm8() {
 	{
 		const uint8_t lay = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
-		fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
-		enterAm32(4);
+		efm8Esc(0xB2, true);
+		fakeEwSim()->dead = true;
+		enterAm32(1);
 		fakeAm32Garble(nullptr, 0);
-		frames(2);
+		checkTrue("silent: the cycle greets again", untilState(S_CONNECT, 400));
+		frames(45);
 		checkTrue("a later AM32 answer, layout 5: the read-only view, the leave page kept",
 		          s_state == S_VIEW && pinClaimLeavePage());
 		int resumes = fakeResumeCount();
@@ -5946,6 +6371,181 @@ static void testAm32Efm8() {
 		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
 		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a LEAVE that does not go out");
+	{
+		efm8Esc(0xB2, true);
+		checkTrue("the list", efm8Read());
+		sim_script(fakeEwSim(), F_START_FALSE, 0, 1, 0);
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: LEAVING", s_state == S_EW_EXIT);
+		checkTrue("the driver refuses the frame: the leave page", untilState(S_LEAVE, 20));
+		checkTrue("no DShot, the cue stands", fakeResumeCount() == resumes && s_blReached);
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the session ended, the cycle greets again", untilState(S_CONNECT, 40) &&
+		          pinClaimLeavePage());
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		          fakeResumeCount() == resumes + 1);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a LEAVE the job refuses for a lapsed heartbeat is asked again");
+	{
+		efm8Esc(0xB2, true);
+		checkTrue("the list", efm8Read());
+		int resumes = fakeResumeCount(), n = fakeEwSim()->starts;
+		UiRect back = ctlRect(UI_FIX(UI_BACK));
+		fakePress(back.x + back.w / 2, back.y + back.h / 2);
+		frames(2);
+		fakeRelease();
+		fakeAdvance(1);
+		fakePumpPoll();
+		uiTick();
+		checkTrue("BACK: LEAVING", s_state == S_EW_EXIT);
+		// Core1 takes the command only after a stall of core0 longer than the
+		// heartbeat's 250 ms.
+		fakeAdvance(300);
+		core1JobPoll();
+		EwJobStatus st;
+		escwireJobStatus(&st);
+		checkTrue("the job refuses it, nothing sent, the ESC still in mode",
+		          st.refused == EwJobRefusal::NoUi && st.inMode && fakeEwSim()->starts == n);
+		bool page = false;
+		for (int i = 0; i < 40 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+			frames(1);
+			page = page || s_state == S_LEAVE;
+		}
+		checkTrue("asked again: LEAVE went out, MENU, no leave page",
+		          fakeEwSentLeave(n) && uiCurrentScreen() == UiScreenId::Menu && !page &&
+		          fakeResumeCount() == resumes + 1);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an AM32 answers the session's own contact");
+	{
+		efm8Esc(0xB2, true);
+		sim_init_am(fakeEwSim(), 3, 2);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the session page", s_state == S_EW);
+		checkTrue("not an EFM8: the cycle greets again", untilState(S_CONNECT, 200) && pinClaimLeavePage());
+		EwJobStatus st;
+		escwireJobStatus(&st);
+		checkTrue("its page was not read, nothing written", st.contact.cpu == EW_CPU_ARM && !st.haveRead &&
+		          fakeEwSim()->programs == 0);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an EFM8 answer with a byte lost brings the leave page");
+	{
+		// `471`, the `d` lost, then E8 B2 06 01 30: no EFM8 answer by the
+		// rule, a piece of one.
+		static const uint8_t CUT[8] = { '4', '7', '1', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		s_blReached = false;
+		fakeAm32Garble(CUT, sizeof(CUT));
+		enterAm32(1);
+		checkTrue("the bytes, REPLY NOT UNDERSTOOD:", s_state == S_CONNECT && s_connectNote == CN_GARBLED &&
+		          fakeTextCentredIs(196, "REPLY NOT UNDERSTOOD:", C_AMBER, C_BG, 1));
+		fakeAm32Garble(nullptr, 0);
+		fakeAm32Silent(true);
+		frames(1);
+		checkTrue("no job, the leave page and the run cue set", core1JobRunning() == Core1Job::None &&
+		          pinClaimLeavePage() && s_blReached);
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes);
+		char strip[32];
+		snprintf(strip, sizeof(strip), "EFM8  SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip names no part: EFM8  SIG GP0",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, the cue cleared",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 && !s_blReached);
+		fakeAm32Silent(false);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: the job's bind refused");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwRefuse(EW_LINE_ERR_DMA);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		char want[48];
+		snprintf(want, sizeof(want), "SIG GP%u COULD NOT BE TAKEN (DMA)", (unsigned)settings()->dshotPin);
+		checkTrue("SIG GP0 COULD NOT BE TAKEN (DMA), y 176", s_state == S_EW && strcmp(s_status, want) == 0 &&
+		          fakeTextCentredIs(176, want, C_AMBER, C_BG, 1));
+		checkTrue("nothing opened, the claim Held, its leave page set", fakeEwOpens() == 0 &&
+		          pinClaimState() == ClaimState::Held && pinClaimLeavePage());
+		checkTrue("SIG on its pull-up, not floating", fakePin(settings()->dshotPin).pull == FakePull::Up);
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		          fakeResumeCount() == resumes + 1);
+		fakeEwRefuse(0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a pin the job's line driver does not take");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwRefuse(EW_LINE_ERR_ARG);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		char want[48];
+		snprintf(want, sizeof(want), "SIG GP%u COULD NOT BE TAKEN (PIN)", (unsigned)settings()->dshotPin);
+		checkTrue("SIG GP0 COULD NOT BE TAKEN (PIN)", s_state == S_EW && strcmp(s_status, want) == 0);
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("BACK, LEAVE, RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		fakeEwRefuse(0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an answer with a glitch byte after it is an EFM8's");
+	{
+		fakeEwReset(0xB2, true);
+		uint8_t a[10];
+		memcpy(a, EFM8_ANSWER, 9);
+		a[9] = 0xFF;
+		fakeAm32Garble(a, 10);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the session page, the leave page set", s_state == S_EW && pinClaimLeavePage());
+		checkTrue("the list", untilState(S_EW_LIST, 120));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -5980,8 +6580,10 @@ static void testAm32Guidance() {
 	{
 		static const uint8_t junk[3] = { 0x55, 0xAA, 0x01 };
 		fakeAm32Garble(junk, 3);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
+		checkTrue("no piece of an EFM8 answer: no leave page", !pinClaimLeavePage() && !s_efm8Seen);
 		checkTrue("the bytes once in the page, y 176",
 		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
 		checkTrue("REPLY NOT UNDERSTOOD:, y 196",
@@ -6000,6 +6602,7 @@ static void testAm32Guidance() {
 	section("AM32 connect: silence shows the page alone");
 	{
 		fakeAm32Silent(true);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
 		checkTrue("POWER-CYCLE THE ESC, y 84, amber: the current step",
@@ -6030,7 +6633,8 @@ static void testAm32Guidance() {
 		checkTrue("the ESC's settings are untouched", same);
 		checkTrue("the handshake reached the bootloader: MENU's cue stands", s_blReached);
 		fakeAm32Blank(false);
-		frames(2);
+		// The burst after the next quiet second.
+		frames(45);
 		checkTrue("a good read opens the list", s_state == S_LIST);
 		tapId(UI_FIX(UI_BACK));
 		frames(2);
@@ -6653,7 +7257,10 @@ void runUiTests() {
 		fakeDumpFrame("shot_menu.ppm");
 		openEscSettings();
 		checkTrue("AM32 opens from MENU", uiCurrentScreen() == UiScreenId::Am32);
+		// The connect cycle sends nothing for its first 1000 ms.
 		for (int i = 0; i < 8; i++) frames(1);
+		checkTrue("1000 ms quiet first: nothing read yet", uiVisibleCount() == 0 && s_state == S_CONNECT);
+		for (int i = 0; i < 40; i++) frames(1);
 		checkTrue("settings read and decoded", uiVisibleCount() > 0);
 		checkInt("poles decoded", uiByte(0x1B), 14);
 		checkControlTable("AM32 list");
