@@ -689,7 +689,7 @@ static void testEscConfig() {
 	          fakeTextIs(br.x + (br.w - 118) / 2, br.y + 16, "USB BRIDGE", C_TEXT, C_PANEL, 2));
 	checkTrue("its lines at y 192 and 204, dim: what it is, what slice 2 serves",
 	          lineIs(192, "A DESKTOP ESC TOOL OVER USB.", C_DIM) &&
-	          lineIs(204, "PASSTHROUGH: AM32 DIRECT MODE.", C_DIM));
+	          lineIs(204, "MSP, 4-WAY AND PASSTHROUGH.", C_DIM));
 	checkControlTable("ESC CONFIG");
 	fakeDumpFrame("shot_esc_chooser.ppm");
 	fakePress(br.x + br.w / 2, br.y + br.h / 2);

@@ -163,7 +163,7 @@ static_assert(rxEntriesFit(), "an RX SIGNALS line is too wide, or runs into the 
  */
 constexpr UiEscCfgEntry UI_ESC_CFG_ENTRIES[] = {
 	{ AM32_UI_TITLE, { "AM32 SETTINGS, READ AND WRITTEN.", "BLUEJAY, BLHELI_S: READ AND WRITTEN." }, &UI_AM32 },
-	{ BRIDGE_UI_TITLE, { "A DESKTOP ESC TOOL OVER USB.", "PASSTHROUGH: AM32 DIRECT MODE." }, &UI_BRIDGE },
+	{ BRIDGE_UI_TITLE, { "A DESKTOP ESC TOOL OVER USB.", "MSP, 4-WAY AND PASSTHROUGH." }, &UI_BRIDGE },
 };
 constexpr uint8_t UI_ESC_CFG_ENTRIES_COUNT =
 	(uint8_t)(sizeof(UI_ESC_CFG_ENTRIES) / sizeof(UI_ESC_CFG_ENTRIES[0]));

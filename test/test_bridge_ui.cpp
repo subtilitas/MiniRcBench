@@ -16,6 +16,8 @@
 #include "fake_bridge_line.h"
 #include "ui_bridge.h"
 #include "usb_bridge.h"
+#include "bridge_4way.h"
+#include "bridge_msp.h"
 #include "bridge_line_port.h"
 #include "ui_esc_config.h"
 #include "ui_am32.h"
@@ -729,6 +731,94 @@ static void testReadOnly() {
 	}
 }
 
+/**
+ * @brief An AM32 bootloader as far as the screen needs it: the greeting
+ *        answered, SET BUFFER silent, PROGRAM's ACK after g_ackUs, every
+ *        other ACK after 300 µs.
+ */
+static int escAm32(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
+	if (n >= 9 && f[n - 9] == 0x0D && f[n - 1] == 0x7D) {
+		const uint8_t a[9] = {'4', '7', '1', 'd', 0x1F, 0x06, 0x06, 0x40, 0x30};
+		memcpy(r, a, 9);
+		*d = 300;
+		return 9;
+	}
+	const bool program = n == 4 && f[0] == 0x01 && !g_blPayload;
+	int k = escAck(f, n, r, d);
+	if (!program) *d = 300;
+	return k;
+}
+
+/** @brief The PC sends a 4-way frame. */
+static void pc4way(uint8_t cmd, uint16_t addr, const uint8_t *par, int n) {
+	uint8_t f[300];
+	f[0] = 0x2F;
+	f[1] = cmd;
+	f[2] = (uint8_t)(addr >> 8);
+	f[3] = (uint8_t)addr;
+	f[4] = (uint8_t)n;
+	memcpy(f + 5, par, n);
+	uint16_t c = bridge4wayCrc(f, (uint16_t)(5 + n));
+	f[5 + n] = (uint8_t)(c >> 8);
+	f[6 + n] = (uint8_t)c;
+	fakeCdcHostWrite(f, 7 + n);
+}
+
+static void testFourWay() {
+	section("USB BRIDGE: MSP and the 4-way interface on the screen");
+	freshUi(escAm32);
+	openBridgeScreen();
+	untilOpen();
+	fakeCdcDtr(true);
+	brFrames(12);
+	const uint8_t api[] = {'$', 'M', '<', 0, MSP_API_VERSION, MSP_API_VERSION};
+	fakeCdcHostWrite(api, sizeof(api));
+	brFrames(12);
+	checkTrue("MSP: 4-WAY INTERFACE, 178 px, LAST MSP API VERSION",
+	          leftIs(72, BRIDGE_UI_4WAY, C_TEXT, 2) && gfxTextW(BRIDGE_UI_4WAY, 2) == 178 &&
+	          leftIs(148, "LAST MSP API VERSION", C_DIM) && defaultLines() && inkWithin());
+	checkTrue("MSP sends nothing: 0 B to the ESC, the answer's 9 B to the PC", countersAre("0 B", "9 B"));
+	const uint8_t pt[] = {'$', 'M', '<', 0, MSP_SET_PASSTHROUGH, MSP_SET_PASSTHROUGH};
+	fakeCdcHostWrite(pt, sizeof(pt));
+	brFrames(12);
+	checkTrue("LAST MSP SET PASSTHROUGH, the widest, 143 px",
+	          leftIs(148, "LAST MSP SET PASSTHROUGH", C_DIM) && gfxTextW("LAST MSP SET PASSTHROUGH", 1) == 143);
+	const uint8_t motor[] = {'$', 'M', '<', 2, MSP_SET_MOTOR, 0xE8, 0x03, (uint8_t)(2 ^ MSP_SET_MOTOR ^ 0xE8 ^ 0x03)};
+	fakeCdcHostWrite(motor, sizeof(motor));
+	brFrames(12);
+	checkTrue("SET_MOTOR: line 3 amber, MOTOR COMMAND FROM THE PC REFUSED., 203 px; PROPELLER OFF. kept on line 2",
+	          msgIs(3, BRIDGE_UI_MOTOR, C_AMBER) && defaultLines(3) && msgIs(2, BRIDGE_UI_LINE_2, C_DIM) &&
+	          gfxTextW(BRIDGE_UI_MOTOR, 1) == 203);
+	fakeDumpFrame("shot_bridge_4way.ppm");
+	brFrames(190);
+	checkTrue("for 5 s, then the line back", defaultLines());
+	const uint8_t zero = 0;
+	pc4way(B4W_INIT_FLASH, 0, &zero, 1);
+	brFrames(12);
+	checkTrue("4-way: LAST INIT FLASH, 21 B to the ESC", leftIs(148, "LAST INIT FLASH", C_DIM) &&
+	          countersAre("21 B", "34 B"));
+	uint8_t page[16] = {0};
+	g_ackUs = 1000000;
+	pc4way(B4W_WRITE, 0x7C00, page, 16);
+	brFrames(12);
+	checkTrue("a 4-way write waits: WRITING..., BACK disabled, LAST WRITE 7C00",
+	          msgIs(0, BRIDGE_UI_WRITING, C_AMBER) && backLook() == BackLook::Disabled &&
+	          !ctlEnabled(UI_FIX(UI_BACK)) && leftIs(148, "LAST WRITE 7C00", C_DIM));
+	checkInt("LAST WRITE EEPROM 7C00, the note's example, is 131 px", gfxTextW("LAST WRITE EEPROM 7C00", 1), 131);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("a tap on BACK does nothing", pinClaimState() == ClaimState::Running);
+	brFrames(140);
+	checkTrue("the write answered: BACK live", backLook() == BackLook::Live && defaultLines());
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
+	checkTrue("BACK: the leave page with FLASH THE ESC AGAIN BEFORE USE.",
+	          ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
+	          fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y, BRIDGE_UI_LEAVE_NOTE, C_DIM, C_BG, 1));
+	restartFromPage();
+	tapId(UI_FIX(UI_BACK));
+	brFrames(2);
+}
+
 void runBridgeUiTests() {
 	g_together = 0;
 	testLayout();
@@ -737,6 +827,7 @@ void runBridgeUiTests() {
 	testBackStates();
 	testLostAndGp1();
 	testReadOnly();
+	testFourWay();
 	checkInt("DShot never up with the bridge's line", g_together, 0);
 	freshUi();
 	fakeBridgeLineReset();

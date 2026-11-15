@@ -580,27 +580,47 @@ static void testModes() {
 	fresh(escAck);
 	openBridge();
 	const uint8_t first[] = {'$', 'M', '<', 0, 1, 1};
+	const int wMsp = fakeBridgeLineWireCount();
 	fakeCdcHostWrite(first, sizeof(first));
 	run(10);
-	checkTrue("a `$` first: passthrough in slice 2", usbBridgeMode() == BridgeMode::Passthrough);
+	uint8_t ans[64];
+	checkTrue("a `$` first: MSP, answered, nothing on the wire",
+	          usbBridgeMode() == BridgeMode::Msp && hostAll(ans, sizeof(ans)) == 9 && ans[2] == '>' &&
+	          fakeBridgeLineWireCount() == wMsp);
 	run(1980);
-	checkTrue("1990 ms on: still", usbBridgeMode() == BridgeMode::Passthrough);
+	checkTrue("1990 ms on: still", usbBridgeMode() == BridgeMode::Msp);
 	UsbBridgeStats s = bstats();
 	uint32_t idleFrom = s.lastMs;
 	while (millis() - idleFrom < BRIDGE_IDLE_MS - 1) pass();
-	checkTrue("1999 ms with no byte: Passthrough", usbBridgeMode() == BridgeMode::Passthrough);
+	checkTrue("1999 ms with no byte: MSP", usbBridgeMode() == BridgeMode::Msp);
 	while (millis() - idleFrom < BRIDGE_IDLE_MS) pass();
 	checkTrue("2000 ms: Waiting", usbBridgeMode() == BridgeMode::Waiting);
 
 	const uint8_t slash[] = {'/', 0x37, 0, 0, 1, 0, 0, 0};
 	fakeCdcHostWrite(slash, sizeof(slash));
 	run(10);
-	checkTrue("a `/` first: passthrough", usbBridgeMode() == BridgeMode::Passthrough);
+	checkTrue("a `/` first: the 4-way interface; its wrong CRC answered 0x03, nothing sent",
+	          usbBridgeMode() == BridgeMode::FourWay && hostAll(ans, sizeof(ans)) == 9 &&
+	          ans[0] == 0x2E && ans[6] == 0x03 && fakeBridgeLineWireCount() == wMsp);
+	run(5000);
+	checkTrue("5 s on: the 4-way interface holds", usbBridgeMode() == BridgeMode::FourWay);
+	fakeCdcDtr(false);
+	run(2);
+	fakeCdcDtr(true);
+	run(2);
+	checkTrue("the port closed: Waiting", usbBridgeMode() == BridgeMode::Waiting);
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	run(30);
+	checkTrue("0x00 first: passthrough", usbBridgeMode() == BridgeMode::Passthrough);
 	const int w0 = fakeBridgeLineWireCount();
 	fakeCdcHostWrite(first, sizeof(first));
 	run(10);
 	checkTrue("a later `$` switches nothing and is forwarded",
 	          usbBridgeMode() == BridgeMode::Passthrough && wireFrame(w0, first, sizeof(first)));
+	const int w1 = fakeBridgeLineWireCount();
+	fakeCdcHostWrite(slash, sizeof(slash));
+	run(10);
+	checkTrue("and a later 0x2F", usbBridgeMode() == BridgeMode::Passthrough && wireFrame(w1, slash, sizeof(slash)));
 
 	// The port: closed only when DTR falls after it was set.
 	fakeCdcDtr(false);

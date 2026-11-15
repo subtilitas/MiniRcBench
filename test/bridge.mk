@@ -5,7 +5,10 @@
 #
 #   BRIDGE_SRCS         C++ sources linked into the suite: the job, the frame
 #                       slot and the ring (docs/design/usb-bridge.md, slice 1);
-#                       the USB side and the screen USB BRIDGE (slice 2).
+#                       the USB side and the screen USB BRIDGE (slice 2);
+#                       MSP and the 4-way interface (slice 3), whose
+#                       bootloader frames are escwire's ew_a.c, linked
+#                       through escwire.mk.
 #                       The log is off, as the firmware builds it: its
 #                       entry points are bridge_log.h's empty inlines.
 #                       usb_dev.cpp too, against the CDC fake: the console
@@ -20,13 +23,19 @@
 #   BRIDGE_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`
 #   BRIDGE_LOG_SRCS     test_bridge_log, a program of its own that `run` runs:
 #                       the traffic log built on (USB_BRIDGE_LOG 1), the
-#                       firmware's default being off
+#                       firmware's default being off; with BRIDGE_LOG_OBJS,
+#                       the C objects it links
 #
 # The line's two PIO programs, src/bridge_line.pio and src/pio_uart_rx.pio,
 # run in test/pio_bridge_emu.py, which `make pioemu` runs.
 BRIDGE_SRCS        := ../src/bridge_wire.cpp ../src/usb_bridge.cpp \
+                      ../src/bridge_msp.cpp ../src/bridge_4way.cpp \
                       ../src/ui_bridge.cpp ../src/usb_dev.cpp
 BRIDGE_TESTS       := test_bridge.cpp fake_bridge_line.cpp test_usb_bridge.cpp fake_cdc.cpp \
-                      test_bridge_ui.cpp
+                      test_bridge_ui.cpp test_bridge_proto.cpp
 BRIDGE_DEVICE_SRCS := ../src/bridge_line_port.cpp
-BRIDGE_LOG_SRCS    := test_bridge_log.cpp fake_cdc.cpp ../src/bridge_log.cpp ../src/usb_bridge.cpp
+BRIDGE_LOG_SRCS    := test_bridge_log.cpp fake_cdc.cpp ../src/bridge_log.cpp ../src/usb_bridge.cpp \
+                      ../src/bridge_msp.cpp ../src/bridge_4way.cpp ../src/bl_answer.cpp \
+                      ../src/am32_eeprom.cpp ../src/esc_3d.cpp
+# escwire's frame builders, which bridge_4way.cpp uses, as the suite's C object.
+BRIDGE_LOG_OBJS     = $(OBJ_DIR)/ew_a.o
