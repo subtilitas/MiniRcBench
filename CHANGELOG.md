@@ -45,36 +45,35 @@ protocol.
 ### Added
 
 - After v0.1.0-rc1: S.BUS OUTPUT, slice 4 of
-  [sbus-output.md](docs/design/sbus-output.md#slice-4-as-built), tested on
-  the host only; nothing of it has driven a pin. OUTPUT on RX SIGNALS opens
-  it, with the lines `S.BUS TO A FLIGHT CONTROLLER.`
-  `ON GP0, NEVER TO AN ESC.` in place of `NOT BUILT`. The screen claims the role that is GP0,
-  shows `CHECKING SIG GP0 FOR AN ESC.` while the bootloader probe runs and
+  [sbus-output.md](docs/design/sbus-output.md#slice-4-as-built), tested on the
+  host only; nothing of it has driven a pin. OUTPUT on RX SIGNALS opens it,
+  with the lines `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` in
+  place of `NOT BUILT`. The screen claims the role that is GP0, shows
+  `CHECKING SIG GP0 FOR AN ESC.` while the bootloader probe runs and
   `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.`
   `START WAITS UNTIL NONE ANSWERS.` while one answers, and offers HOLD TO
-  START (1000 ms) only while `sbusOutProbePassed()` holds in that visit.
-  16 channels on sliders over two pages, delta drag in 5 µs steps; the
-  throttle channel, CH3 by default, stops at MAX THROTTLE's ceiling, raw 499
-  (1200 µs) at the default, on the screen as on core1; CH17, CH18, the
-  failsafe and frame-lost bits and the throttle channel on SET
-  (`OUTPUT SET`). STOP acts on the press; the job's heartbeat stops the
-  frames when the screen stalls for 250 ms (`STALLED`); more than 30 s with
-  no touch while the throttle or a switch channel is off its START value
-  stops them too. `GP0 GOES TO A FLIGHT CONTROLLER.`
-  `NEVER TO AN ESC. PROPS OFF.` show while SAFE; after a stop the second
-  stays under its reason, and SET's footer carries it while the frames are
-  off. BACK opens the leave
-  page at `UNPLUG THE FLIGHT CONTROLLER.`; after an EFM8 bootloader answered,
-  it stops the frames and opens ESC SETTINGS' step
+  START (1000 ms) only while `sbusOutProbePassed()` holds in that visit. 16
+  channels on sliders over two pages, delta drag in 5 µs steps; the throttle
+  channel, CH3 by default, stops at MAX THROTTLE's ceiling, raw 499 (1200 µs)
+  at the default, on the screen as on core1; CH17, CH18, the failsafe and
+  frame-lost bits and the throttle channel on SET (`OUTPUT SET`). STOP acts on
+  the press; the job's heartbeat stops the frames when the screen stalls for
+  250 ms (`STALLED`); more than 30 s with no touch while the throttle or a
+  switch channel is off its START value stops them too.
+  `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` show while
+  SAFE; after a stop the second stays under its reason, and SET's footer
+  carries it while the frames are off. BACK opens the leave page at
+  `UNPLUG THE FLIGHT CONTROLLER.`; after an EFM8 bootloader answered, it stops
+  the frames and opens ESC SETTINGS' step
   `UNPLUG THE ESC BATTERY, THEN LEAVE.` first. BACK TO OUTPUT probes again;
-  RESTART DSHOT clears the EFM8 mark. The README and the wiki pages RX
-  Signals and RX-Signale describe it with its warnings, and
+  RESTART DSHOT on that page clears the EFM8 mark. The README and the wiki
+  pages RX Signals and RX-Signale describe it with its warnings, and
   `tools/check_wiki.py` fails a page of that pair that drops one. The host
   suite's source test now holds the one START to HOLD TO START gated by the
-  probe's gate, where it held the output unreachable; `sbusOutJobHeld()`
-  lets the tests read each command the screen sent. The UART0 fake counts
-  the characters waiting in its TX FIFO from the first that may still wait,
-  so a 30 s run of frames costs no rescans.
+  probe's gate, where it held the output unreachable; `sbusOutJobHeld()` lets
+  the tests read each command the screen sent. The UART0 fake counts the
+  characters waiting in its TX FIFO from the first that may still wait, so a
+  30 s run of frames costs no rescans.
 - After v0.1.0-rc1: the S.BUS output's bootloader probe, slice 3 of
   [sbus-output.md](docs/design/sbus-output.md#slice-3-as-built), tested on
   the host only; nothing opens the output yet. Every bind of the S.BUS

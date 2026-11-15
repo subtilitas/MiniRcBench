@@ -1481,7 +1481,16 @@ screen checked a thing twice (the claim's state, its bind error and
 the probe's Off for `TAKING`) and no longer does; for 7 the suite gained a
 test; the fake's mutation was made stronger; three are below. A later run
 left the main view's early return after STOP alive, which is gone too.
-Five survive, each equivalent or out of the host suite's reach:
+After review, 16 more, all failing the suite: the three bypasses of the
+source test (a cast to `SbusOutCmdKind`, a pointer to `startFrames`, a
+ternary in the gate), the warning dropped or dimmed after a stop and the
+reason dropped, RESTART DSHOT clearing a late EFM8 mark and never clearing
+one, the idle clock with no touch or with SET's touches left out, `(PIN)`
+read as `(CLOCK)`, and five of the source test's own checks (the cast to a
+command kind, `?`, `|`, a third `startFrames`, a second return); the `|`
+check survived its first run, until its samples failed on the `|` alone.
+Five of the first 139 survive, each equivalent or out of the host suite's
+reach:
 
 - BACK's return to MENU from `ClaimState::Restoring` dropped: Restoring
   falls between `pinClaimPoll()` and `pinClaimEnd()` when core1 suspends the
