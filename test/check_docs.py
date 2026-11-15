@@ -22,7 +22,8 @@ Enforces what actually goes wrong, and nothing else:
      anchor into a Markdown file names a heading that exists
   9. README.md and the wiki pages, which describe the screens as built, name
      no screen text, view or MENU path that menu structure B removed
-     (docs/design/menu-b.md), and no image of a removed screen; nor does a
+     (docs/design/menu-b.md) or a later design note replaced, and no image
+     of a removed screen; nor does a
      fakeDumpFrame() call or tools/make_previews.py. CHANGELOG.md, STATUS.md
      and the design notes keep those names as records and are not checked
 
@@ -56,7 +57,8 @@ LINKED_DOCS = sorted(glob.glob("STATUS.md") + glob.glob("CHANGELOG.md") +
 MANUAL_DOCS = sorted(glob.glob("README.md") + glob.glob("wiki/*.md"))
 
 # Rule 9: what menu structure B removed, each with the decision of
-# docs/design/menu-b.md that removed it. Case-sensitive regular expressions,
+# docs/design/menu-b.md that removed it, and what a later design note
+# replaced, with its decision. Case-sensitive regular expressions,
 # matched line by line in README.md and wiki/*.md, code spans included.
 REMOVED_TEXTS = [
     (r"PINS BUSY", "MENU's busy status (decision 15 f)"),
@@ -87,12 +89,16 @@ REMOVED_TEXTS = [
     (r"DSHOT RESTARTS ON GP\d+ AND READS AS|POWER THE SERVO OFF\.",
      "the unplug page's texts (owner decision 3)"),
     (r"SUPPLY SWITCHED ON GP", "the family view's supply line (decision 34)"),
+    (r"BEEP THE ESC|BEEP-Zeile|BEEP flash",
+     "MENU's BEEP THE ESC, now ESC COMMANDS (esc-commands.md, decision 1)"),
+    (r"THROTTLE SCALE DIFFERS",
+     "the tester's 3D note, now 0-50% REVERSED AT 2X (esc-commands.md, decision 9)"),
 ]
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers
 # kst-leave-pending.
 REMOVED_IMAGES = ["hitec-family", "hitec-unplug", "kst-leave", "servo-unplug",
-                  "menu-pins-busy"]
+                  "menu-pins-busy", "menu-beep"]
 
 
 def collect_symbols():

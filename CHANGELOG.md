@@ -44,6 +44,24 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1 (a93e1c1): ESC COMMANDS, slice 2 of
+  [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built), MENU's
+  first row in place of BEEP THE ESC (decision 1, `src/ui_esc_cmd.*`). BEEP
+  1 to 5 are taps, one beacon each; NORMAL and REVERSED, and 3D OFF and
+  3D ON, are 1000 ms holds that send 7, 8, 9 or 10, then 12, the save
+  (decisions 2 and 3). The page claims no pin and opens only while the pin
+  claim is free; opening it disarms. Its controls act only while the command
+  slot reads ready; otherwise one amber line says why:
+  `NO ESC ANSWERS ON SIG GP0.` (decision 5),
+  `MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`.
+  While its request waits or its sequence goes out, BACK is drawn disabled.
+  Six message lines name what was sent or why not, among them
+  `SENT 8 (REVERSED), THEN 12 (SAVE).`, `SAVE NOT SENT: POWER-CYCLE THE ESC.`
+  and `NOT SENT: THE ESC WAS NOT READY.`. 3D ON, sent or stopped after the
+  ESC may have acted, sets the tester's 3D note; 3D OFF leaves it
+  (decision 4); no direction note (decision 10). Host tests in
+  `test/test_esc_cmd_ui.cpp` and `test/test_ids.cpp`;
+  `docs/esccmd-preview.png`. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): the DShot command slot on core1, slice 1 of
   [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built). The
   beacon's slot in `EscPump` becomes one sequence: beacons 1 to 5 as 6
@@ -654,6 +672,20 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1 (a93e1c1): the tester's 3D note reads
+  `3D MODE ESC: 0-50% REVERSED AT 2X` (33 characters, 197 px), in place of
+  `3D MODE ESC: THROTTLE SCALE DIFFERS` (esc-commands.md decision 9). Its
+  flag moves from `src/ui_am32.cpp` to `src/esc_3d.*` (`esc3dNote()`,
+  `esc3dSetNote()`), which AM32 CONFIG and ESC COMMANDS both write.
+- After v0.1.0-rc1 (a93e1c1): MENU's BEEP THE ESC, its 350 ms flash and
+  `escRequestBeep()` are gone; ESC COMMANDS carries BEEP 1 to 5.
+  `docs/menu-preview.png` shows MENU with no ESC answering in place of the
+  flash. Rule 9 of `test/check_docs.py` fails when README.md or a wiki page
+  names BEEP THE ESC or the old 3D note text, or an image `menu-beep*`.
+- After v0.1.0-rc1 (a93e1c1): a command request that still waits when the
+  DShot pump lets go of SIG, for a pin claim or a wiring change, expires
+  (`escPumpTeardown()` in `src/esc_task.h`) and no longer starts on the next
+  bind's ESC. Host test in `test/test_esc_cmd.cpp`.
 - After v0.1.0-rc1 (a93e1c1): MENU's BEEP THE ESC goes through the command
   slot (`escRequestBeep()` calls `escRequestCommand(n, false)`). It shows
   `REFUSED` while no ESC answers, while the motor turns and for 1500 ms after

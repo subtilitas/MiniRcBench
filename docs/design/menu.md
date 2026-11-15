@@ -95,7 +95,7 @@ TESTER (root)   HOLD TO ARM | LATCH | MENU        MENU disarms, LATCH off
  │  14 POLES, MAX 20%: a tap while disarmed and the pins are free
  │                     opens SETTINGS, with MENU's disarm
  └─ MENU: one list of registry entries; BACK ──> TESTER
-     ├─ BEEP THE ESC      action row: the DShot beacon, flash on the row
+     ├─ ESC COMMANDS      tool, freePins: BEEP 1 to 5, direction, 3D mode
      ├─ AM32 CONFIG       tool, claims SIG
      ├─ SERVO TESTER      tool, claims SIG, and AUX for two servos
      ├─ SERVO PROGRAMMER  PROGRAMMER, a chooser; claims nothing
@@ -132,7 +132,7 @@ MENU as menu structure B builds it (`src/ui_menu.cpp`,
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
    40 | SIG GP0  AUX GP1  DSHOT600     [EDT OFF]  |  strip: caption and chip
-   62 | BEEP THE ESC                    DISARMED  |  rows 40 px tall,
+   62 | ESC COMMANDS                              |  rows 40 px tall,
   104 | AM32 CONFIG                               |  42 px pitch
   146 | SERVO TESTER                              |
   188 | SERVO PROGRAMMER                          |  no status
@@ -154,7 +154,7 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 
 | Row | Kind | Status | A tap |
 |---|---|---|---|
-| BEEP THE ESC | action | `DISARMED` in `C_DIM`; for 350 ms after a tap, `SENT` on a `C_INK` fill or `REFUSED` on a `C_AMBER` fill (`BEEP_FLASH_MS`) | `escRequestBeep(1)` |
+| ESC COMMANDS | tool, `freePins` | none | opens ESC COMMANDS, which claims nothing ([esc-commands.md](esc-commands.md#slice-2-as-built)) |
 | AM32 CONFIG | tool, SIG | none | opens AM32 CONFIG |
 | SERVO TESTER | tool, SIG and AUX | none | opens SERVO TESTER |
 | SERVO PROGRAMMER | chooser, `freePins` | none | opens PROGRAMMER, which claims nothing; its entries open KST SERVO and HITEC SERVO and claim SIG on the tap |
@@ -167,21 +167,18 @@ cancels. A press that becomes a vertical drag scrolls once the list is longer
 than the viewport and never fires.
 
 While the claim is not Free, each row whose screen claims pins or sets
-`freePins`, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER and SETTINGS, is
+`freePins`, ESC COMMANDS, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
+SIGNALS and SETTINGS, is
 drawn disabled under its own status and a tap on it opens nothing
 (`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption reads
 `DSHOT RESTARTING ON SIG GP0` in amber and says why. The state is
 reachable: RESTART DSHOT on the leave page returns to MENU at once, and the
-claim stays Restoring until `escTaskSuspended()` turns false. BEEP THE ESC
-and SD LOG act in every claim state.
+claim stays Restoring until `escTaskSuspended()` turns false. SD LOG acts
+in every claim state.
 
-BEEP's refusal for an armed ESC is unreachable through the UI: opening MENU
-disarms. The flash stays as the backstop, and the test forces it with
-`escSetArmed(true)`. `escRequestBeep()` also refuses while no ESC answers,
-while the motor turns and for 1500 ms after an ESC starts answering
-([esc-commands.md](esc-commands.md#slice-1-as-built), slice 1), and those
-refusals show on the row. The caption `BEEP NEEDS THE ESC DISARMED` under
-today's BEEP button goes; the row's status says it.
+Revised by slice 2 of [esc-commands.md](esc-commands.md#slice-2-as-built):
+ESC COMMANDS takes BEEP THE ESC's place, and BEEP THE ESC, its flash and
+`escRequestBeep()` are gone; `UI_MENU` holds no action row.
 
 **Fit.** The registry holds each row's label and its widest status in
 characters, and `menuRowsFit()` in `ui_registry.cpp` checks every line at

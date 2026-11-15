@@ -296,6 +296,12 @@ static void testReadiness() {
 	ecFrames(1);
 	checkTrue("Busy, an EDT enable going out: drawn disabled, the idle lines",
 	          allControls(false) && idleShown());
+	{
+		int before = fakeBeepRequests();
+		tapId(UI_FIX(EscCmdCtl::Beep1), IdExpect::Disabled);
+		checkInt("a tap on BEEP 1 at Busy sends nothing, though the slot would take it",
+		         fakeBeepRequests(), before);
+	}
 	fakeSetCmdReady(EscCmdReady::Ready);
 	ecFrames(1);
 	checkTrue("Ready again: live", allControls(true) && idleShown());
@@ -319,6 +325,8 @@ static void testBeeps() {
 		checkTrue(what, lineIs(0, line, C_TEXT) && blankFrom(1) && allControls(false) &&
 		          !ctlEnabled(UI_FIX(UI_BACK)));
 		if (n == 3) fakeDumpFrame("shot_esccmd_sending.ppm");
+		tapId(UI_FIX(EscCmdCtl::Beep5), IdExpect::Disabled);
+		checkInt("a tap on BEEP 5 meanwhile sends nothing", fakeBeepRequests(), before + 1);
 		fakeSetCmdState(EscCmdState::Sent, (uint8_t)n);
 		fakeSetCmdReady(EscCmdReady::Busy);
 		ecFrames(1);
@@ -464,6 +472,7 @@ static void testOutcomes() {
 	          lineIs(0, UI_ESC_CMD_SAVE_LOST, C_AMBER) && lineIs(1, UI_ESC_CMD_CHECK, C_AMBER) &&
 	          blankFrom(2));
 	checkTrue("and the 3D note stands: the ESC may run in 3D", esc3dNote());
+	sequence(EscCmdCtl::Normal, EscCmdState::Sent, DSHOT_CMD_SPIN_DIRECTION_1);
 	esc3dSetNote(false);
 	sequence(EscCmdCtl::On3d, EscCmdState::Sent, DSHOT_CMD_3D_MODE_ON);
 	checkTrue("3D ON sent: two lines C_TEXT, three C_AMBER",
@@ -498,9 +507,11 @@ static void testOutcomes() {
 	// Opened again: idle, whatever the last sequence was.
 	openEc();
 	checkTrue("opened again: the idle lines", idleShown());
-	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
 	esc3dSetNote(false);
+	sequence(EscCmdCtl::Off3d, EscCmdState::Sent, DSHOT_CMD_3D_MODE_OFF);
+	checkTrue("3D OFF sent with no note standing: none set", !esc3dNote());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
 }
 
 static void testBackCancels() {
@@ -513,15 +524,18 @@ static void testBackCancels() {
 	          fakeCommandCancels() == cancels + 1);
 	tapId(menuRow(&UI_ESC_CMD));
 	tapId(UI_FIX(EscCmdCtl::Beep2));
-	checkTrue("a beacon waits: BACK disabled", !ctlEnabled(UI_FIX(UI_BACK)) &&
-	          escCommandState(nullptr) == EscCmdState::Waiting);
+	const UiRect back = ctlRect(UI_FIX(UI_BACK));
+	checkTrue("a beacon waits: BACK disabled, drawn as an outline", !ctlEnabled(UI_FIX(UI_BACK)) &&
+	          escCommandState(nullptr) == EscCmdState::Waiting &&
+	          px(back.x + 6, back.y + back.h - 5) == C_BG);
 	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
 	checkTrue("and a tap on it leaves nothing, cancels nothing",
 	          uiCurrentScreen() == UiScreenId::EscCmd && fakeCommandCancels() == cancels + 1);
 	fakeSetCmdState(EscCmdState::Expired, DSHOT_CMD_BEEP2);
 	ecFrames(1);
-	checkTrue("expired: the amber line, BACK live", lineIs(0, UI_ESC_CMD_EXPIRED, C_AMBER) &&
-	          ctlEnabled(UI_FIX(UI_BACK)));
+	checkTrue("expired: the amber line, BACK live, drawn filled",
+	          lineIs(0, UI_ESC_CMD_EXPIRED, C_AMBER) && ctlEnabled(UI_FIX(UI_BACK)) &&
+	          px(back.x + 6, back.y + back.h - 5) == C_PANEL);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK cancels again", fakeCommandCancels() == cancels + 2);
 	tapId(UI_FIX(UI_BACK));
