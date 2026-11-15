@@ -56,3 +56,15 @@ void usbDevInit();
  * a set of the clock answers after 770 µs on the bus (clock_line.h).
  */
 void usbDevTask();
+
+/**
+ * @brief Turn the clock's line command on or off; on from power-up.
+ *
+ * For a user that takes the serial port's bytes over, the USB bridge: off
+ * when it takes the port, on when it gives it back. While off,
+ * usbDevTask() reads no byte of the host's, so the bridge gets them all and
+ * no `CLOCK` answer lands in its stream. Turning it on forgets the part of a
+ * line read before it was turned off. Core0 only, as usbDevTask().
+ * @param on On.
+ */
+void usbDevClockLineEnable(bool on);

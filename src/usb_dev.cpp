@@ -109,6 +109,9 @@ void usbDevInit() {
 // the clock's line command
 // ---------------------------------------------------------------------------
 
+/** @brief The clock's line as it arrives, and whether it is read at all. */
+static ClockLineIn s_clockLine;
+
 /** @brief One byte the host sent, or -1 when none waits. Never waits itself. */
 static int cdcGetByte() {
 	uint8_t c;
@@ -121,15 +124,14 @@ static int cdcGetByte() {
  * @see clock_line.h
  */
 static void cdcClockLine() {
-	static ClockLineIn s_in;
 	char ans[CLOCK_ANSWER_BYTES];
-	size_t n = clockLinePoll(&s_in, cdcGetByte, ans);
+	size_t n = clockLinePoll(&s_clockLine, cdcGetByte, ans);
 	if (n) cdcOutChars(ans, (int)n);
 }
 
+void usbDevClockLineEnable(bool on) { clockLineEnable(&s_clockLine, on); }
+
 void usbDevTask() {
 	tud_task();
-	// The clock's line reads the CDC bytes; anything else that takes them
-	// over, such as a bridge to the ESC, skips this call while it runs.
 	cdcClockLine();
 }

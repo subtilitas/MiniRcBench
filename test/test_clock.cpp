@@ -656,6 +656,14 @@ static void testClockSetBus() {
 		checkInt(w, (long)clockSet(&t), (long)ClockSetResult::ReadBack);
 		snprintf(w, sizeof(w), "%s: not set", d.what);
 		checkTrue(w, !now().set && now().sets == 0 && get_fattime() == 0);
+		snprintf(w, sizeof(w), "%s: the part stopped after it", d.what);
+		checkTrue(w, (p->reg[0x00] & 0x20) != 0);
+		const uint8_t stop[] = { 0x00, 0x20 };
+		snprintf(w, sizeof(w), "%s: 20h to Control_1, the last write", d.what);
+		checkTrue(w, wrote(p, p->logN - 1, stop, sizeof(stop)));
+		boot();
+		snprintf(w, sizeof(w), "%s: the next boot reads it not set", d.what);
+		checkTrue(w, !now().set && clockBoot() != ClockBoot::Running);
 	}
 
 	// The INA219 and the CST328 on the bus: untouched by a set.
@@ -776,11 +784,11 @@ static void testLinePoll() {
 	checkTrue("the clock set", now().set && now().sets == 1);
 	fakeAdvance(2000);
 	feed("CLOCK?\r");
-	checkStr("a query, CR alone", poll(&in, a), "CLOCK 2026-11-14 15:42:09\r\n");
+	checkStr("a query, CR alone", poll(&in, a), "CLOCK NOW 2026-11-14 15:42:09\r\n");
 
 	// One line a pass: a second waits.
 	feed("CLOCK?\nCLOCK 2026-11-14 16:00:00\n");
-	checkStr("the first of two lines", poll(&in, a), "CLOCK 2026-11-14 15:42:09\r\n");
+	checkStr("the first of two lines", poll(&in, a), "CLOCK NOW 2026-11-14 15:42:09\r\n");
 	checkInt("the second not read", (long)s_feedAt, 7);
 	checkNow("nor carried out", "2026-11-14 15:42:09");
 	size_t at = s_feedAt;
@@ -801,7 +809,7 @@ static void testLinePoll() {
 	checkInt("all read", (long)s_feedAt, 5);
 	feed("clock?\nCLOCK?\n");
 	checkStr("lower case: ignored", poll(&in, a), "");
-	checkStr("then the query", poll(&in, a), "CLOCK 2026-11-14 15:42:07\r\n");
+	checkStr("then the query", poll(&in, a), "CLOCK NOW 2026-11-14 15:42:07\r\n");
 	// A line shorter than CLOCK, over the query's bytes still in the buffer.
 	feed("CLOC\n");
 	checkStr("CLOC after CLOCK?: ignored", poll(&in, a), "");
@@ -823,11 +831,11 @@ static void testLinePoll() {
 	snprintf(lng, sizeof(lng), "CLOCK 2026-11-14 15:42:07%0150d\nCLOCK?\n", 0);
 	feed(lng);
 	checkStr("a line of 175 characters", poll(&in, a), "CLOCK REFUSED: BAD LINE\r\n");
-	checkStr("then the query", poll(&in, a), "CLOCK 2026-11-14 15:42:07\r\n");
+	checkStr("then the query", poll(&in, a), "CLOCK NOW 2026-11-14 15:42:07\r\n");
 	snprintf(lng, sizeof(lng), "%0150d\nCLOCK?\n", 0);
 	feed(lng);
 	checkStr("a long line not starting with CLOCK: nothing", poll(&in, a), "");
-	checkStr("then the query", poll(&in, a), "CLOCK 2026-11-14 15:42:07\r\n");
+	checkStr("then the query", poll(&in, a), "CLOCK NOW 2026-11-14 15:42:07\r\n");
 	// A line of exactly 32 characters, then one of 33.
 	feed("CLOCK 2026-11-14 15:42:07 ABCDEF\nCLOCK 2026-11-14 15:42:07 ABCDEFG\n");
 	checkStr("32 characters: bad line", poll(&in, a), "CLOCK REFUSED: BAD LINE\r\n");
@@ -862,6 +870,95 @@ static void testLinePoll() {
 	checkTrue("the longest answer, READ-BACK DIFFERS, fits", strlen("CLOCK REFUSED: RTC READ-BACK DIFFERS\r\n") + 1 <= CLOCK_ANSWER_BYTES);
 	checkTrue("every answer fits", most + 1 <= CLOCK_ANSWER_BYTES);
 	checkInt("Ignore: no answer", (long)clockLineAnswer(ClockCmd::Ignore, &t, big), 0);
+}
+
+/**
+ * @brief The board's answers sent back to it, as a terminal with echo on
+ *        does: each is ignored, nothing is set, nothing answers, so no
+ *        answer goes back and forth.
+ */
+static void testLineEcho() {
+	section("Clock: the board's answers echoed back");
+	FakePcf85063 *p = rtcOnBus();
+	fakePcf85063Set(p, 2026, 11, 14, 15, 42, 7);
+	boot();
+	ClockLineIn in = {};
+	char a[CLOCK_ANSWER_BYTES];
+	feed("CLOCK?\n");
+	checkStr("the query's answer: CLOCK NOW and the time", poll(&in, a),
+	         "CLOCK NOW 2026-11-14 15:42:07\r\n");
+	const char *answers[] = {
+		"CLOCK NOW 2026-11-14 15:42:07\r\n",      "CLOCK SET 2026-11-14 15:42:07\r\n",
+		"CLOCK NOT SET\r\n",                       "CLOCK REFUSED: BAD DATE\r\n",
+		"CLOCK REFUSED: BAD LINE\r\n",             "CLOCK REFUSED: RTC NOT ANSWERING\r\n",
+		"CLOCK REFUSED: RTC READ-BACK DIFFERS\r\n",
+	};
+	uint32_t tr = fakeI2cTransactionsTo(PCF85063_I2C_ADDR);
+	for (const char *e : answers) {
+		char w[96];
+		feed(e);
+		size_t n = 0;
+		while (s_feedAt < s_feedLen) n += clockLinePoll(&in, feedGet, a);
+		snprintf(w, sizeof(w), "'%.*s' back: no answer", (int)(strlen(e) - 2), e);
+		checkInt(w, (long)n, 0);
+	}
+	checkInt("nothing sent to the part", (long)(fakeI2cTransactionsTo(PCF85063_I2C_ADDR) - tr), 0);
+	checkInt("sets still 1", (long)now().sets, 1);
+	checkNow("the clock as it was", "2026-11-14 15:42:07");
+	// Each answer's start is enough; one character less is not an answer.
+	ClockTime t = {};
+	checkInt("CLOCK SET  alone: ignored", (long)clockLineParse("CLOCK SET ", 10, false, &t),
+	         (long)ClockCmd::Ignore);
+	checkInt("CLOCK SET: a bad line", (long)clockLineParse("CLOCK SET", 9, false, &t),
+	         (long)ClockCmd::BadLine);
+	checkInt("CLOCK NOW  alone: ignored", (long)clockLineParse("CLOCK NOW ", 10, false, &t),
+	         (long)ClockCmd::Ignore);
+	checkInt("CLOCK NOW: a bad line", (long)clockLineParse("CLOCK NOW", 9, false, &t),
+	         (long)ClockCmd::BadLine);
+	checkInt("CLOCK NOT SE: a bad line", (long)clockLineParse("CLOCK NOT SE", 12, false, &t),
+	         (long)ClockCmd::BadLine);
+	checkInt("CLOCK REFUSE: a bad line", (long)clockLineParse("CLOCK REFUSE", 12, false, &t),
+	         (long)ClockCmd::BadLine);
+	checkInt("a refusal longer than kept: ignored",
+	         (long)clockLineParse("CLOCK REFUSED: RTC READ-BACK DIF", 32, true, &t),
+	         (long)ClockCmd::Ignore);
+}
+
+/** @brief The reader turned off and on, as the USB bridge does. */
+static void testLineEnable() {
+	section("Clock: the reader off and on");
+	rtcOnBus();
+	boot();
+	ClockLineIn in = {};
+	char a[CLOCK_ANSWER_BYTES];
+	clockLineEnable(&in, false);
+	feed("CLOCK?\n");
+	checkInt("off: no answer", (long)clockLinePoll(&in, feedGet, a), 0);
+	checkInt("off: no byte read", (long)s_feedAt, 0);
+	clockLineEnable(&in, true);
+	checkStr("on: the query answered", poll(&in, a), "CLOCK NOT SET\r\n");
+	// Half a line, then off and on: the half is forgotten.
+	feed("CLOCK 2026-11-");
+	checkStr("half a line", poll(&in, a), "");
+	clockLineEnable(&in, false);
+	clockLineEnable(&in, true);
+	feed("14 15:42:07\n");
+	checkStr("the rest after off and on: no CLOCK, ignored", poll(&in, a), "");
+	checkTrue("nothing set", !now().set);
+	// On while on keeps the half line.
+	feed("CLOCK 2026-11-");
+	poll(&in, a);
+	clockLineEnable(&in, true);
+	feed("14 15:42:07\n");
+	checkStr("on while on: the line whole", poll(&in, a), "CLOCK SET 2026-11-14 15:42:07\r\n");
+	// Off while off, then on: the half line before the first off forgotten.
+	feed("CLOCK 2026-11-");
+	poll(&in, a);
+	clockLineEnable(&in, false);
+	clockLineEnable(&in, false);
+	clockLineEnable(&in, true);
+	feed("CLOCK?\n");
+	checkStr("off twice, on: a whole query", poll(&in, a), "CLOCK NOW 2026-11-14 15:42:07\r\n");
 }
 
 /**
@@ -960,6 +1057,8 @@ void runClockTests() {
 	testClockSetBus();
 	testLineParse();
 	testLinePoll();
+	testLineEcho();
+	testLineEnable();
 	testSetDuringLog();
 	leaveNotSet();
 }

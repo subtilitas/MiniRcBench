@@ -13,6 +13,15 @@
 static const char PREFIX[] = "CLOCK";
 #define PREFIX_LEN (sizeof(PREFIX) - 1)
 
+/**
+ * @brief The starts of the board's own answers. A line that starts with one
+ *        is an answer that came back, as a terminal echoes it; it is ignored,
+ *        so no answer is ever answered and the set's form, `CLOCK NOW` and a
+ *        time, never sets the clock.
+ */
+static const char *const OWN_ANSWERS[] = { "CLOCK SET ", "CLOCK NOW ", "CLOCK NOT SET",
+                                           "CLOCK REFUSED" };
+
 /** @brief The set's form after the prefix: a space, then `YYYY-MM-DD HH:MM:SS`. */
 static const char SET_FORM[] = " DDDD-DD-DD DD:DD:DD";
 #define SET_LEN (PREFIX_LEN + sizeof(SET_FORM) - 1)
@@ -26,6 +35,11 @@ static unsigned digits(const char *s, int n) {
 
 ClockCmd clockLineParse(const char *line, size_t len, bool over, ClockTime *t) {
 	if (len < PREFIX_LEN || memcmp(line, PREFIX, PREFIX_LEN) != 0) return ClockCmd::Ignore;
+	// Before the length: the longest answer is 36 characters, over the 32 kept.
+	for (const char *a : OWN_ANSWERS) {
+		size_t n = strlen(a);
+		if (len >= n && memcmp(line, a, n) == 0) return ClockCmd::Ignore;
+	}
 	if (over) return ClockCmd::BadLine;
 	if (len == PREFIX_LEN + 1 && line[PREFIX_LEN] == '?') return ClockCmd::Query;
 	if (len != SET_LEN) return ClockCmd::BadLine;
@@ -62,7 +76,7 @@ size_t clockLineAnswer(ClockCmd cmd, const ClockTime *t, char *out) {
 		case ClockCmd::Query: {
 			ClockReading c;
 			clockNow(&c);
-			return c.set ? answerTime(out, "", &c.t) : answer(out, "CLOCK NOT SET");
+			return c.set ? answerTime(out, "NOW ", &c.t) : answer(out, "CLOCK NOT SET");
 		}
 		case ClockCmd::Set:
 			switch (clockSet(t)) {
@@ -79,7 +93,16 @@ size_t clockLineAnswer(ClockCmd cmd, const ClockTime *t, char *out) {
 	return 0;
 }
 
+void clockLineEnable(ClockLineIn *in, bool on) {
+	if (on && in->off) {
+		in->len = 0;
+		in->over = false;
+	}
+	in->off = !on;
+}
+
 size_t clockLinePoll(ClockLineIn *in, ClockByteFn get, char *out) {
+	if (in->off) return 0;
 	for (;;) {
 		int c = get();
 		if (c < 0) return 0;

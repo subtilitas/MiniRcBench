@@ -11,10 +11,12 @@ The board is MiniRcBench on its USB cable. Its serial port takes one line
 command, the clock's (src/clock_line.h):
 
     CLOCK 2026-11-14 15:42:07   answered CLOCK SET 2026-11-14 15:42:07
-    CLOCK?                      answered CLOCK 2026-11-14 15:42:09 or
+    CLOCK?                      answered CLOCK NOW 2026-11-14 15:42:09 or
                                 CLOCK NOT SET
 
-and refuses a bad line with CLOCK REFUSED and the reason. The time is local
+and refuses a bad line with CLOCK REFUSED and the reason. The board ignores
+lines that start as its answers do, so a terminal that echoes them back
+sets nothing. The time is local
 time, as the computer shows it: no time zone and no daylight saving. At a
 daylight-saving change the clock is set again by hand.
 
@@ -57,7 +59,8 @@ BAUD = 115200          # ignored by the USB CDC port; pyserial wants one
 TIMEOUT_S = 3.0        # for the answer, over the 10 Hz telemetry lines
 YEAR_MIN, YEAR_MAX = 2000, 2099
 
-QUERY_RE = re.compile(r"^CLOCK (NOT SET|\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)$")
+QUERY_RE = re.compile(r"^CLOCK (NOT SET|NOW \d{4}-\d\d-\d\d \d\d:\d\d:\d\d)$")
+SETTLE_S = 0.2         # for the board to answer a line another program left
 REFUSED_RE = re.compile(r"^CLOCK REFUSED: .+$")
 
 
@@ -133,8 +136,23 @@ def read_answer(readline, accept, timeout, now=time.monotonic):
                     "one that sets the clock?" % timeout)
 
 
+def end_partial_line(port, sleep=time.sleep):
+    """End a line another program left half sent on the board's port.
+
+    A line feed ends it on the board, which ignores it or refuses it; the
+    answer, if any, comes within SETTLE_S and is dropped with the rest of
+    the input, so the tool's own line starts on a fresh line and its answer
+    is not mistaken for that one's.
+    """
+    port.write(b"\n")
+    port.flush()
+    sleep(SETTLE_S)
+    port.reset_input_buffer()
+
+
 def set_clock(port, now=time.time, sleep=time.sleep, timeout=TIMEOUT_S):
     """Set the clock on the open @p port. Returns (exit status, message)."""
+    end_partial_line(port, sleep)
     when = next_second(now, sleep)
     line = set_line(when)
     port.reset_input_buffer()
@@ -150,9 +168,9 @@ def set_clock(port, now=time.time, sleep=time.sleep, timeout=TIMEOUT_S):
     return 1, answer
 
 
-def query_clock(port, timeout=TIMEOUT_S):
+def query_clock(port, timeout=TIMEOUT_S, sleep=time.sleep):
     """Read the clock on the open @p port. Returns (exit status, message)."""
-    port.reset_input_buffer()
+    end_partial_line(port, sleep)
     port.write(b"CLOCK?\n")
     port.flush()
     answer = read_answer(port.readline, is_query_answer, timeout)
@@ -206,6 +224,9 @@ def main(argv, serial_mod=None, list_ports=None):
                 status, msg = query_clock(port, args.timeout)
             else:
                 status, msg = set_clock(port, timeout=args.timeout)
+        except (OSError, serial_mod.SerialException) as e:
+            # An unplug during the exchange, or a write that timed out.
+            raise ToolError("lost %s during the exchange: %s" % (name, e))
         finally:
             port.close()
     except ToolError as e:

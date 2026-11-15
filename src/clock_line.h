@@ -7,21 +7,26 @@
  * its own pass of the loop, without waiting for input: at most one line a
  * pass, so one set at most. A line ends at a carriage return or a line
  * feed; an empty line is skipped, so CR LF ends one line. Lines that do not
- * start with `CLOCK` are ignored and get no answer. The rest are parsed
- * strictly, byte for byte, and answered with one line:
+ * start with `CLOCK` are ignored and get no answer, and so are lines that
+ * start as one of the answers below do (`CLOCK SET `, `CLOCK NOW `,
+ * `CLOCK NOT SET`, `CLOCK REFUSED`): a terminal that echoes what it receives
+ * sends them back, and an answer read as a command would set the clock to
+ * an old time and answer again without end. The rest are parsed strictly,
+ * byte for byte, and answered with one line:
  *
  * | Sent | Answer |
  * |---|---|
  * | `CLOCK 2026-11-14 15:42:07` | `CLOCK SET 2026-11-14 15:42:07` |
- * | `CLOCK?` | `CLOCK 2026-11-14 15:42:09` or `CLOCK NOT SET` |
+ * | `CLOCK?` | `CLOCK NOW 2026-11-14 15:42:09` or `CLOCK NOT SET` |
  * | a date or time out of range, or a day the month does not have | `CLOCK REFUSED: BAD DATE` |
- * | anything else that starts with `CLOCK` | `CLOCK REFUSED: BAD LINE` |
+ * | anything else that starts with `CLOCK`, but an answer | `CLOCK REFUSED: BAD LINE` |
  * | no answer at 0x51, a failed transfer, the bus stuck | `CLOCK REFUSED: RTC NOT ANSWERING` |
  * | the read-back is not the time sent | `CLOCK REFUSED: RTC READ-BACK DIFFERS` |
  *
  * The time is local time, no time zone and no daylight saving
  * (docs/design/run-summary.md, decision 7); `tools/set_clock.py` sends the
- * computer's. Each answer ends with CR LF, as the telemetry lines do.
+ * computer's. Each answer ends with CR LF (carriage return, line feed), as
+ * the telemetry lines do.
  *
  * @see docs/design/run-summary.md, "Setting it"
  */
@@ -52,6 +57,7 @@ struct ClockLineIn {
 	char    buf[CLOCK_LINE_MAX];  /**< The line's first characters. */
 	uint8_t len;                  /**< Characters in buf. */
 	bool    over;                 /**< More arrived than buf holds. */
+	bool    off;                  /**< clockLineEnable() turned the reader off. */
 };
 
 /**
@@ -74,12 +80,21 @@ ClockCmd clockLineParse(const char *line, size_t len, bool over, ClockTime *t);
  */
 size_t clockLineAnswer(ClockCmd cmd, const ClockTime *t, char *out);
 
+/**
+ * @brief Turn the reader on or off. While off, clockLinePoll() reads no
+ *        byte, so another user of the port, the USB bridge, gets them all.
+ *        Turning it on from off forgets the part of a line read before.
+ * @param in The reader.
+ * @param on On.
+ */
+void clockLineEnable(ClockLineIn *in, bool on);
+
 /** @brief The next byte the host sent, 0 to 255, or a negative number for none now. */
 typedef int (*ClockByteFn)();
 
 /**
  * @brief Read bytes from @p get until a line ends or @p get has none, and
- *        answer a line that ended. Returns after the first line that ends,
+ *        answer a line that ended; while the reader is off, nothing. Returns after the first line that ends,
  *        so a pass carries out one command at most; the bytes after it wait
  *        for the next pass.
  * @param in  The line so far, kept between calls.

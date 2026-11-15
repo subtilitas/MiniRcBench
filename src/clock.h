@@ -92,7 +92,7 @@ enum class ClockSetResult : uint8_t {
 	Set = 0,   /**< Written and read back running at the time sent: the clock is set. */
 	BadDate,   /**< Not a time clockValid() accepts; nothing sent. */
 	NoAnswer,  /**< The bus record shows the bus stuck, or a transfer failed. */
-	ReadBack,  /**< Written, and the read-back is not the time sent, running. */
+	ReadBack,  /**< Written, and the read-back is not the time sent, running; the part is stopped. */
 };
 
 /** @brief The clock as core0 keeps it, at one moment. */
@@ -232,7 +232,8 @@ void clockNow(ClockReading *out);
  * the set time from the moment STOP was released, and the count of sets
  * one higher. Any other result leaves the kept time and the count as they
  * were, and the part may be left reset or stopped, not set at the next
- * boot.
+ * boot. A read-back that differs sends 20h to Control_1 after it, STOP, so
+ * that the next boot reads the part as not set.
  *
  * Core0, between frames, never from inside FatFs. It touches no card and
  * no motor state, so it is accepted during a log, which keeps its

@@ -125,7 +125,7 @@ struct FakeQmi8658 {
 };
 
 /** @brief Write transfers the PCF85063A model logs. */
-#define FAKE_RTC_LOG 8
+#define FAKE_RTC_LOG 16
 
 /** @brief One write transfer to the PCF85063A model, as sent. */
 struct FakeRtcWrite {

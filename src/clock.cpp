@@ -220,8 +220,12 @@ ClockSetResult clockSet(const ClockTime *t) {
 	uint8_t r[CLOCK_READ_BYTES];
 	if (!readRegs(r)) return ClockSetResult::NoAnswer;
 	ClockTime back = {};
-	if (clockDecode(r, &back) != ClockBoot::Running || clockToSecs(&back) != clockToSecs(t))
+	if (clockDecode(r, &back) != ClockBoot::Running || clockToSecs(&back) != clockToSecs(t)) {
+		// Stop the part, so that a restart with 3V3 up, a watchdog's or a
+		// crash's, reads it as not set rather than a time nothing checked.
+		writeReg(CLOCK_REG_CONTROL_1, CLOCK_CTL1_STOP);
 		return ClockSetResult::ReadBack;
+	}
 	s_baseSecs = clockToSecs(t);
 	s_baseUs = us;
 	s_set = true;

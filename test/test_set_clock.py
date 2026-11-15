@@ -29,7 +29,10 @@ class PortInfo:
 class FakePort:
     """A serial port: what was written, and the lines the board sends back."""
 
-    def __init__(self, answer=None, before=(TELEMETRY, TELEMETRY), echo_set=True):
+    def __init__(self, answer=None, before=(TELEMETRY, TELEMETRY), echo_set=True,
+                 partial=False, fail=None):
+        self.partial = partial    # the board holds half a line another program sent
+        self.fail = fail          # raised by the next write of a CLOCK line
         self.written = b""
         self.lines = []
         self.answer = answer
@@ -44,7 +47,19 @@ class FakePort:
         self.lines = []
 
     def write(self, b):
+        if self.fail is not None and b.startswith(b"CLOCK"):
+            raise self.fail
         self.written += b
+        if b == b"\n":
+            # The board ends the half line: `CLOCKX`, a bad line.
+            if self.partial:
+                self.lines.append(b"CLOCK REFUSED: BAD LINE\r\n")
+                self.partial = False
+            return len(b)
+        if self.partial:
+            # The line runs on after the half: the board refuses the whole.
+            self.lines.append(b"CLOCK REFUSED: BAD LINE\r\n")
+            return len(b)
         self.lines += self.before
         if self.answer is not None:
             self.lines.append(self.answer)
@@ -152,16 +167,18 @@ class TestLine(unittest.TestCase):
     def test_answers(self):
         self.assertTrue(set_clock.is_set_answer("CLOCK SET 2026-11-14 15:42:07"))
         self.assertTrue(set_clock.is_set_answer("CLOCK REFUSED: BAD DATE"))
-        self.assertFalse(set_clock.is_set_answer("CLOCK 2026-11-14 15:42:07"))
+        self.assertFalse(set_clock.is_set_answer("CLOCK NOW 2026-11-14 15:42:07"))
         self.assertFalse(set_clock.is_set_answer("CLOCK NOT SET"))
         self.assertFalse(set_clock.is_set_answer("CLOCK REFUSED: "))
         self.assertFalse(set_clock.is_set_answer("arm=0 CLOCK SET"))
-        self.assertTrue(set_clock.is_query_answer("CLOCK 2026-11-14 15:42:07"))
+        self.assertTrue(set_clock.is_query_answer("CLOCK NOW 2026-11-14 15:42:07"))
+        self.assertFalse(set_clock.is_query_answer("CLOCK 2026-11-14 15:42:07"))
         self.assertTrue(set_clock.is_query_answer("CLOCK NOT SET"))
         self.assertTrue(set_clock.is_query_answer("CLOCK REFUSED: RTC NOT ANSWERING"))
         self.assertFalse(set_clock.is_query_answer("CLOCK SET 2026-11-14 15:42:07"))
-        self.assertFalse(set_clock.is_query_answer("CLOCK 2026-11-14 15:42"))
-        self.assertFalse(set_clock.is_query_answer("CLOCK 2026-11-14 15:42:07 "))
+        self.assertFalse(set_clock.is_query_answer("CLOCK NOW 2026-11-14 15:42"))
+        self.assertFalse(set_clock.is_query_answer("CLOCK NOW 2026-11-14 15:42:07 "))
+        self.assertFalse(set_clock.is_query_answer("CLOCK NOW NOT SET"))
         self.assertFalse(set_clock.is_query_answer("XCLOCK NOT SET"))
 
     def test_read_answer_skips_telemetry(self):
@@ -190,8 +207,8 @@ class TestSet(unittest.TestCase):
         port = FakePort()
         status, msg = set_clock.set_clock(port, now=lambda: self.T0, sleep=lambda s: None)
         self.assertEqual(status, 0)
-        self.assertEqual(port.written, b"CLOCK 2026-11-14 15:42:07\n")
-        self.assertEqual(port.reset, 1)
+        self.assertEqual(port.written, b"\nCLOCK 2026-11-14 15:42:07\n")
+        self.assertEqual(port.reset, 2)
         self.assertGreaterEqual(port.flushed, 1)
         self.assertTrue(msg.startswith("CLOCK SET 2026-11-14 15:42:07\n"))
         self.assertIn("set it again after each power-up", msg)
@@ -211,13 +228,35 @@ class TestSet(unittest.TestCase):
         self.assertIn("another time than sent", msg)
 
     def test_query(self):
+        nap = lambda s: None
         port = FakePort(answer=b"CLOCK NOT SET\r\n")
-        self.assertEqual(set_clock.query_clock(port), (0, "CLOCK NOT SET"))
-        self.assertEqual(port.written, b"CLOCK?\n")
-        port = FakePort(answer=b"CLOCK 2026-11-14 15:42:09\r\n")
-        self.assertEqual(set_clock.query_clock(port), (0, "CLOCK 2026-11-14 15:42:09"))
+        self.assertEqual(set_clock.query_clock(port, sleep=nap), (0, "CLOCK NOT SET"))
+        self.assertEqual(port.written, b"\nCLOCK?\n")
+        port = FakePort(answer=b"CLOCK NOW 2026-11-14 15:42:09\r\n")
+        self.assertEqual(set_clock.query_clock(port, sleep=nap), (0, "CLOCK NOW 2026-11-14 15:42:09"))
         port = FakePort(answer=b"CLOCK REFUSED: BAD LINE\r\n")
-        self.assertEqual(set_clock.query_clock(port), (1, "CLOCK REFUSED: BAD LINE"))
+        self.assertEqual(set_clock.query_clock(port, sleep=nap), (1, "CLOCK REFUSED: BAD LINE"))
+
+    def test_partial_line_ended_first(self):
+        # Another program left `CLOCKX` on the board's line: the tool's line
+        # feed ends it, and the board's refusal of it is dropped, not taken
+        # as the answer to the set.
+        port = FakePort(partial=True)
+        slept = []
+        status, msg = set_clock.set_clock(port, now=lambda: self.T0, sleep=slept.append)
+        self.assertEqual(status, 0, msg)
+        self.assertTrue(port.written.startswith(b"\nCLOCK 2026-11-14 15:42:07\n"))
+        self.assertEqual(slept[0], set_clock.SETTLE_S)
+        port = FakePort(partial=True, before=(), answer=None)
+        port.answer = b"CLOCK NOT SET\r\n"
+        port.partial = True
+        self.assertEqual(set_clock.query_clock(port, sleep=lambda s: None), (0, "CLOCK NOT SET"))
+
+    def test_partial_line_without_the_line_feed(self):
+        # The same port, the line feed left out: the refusal is the answer.
+        port = FakePort(partial=True)
+        port.write(b"CLOCK 2026-11-14 15:42:07\n")
+        self.assertEqual(port.readline(), b"CLOCK REFUSED: BAD LINE\r\n")
 
 
 class TestMain(unittest.TestCase):
@@ -271,9 +310,23 @@ class TestMain(unittest.TestCase):
         status, out, err = run_main([], mod, [BOARD])
         self.assertEqual(status, 0, err)
         sent = mod.port.written.decode()
-        self.assertRegex(sent, r"^CLOCK \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\n$")
+        self.assertRegex(sent, r"^\nCLOCK \d{4}-\d\d-\d\d \d\d:\d\d:\d\d\n$")
+        sent = sent[1:]
         self.assertTrue(out.startswith("/dev/ttyACM0: CLOCK SET " + sent[6:]))
         self.assertTrue(mod.port.dtr and mod.port.closed)
+
+    def test_lost_port(self):
+        mod = FakeSerialModule()
+        mod.port.fail = mod.SerialException("write timeout")
+        status, out, err = run_main(["--port", "COM5", "--query"], mod, [])
+        self.assertEqual((status, out), (1, ""))
+        self.assertIn("set_clock.py: lost COM5 during the exchange: write timeout", err)
+        self.assertTrue(mod.port.closed)
+        mod = FakeSerialModule()
+        mod.port.fail = OSError(5, "Input/output error")
+        status, _, err = run_main(["--port", "COM5"], mod, [])
+        self.assertEqual(status, 1)
+        self.assertIn("lost COM5 during the exchange", err)
 
     def test_cannot_open(self):
         status, _, err = run_main(["--port", "COM9"], FakeSerialModule(fail=True), [])
