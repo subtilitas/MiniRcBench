@@ -1189,9 +1189,9 @@ its own. `--- MM` written for the travel without a reading is equivalent:
 HOLD DEFAULTS keeping the four fields and SETUP's BACK saving while they
 differ from flash, 19 mutants of that code in `src/ui_angle.cpp`,
 `src/settings.cpp` and `src/ui_settings.cpp` were run again, 9 of the
-earlier ones gone with the code they changed. 17 fail the suite; the armed check survives as before, and leaving out the
-spare byte in `settingsCopyAngle()` is equivalent, since validation keeps
-that byte at 0.
+earlier ones gone with the code they changed. 17 fail the suite; the armed
+check survives as before, and leaving out the spare byte in
+`settingsCopyAngle()` is equivalent, since validation keeps that byte at 0.
 
 Not verified on the board: everything the driver and the model leave open
 (B1 to B7), the screen on the panel, a band across the glass as a touch
