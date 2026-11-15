@@ -554,7 +554,10 @@ void fakeAm32Garble(const uint8_t *b, uint8_t n) {
 }
 void fakeAm32Blank(bool on) { g_am32Blank = on; }
 void fakeAm32Silent(bool on) { g_am32Silent = on; }
+static int g_am32Handshakes = 0;  /**< am32BlHandshake() calls: greetings sent. */
+int fakeAm32Handshakes() { return g_am32Handshakes; }
 Am32Result am32BlHandshake(uint8_t *) {
+	g_am32Handshakes++;
 	// Nine bytes with F051's family byte fifth from the end and the ACK
 	// last, or the bytes a test set, through the classification the
 	// transport uses. The other bytes of an AM32 answer are not modelled.

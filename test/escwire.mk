@@ -3,6 +3,13 @@
 #
 # One list per feature, as servo.mk, kst.mk, hitec.mk, rx.mk and sense.mk.
 #
+#   ESCWIRE_SRCS            C++ sources linked into the suite: the core1 job
+#                           and the page's rows and texts
+#   ESCWIRE_TESTS           the test files; fake_escwire_port.cpp is the line
+#                           the job drives: rcbench's simulated ESC behind
+#                           escwire_port.h
+#   ESCWIRE_DEVICE_SRCS     sources the suite cannot link, typechecked by
+#                           `syntax`
 #   ESCWIRE_CSRCS           C sources linked into the suite: rcbench's escwire
 #                           core and its file store
 #                           (shared/logfile/servo_store.c), whose names for a
@@ -20,10 +27,14 @@
 #                           source and the words pioasm assembles it to
 #
 # The line driver, lib/rcbench/protocols/escwire/rp2350/ew_line.c, drives
-# PIO and DMA and is built by the firmware only (src/escwire.cmake); its
-# header is on the include path for `syntax`. Nothing in src/ calls the
-# module yet (docs/design/bluejay-blheli-s.md, slice 1).
+# PIO and DMA and is built by the firmware only (src/escwire.cmake), as is
+# src/escwire_port.cpp, the job's line on it; its header is on the include
+# path for the error codes and for `syntax`.
 ESCWIRE_DIR           := ../lib/rcbench/protocols/escwire
+ESCWIRE_SRCS          := ../src/escwire_job.cpp ../src/efm8_view.cpp
+ESCWIRE_TESTS         := test_escwire_job.cpp test_efm8_view.cpp \
+                         fake_escwire_port.cpp
+ESCWIRE_DEVICE_SRCS   := ../src/escwire_port.cpp
 ESCWIRE_CSRCS         := $(ESCWIRE_DIR)/ew_wire.c $(ESCWIRE_DIR)/ew_pio.c \
                          $(ESCWIRE_DIR)/ew_a.c $(ESCWIRE_DIR)/ew_text.c \
                          $(ESCWIRE_DIR)/ew_guard.c $(ESCWIRE_DIR)/ew_id.c \

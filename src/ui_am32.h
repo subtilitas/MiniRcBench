@@ -1,19 +1,27 @@
 /**
  * @file ui_am32.h
- * @brief ESC SETTINGS, the ESC settings screen: AM32 today.
+ * @brief ESC SETTINGS, the ESC settings screen: AM32 read and written,
+ *        Bluejay and BLHeli_S read.
  *
  * A separate mode from the throttle tester, opened from the ESC CONFIG
  * chooser (ui_esc_config.h): entering it claims the signal pin
  * (pin_claim.h), which disarms, drains and tears down the DShot driver, and
  * hands the pin to the bootloader transport. Leaving it gives the pin back.
  *
- * The connect page's greeting is answered by an AM32 bootloader or by the
- * EFM8 bootloader of Bluejay and BLHeli_S (bl_answer.h). An AM32 answer
- * opens the settings. An EFM8 answer is named on the connect page and
- * nothing is read (docs/design/bluejay-blheli-s.md, slice 2): the screen
- * gives the claim the leave page (pinClaimWantLeavePage()), sets MENU's run
- * cue, and BACK from then on opens the leave page of decision 8 of that
- * note, whose RESTART DSHOT gives SIG back to DShot and clears the cue.
+ * The connect page runs the connect cycle (greet_cycle.h): 1000 ms with the
+ * line on the pull-up and nothing sent, then 3 greetings, in turn. The
+ * greeting is answered by an AM32 bootloader or by the EFM8 bootloader of
+ * Bluejay and BLHeli_S (bl_answer.h). An AM32 answer opens the settings.
+ * An EFM8 answer gives the claim the leave page (pinClaimWantLeavePage()),
+ * sets MENU's run cue, ends the AM32 transport and starts the claim's core1
+ * job, rcbench's escwire session (escwire_job.h), which makes its own first
+ * contact and reads the page (docs/design/bluejay-blheli-s.md, slice 3).
+ * The page opens as a list, read-only in this build, or the connect page
+ * names why it is not taken. BACK from the list sends LEAVE, `00 01`, which
+ * starts the ESC's firmware, clears the cue and gives SIG back to DShot.
+ * Every other BACK after an EFM8 answer opens the leave page of decision 8
+ * of that note, whose RESTART DSHOT gives SIG back to DShot and clears the
+ * cue. Nothing here writes a Bluejay or BLHeli_S ESC.
  *
  * @see am32_bl.h for the transport, am32_eeprom.h for the settings layout.
  */
@@ -178,11 +186,51 @@ bool uiAm32Tick(const TouchState *t);
 
 /**
  * @brief The connect page's status after an EFM8 bootloader answered,
- *        with its signature: 33 characters, 197 px, for example
- *        EFM8 E8B2 ANSWERED: NOT READ YET. It stays while later greetings
- *        go unanswered: the bootloader waits with no timeout.
+ *        with its signature, while the escwire session enters and reads:
+ *        28 characters, 167 px, for example EFM8 E8B2 ANSWERED: READING.
  */
-#define AM32_UI_EFM8_FMT "EFM8 %04X ANSWERED: NOT READ YET."
+#define AM32_UI_EFM8_FMT "EFM8 %04X ANSWERED: READING."
+
+/** @brief The connect cycle's status in its quiet phase: 23 characters, 137 px. */
+#define AM32_UI_QUIET "LINE HIGH, NOTHING SENT"
+
+/**
+ * @defgroup am32_efm8 The EFM8 pages
+ * @brief The connect page while the escwire session holds SIG, the list's
+ *        bar and the page while LEAVE goes out (docs/design/bluejay-blheli-s.md,
+ *        slice 3). Each line at most 37 characters, centred at scale 1; the
+ *        headings at scale 2 at most 18 characters.
+ * @{
+ */
+/** @brief The connect page's heading while the session holds SIG, in place of POWER-CYCLE THE ESC. */
+#define AM32_UI_EW_HEAD "EFM8 BOOTLOADER"
+/** @brief Under it, first line: 31 characters. */
+#define AM32_UI_EW_1 "THE ESC WAITS IN ITS BOOTLOADER"
+/** @brief Second line: 31 characters. */
+#define AM32_UI_EW_2 "FOR COMMANDS. ITS FIRMWARE DOES"
+/** @brief Third line: 24 characters. */
+#define AM32_UI_EW_3 "NOT RUN UNTIL IT LEAVES."
+/** @brief An entry or read that ended without the page, first line: 31 characters, amber. */
+#define AM32_UI_EW_STOPPED_1 "THE ESC ANSWERED, THEN STOPPED."
+/** @brief Its second line: the connect cycle greets again. */
+#define AM32_UI_EW_STOPPED_2 "SEARCHING AGAIN."
+/** @brief The list's bar, first line: 33 characters, 197 px, grey. */
+#define AM32_UI_EW_BAR_1 "SHOWN ONLY: WRITING IS NOT BUILT."
+/** @brief The list's bar, second line: 33 characters, 197 px, grey. */
+#define AM32_UI_EW_BAR_2 "BACK SENDS LEAVE: THE ESC STARTS."
+/** @brief The page while LEAVE goes out: its heading. */
+#define AM32_UI_EXIT_HEAD "LEAVING"
+/** @brief Under it, first line: 30 characters. */
+#define AM32_UI_EXIT_1 "THE ESC STARTS ITS FIRMWARE ON"
+/** @brief Second line: 26 characters. */
+#define AM32_UI_EXIT_2 "LEAVE, THEN DSHOT RETURNS."
+/** @brief Third line: 23 characters. */
+#define AM32_UI_EXIT_3 "KEEP THE PROPELLER OFF."
+/** @brief The status while LEAVE runs: 20 characters. */
+#define AM32_UI_EXIT_SENDING "SENDING LEAVE: 00 01"
+/** @brief The status once it went: 11 characters. */
+#define AM32_UI_EXIT_SENT "LEAVE SENT."
+/** @} */
 
 /**
  * @defgroup am32_leave The leave page after an EFM8 answer
@@ -219,7 +267,8 @@ bool uiAm32Tick(const TouchState *t);
  *
  * Set when a handshake with the bootloader succeeds, and when an EFM8
  * bootloader answers the greeting. Cleared by an eRPM frame that arrived
- * after that answer, which only the ESC's firmware sends, and by RESTART
+ * after that answer, which only the ESC's firmware sends, by LEAVE's
+ * `00 01` once it went out, which starts an EFM8's firmware, and by RESTART
  * DSHOT on the leave page, whose steps power-cycle the ESC; a restart of the
  * board clears it as well, since it is not stored.
  *
@@ -240,11 +289,14 @@ bool uiAm32RunCue(uint32_t lastRpmMs);
  * @brief Whether the ESC on the pin may run in 3D mode, for the
  *        tester's @ref AM32_UI_TESTER_3D.
  *
- * Set by a read that opens the list on settings with 3D MODE on, and by a
+ * Set by a read that opens the list on settings with 3D MODE on, or on a
+ * Bluejay or BLHeli_S page with DIRECTION at 3D or 3D REVERSED, and by a
  * write of settings with 3D MODE on that the ESC accepted, whether its
  * read-back then verifies, fails or differs. Cleared only by such a read or
  * a verified write with 3D MODE off, and by a restart, since it is not
- * stored. A failed read, a read that opens no list (the read-only view of a
+ * stored. An EFM8 page whose settings marker is wrong leaves it: its
+ * firmware loads its defaults at its next start. A failed read, a read that
+ * opens no list (the read-only view of a
  * layout not known among them: byte 0x12 may be another field there), a
  * write the ESC refused and a write of 3D MODE off that is not verified leave
  * it as it was. Nothing tells it that the ESC on
