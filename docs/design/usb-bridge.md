@@ -1094,7 +1094,7 @@ text held at the open; a `CLOCK` line through the real `usbDevTask()`, setting
 the clock with the console on the port and going to the wire as data, setting
 nothing, with the bridge on it. No frame is handed to the wire while the claim
 is not Running for the bridge, and DShot is never up with the line open, checked
-on every pass of every section. `runBridgeUiTests`, 140 checks in 6 sections:
+on every pass of every section. `runBridgeUiTests`, 139 checks in 6 sections:
 the entry, the screen's every line and width at rest, Stopping, PORT OPEN and
 CLOSED, the counts and their 250 ms, the closed line, a write with BACK
 disabled, the leave page and its steps, BRIDGE and RESTART DSHOT, BACK while
