@@ -84,8 +84,9 @@ live 1 s after the page opens. `BRIDGE` returns to the bridge instead.
 After a write not followed by a start of the firmware the page adds
 `FLASH THE ESC AGAIN BEFORE USE.`: flash the ESC again before you use it.
 
-MENU shows `POWER-CYCLE THE ESC TO RUN IT` after the bridge ran, until
-DShot restarts from the leave page or the ESC answers DShot again.
+MENU shows `POWER-CYCLE THE ESC TO RUN IT` once the screen has taken the
+signal pin, also after a bind that failed, until DShot restarts from the
+leave page or the ESC answers DShot again.
 
 If the USB cable is pulled during a write while the board runs on its own
 cell, the board keeps the signal pin and sends nothing. On USB power alone

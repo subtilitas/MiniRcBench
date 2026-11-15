@@ -623,10 +623,10 @@ dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
   `RETRY POWERS IT UP AND READS IT AGAIN.` Ohne Karte, nach einem
   Schreiben, kommt `NO CARD: THE BACKUP IN RAM IS LOST.` hinzu.
 - **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
-  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein Messwert von 3,0 A
-  oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die Versorgung
-  hochkam, sie sofort ab und brechen den Vorgang auf der Leitung ab, auch
-  während eines Lesens oder Schreibens und nach LEAVE, solange ein
+  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein
+  Messwert von 3,0 A oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die
+  Versorgung hochkam, sie sofort ab und brechen den Vorgang auf der Leitung ab,
+  auch während eines Lesens oder Schreibens und nach LEAVE, solange ein
   Schreiben noch zu Ende läuft. Die Seite zeigt
   `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` oder
   `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, dann

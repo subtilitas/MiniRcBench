@@ -18,7 +18,7 @@ Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MEN
    │                    │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> MENU)
    │                    │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> MENU
-   │                    │        (after a write with no RUN: BACK──> leave page ──RESTART DSHOT──> MENU)
+   │                    │        (once the line is bound: BACK──> leave page ──RESTART DSHOT──> MENU)
    │                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
    │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, RESTART DSHOT──> MENU
@@ -144,9 +144,12 @@ above 0.5 V from KISS (within 500 ms) or EDT (within 1000 ms); otherwise the
 line reads `RPM/V --` and the row `KV EST --`. The estimate also needs the
 throttle at 75 % or more, within 1 % (20 of 2000) of one value for 1 s, so that
 a finger resting on the bar does not hold it off, a motor that has reached its
-speed (the smoothed eRPM within 0.5 % of the last reply), and no 3D note; the 3D
-note takes the row as before. Both figures stop at 99999. Neither is kept after
-the disarm: disarmed, the line reads `ERPM` alone and the row `14 POLES`.
+speed (the smoothed eRPM within 0.5 % of the last reply; once met, it holds
+until the throttle moves out of its band, a condition fails, or the smoothed
+eRPM is more than 3 % from the last reply or the reply is 0, so noisy replies
+do not flicker the figure and a stall shows `KV EST --` at once), and no 3D
+note; the 3D note takes the row. Both figures stop at 99999. Neither is kept
+after the disarm: disarmed, the line reads `ERPM` alone and the row `14 POLES`.
 
 What the estimate cannot know:
 
@@ -494,9 +497,9 @@ rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
 to flash. `HOLD DEFAULTS` for 1 s replaces the live settings with the
 compiled defaults, the pole count and the throttle ceiling included; the
 angle meter's setup and calibration, which SETTINGS does not show, keep their
-values, and flash is untouched. A tap does nothing, and sliding off the button cancels the
-hold. A bar over the button fills while it is held, and the button turns
-red, as every hold does. Leaving the screen keeps the
+values, and flash is untouched. A tap does nothing, and sliding off the button
+cancels the hold. A bar over the button fills while it is held, and the button
+turns red, as every hold does. Leaving the screen keeps the
 defaults in use. The saved values load only when the board starts, so
 restarting the board without `HOLD TO SAVE` returns to them.
 

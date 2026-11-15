@@ -152,10 +152,25 @@
  *        estimate shows, in thousandths: 5, 0.5 %.
  *
  * Covers a motor still spinning up after the throttle settled, and the
- * display filter catching up. One eRPM step is 0.20 % to 0.39 % of the value
- * (a normalised frame's mantissa of 256 to 511). @see kvEstView()
+ * display filter catching up. Up to 234,375 eRPM one eRPM step is 0.20 % to
+ * 0.39 % of the value (a normalised frame's mantissa of 256 to 511); above
+ * it the period is whole microseconds and a step is 1 / period, 1 % at
+ * 600,000 eRPM. Once passed, the check holds until the settle restarts, a
+ * condition fails or the gap exceeds @ref KV_EST_ERPM_HOLD_PERMILLE.
+ * @see kvEstView()
  */
 #define KV_EST_ERPM_SETTLE_PERMILLE 5
+
+/**
+ * @brief How far the filtered eRPM may stray from the last reply, in
+ *        thousandths, before a passed eRPM check releases: 30, 3 %.
+ *
+ * Wider than @ref KV_EST_ERPM_SETTLE_PERMILLE so that noisy replies (a test
+ * series swings 2.1 %) and the 1 % eRPM step at 600,000 eRPM keep the figure.
+ * A reply of 0 always releases. A stalled motor then shows `KV EST --` on its
+ * first frame, not after the filter has decayed. @see kvEstView()
+ */
+#define KV_EST_ERPM_HOLD_PERMILLE 30
 
 /** @} */
 

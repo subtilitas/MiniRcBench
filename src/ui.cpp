@@ -332,6 +332,7 @@ static uint32_t  s_erpmShown = 0;
  *        Stepped once per tester frame with the throttle sent. @see kv_est.h
  */
 static KvSettle  s_kvSettle;
+static bool      s_kvErpmHeld;   ///< kvEstView()'s eRPM check, held
 static float s_batteryV = 0.0f;
 
 /**
@@ -734,7 +735,9 @@ static void drawRpm() {
 	kin.t = s_throttle;
 	kin.settled = s_kvSettle.settled;   // stepped with s_throttle this frame
 	kin.esc3d = esc3d;
+	kin.erpmHeld = s_kvErpmHeld;
 	const KvEstView kv = kvEstView(&kin);
+	s_kvErpmHeld = kv.erpmHeld;
 	// One key per field: the figure, or past KV_EST_MAX the state that has none.
 	const uint32_t rpvKey = kv.rpv == KvEstShow::Value ? kv.rpvValue : KV_EST_MAX + 1 + (uint32_t)kv.rpv;
 	const uint32_t kvKey = kv.kv == KvEstShow::Value ? kv.kvValue : KV_EST_MAX + 1 + (uint32_t)kv.kv;
@@ -1359,6 +1362,7 @@ void uiInit() {
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 	memset(&s_kvSettle, 0, sizeof(s_kvSettle));
+	s_kvErpmHeld = false;
 
 	invalidateAll();
 

@@ -268,8 +268,7 @@ is younger than `ESC_LINK_STALE_MS`, 500 ms; `Turning` while eRPM is not 0;
 `Settling` until 1500 ms after `linkUpSinceMs`; `Busy` while an EDT enable,
 a sequence or its gap goes out; `Ready` otherwise. The page draws its
 controls live at `Ready` and `Busy`, and its amber line from `NoAnswer`,
-`Turning` and `Settling` (revised in [slice 2 as
-built](#slice-2-as-built): first live only at `Ready`).
+`Turning` and `Settling`.
 `escRequestCommand()` refuses while armed and at `NoAnswer`, `Turning` and
 `Settling`; at `Busy` the request waits, at most 2000 ms. The rules stay
 pure in `src/esc_task.h`, as `escPumpSlot()` is, so the host suite drives
@@ -304,8 +303,7 @@ heartbeat on every frame of every screen (`uiTick()`, line 1315), so the
   the page has no request of its own waiting or going out; at `Busy` the
   request waits in the slot, at most 2000 ms. At `NoAnswer`, `Turning` and
   `Settling` the controls are drawn disabled and the message lines say why,
-  in `C_AMBER`. Revised in [slice 2 as built](#slice-2-as-built): the rule
-  was "live only at `Ready`".
+  in `C_AMBER`.
 
 The holds write the ESC. Menu structure B puts writes on a write page that
 a tap opens ([menu-b.md](menu-b.md#decisions), decision 6). That rule is
@@ -330,11 +328,11 @@ so the hold stays on the page (decision 3).
 DIFFERS` (35 characters, 209 px, `src/ui_am32.h` line 181), stands after an
 AM32 list read or an accepted AM32 write with 3D MODE on, and only a list
 read or a verified write with 3D MODE off clears it (`s_esc3d`,
-`src/ui_am32.cpp` lines 258, 879, 965, 995; the owner's answer to the
-review of PR #55). The flag moves out of `ui_am32.cpp` into one owner both
-screens write, `src/esc_3d.{h,cpp}`, and the tester reads it as before. A
+`src/ui_am32.cpp` lines 258, 879, 965, 995; the owner's answer of
+2026-11-14). The flag is in one owner both screens write,
+`src/esc_3d.{h,cpp}`, and the tester reads it. A
 completed 3D ON hold sets it. A 3D OFF hold has no read-back, like an
-unverified write; by the PR #55 rule it leaves the note standing until the
+unverified write; by that answer it leaves the note standing until the
 bench restarts or an AM32 list read shows 3D MODE off
 (decision 4).
 
@@ -445,14 +443,14 @@ Message lines, each with its width; every one is at most 37 characters:
 | Sending a direction | `SENDING 8 (REVERSED), THEN 12 (SAVE).` (221 px) | `C_TEXT` |
 | Sent a direction | `SENT 8 (REVERSED), THEN 12 (SAVE).` (203 px) or `SENT 7 (NORMAL), THEN 12 (SAVE).` (191 px); `NOTHING CONFIRMS THE ESC TOOK THEM.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_TEXT` |
 | Sending 3D | `SENDING 10 (3D ON), THEN 12 (SAVE).` (209 px) or `SENDING 9 (3D OFF), THEN 12 (SAVE).` (209 px) | `C_TEXT` |
-| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `A RESTART OR 3D OFF READ CLEARS IT.` (209 px), as the flag is not stored (decision 4); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px). Revised in the review of slice 2: first `THE NOTE ENDS AT A RESTART.` last | `C_TEXT`, the last two `C_AMBER` |
-| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); while the note stands, `THE 3D NOTE STAYS ON THE TESTER.` (191 px), by decision 4. Revised in the review of slice 2: first `THE 3D NOTE STAYS UNTIL A RESTART.` always | `C_TEXT` |
+| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `A RESTART OR 3D OFF READ CLEARS IT.` (209 px), as the flag is not stored (decision 4); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px) | `C_TEXT`, the last two `C_AMBER` |
+| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); while the note stands, `THE 3D NOTE STAYS ON THE TESTER.` (191 px), by decision 4 | `C_TEXT` |
 | A beacon | `SENDING 3 (BEEP 3).` (113 px), then `SENT 3 (BEEP 3).` (95 px) | `C_TEXT` |
 | No answer | `NO ESC ANSWERS ON SIG GP0.` (155 px) | `C_AMBER` |
 | Motor turning | `MOTOR TURNING: WAIT UNTIL IT STOPS.` (209 px) | `C_AMBER` |
 | Settling | `ESC STARTING: WAIT 1.5 S.` (149 px) | `C_AMBER` |
 | Not sent | `NOT SENT: THE ESC STOPPED ANSWERING.` (215 px), only while frame 6 of the first block has not gone out | `C_AMBER` |
-| Save lost | `SAVE NOT SENT: POWER-CYCLE THE ESC.` (209 px); for 7 and 8 `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px), for 10 `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px), for 9 `AFTER A POWER CYCLE IT MAY RUN IN 3D.` (221 px), revised in the review of slice 2 | `C_AMBER` |
+| Save lost | `SAVE NOT SENT: POWER-CYCLE THE ESC.` (209 px); for 7 and 8 `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px), for 10 `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px), for 9 `AFTER A POWER CYCLE IT MAY RUN IN 3D.` (221 px) | `C_AMBER` |
 | Expired | `NOT SENT: THE ESC WAS NOT READY.` (191 px) | `C_AMBER` |
 
 The pin in the texts is SIG's, GP0 or GP1. Layout constants get
@@ -568,8 +566,7 @@ All of these, else `KV EST --`:
    every frame, and at `MAX 100%` one pixel is about 11 units, so a settle
    that restarted on every change would never end. And the filtered eRPM
    within `KV_EST_ERPM_SETTLE_PERMILLE`, 0.5 %, of the last reply, for a
-   motor still spinning up; its spin-up time is not measured. Revised in
-   [slice 3 as built](#slice-3-as-built): first "t unchanged".
+   motor still spinning up; its spin-up time is not measured.
 5. The 3D note not standing.
 
 RPM/V needs 1 and 2 only. Neither is held after the disarm (decision 7).
@@ -961,11 +958,11 @@ Choices the note left open:
   the throttle would bring a figure.
 - **A throttle above 2000** reads `KV EST --`. The tester never sends one:
   its ceiling is at most 2000 and `escSetThrottle()` clamps there.
-- **Disarmed, the ERPM line is as before,** `ERPM 84210` alone, as
+- **Disarmed, the ERPM line is** `ERPM 84210` alone, as
   [menu-b.md](menu-b.md#the-tester) draws it; armed with no figure it reads
   `ERPM 39200  RPM/V --`. With no eRPM answer it reads `NO TELEMETRY` alone,
-  as before, and the row `KV EST --`.
-- **The 3D note** takes the row as before, so the estimate is not drawn;
+  and the row `KV EST --`.
+- **The 3D note** takes the row, so the estimate is not drawn;
   `kvEstView()` reads it Unknown too. `RPM/V` stays on the ERPM line, since
   it needs conditions 1 and 2 only.
 - **The voltage** is the merged reading rounded to hundredths as the
@@ -974,22 +971,34 @@ Choices the note left open:
 - **The settle** counts from the UI frame on which the throttle sent left
   the band of ±20 around the value the settle started at, which becomes the
   new start, in 25 ms frames: a figure shows on the 40th frame after it.
-  The band is the review's finding on pull request #97, decided on
-  2026-11-15: under a finger resting on the bar, touch jitter of a pixel,
-  about 11 units at `MAX 100%`, restarted a settle that waited for t
-  unchanged, and the field stayed `KV EST --`. The start does not follow
-  the jitter, so a slow drift restarts it once it is 21 from the start. The
-  estimate uses the t of the frame. Once reached the settle holds until t
-  leaves the band, so a throttle held across the `millis()` wrap does not
-  drop the figure for a second. It is stepped on tester frames only; MENU
+  The band exists because, under a finger resting on the bar, touch
+  jitter of a pixel, about 11 units at `MAX 100%`, would restart a settle
+  that waited for t unchanged, and the field would stay `KV EST --`. The start
+  does not follow the jitter, so a slow drift restarts it once it is 21 from the
+  start. The estimate uses the t of the frame. Once reached the settle holds
+  until t leaves the band, so a throttle held across the `millis()` wrap does
+  not drop the figure for a second. It is stepped on tester frames only; MENU
   and every tool disarm on the way in, so the throttle is 0 there.
-- **The eRPM check,** adopted from the same review: no estimate while the
-  filtered eRPM is more than 0.5 % from the last reply, compared as
-  |filtered − reply| × 1000 against the reply × 5 in 64 bits, 0.5 % itself
-  passing. It covers a motor still spinning up after the throttle stood,
-  and the filter catching up after a step. One eRPM step is 0.20 % to
-  0.39 % of the value, inside the 0.5 %; how often a real motor's reply
-  jitters past it is not measured. RPM/V does not wait for it, as it needs
+- **The eRPM check:** no estimate while the filtered eRPM is more than 0.5 %
+  from the last reply, compared as |filtered − reply| × 1000 against the
+  reply × 5 in 64 bits, 0.5 % itself passing. It covers a motor still
+  spinning up after the throttle stood, and the filter catching up after a
+  step. Up to 234,375 eRPM one eRPM step is 0.20 % to 0.39 % of the value,
+  inside the 0.5 %; above it the period is whole microseconds and a step is
+  1 / period, 1 % at 600,000 eRPM.
+- **The check's hold, with hysteresis.** Once the check has passed it holds
+  (`KvEstView::erpmHeld`, fed back as `KvEstIn::erpmHeld` on the next
+  frame) until the settle restarts, a condition fails, or the gap passes
+  `KV_EST_ERPM_HOLD_PERMILLE`, 30 per mille, 3 %, compared the same way
+  with 30 for 5 and 3.0 % itself keeping. A reply of 0 is always past it:
+  a stalled motor reads `KV EST --` on its first frame, not after the
+  filter has decayed. 3 % covers the test series' swing of 2.1 % and the
+  1 % step at 600,000 eRPM, so replies that jitter past 0.5 % do not
+  flicker the field between the figure and `--`. A change of speed under
+  3 % at a constant t keeps the figure, computed from the filtered eRPM,
+  while the filter follows it; a larger one reads `--` until the filter is
+  within 0.5 % again. How often a real motor's reply jitters past 0.5 % or
+  3 % is not measured. RPM/V does not wait for the check, as it needs
   conditions 1 and 2 only.
 - **The widest ERPM line** is `ERPM 60000000  RPM/V 99999`, not
   `ERPM 1234567  RPM/V 99999`: the decoder's largest eRPM is 60,000,000, a
@@ -1008,25 +1017,29 @@ throttle of 0; the settle at 999 and 1000 ms, after a step of 21 either
 way, kept at 20 either way, under a jitter of ±11 a frame, restarted by a
 drift of 1 a frame at 21, and across the `millis()` wrap; the eRPM check
 at 0.5 % above and below the reply and one eRPM past it, a reply of 0, and
-past 32 bits; each condition at its boundary: disarmed, the link
-stale, 0, 1 and 2 poles, eRPM 0, 6 and 7 on 14 poles, no fresh voltage,
-0.50 V and 0.51 V, 0 V and below, t 0, 1499, 1500, 2000 and 2001, not
-settled above and below 75 %, the 3D note above and below 75 %, and no
-data below 75 %; the texts and their widths. `testTesterKvEst()` in
+past 32 bits; the check held once passed through a noisy series of
+replies, released at 3.0 % and 1 eRPM past it, by a reply of 0, a restarted
+settle, a stale link, a t below 75 % and the 3D note; each condition at its
+boundary: disarmed, the link stale, 0, 1 and 2 poles, eRPM 0, 6 and 7 on 14
+poles, no fresh voltage, 0.50 V and 0.51 V, 0 V and below, t 0, 1499, 1500, 2000
+and 2001, not settled above and below 75 %, the 3D note above and below 75 %,
+and no data below 75 %; the texts and their widths. `testTesterKvEst()` in
 `test/test_ui.cpp` runs the tester: the ERPM line alone while disarmed;
 armed at 0 % with EDT's 15.75 V, `RPM/V 1422` and `KV EST 75%+`; 50 %
 held over 1 s, still `75%+`, and a KISS 16.05 V that RPM/V follows; 80 %
 with `KV EST --` at 975 ms after the throttle stood and the figure at
 1000 ms, from KISS's 16.00 V over EDT's 15.75 V; RPM/V from the filtered
-eRPM one frame after a step, with `KV EST --` until the filter has caught
-up; a pixel of jitter a frame at 85 % with the figure at 1000 ms; a 0.01 V step that moves the estimate and not
-RPM/V; the voltage and then the eRPM going stale and
-coming back; nothing kept after the disarm or on the next arm; the 3D
-note at 80 % with `RPM/V` still shown, and a swipe there that shows
-`SWIPE ACTIVE` with no estimate beside it; and the widest texts. The preview
-is the wiki's `tester-kv.png`, the third frame of `docs/ui-preview.png`.
-Nothing of it has run with a motor: no figure has been compared with a
-rated kV or a tachometer (bench test B8).
+eRPM one frame after a step, `KV EST --` for a step of 3.7 % while the filter
+catches up, the figure kept for a reply 1.7 % off, `--` on a reply of 0, a
+restarted settle clearing the hold; a
+pixel of jitter a frame at 85 % with the figure at 1000 ms; a 0.01 V step that
+moves the estimate and not RPM/V; the voltage and then the eRPM going stale and
+coming back; nothing kept after the disarm or on the next arm; the 3D note at 80
+% with `RPM/V` still shown, and a swipe there that shows `SWIPE ACTIVE` with no
+estimate beside it; and the widest texts. The preview is the wiki's
+`tester-kv.png`, the third frame of `docs/ui-preview.png`. Nothing of it has run
+with a motor: no figure has been compared with a rated kV or a tachometer (bench
+test B8).
 
 Mutation check: 72 mutants of `src/kv_est.h`, the five constants and the
 wiring in `src/ui.cpp`, each built and run against the host suite; 66 fail
