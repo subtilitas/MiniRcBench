@@ -116,7 +116,7 @@ wiring sheet. Not tested on hardware.
   switch-off, the line reads `GP28 SUPPLY NOT OFF`. The converter does not
   disconnect its output, or EN is held high: check the wiring.
 
-<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28 while SAFE: GP28 SUPPLY ON AT START under the title and the ESC warning on the dial">
+<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28 while SAFE: GP28 SUPPLY ON AT START under the title and the ESC warning on the dial"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. with HOLD TO START greyed"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF under the title, 4.90 V in the readout"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET with SUPPLY UP IN 25 MS under STOP TO CHANGE THE PROFILE">
 
 ---
 

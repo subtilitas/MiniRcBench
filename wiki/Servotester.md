@@ -123,7 +123,7 @@ nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
   2,5 V, zeigt die Zeile `GP28 SUPPLY NOT OFF`. Der Wandler trennt seinen
   Ausgang nicht ab, oder EN wird hochgehalten: Prüfe die Verdrahtung.
 
-<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28 in SAFE: GP28 SUPPLY ON AT START unter dem Titel und die ESC-Warnung auf dem Zifferblatt">
+<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28 in SAFE: GP28 SUPPLY ON AT START unter dem Titel und die ESC-Warnung auf dem Zifferblatt"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. mit grauem HOLD TO START"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF unter dem Titel, 4.90 V in der Anzeige"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET mit SUPPLY UP IN 25 MS unter STOP TO CHANGE THE PROFILE">
 
 ---
 
