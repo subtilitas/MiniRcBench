@@ -959,6 +959,20 @@ static void testBootloaderReached() {
 	g_greetUs = 300;
 	endBridge();
 
+	// A RUN ends the wait: an answer to a later frame reaches nothing.
+	fresh(nullptr);
+	openBridge();
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	run(20);
+	fakeCdcHostWrite(RUN, sizeof(RUN));
+	run(10);
+	fakeBridgeLineResponder(escAck);
+	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
+	run(10);
+	checkTrue("INIT unanswered, RUN, then an ACK to SET ADDRESS: nothing reached",
+	          bstats().toHost == 21 + 4 + 7 && !usbBridgeBootloaderReached());
+	endBridge();
+
 	fresh(escGreeting);
 	openBridge();
 	fakeCdcHostWrite(INIT21, sizeof(INIT21));

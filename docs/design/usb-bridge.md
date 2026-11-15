@@ -972,8 +972,8 @@ USB BRIDGE in `test/test_ids.cpp` and ESC CONFIG's live entry in
 
 **The console switch.** `usbDevConsole(false)` disables the stdio driver,
 `usbDevConsole(true)` enables it again; a call that changes nothing does
-nothing. It is the only change to `usb_dev.cpp`'s behaviour. `usb_dev.cpp` is
-not in the host suite; the suite's fake of the two calls records the switch.
+nothing. The suite links the real `usb_dev.cpp` against the CDC fake, whose
+`stdio_set_driver_enabled()` records the switch.
 
 **When the bridge is open.** `usbBridgeTask()` opens the USB side while the
 claim is Running for `PinUser::Bridge` and the line is open
@@ -1005,14 +1005,21 @@ stays on.
    the frame's length. An echo of the frame before still owed at the
    handover makes that count reach its mark early, and BACK live before
    the answer; the tools wait for an answer before the next frame, and the
-   leave page of decision 10 does not depend on it.
-5. **The unfinished write** is set by a write-class frame and cleared by a
-   RUN, both since the open. The greeting, twelve 0x00 bytes first, is not
-   a RUN: a frame whose last 9 bytes are 0x0D, `BLHeli` and two more is
-   `INIT`. The screen gives the claim the leave page at BACK, not at the
-   write, so a RUN after the write leaves BACK without it. Once given, the
-   page lasts until Free, the claim's rule: BRIDGE and BACK again show it
-   whatever was sent between.
+   leave page does not depend on it.
+5. **A bootloader reached, and the unfinished write** (decision 10 as revised).
+   The bridge counts a bootloader reached once an INIT is answered, a byte the
+   wire receives beyond the INIT's echo, or a write-class frame goes out; a
+   write-class frame also sets the unfinished write. A RUN clears both: a frame
+   of 4 bytes starting with 0x00 whose last two are the CRC-16/ARC of the first
+   two, as the bootloaders' frames carry it. Any other frame starting with 0x00
+   is no RUN: a payload whose tail reaches the bridge after a USB gap of 2 ms or
+   more goes as two frames, and the tail may start with 0x00. The greeting,
+   twelve 0x00 bytes first, is no RUN either: a frame whose last 9 bytes are
+   0x0D, `BLHeli` and two more is `INIT`. The screen gives the claim the leave
+   page at BACK, not at the answer or the write, so a RUN after them leaves BACK
+   without it; the note `FLASH THE ESC AGAIN BEFORE USE.` shows only after a
+   write. Once given, the page lasts until Free, the claim's rule: BRIDGE and
+   BACK again show it whatever was sent between.
 6. **The closed line**, `THE PC CLOSED THE PORT.`, shows after DTR falls
    with a byte forwarded either way since the open, and goes with the PC's
    next byte.
@@ -1039,8 +1046,28 @@ stays on.
     takes, then a flush, the last line's too. A dump that writes nothing for
     400 ms is abandoned, where DshotDisplay gave up on a line after 400 ms.
     `CFG_TUD_CDC_RX_BUFSIZE` stays 64.
+13. **MENU's run cue**, `POWER-CYCLE THE ESC TO RUN IT`, is set when an INIT
+    is answered and cleared by a RUN, by RESTART DSHOT on the leave page,
+    whose steps power the ESC off, and by an eRPM frame stamped after the
+    answer (`usbBridgeRunCue()`, ORed with ESC SETTINGS' cue in
+    `ui_menu.cpp`). Since every answered INIT without a RUN brings the
+    leave page, and its RESTART DSHOT clears the cue, MENU does not show
+    the bridge's cue through the screen as built; it covers a claim that
+    ends another way, as a test ends one.
+    A frame the tool sends before the greeting's answer came adds its
+    length to the answer's mark, so its echo is no answer and the answer
+    still counts.
+14. **Console text at the open.** The open calls `tud_cdc_write_clear()`,
+    so what the console left in TinyUSB's transmit buffer never reaches the
+    tool ahead of the first echo.
+15. **The clock's serial line** (slice 5 of `run-summary.md`): the bridge
+    turns it off with `usbDevClockLineEnable(false)` where it takes the
+    console off, and on where it gives the console back, so a `CLOCK` line
+    the PC sends while the bridge holds the port goes to the ESC as data and
+    sets nothing; turning it on drops a line begun before. The suite links
+    the real `usb_dev.cpp` against the CDC fake for this.
 
-**Tests.** `runUsbBridgeTests`, 143 checks in 18 sections, on the CDC fake, the
+**Tests.** `runUsbBridgeTests`, 175 checks in 21 sections, on the CDC fake, the
 line fake and the claim: the naming; DshotDisplay's sections, a frame reaching
 the wire whole, the reply's offsets from the end, an unacknowledged SET BUFFER
 that does not stall, a late reply during a repaint, a whole late reply in the
@@ -1056,30 +1083,31 @@ sets it; a port close while gathering; the write rules, 2999 ms and 3000 ms, the
 answer, ERASE, the payload, RUN, the greeting, a port close after a write; BACK
 with the PC still connected, nothing read and nothing new sent; the console
 through the leave page and BRIDGE; a refused bind and another screen's claim; a
-collision; LOST. No PC byte reaches the wire while the claim is not Running for
-the bridge, and DShot is never up with the line open, checked on every pass of
-every section. `runBridgeUiTests`, 119 checks in 5 sections: the entry, the
-screen's every line and width at rest, Stopping, PORT OPEN and CLOSED, the
-counts and their 250 ms, the closed line, a write with BACK disabled, the leave
-page and its steps, BRIDGE and RESTART DSHOT, BACK while Stopping, after a
-failed bind and with no claim, RETRY, USB DRIVE, another claim, LOST, SIG on
-GP1. `test_bridge_log`, 25 checks: DshotDisplay's dump test, every one of 14 and
-of 146 records reaching the PC, the text, a slow PC, a transfer of more than 255
-bytes, a PC that stops reading, and the dump before the console in
-`usb_bridge.cpp`; it found the dump's last line left unflushed, now fixed.
+collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC; a
+read-only session reaching an AM32 and an EFM8 bootloader, a greeting answered
+after the next frame, a RUN ending the wait, the run cue and what clears it at
+the millisecond; console text held at the open; a `CLOCK` line through the real
+`usbDevTask()`, setting the clock with the console on the port and going to the
+wire as data, setting nothing, with the bridge on it. No frame is handed to the
+wire while the claim is not Running for the bridge, and DShot is never up with
+the line open, checked on every pass of every section. `runBridgeUiTests`, 130
+checks in 6 sections: the entry, the screen's every line and width at rest,
+Stopping, PORT OPEN and CLOSED, the counts and their 250 ms, the closed line, a
+write with BACK disabled, the leave page and its steps, BRIDGE and RESTART
+DSHOT, BACK while Stopping, after a failed bind and with no claim, RETRY, USB
+DRIVE, another claim, LOST, SIG on GP1, a read-only session on AM32 and on EFM8
+giving the leave page with no FLASH note, MENU showing the bridge's cue until an
+eRPM frame. `test_bridge_log`, 25 checks: DshotDisplay's dump test, every one of
+14 and of 146 records reaching the PC, the text, a slow PC, a transfer of more
+than 255 bytes, a PC that stops reading, and the dump before the console in
+`usb_bridge.cpp`, the dump's last line flushed with it.
 
-**Mutations.** 54 of the new code, each applied alone: 33 in
-`usb_bridge.cpp`, 14 in `ui_bridge.cpp`, 7 in `bridge_log.cpp`. In the
-first run 41 failed the suite or `test_bridge_log`. Of the 13 that
-survived, 8 showed a test missing and fail now: the USB side's open read
-before core1's release after BACK, the open turning the echo on whatever
-was set before, a full slot handed over at once, a frame waiting for the
-slot keeping the session, the ESC's bytes keeping it, a SET BUFFER
-forgotten at a session's end, a slow PC's dump not abandoned while it
-moves, the 255 of a longer transfer. One, the close clearing the gathered
-frame, showed the lines redundant, since the next open starts an empty
-frame and nothing hands one over while closed; they are removed. Four
-survive:
+**Mutations.** 79 of the new code, each applied alone: 53 in
+`usb_bridge.cpp`, 17 in `ui_bridge.cpp`, 7 in `bridge_log.cpp`, one in
+`ui_menu.cpp` and one in `usb_dev.cpp`. 75 fail the suite or
+`test_bridge_log`; each that survived a run and showed a test missing has
+its test, and the close's reset of the gathered frame, which the next open
+repeats, is removed. Four survive:
 
 - `claimRunning()` without its holder test, and without its test of the
   open line: Running with the line open happens for the bridge's claim
@@ -1090,17 +1118,6 @@ survive:
 - RESTART DSHOT without the screen's own `pinClaimUnplugDue()` test:
   `uiLeaveTouch()` returns Restart only once the page is released and
   live, which needs the same state; `pinClaimRestart()` checks it too.
-
-`usb_dev.cpp`'s console switch is device-only and typechecked by
-`make syntax`; the suite's fake of it records the calls.
-
-**The clock's serial line, to wire after the merge.** Slice 5 of
-`run-summary.md` (pull request #98, open as this slice is built) reads a
-`CLOCK` line from the same serial port in `usbDevTask()` and adds
-`usbDevClockLineEnable(bool)`. TODO once #98 is on `main`: the bridge
-turns the clock line off where it takes the console off and on where it
-gives it back, and a test sends a `CLOCK` line while the bridge holds the
-port and finds it on the wire as data, not parsed.
 
 
 ## Decisions
