@@ -64,6 +64,14 @@ protocol.
   Host tests in `test/test_sbus_ui.cpp` run both through MENU on the UART0
   fake; the preview `docs/sbus-preview.png` and the wiki pages RX-Signals and
   RX-Signale are new. Not tested on hardware.
+- After v0.1.0-rc1: the host suite fails a core1 job that never calls
+  `critical_section_init()`. The fake critical section in `test/fakes.cpp`
+  marks a section at init and counts each enter or exit on an unmarked one
+  (`fakeCriticalSectionMisuse()`); `test/test_main.cpp` calls
+  `core1JobInit()` before the first suite, as `src/main.cpp` does, and fails
+  the run unless the count is 0. On the chip an uninitialised section uses a
+  NULL spin lock pointer. `esc_task.cpp`'s init is not covered: that file is
+  not linked into the host suite.
 - The design note for the USB bridge,
   [usb-bridge.md](docs/design/usb-bridge.md), designed and not built: a
   desktop ESC tool reaches the ESC's bootloader on SIG through the board's

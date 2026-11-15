@@ -230,10 +230,20 @@ static uint32_t g_clockHz[2] = { 150000000u, 150000000u };
 uint32_t clock_get_hz(enum clock_index i) { return g_clockHz[i == clk_peri]; }
 void fakeClockSet(enum clock_index i, uint32_t hz) { g_clockHz[i == clk_peri] = hz; }
 
-// --- Critical sections: one thread, so there is nothing to exclude ---
-extern "C" void critical_section_init(critical_section_t *) {}
-extern "C" void critical_section_enter_blocking(critical_section_t *) {}
-extern "C" void critical_section_exit(critical_section_t *) {}
+// --- Critical sections: one thread, so there is nothing to exclude. The
+//     fake records initialisation: init stores a magic value in the section,
+//     and enter or exit on a section without it is counted. test_main.cpp
+//     fails the run when the count is not 0 ---
+static const int CS_MAGIC = 0x43530001;
+static unsigned g_csMisuse = 0;
+extern "C" void critical_section_init(critical_section_t *cs) { cs->lock = CS_MAGIC; }
+extern "C" void critical_section_enter_blocking(critical_section_t *cs) {
+	if (cs->lock != CS_MAGIC) g_csMisuse++;
+}
+extern "C" void critical_section_exit(critical_section_t *cs) {
+	if (cs->lock != CS_MAGIC) g_csMisuse++;
+}
+unsigned fakeCriticalSectionMisuse() { return g_csMisuse; }
 
 // --- I2C: fake_i2c.cpp is the bus. The scripted touchPoll() below drives
 //     the UI tests; the real driver runs on that bus in test_sense.cpp ---

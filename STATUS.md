@@ -891,10 +891,6 @@ not run on hardware (item 18).
   times up to 13.3 s on FAT32 and 16.5 s on exFAT, up to 135.0 s with 1000
   logs an earlier firmware wrote to the root. FatFs block counts times card
   times (`make -C test kstcount`), not measured.
-- **A missing `critical_section_init()` passes on the host.** The fake
-  critical section does not check that it was initialised, so a core1 job
-  that never calls `critical_section_init()` passes the host suite (all
-  core1 jobs). A test gap, not a fault found.
 - **One ring for every device's backups.** 50 sessions of one device push out
   the backups of every other device before them. A ring that has turned and
   lost `BACKUP/LAST` guesses 050 as its latest and writes over 001 next,
@@ -981,6 +977,17 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-five suites:
 | `runSdCacheTests` | `test_sd_cache.cpp` | the SD write cache over a fake card: the queue's order, a read of a queued sector, one swap check per batch, no command while busy, read cache hits and the oldest pushed out, a miss that waits for the block in flight, a full queue, retries, a failed block, a changed serial number, refusals with the cache off |
 | `runDiagTests` | `test_diag.cpp` | the restart reason's decoding from CHIP_RESET, the watchdog's REASON, the enable query and the boot type, its order, its texts' widths, the capture through the fakes, the uptime's text |
 | `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash, AM32, SERVO, SERVO PROGRAMMER and SETTINGS drawn disabled while the claim restores, MENU's scroll over registries of six and seven rows and its return at 0 px, the seven rows by device with SD LOG whole at 0 px and SETTINGS cut until dragged, RX SIGNALS acting with no status while the claim is Free and drawn disabled while it is Stopping or Held, its chooser opened and left, PROGRAMMER's entries, lines and BACK with SERVO SUPPLY at OWN, GP28 and GP29, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, DIAGNOSTICS' LAST RESTART and UPTIME, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, HOLD DEFAULTS' 1 s hold, its `DEFAULTS LOADED - RESTART TO UNDO` note and what ends it, AM32's own wait beside another claim, SERVO SUPPLY as a core section, the strip following AUX and the claim |
+
+The fake critical section in `test/fakes.cpp` marks a section at
+`critical_section_init()` and counts each `critical_section_enter_blocking()`
+or `critical_section_exit()` on an unmarked one. `main()` calls
+`core1JobInit()` before the first suite, as `src/main.cpp` does before core1
+starts, and ends the run with the check `uses before critical_section_init()`,
+which fails unless the count is 0. Removing the `critical_section_init()` call
+of `core1_job.cpp`, `servo_job.cpp`, `kst_job.cpp`, `hitec_job.cpp`,
+`sbus_job.cpp` or `sense.cpp` fails that check. `esc_task.cpp` is not linked
+into the host suite (PIO and UART), so its `critical_section_init()` is not
+covered by it.
 
 `make run` also builds and runs `test/test_usb_msc_cb.cpp`, a program of
 its own that links the real `src/usb_msc.cpp` against stubs of the logger,

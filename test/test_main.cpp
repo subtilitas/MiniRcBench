@@ -9,6 +9,9 @@
 
 #include <stdio.h>
 
+#include "check.h"
+#include "fakes.h"
+
 int g_failures = 0;
 
 void runAm32Tests();
@@ -37,10 +40,15 @@ void runMenuTests();
 void runBackupTests();
 void runSdCacheTests();
 void runDiagTests();
+void core1JobInit();
 
 int main() {
 	printf("MiniRcBench host tests\n");
 	printf("=======================\n");
+
+	// As main.cpp does before core1 starts: the core1 jobs' critical sections
+	// are initialised before any suite enters one.
+	core1JobInit();
 
 	runAm32Tests();
 	// Before the UI suite, whose SETTINGS tests configure the supply.
@@ -69,6 +77,9 @@ int main() {
 	runSdCacheTests();
 	runMenuTests();
 	runDiagTests();
+
+	section("Critical sections");
+	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);
 
 	printf("\n=======================\n");
 	if (g_failures) printf("%d CHECK(S) FAILED\n", g_failures);
