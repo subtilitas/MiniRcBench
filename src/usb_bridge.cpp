@@ -296,8 +296,9 @@ static void runHandedOver(uint32_t frame) {
  *        write. BridgeWireStats::frames counts the frames core1 took since
  *        the bind, and nothing is handed over between the bind and the open,
  *        so the RUN is taken once that count reaches its number; the release
- *        finishes a frame core1 has started. A RUN still pending at the next
- *        open, after a new bind, was never taken.
+ *        finishes a frame core1 has started, within BRIDGE_RELEASE_MAX_MS.
+ *        A RUN still pending at the next open, after a new bind, was never
+ *        taken.
  */
 static void runCheck() {
 	if (!s_runPending) return;

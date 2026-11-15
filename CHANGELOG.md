@@ -40,7 +40,9 @@ its own wire. AM32 is an open-source ESC firmware. PWM is pulse-width
 modulation. KST and Chaservo are servo brands that share one programming
 protocol.
 
-## 0.1.0 - Unreleased
+## Unreleased
+
+## 0.1.0 - 2026-11-15
 
 ### Added
 
@@ -2070,7 +2072,7 @@ protocol.
   them, or by the page's RESTART DSHOT
   (`usbBridgeWriteUnfinishedClear()`), which ends the claim: the next entry
   to USB BRIDGE starts with none. A RUN counts once core1 has taken it from
-  the frame slot, not at its handover: a RUN handed over just before BACK
+  the frame slot, not at its handover: a RUN handed over shortly before BACK
   is never sent, and the note stays. A board reset or a power loss in the
   middle of a flash still restarts with DShot on SIG and no note.
   Host-tested, not on hardware.
