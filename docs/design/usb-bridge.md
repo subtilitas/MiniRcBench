@@ -59,13 +59,13 @@ that commit.
 | Betaflight (`betaflight/betaflight`) | 134ce0f | `src/main/io/serial_4way.c` lines 71 to 91, 137 to 182, 191 to 295, 344 to 394, 445 to 497, 597 to 625; `src/main/io/serial_4way_avrootloader.c` lines 49 to 74, 76 to 194, 196 to 229, 231 to 345; `src/main/io/serial_4way.c` lines 641 to 661; `src/main/target/common_pre.h` lines 103, 104, 258, 310, 324, 326; `src/main/msp/msp.c` lines 881 to 895; `src/main/msp/msp.c` lines 293 to 350; `src/main/msp/msp_protocol.h` lines 59 to 62, 94 to 272; `src/main/drivers/serial_escserial.c` lines 52, 920 to 1003; `src/main/cli/cli.c` lines 4834 to 4867, 8776 | GPL-3.0; read as the flight-controller side's reference, nothing copied |
 | ESC-Configurator (`stylesuxx/esc-configurator`), v0.32.1 | 21b407a | `src/utils/Serial.js` lines 27, 140 to 144; `src/Containers/App/serialSlice.js` line 4; `src/Containers/App/index.jsx` lines 172, 206 to 312, 439 to 470; `src/utils/Msp.js` lines 13 to 35, 130 to 138, 404 to 557, 789; `src/utils/FourWay.js` lines 125 to 135, 1395 to 1500; `src/utils/FourWayConstants.js` lines 12 to 26; `src/utils/helpers/Flash.js` lines 154 to 160 | AGPL-3.0; read, nothing copied |
 | AM32 configurator (`am32-firmware/am32-configurator`) | e11c42e | `components/SerialDevice.vue` lines 415 to 417, 505 to 540, 612 to 660, 674 to 702, 813 to 817, 1076 to 1083; `src/communication/direct.ts` lines 6 to 19, 103 to 120, 236 to 266; `src/communication/msp.ts` lines 118 to 126; `src/communication/four_way.ts` lines 87, 623 to 625; `src/communication/commands.queue.ts` lines 48 to 118 | no licence file at that commit; read, nothing copied |
-| AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 | `bootloader/main.c` lines 45, 52, 396 to 398, 423 to 466, 546 to 565, 576 to 579, 815 to 816, 835 to 860, 1097 to 1157, 1217 to 1281, with 1156 and 1263 | GPL-3.0; read, nothing copied |
+| AM32 bootloader (`am32-firmware/AM32-bootloader`) | 578ff29 | `bootloader/main.c` lines 45, 52, 396 to 398, 423 to 473, 546 to 565, 576 to 579, 815 to 816, 835 to 860, 1097 to 1157, 1217 to 1281 | GPL-3.0; read, nothing copied |
 | AM32 firmware 2.22 | 2a695a8 | `Src/main.c` lines 2137 to 2163 | GPL-3.0; read, as in [esc-commands.md](esc-commands.md#sources) |
 | BLHeli_S (`bitdump/BLHeli`), revision 16.7 | a5bcf99 | `BLHeli_S SiLabs/BLHeliBootLoad.inc` lines 5 to 11, 48 to 91, 176 to 180, 205 to 215; `BLHeli_S SiLabs/BLHeli_S.asm` lines 3585 to 3605 | GPL-3.0; read, nothing copied |
 | Bluejay (`bird-sanctuary/bluejay`), revision 0.21 | 0368d11 | `README.md` lines 37 to 40; `src/BLHeliBootLoad.inc` line 238 | GPL-3.0; read, nothing copied |
 | rcbench (`subtilitas/rcbench`) | b88593d3 | `protocols/escwire/README.md` lines 1 to 60, 232 to 256; `protocols/escwire/rp2350/ew_line.h` lines 1 to 60 | MIT, same holder |
 | Pico SDK 2.1.1, with its TinyUSB | | `src/rp2350/hardware_regs/include/hardware/regs/io_bank0.h` lines 141, 277, 423, 561; `lib/tinyusb/src/class/cdc/cdc_device.c` lines 132 to 135; `lib/tinyusb/src/device/usbd.h` lines 97 to 99 | BSD-3-Clause, MIT |
-| This repository | `main` at 8c7ace3 | `src/usb_dev.{h,cpp}`, `src/usb_descriptors.c`, `src/tusb_config.h`, `src/usb_msc.{h,cpp}`, `src/ui_sdlog.cpp` lines 391 to 406, `src/ui_am32.h` lines 175 to 197, `src/am32_eeprom.h` line 43, `src/ui_kst.cpp` lines 610 to 628, `src/main.cpp`, `CMakeLists.txt` lines 315 to 329, `src/config.h` lines 577 to 640, `src/am32_bl.{h,cpp}`, `src/pin_claim.h`, `src/core1_job.h`, `src/pio_uart_rx.h`, `src/ui_am32.cpp`, `src/ui_registry.cpp`, `test/stubs/tusb.h`, [pin-claim.md](pin-claim.md), [menu-b.md](menu-b.md) | |
+| This repository | `main` at 8c7ace3 | `src/usb_dev.{h,cpp}`, `src/usb_descriptors.c`, `src/tusb_config.h`, `src/usb_msc.{h,cpp}`, `src/ui_sdlog.cpp` lines 391 to 406, `src/ui_am32.h` lines 175 to 197, `src/am32_eeprom.h` line 43, `src/ui_kst.cpp` lines 610 to 628, `src/main.cpp`, `CMakeLists.txt` lines 315 to 329, `src/config.h` lines 577 to 640, `src/am32_bl.{h,cpp}`, `src/pin_claim.h`, `src/ui_leave.h` lines 19 to 28, `src/core1_job.h`, `src/pio_uart_rx.h`, `src/ui_am32.cpp`, `src/ui_registry.cpp`, `test/stubs/tusb.h`, [pin-claim.md](pin-claim.md), [menu-b.md](menu-b.md) | |
 
 BLHeliSuite and BLHeliSuite32 are closed source. Every statement below
 about them is marked not verified.
@@ -281,7 +281,7 @@ The bridge is a new claim user, beside AM32:
 
 ```c
 // pin_claim.h
-enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec, Bridge, Count };
+enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec, Sbus, Bridge, Count };
 // PIN_USERS: who, job, unplug, escCheck, deferJob
 { PinUser::Bridge, Core1Job::Bridge, false, false, false },
 ```
@@ -309,7 +309,7 @@ page:
    GPIO. The bridge opens; the stdio driver goes off.
 4. BACK: the job releases the line; DShot is rebuilt on the latched wiring;
    the stdio driver comes back; after an unfinished write the leave page
-   comes first ([question 10](#open-questions)).
+   comes before DShot is rebuilt ([question 10](#open-questions)).
 
 ### The wire
 
@@ -427,7 +427,7 @@ DshotDisplay's bridge, kept as it is in behaviour:
   next PC frame. `SET_BUFFER` has no ACK of its own, and a bridge that
   waits for one corrupts the payload exchange that follows
   (`usb_bridge.h` lines 29 to 45);
-- the echo at wire pace, now from the wire (above);
+- the echo at wire pace, taken from the wire (above);
 - what was queued in CDC before the bridge opened is discarded
   (`usb_bridge.cpp` lines 40 to 42);
 - the counters `toEsc`, `toHost`, `frames`, `lastMs` (`usb_bridge.h` lines
@@ -560,29 +560,28 @@ reads DShot frames as bad 19200 baud frames; each bad command or CRC adds
 one to a count (`main.c` 546 to 565, 815 to 816), and above 100 the
 bootloader calls `jump()` (`main.c` 1276 to 1281). In builds without
 DroneCAN, `jump()` checks only the settings page's first byte and the
-firmware's first two words (`main.c` 423 to 466); CAN builds also check
-the application's signature (`DroneCAN_boot_ok()`, `main.c` 466 to 473).
-So about 100 ms after DShot resumes AM32 starts the
+firmware's first two words (`main.c` 423 to 466); controller area network
+(CAN) builds also check the application's signature (`DroneCAN_boot_ok()`,
+`main.c` 466 to 473). So about 100 ms after DShot resumes AM32 starts the
 firmware in flash, a half-written one included when a flash was cut after
 its first page. This is inferred, not measured. A power-up does the same:
 the AM32 bootloader runs `checkForSignal()` at every reset (`main.c` line
 1263) and calls `jump()` once it has seen SIG low (`main.c` 1097 to 1157,
 "floating & low at least once", line 1156), and DShot drives SIG low. No
-page on the bench keeps a cut flash from starting at the next power-up
-with DShot on SIG; only a complete flash does. After a write-class frame
-with no later RUN or `cmd_DeviceReset`, BACK therefore shows a leave page
-before DShot resumes, with the note `FLASH THE ESC AGAIN BEFORE USE.`, by
-[question 10](#open-questions)'s recommendation. `cmd_InterfaceExit` does
-not count as a finished write: the AM32 configurator's disconnect sends
-only Exit (`SerialDevice.vue` 813 to 817), and its flash sends
-`cmd_DeviceReset` only after `writeHex()` returns (1076 to 1083), so a
-failed flash ends in Exit alone. The cost: a session that only wrote
-settings and then disconnected also gets the page, unless slice 3 counts
-only writes outside the settings page, whose address question 12 needs
-too. For BLHeli_S and
-Bluejay what their bootloader does with DShot frames is not verified. The
-screen's last lines say to power-cycle the ESC after a flash and whenever
-the tool finds no ESC.
+page on the bench keeps a cut flash from starting at the next power-up with
+DShot on SIG; only a complete flash does. After a write-class frame with no
+later RUN or `cmd_DeviceReset`, BACK therefore shows a leave page before
+DShot resumes, with the note `FLASH THE ESC AGAIN BEFORE USE.`, by [question
+10](#open-questions)'s recommendation. `cmd_InterfaceExit` does not count as
+a finished write: the AM32 configurator's disconnect sends only Exit
+(`SerialDevice.vue` 813 to 817), and its flash sends `cmd_DeviceReset` only
+after `writeHex()` returns (1076 to 1083), so a failed flash ends in Exit
+alone. The cost: a session that only wrote settings and then disconnected
+also gets the page, unless slice 3 counts only writes outside the settings
+page, whose address question 12 needs too. For BLHeli_S and Bluejay what
+their bootloader does with DShot frames is not verified. The screen's last
+lines say to power-cycle the ESC after a flash and whenever the tool finds
+no ESC.
 
 ## Screen
 
@@ -797,7 +796,7 @@ and changed lines, rough.
 
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
-| 1. Line and claim | `PinUser::Bridge`, `Core1Job::Bridge`, the PIO line (`src/bridge_line.pio`), the slot and the ring from `bridge_wire.*`, the PIO budget table in [pin-claim.md](pin-claim.md) | about 300 | about 300 | STATUS, CHANGELOG | |
+| 1. Line and claim | `PinUser::Bridge`, `Core1Job::Bridge`, the PIO line (`src/bridge_line.pio`), the slot and the ring from `bridge_wire.*`, the leave page per claim, the PIO budget table in [pin-claim.md](pin-claim.md) | about 300 | about 300 | STATUS, CHANGELOG | |
 | 2. Passthrough and the screen | `src/usb_bridge.*`, the stdio switch in `usb_dev.cpp`, the screen `src/ui_bridge.*`, the entry by question 1, `test_ids.cpp`, the preview, DshotDisplay's tests, the log by question 8; README section, wiki pages in English and German | about 450 | about 500 | about 200 | 1 |
 | 3. MSP and the 4-way interface | `src/bridge_msp.*`, `src/bridge_4way.*`, the bootloader frames (escwire's if item (6) copied them), mode detection | about 600 | about 700 | about 80 | 2 |
 | 4. Bring-up | B1 to B10 | none | none | the record in STATUS | 1 to 3 |
