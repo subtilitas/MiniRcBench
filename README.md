@@ -58,13 +58,15 @@ screen is not built, and the driver has not run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slices 1 to 3 are built and host-tested: the summary
+on 2026-11-15. Its slices 1 to 4 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
-([Blackbox logging to microSD](#blackbox-logging-to-microsd)), and SD LOG
-showing it after a stop; the clock is not built. The owner's board has no cell
-in the RTC socket J2, so its clock is set again after each power-up, and
-files written before the set have FAT date 0.
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)), SD LOG
+showing it after a stop, and the clock read at start-up, dating the files
+and the summary's clock lines while it runs; the firmware cannot set the
+clock yet. The owner's board has no cell in the RTC socket J2, so its
+clock is to be set again after each power-up, and files written before the
+set have FAT date 0.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
@@ -1039,14 +1041,16 @@ looks the same to a board with no card-detect line
 (`src/sd_log_next.cpp`, tested over FatFs by `make -C test lognum`). After
 `LOG99999.BFL` no log starts and SD LOG says so. A file is
 created new, never over an existing one. Logs an earlier firmware wrote to
-the card's root stay there and are not counted. The board sets no clock.
+the card's root stay there and are not counted. Files carry the time of the
+board's real-time clock when the clock was running at start-up, else FAT
+date and time 0; the firmware cannot set the clock yet (see below).
 
 Each log that stops clean gets a run summary beside it, `LOGS/LOGnnnnn.TXT`
 with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
 `docs/design/run-summary.md`). It is plain ASCII (American Standard Code for
 Information Interchange) text, one value a line: the log's name, the
-firmware version, the clock at the start and the stop (`not set`: the clock
-is not built), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
+firmware version, the clock at the start and the stop (`2026-11-14 15:42:07`
+or `not set`), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
 `HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
 RPM, current and temperature, the minimum voltage while armed, the charge
 used by the KISS counter and from the current, and the logger's counters
@@ -1072,6 +1076,23 @@ removed when the card still allows it; after a close that fails, an empty
 `.TXT`. The `.TXT`, the `.BFL` beside it and every failure path are tested
 over FatFs R0.15 on a RAM disk by `make -C test lognum`
 (`test/sd_log_fatfs.cpp`).
+
+The clock is the board's PCF85063A at 0x51 on I2C1 (`src/clock.*`). `setup()`
+reads its registers 00h to 0Ah once, after `senseInit()`: 14 bytes on the wire,
+129 clocks, with a 1000 µs timeout, noted to the current sensor's bus record. A
+running clock, with the oscillator-stop flag OS and the bits STOP, EXT_TEST and
+12_24 clear and every time register in range, is the time from then on, kept by
+the 64-bit microsecond timer; no bus transfer follows. Anything else leaves the
+clock not set until the next start-up. With OS set, the oscillator has stopped
+since the time was written, as at every power-up of a board without a cell on
+J2: the firmware sends the software reset, 58h to Control_1, and turns CLKOUT
+off, 07h to Control_2. FatFs stamps files through `get_fattime()`, which returns
+the kept time packed while the clock is set and 0 otherwise; the SD library's
+`my_rtc.c`, with its own `get_fattime()`, is not in the firmware build. The
+run summary takes the clock at the log's start and
+at its stop. Nothing in the firmware sets the clock yet: that is slice 5 of
+`docs/design/run-summary.md`, over USB. Tested against a register-level model of
+the part in `test/fake_i2c.*` (`test/test_clock.cpp`); not tested on hardware.
 
 ![SD log screen](docs/log-preview.png)
 
@@ -2464,10 +2485,11 @@ three failed transactions take the part offline, two timeouts of 1000 µs in
 a row or a line held low mark the bus stuck, and a recovery, 9 clocks on SCL
 and a STOP, runs at once and every 100 ms while it is stuck, with CURRENT
 SENSE at `NONE` too, since touch and the IMU share the bus. The touch
-driver and the IMU driver report their own transfers to the same record; an
-abort with a line still low 10 µs after it counts as a stuck bus, not as a
-missing part. The probe reads the configuration register first and writes
-a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
+driver, the IMU driver and the clock's read at start-up (`src/clock.cpp`)
+report their own transfers to the same record; an abort with a line still
+low 10 µs after it counts as a stuck bus, not as a missing part. The probe
+reads the configuration register first and writes a register only when it
+reads as an INA219's, 399Fh or 19EFh; another chip
 at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
 (`src/sense.h`), under a lock of its own, for core1, where the servo
@@ -2672,6 +2694,7 @@ src/
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
   run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure)
+  clock.{h,cpp}         the PCF85063A real-time clock: start-up read, kept time, get_fattime()
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_log_summary.{h,cpp} the run summary's .TXT beside its log, over FatFs
   sd_hw_config.c        SD wiring for the FatFs driver
@@ -2813,7 +2836,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,458 of 11,647 lines in 73 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,574 of 11,763 lines in 75 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

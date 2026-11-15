@@ -6,6 +6,7 @@
 #if SD_LOG_ENABLE
 
 #include "blackbox_encode.h"
+#include "clock.h"
 #include "log_ring.h"
 #include "esc_task.h"
 #include "esc_merge.h"
@@ -76,8 +77,13 @@ static bool     s_sumKept = false;
 /** @brief MOTOR POLES when @ref s_sum ended. */
 static uint8_t  s_sumPoles = 0;
 
-/** @brief End the run summary now, @p how, and keep the pole count for its RPM. */
+/**
+ * @brief End the run summary now, @p how, and keep the pole count for its
+ *        RPM. The clock is read at the first end only: a failure later in
+ *        the stop keeps the stop's reading.
+ */
 static void endSummary(RunSumEnd how) {
+	if (s_sum.end == RunSumEnd::Running) clockNow(&s_sum.clockStop);
 	runSumEnd(&s_sum, time_us_64(), how);
 	s_sumPoles = settings()->poles;
 }
@@ -299,6 +305,7 @@ bool sdLogStart() {
 	s_lastSyncMs = millis();
 	s_draining = false;
 	runSumBegin(&s_sum, time_us_64(), s_armed);
+	clockNow(&s_sum.clockStart);
 	s_sumKept = true;
 	s_state = SdLogState::Logging;
 	return true;

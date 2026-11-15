@@ -44,6 +44,24 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the board's real-time clock dates the files on the
+  card and the run summary's clock lines, slice 4 of
+  [run-summary.md](docs/design/run-summary.md#slice-4-as-built).
+  `src/clock.*` reads the PCF85063A at 0x51 once at start-up, after
+  `senseInit()`, with its transfers noted to the current sensor's bus
+  record; a running clock's time is kept by the microsecond timer. With the
+  oscillator-stop flag set, as after a power-up without a cell on J2, the
+  firmware sends the part's software reset and turns CLKOUT off; with STOP,
+  EXT_TEST, 12-hour mode or a register out of range it writes nothing.
+  `get_fattime()` returns the kept time while the clock is set and 0
+  otherwise, and the SD library's `my_rtc.c` is left out of the firmware.
+  The `.TXT` carries `Clock at start` and `Clock at stop` as
+  `2026-11-14 15:42:07` or `not set`. Nothing sets the clock yet (slice 5),
+  so a board whose clock lost its power keeps FAT date 0. Host tests in
+  `test/test_clock.cpp` against a register-level PCF85063A model in
+  `test/fake_i2c.*`, and the clock lines in `test/test_run_summary.cpp` and
+  `test/sd_log_fatfs.cpp`. README and the wiki pages SD-Logging and
+  SD-Aufzeichnung describe the file dates. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): ESC COMMANDS, slice 2 of
   [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built), MENU's
   first row in place of BEEP THE ESC (decision 1, `src/ui_esc_cmd.*`). BEEP

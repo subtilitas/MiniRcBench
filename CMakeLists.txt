@@ -182,7 +182,9 @@ target_sources(sd_fatfs INTERFACE
     ${SD_FATFS_DIR}/src/file_stream.c
     ${SD_FATFS_DIR}/src/glue.c
     ${SD_FATFS_DIR}/src/my_debug.c
-    ${SD_FATFS_DIR}/src/my_rtc.c
+    # my_rtc.c is left out: src/clock.cpp defines get_fattime(), which FatFs
+    # calls for its time stamps, and the epochtime that crash.c reads. sdtest,
+    # which has no clock driver, compiles my_rtc.c itself.
     ${SD_FATFS_DIR}/src/util.c
     # The SDIO driver: protocol, PIO and DMA bus, library callbacks.
     ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_proto.c
@@ -256,6 +258,7 @@ add_executable(MiniRcBench
     src/esc_merge.cpp
     src/blackbox_encode.cpp
     src/run_summary.cpp
+    src/clock.cpp
     src/log_ring.cpp
     src/sd_log.cpp
     src/sd_log_next.cpp
@@ -384,6 +387,9 @@ add_executable(sdtest
     tools/sdtest/main.c
     tools/sdtest/msc_stubs.c
     src/sd_hw_config.c
+    # The library's get_fattime() and epochtime, which the firmware takes from
+    # src/clock.cpp instead: 0 while the always-on timer is not running.
+    ${SD_FATFS_DIR}/src/my_rtc.c
 )
 target_include_directories(sdtest PRIVATE src)
 target_link_libraries(sdtest

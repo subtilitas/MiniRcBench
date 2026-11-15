@@ -27,8 +27,11 @@ Groß- und Kleinschreibung (`log00007.bfl` ist für die Karte `LOG00007.BFL`);
 andere Namen wie `LOG0007.BFL`, `LOG00007.TXT` oder ein umbenanntes Log
 zählen nicht. Vorhandene Logs werden nicht überschrieben. Logs, die eine
 frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
-mit. Die Platine stellt keine Uhr; welches Datum die Dateien tragen, ist nicht
-geprüft.
+mit. Jede Datei trägt die Zeit der Echtzeituhr der Platine, wenn die Uhr
+beim Start schon lief: Die Platine liest sie dann und kann sie noch nicht
+stellen. Sonst, wie auf einer Platine, deren Uhr ohne Strom war, tragen die
+Dateien das FAT-Datum und die Uhrzeit 0, die kein gültiges Datum sind; wie
+ein Computer sie zeigt, ist nicht geprüft.
 
 Die Platine liest `LOGS` einmal, bei der ersten Aufzeichnung nach dem
 Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB DRIVE`,
@@ -112,7 +115,7 @@ Sie enthält einen Wert je Zeile:
 | Zeile | Inhalt |
 |---|---|
 | `Log`, `Firmware` | Der Dateiname der Aufzeichnung und die Firmware-Version |
-| `Clock at start`, `Clock at stop` | `not set`: Die Uhr der Platine wird nicht genutzt |
+| `Clock at start`, `Clock at stop` | Die Uhr der Platine zu Beginn und am Ende der Aufzeichnung, als `2026-11-14 15:42:07`, oder `not set`, wenn die Uhr beim Start nicht lief |
 | `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` oder `ESC SETTINGS` |
 | `Duration`, `Armed` | Die Dauer der Aufzeichnung und die Zeit, die sie davon scharf war, in Sekunden |
 | `Max RPM` | Die höchste Drehzahl: DShot-eRPM (elektrische Drehzahl), oder KISS-eRPM in einer Aufzeichnung ohne DShot-eRPM, geteilt durch die Hälfte des Werts von `MOTOR POLES` beim Beenden |
