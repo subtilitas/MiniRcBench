@@ -1774,7 +1774,7 @@ the wording the owner decided; these changes stand here only.
 Revision of 2026-11-14, menu structure B ([menu-b.md](menu-b.md#decisions)),
 built: SERVO SUPPLY is a core section of SETTINGS after WIRING, whichever
 tools MENU lists (decision 9), and its no-switch value reads `OWN`, stored
-as 0 as before (decisions 15 e and 22); `NONE` in this note is that value.
+as 0 (decisions 15 e and 22); `NONE` in this note is that value.
 MENU has no KST SERVO row: PROGRAMMER's KST / CHASERVO entry opens the
 screen (owner decision 2). Decision 18's unplug page is the leave page
 (owner decision 3). Decisions 8 and 18 keep their wording; these changes

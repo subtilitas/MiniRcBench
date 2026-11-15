@@ -719,7 +719,7 @@ Decision of the owner, 2026-11-14:
     under an applied heli profile holds when the change keeps the profile
     inside its travel or moves MIN toward the centre. Not checked on a servo.
 
-Decision of the owner, 2026-11-14, on the review of PR #55:
+Decision of the owner, 2026-11-14:
 
 22. **A second servo past the travel.** SERVOS ONE to TWO while the profile
     is past its travel waits for HOLD TO APPLY, since it drives a second

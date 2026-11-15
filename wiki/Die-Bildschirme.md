@@ -159,7 +159,7 @@ Die Schätzung braucht außerdem mindestens 75 % Gas, 1 s lang innerhalb von 1 %
 (20 von 2000) um einen Wert, damit ein auf dem Balken ruhender Finger sie nicht
 aufhält, einen Motor, der seine Drehzahl erreicht hat (die geglättete eRPM
 innerhalb von 0,5 % der letzten Antwort), und keinen 3D-Hinweis; der 3D-Hinweis
-nimmt die Zeile ein wie bisher. Beide Werte enden bei 99999. Keiner bleibt nach
+nimmt die Zeile ein. Beide Werte enden bei 99999. Keiner bleibt nach
 dem Entschärfen stehen: Entschärft zeigt die Zeile nur `ERPM` und die Zeile
 darunter `14 POLES`.
 

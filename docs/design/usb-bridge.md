@@ -515,7 +515,7 @@ copied it, and not its guard or session.
 | No MSP motor command | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
 | Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write (decision 7) |
 | No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written (decision 6) |
-| A leave page at every BACK of a running bridge | BACK once the line is bound, whatever the tool sent; the note `FLASH THE ESC AGAIN BEFORE USE.` after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC waiting in its bootloader, where a garbled frame can pass as a command, or whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10 as revised) |
+| A leave page at every BACK of a running bridge | BACK once the line is bound, whatever the tool sent; the note `FLASH THE ESC AGAIN BEFORE USE.` after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC waiting in its bootloader, where a garbled frame can pass as a command, or whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10) |
 | MENU's run cue | from the claim's begin until RESTART DSHOT or an eRPM frame | an ESC left in its bootloader taken for a dead one |
 | No bridge while USB DRIVE holds the card | the entry, by decision 11 | the card served to a host and a desktop tool on one cable at once (decision 11) |
 | `PROPELLER OFF.` on the screen | the screen | below |
@@ -961,7 +961,7 @@ against a desktop tool.
 screen; `usbDevConsole()` and `usbDevConsoleOn()` in `src/usb_dev.*`, the
 console switch; `usbBridgeTask()` in core0's `loop()` right after
 `usbDevTask()`; `UiScreenId::Bridge`; the second line of
-`UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, now with its screen and the
+`UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, with its screen and the
 lines `A DESKTOP ESC TOOL OVER USB.` and `PASSTHROUGH: AM32 DIRECT MODE.`;
 `USB_BRIDGE_LOG` 0 and `USB_BRIDGE_LOG_BYTES` 4096 in `src/config.h`. Tests:
 `test/fake_cdc.*`, the serial port with a PC behind it;
@@ -1007,7 +1007,7 @@ stays on; MENU's run cue stands from the claim's begin
    handover makes that count reach its mark early, and BACK live before
    the answer; the tools wait for an answer before the next frame, and the
    leave page does not depend on it.
-5. **BACK and the unfinished write** (decision 10 as revised twice). Every BACK
+5. **BACK and the unfinished write** (decision 10). Every BACK
    of a running bridge gives the leave page, as the servo tools' BACK does,
    whatever the tool sent: an ESC powered up while SIG is held high enters its
    bootloader, AM32 2.22 enters it after about 2 s without a signal, a tool may
@@ -1151,20 +1151,16 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    off by default. This is the recommendation.
 9. **`SERIAL_TELEMETRY`.** Option (a): stays 1. This is the
    recommendation.
-10. **BACK after an unfinished write.** Option (a): the leave page with
-    `POWER THE ESC OFF.`, `RESTART DSHOT.` and `FLASH THE ESC AGAIN BEFORE
-    USE.`. This is the recommendation. Revised by the developer on
-    2026-11-15, in the review of slice 2: the page comes once a bootloader
-    is reached, an INIT answered or a write-class frame sent, until a RUN.
-    A session that only reads leaves the ESC waiting in its bootloader as
-    one that writes does, and DShot frames then reach it; an EFM8
-    bootloader checks only the CRC's low byte, so about 1 garbled frame in
-    256 passes as an erase or a program
+10. **BACK after an unfinished write.** The developer's call of 2026-11-15:
+    the leave page with `POWER THE ESC OFF.` and `RESTART DSHOT.`, and after
+    a write with no RUN behind it also `FLASH THE ESC AGAIN BEFORE USE.`. A
+    session that only reads leaves the ESC waiting in its bootloader as one
+    that writes does, and DShot frames then reach it; an EFM8 bootloader
+    checks only the CRC's low byte, so about 1 garbled frame in 256 passes
+    as an erase or a program
     ([bluejay-blheli-s.md](bluejay-blheli-s.md#safety), decision 8 there).
-    The note `FLASH THE ESC AGAIN BEFORE USE.` stays for a write.
-    Revised again by the developer on 2026-11-15, in the re-review: a
-    running bridge claim gives the leave page at every BACK, as the servo
-    tools do. An ESC can wait in its bootloader with no greeting of the
+    A running bridge claim gives the leave page at every BACK, as the
+    servo tools do. An ESC can wait in its bootloader with no greeting of the
     PC's answered: one powered up while SIG is held high enters it, which
     the screen asks for; AM32 2.22 enters it after about 2 s without a
     signal; a tool may send MSP rather than the greeting; BACK may come

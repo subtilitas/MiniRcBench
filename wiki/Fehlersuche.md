@@ -308,7 +308,7 @@ Voreinstellung. Also:
   einen Pin;
 - CURRENT SENSE steht nach Version 2, 3 oder 4 auf `NONE`; nach Version 5
   behält es seinen Wert. SERVO SUPPLY steht nach Version 2 oder 3 auf
-  `OWN`, denn der Schalter auf GP0 aus Version 3 liegt jetzt auf dem Pin
+  `OWN`, denn der Schalter auf GP0 aus Version 3 liegt auf dem Pin
   des ESC-Kabels; nach Version 4 oder 5 behält es `GP28` oder `GP29`;
 - ALONG AXIS, LENGTH, SIGN und die Kalibrierung des Winkelmessers stehen
   auf ihrer Voreinstellung: `LONG`, `OFF`, `NORMAL` und keine.

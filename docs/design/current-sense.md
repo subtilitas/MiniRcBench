@@ -1139,8 +1139,8 @@ before.
   the KST search's BEC warning share the two lines, and
   `THE SERVO MOVES TO CENTRE AT START.` is left out with the switch.
   [menu-b.md](menu-b.md#decisions) decision 12's `GP28 SUPPLY STAYS OFF
-  HERE.` is replaced by the phase, since it is no longer true; that decision
-  carries a revision note. The start-up time does not go into a log; the
+  HERE.` is replaced by the phase, as the line is false with the switch; that
+  decision carries a revision note. The start-up time does not go into a log; the
   log is slice 6. The sensor-lost cut and its `NO SENSOR` chip are slice 4's
   ([slice 4 as built](#slice-4-as-built)).
 - **Choices the note does not settle.** A supply that did not come up is no
