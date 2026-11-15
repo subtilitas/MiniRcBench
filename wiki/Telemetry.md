@@ -102,7 +102,8 @@ hold:
 
 - the link has been up for 300 ms, so the ESC has finished booting;
 - the tester is disarmed and the motor is stopped (eRPM is zero);
-- no other command, such as BEEP, is being sent.
+- no other command, such as BEEP, is being sent, nor the zero throttle
+  that follows it.
 
 An ESC executes a DShot command only after a run of identical frames, so an
 enable sent at another time would be lost.

@@ -27,6 +27,7 @@ void runUsbMscTests();
 void runDshotFrameTests();
 void runDshotTelemTests();
 void runDshotEdtTests();
+void runEscCmdTests();
 void runSdioTests();
 void runClaimTests();
 void runServoTests();
@@ -65,6 +66,7 @@ int main() {
 	runDshotFrameTests();
 	runDshotTelemTests();
 	runDshotEdtTests();
+	runEscCmdTests();
 	runSdioTests();
 	runClaimTests();
 	runServoTests();
