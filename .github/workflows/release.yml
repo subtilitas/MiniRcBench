@@ -268,7 +268,7 @@ jobs:
 
           ## Licences
 
-          MiniRcBench's own code is MIT. The models, CAD files and drawings
+          The image's own code is MIT. The models, CAD files and drawings
           in the repository are CC BY-NC-SA 4.0 and are not part of the image
           (`hardware/LICENSE-CAD.txt`). The image also contains the Pico SDK
           (software development kit), TinyUSB, an SD (Secure Digital) card

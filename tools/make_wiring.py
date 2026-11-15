@@ -18,7 +18,7 @@ the drawing follows the code:
 - INA219_ADDR and INA219_SHUNT_MOHM in src/sense.h, the sensor's address
   and shunt.
 
-The drawing and this script are CC-BY-NC-SA-4.0 (hardware/LICENSE-CAD.txt);
+The drawing and this script are CC BY-NC-SA 4.0 (hardware/LICENSE-CAD.txt);
 the SVG carries the identifier in its first line.
 
 Usage:

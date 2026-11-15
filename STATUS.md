@@ -370,27 +370,32 @@ caliper on a board. Sources, limits and commands are in
 OpenCASCADE (cadquery-ocp 8.0.1.1.0) by `check_models.py`, outside CI: 1039 valid solids, none
 sharing volume.
 
-**Licence of the models and CAD files.** CC BY-NC-SA 4.0
-(Attribution-NonCommercial-ShareAlike 4.0 International) covers
-`hardware/cad/` and `hardware/mechanical/`, the models, renders and generator
-scripts, the wiring drawing `docs/wiring.svg` (and the wiki's copy) with
-`tools/make_wiring.py`, and the copies of rcbench's model generators in
-`lib/rcbench/hardware/`; the rest of the repository is MIT.
+**Licence of the models, CAD files and drawings.** CC BY-NC-SA 4.0
+(Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International)
+covers `hardware/cad/`; in `hardware/mechanical/` the models, renders and the
+scripts that generate or trace them or check the models; the wiring drawing
+`docs/wiring.svg` (and the wiki's copy) with `tools/make_wiring.py`; and the
+copies of rcbench's model generators in `lib/rcbench/hardware/`. The rest of
+the repository is MIT, `LICENSE` and `check_photo.py` included.
 [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt) holds the legal code, as
 copied from creativecommons.org, and the Waveshare name and logo as
-Waveshare's trademarks. The `.py` files, the four `.step` files and the SVG carry the
-identifier; the Alibre files, the `.stp` files and the renders carry none,
-and the directory's licence covers them. `test/check_docs.py` checks this,
-mutation-checked. Open: the `lib/rcbench/hardware/` copies are unchanged and
-have no licence line, as in rcbench, until rcbench's licence change is merged
-and they are copied again; the two modules' STEP models differ from rcbench's
-in the licence in `FILE_DESCRIPTION` until then. rcbench's generator is being
-changed to write that text, so the copies match again after the re-copy. Not verified: whether Waveshare's STEP file of
-the ESP32-S3 board, which the board model's measurements came from, allows
-the licence on the files drawn from it. `LICENSE` opens with a line that limits its
-MIT text to the software and points to `hardware/LICENSE-CAD.txt`. The only
-drawing in the tree is `docs/wiring.svg`; the other images are screen
-previews and renders.
+Waveshare's trademarks.
+
+The `.py` files and the SVG carry the identifier. The STEP files, the Alibre
+files and the renders carry none; the licence file covers them.
+`test/check_docs.py` checks every tracked file, mutation-checked. The
+`lib/rcbench/hardware/` copies have no licence line at the rcbench commits
+they come from. rcbench pull request 860 puts the CC line at the end of each
+module docstring, and the copies take it when they are copied again; the
+check allows both states. The generated STEP models are rcbench's bytes.
+
+Not verified: whether the licence may be applied to files drawn from
+Waveshare's material. That is Waveshare's STEP file of the ESP32-S3 board (E)
+that the stack, outline and connectors were measured in, its dimension
+drawing (D), its rear photo (P), from which the print, the logo and the name
+on the rear are traced, and its angled photo (Q). The Alibre files cannot be
+read here. The only drawing in the tree is `docs/wiring.svg`; the other
+images are screen previews and renders.
 
 ## What exists and how far it is verified
 

@@ -1106,23 +1106,21 @@ protocol.
 
 - After v0.1.0-rc1: the models, CAD files and drawings move from MIT to
   CC BY-NC-SA 4.0 (Creative Commons Attribution-NonCommercial-ShareAlike 4.0
-  International): everything under `hardware/cad/` and `hardware/mechanical/`,
-  the wiring drawing `docs/wiring.svg` (and its copy `wiki/img/wiring.svg`,
-  made by `tools/make_previews.py`) with `tools/make_wiring.py`, which writes
-  its identifier into the SVG's first line, and the copies
-  of rcbench's model generators in `lib/rcbench/hardware/`, which stay
-  unchanged until rcbench's licence change is merged and they are copied
-  again. The legal code is [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt).
-  `LICENSE` opens with a line that limits its MIT text to the software.
-  Firmware, tests, other tools and documentation stay MIT. The `.py` files in
-  `hardware/mechanical/` gain `SPDX-License-Identifier: CC-BY-NC-SA-4.0`;
-  `gen_models.py` writes it into the `FILE_DESCRIPTION` of the three STEP
-  models it generates, and the fourth, `lipo_102540_1000mah.step`, carries
-  it by hand. The generated models differ from rcbench's in that field
-  until rcbench's generator writes it too.
-  `test/check_docs.py` checks the identifiers, the legal code by SHA-256
-  (Secure Hash Algorithm 256-bit) and that no file outside those directories
-  carries the new licence.
+  International): everything under `hardware/cad/`; in `hardware/mechanical/`
+  the STEP models, the renders and the Python scripts that generate or trace
+  them or check the models; the wiring drawing `docs/wiring.svg` (and its
+  copy `wiki/img/wiring.svg`, made by `tools/make_previews.py`) with
+  `tools/make_wiring.py`, which writes its identifier into the SVG's first
+  line; and the copies of rcbench's model generators in
+  `lib/rcbench/hardware/`, which stay unchanged. The README in
+  `hardware/mechanical/` and `check_photo.py` stay MIT, as do the firmware,
+  tests, other tools and documentation. The legal code is
+  [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt). The `.py` files gain
+  `SPDX-License-Identifier: CC-BY-NC-SA-4.0`; the STEP files carry no line
+  and the licence file covers them. `test/check_docs.py` checks the
+  identifiers in every tracked file, the legal code by SHA-256 (Secure Hash
+  Algorithm 256-bit) and that no file outside those paths carries the new
+  licence.
 - After v0.1.0-rc1: MENU has eight rows, `TOOLS` the sixth before SD LOG,
   by decision 1 of [angle-meter.md](docs/design/angle-meter.md#decisions)
   and the MENU of [menu-b.md](docs/design/menu-b.md#menu). It scrolls 78 px:

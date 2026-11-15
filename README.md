@@ -3943,24 +3943,25 @@ The licence terms are in [LICENSE](LICENSE).
 ## License
 
 This repository is MIT (see `LICENSE`), the DShot driver in `src/dshot/` and
-the SDIO card driver in `src/sdio/` included, except the models and CAD files.
-Those are licensed under
+the SDIO card driver in `src/sdio/` included, except the models, CAD files and
+drawings. Those are licensed under
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 (Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International):
 you may use and adapt them for non-commercial purposes only, you must give
 credit, and you must share adaptations under the same licence. They are:
 
 - everything under `hardware/cad/`: the Alibre Design assemblies and parts;
-- everything under `hardware/mechanical/`: the STEP models, the renders and
-  the Python scripts that generate, check or trace them;
+- in `hardware/mechanical/`: the STEP models, the renders and the Python
+  scripts that generate or trace them or check the models; its README and
+  `check_photo.py` are MIT;
 - the wiring drawing `docs/wiring.svg`, its copy `wiki/img/wiring.svg` and
   `tools/make_wiring.py`, which draws it;
 - the copies of rcbench's model generators in `lib/rcbench/hardware/`.
 
 The legal code is in [hardware/LICENSE-CAD.txt](hardware/LICENSE-CAD.txt), which
 also names the Waveshare name and logo in the board model as Waveshare's
-trademarks. The MIT licence covers the software: firmware, tests, other tools
-and documentation. The firmware image holds no hardware file, and
+trademarks. The MIT licence in `LICENSE` covers the software: firmware, tests,
+other tools and documentation. The firmware image holds no hardware file, and
 `THIRD_PARTY_NOTICES.txt` lists none.
 
 A firmware image also contains the libraries it links, each under its own

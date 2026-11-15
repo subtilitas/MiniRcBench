@@ -19,16 +19,16 @@ Files covered
   tools/make_wiring.py, the script that draws it.
 - hardware/cad/: the Alibre Design assemblies and parts (.AD_ASM, .AD_PRT).
 - hardware/mechanical/: the STEP models (.step, .stp), the renders (.png)
-  and the Python scripts that generate, check or trace the models, with the
-  data files they hold (_print.py).
-- lib/rcbench/hardware/: the copies of rcbench's model generators. Their
-  licence is CC BY-NC-SA 4.0 as model generators. They are unchanged copies
-  of rcbench's files and are re-copied once rcbench changes their licence.
-  Until then the copies carry no licence line of their own.
+  and the Python scripts that generate or trace the models or check them,
+  with the data files they hold (_print.py).
+- lib/rcbench/hardware/: the copies of rcbench's model generators, which are
+  under this licence as model generators.
 
-Everything else in the repository, the firmware, tests, other tools and
-documentation included, is under the MIT licence of the file LICENSE in the
-repository root.
+Everything else in the repository is under the MIT licence of the file
+LICENSE in the repository root: the firmware, tests, other tools and
+documentation, the README files in hardware/ and
+hardware/mechanical/check_photo.py, which overlays the model on a photo and
+generates nothing.
 
 Third-party marks
 -----------------

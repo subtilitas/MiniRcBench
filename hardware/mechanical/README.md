@@ -120,9 +120,8 @@ positions from P are corrected by that. The table of positions is in
 
 Two STEP models of modules wired to the board, drawn part by part with the
 print of both sides. Their specs are rcbench's, copied unchanged to
-[lib/rcbench/hardware/mechanical/](../../lib/rcbench/README.md). The two
-files are rcbench's bytes except the licence that `gen_models.py` writes after
-the product name in the `FILE_DESCRIPTION` of the header.
+[lib/rcbench/hardware/mechanical/](../../lib/rcbench/README.md), and the two
+files are the same bytes as rcbench's.
 
 | | |
 | --- | --- |
@@ -193,27 +192,32 @@ standoff, and every box it draws lies on its part.
 
 ## Licence
 
-Everything in this directory and in `hardware/cad/` is licensed under
+The models, renders and Python scripts in this directory, and everything in
+`hardware/cad/`, are licensed under
 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 (Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International):
-the STEP models, the renders and the Python scripts that generate, check or
-trace them, `_print.py` included. You may share and adapt them for
+the STEP models, the renders and the scripts that generate or trace them or
+check the models, `_print.py` included. You may share and adapt them for
 non-commercial purposes, with credit, and must distribute adaptations under
 the same licence. The legal code is in
-[hardware/LICENSE-CAD.txt](../LICENSE-CAD.txt). The rest of the repository,
-the firmware, tests, tools and documentation, is MIT.
+[hardware/LICENSE-CAD.txt](../LICENSE-CAD.txt).
+
+This README is documentation and is MIT, as is `check_photo.py`, which
+overlays the model on Waveshare's photo to verify it and generates nothing.
+The rest of the repository, the software, is MIT.
 
 | File type | Where the licence is stated |
 | --- | --- |
-| `*.py` | the line `# SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the top |
-| `models/*.step` | the same identifier in `FILE_DESCRIPTION` of the header; `gen_models.py` writes it, and `--check` compares it |
-| `models/*.stp`, `renders/*.png`, `hardware/cad/` | no line in the file; the licence of the directory |
+| `*.py` | the line `# SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the top, except `check_photo.py`, which reads MIT |
+| `models/*.step`, `models/*.stp`, `renders/*.png`, `hardware/cad/` | no line in the file; `hardware/LICENSE-CAD.txt` covers them |
 
 The Waveshare name and logo on the board's model are Waveshare's trademarks;
 the licence gives no right to them.
 
 `lib/rcbench/hardware/` holds copies of rcbench's model generators. They are
-under CC BY-NC-SA 4.0 as model generators. As in rcbench, they carry no
-`SPDX-License-Identifier` line, and they stay unchanged until they are copied
-again from rcbench. `test/check_docs.py` checks the identifiers above and that
-no file outside these directories carries CC BY-NC-SA 4.0.
+under CC BY-NC-SA 4.0 as model generators. The copies carry no
+`SPDX-License-Identifier` line at the rcbench commits they were taken from.
+rcbench's licence change (pull request 860) puts the CC line at the end of
+each module docstring, and the copies take it when they are copied again.
+`test/check_docs.py` allows either state there, checks every other file under
+`hardware/` for the CC line only, and every file elsewhere for MIT.
