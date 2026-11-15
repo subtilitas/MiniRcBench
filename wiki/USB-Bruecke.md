@@ -82,21 +82,17 @@ abziehen), und `BACK` ist grau, bis der ESC antwortet oder 3 s vergehen.
 `BACK` sendet nichts an den ESC. Was danach geschieht, hängt von der
 Sitzung ab:
 
-- **Der Bootloader des ESC hat nie geantwortet**, oder das Programm hat am
-  Ende die Firmware gestartet: `BACK` führt zu MENU, und DShot startet
-  wieder.
-- **Der Bootloader hat geantwortet, und das Programm hat die Firmware nicht
-  gestartet**, auch nach bloßem Lesen: eine Verlassenseite, denn der ESC
-  wartet in seinem Bootloader, und DShot-Frames können als seine Befehle
-  durchgehen. Den ESC ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s
-  nach dem Öffnen der Seite. `BRIDGE` führt stattdessen zur Brücke zurück.
-- **Ein Schreiben ohne anschließenden Start der Firmware:** dieselbe Seite,
-  mit `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu
-  flashen). Den ESC vor dem Einsatz neu flashen, wie die Notiz sagt.
+`BACK` öffnet jedes Mal eine Verlassenseite, gleich was das Programm tat:
+Der ESC kann in seinem Bootloader sitzen, beim Einschalten oder von selbst
+dorthin gelangt, und DShot-Frames können als seine Befehle durchgehen. Den
+ESC ausschalten, dann `RESTART DSHOT` antippen, aktiv 1 s nach dem Öffnen
+der Seite. `BRIDGE` führt stattdessen zur Brücke zurück. Nach einem
+Schreiben ohne anschließenden Start der Firmware zeigt die Seite zusätzlich
+`FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu flashen).
 
 MENU zeigt `POWER-CYCLE THE ESC TO RUN IT` (den ESC aus- und einschalten,
-damit er läuft), solange ein Bootloader, den die Brücke erreicht hat, nicht
-zum Start aufgefordert wurde.
+damit er läuft), nachdem die Brücke lief, bis DShot von der Verlassenseite
+aus neu startet oder der ESC wieder auf DShot antwortet.
 
 Wird das USB-Kabel während eines Schreibens gezogen, während die Platine
 an ihrer eigenen Zelle läuft, behält sie den Signalpin und sendet nichts.

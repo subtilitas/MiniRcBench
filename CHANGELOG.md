@@ -189,10 +189,10 @@ protocol.
   free. The screen shows the port, `WAITING` or `PASSTHROUGH`, the bytes each
   way, `FRAMES`, `LOST` and the last command. BACK is drawn disabled while a
   PROGRAM, ERASE or SET BUFFER payload waits for its answer, at most 3000 ms,
-  and opens the leave page `POWER THE ESC OFF.`, `RESTART DSHOT.` once a
-  bootloader answered the greeting or a write went with no RUN behind it, a
-  read-only session included; MENU shows `POWER-CYCLE THE ESC TO RUN IT`
-  meanwhile. RUN counts only as 4 bytes with its CRC. While the bridge holds
+  and every other BACK of the running bridge opens the leave page `POWER THE
+  ESC OFF.`, `RESTART DSHOT.`, as the servo tools' BACK does; MENU shows
+  `POWER-CYCLE THE ESC TO RUN IT` from the open until RESTART DSHOT or an eRPM
+  frame. RUN counts only as 4 bytes with its CRC. While the bridge holds
   the port the clock's `CLOCK` line is off and goes to the ESC as data.
   `USB_BRIDGE_LOG`, 0 by default, builds DshotDisplay's traffic log
   (`src/bridge_log.*`), dumped on the port after BACK. DshotDisplay's bridge

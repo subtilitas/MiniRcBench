@@ -2780,15 +2780,19 @@ write-class.
 | When | BACK |
 |---|---|
 | a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
-| no bootloader reached since the bridge opened, or a RUN after it | returns to MENU; DShot comes back once the job has let the line go |
-| a bootloader reached, an INIT answered or a write sent, with no RUN behind it | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, RESTART DSHOT, live 1000 ms after the line is let go, to MENU |
+| before the line is bound: Stopping, or a failed bind | returns to MENU; DShot comes back at once, or once the job has let the line go |
+| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, RESTART DSHOT, live 1000 ms after the line is let go, to MENU |
 
-A bootloader is reached once the ESC answers an INIT, a byte beyond the
-greeting's echo, or a write-class frame goes out, and until a RUN, 4 bytes
-whose last two are the CRC of the first two. A session that only read
-leaves the ESC in its bootloader as one that wrote does, and DShot frames
-could pass as its commands. MENU shows `POWER-CYCLE THE ESC TO RUN IT`
-from the answer until a RUN, RESTART DSHOT or an eRPM frame.
+Once the line is bound the ESC may wait in its bootloader whatever the
+tool sent: one powered up while SIG is held high enters it, AM32 2.22
+enters it after about 2 s without a signal, a tool may send MSP rather
+than the greeting, and BACK may come before a greeting's answer. DShot
+frames could then pass as its commands. So every BACK of a running bridge
+gives the leave page, as the servo tools' BACK does. A RUN counts only as
+4 bytes whose last two are the CRC of the first two, and only for the
+note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the bridge's open
+until RESTART DSHOT or an eRPM frame; a RUN does not clear it, since a
+garbled frame could read as one.
 
 BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
 from the PC and drops a frame it was gathering; a frame already on the
