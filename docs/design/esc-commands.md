@@ -1,7 +1,8 @@
 # ESC commands and the kV estimate
 
-Status: designed, not built; waits on the owner's answers to the ten
-[open questions](#open-questions). The feature is item (1) of the owner's
+Status: designed, not built; the owner answered its questions on
+2026-11-15, see [decisions](#decisions); slices wait on being built. The
+feature is item (1) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: an ESC commands page and an RPM-per-volt and kV estimate on
 the tester, a design note first, then slices with reviews. No command of
@@ -169,8 +170,8 @@ AM32 sends a 10-byte KISS packet in their place while `send_telemetry` is set,
 and a command frame with the telemetry bit sets it (`dshot.c` 107 to 109;
 `main.c` 2272 to 2283): the information goes out on the first pass after the
 last such frame. On this bench the KISS receiver assembles 10-byte frames
-(`src/kiss_telem.cpp`), so reading the reply is new work:
-[question 8](#open-questions).
+(`src/kiss_telem.cpp`), so reading the reply is new work. The owner left it out
+(decision 8): no slice reads command 6.
 
 ## The command path today
 
@@ -212,7 +213,7 @@ command, its repeats, and an optional save after it.
 
 | Item | Value | Why |
 |---|---|---|
-| Commands accepted | 1 to 5, 7, 8, 9, 10, 12 | the table above; 6 waits on question 8; 13 and 14 stay the enable's own; 20, 21 and 22 to 29 are not offered |
+| Commands accepted | 1 to 5, 7, 8, 9, 10, 12 | the table above; 6 is left out (decision 8); 13 and 14 stay the enable's own; 20, 21 and 22 to 29 are not offered |
 | Repeats, 7 to 10 and 12 | 10, `DSHOT_CMD_REPEATS` | the seventh frame acts on Bluejay and BLHeli_S |
 | Repeats, beacons | 6, `BEEP_REPEATS`, as today | every open firmware acts on the first |
 | Gap after 7 to 10 and 12, `ESC_CMD_GAP_MS` | 300 ms of value 0 | BLHeli_32's "several hundred ms"; chosen, not measured. On AM32 and Bluejay the 0 frames also end the count; on BLHeli_S a 0 leaves it, and a different command, or the handler once it acts, resets it |
@@ -270,8 +271,8 @@ them.
 `escRequestBeep(n)` becomes `escRequestCommand(n, false)`. After slice 1,
 MENU's BEEP THE ESC therefore shows `REFUSED` while no ESC answers, while
 the motor turns and for 1500 ms after an ESC starts answering, where today
-it sends the beacon with no check of the link. Whether beacons are exempt
-from the answer rule is part of [question 5](#open-questions).
+it sends the beacon with no check of the link. Beacons are not exempt
+from the answer rule (decision 5).
 
 ### The page
 
@@ -297,8 +298,8 @@ heartbeat on every frame of every screen (`uiTick()`, line 1315), so the
 
 The holds write the ESC. Menu structure B puts writes on a write page that
 a tap opens ([menu-b.md](menu-b.md#decisions), decision 6). That rule is
-written for lists of changes; here one button is one change and names it:
-[question 3](#open-questions).
+written for lists of changes; here one button is one change and names it,
+so the hold stays on the page (decision 3).
 
 ### Safety and interlocks
 
@@ -309,10 +310,10 @@ written for lists of changes; here one button is one change and names it:
 | 1500 ms of answers | the slot; `Settling` | AM32's own arming, about 1 s |
 | A reply to frames 1 to 6 of each block, one miss allowed in 1 to 5 | the slot, from `out_dshot_poll()`'s result | a save reported as sent to an ESC that restarted or went |
 | A 1000 ms hold for each write | `ui_hold` | a brush of the glass writing the ESC |
-| Save in the same hold | the slot's sequence | a direction that reverts on the next power cycle, unseen ([question 2](#open-questions)) |
+| Save in the same hold | the slot's sequence | a direction that reverts on the next power cycle, unseen (decision 2) |
 | BACK disabled while waiting or sending | the page; the wait expires after 2000 ms | leaving mid-sequence, as during a write, and a request that fires later on another screen |
 | The 3D note | `uiAm32Esc3d()` today | a tester throttle whose lower half runs the motor reversed at twice its scale |
-| No answer, no command | the slot | a command to nothing, read as done ([question 5](#open-questions)) |
+| No answer, no command | the slot | a command to nothing, read as done (decision 5) |
 
 **The 3D note.** Today `AM32_UI_TESTER_3D`, `3D MODE ESC: THROTTLE SCALE
 DIFFERS` (35 characters, 209 px, `src/ui_am32.h` line 181), stands after an
@@ -324,18 +325,18 @@ screens write, `src/esc_3d.{h,cpp}`, and the tester reads it as before. A
 completed 3D ON hold sets it. A 3D OFF hold has no read-back, like an
 unverified write; by the PR #55 rule it leaves the note standing until the
 bench restarts or an AM32 list read shows 3D MODE off
-([question 4](#open-questions)).
+(decision 4).
 
 The flag is not stored (`s_esc3d` is a static in RAM): a restart of the
 bench drops the note while the ESC stays in 3D, saved by the 12 that
 followed the 10. The page says so after 3D ON (`THE NOTE ENDS AT A
-RESTART.`); question 4's option (c) stores the flag in the settings.
+RESTART.`); the flag is not stored in the settings (decision 4).
 
 The note's text, `3D MODE ESC: THROTTLE SCALE DIFFERS`, does not say that
-the lower half runs reversed. A text that does, `3D MODE ESC: 0-50%
+the lower half runs reversed. Slice 2 changes it to `3D MODE ESC: 0-50%
 REVERSED AT 2X` (33 characters, 197 px, from x 10 to 206, inside the 226
-of its `static_assert`), changes a shipped text of PR #55:
-[question 9](#open-questions).
+of its `static_assert`), a shipped text of PR #55 (decision 9). The tests,
+the previews and the wiki that quote the old text change with it.
 
 **Direction.** The bench cannot see it: an eRPM reply is a period with no
 sign (`src/dshot/dshot.h`, "carrying an electrical period rather than a
@@ -355,12 +356,12 @@ speed"). The pilot checks it:
 5. After a power cycle of the ESC, step 3 again: a direction that holds
    was saved.
 
-Whether the tester shows a note after a REVERSED hold, so that a later
-session knows the ESC was reversed here, is
-[question 10](#open-questions).
+The tester shows no note after a REVERSED hold (decision 10): the ESC's
+direction is the pilot's setting, and a note that a restart drops says
+nothing about the ESC on the pin.
 
-On BLHeli_32, byte 17 of the ESC information would say it, if question 8
-is built.
+On BLHeli_32, byte 17 of the ESC information would say it; the reply is
+not read (decision 8).
 
 ### MENU entry
 
@@ -368,7 +369,8 @@ Since PR #66, MENU has seven rows: BEEP THE ESC, AM32
 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, at a
 42 px pitch in a 258 px viewport, so MENU scrolls 36 px
 ([menu-b.md](menu-b.md#menu), decision 33). The page needs a way in, and
-each way changes something menu-b.md decides:
+each way changes something menu-b.md decides. The owner chose option (a)
+(decision 1). The options:
 
 | Option | MENU | Taps to a direction change | Changes |
 |---|---|---|---|
@@ -378,8 +380,11 @@ each way changes something menu-b.md decides:
 | (d) a fourth button on the tester | 7 rows | 1 tap and a hold | the tester's button row, 6/104, 116/54, 176/58 (menu-b "The tester"), has no room; the commands sit beside HOLD TO ARM |
 | (e) a tester readout: a tap on `DSHOT600` in the status bar (x 104 to 156, y 3) while disarmed opens the page, as `14 POLES` and `MAX 20%` open SETTINGS | 7 rows | 1 tap and a hold | the tester's status bar and slice 7's readout rule; its target rectangle is to be designed, beside the SD log state below it at y 14 |
 
-This note recommends (a): every BEEP is a DShot command, the page carries
-all five, and MENU keeps seven rows. [Question 1](#open-questions).
+Chosen: (a), the recommendation (decision 1). Every BEEP is a DShot
+command, and the page carries all five. `ESC COMMANDS` is MENU's first
+row. The row count of MENU after the decisions of 2026-11-15 on the other
+notes is eight, and the resulting list is the revision line in
+[menu-b.md](menu-b.md#menu).
 
 ### Screen
 
@@ -429,8 +434,8 @@ Message lines, each with its width; every one is at most 37 characters:
 | Sending a direction | `SENDING 8 (REVERSED), THEN 12 (SAVE).` (221 px) | `C_TEXT` |
 | Sent a direction | `SENT 8 (REVERSED), THEN 12 (SAVE).` (203 px) or `SENT 7 (NORMAL), THEN 12 (SAVE).` (191 px); `NOTHING CONFIRMS THE ESC TOOK THEM.` (209 px); `CHECK IT ON THE TESTER WITH 3D OFF.` (209 px) | `C_TEXT` |
 | Sending 3D | `SENDING 10 (3D ON), THEN 12 (SAVE).` (209 px) or `SENDING 9 (3D OFF), THEN 12 (SAVE).` (209 px) | `C_TEXT` |
-| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px); `THE NOTE ENDS AT A RESTART.` (161 px), unless question 4 chooses (c) | `C_TEXT`, the last three `C_AMBER` |
-| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); `THE 3D NOTE STAYS UNTIL A RESTART.` (203 px), by question 4's recommendation | `C_TEXT` |
+| Sent 3D ON | `SENT 10 (3D ON), THEN 12 (SAVE).` (191 px); `THE TESTER SHOWS THE 3D NOTE NOW.` (197 px); `IN 3D, 0 TO 50% RUNS REVERSED AT 2X;` (215 px); `ABOVE 50% THE SET WAY, FROM LOW.` (191 px); `THE NOTE ENDS AT A RESTART.` (161 px), as the flag is not stored (decision 4) | `C_TEXT`, the last three `C_AMBER` |
+| Sent 3D OFF | `SENT 9 (3D OFF), THEN 12 (SAVE).` (191 px); `THE 3D NOTE STAYS UNTIL A RESTART.` (203 px), by decision 4 | `C_TEXT` |
 | A beacon | `SENDING 3 (BEEP 3).` (113 px), then `SENT 3 (BEEP 3).` (95 px) | `C_TEXT` |
 | No answer | `NO ESC ANSWERS ON SIG GP0.` (155 px) | `C_AMBER` |
 | Motor turning | `MOTOR TURNING: WAIT UNTIL IT STOPS.` (209 px) | `C_AMBER` |
@@ -492,11 +497,11 @@ factor is what the estimate reads:
 | 75 % (1500) | × 0.92 | × 1.02 | × 1.00 |
 | 100 % (2000) | × 1.00 | × 1.00 | × 1.00 |
 
-AM32 CONFIG reads SINE STARTUP, SINE RANGE and MIN DUTY
-(`src/am32_eeprom.cpp` lines 118, 119, 178), so after a read the factor is
-known for AM32; [question 7](#open-questions) lists what to do with that.
-How Bluejay, BLHeli_S and BLHeli_32 map throttle onto duty is not verified.
-In 3D the assumption is false (above).
+AM32 CONFIG reads SINE STARTUP, SINE RANGE and MIN DUTY (`src/am32_eeprom.cpp`
+lines 118, 119, 178), so after a read the factor is known for AM32; the estimate
+does not use that read (decision 7): it is shown from 75 % throttle on every
+firmware. How Bluejay, BLHeli_S and BLHeli_32 map throttle onto duty is not
+verified. In 3D the assumption is false (above).
 
 In integers, as the tester holds them: `rpm` from the filtered eRPM over
 half the pole count, the figure the big readout shows (`drawRpm()`,
@@ -540,8 +545,8 @@ All of these, else `KV EST --`:
 1. Armed, the link alive, eRPM above 0, the pole count 2 or more.
 2. A voltage fresh from KISS or EDT, above 0.5 V (rcbench's floor,
    `motor_draw.c` line 178).
-3. t at least `KV_EST_MIN_THROTTLE`, by [question 7](#open-questions):
-   1500, 75 %, by its recommendation, where the AM32 factors in the table
+3. t at least `KV_EST_MIN_THROTTLE`, by decision 7:
+   1500, 75 %, where the AM32 factors in the table
    are × 0.92 to × 1.02, and × 1.08 with MIN DUTY at 25 %. Below it the
    field reads `KV EST 75%+` (11 characters, 65 px). At the default
    ceiling, 20 %, the estimate does not show; the pilot raises `MAX` in
@@ -551,7 +556,7 @@ All of these, else `KV EST --`:
    measured.
 5. The 3D note not standing.
 
-RPM/V needs 1 and 2 only. Neither is held after the disarm (question 7).
+RPM/V needs 1 and 2 only. Neither is held after the disarm (decision 7).
 Neither takes the duty factor into account.
 
 ### What it cannot know
@@ -579,7 +584,7 @@ It is labelled `KV EST`, never `KV`; the font has no `~` (glyphs 0x20 to
 
 ### On the tester
 
-Recommended layout, [question 6](#open-questions); the rest of the tester
+Layout of decision 6; the rest of the tester
 is as [menu-b.md](menu-b.md#the-tester) draws it.
 
 ```
@@ -642,7 +647,7 @@ to 19), from which both figures follow.
   beep's gap and while a request waits; `escCancelCommand()` on leaving;
   each state's lines, `NOT SENT` never after frame 6 of the first block;
   every string within its rectangle; the 3D note set by 3D ON and not
-  cleared by 3D OFF (question 4); the preview
+  cleared by 3D OFF (decision 4); the preview
   `docs/esccmd-preview.png`.
 - **The estimate,** `kv_est.h`: both formulas at the clamp, at 0.5 V and
   `KV_EST_MIN_THROTTLE` and their neighbours; the settle at 1000 ms and not at
@@ -660,7 +665,7 @@ Only an ESC settles these, one per firmware at hand:
   the MOTOR group's `DIRECTION` and `3D MODE` as sent.
 - B3. 3D ON: the note on the tester; at 10 % the motor runs as at about
   20 % and reversed; above 50 % in the set direction, from low; 3D OFF; a
-  power cycle; the note after a bench restart (question 4).
+  power cycle; the note after a bench restart (decision 4).
 - B4. BEEP 1 to 5 on each firmware; whether BLHeli_32 takes a command
   within its beep lengths; on Bluejay, which turns interrupts off for the
   tone and 200 ms after it (`DShot.asm` 90 to 94), how long the answers
@@ -686,9 +691,9 @@ and changed lines, rough.
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Command slot | `EscPump`'s sequence, `escCommandReady()`, `escRequestCommand()`, `escCancelCommand()`, `escCommandState()`, the answer check per block, the settle, gap and wait constants in `src/config.h`, `escRequestBeep()` through it; the model ESCs | about 200 | about 450 | README's MENU table row on BEEP THE ESC and its EDT paragraph, STATUS, CHANGELOG | |
-| 2. ESC COMMANDS page | `src/ui_esc_cmd.{h,cpp}`, `src/esc_3d.{h,cpp}` and `ui_am32.cpp` on it, the MENU entry by question 1, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status | about 450 | about 500 | about 250 | 1 |
+| 2. ESC COMMANDS page | `src/ui_esc_cmd.{h,cpp}`, `src/esc_3d.{h,cpp}` and `ui_am32.cpp` on it, the MENU entry by decision 1, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README section, wiki pages in English and German, STATUS, CHANGELOG, this note's status, the 3D note text change of decision 9 with its tests, previews, wiki and `src/ui_am32.h` | about 450 | about 500 | about 250 | 1 |
 | 3. kV estimate | `src/kv_est.h`, `drawRpm()` in `src/ui.cpp`, the tester previews, README and wiki on the tester in both languages | about 120 | about 250 | about 120 | none |
-| 4. ESC information | not designed: question 8 | | | | 1 |
+| 4. ESC information | left out (decision 8) | | | | 1 |
 | 5. Bring-up | B1 to B9 | none | none | the record in STATUS | 1 to 3 |
 
 Slices 1 and 3 share no source file. Both edit README.md (slice 1 the
@@ -696,70 +701,42 @@ MENU table's BEEP row, slice 3 the tester's description), STATUS.md and
 CHANGELOG.md; whichever merges second resolves those hunks. They can merge
 in either order.
 
+## Decisions
+
+Decisions of the owner, 2026-11-15, answering the open questions of
+2026-11-14:
+
+1. **Where the page lives.** Option (a): `ESC COMMANDS` in place of `BEEP
+   THE ESC`, MENU's first row, with BEEP 1 to 5 on the page. This is the
+   recommendation. The other decisions of the day make MENU eight rows;
+   see [menu-b.md](menu-b.md#menu).
+2. **Save with each change.** Option (a): each hold sends the change, then
+   12 (save). This is the recommendation.
+3. **A hold on the page, or a write page.** Option (a): the 1000 ms hold
+   on the page. This is the recommendation.
+4. **The 3D note after 3D OFF, and across a restart.** Option (a): it
+   stays until the bench restarts or an AM32 list read shows 3D MODE off.
+   This is the recommendation.
+5. **Commands with no ESC answering, and beacons.** Option (a): refused
+   with `NO ESC ANSWERS ON SIG GP0.`, beacons included. A BLHeli_S 16.7
+   ESC, which sends no eRPM, is then not served. This is the
+   recommendation.
+6. **Where RPM/V and the estimate go on the tester.** Option (a): `RPM/V`
+   on the ERPM line and `KV EST` in place of `14 POLES` while armed. This
+   is the recommendation.
+7. **The estimate's minimum throttle, and after the disarm.** Option (b):
+   75 %. The estimate keeps no value after the disarm. This is the
+   recommendation, the second part as the note advised.
+8. **ESC information, command 6.** Option (b): left out. The slice that
+   reads the reply is not built. No recommendation was given.
+9. **The tester's 3D note text.** Option (b): `3D MODE ESC: 0-50%
+   REVERSED AT 2X`. This is the recommendation.
+10. **A direction note on the tester.** Option (b): nothing. This is the
+    recommendation.
+
 ## Open questions
 
-1. **Where does the page live?** (a) `ESC COMMANDS` in place of `BEEP THE
-   ESC`, MENU's first row, with BEEP 1 to 5 on the page; MENU keeps seven
-   rows (recommended). (b) An eighth MENU row after BEEP THE ESC; MENU
-   scrolls 78 px. (c) An ESC chooser in AM32 CONFIG's row, with AM32 CONFIG
-   and ESC COMMANDS. (d) A fourth button on the tester (not recommended:
-   no room, and beside HOLD TO ARM). (e) A tester readout: a tap on
-   `DSHOT600` in the status bar while disarmed opens the page, as the pole
-   count and MAX open SETTINGS.
-2. **Save with each change?** (a) Each hold sends the change, then 12
-   (recommended: a change that reverts on the next power cycle is not seen
-   until it does). (b) Changes without a save, and a separate HOLD TO SAVE.
-3. **A hold on the page, or a write page?** Menu-b decision 6 puts writes
-   on a write page that a tap opens. (a) The 1000 ms hold on the page,
-   since one button is one named change (recommended). (b) A tap opens a
-   write page naming the change, whose hold sends it.
-4. **The 3D note after 3D OFF, and across a restart.** (a) It stays until
-   the bench restarts or an AM32 list read shows 3D MODE off, as PR #55's
-   rule for a write that is not verified (recommended). (b) A completed 3D
-   OFF hold clears it. (c) The flag is stored in the settings, so it
-   outlasts a bench restart, until a 3D OFF hold or an AM32 list read with
-   3D MODE off clears it; this changes the settings layout.
-5. **Commands with no ESC answering, and beacons.** (a) Refused, with `NO
-   ESC ANSWERS ON SIG GP0.`, beacons included, so MENU's BEEP reads
-   `REFUSED` with no ESC (recommended; a BLHeli_S 16.7 ESC, which sends no
-   eRPM, is then not served). (b) As (a), but beacons exempt: a beacon goes
-   out with no answer, as today. (c) Sent with that line as a warning,
-   1500 ms after the last throttle frame, without the eRPM 0 check and
-   without the answer check per block.
-6. **Where do RPM/V and the estimate go on the tester?** (a) `RPM/V` on
-   the ERPM line and `KV EST` in place of `14 POLES` while armed
-   (recommended). (b) The STRESS tile becomes `KV EST`, with `RPM/V` on its
-   label row, and stress shows in the log only. (c) `KV EST` alone on the
-   ERPM line, and no RPM/V.
-7. **The estimate's minimum throttle, and after the disarm.** (a) 30 %: on AM32
-   with sine start it reads × 0.41, with MIN DUTY 5 % × 1.12. (b) 75 %: × 0.92
-   and × 1.02, × 1.08 with MIN DUTY 25 % (recommended). (c) Shown on AM32 only
-   after an AM32 CONFIG read in this power-up shows SINE STARTUP off, MIN DUTY 0
-   and BRAKE RUNNING LEVEL 10, at any throttle; elsewhere as (b). (d) After such
-   a read, the estimate divides by AM32's own duty map from the read SINE
-   STARTUP, SINE RANGE and MIN DUTY; exact only with RUNNING LEVEL 10, since
-   below it `DEAD_TIME` enters; elsewhere as (b). For (c) and (d), a target
-   built with `USE_STARTUP_BOOST`, six AT32F421 targets in 2.22, adds to the
-   minimum duty, and the settings read do not name the target. And whether the
-   estimate keeps its last value after the disarm (not recommended: a held
-   figure reads as a live one).
-8. **ESC information, command 6.** Build a slice that reads its reply on
-   the KISS wire (BLHeli_32 64 bytes, AM32 49 bytes), which would confirm
-   direction and 3D on BLHeli_32, or leave it out. Such a slice sends 6
-   with the telemetry bit, as every command frame here: each such frame
-   makes AM32 send a 10-byte KISS packet, which goes ahead of the 49-byte
-   reply (`dshot.c` 107 to 109, `main.c` 2272 to 2283), so the reader
-   waits for the reply after the last command frame.
-9. **The tester's 3D note text.** (a) Keep `3D MODE ESC: THROTTLE SCALE
-   DIFFERS`, as shipped by PR #55. (b) `3D MODE ESC: 0-50% REVERSED AT
-   2X` (33 characters, 197 px), which says what the tester's throttle
-   does in 3D (recommended).
-10. **A direction note on the tester.** After a REVERSED hold, the tester
-    shows `DIRECTION: REVERSED BY ESC COMMANDS` (35 characters, 209 px) in
-    the 3D note's row until a NORMAL hold or a restart, giving way to the
-    3D note; or nothing (recommended: the ESC's direction is the pilot's
-    setting, and a note that a restart drops says nothing about the ESC
-    on the pin).
+None open. Questions 1 to 10 are answered by decisions 1 to 10.
 
 ## Not verified
 

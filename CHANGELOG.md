@@ -85,21 +85,25 @@ protocol.
   USB serial port, by passthrough at 19200 baud with the wire's echo, ported
   from DshotDisplay's `feat/usb-bridge` at 6693084, or through MSP
   (MultiWii Serial Protocol) and the 4-way interface for ESC-Configurator.
-  It waits on the owner's answers to its twelve open questions.
+  The owner answered its twelve questions on 2026-11-15.
 - The design note for Bluejay and BLHeli_S settings,
   [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md), designed and not
   built: AM32 CONFIG's connect page recognises an EFM8 bootloader's answer
   and hands the ESC to rcbench's `protocols/escwire`, to be copied
   unchanged; the fields per firmware and layout, the backup before the
   first write, the read-back, and why a cut write followed by a restart of
-  the ESC loses its 48 tag bytes. It waits on the owner's answers to its
-  eight open questions.
+  the ESC loses its 48 tag bytes. The owner answered its eight questions
+  on 2026-11-15.
 - The design note for the angle meter,
   [angle-meter.md](docs/design/angle-meter.md), designed and not built:
   incidence, decalage, dihedral and control-surface throw in degrees and
   mm from the board's QMI8658 IMU (inertial measurement unit) on I2C1, with
   ZERO, a three-pose flip calibration and rcbench's `servo_rudder.c` and
-  `imu.c`. It waits on the owner's answers to its seven open questions.
+  `imu.c`. The owner answered its seven questions on 2026-11-15.
+- After v0.1.0-rc1: the owner's decisions of 2026-11-15 on the questions of
+  five design notes (run summary, angle meter, ESC commands, USB bridge,
+  Bluejay and BLHeli_S), with the eight-row MENU they give recorded in
+  [menu-b.md](docs/design/menu-b.md#menu); documentation only.
 - STEP models of two modules the bench is built with, drawn part by part with
   the print of both sides: `hardware/mechanical/models/ina219_cjmcu219.step`,
   the INA219 current sensor board, 24.2 × 21.9 mm, 225 solids, and

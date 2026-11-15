@@ -1,7 +1,8 @@
 # USB bridge to the ESC's signal wire
 
-Status: designed, not built; waits on the owner's answers to the twelve
-[open questions](#open-questions). The feature is item (5) of the owner's
+Status: designed, not built; the owner answered its questions on
+2026-11-15, see [decisions](#decisions); slices wait on being built. The
+feature is item (5) of the owner's
 feature choice of 2026-11-14 in [STATUS.md](../../STATUS.md) open item 28,
 "a USB one-wire bridge for desktop ESC tools"; open item 29 tracks this
 note. It ports DshotDisplay's `feat/usb-bridge` at 6693084. A design note
@@ -207,7 +208,7 @@ work is reading it.
 ### Two modes on one port
 
 The bridge has two modes, chosen from the first byte the PC sends while
-the bridge waits ([question 3](#open-questions)):
+the bridge waits (decision 3):
 
 | First byte | Mode | Screen |
 |---|---|---|
@@ -247,7 +248,7 @@ verified.
 ### USB side
 
 - **The same CDC port.** No second CDC interface: the user picks one port
-  in the tool, and it is the board's ([question 4](#open-questions)).
+  in the tool, and it is the board's (decision 4).
 - **The console steps aside.** On entry the bridge disables the stdio
   driver (`stdio_set_driver_enabled(&s_cdcDriver, false)`, the call
   `usb_dev.cpp` line 104 makes with true), so the telemetry line of
@@ -262,7 +263,8 @@ verified.
   what does not fit waits in the to-PC ring.
 - **Line coding.** The rate the PC sets is ignored: the wire runs at 19200
   baud, and MSP over USB has no rate. TinyUSB reports the rate through
-  `tud_cdc_get_line_coding()`; only question 3's option (b) would read it.
+  `tud_cdc_get_line_coding()`; only option (b) of decision 3, not
+  taken, would read it.
 - **PORT OPEN** on the screen is `tud_cdc_connected()`, which is DTR.
   Whether each tool sets DTR when it opens the port is not verified; the
   bridge forwards bytes whether DTR is set or not. A port close is DTR
@@ -290,14 +292,14 @@ enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec, Sbus, Bridge, Coun
   answering until the claim stops DShot (`pin_claim.h` lines 159 to 163).
 - **unplug false**, as AM32: BACK resumes DShot through `pinClaimEnd()`,
   Leaving and Restoring (`pin_claim.h` lines 26 to 33, 238 to 248). The
-  exception, question 10's leave page after an unfinished write, needs a
+  exception, decision 10's leave page after an unfinished write, needs a
   leave page per claim rather than per user, which `PIN_USERS`' fixed
   `unplug` flag (`pin_claim.h` line 80) cannot say; slice 1 adds it.
 - **A core1 job**, `Core1Job::Bridge`, not core0 as AM32's transport:
   `pin_claim.h` lines 20 to 24 make core1 the owner of every PIO change on
   the signal pins, with AM32 the one exception.
 
-The flow, all of it existing claim machinery but for question 10's leave
+The flow, all of it existing claim machinery but for decision 10's leave
 page:
 
 1. The entry tap (see [entry](#entry)) disarms through `uiOpenTool()` and
@@ -309,7 +311,7 @@ page:
    GPIO. The bridge opens; the stdio driver goes off.
 4. BACK: the job releases the line; DShot is rebuilt on the latched wiring;
    the stdio driver comes back; after an unfinished write the leave page
-   comes before DShot is rebuilt ([question 10](#open-questions)).
+   comes before DShot is rebuilt (decision 10).
 
 ### The wire
 
@@ -457,7 +459,7 @@ ESC-Configurator then closes the port (`index.jsx` 309 to 312).
 | Command | The board answers | Bytes | What the tools read |
 |---|---|---|---|
 | `MSP_API_VERSION` (1) | protocol 0, API 1.49, Betaflight 134ce0f's (`msp_protocol.h` 59 to 62) | 3 | bytes 0 to 2 (`Msp.js` 455 to 464; `commands.queue.ts` 57 to 62) |
-| `MSP_FC_VARIANT` (2) | `MRCB` ([question 5](#open-questions)) | 4, exactly | ESC-Configurator bytes 0 to 3; the AM32 configurator decodes the whole payload (`commands.queue.ts` 53, 63 to 83) |
+| `MSP_FC_VARIANT` (2) | `MRCB` (decision 5) | 4, exactly | ESC-Configurator bytes 0 to 3; the AM32 configurator decodes the whole payload (`commands.queue.ts` 53, 63 to 83) |
 | `MSP_FC_VERSION` (3) | the firmware version, `version.h` | 3 | bytes 0 to 2 (`Msp.js` 477 to 484) |
 | `MSP_BUILD_INFO` (5) | the build's date, 11 bytes, and time, 8 bytes, as text | 19 | bytes 0 to 18 (`Msp.js` 486 to 507) |
 | `MSP_BOARD_INFO` (4) | a 4-letter board name and version 0 | 6 | bytes 0 to 5 (`Msp.js` 509 to 524) |
@@ -501,10 +503,10 @@ copied it, and not its guard or session.
 | No DShot while bridged | the claim: DShot is drained, stopped and released before the line binds | a throttle frame between bootloader bytes |
 | Disarmed to enter | `uiOpenTool()` disarms; `pinClaimCheck()` refuses while armed (`pin_claim.h` 179) | a running motor when DShot stops |
 | No MSP motor command | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
-| Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write ([question 7](#open-questions)) |
-| No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written ([question 6](#open-questions)) |
-| A leave page after an unfinished write | BACK after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG ([question 10](#open-questions)) |
-| No bridge while USB DRIVE holds the card | the entry, by question 11 | the card served to a host and a desktop tool on one cable at once ([question 11](#open-questions)) |
+| Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write (decision 7) |
+| No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written (decision 6) |
+| A leave page after an unfinished write | BACK after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10) |
+| No bridge while USB DRIVE holds the card | the entry, by decision 11 | the card served to a host and a desktop tool on one cable at once (decision 11) |
 | `PROPELLER OFF.` on the screen | the screen | below |
 
 With DShot off, a touch controller that stops answering only leaves the
@@ -555,33 +557,31 @@ firmware if it reads low (`main.c` 1097 to 1123); whether the bench's
 pull-up, 50 to 80 kΩ by rcbench's `ew_line.h`, holds the line high against
 that pull-down is not measured.
 
-**After BACK.** DShot starts again on SIG. An AM32 still in its bootloader
-reads DShot frames as bad 19200 baud frames; each bad command or CRC adds
-one to a count (`main.c` 546 to 565, 815 to 816), and above 100 the
-bootloader calls `jump()` (`main.c` 1276 to 1281). In builds without
-DroneCAN, `jump()` checks only the settings page's first byte and the
-firmware's first two words (`main.c` 423 to 466); controller area network
-(CAN) builds also check the application's signature (`DroneCAN_boot_ok()`,
-`main.c` 466 to 473). So about 100 ms after DShot resumes AM32 starts the
-firmware in flash, a half-written one included when a flash was cut after
-its first page. This is inferred, not measured. A power-up does the same:
-the AM32 bootloader runs `checkForSignal()` at every reset (`main.c` line
-1263) and calls `jump()` once it has seen SIG low (`main.c` 1097 to 1157,
-"floating & low at least once", line 1156), and DShot drives SIG low. No
-page on the bench keeps a cut flash from starting at the next power-up with
-DShot on SIG; only a complete flash does. After a write-class frame with no
-later RUN or `cmd_DeviceReset`, BACK therefore shows a leave page before
-DShot resumes, with the note `FLASH THE ESC AGAIN BEFORE USE.`, by [question
-10](#open-questions)'s recommendation. `cmd_InterfaceExit` does not count as
-a finished write: the AM32 configurator's disconnect sends only Exit
-(`SerialDevice.vue` 813 to 817), and its flash sends `cmd_DeviceReset` only
-after `writeHex()` returns (1076 to 1083), so a failed flash ends in Exit
-alone. The cost: a session that only wrote settings and then disconnected
-also gets the page, unless slice 3 counts only writes outside the settings
-page, whose address question 12 needs too. For BLHeli_S and Bluejay what
-their bootloader does with DShot frames is not verified. The screen's last
-lines say to power-cycle the ESC after a flash and whenever the tool finds
-no ESC.
+**After BACK.** DShot starts again on SIG. An AM32 still in its bootloader reads
+DShot frames as bad 19200 baud frames; each bad command or CRC adds one to a
+count (`main.c` 546 to 565, 815 to 816), and above 100 the bootloader calls
+`jump()` (`main.c` 1276 to 1281). In builds without DroneCAN, `jump()` checks
+only the settings page's first byte and the firmware's first two words (`main.c`
+423 to 466); controller area network (CAN) builds also check the application's
+signature (`DroneCAN_boot_ok()`, `main.c` 466 to 473). So about 100 ms after
+DShot resumes AM32 starts the firmware in flash, a half-written one included
+when a flash was cut after its first page. This is inferred, not measured. A
+power-up does the same: the AM32 bootloader runs `checkForSignal()` at every
+reset (`main.c` line 1263) and calls `jump()` once it has seen SIG low (`main.c`
+1097 to 1157, "floating & low at least once", line 1156), and DShot drives SIG
+low. No page on the bench keeps a cut flash from starting at the next power-up
+with DShot on SIG; only a complete flash does. After a write-class frame with no
+later RUN or `cmd_DeviceReset`, BACK therefore shows a leave page before DShot
+resumes, with the note `FLASH THE ESC AGAIN BEFORE USE.`, by decision 10.
+`cmd_InterfaceExit` does not count as a finished write: the AM32 configurator's
+disconnect sends only Exit (`SerialDevice.vue` 813 to 817), and its flash sends
+`cmd_DeviceReset` only after `writeHex()` returns (1076 to 1083), so a failed
+flash ends in Exit alone. The cost: a session that only wrote settings and then
+disconnected also gets the page, unless slice 3 counts only writes outside the
+settings page, whose address decision 12 needs too. For BLHeli_S and Bluejay
+what their bootloader does with DShot frames is not verified. The screen's last
+lines say to power-cycle the ESC after a flash and whenever the tool finds no
+ESC.
 
 ## Screen
 
@@ -631,14 +631,14 @@ Message lines, each with its width:
 | A motor command refused | line 2: `MOTOR COMMAND FROM THE PC REFUSED.` (203 px), for 5 s | `C_AMBER` |
 | The port closed after traffic | line 0: `THE PC CLOSED THE PORT.` (137 px) | `C_DIM` |
 | The claim refused | the claim's refusal, as AM32 CONFIG shows it | `C_AMBER` |
-| USB DRIVE holds the card, by question 11 (a) | line 0: `EJECT THE USB DRIVE FIRST.` (155 px); the claim is not begun | `C_AMBER` |
+| USB DRIVE holds the card, by decision 11 (a) | line 0: `EJECT THE USB DRIVE FIRST.` (155 px); the claim is not begun | `C_AMBER` |
 
 The pin in the strip is SIG's, GP0 or GP1. The screen repaints its
 counters at most every 250 ms. Layout constants get `static_assert`s for
 every width and gap, as the other screens have. Nothing on the screen
 but BACK, and RETRY after a failed bind, takes a tap.
 
-The leave page of question 10 (a) is menu structure B's one leave page
+The leave page of decision 10 (a) is menu structure B's one leave page
 (`src/ui_leave.h`), with two steps: `POWER THE ESC OFF.` (107 px from
 x 20) and `RESTART DSHOT.` (83 px), and the note `FLASH THE ESC AGAIN
 BEFORE USE.` (31 characters, 185 px) at y 158. It opens in Releasing, as
@@ -653,27 +653,36 @@ MENU has seven rows: BEEP THE ESC, AM32 CONFIG, SERVO
 TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS
 (`ui_registry.cpp` lines 22 to 30), at a 42 px pitch in a 258 px viewport,
 so MENU scrolls 36 px ([menu-b.md](menu-b.md#menu), decision 33). The
-bridge needs a way in, and each way changes something menu-b.md decides:
+bridge needs a way in, and each way changes something menu-b.md decides.
+The owner chose option (c) (decision 1). The options:
 
 | Option | MENU | Taps to the bridge | Changes |
 |---|---|---|---|
 | (a) a `USB BRIDGE` button on AM32 CONFIG's connect page, DshotDisplay's place (`ui_am32.cpp` at 6693084 lines 212 to 215) | 7 rows | 2 | AM32 CONFIG's page; the bridge then sits inside an AM32 claim, which has no core1 job, and is found under a firmware it also serves BLHeli_S and Bluejay for |
 | (b) an eighth row `USB BRIDGE`, 118 px at scale 2 | 8 rows: 8 × 42 − 258 = 78 px of scroll | 2 | decision 33's seven rows |
-| (c) AM32 CONFIG's row becomes a chooser, `ESC CONFIG`, as PROGRAMMER is ([menu-b.md](menu-b.md#programmer-the-chooser)), with the one settings screen for AM32, Bluejay and BLHeli_S of `docs/design/bluejay-blheli-s.md`, titled `ESC SETTINGS` (12 characters, 142 px at scale 2) by its question 1 (e), and USB BRIDGE; that note's option (c) becomes one more chooser line | 7 rows | 3; the settings screen one tap deeper | decision 16's row and its label; the chooser claims nothing, an entry's tap claims SIG |
+| (c) AM32 CONFIG's row becomes a chooser, `ESC CONFIG`, as PROGRAMMER is ([menu-b.md](menu-b.md#programmer-the-chooser)), with the one settings screen for AM32, Bluejay and BLHeli_S of `docs/design/bluejay-blheli-s.md`, titled `ESC SETTINGS` (12 characters, 142 px at scale 2) by [decision 1 (option e) of bluejay-blheli-s.md](bluejay-blheli-s.md#decisions), and USB BRIDGE | 7 rows | 3; the settings screen one tap deeper | decision 16's row and its label; the chooser claims nothing, an entry's tap claims SIG |
 | (d) a SETTINGS row | 7 rows | 3 | SETTINGS holds settings, not tools |
 | (e) SD LOG's row becomes a USB chooser, with SD LOG and USB BRIDGE | 7 rows | 3 | decision 16's row; USB DRIVE stays on SD LOG |
 
-This note recommends (c): the settings screen for AM32, Bluejay and
-BLHeli_S and the bridge are both ESC configuration over SIG, and a chooser
-takes a new entry as a table line. The row's label is the owner's; `ESC
-CONFIG`, 10 characters, 118 px at scale 2, is one choice. Item (6)'s note,
-`docs/design/bluejay-blheli-s.md` (pull request #74, not on `main`), asks
-in its question 1 how AM32 CONFIG's row grows: its option (a) renames the
-row and screen `ESC CONFIG`, and its option (e), with this note's (c),
-makes the row a chooser whose first entry is that one settings screen,
-titled `ESC SETTINGS`, beside USB BRIDGE. The owner answers both questions
-together. With [esc-commands.md](esc-commands.md#menu-entry)'s option (a),
-MENU stays at seven rows. [Question 1](#open-questions).
+Chosen: (c), the recommendation, together with decision 1 (option e) of
+[bluejay-blheli-s.md](bluejay-blheli-s.md#decisions). AM32 CONFIG's row becomes
+the chooser `ESC CONFIG`, 10 characters, 118 px at scale 2, as PROGRAMMER is. It
+holds `ESC SETTINGS`, the one settings screen for AM32, Bluejay and BLHeli_S,
+and `USB BRIDGE`. The settings screen and the bridge are both ESC configuration
+over SIG, and a chooser takes a new entry as a table line. The labels are the
+owner's.
+
+Design call, the developer's under the owner's MENU decision, 2026-11-15:
+the chooser comes with whichever of this note's slice 2 and slice 2 of
+bluejay-blheli-s.md merges first, and holds both entries from the start.
+The entry not yet built is drawn disabled with `NOT BUILT` under it, as RX
+SIGNALS' OUTPUT is. `ESC SETTINGS` serves AM32 only until the Bluejay
+slices land, and STATUS.md says so.
+
+With [esc-commands.md](esc-commands.md#menu-entry)'s
+option (a), MENU's first two rows read `ESC COMMANDS` and `ESC CONFIG`.
+The rows of the other decisions of 2026-11-15 make MENU eight rows; the
+resulting list is the revision line in [menu-b.md](menu-b.md#menu).
 
 ## What ports from DshotDisplay
 
@@ -684,10 +693,10 @@ DshotDisplay at 6693084 is the Arduino-era firmware: `Arduino.h`,
 |---|---|---|
 | `bridge_wire.h`, `bridge_wire.cpp` | 140, 176 | the frame slot, the ring, the overrun count and the memory ordering port as they are; `bridgeWirePoll()` becomes the core1 job's step; `am32BlBegin()` and `am32BlEnd()` give way to the job's bind and release; the bit-banged `am32WriteRawEchoed()` and `am32ReadRaw()` give way to the PIO line; the teardown wait of `bridgeWireEnd()`, `delay(1)` up to 250 ms (lines 89 to 98), becomes the job's Stopping phase |
 | `usb_bridge.h`, `usb_bridge.cpp` | 83, 126 | the counters and the transparent rule port; `Serial.available()`, `read()`, `write()` and `flush()` become `tud_cdc_*`; the two `delay(1)` loops (lines 80 to 97) become states; the stdio driver goes off instead of the `loop()` check |
-| `bridge_log.h`, `bridge_log.cpp` | 61, 191 | a build option, off by default, as `AM32_BRIDGE_LOG` 0 is there (`config.h` 286 to 297): records in a 4 KB RAM ring, dumped over CDC after BACK ([question 8](#open-questions)), written with `tud_cdc_write()` before the stdio driver comes back, so no telemetry line lands inside the dump, the order DshotDisplay keeps for the same reason (`usb_bridge.cpp` lines 49 to 55); `Arduino.h` and `millis()` from `plat.h` |
+| `bridge_log.h`, `bridge_log.cpp` | 61, 191 | a build option, off by default, as `AM32_BRIDGE_LOG` 0 is there (`config.h` 286 to 297): records in a 4 KB RAM ring, dumped over CDC after BACK (decision 8), written with `tud_cdc_write()` before the stdio driver comes back, so no telemetry line lands inside the dump, the order DshotDisplay keeps for the same reason (`usb_bridge.cpp` lines 49 to 55); `Arduino.h` and `millis()` from `plat.h` |
 | `am32_bl.cpp`, `am32_bl.h` additions | 31, 66 | not ported: the PIO line replaces the raw bit-bang |
 | `ui_am32.cpp` changes | 122 | not ported: the screen above replaces `drawBridge()`, written to menu structure B's layout |
-| `config.h` changes | | `SERIAL_TELEMETRY` 0 there; here it stays 1 ([question 9](#open-questions)) |
+| `config.h` changes | | `SERIAL_TELEMETRY` 0 there; here it stays 1 (decision 9) |
 | `test_bridge.cpp`, `test_dump.cpp` | 421, 61 | port, below |
 | — | — | new: MSP, the 4-way interface, mode detection, the PIO line, the entry |
 
@@ -797,95 +806,54 @@ and changed lines, rough.
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Line and claim | `PinUser::Bridge`, `Core1Job::Bridge`, the PIO line (`src/bridge_line.pio`), the slot and the ring from `bridge_wire.*`, the leave page per claim, the PIO budget table in [pin-claim.md](pin-claim.md) | about 300 | about 300 | STATUS, CHANGELOG | |
-| 2. Passthrough and the screen | `src/usb_bridge.*`, the stdio switch in `usb_dev.cpp`, the screen `src/ui_bridge.*`, the entry by question 1, `test_ids.cpp`, the preview, DshotDisplay's tests, the log by question 8; README section, wiki pages in English and German | about 450 | about 500 | about 200 | 1 |
-| 3. MSP and the 4-way interface | `src/bridge_msp.*`, `src/bridge_4way.*`, the bootloader frames (escwire's if item (6) copied them), mode detection | about 600 | about 700 | about 80 | 2 |
+| 2. Passthrough and the screen | `src/usb_bridge.*`, the stdio switch in `usb_dev.cpp`, the screen `src/ui_bridge.*`, the entry by decision 1 (the `ESC CONFIG` chooser, with the build rule of the design call under [entry](#entry)), `test_ids.cpp`, the preview, DshotDisplay's tests, the log by decision 8; README section, wiki pages in English and German | about 450 | about 500 | about 200 | 1 |
+| 3. MSP and the 4-way interface | `src/bridge_msp.*`, `src/bridge_4way.*`, the bootloader frames (escwire's if item (6) copied them), mode detection, the 3D note: byte 0x12 of each AM32 settings page forwarded (decision 12) | about 600 | about 700 | about 80 | 2 |
 | 4. Bring-up | B1 to B10 | none | none | the record in STATUS | 1 to 3 |
 
 Slice 2 alone serves the AM32 configurator in Direct mode and the Python
 tool; ESC-Configurator needs slice 3.
 
+## Decisions
+
+Decisions of the owner, 2026-11-15, answering the open questions of
+2026-11-14. Each is the note's recommendation.
+
+1. **Where the bridge is entered.** Option (c), with decision 1 of
+   [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) (its option e):
+   AM32 CONFIG's row becomes the chooser `ESC CONFIG`, holding `ESC
+   SETTINGS` and `USB BRIDGE`. `ESC SETTINGS` is the one settings screen
+   for AM32, Bluejay and BLHeli_S. This is the recommendation.
+2. **Which modes.** Option (a): both, passthrough first as slice 2, MSP and
+   the 4-way interface as slice 3. This is the recommendation.
+3. **How the mode is chosen.** Option (a): from the PC's first byte.
+   This is the recommendation.
+4. **One serial port or two.** Option (a): the existing port, with the
+   console off while bridging. This is the recommendation.
+5. **What the board calls itself in MSP.** Option (a): `MRCB`, and `MRCB4W`
+   as the 4-way name. This is the recommendation.
+6. **Send RUN when the bridge is left.** Option (a): nothing. This is the
+   recommendation.
+7. **BACK during a flash.** Option (a): drawn disabled while a write-class
+   frame waits for its answer, at most 3000 ms. This is the
+   recommendation.
+8. **The traffic log.** Option (a): DshotDisplay's log as a build option,
+   off by default. This is the recommendation.
+9. **`SERIAL_TELEMETRY`.** Option (a): stays 1. This is the
+   recommendation.
+10. **BACK after an unfinished write.** Option (a): the leave page with
+    `POWER THE ESC OFF.`, `RESTART DSHOT.` and `FLASH THE ESC AGAIN BEFORE
+    USE.`. This is the recommendation.
+11. **The card served while bridging.** Option (a): the entry is refused
+    while USB DRIVE holds the card, with `EJECT THE USB DRIVE FIRST.`. This
+    is the recommendation.
+12. **The 3D note after a bridge write.** Option (a): the bridge reads
+    byte 0x12 of each AM32 settings page it forwards and sets or clears the
+    note by item 24's rule. Slice 3 designs how the bridge knows the settings
+    page's address in passthrough and 4-way. This is the recommendation.
+
 ## Open questions
 
-1. **Where is the bridge entered?** (a) A `USB BRIDGE` button on AM32
-   CONFIG's connect page, as DshotDisplay. (b) An eighth MENU row; MENU
-   scrolls 78 px. (c) AM32 CONFIG's row becomes a chooser, `ESC CONFIG`,
-   as PROGRAMMER is, with the one settings screen for AM32, Bluejay and
-   BLHeli_S of `docs/design/bluejay-blheli-s.md`, titled `ESC SETTINGS`
-   (12 characters, 142 px at scale 2) by its question 1 (e), and USB
-   BRIDGE; that note's option (c) then becomes one more chooser line; the
-   labels are the owner's (recommended). (d) A SETTINGS row. (e) SD LOG's
-   row becomes a USB chooser with SD LOG and USB BRIDGE. The owner answers
-   this question and that note's question 1 together.
-2. **Which modes?** (a) Both, passthrough first as slice 2, MSP and the
-   4-way interface as slice 3 (recommended: ESC-Configurator, named in the
-   feature, has no direct mode). (b) Passthrough only, DshotDisplay's
-   scope: AM32 configurator in Direct mode and the Python tool. (c) MSP
-   and 4-way only.
-3. **How is the mode chosen?** (a) From the PC's first byte: `$` MSP, `/`
-   4-way at once, anything else passthrough; passthrough and MSP end after
-   2000 ms without traffic, 4-way only on `cmd_InterfaceExit`, a port close
-   or BACK (recommended). (b) From the rate the PC sets: 19200 passthrough, any
-   other MSP; this reads a setting the tools set for their own reasons. (c)
-   Two buttons on the screen.
-4. **One serial port or two?** (a) The existing port, with the console off
-   while bridging (recommended: one port to pick in the tool). (b) A second
-   CDC interface for the bridge; the console stays, endpoints 0x84, 0x05
-   and 0x85 are free, and the PID rule of `usb_descriptors.c` line 31 must
-   change, since `CFG_TUD_CDC` 2 sets the bit MSC sets.
-5. **What does the board call itself in MSP?** (a) `MRCB`, for
-   MiniRcBench, as the flight controller variant and `MRCB4W` as the 4-way
-   name (recommended: the two tools read the variant only to log it or to
-   pick the motor command, `index.jsx` 268 to 273, `msp.ts` 118 to 126;
-   the cost: the AM32 configurator logs `Unknown fc type 'MRCB'` as an
-   error on every connect, `commands.queue.ts` 64 to 83, and goes on).
-   (b) `BTFL`, Betaflight's identifier, which says the board is a
-   Betaflight flight controller.
-6. **Send RUN when the bridge is left?** (a) Nothing (recommended: the
-   tools end a session with their own reset, 4-way `DeviceReset`; after a
-   cut flash a RUN would start a half-written firmware on AM32 if its first
-   words are in place, `main.c` 423 to 466). (b) The bootloader's run
-   command, 0x00 0x00 and its CRC, at BACK.
-7. **BACK during a flash.** (a) Drawn disabled while a write-class frame
-   waits for its answer, at most 3000 ms; otherwise live (recommended).
-   (b) Disabled while any traffic flowed in the last 2 s; a tool's
-   keep-alive every 900 ms would hold it disabled for as long as the tool
-   is connected. (c) A 1 s hold to leave while the port is open. (d)
-   Disabled from a write-class frame until 2 s pass with no write-class
-   frame, keep-alives not counting: it covers the gaps between the pages of
-   a flash, and a stalled tool holds BACK for 2 s at most.
-8. **The traffic log.** (a) DshotDisplay's log as a build option, off by
-   default, dumped over CDC after BACK (recommended). (b) Left out. (c)
-   Written to the card as `LOGS/BRIDGEnn.TXT`.
-9. **`SERIAL_TELEMETRY`.** (a) Stays 1; the bridge turns the console off
-   while it runs (recommended). (b) 0, as DshotDisplay set it, so the port
-   is quiet unless a debug build asks.
-10. **BACK after an unfinished write.** After a write-class frame with no
-    later RUN or `cmd_DeviceReset`, `cmd_InterfaceExit` not counting, the
-    ESC may hold a half-written firmware that AM32's bootloader starts once
-    DShot's frames count as 100 bad commands, and at any later power-up
-    with DShot on SIG ([safety](#safety)). No choice here prevents that
-    start at a later power-up; only a complete flash does. (a) BACK shows
-    the leave page with `POWER THE ESC OFF.` and `RESTART DSHOT.` and the
-    note `FLASH THE ESC AGAIN BEFORE USE.` before DShot resumes
-    (recommended). (b) DShot resumes at once, as after AM32 CONFIG. (c) SIG
-    stays high, DShot off, until the ESC is power-cycled, which the bench
-    cannot see.
-11. **The card served while bridging.** SD LOG's BACK leaves the card with
-    the host while USB DRIVE serves it (`ui_sdlog.cpp` lines 395 to 405),
-    so the drive and the bridge can share the cable. (a) The bridge's entry
-    is refused while USB DRIVE holds the card, with `EJECT THE USB DRIVE
-    FIRST.` (26 characters, 155 px) (recommended). (b) Both run; how much a
-    copy from the card delays the bridge's answers is not measured.
-12. **The 3D note after a bridge write.** A desktop tool can change AM32's
-    3D MODE, byte 0x12 of the settings (`am32_eeprom.h` line 43), but
-    `uiAm32Esc3d()` changes only on AM32 CONFIG's reads and writes
-    (`ui_am32.h` lines 183 to 197; STATUS.md item 24). (a) The bridge reads
-    byte 0x12 of each AM32 settings page it forwards, a read the ESC
-    answered or a write the ESC acknowledged, and sets or clears the note
-    by item 24's rule (recommended; slice 3 designs how the bridge knows the
-    settings page's address in passthrough and 4-way). (b) Any settings
-    write through the bridge sets the note until AM32 CONFIG reads the ESC.
-    (c) Unchanged: the note does not follow the bridge.
+None open. Questions 1 to 12 are answered by decisions 1 to 12.
 
 ## Not verified
 
