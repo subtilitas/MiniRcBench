@@ -168,8 +168,8 @@ than the viewport and never fires.
 
 While the claim is not Free, each row whose screen claims pins or sets
 `freePins`, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
-SIGNALS and SETTINGS, is drawn disabled under its own status and a tap on it opens nothing
-(`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption reads
+SIGNALS and SETTINGS, is drawn disabled under its own status and a tap on it
+opens nothing (`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption reads
 `DSHOT RESTARTING ON SIG GP0` in amber and says why. The state is
 reachable: RESTART DSHOT on the leave page returns to MENU at once, and the
 claim stays Restoring until `escTaskSuspended()` turns false. SD LOG acts

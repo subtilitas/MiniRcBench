@@ -275,6 +275,11 @@ bool usbBridgeRunCue(uint32_t lastRpmMs) {
 	return s_cue;
 }
 
+void usbBridgeRunCueSet() {
+	s_cue = true;
+	s_cueMs = millis();
+}
+
 void usbBridgeRunCueClear() { s_cue = false; }
 
 bool usbBridgePortOpen() { return tud_cdc_connected(); }

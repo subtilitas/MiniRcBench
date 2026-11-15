@@ -158,6 +158,7 @@ struct KvEstIn {
 	uint16_t t;           /**< The throttle sent, 0 to 2000. */
 	bool     settled;     /**< kvSettleStep() for @p t. */
 	bool     esc3d;       /**< The tester's 3D note stands. @see esc3dNote() */
+	bool     erpmHeld;    /**< KvEstView::erpmHeld from the previous frame. */
 };
 
 /** @brief The two fields. A figure is meaningful only at KvEstShow::Value. */
@@ -166,6 +167,12 @@ struct KvEstView {
 	uint32_t  rpvValue;
 	KvEstShow kv;     /**< The estimate. */
 	uint32_t  kvValue;
+	/**
+	 * The eRPM check has passed and stands: the caller passes it back as
+	 * KvEstIn::erpmHeld on the next frame. Cleared when the settle restarts or
+	 * a condition fails.
+	 */
+	bool      erpmHeld;
 };
 
 /**
@@ -180,6 +187,10 @@ struct KvEstView {
  * 4. t settled, KV_EST_SETTLE_MS within KV_EST_SETTLE_BAND, and the
  *    filtered eRPM within KV_EST_ERPM_SETTLE_PERMILLE of the last reply: a
  *    motor still spinning up, or a filter still catching up, shows none.
+ *    Once the eRPM check has passed it holds (KvEstView::erpmHeld) until the
+ *    settle restarts, a condition fails, the gap exceeds
+ *    KV_EST_ERPM_HOLD_PERMILLE or the reply is 0, so noisy replies do not
+ *    flicker the field between the figure and `--`.
  * 5. The 3D note not standing.
  *
  * A missing 1 or 2 reads Unknown before a low throttle reads Low: with no
@@ -189,7 +200,7 @@ struct KvEstView {
  * @return Both fields.
  */
 static inline KvEstView kvEstView(const KvEstIn *in) {
-	KvEstView v = { KvEstShow::Unknown, 0, KvEstShow::Unknown, 0 };
+	KvEstView v = { KvEstShow::Unknown, 0, KvEstShow::Unknown, 0, false };
 	if (!in->armed || !in->alive || in->poles < 2) return v;
 	uint32_t rpm = in->erpm / (uint32_t)(in->poles / 2);
 	if (rpm == 0) return v;
@@ -205,7 +216,14 @@ static inline KvEstView kvEstView(const KvEstIn *in) {
 	if (!in->settled) return v;
 	const uint64_t gap = in->erpm > in->erpmRaw ? in->erpm - in->erpmRaw
 	                                            : in->erpmRaw - in->erpm;
-	if (gap * 1000 > (uint64_t)in->erpmRaw * KV_EST_ERPM_SETTLE_PERMILLE) return v;
+	// A held check releases at the wider KV_EST_ERPM_HOLD_PERMILLE. A reply of
+	// 0 is always past it, as the filtered eRPM is above 0 here: a stalled
+	// motor shows `--` on its first frame, not after the filter has decayed.
+	const uint32_t permille = in->erpmHeld ? KV_EST_ERPM_HOLD_PERMILLE
+	                                       : KV_EST_ERPM_SETTLE_PERMILLE;
+	if (gap * 1000 > (uint64_t)in->erpmRaw * permille)
+		return v;
+	v.erpmHeld = true;
 	v.kv = KvEstShow::Value;
 	v.kvValue = kvEstKv(rpm, volts100, in->t);
 	return v;

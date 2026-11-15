@@ -247,9 +247,9 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 - **`EFM8 E8B2 ANSWERED: READING.`**: Ein Bluejay- oder BLHeli_S-ESC hat
   geantwortet, und der Bildschirm liest seine Einstellungen; Bluejay 0.21
   und BLHeli_S 16.3 bis 16.7 lassen sich schreiben. `BACK` aus seiner Liste
-  sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine Verlassenseite: ESC-Akku
-  abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder anstecken
-  ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
+  sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine
+  Verlassenseite: ESC-Akku abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder
+  anstecken ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
 - **`HALF WRITTEN: KEEP THE ESC POWERED.`** oder
   **`NO ANSWER IN THE WRITE: KEEP POWER.`**: Ein Schreiben auf Bluejay oder
   BLHeli_S wurde abgebrochen, nachdem die Seite des ESC gelöscht war. Den
@@ -308,7 +308,7 @@ Voreinstellung. Also:
   einen Pin;
 - CURRENT SENSE steht nach Version 2, 3 oder 4 auf `NONE`; nach Version 5
   behält es seinen Wert. SERVO SUPPLY steht nach Version 2 oder 3 auf
-  `OWN`, denn der Schalter auf GP0 aus Version 3 liegt jetzt auf dem Pin
+  `OWN`, denn der Schalter auf GP0 aus Version 3 liegt auf dem Pin
   des ESC-Kabels; nach Version 4 oder 5 behält es `GP28` oder `GP29`;
 - ALONG AXIS, LENGTH, SIGN und die Kalibrierung des Winkelmessers stehen
   auf ihrer Voreinstellung: `LONG`, `OFF`, `NORMAL` und keine.

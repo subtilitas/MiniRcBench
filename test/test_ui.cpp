@@ -8176,7 +8176,10 @@ static void testTesterKvEst() {
 		         (unsigned)kvEstRpmPerVolt(shown / 7, 1600));
 		checkTrue("a step in eRPM: RPM/V from the filtered 157675, 1408",
 		          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(shown / 7, 1600) == 1408);
-		checkTrue("  the filter 3.7 % off the reply: KV EST --",
+		char k1[16];
+		snprintf(k1, sizeof(k1), "KV EST %u", (unsigned)kvEstKv(shown / 7, 1600, t));
+		(void)k1;
+		checkTrue("  the filter 3.7 % off the reply, past 3 %: KV EST --",
 		          textAlone(10, 114, "KV EST --", C_TEXT));
 	}
 	kvFrames(80, 163800, 15.75f, 16.0f);   // past the snap: the reply exactly
@@ -8187,6 +8190,40 @@ static void testTesterKvEst() {
 		          textAlone(10, 114, k2, C_TEXT));
 	}
 	kvFrames(80, erpm, 15.75f, 16.0f);
+
+	// The eRPM check, once passed, holds (kv_est.h): a reply 1.7 % above the
+	// filter keeps the figure, a reply of 0 (a stall) drops it on that frame.
+	{
+		char kh[16];
+		kvFrames(1, 159936, 15.75f, 16.0f);   // filter 157192, 1.7 % under it
+		snprintf(kh, sizeof(kh), "KV EST %u", (unsigned)kvEstKv(157192 / 7, 1600, t));
+		checkTrue("held, a reply 1.7 % off the filter: the figure stays",
+		          textAlone(10, 114, kh, C_TEXT));
+		kvFrames(80, erpm, 15.75f, 16.0f);
+		kvFrames(1, 0, 15.75f, 16.0f);
+		checkTrue("held, a stalled motor's reply of 0: KV EST -- on that frame",
+		          textAlone(10, 114, "KV EST --", C_TEXT));
+		kvFrames(80, erpm, 15.75f, 16.0f);
+		snprintf(kh, sizeof(kh), "KV EST %u", (unsigned)kvEstKv(rpm, 1600, t));
+		checkTrue("the reply back: the figure again", textAlone(10, 114, kh, C_TEXT));
+	}
+
+	// A restarted settle clears the hold: with the figure held, move the
+	// throttle out of its band; at 1000 ms the filter is 1.7 % off the reply,
+	// past the 0.5 % that passes a check, so the field reads --.
+	{
+		uint16_t t2 = kvHoldTrack(85, erpm, 15.75f, 16.0f);
+		checkTrue("the throttle moved out of its band", t2 > t + KV_EST_SETTLE_BAND);
+		kvFrames(38, erpm, 15.75f, 16.0f);   // 975 ms
+		kvFrames(1, 159936, 15.75f, 16.0f);  // 1000 ms, the reply 1.7 % off
+		checkTrue("1000 ms after the move, the filter 1.7 % off: KV EST --, the hold cleared",
+		          uiThrottle() == t2 && textAlone(10, 114, "KV EST --", C_TEXT));
+		t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+		kvFrames(45, erpm, 15.75f, 16.0f);
+		char k3[16];
+		snprintf(k3, sizeof(k3), "KV EST %u", (unsigned)kvEstKv(rpm, 1600, t));
+		checkTrue("back at 80 %, settled: the figure", uiThrottle() == t && textAlone(10, 114, k3, C_TEXT));
+	}
 
 	// A voltage step that moves the estimate and leaves RPM/V as it was:
 	// the estimate is redrawn on its own change.

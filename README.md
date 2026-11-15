@@ -622,8 +622,8 @@ powered after it, or by the bench.
   above, and `NOT SAVED`. FRAMES to WORST FLUSH are then in the `.TXT`, and
   CARD and MOUNT are hidden until the next START that opens a log, or a
   mount. While a log runs, and after a mount or USB DRIVE, the rows show
-  the counters, CARD and MOUNT. A failed START keeps the last run, as it keeps FILE. The
-  tester shows nothing of the run.
+  the counters, CARD and MOUNT. A failed START keeps the last run, as it keeps
+  FILE. The tester shows nothing of the run.
 - **Note lines** (y 217 and y 228): how the last log ended, when it ended
   on its own or a tool took the card, in amber (`SdLogEnd`); a card's fault
   until the next start or mount, a tool's stop until the next start
@@ -1037,8 +1037,14 @@ The settle counts from the UI frame on which the throttle sent left the band of
 `uiTick()` after `escSetThrottle()`): a finger resting on the bar at `MAX 100%`
 moves the throttle by about 11 a pixel, and a settle that restarted on every
 change would never end. 1000 ms leaves 0.48 % of a step in the display filter.
-The eRPM check covers a motor still spinning up; one eRPM step is 0.20 % to 0.39
-% of the value, inside the 0.5 %. The motor's own spin-up time is not measured.
+The eRPM check covers a motor still spinning up. Up to 234,375 eRPM one eRPM
+step is 0.20 % to 0.39 % of the value, inside the 0.5 %; above it a step is
+1 / period (1 % at 600,000 eRPM). Once the check has passed it holds until the
+settle restarts, another condition fails, or the filtered eRPM is more than 3 %
+from the last reply (`KV_EST_ERPM_HOLD_PERMILLE`, 30) or the reply is 0, so
+noisy replies do not make the field flicker between the figure and `KV EST --`
+and a stall reads `KV EST --` on its first frame. The motor's own spin-up time
+is not measured.
 At the default `MAX 20%` the estimate never shows. The widest texts fit, held by
 `static_assert`s in `src/ui.cpp`: `ERPM 60000000  RPM/V 99999`, 26 characters at
 the decoder's largest eRPM, 155 px, ends 27 px before the `RPM` label at x 192;
@@ -1638,8 +1644,8 @@ at y 196 and 208:
 After a changed page or a lost answer `READ AGAIN` takes `WRITE...`'s place
 until a read succeeds; a read of a page not half written takes it as the
 page as read and keeps the edits, and a page that differs from the one
-backed up gets a backup of its own before the next write. While a page is half written the list
-edits nothing, LEAVE is refused, and the strip reads
+backed up gets a backup of its own before the next write. While a page is half
+written the list edits nothing, LEAVE is refused, and the strip reads
 `HALF WRITTEN: KEEP THE ESC POWERED.` over `READ AGAIN, THEN WRITE.` or,
 once read, `WRITE AGAIN NOW. REVERT: AS READ.`: `WRITE...` writes the draft
 again, or after REVERT the page as first read, its tags included, on a page
@@ -2928,9 +2934,10 @@ than the greeting, and BACK may come before a greeting's answer. DShot
 frames could then pass as its commands. So every BACK of a running bridge
 gives the leave page, as the servo tools' BACK does. A RUN counts only as
 4 bytes whose last two are the CRC of the first two, and only for the
-note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the bridge's open
-until RESTART DSHOT or an eRPM frame; a RUN does not clear it, since a
-garbled frame could read as one.
+note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the claim's begin,
+after a failed bind and a BACK before the bind included, until RESTART DSHOT
+or an eRPM frame; a RUN does not clear it, since a garbled frame could read
+as one.
 
 BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
 from the PC and drops a frame it was gathering; a frame already on the
@@ -3381,10 +3388,10 @@ calls yet, and for the angle meter the control-surface arithmetic
 (`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
 the WitMotion decoder `imu.h` includes, which the angle model
 (`src/angle_model.cpp`) calls. Files include
-each other as plain siblings, except two drivers with folders of their own: the DShot
-driver in `src/dshot/`, so that it can be compared with its rcbench original,
-and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
-the paths the SD library includes.
+each other as plain siblings, except two drivers with folders of their own: the
+DShot driver in `src/dshot/`, so that it can be compared with its rcbench
+original, and the SDIO card driver in `src/sdio/`, whose `compat/` headers have
+to keep the paths the SD library includes.
 
 Modules marked *pure* have no hardware dependency. They are compiled into the
 host test binary and tested directly, without a board.
@@ -3419,13 +3426,13 @@ the move timing's `test_servo_move.c` (18 cases), and the angle meter's
 (25 cases), copied unchanged, and `test_imu.c` (9 cases) and
 `test_imu_filter.c` (10), adapted from rcbench's to the cases that need `imu.h`
 alone. The SDIO tests run the card protocol against a simulated card. Time is
-virtual and counted in microseconds — `millis()` advances only when a test says
-so — which makes hold-to-arm, hold-to-write and gesture repeat deterministic
-rather than dependent on machine speed. The fake ESC serves a real settings blob
-recovered from the reference configurator, so the UI tests operate on values a
-real ESC would report. The suite renders 169 screens to PPM (portable pixmap)
-images as it runs, one file per `fakeDumpFrame()` name, so a layout change is
-visible in the frames:
+virtual and counted in microseconds — `millis()` advances only when a test
+says so — which makes hold-to-arm, hold-to-write and gesture repeat
+deterministic rather than dependent on machine speed. The fake ESC serves a real
+settings blob recovered from the reference configurator, so the UI tests operate
+on values a real ESC would report. The suite renders 169 screens to PPM
+(portable pixmap) images as it runs, one file per `fakeDumpFrame()` name, so a
+layout change is visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
@@ -3494,7 +3501,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.5%**: 14,524 of 14,752 lines in 92 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.5%**: 14,535 of 14,763 lines in 92 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
