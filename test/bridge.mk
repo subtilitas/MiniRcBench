@@ -14,9 +14,13 @@
 #                       model ESC behind bridge_line_port.h; fake_cdc.cpp the
 #                       USB serial port with a PC behind it
 #   BRIDGE_DEVICE_SRCS  sources the suite cannot link, typechecked by `syntax`
+#   BRIDGE_LOG_SRCS     test_bridge_log, a program of its own that `run` runs:
+#                       the traffic log built on (USB_BRIDGE_LOG 1), the
+#                       firmware's default being off
 #
 # The line's two PIO programs, src/bridge_line.pio and src/pio_uart_rx.pio,
 # run in test/pio_bridge_emu.py, which `make pioemu` runs.
 BRIDGE_SRCS        := ../src/bridge_wire.cpp ../src/usb_bridge.cpp ../src/bridge_log.cpp
 BRIDGE_TESTS       := test_bridge.cpp fake_bridge_line.cpp test_usb_bridge.cpp fake_cdc.cpp
 BRIDGE_DEVICE_SRCS := ../src/bridge_line_port.cpp
+BRIDGE_LOG_SRCS    := test_bridge_log.cpp fake_cdc.cpp ../src/bridge_log.cpp ../src/usb_bridge.cpp

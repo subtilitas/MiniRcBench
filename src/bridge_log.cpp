@@ -153,6 +153,7 @@ bool bridgeLogDumpStep() {
 	if (s_dump == Dump::Off) return true;
 	for (;;) {
 		if (s_lineSent >= s_lineLen && !nextLine()) {
+			tud_cdc_write_flush();
 			s_dump = Dump::Off;
 			return true;
 		}
