@@ -702,7 +702,9 @@ Decision of the owner, 2026-10-18, on the switched servo supply that
     at a heartbeat trip, at a silent touch controller or a stuck bus, and at
     the release, where it becomes an undriven input after the last pulse.
     The pulses wait at level 0 until the supply is up. With `SERVO SUPPLY`
-    at `OWN` nothing changes. Host-tested, not tested on hardware.
+    at `OWN` nothing changes. Host-tested, not tested on hardware. The cuts
+    on the current sensor's readings are slice 4 of
+    [current-sense.md](current-sense.md#slice-4-as-built).
 
 Decision of the owner, 2026-11-14:
 

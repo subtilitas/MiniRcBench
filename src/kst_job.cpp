@@ -160,8 +160,8 @@ static void cutSupply(GuardCut why, uint32_t nowMs) {
 	supplySet(false, nowMs);
 	switch (s_state) {
 		case KstJobState::Searching:
+			// The search holds no servo: no backup to drop.
 			kstSeekStop(&s_seek, &s_ses);
-			kst_session_power_cycled(&s_ses);
 			s_cutDrain = true;
 			break;
 		case KstJobState::Busy:

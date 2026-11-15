@@ -86,9 +86,9 @@ und den Impulsbereich, `SIG GP0  50 HZ  1000-2000 US`, oder
 `SIG+AUX  50 HZ  1000-2000 US` mit zwei Servos, dazu eine Statusanzeige:
 `SAFE` (grün), `RUNNING` (rot), `STALLED` (magenta), oder nach einer
 Abschaltung durch den Stromsensor `OVERCURRENT`, `STALL`, `LOW SUPPLY` oder
-`NO SENSOR` (magenta, siehe [Die Abschaltungen](#die-abschaltungen)). Bei 333 Hz mit
-einem MIN ab 1000 µs hat die Zeile keinen Platz für die Nummer und zeigt
-`SIG  333 HZ  1000-2000 US`, oder `SIG+AUX  333 HZ` mit zwei Servos.
+`NO SENSOR` (magenta, siehe [Die Abschaltungen](#die-abschaltungen)). Bei
+333 Hz mit einem MIN ab 1000 µs hat die Zeile keinen Platz für die Nummer und
+zeigt `SIG  333 HZ  1000-2000 US`, oder `SIG+AUX  333 HZ` mit zwei Servos.
 
 In SAFE mit einem Servo steht rechts in der Anzeigezeile `TWO SERVOS:` und
 `SET > SERVOS`: Die Zeile SERVOS des SET-Bildschirms schaltet Servo B ein

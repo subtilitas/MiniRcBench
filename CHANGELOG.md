@@ -44,6 +44,26 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the cuts on the current sensor's readings, slice 4 of
+  [current-sense.md](docs/design/current-sense.md#slice-4-as-built)
+  (`src/supply_guard.*`), with CURRENT SENSE at INA219. The servo tester
+  stops on one reading of 3.0 A or more of either sign or a clipped one
+  (`OVERCURRENT`), on readings above 1.0 A for 400 ms (`STALL`), and with
+  SERVO SUPPLY at `GP28` or `GP29` on readings under 4.0 V for 1000 ms after
+  the supply came up (`LOW SUPPLY`) and on a sensor not online or 250 ms
+  without a reading (`NO SENSOR`, `CURRENT SENSOR LOST: SUPPLY OFF.`). The
+  pulses end and the enable pin goes low in the same core1 pass; the chip,
+  magenta, and the dial's note stay until HOLD TO START. With `OWN` only
+  the first two apply. KST SERVO and HITEC SERVO switch the supply off on the
+  hard and the collapse cut while it is on, during a read or a write too:
+  the session is power-cycled, Hitec cuts the transaction on the line, and
+  the page names the cut over RETRY; no switch-on follows until RETRY. Each
+  new reading counts once, and a stale one never. Host tests in
+  `test/test_supply_guard.cpp`, `test/test_servo.cpp`,
+  `test/test_kst_job.cpp`, `test/test_hitec_job.cpp` and the KST and Hitec
+  screen suites, mutation-checked; README and the wiki pages Servo-Tester,
+  The-Screens, KST-Programming, Hitec-Programming and Troubleshooting with
+  their German pairs describe them. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): ESC COMMANDS, slice 2 of
   [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built), MENU's
   first row in place of BEEP THE ESC (decision 1, `src/ui_esc_cmd.*`). BEEP

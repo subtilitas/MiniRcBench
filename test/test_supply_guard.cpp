@@ -134,6 +134,7 @@ static void testNewReadingsOnly() {
 	s.takenMs = 1001;
 	checkTrue("the same reading 249 ms old: fresh, Hard",
 	          supplyGuardStep(&g, &s, &HARD_ONLY, 1001 + SENSE_STALE_MS - 1) == GuardCut::Hard);
+	checkTrue("its seq kept as seen", g.seq == 2 && g.taken && g.lastMs == 1001);
 	// One reading of 1.2 A seen on every pass for 600 ms: one reading, no stall.
 	supplyGuardArm(&g, &at, 2000);
 	s = sampleOf(2, 2010, 1200000);

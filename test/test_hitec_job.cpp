@@ -799,7 +799,8 @@ static void testCuts() {
 		hitec_image_t t = draftOf(&st.image, family);
 		send(HitecOp::Write, &t);
 		passes(1);
-		while (status().job == HitecJobState::Busy && status().stepIndex == 0) passes(1);
+		for (int i = 0; i < 20000 && status().job == HitecJobState::Busy && status().stepIndex == 0; i++)
+			passes(1);
 		snprintf(what, sizeof(what), "%s: a write under way", name);
 		checkTrue(what, status().job == HitecJobState::Busy && status().lastWrite);
 		readWhileOut(3.2);
@@ -812,9 +813,9 @@ static void testCuts() {
 		snprintf(what, sizeof(what), "%s: the transaction on the line cut, the line free", name);
 		checkTrue(what, fakeHitecAborts() == aborts + 1 && !fakeHitecLineBusy());
 		passes(3000);
-		snprintf(what, sizeof(what), "%s: no switch-on and no transaction until RETRY", name);
+		snprintf(what, sizeof(what), "%s: no switch-on and no transaction until RETRY, still Hard", name);
 		checkTrue(what, !enHigh() && fakeHitecStarts() == starts &&
-		          status().job == HitecJobState::EntryEnded);
+		          status().job == HitecJobState::EntryEnded && status().cut == GuardCut::Hard);
 		g_ina->currentA = 0;
 		uint16_t seq = send(HitecOp::Enter);
 		passes(1);
@@ -838,6 +839,50 @@ static void testCuts() {
 		g_vout = 5.0;
 		finish();
 	}
+
+	// A cut transaction the line driver hands back 3 ms late: the job waits
+	// for it, then RETRY enters.
+	sensorOn();
+	startInMode(HITEC_D, true);
+	send(HitecOp::ReadAll);
+	passes(1);
+	fakeHitecCutDelay(3000);
+	readWhileOut(3.2);
+	checkTrue("cut, the line still busy: off, not yet EntryEnded",
+	          !enHigh() && fakeHitecLineBusy() && status().job == HitecJobState::Busy);
+	passes(3);
+	checkTrue("handed back: EntryEnded, the line free", !fakeHitecLineBusy() &&
+	          status().job == HitecJobState::EntryEnded && status().cut == GuardCut::Hard);
+	g_ina->currentA = 0;
+	fakeHitecCutDelay(0);
+	send(HitecOp::Enter);
+	checkTrue("RETRY: in the mode again", until(HitecJobState::InMode, 20000) && status().hasImage);
+	g_ina->currentA = 3.2;
+	passes(50);
+	checkTrue("cut again before the release", status().cut == GuardCut::Hard);
+	g_ina->currentA = 0;
+	finish();
+	// A new claim forgets a cut.
+	start(HITEC_D, true);
+	checkTrue("a new claim: no cut in its status", status().cut == GuardCut::None);
+	send(HitecOp::Enter);
+	passes(1);
+	checkTrue("a new claim: the cut forgotten, in the mode", status().cut == GuardCut::None &&
+	          until(HitecJobState::InMode, 20000) && enHigh());
+	// The release's first pass reads a cut.
+	send(HitecOp::ReadAll);
+	passes(1);
+	g_ina->currentA = 3.2;
+	fakeAdvance(1);
+	escHeartbeat();
+	g_senseMs = millis();
+	senseTick(g_senseMs);
+	core1JobStop();
+	core1JobPoll();
+	checkTrue("3.2 A at the release: GP28 low in its first pass",
+	          !enHigh() && status().cut == GuardCut::Hard);
+	g_ina->currentA = 0;
+	finish();
 
 	// A cut during a read: the LISTEN or SEND on the line cut at once.
 	sensorOn();
@@ -866,7 +911,7 @@ static void testCuts() {
 	hitec_image_t t = draftOf(&st.image, HITEC_D);
 	send(HitecOp::Write, &t);
 	passes(1);
-	while (status().stepIndex == 0) passes(1);
+	for (int i = 0; i < 20000 && status().stepIndex == 0; i++) passes(1);
 	send(HitecOp::Leave);
 	passes(1);
 	checkTrue("LEAVE during a write: Leaving, the write still runs, on",

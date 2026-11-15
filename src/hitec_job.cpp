@@ -337,10 +337,9 @@ static void cutSupply(GuardCut why, uint32_t nowMs) {
 	s_cut = why;
 	s_stallWrote = s_wrote;
 	supplySet(false, nowMs);
-	// A leave's drain, a write that finishes, is cut as an operation is.
-	bool leaving = s_state == HitecJobState::Leaving || s_state == HitecJobState::Closed;
-	if (leaving && !s_drain) return;
-	s_drain = false;
+	// A leave's drain, a write that finishes, is cut as an operation is:
+	// leaveStep() polls the cut transaction back before it steps the
+	// session, which is a new one by then.
 	if (s_out) {
 		// Polled back by advance() or leaveStep() later in this pass.
 		hitecLineAbort();
@@ -387,9 +386,7 @@ static void startRead(bool first) {
 /** @brief Leave from wherever the job is: a write finishes, a read or an entry is cut. */
 static void beginLeave(uint32_t nowMs) {
 	s_cardPhase = false;
-	// A transaction a cut aborted is polled back in the leave; the session
-	// is gone with it.
-	s_drain = !s_cutDrain && (s_state == HitecJobState::Entering || s_state == HitecJobState::Busy);
+	s_drain = s_state == HitecJobState::Entering || s_state == HitecJobState::Busy;
 	if (s_drain && !s_opWrite) abortOp(nowMs);
 	s_rebooting = false;
 	s_rebooted = false;

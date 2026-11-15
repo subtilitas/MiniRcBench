@@ -993,8 +993,8 @@ static void testSwitchedCuts() {
 	unsigned ons = g_sup.switchOns;
 	g_ina->currentA = 0;
 	passes(3000);
-	checkTrue("no switch-on until RETRY", !enHigh() && g_sup.switchOns == ons &&
-	          status().job == KstJobState::SearchEnded);
+	checkTrue("no switch-on until RETRY, the cut still Hard", !enHigh() && g_sup.switchOns == ons &&
+	          status().job == KstJobState::SearchEnded && status().cut == GuardCut::Hard);
 	uint16_t seq = send(KstOp::Search);
 	passes(1);
 	checkTrue("RETRY: taken, the cut cleared", status().ackSeq == seq &&
@@ -1028,7 +1028,8 @@ static void testSwitchedCuts() {
 	kst_field_edit(&edit.target, KST_F_BOOST, 19);
 	kstJobCommand(&edit);
 	passes(1);
-	while (status().job == KstJobState::Busy && status().wroteRegs == 0) passes(1);
+	for (int i = 0; i < 5000 && status().job == KstJobState::Busy && status().wroteRegs == 0; i++)
+		passes(1);
 	checkTrue("a write under way, a register written",
 	          status().job == KstJobState::Busy && status().wroteRegs != 0);
 	g_ina->currentA = 3.3;
@@ -1050,12 +1051,47 @@ static void testSwitchedCuts() {
 	passToRead();
 	checkTrue("3.2 A in the entry: GP28 low", !enHigh());
 	checkTrue("the search ends after its frame", until(KstJobState::SearchEnded, 10) &&
-	          status().cut == GuardCut::Hard);
+	          status().cut == GuardCut::Hard && status().seek != KstSeek::Searching);
 	ons = g_sup.switchOns;
 	passes(2500);
 	checkTrue("no new attempt", g_sup.switchOns == ons && !enHigh());
 	g_sup.windowUs = 0;
 	g_ina->currentA = 0;
+
+	// A cut in a positive entry delay: the supply on, no frame yet.
+	send(KstOp::Search);
+	passes(1);
+	s_seek.delayMs = 300;
+	passes(2100);
+	checkTrue("the entry delay: on, no entry", enHigh() &&
+	          s_seek.phase == KstSupplyPhase::Delay);
+	uint32_t frames = fakeKstSim()->n_frames;
+	g_ina->currentA = 3.2;
+	passToRead();
+	checkTrue("3.2 A in the delay: off, SearchEnded at once, no frame",
+	          !enHigh() && status().job == KstJobState::SearchEnded &&
+	          status().seek != KstSeek::Searching && fakeKstSim()->n_frames == frames);
+	passes(500);
+	checkTrue("still no frame", fakeKstSim()->n_frames == frames && !enHigh());
+	g_ina->currentA = 0;
+
+	// A cut in REBOOT's entry: then RETRY finds the servo again.
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	send(KstOp::ReadAll);
+	passes(1);
+	until(KstJobState::InMode, 2000);
+	send(KstOp::Reboot);
+	passes(3005);
+	checkTrue("REBOOT's entry runs", status().job == KstJobState::Rebooting &&
+	          (status().reboot == KstReboot::Enter || status().reboot == KstReboot::Read));
+	g_ina->currentA = 3.2;
+	passToRead();
+	checkTrue("3.2 A in REBOOT's entry: off", !enHigh());
+	checkTrue("SearchEnded after the frame", until(KstJobState::SearchEnded, 10));
+	g_ina->currentA = 0;
+	send(KstOp::Search);
+	checkTrue("RETRY: found and read again", until(KstJobState::InMode, 5000) && enHigh());
 
 	// A cut in REBOOT's on wait.
 	send(KstOp::Search);
@@ -1073,6 +1109,27 @@ static void testSwitchedCuts() {
 	          !enHigh() && st.job == KstJobState::SearchEnded && st.reboot == KstReboot::None &&
 	          st.cut == GuardCut::Hard);
 	g_ina->currentA = 0;
+
+	// BACK while the cut read still finishes its frame: the leave takes it.
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	send(KstOp::ReadAll);
+	passes(1);
+	g_ina->currentA = 3.2;
+	g_senseMs = millis() - 25;
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("3.2 A and BACK in one pass: off, Leaving, the cut named",
+	          !enHigh() && status().job == KstJobState::Leaving && status().cut == GuardCut::Hard);
+	checkTrue("closed 2000 ms after the cut", until(KstJobState::Closed, 2100));
+	finishSwitched();
+	// A new claim forgets the cut: its search switches on again.
+	startSwitched();
+	g_ina->currentA = 0;
+	checkTrue("a new claim after a cut: no cut in its status", status().cut == GuardCut::None);
+	send(KstOp::Search);
+	checkTrue("a new claim after a cut: found, on", until(KstJobState::InMode, 5000) && enHigh() &&
+	          status().cut == GuardCut::None);
 
 	// BACK after a cut: the close waits 2000 ms from the cut's switch-off.
 	send(KstOp::Search);

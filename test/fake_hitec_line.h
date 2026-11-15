@@ -93,3 +93,10 @@ unsigned fakeHitecAborts();
 
 /** @brief A transaction was started and its capture not yet polled. */
 bool fakeHitecLineBusy();
+
+/**
+ * @brief A transaction hitecLineAbort() cuts comes back @p us after the cut,
+ *        as the line driver's sampler can take its time; 0, the default
+ *        after fakeHitecLineReset(), at once.
+ */
+void fakeHitecCutDelay(uint32_t us);

@@ -447,8 +447,8 @@ static void drawTop(const char *title, bool caption) {
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.backOk = backActs();
-	// A cut's chip is part of the key: each has its own text.
-	k.chip = s_st.running ? 1 : (s_st.tripped ? (uint8_t)(2 + (uint8_t)s_st.powerFault) : 0);
+	// A cut's fault is published with the trip and changes only at START.
+	k.chip = s_st.running ? 1 : (s_st.tripped ? 2 : 0);
 	k.p = s_profile;
 	k.sig = gpioOf(PIN_SIG);
 	k.aux = gpioOf(PIN_AUX);
@@ -542,9 +542,8 @@ static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 			default:                           break;
 		}
 		snprintf(a, n, "%s", why);
-		// A sensor still lost refuses START: the second line says so.
-		snprintf(b, n, "%s", s_st.powerFault == ServoPowerFault::NoSensor &&
-		                     s_st.startBlock == ServoStartBlock::NoSensor
+		// A sensor not online refuses START: the second line says so.
+		snprintf(b, n, "%s", s_st.startBlock == ServoStartBlock::NoSensor
 		                     ? SERVO_UI_NO_SENSOR_1 : "HOLD TO START AGAIN.");
 		*ca = C_MAGENTA;
 		return;

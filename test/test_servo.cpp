@@ -1278,6 +1278,11 @@ static void testPowerCuts() {
 	          p.fault == ServoPowerFault::Overcurrent && p.phase == ServoPowerPhase::Off);
 	servoPowerReset(&p, false, false);
 	checkTrue("OWN, a rebind keeps it", p.fault == ServoPowerFault::Overcurrent);
+	c.tripped = false;
+	p.fault = ServoPowerFault::None;
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), readingIn(++seq, 3200000, 7400, 1500), 1500);
+	checkTrue("OWN, SAFE: a 3.2 A reading trips nothing, the guard disarmed",
+	          !c.tripped && p.fault == ServoPowerFault::None && !p.guard.armed);
 	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start), readingIn(++seq, 0, 7400, 2000), 2000);
 	checkTrue("OWN, START clears it", c.running && p.fault == ServoPowerFault::None);
 	checkInt("OWN, 1.5 A: Stall 400 ms on", cutRun(&c, &p, 2, &seq, 2025, 3000, 1500000, 7400), 2425);
@@ -4735,6 +4740,23 @@ static void testCutScreens() {
 	          UI_MARGIN + gfxTextW("SIG  50 HZ  1000-2000 US", 1) + 4 <= uiChipX(SERVO_UI_CHIP_HARD));
 	char line2[40];
 	snprintf(line2, sizeof(line2), SERVO_UI_SUPPLY_FMT, 28u);
+	{
+		ServoProfile keep = s_profile;
+		s_profile.rateHz = 333;
+		s_st.tripped = false;
+		drawTop(SERVO_UI_TITLE, true);
+		checkTrue("333 HZ beside SAFE: menu-b.md's caption, by its role",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  333 HZ  1000-2000 US", C_DIM, C_BG, 1));
+		s_st.tripped = true;
+		drawTop(SERVO_UI_TITLE, true);
+		checkTrue("333 HZ beside OVERCURRENT: the travel goes",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "SIG  333 HZ", C_DIM, C_BG, 1) &&
+		          !someOf(UI_MARGIN + gfxTextW("SIG  333 HZ", 1) + 1, UI_STRIP_LINE1_Y,
+		                  uiChipX(SERVO_UI_CHIP_HARD) - UI_MARGIN - gfxTextW("SIG  333 HZ", 1) - 2, 7,
+		                  C_DIM));
+		s_profile = keep;
+		drawTop(SERVO_UI_TITLE, true);
+	}
 	checkTrue("the second line: ON AT START, clear of the chip",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, line2, C_AMBER, C_BG, 1) &&
 	          UI_MARGIN + gfxTextW(line2, 1) + 4 <= uiChipX(SERVO_UI_CHIP_HARD));
