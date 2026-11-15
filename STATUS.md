@@ -230,12 +230,15 @@ text and its CRC are rcbench files at commit 3e29dc1b, and the S.BUS
 (Futaba's serial bus for receiver channels) decoder and the current sensor's
 bus record, `sense_bus.c`, are rcbench files at commit 5ef42efd, and the
 escwire core, its line driver and the servo file store are rcbench files at
-commit 2b4f934a, all copied unchanged into `lib/rcbench/`
+commit 2b4f934a, and the control-surface arithmetic `servo_rudder`, the IMU
+(inertial measurement unit) model `imu` and the WitMotion decoder are
+rcbench files at commit e98345aa, all copied unchanged into `lib/rcbench/`
 ([lib/rcbench/README.md](lib/rcbench/README.md)). The firmware builds the S.BUS
 decoder for the S.BUS job, and the escwire core and its line driver, which
-nothing calls yet. The SDIO driver in `src/sdio/` is part of the tree,
-MIT, written from the SD Association's Physical Layer Simplified
-Specification v9.10 and the RP2350 datasheet
+nothing calls yet; the host suite alone builds `servo_rudder`, `imu` and
+`witmotion`, which nothing in `src/` calls yet. The SDIO driver in `src/sdio/`
+is part of the tree, MIT, written from the SD Association's Physical Layer
+Simplified Specification v9.10 and the RP2350 datasheet
 ([design note](docs/design/sdio-driver.md)). A release carries one UF2
 (USB Flashing Format) image, `MiniRcBench-<tag>-touch-lcd-2.8.uf2`.
 
@@ -331,6 +334,7 @@ record either way.
 | S.BUS monitor's core1 job (`src/sbus_job.*`, slice 2 of [rx-signals.md](docs/design/rx-signals.md)), its pin user `PinUser::Sbus` and `CORE1_JOB_NO_GP1`; rcbench's decoder (`lib/rcbench/protocols/sbus/`) | the core on a line model of a receiver: nothing counted before 2000 µs of quiet line after the bind, clean streams at 7 ms and 14 ms, the mean of the last 16 intervals and its restart after 100 ms, the flag byte and its counts, parity, framing and break bytes counted and not fed, overrun counted and fed, footers, a cut frame, the 2000 µs gap, the micros() wrap; the job through the claim on a UART0 fake: GP1 on the UART function with its input inverted and the pull-down, GP0 untouched, 100,000 baud from 150 MHz, 8 data bits, even parity and 2 stop bits, drains every 1000 µs, a pass 2000 µs late splitting a frame, the FIFO's overrun, the heartbeat ignored, each wiring, the NO GP1 and CLOCK refusals and RETRY, KISS live, an ESC on SIG, the claim held, the release in one pass leaving GP1 a plain input and the status cleared, a bind 1 ms into a live frame with the 8N1 window counting nothing, counts at 0 on a new visit | not tested on hardware: the inversion on the pin, a receiver's level and frames, the UART's error flags on a real line |
 | S.BUS MONITOR and RX SIGNALS, slice 3 of [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built) (`src/ui_sbus.*`, `src/sbus_view.*`, `src/ui_rx_signals.*`, the RX SIGNALS row in `src/ui_registry.cpp`, `uiChip()`'s label on amber in `src/ui_widgets.cpp`) | the view's link state, hold, ink, bar and texts at their boundaries; the chooser through MENU, OUTPUT disabled; the monitor on the UART0 fake through the claim: frames at 14 ms and 7 ms, every bar and value, the chip in each state, failsafe, a receiver gone, a refused footer, error counts, the leave page and BACK TO MONITOR, RESTART DSHOT; GP1 as SIG with the screen's ESC check; KISS on GP1; no GP1; the clock and RETRY; the row refused while the claim is not Free; 33 mutations of the view, all failing the suite, and 48 of the screen, the chooser, the registry and the chip, 44 failing, one equivalent, three on code later removed as redundant, listed in the note | not tested on hardware: a receiver's frames on GP1, the screen's reading of them on the panel, the pass time with the job |
 | INA219 current sensor on J3, the shared I2C1 bus (`src/sense.*`, slice 1 of [current-sense.md](docs/design/current-sense.md)): the codec, the probe, the reading on core0 after the touch read, the read-back, the recovery, the `SenseSample` published for core1, which the servo job reads (slice 3); rcbench's `sense_bus.c` (5ef42efd) in `lib/rcbench/shared/sense/`; the touch driver's transfers noted; SETTINGS → CURRENT SENSE; the readout on SERVO TESTER, KST SERVO and HITEC SERVO | against an I2C fake with an INA219 and a CST328 model (`test/fake_i2c.*`, `runSenseTests`): 19EFh written at the probe, the shunt code to µA on 0.1 Ω at ±1, ±31999, ±32000 and beyond, the bus code to mV, the clip, a negative current; 399Fh and 19EFh accepted as an INA219, 4127h, 7127h and any other value as another part read every second, nothing but the register pointer written to it over 3000 ms, an INA219 put in its place found, FFFFh as none, a refused set-up; absent and probed again 1000 ms on, not 999 ms; three NACKs to offline, two timeouts to stuck, a held SDA, a recovery at once and every 100 ms, a part freed by its clocks, touch transfers noted, a touch abort with SDA held as a line low and the recovery run, a short count through the wire; the read-back once a second, a power-on reset found within two, the reset flag; 220 clocks for the probe, 96 for a reading, 84 for touch; the worst bus time of a frame in each failure mode and with one timeout after each count of transfers that answer, with timeouts moving the clock: the sensor at most 1480 µs, the probe's last data read timing out (1335 µs with the 19EFh write timing out, 1290 µs in a frame with the read-back, 1170 µs in a reading), touch at most 2073 µs, its data read timing out; a read's abort with SDA low for the block's own STOP a NACK, not a line held low; the recovery's START and STOP; the sample's 250 ms age, not at 249 ms, across a `millis()` wrap; the readout's texts and widths; touch read every frame with the sensor present, absent and failing; the SETTINGS row by id, saved, reset, nothing sent to 0x40 with NONE; the readout on the three screens | not tested on hardware: no INA219 has been on the board's bus; open item 16 |
+| Angle meter's rcbench files, slice 1 of [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built): `servo_rudder`, the IMU model `imu` with `imu_feed_angles()` and the WitMotion decoder (`lib/rcbench/`, rcbench e98345aa), built by the host suite only, called by nothing in `src/` | rcbench's tests copied unchanged: `test_servo_rudder.c` (4 cases), `test_imu_angles.c` (7) and `test_witmotion.c` (14); 12 mutations of the copies, each failing a test or the build; the `imu.h`-only cases of `test_imu.c` and `test_imu_filter.c` are not adapted, open for slice 3 | host only; nothing of it has run with the board's QMI8658 |
 | The wiring sheet's current sensor and boost converter, slice 2 of [current-sense.md](docs/design/current-sense.md#slice-2-as-built): `^` on J3's I2C pins in the connector table of `src/board_rp2350_touch_lcd_2_8.h`, J3's roles and part C in `tools/make_wiring.py`, `docs/wiring.svg` | `tools/make_wiring.py --check`: the drawing against the sources; `sensor()` refusing the marker on no connector and on two, GP0 in place of J3's GND, an unmarked bus pin on J4, a marker off the bus, another SCL pin, and the address at 0x1A, 0x78 and 0x07 | not on hardware: no INA219 and no boost converter has been wired to the board; open item 16 |
 | The servo tester on the switched supply, slice 3 of [current-sense.md](docs/design/current-sense.md#slice-3-as-built) and decision 20 of [servo-tester.md](docs/design/servo-tester.md): `servoPowerStep()` and the job's enable pin in `src/servo_job.*`, `touchAnsweredMs()` in `src/touch.h` and `src/cst328.cpp`, the strip's phase line, the notes and SET's start-up time in `src/ui_servo.*`, part C's title and notes in `tools/make_wiring.py` | `runServoTests`: the rules alone at each boundary (499 and 500 ms, 4499 and 4500 mV, 1000 and 1001 mV, 2500 and 2501 mV, 1999 and 2000 ms, a stale reading, a wrap); the job through the job table on the fake pads: the enable pin low at the bind and never an output while high, high at START, the pulses at 500 ms or at the first reading of 4.5 V after the switch-on, low at STOP, STOP while starting, the heartbeat trip at 250 ms, a touch controller silent for 250 ms, a stuck bus, a supply that did not come up, BACK's first pass, an undriven input after the quiet wait and after DShot's restart, undriven after a refused bind, low across a rebind; START refused with the sensor declared and absent, touch silent or the bus stuck; NotOff and Off read back; GP28 and GP29 untouched with OWN; the screens with a fake INA219 following the pin; `runSenseTests`: the touch stamp; mutation-checked | not tested on hardware: the enable pin from reset and in BOOTSEL, a converter's start-up time and decay (B6), the stuck bus on the board (B3), the trip with the supply on (B11); open items 15 and 16 |
 | Touch handling, high-contrast theme, throttle gauge | tap on release, repeats, screen residue, gauge reach | hardware use recorded: the reports #22 to #24 named in the v2.3 commits; the fixes on hardware: not recorded |
@@ -823,10 +827,10 @@ not run on hardware (item 18).
     `.BFL`; `SdLogStatus` carries the last summary. SD LOG does not show it;
     slices 3 to 6 wait on being built.
 
-27. **Angle meter on the board's IMU, designed, not built.** The owner's choice
-    of 2026-11-14 from the feature survey (item 28): incidence, decalage,
-    dihedral and control-surface throw, in degrees and mm, from the QMI8658 at
-    0x6B on I2C1. [angle-meter.md](docs/design/angle-meter.md) describes the
+27. **Angle meter on the board's IMU, designed; slice 1, the copies,
+    built.** The owner's choice of 2026-11-14 from the feature survey
+    (item 28): incidence, decalage, dihedral and control-surface throw, in
+    degrees and mm, from the QMI8658 at 0x6B on I2C1. [angle-meter.md](docs/design/angle-meter.md) describes the
     driver on core0 after the touch and current-sensor reads, the angle from the
     accelerometer alone, ZERO, a three-pose flip calibration, the screen and six
     slices on rcbench's `servo_rudder.c` and `imu.c`: copies, driver, model,
@@ -835,9 +839,16 @@ not run on hardware (item 18).
     is ANGLE METER; the IMU model added in rcbench first; the three-pose flip,
     then the edge poses if bench test B6 shows a gain error over 0.2°; the
     calibration, LENGTH, ALONG AXIS and SIGN kept in the settings block; 0.1°
-    and 0.1 mm; no holder in the first build; the screen only. Slices wait on
-    being built. Which QMI8658 variant is fitted, its byte order, its axes on
-    the board, the board's mass and the real accuracy are not verified.
+    and 0.1 mm; no holder in the first build; the screen only. Slice 1 is
+    built ([slice 1 as built](docs/design/angle-meter.md#slice-1-as-built)):
+    rcbench's `servo_rudder`, its IMU model `imu` with `imu_feed_angles()`
+    and the WitMotion decoder `imu.h` includes, copied unchanged from rcbench
+    e98345aa into `lib/rcbench/` with their tests, 25 cases, run by the host
+    suite; nothing in `src/` calls them yet. The cases of rcbench's
+    `test_imu.c` and `test_imu_filter.c` that need `imu.h` alone are not
+    adapted; open for slice 3. Slices 2 to 6 wait on being built. Which
+    QMI8658 variant is fitted, its byte order, its axes on the
+    board, the board's mass and the real accuracy are not verified.
 
 28. **The owner's feature choice of 2026-11-14.** From the feature survey
     of 2026-11-14 the owner chose six features for the build list, each to
@@ -1082,8 +1093,8 @@ the card and TinyUSB and drives its callbacks: the suite links a fake of that
 file's runtime half for the screens.
 
 `test/servo.mk`, `test/kst.mk`, `test/hitec.mk`, `test/rx.mk`,
-`test/sense.mk` and `test/escwire.mk` list each feature's sources and test
-files for `test/Makefile`, as `src/servo.cmake`, `src/kst.cmake`,
+`test/sense.mk`, `test/escwire.mk` and `test/angle.mk` list each feature's
+sources and test files for `test/Makefile`, as `src/servo.cmake`, `src/kst.cmake`,
 `src/hitec.cmake`, `src/rx.cmake`, `src/sense.cmake` and `src/escwire.cmake`
 do for `CMakeLists.txt`. A feature's C
 sources and C test programs are built as C11:
@@ -1103,8 +1114,10 @@ rcbench's escwire tests, copied unchanged: `test_ew_a.c` (9 cases),
 `test_ew_session.c` (13), `test_ew_session_write.c` (26), `test_ew_file.c`
 (28), `test_ew_file_load.c` (10), `test_ew_pio.c` (28), `test_ew_text.c`
 (20), `test_ew_session_text.c` (34) and `test_ew_file_e32.c` (9), and
-`escwire_headers.cpp`, the core's headers compiled as C++11. CI holds the
-KST, Hitec and escwire line fixtures to pioasm's words.
+`escwire_headers.cpp`, the core's headers compiled as C++11, and rcbench's
+angle meter tests, copied unchanged: `test_servo_rudder.c` (4 cases),
+`test_imu_angles.c` (7) and `test_witmotion.c` (14). CI holds the KST, Hitec
+and escwire line fixtures to pioasm's words.
 
 Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
