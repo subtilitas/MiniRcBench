@@ -92,6 +92,19 @@ decision 8 and DShot restarts only from its RESTART DSHOT, which clears the
 cue. `ESC SETTINGS` serves AM32 only until the Bluejay and BLHeli_S slices 3
 and 4 land.
 
+Slice 1 of
+[usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built) is built, host
+tests only, not on hardware, and nothing opens it yet. `PinUser::Bridge`
+claims SIG with no ESC check and no leave page of its own, and runs
+`Core1Job::Bridge` (`src/bridge_wire.h`): DshotDisplay's frame slot and
+1024-byte ring between the cores, on a PIO line of two state machines in
+one block (`src/bridge_line_port.h`), the 7-word transmitter of
+`src/bridge_line.pio`, which sets the pad's direction by side-set and keeps
+it driven between the bytes of a frame, and `pio_uart_rx`'s receiver on the
+same pad, whose echo the job matches against the bytes sent. A claim
+without the leave page restores DShot only once its job is idle; the
+bridge's release finishes the frame under way, at most 250 ms.
+
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
 2026-11-13, is built in its 10 slices, host tests only, not on hardware.
 Slice 1: the leave page
@@ -174,13 +187,15 @@ SETTINGS pin change drains the same way. `loop1()` runs `escTaskPoll()` and then
 `core1JobPoll()`, which binds, steps and releases the claiming screen's job
 (`src/core1_job.h`): the servo job (`src/servo_job.h`) for SERVO, the KST
 job (`src/kst_job.h`) for KST, the Hitec job (`src/hitec_job.h`) for
-HITEC and the S.BUS job (`src/sbus_job.h`) for the S.BUS monitor; the AM32
+HITEC and the S.BUS job (`src/sbus_job.h`) for the S.BUS monitor, and the
+USB bridge's job (`src/bridge_wire.h`), which nothing opens yet; the AM32
 transport runs on core0.
 Leaving rebuilds the pump from the wiring it had, disarmed. For SERVO, KST,
 HITEC and the S.BUS monitor, and for AM32 once an EFM8 bootloader answered,
 the claim restarts DShot only from the leave page, whose RESTART DSHOT acts
 1000 ms after the pin is let go, once the page has told the user to unplug
-the servo, the receiver or the ESC's battery.
+the servo, the receiver or the ESC's battery. A claim without the page
+restarts DShot once its job is idle: AM32, which has none, within BACK.
 
 Rates and defaults, from `src/config.h` and `src/main.cpp`:
 
@@ -356,6 +371,7 @@ record either way.
 | S.BUS monitor's core1 job (`src/sbus_job.*`, slice 2 of [rx-signals.md](docs/design/rx-signals.md)), its pin user `PinUser::Sbus` and `CORE1_JOB_NO_GP1`; rcbench's decoder (`lib/rcbench/protocols/sbus/`) | the core on a line model of a receiver: nothing counted before 2000 µs of quiet line after the bind, clean streams at 7 ms and 14 ms, the mean of the last 16 intervals and its restart after 100 ms, the flag byte and its counts, parity, framing and break bytes counted and not fed, overrun counted and fed, footers, a cut frame, the 2000 µs gap, the micros() wrap; the job through the claim on a UART0 fake: GP1 on the UART function with its input inverted and the pull-down, GP0 untouched, 100,000 baud from 150 MHz, 8 data bits, even parity and 2 stop bits, drains every 1000 µs, a pass 2000 µs late splitting a frame, the FIFO's overrun, the heartbeat ignored, each wiring, the NO GP1 and CLOCK refusals and RETRY, KISS live, an ESC on SIG, the claim held, the release in one pass leaving GP1 a plain input and the status cleared, a bind 1 ms into a live frame with the 8N1 window counting nothing, counts at 0 on a new visit | not tested on hardware: the inversion on the pin, a receiver's level and frames, the UART's error flags on a real line |
 | S.BUS MONITOR and RX SIGNALS, slice 3 of [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built) (`src/ui_sbus.*`, `src/sbus_view.*`, `src/ui_rx_signals.*`, the RX SIGNALS row in `src/ui_registry.cpp`, `uiChip()`'s label on amber in `src/ui_widgets.cpp`) | the view's link state, hold, ink, bar and texts at their boundaries; the chooser through MENU, OUTPUT disabled; the monitor on the UART0 fake through the claim: frames at 14 ms and 7 ms, every bar and value, the chip in each state, failsafe, a receiver gone, a refused footer, error counts, the leave page and BACK TO MONITOR, RESTART DSHOT; GP1 as SIG with the screen's ESC check; KISS on GP1; no GP1; the clock and RETRY; the row refused while the claim is not Free; 33 mutations of the view, all failing the suite, and 48 of the screen, the chooser, the registry and the chip, 44 failing, one equivalent, three on code later removed as redundant, listed in the note | not tested on hardware: a receiver's frames on GP1, the screen's reading of them on the panel, the pass time with the job |
 | Bluejay and BLHeli_S, slice 2 of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built): the greeting's answer classified (`src/bl_answer.*`, `am32BlAnswer()`), an EFM8 answer named on ESC SETTINGS' connect page, the run cue it sets, the leave page per claim (`pinClaimWantLeavePage()`, `pinClaimLeavePage()` in `src/pin_claim.*`) and ESC SETTINGS' leave page of the note's decision 8 (`src/ui_am32.*`), the ESC CONFIG chooser (`src/ui_esc_config.*`, `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`), the titles ESC SETTINGS, ESC HEX and ESC WRITE | the classification of AM32 answers of three families and of EFM8 answers with each signature, with an echo, and of answers not understood; the leave page per claim through `pinClaimEnd()` and RESTART DSHOT; the EFM8 answer through the screen: its line, nothing read, the cue, the leave page's steps, STAY, LEAVE, RESTART DSHOT at 1000 ms, the cue cleared; the leave page from every BACK that would leave after an EFM8 answer, the connect page, the list's guard and the read-only view, STAY back to each, BACK on ESC HEX to the list; an AM32 claim with no EFM8 answer giving DShot back within BACK; the chooser through MENU, USB BRIDGE disabled, the claim on ESC SETTINGS' tap; 39 mutations, 38 failing the suite and one equivalent, listed in the note | not tested on hardware: no Bluejay or BLHeli_S ESC has answered the greeting on this board, the classification of a real answer and the leave page's steps are not verified on an ESC |
+| USB bridge, slice 1 of [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built): `PinUser::Bridge` and `Core1Job::Bridge` (`src/pin_claim.*`, `src/core1_job.*`), the job, frame slot and ring (`src/bridge_wire.*`), the PIO line (`src/bridge_line.pio`, `src/bridge_line_port.*`), a claim without the leave page restoring DShot only once its job is idle | `test/pio_bridge_emu.py`, the transmitter and `pio_uart_rx` in a model of two state machines on one pad, 42 runs: each byte's bits, the pad driven through a frame and let go after it, the echo in the FIFO before the transmitter idles, an ESC's reply at 8 phases and 2 % and 3 % off the rate, a collision, a full FIFO, and a control run that fails; `runBridgeTests`, 162 checks on a line fake: the divider, the slot, the frame whole with passes 1 ms and 5 ms apart, the echo kept, dropped, differing and lost, overruns, the ring's wrap, the release, the claim from Stopping to Free with DShot never bound while the line is open, Free with only `pinClaimState()` called after BACK, the leave page given and kept, RETRY; 42 mutations, 38 failing, one showing a redundant line, removed, three equivalent on the host, listed in the note | not tested on hardware: no byte has been on SIG from this line; `bridge_line_port.cpp` is compiled only; the pad reading itself while driven and the receiver's rate tolerance on a real ESC are not measured |
 | INA219 current sensor on J3, the shared I2C1 bus (`src/sense.*`, slice 1 of [current-sense.md](docs/design/current-sense.md)): the codec, the probe, the reading on core0 after the touch read, the read-back, the recovery, the `SenseSample` published for core1, which the servo job reads (slice 3); rcbench's `sense_bus.c` (5ef42efd) in `lib/rcbench/shared/sense/`; the touch driver's transfers noted; SETTINGS → CURRENT SENSE; the readout on SERVO TESTER, KST SERVO and HITEC SERVO | against an I2C fake with an INA219 and a CST328 model (`test/fake_i2c.*`, `runSenseTests`): 19EFh written at the probe, the shunt code to µA on 0.1 Ω at ±1, ±31999, ±32000 and beyond, the bus code to mV, the clip, a negative current; 399Fh and 19EFh accepted as an INA219, 4127h, 7127h and any other value as another part read every second, nothing but the register pointer written to it over 3000 ms, an INA219 put in its place found, FFFFh as none, a refused set-up; absent and probed again 1000 ms on, not 999 ms; three NACKs to offline, two timeouts to stuck, a held SDA, a recovery at once and every 100 ms, a part freed by its clocks, touch transfers noted, a touch abort with SDA held as a line low and the recovery run, a short count through the wire; the read-back once a second, a power-on reset found within two, the reset flag; 220 clocks for the probe, 96 for a reading, 84 for touch; the worst bus time of a frame in each failure mode and with one timeout after each count of transfers that answer, with timeouts moving the clock: the sensor at most 1480 µs, the probe's last data read timing out (1335 µs with the 19EFh write timing out, 1290 µs in a frame with the read-back, 1170 µs in a reading), touch at most 2073 µs, its data read timing out; a read's abort with SDA low for the block's own STOP a NACK, not a line held low; the recovery's START and STOP; the sample's 250 ms age, not at 249 ms, across a `millis()` wrap; the readout's texts and widths; touch read every frame with the sensor present, absent and failing; the SETTINGS row by id, saved, reset, nothing sent to 0x40 with NONE; the readout on the three screens | not tested on hardware: no INA219 has been on the board's bus; open item 16 |
 | Angle meter's rcbench files, slice 1 of [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built): `servo_rudder`, the IMU model `imu` with `imu_feed_angles()` and the WitMotion decoder (`lib/rcbench/`, rcbench e98345aa), built by the host suite only, called by nothing in `src/` | rcbench's tests copied unchanged: `test_servo_rudder.c` (4 cases), `test_imu_angles.c` (7) and `test_witmotion.c` (14); 12 mutations of the copies, each failing a test or the build; the `imu.h`-only cases of `test_imu.c` and `test_imu_filter.c` are not adapted, open for slice 3 | host only; nothing of it has run with the board's QMI8658 |
 | The wiring sheet's current sensor and boost converter, slice 2 of [current-sense.md](docs/design/current-sense.md#slice-2-as-built): `^` on J3's I2C pins in the connector table of `src/board_rp2350_touch_lcd_2_8.h`, J3's roles and part C in `tools/make_wiring.py`, `docs/wiring.svg` | `tools/make_wiring.py --check`: the drawing against the sources; `sensor()` refusing the marker on no connector and on two, GP0 in place of J3's GND, an unmarked bus pin on J4, a marker off the bus, another SCL pin, and the address at 0x1A, 0x78 and 0x07 | not on hardware: no INA219 and no boost converter has been wired to the board; open item 16 |
@@ -392,6 +408,8 @@ WORST FLUSH under sustained logging are not recorded.
 Not in this history: the DshotDisplay repository's branches
 `feat/usb-bridge` (a USB to one-wire bridge, 6693084) and
 `copilot/create-lcars-display` (a themed UI, 5d17541) are not merged.
+Slice 1 of [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built)
+ports the first branch's frame slot and ring.
 
 ## Next steps
 
@@ -942,7 +960,7 @@ not run on hardware (item 18).
     facts are read from source and the BLHeli_32 command specification; none has
     been checked on an ESC.
 
-29. **USB bridge for desktop ESC tools, designed, not built.** Item (5) of the
+29. **USB bridge for desktop ESC tools, slice 1 of 4 built.** Item (5) of the
     owner's feature choice (item 28), the port of DshotDisplay's
     `feat/usb-bridge` at 6693084. [usb-bridge.md](docs/design/usb-bridge.md)
     designs a USB BRIDGE screen that takes SIG through the pin claim, as a core1
@@ -959,8 +977,12 @@ not run on hardware (item 18).
     port; `MRCB` as the MSP name; no RUN on leaving; BACK disabled during a
     write; a build-option traffic log; `SERIAL_TELEMETRY` stays 1; a leave page
     after an unfinished write; no bridge while USB DRIVE holds the card; the 3D
-    note follows a bridge write. Slices wait on being built. BLHeliSuite is
-    closed source and not verified; nothing has run on an ESC.
+    note follows a bridge write. Slice 1 is built, host tests only
+    ([slice 1 as built](docs/design/usb-bridge.md#slice-1-as-built)): the pin
+    user, the core1 job with the frame slot and the ring, and the PIO line,
+    16 words, compared with escwire's `ew_line`, which gives no echo; nothing
+    opens it yet. Slices 2 to 4 wait on being built. BLHeliSuite is closed
+    source and not verified; nothing has run on an ESC.
 30. **Bluejay and BLHeli_S settings, slices 1 and 2 of 6 built.** Item (6) of the
     owner's feature choice of 2026-11-14 (item 28).
     [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows the AM32 editor
@@ -1107,7 +1129,7 @@ not run on hardware (item 18).
 **Host suite.** `make -C test run` compiles the firmware sources with a C++17
 compiler against the stubs in `test/stubs/`, and the DShot core in
 `src/dshot/` and the SDIO protocol layers in `src/sdio/` as C11, and runs one
-binary, `dshot_tests`. `test/test_main.cpp` runs thirty-one suites:
+binary, `dshot_tests`. `test/test_main.cpp` runs thirty-two suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
@@ -1132,6 +1154,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs thirty-one suites:
 | `runKstTests` | `test_kst.cpp`, `test_kst_seek.cpp`, `test_kst_job.cpp` (includes `kst_job.cpp`), `test_kst_files.cpp`, `test_kst_view.cpp`, `test_kst_ui.cpp` | the search against rcbench's simulated servo: power-ups at 0 s, 3.0 s and 29.9 s found on the next attempt, attempts of 116.6 ms to 118.8 ms, no frame within 3 ms of a window, the 30 s timeout across a clock wrap, STOP SEARCH mid-frame, the heartbeat lapse, a reply at a bad rate kept and not found, the loss rule; the core1 job from the job table on the simulated line: the bind and its four refusals, search, RETRY, timeout, the heartbeat, read, verify, edit, restore, abort, a lost servo, leave and release with 100 ms of low line, the command block, each command in each state, and no call of `kst_session_write()`, `kst_plan_edit()` or `kst_plan_restore()`; the files over an in-memory FAT volume: the mount rule, no card and a USB-held card with no FatFs call, the first write's backup and record, an old record kept and never removed when it stays, a rename reported failed that took effect, a rename that left both names, a full card, a write-protected card as this board reports it and as FatFs can, a full directory, a file or directory in a file's way, a one-time write or sync error with no file or new directory left behind, a close error that leaves its file locked, the record found and loaded, the backup and an old record in `BACKUP/`, SAVE AS in `KST/` up to 50 files; what the screen shows: 27 rows in four groups, each value with its unit, the stepper within the hard limits, a text for every rule, result and file error; the screen through MENU: the claim, the search, STOP SEARCH and RETRY, the read, an edit and REVERT, `WRITE...` opening nothing while pressed or on a slide off and the write page on a tap, the backup and the record before the first write frame, the verify and the record removed, a hard limit written as its limit, the write waiting for the backup's flush and a failed flush, FILES with SAVE AS, LOAD, a backup row and its LOAD, SAVE AS refused at 50 files, a refused file, a write in doubt and `RESTORE...` with the restore page's hold, BACK in every view, disabled during a write and during its flush, the leave page in each phase, BACK drawn disabled on it, STAY, NEXT SERVO, the 2 s off, LEAVE and RESTART DSHOT 1000 ms after the release, a lost servo, no card, a USB-held card, a card that takes no file, an unknown layout read-only, a record found at entry; the card phase: `CardBegin` and `CardEnd` in each job state, the card stamp and its 15 s cap, the first write's card calls inside a phase |
 | `runHitecTests` | `test_hitec.cpp`, `test_hitec_job.cpp`, `test_hitec_files.cpp`, `test_hitec_view.cpp`, `test_hitec_ui.cpp`, `fake_hitec_line.cpp` | the Hitec core1 job against a simulated HS-5645MG and D485HW: the bind and its refusals, the entries with and without the switched supply, the full read and its backup, writes of each family, a read-back that differs, a write cut by a lost servo, Abort, the heartbeat, LEAVE, the release's 2,000 ms off, the command block, the card phase; the files on the card against the in-memory volume: SAVE AS, LOAD, the first write with and without an old record, a later write's record, the removal; the screen's rows, values, stepper, soft rules and texts, the write page's layout (`hitecPageLayout()`) with the edges the screen cannot reach; HITEC SERVO through MENU and PROGRAMMER: the claim on the entry's tap, the READ wait of a D series servo on its own supply and the job's start at once otherwise, the entry and read, an edit, the ID note in the editor bar and on the write page, the write page under a full set of notes: the horn line, the ID note, FILE OF ANOTHER MODEL and MODEL NOT MEASURED always, the ID row first, AND n MORE, `WRITE...` and `RESTORE...` opening their pages on a tap, the write and its result, BACK disabled during the write and during its flush, FILES, REPAIR, a stall, the leave page in each phase with STAY, READ AGAIN, LEAVE, NEXT SERVO and RESTART DSHOT 1000 ms after the release, BACK drawn disabled on it through the 2 s off |
 | `runSbusJobTests` | `test_sbus_job.cpp`, `sbus_line.h` | the S.BUS job's core on a line model of a receiver: nothing counted before 2000 µs of quiet line and counted from 2000 µs, frames at 7 ms and 14 ms, the mean interval over 16 and its restart after 100 ms, the flags, each UART error flag and its rank, overrun, footers, a cut frame, the gap at 2000 µs and not 1999 µs, the micros() wrap; the job from the job table through the claim on the UART0 fake: the pad and the UART set up, GP0 untouched, streams with a pass every 1000 µs, a late pass, the FIFO's overrun, the heartbeat lapsed, each wiring, NO GP1, CLOCK and RETRY, KISS live, an ESC on SIG, busy while held, the release and the cleared status, the unplug page, a bind 1 ms into a live frame, quick and slow, a new visit |
+| `runBridgeTests` | `test_bridge.cpp`, `fake_bridge_line.cpp` | the USB bridge's job on a line fake with the PIO model's cycle counts and a model ESC: the clock divider and its lower bound, the frame slot's refusals and handover, a frame whole on the wire with passes 1 ms and 5 ms apart, the echo kept and dropped, a differing and a lost echo counted once per frame, the receive FIFO and the ring full, the ring's wrap and nothing read while closed, the release finishing the frame under way, dropping one not started and closing at 250 ms and not 249 ms; `PinUser::Bridge`'s row and claim rules; the claim through the job table from Stopping to Free, DShot asked back only once the job is idle and never bound while the line is open, Free with only `pinClaimState()` after BACK, BACK while Stopping, SIG on GP1, the leave page given and kept, RETRY after a refused bind |
 | `runSbusUiTests` | `test_sbus_ui.cpp`, `sbus_line.h` | the S.BUS view at its boundaries: `NO SIGNAL` at 100 ms and not at 99 ms, `NO FRAMES`, `FAILSAFE` above `FRAME LOST`, the 250 ms hold from the rise and not from a fall, across a `millis()` wrap, the chips' texts and fills, the ink of the channels, the bar's fill in raw units, values by `sbus_to_us()`, the four lines and their caps; RX SIGNALS through MENU: title, strip, MONITOR and OUTPUT with their lines, OUTPUT disabled and unpressed, the claim on MONITOR's tap; S.BUS MONITOR on the UART0 fake with core1 passes every 500 µs: Stopping and the caption, the empty bars, frames at 14 ms and 7 ms with every bar and value, CH17, FRAME LOST held and gone, failsafe in red, the receiver gone in grey, NO FRAMES on a refused footer, parity, framing and break counts, the leave page releasing and released, BACK TO MONITOR with the counts and the hold cleared, RESTART DSHOT at 1000 ms and not at 975 ms with GP1 left plain; GP1 as SIG with the ESC check and its end at 500 ms, the leave page's GP1 lines; KISS on GP1; no role on GP1; the job's NO GP1; the clock refused and RETRY; the Busy refusal before the ESC check; BACK while Stopping; every frame's control table |
 | `runWidgetTests` | `test_widgets.cpp` | the list (`ui_list`) and the hold (`ui_hold`) driven with touch snapshots, each rule at its boundary; the header's BACK drawn disabled as `uiButton()` draws a disabled control; slice 1 of menu structure B: the leave page (`ui_leave`), the BACK guard, the two strip lines, the field row, the colour role names and the layout constants |
 | `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, MENU, ESC COMMANDS at Ready and at NoAnswer, PROGRAMMER, RX SIGNALS with MONITOR acting and OUTPUT not, ESC CONFIG with ESC SETTINGS acting and USB BRIDGE not, SETTINGS, SD LOG in three card states, ESC SETTINGS in its handover and its list, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle and drawn live or disabled as the table says, the enabled flags against the state they follow; the id helpers of `ui_ids.h`, and that they report an absent or misgated control; the layout table of menu structure B on SETTINGS, SD LOG and SERVO SET: each footer, edge and editor rectangle by id and each label inside its button |
@@ -1160,10 +1183,12 @@ the card and TinyUSB and drives its callbacks: the suite links a fake of that
 file's runtime half for the screens.
 
 `test/servo.mk`, `test/kst.mk`, `test/hitec.mk`, `test/rx.mk`,
-`test/sense.mk`, `test/escwire.mk` and `test/angle.mk` list each feature's
-sources and test files for `test/Makefile`, as `src/servo.cmake`, `src/kst.cmake`,
-`src/hitec.cmake`, `src/rx.cmake`, `src/sense.cmake` and `src/escwire.cmake`
-do for `CMakeLists.txt`. A feature's C
+`test/sense.mk`, `test/escwire.mk`, `test/angle.mk` and `test/bridge.mk` list
+each feature's sources and test files for `test/Makefile`, as
+`src/servo.cmake`, `src/kst.cmake`, `src/hitec.cmake`, `src/rx.cmake`,
+`src/sense.cmake`, `src/escwire.cmake`, `src/angle.cmake` and
+`src/bridge.cmake` do for
+`CMakeLists.txt`. A feature's C
 sources and C test programs are built as C11:
 `make run` also runs rcbench's `test_servo_sweep.c` (14 cases) and the
 adapted `test_out_pwm_map.c` (5 cases) from `test/rcbench/`, and rcbench's KST
@@ -1190,9 +1215,10 @@ Other targets in `test/Makefile`: `syntax` typechecks the device-only sources
 with `-Werror`; `pioemu` runs `test/pio_sdio_emu.py`, the SDIO PIO programs
 assembled from `src/sdio/sd_pio.pio` and run one system clock at a time
 against a card model, 18 runs over three clock rates, three card output
-delays and two card latencies, and `test/pio_backlight_emu.py`, the backlight
+delays and two card latencies, `test/pio_backlight_emu.py`, the backlight
 PIO program at every level from 0 to 255 and on 20 writes mid-period, and
-`make` runs both; `bbcheck` encodes 2000 frames and decodes them with
+`test/pio_bridge_emu.py`, the USB bridge's two programs on one pad, 42 runs,
+and `make` runs all three; `bbcheck` encodes 2000 frames and decodes them with
 Betaflight's `blackbox_decode`; `kstcount` runs `src/kst_files.cpp` and
 `src/hitec_files.cpp` over FatFs R0.15 from the SD library's pinned commit,
 fetched into `test/obj/`, on a RAM disk that counts blocks, and checks the
@@ -1204,7 +1230,7 @@ with two card images and write faults (`test/ram_disk.*`); `previews`
 and `wiki` rebuild screenshots;
 `coverage` builds an instrumented suite. Scripts: `test/check_docs.py`,
 `test/check_uf2.sh`, `test/check_uf2_selftest.sh`, `test/check_blackbox.py`,
-`test/pio_sdio_emu.py`, `test/pio_backlight_emu.py`,
+`test/pio_sdio_emu.py`, `test/pio_backlight_emu.py`, `test/pio_bridge_emu.py`,
 `test/kst_card_count.cpp`, `tools/check_wiki.py`, `tools/coverage.py`,
 `tools/make_previews.py`, `tools/make_wiring.py`, `tools/notices.py`,
 `tools/stack_depth.py`.
@@ -1214,8 +1240,8 @@ requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO model's assembler with the SDK's `pioasm`; holds the KST, Hitec and escwire line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
-| Host tests | `make`, which runs the SDIO and backlight PIO models too; the suite again with both pin macros overridden; `make kstcount` against the KST and Hitec design notes' card-phase tables; `make lognum`, the next log's file and the logger with its run summary over FatFs; wiki screenshots and `check_wiki.py` |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO models' assembler with the SDK's `pioasm`, for the USB bridge's line too; holds the KST, Hitec and escwire line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Host tests | `make`, which runs the SDIO, backlight and USB bridge PIO models too; the suite again with both pin macros overridden; `make kstcount` against the KST and Hitec design notes' card-phase tables; `make lognum`, the next log's file and the logger with its run summary over FatFs; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
 | Workflow lint | actionlint 1.7.7 and a duplicate-key check on every workflow in `.github/workflows/` |
@@ -1261,6 +1287,7 @@ model.
 | `src/backup_ring.cpp` | 154 | 152 | 98.7% |
 | `src/bl_answer.cpp` | 21 | 21 | 100.0% |
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
+| `src/bridge_wire.cpp` | 125 | 125 | 100.0% |
 | `src/card_dir.cpp` | 96 | 96 | 100.0% |
 | `src/clock.cpp` | 97 | 97 | 100.0% |
 | `src/clock.h` | 14 | 14 | 100.0% |
@@ -1284,7 +1311,7 @@ model.
 | `src/kst_view.cpp` | 160 | 154 | 96.3% |
 | `src/kv_est.h` | 49 | 49 | 100.0% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
-| `src/pin_claim.cpp` | 130 | 130 | 100.0% |
+| `src/pin_claim.cpp` | 132 | 132 | 100.0% |
 | `src/pin_claim.h` | 15 | 14 | 93.3% |
 | `src/plat.h` | 10 | 10 | 100.0% |
 | `src/qmi8658.cpp` | 142 | 142 | 100.0% |
@@ -1330,7 +1357,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 76 | 76 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **11833** | **11644** | **98.4%** |
+| **Total** | **11890** | **11701** | **98.4%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

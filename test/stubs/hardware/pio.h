@@ -74,3 +74,24 @@ void pio_sm_set_enabled(PIO pio, uint sm, bool enabled);
 void pio_sm_clear_fifos(PIO pio, uint sm);
 bool pio_sm_is_rx_fifo_empty(PIO pio, uint sm);
 uint32_t pio_sm_get(PIO pio, uint sm);
+
+// The USB bridge's line (src/bridge_line_port.cpp): two state machines in one
+// block, the pad's direction by side-set, FDEBUG's receive stall bit.
+struct pio_hw {
+	volatile uint32_t fdebug;
+};
+#define PIO_FDEBUG_RXSTALL_LSB 0u
+bool pio_can_add_program(PIO pio, const pio_program_t *program);
+void pio_sm_unclaim(PIO pio, uint sm);
+void sm_config_set_out_pins(pio_sm_config *c, uint out_base, uint out_count);
+void sm_config_set_set_pins(pio_sm_config *c, uint set_base, uint set_count);
+void sm_config_set_out_shift(pio_sm_config *c, bool shift_right, bool autopull,
+                             uint pull_threshold);
+void sm_config_set_clkdiv_int_frac8(pio_sm_config *c, uint32_t div_int, uint8_t div_frac8);
+void pio_sm_set_pindirs_with_mask(PIO pio, uint sm, uint32_t pin_dirs, uint32_t pin_mask);
+void pio_sm_set_pins_with_mask(PIO pio, uint sm, uint32_t pin_values, uint32_t pin_mask);
+void pio_enable_sm_mask_in_sync(PIO pio, uint32_t mask);
+void pio_interrupt_clear(PIO pio, uint pio_interrupt_num);
+bool pio_sm_is_tx_fifo_full(PIO pio, uint sm);
+bool pio_sm_is_tx_fifo_empty(PIO pio, uint sm);
+uint8_t pio_sm_get_pc(PIO pio, uint sm);
