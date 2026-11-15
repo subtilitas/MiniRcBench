@@ -713,12 +713,11 @@ static void testHeartbeat() {
 static void testIdle() {
 	section("S.BUS OUTPUT: the idle rule at 30,000 and 30,001 ms");
 
-	/** @brief Run frames of 200 ms up to @p untilMs, then one to the exact millisecond. */
+	// Frames of 200 ms up to untilMs, then one to the exact millisecond.
 	auto runTo = [](uint32_t untilMs) {
 		while (millis() + 200 < untilMs) tick(200);
 		if (millis() < untilMs) tick(untilMs - millis());
 	};
-	/** @brief Lift the finger after a touch at the frame of @p at; the last touch is then. */
 	freshUi();
 	openOutput();
 	checkTrue("SAFE", toSafe());
@@ -789,6 +788,23 @@ static void testIdle() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the main view: the idle stop's note",
 	          leftIs(SBOUT_UI_NOTE1_Y, "STOPPED: NO TOUCH FOR 30 S.", UI_COL_WARN));
+
+	// START forgets the idle stop: a STOP then reads SAFE, the warnings.
+	checkTrue("START", holdStart());
+	drag(2, 10);
+	soFrames(1);
+	ctlCentre(UI_FIX(SbusOutCtl::Start), &x, &y);
+	fakePress(x, y);
+	tick(25);
+	fakeRelease();
+	soFrames(2);
+	checkTrue("START, then STOP by hand: the warnings, not the idle stop's note",
+	          !jobSt().running && sent().channel[2] > 172 &&
+	          leftIs(SBOUT_UI_NOTE1_Y, "GP0 GOES TO A FLIGHT CONTROLLER.", UI_COL_WARN));
+	const uint16_t seqStop = held().seq;
+	runTo(millis() + 31000);
+	checkTrue("31 s with the throttle up while SAFE: no command, the warnings stay",
+	          held().seq == seqStop && leftIs(SBOUT_UI_NOTE1_Y, "GP0 GOES TO A FLIGHT CONTROLLER.", UI_COL_WARN));
 	checkTrue("back to MENU", leaveToMenu());
 	tapId(UI_FIX(UI_BACK));
 }
@@ -824,13 +840,19 @@ static void testSet() {
 	tapId(UI_ROW(0, Row));
 	checkTrue("CHANNEL while SAFE: - and + act from CH3",
 	          ctlEnabled(UI_FIX(SbusOutCtl::EditPlus)) && ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)));
-	tapId(UI_FIX(SbusOutCtl::EditMinus));
-	tapId(UI_FIX(SbusOutCtl::EditMinus));
-	checkTrue("CH1: - stops there", !ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)));
+	tapId(UI_FIX(SbusOutCtl::EditPlus));
+	checkTrue("CH4: + stops there", !ctlEnabled(UI_FIX(SbusOutCtl::EditPlus)) &&
+	          ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)));
+	for (int k = 0; k < 3; k++) tapId(UI_FIX(SbusOutCtl::EditMinus));
+	checkTrue("CH1: - stops there", !ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)) &&
+	          ctlEnabled(UI_FIX(SbusOutCtl::EditPlus)));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the main view, CH1 THR on row 1 with the ceiling's mark",
 	          rowIs(0, "CH1 THR", UI_COL_WARN, "1000", C_DIM) && rowIs(2, "CH3", C_DIM, "1500", C_DIM) &&
 	          pixel(83, rowTop(0)) == UI_COL_WARN && pixel(83, rowTop(2)) != UI_COL_WARN);
+	checkTrue("the knobs at the new START frame: CH1 at 1000 us, CH3 at 1500 us",
+	          pixel(56, rowTop(0) + 11) == C_DIM && pixel(56, rowTop(2) + 11) != C_DIM &&
+	          pixel(124, rowTop(2) + 11) == C_DIM);
 	checkTrue("START", holdStart());
 	SbusOutStatus st = jobSt();
 	checkTrue("START took channel 1: raw 172 there, 992 on channel 3",
@@ -864,7 +886,8 @@ static void testSet() {
 	tapId(UI_ROW(4, Row));
 	tapId(UI_FIX(SbusOutCtl::EditMinus));
 	soFrames(2);
-	checkTrue("FRAME LOST BIT back off", !sent().frame_lost && sent().failsafe);
+	checkTrue("FRAME LOST BIT back off; - stops there", !sent().frame_lost && sent().failsafe &&
+	          !ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)) && ctlEnabled(UI_FIX(SbusOutCtl::EditPlus)));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the main view: note 2 with the flags on, amber",
 	          leftIs(SBOUT_UI_NOTE2_Y, "CH17 ON  CH18 ON  FS ON  LOST OFF", UI_COL_WARN));
@@ -893,9 +916,11 @@ static void testLeave() {
 	openOutput();
 	checkTrue("SAFE", toSafe());
 	checkTrue("START", holdStart());
+	drag(2, 20);
+	tapId(UI_FIX(SbusOutCtl::Page));
 	stall(300);
 	soFrames(1);
-	checkTrue("stalled", jobSt().tripped);
+	checkTrue("stalled on page 2", jobSt().tripped && rowIs(0, "CH9", C_DIM, "1000", C_DIM));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the leave page, opened releasing", uiCurrentScreen() == UiScreenId::SbusOut &&
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled &&
@@ -921,6 +946,8 @@ static void testLeave() {
 	          messageIs(SBOUT_UI_CHECKING, nullptr, nullptr, C_DIM) && !ctlEnabled(UI_FIX(SbusOutCtl::Start)));
 	checkTrue("SAFE after it, the trip forgotten", toSafe() && chipIs("SAFE", UI_COL_SAFE) &&
 	          leftIs(SBOUT_UI_NOTE1_Y, "GP0 GOES TO A FLIGHT CONTROLLER.", UI_COL_WARN));
+	checkTrue("page 1 again, the throttle's knob at 1000 us",
+	          rowIs(0, "CH1", C_DIM, "1500", C_DIM) && pixel(56, rowTop(2) + 11) == C_DIM);
 	checkTrue("START", holdStart());
 	tapId(UI_FIX(UI_BACK));
 	soFrames(1);
@@ -1175,6 +1202,56 @@ static void testUnavailable() {
 	          ctlPresent(UI_FIX(SbusOutCtl::Start)) && allOf(0, UI_FOOT_Y, GFX_W, SBOUT_UI_BAR_Y - UI_FOOT_Y, C_BG));
 	checkTrue("SAFE", toSafe());
 	checkTrue("back to MENU", leaveToMenu());
+	tapId(UI_FIX(UI_BACK));
+
+	// TAKING SIG GP0 between the drain and the job's bind.
+	freshUi();
+	openOutput();
+	bool taking = false;
+	for (int k = 0; k < 30 && sbusOutProbePoll() != SbusOutProbeState::Checking; k++) {
+		fakeAdvance(25);
+		fakePumpPoll();
+		uiTick();
+		taking |= pinClaimState() == ClaimState::Held &&
+		          messageIs("TAKING SIG GP0", nullptr, nullptr, C_DIM);
+		core1JobPoll();
+	}
+	checkTrue("held, the job not bound yet: TAKING SIG GP0, dim", taking);
+	checkTrue("back to MENU", leaveToMenu());
+	tapId(UI_FIX(UI_BACK));
+
+	// The wiring changes under a claim that is Stopping, as only a test can
+	// make it: the job's CORE1_JOB_NO_GP0, the screen's own lines, no RETRY.
+	freshUi();
+	openOutput();
+	escTaskConfigure(1, settings()->dshotKbaud, settings()->kissEnable != 0, 1);
+	soFrames(14);
+	checkTrue("the job's CORE1_JOB_NO_GP0", pinClaimJobError() == CORE1_JOB_NO_GP0);
+	checkTrue("S.BUS NEEDS GP0., no RETRY",
+	          messageIs(SBOUT_UI_NO_GP0_1, SBOUT_UI_NO_GP0_2, nullptr, UI_COL_WARN) &&
+	          !ctlPresent(UI_FIX(SbusOutCtl::Retry)));
+	checkTrue("back to MENU", leaveToMenu());
+	tapId(UI_FIX(UI_BACK));
+
+	// BACK during the drain: DShot resumes at once, no leave page.
+	freshUi();
+	openOutput();
+	fakeAdvance(25);
+	core1JobPoll();
+	uiTick();
+	checkTrue("Stopping", pinClaimState() == ClaimState::Stopping);
+	UiControl b = {};
+	ctlFind(UI_FIX(UI_BACK), &b);
+	fakePress(b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2);
+	for (int k = 0; k < 2; k++) { fakeAdvance(25); core1JobPoll(); uiTick(); }
+	fakeRelease();
+	fakeAdvance(25);
+	core1JobPoll();
+	uiTick();
+	checkTrue("BACK while Stopping: MENU, DShot resumed", uiCurrentScreen() == UiScreenId::Menu &&
+	          fakePinReturned());
+	soFrames(4);
+	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
 }
 

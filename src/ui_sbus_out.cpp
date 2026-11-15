@@ -202,7 +202,6 @@ static uint8_t      s_thrCh = SBUS_OUT_THR_DEFAULT;  /**< The throttle channel's
 static uint16_t     s_ceilRaw = SBUS_OUT_RAW_LO;     /**< The throttle ceiling, raw. */
 static SbusOutStop  s_stop = SbusOutStop::None;      /**< The screen's own stop since START. */
 static uint32_t     s_touchMs = 0;            /**< millis() of the last frame with a finger down. */
-static bool         s_wasRunning = false;     /**< RUNNING on the last frame. */
 static UiHold       s_hold;                   /**< HOLD TO START. */
 static bool         s_needLift = false;       /**< A STOP press is down: it starts nothing. */
 
@@ -324,14 +323,13 @@ static bool startAllowed() {
 }
 
 /**
- * @brief START: the throttle ceiling of MAX THROTTLE, the sliders and the
- *        flags at the START frame, the idle clock from now, then the command.
- *        Called only from the hold, which startAllowed() gates.
+ * @brief START: no stop of the screen's own, the sliders and the flags at
+ *        the START frame, then the command with the throttle channel and
+ *        MAX THROTTLE's ceiling. Called only from the hold, which
+ *        startAllowed() gates; the hold's finger is the idle rule's touch.
  */
 static void startFrames() {
-	s_ceilRaw = sbusOutCeilRaw(settings()->maxThrottle);
 	s_stop = SbusOutStop::None;
-	s_touchMs = millis();
 	resetFrame();
 	send(SbusOutCmdKind::Start);
 }
@@ -564,7 +562,7 @@ static void openSet() {
 }
 
 /** @brief Every touch of the main view. */
-static void mainTouch(bool rows) {
+static void mainTouch() {
 	uint32_t now = millis();
 	// HOLD TO START, live only through startAllowed(); STOP on press.
 	if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed() && !s_needLift, now)) startFrames();
@@ -577,7 +575,7 @@ static void mainTouch(bool rows) {
 
 	// The sliders move only while frames go out; a press alone commands
 	// nothing (delta drag, tap-to-set off).
-	if (rows && s_st.running) {
+	if (s_st.running) {
 		for (int i = 0; i < SBOUT_UI_ROWS; i++) {
 			unsigned ch = s_page * SBOUT_UI_ROWS + (unsigned)i;
 			UiSlider *sl = &s_slider[ch];
@@ -587,13 +585,9 @@ static void mainTouch(bool rows) {
 			if (!sl->dragging) uiSliderSet(sl, s_us[ch]);
 		}
 	}
-	if (tapped(BTN_PAGE)) {
-		for (UiSlider &sl : s_slider) uiSliderRelease(&sl);
-		s_page ^= 1u;
-	} else if (tapped(BTN_SET)) {
-		for (UiSlider &sl : s_slider) uiSliderRelease(&sl);
-		openSet();
-	}
+	// One finger: a tap on the page or SET comes after any drag let go.
+	if (tapped(BTN_PAGE)) s_page ^= 1u;
+	else if (tapped(BTN_SET)) openSet();
 }
 
 // ---------------------------------------------------------------------------
@@ -775,7 +769,6 @@ static void newVisit() {
 	resetFrame();
 	uiHoldReset(&s_hold);
 	s_needLift = false;
-	s_wasRunning = false;
 	s_full = true;
 }
 
@@ -798,13 +791,14 @@ static bool leaveTick() {
 		if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
 		s_full = true;
 	}
-	// pinClaimKeep() and pinClaimRestart() act only while GP0 is let go.
-	if (ev == UiLeaveEv::Restart && pinClaimUnplugDue()) {
+	// The page gives RESTART DSHOT and BACK TO OUTPUT only once GP0 is let
+	// go (uiLeavePoll()).
+	if (ev == UiLeaveEv::Restart) {
 		pinClaimRestart(PinUser::SbusOut);
 		sbusOutProbeRestart();
 		return false;
 	}
-	if (ev == UiLeaveEv::Next && pinClaimUnplugDue()) {
+	if (ev == UiLeaveEv::Next) {
 		pinClaimKeep(PinUser::SbusOut);
 		newVisit();
 		return true;
@@ -883,11 +877,6 @@ bool uiSbusOutTick(const TouchState *t) {
 		claimPin();
 	}
 
-	// A drag under way at START, STOP or a trip ends there.
-	if (s_st.running != s_wasRunning)
-		for (UiSlider &sl : s_slider) uiSliderRelease(&sl);
-	s_wasRunning = s_st.running;
-
 	// BACK: from SET to the main view; from the main view out, through the
 	// leave page once a job has held GP0. After an EFM8 answer the page opens
 	// before LEAVE with decision 8's first step, the frames stopped first.
@@ -901,7 +890,7 @@ bool uiSbusOutTick(const TouchState *t) {
 			s_efm8Page = sbusOutProbeEfm8();
 			s_view = View::Leave;
 			if (s_efm8Page) {
-				if (s_st.running) send(SbusOutCmdKind::Safe);
+				send(SbusOutCmdKind::Safe);
 				uiLeaveOpen(&s_leave, UiLeavePhase::Before, UI_HOLD_MS);
 			} else {
 				pinClaimEnd(PinUser::SbusOut);
@@ -921,19 +910,19 @@ bool uiSbusOutTick(const TouchState *t) {
 	uint16_t col;
 	bool retry;
 	message(&l1, &l2, &l3, &col, &retry);
-	bool rows = !l1;
 	if (retry && tapped(BTN_RETRY)) pinClaimRetry(PinUser::SbusOut);
 
 	// RETRY lies over the bottom row, which is not drawn under it.
 	if (s_view == View::Set) setTouch();
-	else if (!retry) mainTouch(rows);
+	else if (!retry) mainTouch();
 
 	// The idle rule, in either view.
 	sbus_frame_t want = wantFrame();
 	if (sbusOutIdleDue(s_st.running, &want, s_thrCh, now, s_touchMs)) {
 		send(SbusOutCmdKind::Safe);
 		s_stop = SbusOutStop::Idle;
-	} else if (s_st.running && memcmp(&want, &s_sentFrame, sizeof(want)) != 0) {
+	} else if (memcmp(&want, &s_sentFrame, sizeof(want)) != 0) {
+		// The sliders and the flags move only while RUNNING.
 		send(SbusOutCmdKind::Frame);
 		s_sentFrame = want;
 	}
@@ -945,7 +934,7 @@ bool uiSbusOutTick(const TouchState *t) {
 		return true;
 	}
 	message(&l1, &l2, &l3, &col, &retry);
-	rows = !l1;
+	bool rows = !l1;
 	// The rows, a message and RETRY cover different parts of the body: a
 	// change between them starts from a clear body.
 	uint8_t body = rows ? 1 : retry ? 3 : 2;
