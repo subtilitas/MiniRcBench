@@ -26,6 +26,7 @@
 #include "ui_tools.h"
 #include "ui_angle.h"
 #include "ui_sbus.h"
+#include "ui_sbus_out.h"
 #include "ui.h"
 #include "ui_leave.h"
 #include "gfx.h"

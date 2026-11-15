@@ -422,11 +422,11 @@ static void testChooser() {
 	          fakeTextIs(mon.x + (mon.w - gfxTextW("MONITOR", 2)) / 2, mon.y + 16, "MONITOR", C_TEXT,
 	                     C_PANEL, 2));
 	checkTrue("its line at y 112, dim", leftIs(112, "S.BUS FROM A RECEIVER, ON GP1.", C_DIM));
-	checkTrue("OUTPUT is drawn disabled: an outline, the label C_GRID",
-	          !ctlEnabled(UI_FIX(RxCtl::Output)) && pixel(out.x + 4, out.y + out.h - 5) == C_BG &&
-	          fakeTextIs(out.x + (out.w - gfxTextW("OUTPUT", 2)) / 2, out.y + 16, "OUTPUT", C_GRID, C_BG, 2));
-	checkTrue("its lines at y 192 and 204, dim: what it is, NOT BUILT",
-	          leftIs(192, "S.BUS TO A FLIGHT CONTROLLER.", C_DIM) && leftIs(204, UI_RX_NOT_BUILT, C_DIM));
+	checkTrue("OUTPUT acts, its label C_TEXT on the panel, centred at scale 2",
+	          ctlEnabled(UI_FIX(RxCtl::Output)) &&
+	          fakeTextIs(out.x + (out.w - gfxTextW("OUTPUT", 2)) / 2, out.y + 16, "OUTPUT", C_TEXT, C_PANEL, 2));
+	checkTrue("its lines at y 192 and 204, dim: the output's warning",
+	          leftIs(192, "S.BUS TO A FLIGHT CONTROLLER.", C_DIM) && leftIs(204, "ON GP0, NEVER TO AN ESC.", C_DIM));
 	{
 		int x0 = 0, x1 = 0;
 		checkTrue("nothing under the strip reaches past the buttons' 6 px edges",
@@ -435,15 +435,6 @@ static void testChooser() {
 	}
 	checkControlTable("RX SIGNALS");
 	fakeDumpFrame("shot_rx_chooser.ppm");
-	tapId(UI_FIX(RxCtl::Output), IdExpect::Disabled);
-	checkTrue("a tap on OUTPUT opens nothing and claims nothing",
-	          uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free);
-	fakePress(out.x + out.w / 2, out.y + out.h / 2);
-	sbFrames(1);
-	checkTrue("a press on OUTPUT draws no pressed look", pixel(out.x + 4, out.y + out.h - 5) == C_BG &&
-	          pixel(out.x + 2, out.y + out.h / 2) == C_BG);
-	fakeRelease();
-	sbFrames(1);
 	fakePress(mon.x + mon.w / 2, mon.y + mon.h / 2);
 	sbFrames(1);
 	checkTrue("a press on MONITOR draws it pressed", pixel(mon.x + 2, mon.y + mon.h / 2) == C_INK);

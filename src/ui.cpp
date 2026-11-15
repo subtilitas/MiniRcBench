@@ -24,6 +24,7 @@
 #include "ui_servo_prog.h"
 #include "ui_rx_signals.h"
 #include "ui_sbus.h"
+#include "ui_sbus_out.h"
 #include "ui_menu.h"
 #include "ui_sdlog.h"
 #include "ui_settings.h"
@@ -1246,6 +1247,7 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::ServoProg, &UI_SERVO_PROG },
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 	{ UiScreenId::Sbus,      &UI_SBUS },
+	{ UiScreenId::SbusOut,   &UI_SBUS_OUT },
 	{ UiScreenId::EscConfig, &UI_ESC_CONFIG },
 	{ UiScreenId::Bridge,    &UI_BRIDGE },
 	{ UiScreenId::Tools,     &UI_TOOLS },

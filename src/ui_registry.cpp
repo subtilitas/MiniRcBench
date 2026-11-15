@@ -16,6 +16,7 @@
 #include "ui_servo_prog.h"
 #include "ui_rx_signals.h"
 #include "ui_sbus.h"
+#include "ui_sbus_out.h"
 #include "ui_settings.h"
 #include "ui_tools.h"
 #include "ui_angle.h"
@@ -121,12 +122,12 @@ static_assert(progEntriesFit(), "a PROGRAMMER line is too wide, or runs into the
 
 /**
  * @brief RX SIGNALS' entries, top to bottom (docs/design/rx-signals.md,
- *        decision 4). OUTPUT, the S.BUS output, is not designed: no screen,
- *        so the chooser draws it disabled under `NOT BUILT`.
+ *        decision 4). OUTPUT's two lines are the S.BUS output's warning
+ *        (docs/design/sbus-output.md, "Warnings").
  */
 constexpr UiRxEntry UI_RX_ENTRIES[] = {
 	{ "MONITOR", { "S.BUS FROM A RECEIVER, ON GP1.", nullptr }, &UI_SBUS },
-	{ "OUTPUT", { "S.BUS TO A FLIGHT CONTROLLER.", UI_RX_NOT_BUILT }, nullptr },
+	{ "OUTPUT", { "S.BUS TO A FLIGHT CONTROLLER.", "ON GP0, NEVER TO AN ESC." }, &UI_SBUS_OUT },
 };
 constexpr uint8_t UI_RX_ENTRIES_COUNT = (uint8_t)(sizeof(UI_RX_ENTRIES) / sizeof(UI_RX_ENTRIES[0]));
 

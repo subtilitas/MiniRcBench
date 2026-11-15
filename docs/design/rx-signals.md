@@ -14,14 +14,14 @@ answered the note's open questions on 2026-11-14 ([decisions](#decisions)):
 build the S.BUS monitor and an S.BUS output, no PPM output. The S.BUS
 monitor reads a receiver's S.BUS output on GP1 through UART0. The S.BUS
 output, inverted 8E2 at 100,000 baud on GP0 through UART0's TX, is designed
-in [sbus-output.md](sbus-output.md). Its encoder, rcbench's, and its core1
-job are built, host tests only; its bootloader probe on GP0 and its screen
-are not, so nothing opens it. The PPM sections
+in [sbus-output.md](sbus-output.md). Its encoder, rcbench's, its core1
+job with the bootloader probe on GP0, and its screen, S.BUS OUTPUT, are
+built, host tests only. The PPM sections
 stay as the record of a design that is not built, by decision 1. Both
 tools sit on the pin claim of [pin-claim.md](pin-claim.md) under one MENU
 row, RX SIGNALS, which opens a chooser with MONITOR and OUTPUT (decision
-4); OUTPUT is drawn disabled with `NOT BUILT` until the output's screen exists
-([MENU](#menu)).
+4); OUTPUT opens S.BUS OUTPUT, slice 4 of
+[sbus-output.md](sbus-output.md#slice-4-as-built) ([MENU](#menu)).
 The decoder is rcbench's, host-tested there and nowhere measured on a pin.
 
 ## Terms
@@ -720,9 +720,9 @@ y   0 | RX SIGNALS                      [  BACK  ]|  header 36 px
    40 | SIG GP0  AUX GP1                          |  strip, C_DIM
    62 | [             MONITOR             ]       |  6, 62, 228 x 46
   112 | S.BUS FROM A RECEIVER, ON GP1.            |  C_DIM
-  142 | [              OUTPUT             ]       |  6, 142, 228 x 46: disabled
+  142 | [              OUTPUT             ]       |  6, 142, 228 x 46
   192 | S.BUS TO A FLIGHT CONTROLLER.             |  C_DIM
-  204 | NOT BUILT                                 |  C_DIM; ends at y 210
+  204 | ON GP0, NEVER TO AN ESC.                  |  C_DIM; ends at y 210
   320 +-------------------------------------------+
 ```
 
@@ -734,18 +734,17 @@ y   0 | RX SIGNALS                      [  BACK  ]|  header 36 px
 | `OUTPUT` | 6 | 70 px, 2 | centred |
 | `S.BUS FROM A RECEIVER, ON GP1.` | 30 | 179 px, 1 | 186 |
 | `S.BUS TO A FLIGHT CONTROLLER.` | 29 | 173 px, 1 | 180 |
-| `NOT BUILT` | 9 | 53 px, 1 | 60 |
+| `ON GP0, NEVER TO AN ESC.` | 24 | 143 px, 1 | 150 |
 
 A tap on MONITOR opens S.BUS MONITOR through `uiChooseTool()`, as
 PROGRAMMER's entries open their tools: the monitor's entry point asks for
 the claim on that frame, and its origin is MENU, so its BACK before a claim
-held and its RESTART DSHOT return to MENU. OUTPUT, the S.BUS output, is not
-built ([sbus-output.md](sbus-output.md) designs it): its entry has no screen
-yet, so it is drawn disabled
-(`uiButton()`'s outline, the label `C_GRID`), reported disabled in the
-control table, takes no pressed look and opens nothing. Its `NOT BUILT` is
-the status MENU's row carried before (menu-b.md, decision 35), as a line
-under the button. BACK returns to MENU. The entries are `UI_RX_ENTRIES` in
+held and its RESTART DSHOT return to MENU. A tap on OUTPUT opens S.BUS
+OUTPUT the same way ([sbus-output.md](sbus-output.md#the-rx-signals-entry)),
+and its two lines are the output's warning. An entry with no screen would be
+drawn disabled (`uiButton()`'s outline, the label `C_GRID`), reported
+disabled in the control table, take no pressed look and open nothing. BACK
+returns to MENU. The entries are `UI_RX_ENTRIES` in
 `src/ui_registry.cpp`, with a build-time check that they fit as
 PROGRAMMER's do.
 
