@@ -60,13 +60,9 @@ void sbusOutNotes(const SbusOutStatus *st, SbusOutStop stop, uint8_t thrCh, uint
 	} else if (stop == SbusOutStop::Idle) {
 		why = SBUS_OUT_VIEW_IDLE;
 	}
-	if (why) {
-		snprintf(n1, n, "%s", why);
-		snprintf(n2, n, "%s", SBUS_OUT_VIEW_AGAIN);
-		*c2 = C_DIM;
-		return;
-	}
-	snprintf(n1, n, "%s", SBUS_OUT_VIEW_WARN_1);
+	// The warning stays wherever START can be reached: an ESC plugged in
+	// since the probe is what it is for.
+	snprintf(n1, n, "%s", why ? why : SBUS_OUT_VIEW_WARN_1);
 	snprintf(n2, n, "%s", SBUS_OUT_VIEW_WARN_2);
 	*c2 = UI_COL_WARN;
 }

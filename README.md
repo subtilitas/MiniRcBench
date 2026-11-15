@@ -2777,8 +2777,8 @@ with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT** opens S.BUS OUTPUT ([S.BUS output](#sbus-output));
 its lines carry the output's warning, `S.BUS TO A FLIGHT CONTROLLER.`
-`ON GP0, NEVER TO AN ESC.` The row is drawn disabled while the pin claim is not free, as the other rows
-that lead to a claim.
+`ON GP0, NEVER TO AN ESC.` The row is drawn disabled while the pin claim is
+not free, as the other rows that lead to a claim.
 
 S.BUS MONITOR claims the role that is GP1 (`src/pin_claim.h`): SIG and AUX
 in the default wiring, SIG alone when SIG is GP1. Before the claim it
@@ -2921,7 +2921,9 @@ What the rows' area shows in place of the channels:
 | `CHECKING SIG GP0 FOR AN ESC.` | the bootloader check runs |
 | `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | a Bluejay, BLHeli_S or AM32 bootloader answered; the check repeats, and MENU's strip reads `POWER-CYCLE THE ESC TO RUN IT` |
 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | neither SIG nor AUX is GP0; SETTINGS swaps the two, so this does not happen through the screens |
-| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` and **RETRY** | UART0 could not reach 100,000 baud |
+| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` and **RETRY** | UART0 could not reach 100,000 baud, or the check's line could not get its clock |
+| `SIG GP0 COULD NOT BE TAKEN (PIO)` or `(DMA)`, and **RETRY** | the check's line found no PIO (programmable input/output) state machine or no free DMA (direct memory access) channel |
+| `SIG GP0 COULD NOT BE TAKEN (REFUSED)` and **RETRY** | the check's line driver did not take the pin (`CORE1_JOB_PIN`) |
 
 `SIG GP0` reads `AUX GP0` when GP0 is AUX.
 
@@ -2930,7 +2932,7 @@ What the rows' area shows in place of the channels:
 | Part | What it shows |
 |---|---|
 | Strip | `SIG GP0  100 KBAUD  8E2`, or `AUX GP0`; the chip `SAFE` (green), `RUNNING` (red) or `STALLED` (magenta), once the check has passed. The period, 14 ms, is fixed and not shown |
-| Notes | SAFE: the two warnings, amber. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).` and `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, amber while a flag is on. After a stop: its reason and `HOLD TO START AGAIN.` |
+| Notes | SAFE: the two warnings, amber. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).` and `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, amber while a flag is on. After a stop: its reason, then `NEVER TO AN ESC. PROPS OFF.`, since HOLD TO START is live again and no check runs before it |
 | 8 rows | `CH1` to `CH8`, or `CH9` to `CH16`; a slider from 1000 µs to 2000 µs; the value in µs of the frame last sent, lime while RUNNING. The throttle channel reads `CH3 THR` in amber, with an amber mark at its ceiling and the track past it a dim line |
 | Bottom | **HOLD TO START** (1000 ms), or **STOP** while RUNNING; **CH 9-16** or **CH 1-8**; **SET** |
 
@@ -3728,8 +3730,10 @@ every source under `src/` and fails if a code line other than the job's
 declarations, its job-table line, the claim's row, the probe's request for
 the leave page and S.BUS OUTPUT's claim, command and START lines names the
 output or a START, if the START is sent other than from HOLD TO START gated
-by `sbusOutProbePassed()`, or if a line reaches a pin user or a core1 job by
-a cast or walks the user rows or the job table. `test_sbus_out_ui.cpp` runs
+by `sbusOutProbePassed()`, or if a line reaches a pin user, a core1 job or a
+command kind by a cast or walks the user rows or the job table. It is a lint
+of the sources, backed by the UI tests: a value made through `memcpy()` or a
+macro is not caught. `test_sbus_out_ui.cpp` runs
 S.BUS OUTPUT on the job, the probe and the transmitter through MENU and RX
 SIGNALS, reading each command the screen sent from the job's command block
 (`sbusOutJobHeld()`).

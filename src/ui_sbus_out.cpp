@@ -74,7 +74,7 @@ static_assert(SBOUT_UI_NOTE1_Y == UI_BODY_Y && SBOUT_UI_NOTE1_Y + 7 < SBOUT_UI_N
 static_assert(UI_MARGIN + SO_W1(37) <= GFX_W - UI_MARGIN, "a note runs past the margin");
 static_assert(SO_FITS(SBUS_OUT_VIEW_WARN_1) && SO_FITS(SBUS_OUT_VIEW_WARN_2) &&
               SO_FITS(SBUS_OUT_VIEW_STALL) && SO_FITS(SBUS_OUT_VIEW_IDLE) &&
-              SO_FITS(SBUS_OUT_VIEW_REFUSED) && SO_FITS(SBUS_OUT_VIEW_AGAIN),
+              SO_FITS(SBUS_OUT_VIEW_REFUSED),
               "a note runs past the margin");
 static_assert(SBOUT_UI_ROW_PITCH > SBOUT_UI_ROW_H && SBOUT_UI_ROW_H >= UI_TAP_MIN,
               "the rows touch, or are lower than a fingertip");
@@ -795,7 +795,10 @@ static bool leaveTick() {
 	// go (uiLeavePoll()).
 	if (ev == UiLeaveEv::Restart) {
 		pinClaimRestart(PinUser::SbusOut);
-		sbusOutProbeRestart();
+		// Only the page that asked for the ESC's battery to come off clears
+		// the EFM8 mark and MENU's cue: a mark that landed after BACK keeps
+		// them.
+		if (s_efm8Page) sbusOutProbeRestart();
 		return false;
 	}
 	if (ev == UiLeaveEv::Next) {

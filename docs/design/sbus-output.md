@@ -637,7 +637,7 @@ y   0 +------------------------------------------+
 | Strip caption | 8, 44, 137, 7 | `SIG GP0  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `AUX GP0  100 KBAUD  8E2` when GP0 is AUX. With `  14 MS` it would be 30 characters and end at x 186, past the chip, so by menu-b.md decision 14 the period goes, the item at the right; it is fixed, and the README states it |
 | Strip chip | 179, 42, 53, 12 at its widest | `uiChip()`: `SAFE` on `UI_COL_SAFE`, `RUNNING` on `UI_COL_ON`, `STALLED` on `UI_COL_ALERT`; at most 7 characters, 41 px, plus 6 px each side, right edge x 231. The caption ends at x 144, 34 px clear. Drawn only while the job runs |
 | Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` for the heartbeat, `UI_COL_WARN` for the idle rule and a refused frame |
-| Note 2 | 8, 70, at most 215, 7 | SAFE: `NEVER TO AN ESC. PROPS OFF.`, 27 characters, 161 px, `UI_COL_WARN`. RUNNING: `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, at most 36 characters, 215 px, `C_TEXT`, `UI_COL_WARN` while a flag is on. After a stop: `HOLD TO START AGAIN.`, 20 characters, 119 px, `C_DIM` |
+| Note 2 | 8, 70, at most 215, 7 | SAFE: `NEVER TO AN ESC. PROPS OFF.`, 27 characters, 161 px, `UI_COL_WARN`. RUNNING: `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, at most 36 characters, 215 px, `C_TEXT`, `UI_COL_WARN` while a flag is on. After a stop: `NEVER TO AN ESC. PROPS OFF.`, `UI_COL_WARN`, as while SAFE, ending at x 168 |
 | Row i, i = 0 to 7 | 8, 80 + 25i, 224, 22 | label, slider, value; 22 px is `UI_TAP_MIN` |
 | Label | 8, y + 8, at most 41, 7 | `CH1` to `CH16`; `CH3 THR` on the throttle channel, 7 characters, 41 px, `UI_COL_WARN` |
 | Track | 54, y + 6, 146, 10 | 1000 µs at x 54, 1500 µs at x 126, 2000 µs at x 199: 6.9 µs a pixel |
@@ -668,9 +668,9 @@ next START.
 | SAFE | `SAFE` | the two warnings | disabled, START values |
 | Probe | none | `CHECKING SIG GP0 FOR AN ESC.` ([unavailable pin](#unavailable-pin)) in place of notes and rows | hidden |
 | RUNNING | `RUNNING` | the ceiling and the flags | live, values `UI_COL_LIVE` |
-| Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `HOLD TO START AGAIN.` | disabled, the last values |
-| Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `HOLD TO START AGAIN.` | disabled, the last values |
-| Encoder refused | `SAFE` | `STOPPED: FRAME REFUSED.` (23 characters, 137 px) and `HOLD TO START AGAIN.` | disabled |
+| Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
+| Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
+| Encoder refused | `SAFE` | `STOPPED: FRAME REFUSED.` (23 characters, 137 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled |
 
 ### SET
 
@@ -717,12 +717,16 @@ the monitor's ([rx-signals.md](rx-signals.md#screen)), and no chip:
 | A bootloader answered the probe | `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | `UI_COL_WARN` | 221, 191 and 185 px |
 | Held, the job not bound yet | `TAKING SIG GP0` | `C_DIM` | 83 px |
 | The bind refused the clock | `SIG GP0 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46 | `UI_COL_WARN` | 203 px |
+| The probe's line refused at the bind | `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` by `escwireJobBindError()`, `(REFUSED)` for `CORE1_JOB_PIN`, and RETRY | `UI_COL_WARN` | at most 215 px |
 | No role on GP0 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | `UI_COL_WARN` | 95 and 173 px |
 | Armed, or another claim holds | `DISARM FIRST`, `WAIT: DSHOT RESTARTING` | `UI_COL_WARN` | backstops, unreachable through the UI |
 
 `SIG GP0` reads `AUX GP0` when GP0 is AUX; the ESC line names the GPIO of
 SIG, `GP1` in that wiring. In the default wiring the FC lead goes where the
-ESC was, so `UNPLUG IT` comes first and the ESC line names no FC.
+ESC was, so `UNPLUG IT` comes first and the ESC line names no FC. The line
+to plug the FC in is only on the KISS line, because that line is always
+about GP0, where the FC goes; the ESC line names SIG, which is GP1 in the
+AUX wiring, and the FC does not go on GP1.
 
 ### Leave page
 
@@ -806,6 +810,7 @@ it, so the warnings stay wherever START can be reached:
 | Where | Text |
 |---|---|
 | Main view, SAFE | `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` |
+| Main view, after a stop | the stop's reason, then `NEVER TO AN ESC. PROPS OFF.`: HOLD TO START is live and no probe runs before it |
 | SET, SAFE | `NEVER TO AN ESC. PROPS OFF.` in the footer |
 | RX SIGNALS, under OUTPUT | `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` |
 
@@ -1392,12 +1397,14 @@ exact, the developer's:
 - **The bottom row stays** while a message fills the rows' area, with HOLD
   TO START drawn disabled, so the gate shows; it is not drawn under RETRY,
   whose wide button covers it, and a tap there reaches nothing under it.
-- **The stopped states.** A stop's reason and `HOLD TO START AGAIN.` stand in
-  the two notes until the next START, as the state table has it; the
-  screen's own idle stop is `SbusOutStop::Idle`, cleared by START. While
-  they show, the main view's warnings are replaced; SET's footer carries
-  `NEVER TO AN ESC. PROPS OFF.` in every state but RUNNING. Every START of a
-  visit comes after the SAFE state of that visit, which shows both.
+- **The stopped states.** After the heartbeat's stop, the idle stop or a
+  refused frame, note 1 gives the reason in its colour until the next
+  START, and note 2 keeps `NEVER TO AN ESC. PROPS OFF.` in `UI_COL_WARN`:
+  HOLD TO START is live then and no probe runs before it, so an ESC plugged
+  in since the probe is the case the warning is for. The note's
+  `HOLD TO START AGAIN.` is not drawn; the live button says it. The screen's
+  own idle stop is `SbusOutStop::Idle`, cleared by START. SET's footer
+  carries the same warning in every state but RUNNING.
 - **The sliders** take presses on the row's 22 px over the track's x span,
   x 54 to 199, and are drawn on the note's 10 px track with the 14 × 16 px
   knob of `ui_slider`. A slider's value is held to its step, and to the
@@ -1413,7 +1420,10 @@ exact, the developer's:
 - **BACK after an EFM8 answer** sends STOP before it opens decision 8's page
   before LEAVE, so no frame goes out while the page waits; STAY returns to
   the screen, SAFE. BACK opens that page again while the EFM8 mark stands,
-  until RESTART DSHOT calls `sbusOutProbeRestart()`.
+  until RESTART DSHOT on that page calls `sbusOutProbeRestart()`. RESTART
+  DSHOT on the plain page does not: on the chip core1 can count an EFM8
+  answer between the screen's read at BACK and the release, and that late
+  mark keeps MENU's cue, `POWER-CYCLE THE ESC TO RUN IT`.
 - **SET's title** is `OUTPUT SET`, 10 characters, 118 px, after `SERVO SET`;
   the note names none. Its note band reads `STOP TO CHANGE THE CHANNEL.`
   while RUNNING and `START TO SET THE FLAGS.` while SAFE, in
@@ -1432,10 +1442,17 @@ exact, the developer's:
   the claim's row, the probe's request for the leave page, and S.BUS
   OUTPUT's claim, release, keep, restart and retry lines, its one command
   call and its one Start. Then in `ui_sbus_out.cpp` the Start is sent only
-  in `startFrames()`, which only the hold calls, on the line gated by
-  `startAllowed()`, whose one condition chain ends in
-  `sbusOutProbePassed()`. `sbusOutClaimRoles()` left the list: the screen
-  calls it, and it is pure. The numeric-cast checks are unchanged.
+  in `startFrames()`, whose name appears twice, at its definition and in
+  the hold's call on the line gated by `startAllowed()`, whose one return is
+  a chain of `&&` with no `|` and no `?` that ends in
+  `sbusOutProbePassed()`. The numeric-cast checks stay and also catch a
+  cast to `SbusOutCmdKind`, so `send((SbusOutCmdKind)1)`, a pointer to
+  `startFrames` and a ternary in the gate each fail it.
+  `sbusOutClaimRoles()` left the list: the screen calls it, and it is pure.
+  The test is a lint of the sources, not a proof: a value made without a
+  cast or a name, through `memcpy()`, a union or a macro, is not caught.
+  The UI tests hold the behaviour: no command while the probe runs, START
+  only through the hold.
 
 Mutation check: each mutation applied to a copy of the tree, the changed
 file built into the host suite and the suite run. 139 mutations on the

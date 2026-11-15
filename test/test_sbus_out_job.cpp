@@ -1638,14 +1638,15 @@ static void listSources(const std::string &dir, std::vector<std::string> *out) {
  * @brief Whether @p line reaches a pin user or a core1 job by a number
  *        rather than by its name, or walks the tables that hold them.
  *
- * Caught: a cast to PinUser or Core1Job, a pointer or reference to one
+ * Caught: a cast to PinUser, Core1Job or SbusOutCmdKind, a pointer or
+ * reference to one
  * included, C-style, functional, braced, `static_cast` or
  * `reinterpret_cast`, a `const` among them; and any use of the user rows or
  * the job table, `PIN_USERS` or, in core1_job.cpp where it is static,
  * `s_ops`, an index or a range-for over them that picks a row by its fields.
  * Another file's own `s_ops` (bridge_4way.cpp) is not the job table. A
  * name match alone misses `(PinUser)((int)PinUser::Count - 1)`, which is
- * SbusOut.
+ * SbusOut, and `(SbusOutCmdKind)1`, which is a Start.
  *
  * Not caught: a value of the enum made without a cast, through `memcpy()`,
  * a union, a template's deduction or bytes read from storage; a cast hidden
@@ -1659,9 +1660,9 @@ static bool byNumber(const std::string &line, const std::string &file) {
 	    std::regex_search(line, OPS))
 		return true;
 	static const std::regex CAST(
-		"\\(\\s*(const\\s+)?(PinUser|Core1Job)\\s*(const\\s*)?[*&]?\\s*\\)|"
-		"\\b(PinUser|Core1Job)\\s*[({]|"
-		"\\b(static|reinterpret|const)_cast\\s*<\\s*(const\\s+)?(PinUser|Core1Job)\\b|"
+		"\\(\\s*(const\\s+)?(PinUser|Core1Job|SbusOutCmdKind)\\s*(const\\s*)?[*&]?\\s*\\)|"
+		"\\b(PinUser|Core1Job|SbusOutCmdKind)\\s*[({]|"
+		"\\b(static|reinterpret|const)_cast\\s*<\\s*(const\\s+)?(PinUser|Core1Job|SbusOutCmdKind)\\b|"
 		"\\bPIN_USERS\\b");
 	return std::regex_search(line, CAST);
 }
@@ -1693,10 +1694,15 @@ static int countOf(const std::string &text, const std::string &what) {
  * command, names a START, or reaches a user or a job by a number
  * (byNumber()), must be one of the lines below, in the file named, found as
  * often as the list says: a call anywhere else, an inline function in
- * pin_claim.h that claimed the output, or a cast to a user or a job, fails.
- * Then, in ui_sbus_out.cpp: the START is sent only from startFrames(), which
- * only HOLD TO START's hold calls, on a line gated by startAllowed(), whose
- * one condition chain holds sbusOutProbePassed().
+ * pin_claim.h that claimed the output, or a cast to a user, a job or a
+ * command kind, fails. Then, in ui_sbus_out.cpp: the START is sent only from
+ * startFrames(), whose name appears twice, at its definition and in HOLD TO
+ * START's hold, on a line gated by startAllowed(), whose one return is a
+ * chain of `&&` with no `|` and no `?` that ends in sbusOutProbePassed().
+ * A pointer to startFrames, a cast to a command kind and a ternary in the
+ * gate each fail it. It is a lint of the sources, not a proof: a value made
+ * without a cast or a name, through memcpy() or a macro, is not caught; the
+ * UI tests (test_sbus_out_ui.cpp) hold the behaviour.
  */
 static void testOnlyPath() {
 	section("S.BUS output: only S.BUS OUTPUT claims and commands it; its START needs the probe's gate");
@@ -1782,13 +1788,17 @@ static void testOnlyPath() {
 	const std::string start = bodyOf(ui, "static void startFrames() {");
 	checkTrue("the START is sent in startFrames()",
 	          countOf(start, "send(SbusOutCmdKind::Start);") == 1 && countOf(ui, "SbusOutCmdKind::Start") == 1);
-	checkTrue("startFrames() is called once, by HOLD TO START's hold, gated by startAllowed()",
-	          countOf(ui, "startFrames()") == 2 &&
+	static const std::regex START_NAME("\\bstartFrames\\b");
+	const long startNames = std::distance(std::sregex_iterator(ui.begin(), ui.end(), START_NAME),
+	                                      std::sregex_iterator());
+	checkTrue("startFrames is named twice, its definition and HOLD TO START's call, gated by startAllowed()",
+	          startNames == 2 &&
 	          countOf(ui, "if (uiHoldUpdate(&s_hold, BTN_START, s_t, startAllowed(), now)) startFrames();") == 1);
 	const std::string gate = bodyOf(ui, "static bool startAllowed() {");
 	checkTrue("startAllowed() is one chain of conditions ending in sbusOutProbePassed()",
 	          countOf(gate, "return ") == 1 && countOf(gate, "sbusOutProbePassed()") == 1 &&
-	          countOf(gate, "||") == 0 && countOf(gate, "&& sbusOutProbePassed();") == 1);
+	          countOf(gate, "|") == 0 && countOf(gate, "?") == 0 &&
+	          countOf(gate, "&& sbusOutProbePassed();") == 1);
 	checkTrue("a call in a comment is blanked, one in code is not",
 	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
 	              == "x(); \n y(\"//\");");
@@ -1811,6 +1821,10 @@ static void testOnlyPath() {
 		"auto u = *reinterpret_cast<const PinUser*>(p);",
 		"for (const PinUserInfo &u : PIN_USERS) if (u.unplug && u.escCheck && !u.deferJob) pinClaimBegin(u.who, 1);",
 		"for (const Core1JobOps *o : s_ops) o->bind(0, 1);",
+		"send((SbusOutCmdKind)1);",
+		"auto k = static_cast<SbusOutCmdKind>(1);",
+		"c.kind = SbusOutCmdKind(1);",
+		"c.kind = SbusOutCmdKind{1};",
 	};
 	bool all = true;
 	for (const char *l : BY_NUMBER) all &= byNumber(l, "../src/core1_job.cpp");
@@ -1823,6 +1837,8 @@ static void testOnlyPath() {
 		"Core1Job core1JobRunning() {",
 		"const PinUserInfo &u = pinUserInfo(who);",
 		"uint8_t n = (uint8_t)job;",
+		"static void send(SbusOutCmdKind kind) {",
+		"enum class SbusOutCmdKind : uint8_t {",
 	};
 	bool none = true;
 	for (const char *l : BY_NAME) none &= !byNumber(l, "../src/core1_job.cpp");

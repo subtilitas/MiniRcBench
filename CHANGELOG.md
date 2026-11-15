@@ -47,8 +47,8 @@ protocol.
 - After v0.1.0-rc1: S.BUS OUTPUT, slice 4 of
   [sbus-output.md](docs/design/sbus-output.md#slice-4-as-built), tested on
   the host only; nothing of it has driven a pin. OUTPUT on RX SIGNALS opens
-  it, with the lines `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN
-  ESC.` in place of `NOT BUILT`. The screen claims the role that is GP0,
+  it, with the lines `S.BUS TO A FLIGHT CONTROLLER.`
+  `ON GP0, NEVER TO AN ESC.` in place of `NOT BUILT`. The screen claims the role that is GP0,
   shows `CHECKING SIG GP0 FOR AN ESC.` while the bootloader probe runs and
   `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.`
   `START WAITS UNTIL NONE ANSWERS.` while one answers, and offers HOLD TO
@@ -60,8 +60,10 @@ protocol.
   (`OUTPUT SET`). STOP acts on the press; the job's heartbeat stops the
   frames when the screen stalls for 250 ms (`STALLED`); more than 30 s with
   no touch while the throttle or a switch channel is off its START value
-  stops them too. `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS
-  OFF.` show while SAFE, the second in SET's footer. BACK opens the leave
+  stops them too. `GP0 GOES TO A FLIGHT CONTROLLER.`
+  `NEVER TO AN ESC. PROPS OFF.` show while SAFE; after a stop the second
+  stays under its reason, and SET's footer carries it while the frames are
+  off. BACK opens the leave
   page at `UNPLUG THE FLIGHT CONTROLLER.`; after an EFM8 bootloader answered,
   it stops the frames and opens ESC SETTINGS' step
   `UNPLUG THE ESC BATTERY, THEN LEAVE.` first. BACK TO OUTPUT probes again;

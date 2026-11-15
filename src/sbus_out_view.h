@@ -16,7 +16,7 @@
  * | State | Note 1 | Note 2 |
  * |---|---|---|
  * | RUNNING | `THROTTLE CH3: 1000 TO 1200 US (20%).`, `C_TEXT` | `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, `C_TEXT`; @ref UI_COL_WARN while a flag is on |
- * | Stopped by the heartbeat | `STOPPED: SCREEN STALLED`, @ref UI_COL_ALERT | `HOLD TO START AGAIN.`, `C_DIM` |
+ * | Stopped by the heartbeat | `STOPPED: SCREEN STALLED`, @ref UI_COL_ALERT | `NEVER TO AN ESC. PROPS OFF.`, @ref UI_COL_WARN |
  * | Encoder refused | `STOPPED: FRAME REFUSED.`, @ref UI_COL_WARN | as above |
  * | Stopped by the idle rule | `STOPPED: NO TOUCH FOR 30 S.`, @ref UI_COL_WARN | as above |
  * | SAFE | `GP0 GOES TO A FLIGHT CONTROLLER.`, @ref UI_COL_WARN | `NEVER TO AN ESC. PROPS OFF.`, @ref UI_COL_WARN |
@@ -40,7 +40,7 @@
 #define SBUS_OUT_VIEW_STALLED  "STALLED"  /**< After a heartbeat lapse: 7 characters. */
 /** @brief SAFE, note 1: 32 characters, 191 px. */
 #define SBUS_OUT_VIEW_WARN_1   "GP0 GOES TO A FLIGHT CONTROLLER."
-/** @brief SAFE, note 2, and SET's footer while SAFE: 27 characters, 161 px. */
+/** @brief Note 2 whenever the frames are off, SET's footer then: 27 characters, 161 px. */
 #define SBUS_OUT_VIEW_WARN_2   "NEVER TO AN ESC. PROPS OFF."
 /** @brief RUNNING, note 1: throttle channel, top in us, MAX THROTTLE in %; at most 37 characters. */
 #define SBUS_OUT_VIEW_CEIL_FMT "THROTTLE CH%u: 1000 TO %u US (%u%%)."
@@ -50,8 +50,6 @@
 #define SBUS_OUT_VIEW_IDLE     "STOPPED: NO TOUCH FOR 30 S."
 /** @brief After a frame sbus_encode() refused: 23 characters, 137 px. */
 #define SBUS_OUT_VIEW_REFUSED  "STOPPED: FRAME REFUSED."
-/** @brief Note 2 after any of the three stops: 20 characters, 119 px. */
-#define SBUS_OUT_VIEW_AGAIN    "HOLD TO START AGAIN."
 /** @} */
 
 /** @brief The step a slider moves in, us. */

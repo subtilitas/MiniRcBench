@@ -209,7 +209,8 @@ verfügbar.
 | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | ein ESC antwortet auf SIG mit DShot | Zieh ihn ab. Der Bildschirm nimmt den Pin 500 ms, nachdem er verstummt |
 | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | SIG ist GP1, GP0 ist AUX, und dort kommt KISS-Telemetrie an | Zieh die Telemetrieleitung ab. Steck den FC an, sobald der Chip `SAFE` erscheint |
 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | weder SIG noch AUX ist GP0 | Stell SIG PIN oder AUX PIN auf GP0. SETTINGS tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
-| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` | die serielle Schnittstelle erreicht keine 100.000 Baud | `RETRY` |
+| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` | die serielle Schnittstelle erreicht keine 100.000 Baud, oder die Leitung der Prüfung bekam ihren Takt nicht | `RETRY` |
+| `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` oder `(REFUSED)` | die Leitung der Prüfung fand keine freie PIO-Zustandsmaschine oder keinen freien DMA-Kanal, oder ihr Treiber nahm den Pin nicht | `RETRY` |
 
 `SIG GP0` heißt `AUX GP0`, wenn SIG auf GP1 liegt.
 
@@ -222,7 +223,7 @@ verfügbar.
 | Teil | Was es zeigt |
 |---|---|
 | Leiste | `SIG GP0  100 KBAUD  8E2`: der Pin, Geschwindigkeit und Format der Leitung; der Chip `SAFE` (grün), `RUNNING` (rot) oder `STALLED` (magenta) |
-| Hinweise | gestoppt: die zwei Warnungen in Bernstein, `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` Laufend: `THROTTLE CH3: 1000 TO 1200 US (20%).`, der Gaskanal und seine Obergrenze; und `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, in Bernstein, solange eines davon an ist. Nach einem Stopp der Grund und `HOLD TO START AGAIN.` |
+| Hinweise | im Zustand SAFE: die zwei Warnungen in Bernstein, `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` Laufend: `THROTTLE CH3: 1000 TO 1200 US (20%).`, der Gaskanal und seine Obergrenze; und `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, in Bernstein, solange eines davon an ist. Nach einem Stopp der Grund, und wieder die Warnung `NEVER TO AN ESC. PROPS OFF.`: START geht sofort, ohne neue Prüfung auf einen ESC |
 | 8 Zeilen | ein Kanal, sein Schieberegler von 1000 bis 2000 µs und der Wert, den er sendet, lindgrün, solange Frames laufen. Der Gaskanal heißt `CH3 THR` in Bernstein, mit einer Marke in Bernstein an seiner Obergrenze |
 | Schaltflächen | `HOLD TO START`, oder `STOP`, solange Frames laufen; `CH 9-16` oder `CH 1-8` für die anderen acht Kanäle; `SET` |
 
@@ -249,7 +250,7 @@ verfügbar.
 
 Nach jedem Stopp halte START erneut; der erste Frame ist wieder der feste.
 
-<img src="img/sbus-out-stalled.png" width="240" alt="S.BUS OUTPUT, nachdem der Bildschirm hing: der Chip STALLED, STOPPED: SCREEN STALLED in Magenta, HOLD TO START AGAIN.">
+<img src="img/sbus-out-stalled.png" width="240" alt="S.BUS OUTPUT, nachdem der Bildschirm hing: der Chip STALLED, STOPPED: SCREEN STALLED in Magenta, NEVER TO AN ESC. PROPS OFF. in Bernstein">
 
 ### SET
 

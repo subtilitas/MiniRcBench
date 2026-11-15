@@ -16,6 +16,7 @@
 #include "check.h"
 #include "fakes.h"
 #include "fake_escwire_port.h"
+#include "ew_line.h"
 #include "sbus_out_view.h"
 #include "sbus_out_job.h"
 #include "ui_sbus_out.h"
@@ -113,20 +114,20 @@ static void testViewChipNotes() {
 	st.tripped = true;
 	st.refused = true;
 	sbusOutNotes(&st, SbusOutStop::Idle, 2, 499, 400, a, b, sizeof(a), &ca, &cb);
-	checkTrue("the heartbeat first: STOPPED: SCREEN STALLED, magenta; HOLD TO START AGAIN., dim",
+	checkTrue("the heartbeat first: STOPPED: SCREEN STALLED, magenta; the warning, amber",
 	          strcmp(a, "STOPPED: SCREEN STALLED") == 0 && ca == UI_COL_ALERT &&
-	          strcmp(b, "HOLD TO START AGAIN.") == 0 && cb == C_DIM && gfxTextW(a, 1) == 137 &&
-	          gfxTextW(b, 1) == 119);
+	          strcmp(b, "NEVER TO AN ESC. PROPS OFF.") == 0 && cb == UI_COL_WARN && gfxTextW(a, 1) == 137 &&
+	          UI_MARGIN + gfxTextW(b, 1) - 1 == 168);
 	st.tripped = false;
 	sbusOutNotes(&st, SbusOutStop::Idle, 2, 499, 400, a, b, sizeof(a), &ca, &cb);
 	checkTrue("then a refused frame: STOPPED: FRAME REFUSED., amber",
 	          strcmp(a, "STOPPED: FRAME REFUSED.") == 0 && ca == UI_COL_WARN &&
-	          strcmp(b, "HOLD TO START AGAIN.") == 0 && cb == C_DIM && gfxTextW(a, 1) == 137);
+	          strcmp(b, "NEVER TO AN ESC. PROPS OFF.") == 0 && cb == UI_COL_WARN && gfxTextW(a, 1) == 137);
 	st.refused = false;
 	sbusOutNotes(&st, SbusOutStop::Idle, 2, 499, 400, a, b, sizeof(a), &ca, &cb);
 	checkTrue("then the idle rule: STOPPED: NO TOUCH FOR 30 S., amber",
 	          strcmp(a, "STOPPED: NO TOUCH FOR 30 S.") == 0 && ca == UI_COL_WARN &&
-	          strcmp(b, "HOLD TO START AGAIN.") == 0 && cb == C_DIM && gfxTextW(a, 1) == 161);
+	          strcmp(b, "NEVER TO AN ESC. PROPS OFF.") == 0 && cb == UI_COL_WARN && gfxTextW(a, 1) == 161);
 }
 
 static void testViewRows() {
@@ -698,9 +699,10 @@ static void testHeartbeat() {
 	checkTrue("past 250 ms: the trip, no frame more", !st.running && st.tripped && fakeUartTxCount() == tx);
 	soFrames(1);
 	checkTrue("the chip: STALLED on magenta", chipIs("STALLED", UI_COL_ALERT));
-	checkTrue("STOPPED: SCREEN STALLED, magenta; HOLD TO START AGAIN., dim",
+	checkTrue("STOPPED: SCREEN STALLED, magenta; the warning NEVER TO AN ESC. PROPS OFF., amber, to x 168",
 	          leftIs(SBOUT_UI_NOTE1_Y, "STOPPED: SCREEN STALLED", UI_COL_ALERT) &&
-	          leftIs(SBOUT_UI_NOTE2_Y, "HOLD TO START AGAIN.", C_DIM));
+	          leftIs(SBOUT_UI_NOTE2_Y, "NEVER TO AN ESC. PROPS OFF.", UI_COL_WARN) &&
+	          allOf(169, SBOUT_UI_NOTE2_Y, GFX_W - 169, 7, C_BG));
 	checkTrue("the rows disabled, the last values dim",
 	          !ctlEnabled(UI_FIX(SbusOutCtl::Row0)) && rowIs(0, "CH1", C_DIM, "1500", C_DIM) &&
 	          sent().channel[2] > 172);
@@ -753,9 +755,10 @@ static void testIdle() {
 	checkTrue("30,001 ms: STOP", held().kind == SbusOutCmdKind::Safe);
 	soFrames(1);
 	checkTrue("frames stopped; the chip SAFE", !jobSt().running && chipIs("SAFE", UI_COL_SAFE));
-	checkTrue("STOPPED: NO TOUCH FOR 30 S., amber; HOLD TO START AGAIN., dim",
+	checkTrue("STOPPED: NO TOUCH FOR 30 S., amber; the warning NEVER TO AN ESC. PROPS OFF., amber",
 	          leftIs(SBOUT_UI_NOTE1_Y, "STOPPED: NO TOUCH FOR 30 S.", UI_COL_WARN) &&
-	          leftIs(SBOUT_UI_NOTE2_Y, "HOLD TO START AGAIN.", C_DIM));
+	          leftIs(SBOUT_UI_NOTE2_Y, "NEVER TO AN ESC. PROPS OFF.", UI_COL_WARN) &&
+	          ctlEnabled(UI_FIX(SbusOutCtl::Start)));
 	checkTrue("a new START clears it", holdStart() &&
 	          leftIs(SBOUT_UI_NOTE1_Y, "THROTTLE CH3: 1000 TO 1200 US (20%).", C_TEXT));
 
@@ -777,7 +780,8 @@ static void testIdle() {
 	tick(1);
 	soFrames(1);
 	checkTrue("and stopped at 30,001 ms", !jobSt().running &&
-	          leftIs(SBOUT_UI_NOTE1_Y, "STOPPED: NO TOUCH FOR 30 S.", UI_COL_WARN));
+	          leftIs(SBOUT_UI_NOTE1_Y, "STOPPED: NO TOUCH FOR 30 S.", UI_COL_WARN) &&
+	          leftIs(SBOUT_UI_NOTE2_Y, "NEVER TO AN ESC. PROPS OFF.", UI_COL_WARN));
 	tapId(UI_FIX(SbusOutCtl::Page));
 
 	// CH17 on, from SET.
@@ -785,9 +789,15 @@ static void testIdle() {
 	tapId(UI_FIX(SbusOutCtl::Set));
 	tapId(UI_ROW(1, Row));
 	tapId(UI_FIX(SbusOutCtl::EditPlus));
-	const uint32_t touch17 = millis() - 25;
 	soFrames(1);
 	checkTrue("CH17 on", sent().ch17);
+	for (int k = 0; k < 3; k++) {
+		runTo(millis() + 20000);
+		tapId(UI_ROW(0, Row));
+	}
+	// tapId(): two frames down, one up; the last touch is 25 ms back.
+	const uint32_t touch17 = millis() - 25;
+	checkTrue("a tap on SET every 20 s for 60 s keeps the idle clock: frames go on", jobSt().running);
 	runTo(touch17 + 30000);
 	checkTrue("CH17: frames at 30,000 ms", jobSt().running);
 	tick(1);
@@ -795,7 +805,8 @@ static void testIdle() {
 	checkTrue("stopped at 30,001 ms, on SET too", !jobSt().running);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the main view: the idle stop's note",
-	          leftIs(SBOUT_UI_NOTE1_Y, "STOPPED: NO TOUCH FOR 30 S.", UI_COL_WARN));
+	          leftIs(SBOUT_UI_NOTE1_Y, "STOPPED: NO TOUCH FOR 30 S.", UI_COL_WARN) &&
+	          leftIs(SBOUT_UI_NOTE2_Y, "NEVER TO AN ESC. PROPS OFF.", UI_COL_WARN));
 
 	// START forgets the idle stop: a STOP then reads SAFE, the warnings.
 	checkTrue("START", holdStart());
@@ -1262,6 +1273,29 @@ static void testUnavailable() {
 	checkTrue("back to MENU", leaveToMenu());
 	tapId(UI_FIX(UI_BACK));
 
+	// The probe's line refused at the bind: its reason, RETRY.
+	static const struct { uint8_t err; const char *why; } LINE[] = {
+		{ EW_LINE_ERR_PIO, "PIO" }, { EW_LINE_ERR_DMA, "DMA" }, { EW_LINE_ERR_CLOCK, "CLOCK" },
+		{ EW_LINE_ERR_ARG, "REFUSED" },
+	};
+	for (const auto &l : LINE) {
+		freshUi();
+		fakeEwRefuse(l.err);
+		openOutput();
+		soFrames(14);
+		char want[48], what[96];
+		snprintf(want, sizeof(want), "SIG GP0 COULD NOT BE TAKEN (%s)", l.why);
+		snprintf(what, sizeof(what), "the probe's line refused: %s, amber, and RETRY", want);
+		checkTrue(what, messageIs(want, nullptr, nullptr, UI_COL_WARN) &&
+		          ctlEnabled(UI_FIX(SbusOutCtl::Retry)) && UI_MARGIN + gfxTextW(want, 1) <= GFX_W - UI_MARGIN);
+		fakeEwRefuse(0);
+		tapId(UI_FIX(SbusOutCtl::Retry));
+		soFrames(2);
+		checkTrue("RETRY with the line free: the probe", sbusOutProbePoll() == SbusOutProbeState::Checking);
+		checkTrue("back to MENU", leaveToMenu());
+		tapId(UI_FIX(UI_BACK));
+	}
+
 	// BACK during the drain: DShot resumes at once, no leave page.
 	freshUi();
 	openOutput();
@@ -1284,6 +1318,46 @@ static void testUnavailable() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/**
+ * @brief A mark that lands after BACK opened the plain leave page: RESTART
+ *        DSHOT leaves the EFM8 mark and MENU's cue. On the chip core1 can
+ *        count an answer between the screen's read at BACK and the release;
+ *        the test makes that answer by running the job's own entry points
+ *        while the page waits, which the host suite's frame order alone
+ *        never does.
+ */
+static void testLateMark() {
+	section("S.BUS OUTPUT: a late EFM8 mark survives the plain page's RESTART DSHOT");
+	freshUi();
+	openOutput();
+	checkTrue("SAFE", toSafe());
+	tapId(UI_FIX(UI_BACK));
+	soFrames(2);
+	checkTrue("the plain page, GP0 let go", ctlPresent(UI_FIX(SbusOutCtl::BackToOutput)) &&
+	          pinClaimUnplugDue() && !sbusOutProbeEfm8());
+	// An EFM8 bootloader's answer, counted by the job after the page opened.
+	fakeEwReset(0xB2, true);
+	fakeEwAnswerEach(true);
+	SbusOutStatus st0 = jobSt();
+	checkTrue("the job binds for the late answer", SBUS_OUT_JOB_OPS.bind(0, 0xFF) == CORE1_JOB_OK);
+	for (int k = 0; k < 4000 && jobSt().efm8Seq == st0.efm8Seq; k++) {
+		fakeAdvanceUs(500);
+		escHeartbeat();
+		SBUS_OUT_JOB_OPS.step(millis(), true);
+	}
+	for (int k = 0; k < 100 && !SBUS_OUT_JOB_OPS.release(millis()); k++) fakeAdvanceUs(500);
+	checkTrue("the late answer marks the claim", sbusOutProbeEfm8() && sbusOutRunCue(0));
+	noEscOnGp0();
+	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)); k++) soFrames(1);
+	tapId(UI_FIX(SbusOutCtl::Restart));
+	soFrames(4);
+	checkTrue("RESTART DSHOT on the plain page: MENU, the mark and the cue kept",
+	          uiCurrentScreen() == UiScreenId::Menu && sbusOutProbeEfm8() && sbusOutRunCue(0));
+	sbusOutProbeRestart();
+	checkTrue("cleared for the next test", !sbusOutProbeEfm8() && !sbusOutRunCue(0));
+	tapId(UI_FIX(UI_BACK));
+}
+
 void runSbusOutUiTests() {
 	testViewChipNotes();
 	testViewRows();
@@ -1295,6 +1369,7 @@ void runSbusOutUiTests() {
 	testLeave();
 	testBootloader();
 	testUnavailable();
+	testLateMark();
 	noEscOnGp0();
 	noTelemetry();
 }

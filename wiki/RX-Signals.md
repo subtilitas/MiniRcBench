@@ -200,7 +200,8 @@ read `SAFE` and **HOLD TO START** become available.
 | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | an ESC answers DShot on SIG | Unplug it. The screen takes the pin 500 ms after it goes quiet |
 | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | SIG is GP1, GP0 is AUX, and KISS telemetry arrives on it | Unplug the telemetry wire. Plug the FC in once the `SAFE` chip shows |
 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | neither SIG nor AUX is GP0 | Set SIG PIN or AUX PIN to GP0. SETTINGS swaps the two, so this does not happen on this board |
-| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` | the serial port could not reach 100,000 baud | `RETRY` |
+| `SIG GP0 COULD NOT BE TAKEN (CLOCK)` | the serial port could not reach 100,000 baud, or the check's line could not get its clock | `RETRY` |
+| `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(REFUSED)` | the check's line found no free PIO state machine or DMA channel, or its driver did not take the pin | `RETRY` |
 
 `SIG GP0` reads `AUX GP0` when SIG is GP1.
 
@@ -213,7 +214,7 @@ read `SAFE` and **HOLD TO START** become available.
 | Part | What it shows |
 |---|---|
 | Strip | `SIG GP0  100 KBAUD  8E2`: the pin, the line's speed and format; the chip `SAFE` (green), `RUNNING` (red) or `STALLED` (magenta) |
-| Notes | while SAFE, the two warnings in amber, `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` While running, `THROTTLE CH3: 1000 TO 1200 US (20%).`: the throttle channel and its ceiling; and `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, amber while one of them is on. After a stop, why it stopped and `HOLD TO START AGAIN.` |
+| Notes | while SAFE, the two warnings in amber, `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` While running, `THROTTLE CH3: 1000 TO 1200 US (20%).`: the throttle channel and its ceiling; and `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, amber while one of them is on. After a stop, why it stopped, and the warning `NEVER TO AN ESC. PROPS OFF.` again: START works at once, with no new check for an ESC |
 | 8 rows | a channel, its slider from 1000 to 2000 µs and the value it sends, lime while running. The throttle channel reads `CH3 THR` in amber, with an amber mark at its ceiling |
 | Buttons | `HOLD TO START`, or `STOP` while running; `CH 9-16` or `CH 1-8` for the other eight channels; `SET` |
 
@@ -238,7 +239,7 @@ read `SAFE` and **HOLD TO START** become available.
 
 After any stop, hold START again; the first frame is the fixed one again.
 
-<img src="img/sbus-out-stalled.png" width="240" alt="S.BUS OUTPUT after the screen stalled: the STALLED chip, STOPPED: SCREEN STALLED in magenta, HOLD TO START AGAIN.">
+<img src="img/sbus-out-stalled.png" width="240" alt="S.BUS OUTPUT after the screen stalled: the STALLED chip, STOPPED: SCREEN STALLED in magenta, NEVER TO AN ESC. PROPS OFF. in amber">
 
 ### SET
 

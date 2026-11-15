@@ -13,9 +13,11 @@
  * sbus_out_view.h.
  *
  * **START only through the probe.** HOLD TO START, 1000 ms on ui_hold, is
- * live only while the claim runs the job, the job reports no bind error, the
- * frames are off, and sbusOutProbePassed() holds: a probe cycle with no
- * answer has passed in this bind, which is this visit. While the probe runs
+ * live only while two things hold: the frames are off, and
+ * sbusOutProbePassed(), a probe cycle with no answer has passed in this
+ * bind, which is this visit. The claim's running and the job's lack of a
+ * bind error are not checked apart: the gate holds only while this claim's
+ * job is bound in its UART phase, which implies both. While the probe runs
  * the rows' area reads `CHECKING SIG GP0 FOR AN ESC.`; while a bootloader
  * answers it asks for the ESC's battery and lead to come off. Core1 takes no
  * command before the probe passes either (sbus_out_job.h).
@@ -44,8 +46,10 @@
  * docs/design/bluejay-blheli-s.md, `UNPLUG THE ESC BATTERY, THEN LEAVE.`;
  * STAY returns to the screen. BACK TO OUTPUT keeps the claim: the job binds
  * again, a new visit with a new probe. RESTART DSHOT, live 1000 ms after GP0
- * is let go, calls sbusOutProbeRestart() and returns to MENU. BACK before a
- * claim held, or while Stopping, returns to MENU with DShot resumed.
+ * is let go, returns to MENU; after decision 8's page it also calls
+ * sbusOutProbeRestart(), which clears the EFM8 mark and MENU's cue. BACK
+ * before a claim held, or while Stopping, returns to MENU with DShot
+ * resumed.
  *
  * @see docs/design/sbus-output.md, "Screen"
  */

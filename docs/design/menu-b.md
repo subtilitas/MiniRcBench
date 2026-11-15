@@ -127,7 +127,8 @@ TESTER (root, no header)                                        depth 0
      │   │   └─ as KST SERVO
      │   └─ HITEC CLASSIC   disabled while SERVO SUPPLY is OWN  3
      ├─ RX SIGNALS          chooser: MONITOR, OUTPUT           2
-     │   └─ MONITOR         S.BUS MONITOR: claims GP1           3
+     │   ├─ MONITOR         S.BUS MONITOR: claims GP1           3
+     │   └─ OUTPUT          S.BUS OUTPUT: claims GP0            3
      ├─ SD LOG                                                  2
      └─ SETTINGS            opened from MENU                    2
 ```
@@ -138,7 +139,9 @@ its chooser and the two tools are designed in
 disabled and opens nothing ([decision 35](#decisions)). Revised by slice 3
 of rx-signals.md: the chooser and S.BUS MONITOR exist, the row opens the
 chooser and is refused while the claim is not Free, as SERVO PROGRAMMER's;
-OUTPUT is drawn disabled on the chooser, `NOT BUILT`. A tap on HITEC D
+OUTPUT is drawn disabled on the chooser, `NOT BUILT`. Revised by slice 4
+of [sbus-output.md](sbus-output.md#slice-4-as-built): OUTPUT opens S.BUS
+OUTPUT, which claims GP0's role. A tap on HITEC D
 SERIES or HITEC CLASSIC takes SIG ([decision 31](#decisions)); with SERVO
 SUPPLY at OWN, HITEC D SERIES then waits for READ ([decision
 34](#decisions)).
