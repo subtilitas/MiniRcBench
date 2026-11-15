@@ -229,7 +229,7 @@ Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
-| **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist |
+| **BEEP THE ESC** | `DISARMED`; 350 ms nach einem Tippen `SENT` oder `REFUSED` | Sendet den DShot-Beacon-Befehl, der Motor piept. Damit erkennst du, welcher ESC angeschlossen ist. Braucht einen ESC, der antwortet, einen stehenden Motor und 1,5 s, seit der ESC antwortet |
 | **AM32 CONFIG** | nichts | Öffnet den AM32-Editor |
 | **SERVO TESTER** | nichts | Öffnet den Servotester |
 | **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
@@ -248,11 +248,15 @@ belegt keinen Pin und bleibt bedienbar.
 <img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS und SETTINGS als Umriss">
 
 BEEP funktioniert nur im entschärften Zustand, und das Öffnen von `MENU`
-entschärft, daher ist es von hier aus immer erlaubt. Der Befehl dauert 6 ms
-(6 Frames bei 1 kHz). Der Bildschirm wird alle 25 ms neu gezeichnet, daher ist
-die Zeile nach jeder Betätigung 350 ms lang gefüllt: weiß mit `SENT`, oder
-bernsteinfarben mit `REFUSED`. `REFUSED` ist die Antwort, wenn der ESC scharf
-ist. Das Öffnen von `MENU` entschärft, daher ist es nicht zu erwarten.
+entschärft. Es braucht außerdem einen ESC, der antwortet: `REFUSED`, solange
+seit 500 ms keine eRPM-Antwort kam, solange der Motor dreht und 1,5 s lang,
+nachdem der ESC zu antworten beginnt. AM32 nimmt einen Befehl erst nach einer
+Sekunde Nullgas an. Der Befehl dauert 6 ms (6 Frames bei 1 kHz), danach
+folgen 260 ms Nullgas vor dem nächsten Befehl. Der Bildschirm wird alle 25 ms
+neu gezeichnet, daher ist die Zeile nach jeder Betätigung 350 ms lang
+gefüllt: weiß mit `SENT`, oder bernsteinfarben mit `REFUSED`. `SENT` heißt,
+der Beacon steht an: ein zweites Tippen während des ersten wartet auf ihn,
+höchstens 2 s.
 
 <img src="img/menu-beep-flash.png" width="240" alt="BEEP angenommen"> <img src="img/menu-beep-refused.png" width="240" alt="BEEP abgelehnt, weil der ESC scharf ist">
 

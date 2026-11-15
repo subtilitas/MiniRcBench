@@ -175,10 +175,12 @@ reachable: RESTART DSHOT on the leave page returns to MENU at once, and the
 claim stays Restoring until `escTaskSuspended()` turns false. BEEP THE ESC
 and SD LOG act in every claim state.
 
-BEEP's refusal is unreachable through the UI. `escRequestBeep()` refuses only
-while armed (`esc_task.cpp:231`), and opening MENU disarms. The flash stays
-as the backstop, and the test forces it with `escSetArmed(true)`, as
-`test_ui.cpp:617` does today. The caption `BEEP NEEDS THE ESC DISARMED` under
+BEEP's refusal for an armed ESC is unreachable through the UI: opening MENU
+disarms. The flash stays as the backstop, and the test forces it with
+`escSetArmed(true)`. `escRequestBeep()` also refuses while no ESC answers,
+while the motor turns and for 1500 ms after an ESC starts answering
+([esc-commands.md](esc-commands.md#slice-1-as-built), slice 1), and those
+refusals show on the row. The caption `BEEP NEEDS THE ESC DISARMED` under
 today's BEEP button goes; the row's status says it.
 
 **Fit.** The registry holds each row's label and its widest status in
