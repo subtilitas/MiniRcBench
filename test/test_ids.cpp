@@ -223,14 +223,14 @@ static void testServo() {
 }
 
 /**
- * @brief AM32 CONFIG: BACK alone while the claim drains the pump, then the
+ * @brief ESC SETTINGS: BACK alone while the claim drains the pump, then the
  *        list once the fake bootloader has answered.
  */
 static void testAm32() {
-	section("Control ids: AM32 CONFIG, the handover and the list");
+	section("Control ids: ESC SETTINGS, the handover and the list");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens", uiCurrentScreen() == UiScreenId::Am32);
 	idFrames(1);  // its first paint, for the table check's BACK
 	UiControl t[UI_CONTROLS_MAX];

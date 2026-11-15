@@ -1161,7 +1161,7 @@ static void testAm32Screen() {
 	frames(1);  // MENU's first paint: the table check compares BACK's look.
 	checkControlTable("MENU");
 	frames(2);
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens from MENU", uiCurrentScreen() == UiScreenId::Am32);
 	checkTrue("AM32 holds the claim", pinClaimHolder() == PinUser::Am32);
 	frames(4);
@@ -1186,7 +1186,7 @@ static void testAm32Screen() {
 	checkTrue("BACK from MENU returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens a second time", uiCurrentScreen() == UiScreenId::Am32);
 	frames(4);
 	checkTrue("AM32 opened again takes the pin again",
@@ -1216,7 +1216,7 @@ static void testAm32Screen() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("MENU opens from a running motor", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("MENU disarms", !uiArmed() && !fakeArmed());
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens from MENU after a running motor", uiCurrentScreen() == UiScreenId::Am32);
 	uint32_t stamp = fakeLastThrottleMs();
 	checkTrue("AM32 opened within 250 ms of the last throttle frame",
@@ -1238,16 +1238,16 @@ static void testAm32Screen() {
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	frames(1);
 	checkControlTable("MENU, the pins busy");
-	checkTrue("MENU: AM32 drawn disabled, the strip DSHOT RESTARTING", busyShown(menuRow(&UI_AM32)));
-	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_AM32)));
-	tapId(menuRow(&UI_AM32), IdExpect::Disabled);
+	checkTrue("MENU: AM32 drawn disabled, the strip DSHOT RESTARTING", busyShown(menuRow(&UI_ESC_CONFIG)));
+	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_ESC_CONFIG)));
+	tapId(menuRow(&UI_ESC_CONFIG), IdExpect::Disabled);
 	checkTrue("a tap on it opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("and leaves the other claim alone", pinClaimHolder() == PinUser::Servo);
 	toFree();
 	frames(1);
 	checkTrue("the other claim gone: the row acts again",
-	          ctlEnabled(menuRow(&UI_AM32)) && !busyShown(menuRow(&UI_AM32)));
-	tapId(menuRow(&UI_AM32));
+	          ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !busyShown(menuRow(&UI_ESC_CONFIG)));
+	openEscSettings();
 	checkTrue("AM32 opens, and claims on the tap",
 	          uiCurrentScreen() == UiScreenId::Am32 && pinClaimHolder() == PinUser::Am32);
 	tapId(UI_FIX(UI_BACK));

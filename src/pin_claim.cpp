@@ -24,13 +24,22 @@ static uint8_t    s_jobError = CORE1_JOB_OK;    /**< Why the job did not bind. *
 static bool       s_jobPending = false;
 /** @brief Held starts the job: from pinClaimBegin(), or pinClaimStartJob() for a deferring user. */
 static bool       s_jobWanted = false;
+/**
+ * @brief This claim shows the leave page before DShot restarts: its user's
+ *        PinUserInfo::unplug from pinClaimBegin(), or pinClaimWantLeavePage().
+ */
+static bool       s_unplug = false;
 /** @} */
 
 /** @brief The core1 job a screen runs; None for AM32. @see PIN_USERS */
 static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 
-/** @brief SERVO, KST, HITEC and the S.BUS monitor show the leave page before DShot restarts. @see PIN_USERS */
-static bool needsUnplug(PinUser who) { return pinUserInfo(who).unplug; }
+/**
+ * @brief The claim shows the leave page before DShot restarts: SERVO, KST,
+ *        HITEC and the S.BUS monitor always, AM32 once an EFM8 bootloader
+ *        answered. @see PIN_USERS, pinClaimWantLeavePage()
+ */
+static bool needsUnplug() { return s_unplug; }
 
 /** @brief Hand the job its pins. AM32 has no job and starts nothing. */
 static void startJob() {
@@ -56,11 +65,13 @@ static void restore() {
  * @brief Leaving: restore, unless the leave page is due.
  *
  * SERVO, KST, HITEC and the S.BUS monitor wait for RESTART DSHOT, which
- * pinClaimUnplugDue() offers only once their job is idle. AM32 has neither a
- * job nor the page, so its claim restores within the call that ended it.
+ * pinClaimUnplugDue() offers only once their job is idle; so does an AM32
+ * claim after an EFM8 bootloader answered (pinClaimWantLeavePage()). Any
+ * other AM32 claim has neither a job nor the page, so it restores within the
+ * call that ended it.
  */
 static void leaveStep() {
-	if (needsUnplug(s_who)) return;
+	if (needsUnplug()) return;
 	restore();
 }
 
@@ -72,6 +83,7 @@ static void settle() {
 	s_roles = 0;
 	s_sig = s_aux = PIN_CLAIM_NO_GPIO;
 	s_jobWanted = false;
+	s_unplug = false;
 }
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
@@ -95,6 +107,7 @@ ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
 	s_jobError = CORE1_JOB_OK;
 	s_jobPending = false;
 	s_jobWanted = !pinUserInfo(who).deferJob;
+	s_unplug = pinUserInfo(who).unplug;
 	s_state = ClaimState::Stopping;
 	// Disarms again, as the backstop under the Armed rule.
 	escTaskSuspend();
@@ -183,8 +196,21 @@ void pinClaimEnd(PinUser who) {
 }
 
 bool pinClaimUnplugDue() {
-	return s_state == ClaimState::Leaving && needsUnplug(s_who) &&
+	return s_state == ClaimState::Leaving && needsUnplug() &&
 	       core1JobPhase() == Core1JobPhase::Idle;
+}
+
+void pinClaimWantLeavePage(PinUser who) {
+	settle();
+	if (who != s_who) return;
+	if (s_state == ClaimState::Stopping || s_state == ClaimState::Held ||
+	    s_state == ClaimState::Running)
+		s_unplug = true;
+}
+
+bool pinClaimLeavePage() {
+	settle();
+	return s_state != ClaimState::Free && needsUnplug();
 }
 
 void pinClaimRestart(PinUser who) {

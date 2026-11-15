@@ -54,7 +54,7 @@ enum class SdLogEnd : uint8_t {
 	OpenFailed,   /**< START found no file to open: the directory, its scan or the open failed. */
 	ByKst,        /**< KST SERVO took the card for its backup and stopped the log. */
 	ByHitec,      /**< HITEC SERVO did. */
-	ByAm32,       /**< AM32 CONFIG did. */
+	ByAm32,       /**< ESC SETTINGS did. */
 	NoFreeNumber, /**< START found `LOG99999.BFL` in `LOGS/`: no number follows it. */
 };
 

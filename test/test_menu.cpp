@@ -270,7 +270,7 @@ static void testPinsBusy() {
 		checkTrue("SERVO TESTER is an outline with no status: the strip names the pins",
 		          pixel(sr.x + 4, sr.y + sr.h / 2) == C_BG &&
 		          allOf(sr.x + 160, sr.y + 4, sr.w - 164, sr.h - 8, C_BG));
-		checkTrue("nor AM32 CONFIG", !ctlEnabled(menuRow(&UI_AM32)));
+		checkTrue("nor ESC CONFIG", !ctlEnabled(menuRow(&UI_ESC_CONFIG)));
 		checkTrue("nor SERVO PROGRAMMER, whose entries claim", !ctlEnabled(menuRow(&UI_SERVO_PROG)));
 		const UiRect rx = ctlRect(menuRow(&UI_RX_SIGNALS));
 		checkTrue("nor RX SIGNALS, whose MONITOR claims: an outline with no status",
@@ -362,19 +362,21 @@ static void testSettingsRowVisible() {
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
 	static const char *const ORDER[] = {
-		"BEEP THE ESC", "AM32 CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
+		"BEEP THE ESC", "ESC CONFIG", "SERVO TESTER", "SERVO PROGRAMMER",
 		"RX SIGNALS", "SD LOG", "SETTINGS",
 	};
 	bool order = n == 7;
 	for (uint8_t i = 0; order && i < n; i++) order = strcmp(e[i].label, ORDER[i]) == 0;
-	checkTrue("BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
+	checkTrue("BEEP THE ESC, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, "
 	          "SETTINGS, in that order", order);
-	checkTrue("the rows' screens", uiMenuRowOf(&UI_SERVO_PROG) == 3 && uiMenuRowOf(&UI_RX_SIGNALS) == 4 &&
+	checkTrue("the rows' screens", uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
+	          uiMenuRowOf(&UI_SERVO_PROG) == 3 && uiMenuRowOf(&UI_RX_SIGNALS) == 4 &&
 	          uiMenuRowOf(&UI_SDLOG) == 5 && uiMenuRowOf(&UI_SETTINGS) == 6);
 	checkTrue("no row for KST SERVO or HITEC SERVO: PROGRAMMER opens them",
 	          uiMenuRowOf(&UI_KST) < 0 && uiMenuRowOf(&UI_HITEC) < 0);
+	checkTrue("no row for ESC SETTINGS: ESC CONFIG opens it", uiMenuRowOf(&UI_AM32) < 0);
 	checkTrue("the tool rows have no status (decision 18)",
-	          !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
+	          !UI_ESC_CONFIG.status && !UI_AM32.status && !UI_SERVO.status && !UI_SERVO_PROG.status && !UI_KST.status &&
 	          !UI_HITEC.status && !UI_RX_SIGNALS.status && !UI_SBUS.status &&
 	          e[1].statusWidest == 0 && e[2].statusWidest == 0 && e[3].statusWidest == 0 &&
 	          e[4].statusWidest == 0);
@@ -1586,12 +1588,12 @@ static void testMenuScrollResets() {
 }
 
 /**
- * @brief AM32 CONFIG's own refusal: opened beside another claim, as MENU no
+ * @brief ESC SETTINGS' own refusal: opened beside another claim, as MENU no
  *        longer allows, it waits, leaves that claim alone, and claims once
  *        the other one ends. The backstop under MENU's disabled rows.
  */
 static void testAm32WaitsBesideAClaim() {
-	section("AM32 CONFIG: opened beside another claim, it waits");
+	section("ESC SETTINGS: opened beside another claim, it waits");
 	freshTester();
 	checkTrue("SERVO takes the pins", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	static const TouchState none = {};

@@ -169,8 +169,9 @@ void fakeAm32SkewWrites(int n);
 /** @brief am32BlWrite() calls since the start, failed ones among them. */
 int fakeAm32Writes();
 /**
- * @brief Handshakes fail with @p n bytes of reply, as from a device that
- *        answers but is no bootloader; @p n 0 lets them succeed again.
+ * @brief Handshakes answer with @p n bytes, at most 16, classified by
+ *        blAnswerClassify(): bytes that are no bootloader's answer, or an
+ *        EFM8 bootloader's; @p n 0 lets them succeed again with an F051's.
  */
 void fakeAm32Garble(const uint8_t *b, uint8_t n);
 /** @brief Reads return an erased page, all 0xFF, while @p on. */
