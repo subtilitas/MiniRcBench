@@ -14,18 +14,18 @@
  *
  * The write cache (card_cache.h) is on from the open to the close, so card
  * writes return once queued. During the run each pass makes at most one
- * FatFs call, an f_write() of one 512-byte block or an f_sync(), and only
- * while the cache reads Idle: nothing queued, nothing in flight. The call
- * then queues one block of rows, or the sync's directory entry; past the
- * preallocation, where the file grows a cluster at a time, the sync adds
- * FSINFO and the FAT's block in both copies: at most 4 of the cache's 32. No
- * write of the run waits for the card's busy line; a pass reads the card at
- * most once, for the cache's swap check at a batch's first block, or for a
- * block FatFs asks for that neither its window nor the read cache holds. Everything else that touches the card, the open with its
- * directory scan and preallocation, the last rows, the end line, the
- * truncation, the close and the cache's last flush, runs with the pulses at
- * level 0 and the switched supply off: before the Start command and after the
- * job has reported the run over.
+ * FatFs call, an f_write() of one whole 512-byte block inside the reserve,
+ * and only while the cache reads Idle: nothing queued, nothing in flight.
+ * FatFs takes the block's cluster from the fast-seek table made at the open,
+ * so the call reads nothing, neither the FAT nor the directory, and queues
+ * one block of the cache's 32. The run makes no f_sync(): it would read the
+ * directory's block. The cache's swap check before each block is a read
+ * started in one pass and collected in a later one (sd_cache.h). So during
+ * the run core0 never waits for the card. Everything else that touches the
+ * card, the open with its directory scan, reserve and sync, the last rows,
+ * the end line, the truncation, the close and the cache's last flush, runs
+ * with the pulses at level 0 and the switched supply off: before the Start
+ * command and after the job has reported the run over.
  *
  * Core1 runs the pulses, the cuts and the move timing and calls nothing here.
  *
@@ -53,11 +53,14 @@
  */
 #define SERVO_LOG_RING_BYTES 16384u
 /**
- * @brief The file's preallocation at the open, bytes (f_expand()): about
- *        50 minutes of rows at 40 rows a second. The close hands back what
- *        the rows did not use (f_truncate()).
+ * @brief The file's reserve at the open, bytes (f_expand()), one contiguous
+ *        run: about 4 hours of rows at 1.1 kB/s. A card without that much
+ *        free in one run gets the largest half of it that fits. The close
+ *        hands back what the rows did not use (f_truncate()).
  */
-#define SERVO_LOG_PREALLOC_BYTES (4u * 1024u * 1024u)
+#define SERVO_LOG_PREALLOC_BYTES (16u * 1024u * 1024u)
+/** @brief The smallest reserve: less free in one run is a full card, and no log starts. */
+#define SERVO_LOG_RESERVE_MIN_BYTES (64u * 1024u)
 
 /** @brief How a servo log ended: the end line's `end=`. */
 enum class ServoLogHow : uint8_t {
@@ -82,12 +85,16 @@ struct ServoLogStatus {
 	uint32_t    dropped;     /**< Rows the ring had no room for. */
 	/**
 	 * @brief Why the log stopped writing or did not start: SdLogEnd::None,
-	 *        CardFull, WriteFailed (a write, the close or the cache's flush
+	 *        CardFull (no reserve of 64 KiB at the open, or a reserve cut
+	 *        short by the card used up, or a write past it at the end
+	 *        found no room), WriteFailed (a write, the close or the cache's flush
 	 *        failed: a card removed, swapped or faulty), OpenFailed or
 	 *        NoFreeNumber (`SRV99999.CSV` in `LOGS/`). Kept until the next
 	 *        HOLD TO START.
 	 */
 	SdLogEnd    fault;
+	/** @brief The rows filled the whole @ref SERVO_LOG_PREALLOC_BYTES: the writing stopped there. */
+	bool        atLimit;
 	ServoLogHow how;         /**< How the last log ended; None while one runs. */
 };
 
@@ -159,9 +166,12 @@ bool servoLogRunOver(const ServoStatus *st, uint16_t startSeq);
  * (cardCacheBegin()), which stops a running blackbox log as SERVO TESTER's
  * (SdLogEnd::ByServo), and the file is created: N one above the highest
  * `SRVnnnnn.CSV` in `LOGS/`, numbered apart from `LOGnnnnn.BFL`, read once
- * per mount (sd_log_next.h). Its preallocation, @ref SERVO_LOG_PREALLOC_BYTES,
- * is reserved and the header row goes into the ring. A file that does not
- * open turns the cache off again and records the fault.
+ * per mount (sd_log_next.h). Its reserve, @ref SERVO_LOG_PREALLOC_BYTES or
+ * the largest half of it that fits, down to @ref SERVO_LOG_RESERVE_MIN_BYTES,
+ * is allocated, mapped for fast seek and synced, and the header row goes into
+ * the ring. A file that does not open, a card with no reserve to give
+ * (CardFull) or a map or sync that fails (OpenFailed) leaves no file, turns
+ * the cache off again and records the fault.
  *
  * @param nowMs millis(): the rows' time 0.
  * @return True with a log open.
@@ -187,16 +197,14 @@ void servoLogBack();
  *
  * A new reading becomes a row in the ring, dropped and counted when the ring
  * has no room. While the cache reads Idle, the ring's oldest 512 bytes go to
- * the file, or the file is synced every @ref SD_LOG_SYNC_MS. A cache that
- * reads Failed, or a write that fails or finds the card full, stops the
- * writing for the rest of the run and records the fault. Once the run is
- * over: the ring's rest and the end line, the truncation and the close, the
- * cache flushed and turned off; after a failed write the card mounted again
+ * the file, inside the reserve. A cache that reads Failed, a write that
+ * fails or finds the card full, or the reserve used up stops the writing
+ * for the rest of the run and records why. Once the run is over: the
+ * ring's rest and the end line, the truncation and the close, the cache
+ * flushed and turned off; after a failed write the card mounted again
  * (cardCacheRecover()).
- *
- * @param nowMs millis().
  */
-void servoLogPoll(uint32_t nowMs);
+void servoLogPoll();
 
 /**
  * @brief Read the log's state.

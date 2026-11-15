@@ -5200,15 +5200,18 @@ static void testLogScreen() {
 	checkTrue("RUNNING: LOGGING TO SRV00012.CSV, dim", logLineIs("LOGGING TO SRV00012.CSV", C_DIM));
 	fakeDumpFrame("shot_servo_log.ppm");
 
-	struct { bool active; uint32_t dropped; SdLogEnd fault; const char *text; uint16_t col; } rows[] = {
-		{ true,  12, SdLogEnd::None,         "SRV00012.CSV: 12 ROWS DROPPED",  C_AMBER },
-		{ true,  0,  SdLogEnd::CardFull,     SERVO_UI_LOG_FULL,                C_AMBER },
-		{ true,  3,  SdLogEnd::WriteFailed,  SERVO_UI_LOG_FAILED,              C_AMBER },
-		{ false, 0,  SdLogEnd::OpenFailed,   SERVO_UI_LOG_NO_OPEN,             C_AMBER },
-		{ false, 0,  SdLogEnd::NoFreeNumber, SERVO_UI_LOG_NO_NUMBER,           C_AMBER },
+	struct { bool active, limit; uint32_t dropped; SdLogEnd fault; const char *text; uint16_t col; } rows[] = {
+		{ true,  false, 12, SdLogEnd::None,         "SRV00012.CSV: 12 ROWS DROPPED",  C_AMBER },
+		{ true,  true,  12, SdLogEnd::None,         SERVO_UI_LOG_LIMIT,               C_AMBER },
+		{ true,  false, 0,  SdLogEnd::CardFull,     SERVO_UI_LOG_FULL,                C_AMBER },
+		{ false, false, 0,  SdLogEnd::CardFull,     SERVO_UI_LOG_NO_ROOM,             C_AMBER },
+		{ true,  false, 3,  SdLogEnd::WriteFailed,  SERVO_UI_LOG_FAILED,              C_AMBER },
+		{ false, false, 0,  SdLogEnd::OpenFailed,   SERVO_UI_LOG_NO_OPEN,             C_AMBER },
+		{ false, false, 0,  SdLogEnd::NoFreeNumber, SERVO_UI_LOG_NO_NUMBER,           C_AMBER },
 	};
 	for (auto &r : rows) {
 		lg.active = r.active;
+		lg.atLimit = r.limit;
 		lg.dropped = r.dropped;
 		lg.fault = r.fault;
 		fakeServoLogSet(&lg);
@@ -5246,7 +5249,7 @@ static void testLogScreen() {
 	char widest[48];
 	snprintf(widest, sizeof(widest), SERVO_UI_LOG_DROPPED_FMT, 99999ul, 4294967295ul);
 	const char *texts[] = { widest, SERVO_UI_LOG_FULL, SERVO_UI_LOG_FAILED, SERVO_UI_LOG_NO_OPEN,
-	                        SERVO_UI_LOG_NO_NUMBER };
+	                        SERVO_UI_LOG_NO_NUMBER, SERVO_UI_LOG_NO_ROOM, SERVO_UI_LOG_LIMIT };
 	for (const char *t : texts) {
 		char what[80];
 		snprintf(what, sizeof(what), "fits: %s", t);

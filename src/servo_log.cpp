@@ -81,6 +81,17 @@ static_assert(SERVO_LOG_RING_BYTES % 512u == 0,
 static const uint32_t kBlock = 512u;
 
 static FIL      s_file;
+/**
+ * @brief The file's fast-seek table (FatFs's CLMT, cluster link map table):
+ *        the reserve is one contiguous run, so its size, one fragment and
+ *        the end take 4 of these 8 words. While it is set, f_write() finds
+ *        each cluster in it and never reads the FAT.
+ */
+static DWORD    s_clmt[8];
+/** @brief The bytes reserved at the open: SERVO_LOG_PREALLOC_BYTES or a half of it, down to SERVO_LOG_RESERVE_MIN_BYTES. */
+static uint32_t s_reserve = 0;
+/** @brief The rows used the whole SERVO_LOG_PREALLOC_BYTES: the writing stopped there. */
+static bool     s_atLimit = false;
 static LogRing  s_ring;
 static uint8_t  s_ringBuf[SERVO_LOG_RING_BYTES];
 /** @brief The next servo log's number, read from `LOGS/` once per mount. */
@@ -92,7 +103,6 @@ static uint16_t s_startSeq = 0;     /**< The Start command's seq (servoLogFollow
 static bool     s_back = false;     /**< BACK was tapped during the log. */
 static uint32_t s_startMs = 0;      /**< millis() at the open: the rows' time 0. */
 static uint32_t s_seq = 0;          /**< Seq of the last reading seen. */
-static uint32_t s_lastSyncMs = 0;   /**< millis() of the last f_sync() or the open. */
 static uint32_t s_fileNo = 0;
 static uint32_t s_rows = 0;
 static uint32_t s_dropped = 0;
@@ -105,12 +115,24 @@ static void fail(SdLogEnd why) {
 	s_writing = false;
 }
 
+/** @brief Close the file just opened and remove it: no log after all, for @p why. */
+static void dropOpen(uint32_t n, SdLogEnd why) {
+	f_close(&s_file);
+	char path[40];
+	snprintf(path, sizeof(path), "%s/%s%05lu%s", SD_LOG_DIR_PATH, SD_LOG_KIND_SRV.head,
+	         (unsigned long)n, SD_LOG_KIND_SRV.tail);
+	f_unlink(path);
+	s_fault = why;
+	cardCacheEnd();
+}
+
 bool servoLogStart(uint32_t nowMs) {
 	if (s_active) return true;
 	s_fault = SdLogEnd::None;
 	s_how = ServoLogHow::None;
 	s_rows = s_dropped = 0;
 	s_fileNo = 0;
+	s_atLimit = false;
 	// No readings, no rows.
 	if (!senseDeclared()) return false;
 	// The cache from the open on, so the open's reads fill its read cache:
@@ -127,14 +149,31 @@ bool servoLogStart(uint32_t nowMs) {
 		cardCacheEnd();
 		return false;
 	}
-	// A contiguous run reserved now, while nothing is powered, so the run's
-	// writes never search the FAT for a free cluster. Failure is not fatal:
-	// the file then grows a cluster at a time.
-	f_expand(&s_file, SERVO_LOG_PREALLOC_BYTES, 1);
-	// The preallocation's FAT blocks and FSINFO out now, with the entry:
-	// the run's first sync then writes the entry alone. The entry holds the
-	// preallocated size until the close truncates it, as the blackbox log's.
-	f_sync(&s_file);
+	// A contiguous run reserved now, while nothing is powered: the run
+	// writes inside it and never searches the FAT. A card without 16 MiB
+	// free in one run gets the largest half that fits, down to 64 KiB.
+	uint32_t reserve = SERVO_LOG_PREALLOC_BYTES;
+	while (reserve >= SERVO_LOG_RESERVE_MIN_BYTES && f_expand(&s_file, reserve, 1) != FR_OK)
+		reserve /= 2;
+	if (reserve < SERVO_LOG_RESERVE_MIN_BYTES) {
+		dropOpen(n, SdLogEnd::CardFull);
+		return false;
+	}
+	// The run's clusters from the table, not from the FAT: no read.
+	s_clmt[0] = sizeof(s_clmt) / sizeof(s_clmt[0]);
+	s_file.cltbl = s_clmt;
+	if (f_lseek(&s_file, CREATE_LINKMAP) != FR_OK) {
+		dropOpen(n, SdLogEnd::OpenFailed);
+		return false;
+	}
+	// The reserve's FAT blocks, FSINFO and the entry out now: the entry holds
+	// the reserved size until the close truncates it, as the blackbox log's.
+	// The run makes no f_sync(), which reads the directory's block.
+	if (f_sync(&s_file) != FR_OK) {
+		dropOpen(n, SdLogEnd::OpenFailed);
+		return false;
+	}
+	s_reserve = reserve;
 	logRingInit(&s_ring, s_ringBuf, sizeof(s_ringBuf));
 	logRingWrite(&s_ring, (const uint8_t *)SERVO_LOG_HEADER, sizeof(SERVO_LOG_HEADER) - 1);
 	SenseSample smp;
@@ -142,7 +181,6 @@ bool servoLogStart(uint32_t nowMs) {
 	s_seq = smp.seq;
 	s_fileNo = n;
 	s_startMs = nowMs;
-	s_lastSyncMs = nowMs;
 	s_back = false;
 	s_writing = true;
 	s_active = true;
@@ -175,16 +213,24 @@ static bool put(const void *data, uint32_t len) {
 	return false;
 }
 
-/** @brief The run's one card call this pass: a block of rows, or the sync. */
-static void writeStep(uint32_t nowMs) {
+/**
+ * @brief The run's one card call this pass: a block of rows, inside the
+ *        reserve. At its end the writing stops: CARD FULL when the card gave
+ *        less than SERVO_LOG_PREALLOC_BYTES, else the log is at its limit.
+ */
+static void writeStep() {
 	const uint8_t *p = nullptr;
-	if (logRingPeek(&s_ring, &p) >= kBlock) {
-		if (put(p, kBlock)) logRingConsume(&s_ring, kBlock);
+	if (logRingPeek(&s_ring, &p) < kBlock) return;
+	if (f_tell(&s_file) + kBlock > s_reserve) {
+		if (s_reserve < SERVO_LOG_PREALLOC_BYTES) {
+			fail(SdLogEnd::CardFull);
+		} else {
+			s_atLimit = true;
+			s_writing = false;
+		}
 		return;
 	}
-	if ((uint32_t)(nowMs - s_lastSyncMs) < SD_LOG_SYNC_MS) return;
-	s_lastSyncMs = nowMs;
-	if (f_sync(&s_file) != FR_OK) fail(SdLogEnd::WriteFailed);
+	if (put(p, kBlock)) logRingConsume(&s_ring, kBlock);
 }
 
 /**
@@ -197,14 +243,19 @@ static void finish(ServoLogHow how, uint16_t upMs) {
 	s_how = how;
 	if (cardCacheState() == CardCache::Failed) fail(SdLogEnd::WriteFailed);
 	if (s_fault != SdLogEnd::WriteFailed) {
-		while (s_writing && logRingUsed(&s_ring) > 0) {
+		// Out of fast-seek mode: past the reserve the file may grow now, a
+		// cluster at a time, the supply off.
+		s_file.cltbl = nullptr;
+		bool ok = true;
+		while (ok && logRingUsed(&s_ring) > 0) {
 			const uint8_t *p = nullptr;
 			uint32_t run = logRingPeek(&s_ring, &p);
-			if (put(p, run)) logRingConsume(&s_ring, run);
+			ok = put(p, run);
+			if (ok) logRingConsume(&s_ring, run);
 		}
 		char end[SERVO_LOG_END_MAX + 1];
 		size_t len = servoLogEndText(end, sizeof(end), how, s_rows, s_dropped, upMs);
-		if (s_writing && len < sizeof(end)) put(end, (uint32_t)len);
+		if (ok && len < sizeof(end)) put(end, (uint32_t)len);
 		// A card that filled up keeps the rows written before: the close
 		// still commits the entry, as it needs no new cluster.
 		// f_close() syncs first: the entry with the size, then the file's
@@ -221,7 +272,7 @@ static void finish(ServoLogHow how, uint16_t upMs) {
 	s_active = false;
 }
 
-void servoLogPoll(uint32_t nowMs) {
+void servoLogPoll() {
 	if (!s_active) return;
 	ServoStatus st;
 	servoJobStatus(&st);
@@ -239,7 +290,7 @@ void servoLogPoll(uint32_t nowMs) {
 		fail(SdLogEnd::WriteFailed);
 		return;
 	}
-	if (c == CardCache::Idle) writeStep(nowMs);
+	if (c == CardCache::Idle) writeStep();
 }
 
 void servoLogStatus(ServoLogStatus *out) {
@@ -248,6 +299,7 @@ void servoLogStatus(ServoLogStatus *out) {
 	out->rows       = s_rows;
 	out->dropped    = s_dropped;
 	out->fault      = s_fault;
+	out->atLimit    = s_atLimit;
 	out->how        = s_how;
 }
 
@@ -256,7 +308,7 @@ void servoLogStatus(ServoLogStatus *out) {
 bool servoLogStart(uint32_t) { return false; }
 void servoLogFollow(uint16_t) {}
 void servoLogBack() {}
-void servoLogPoll(uint32_t) {}
+void servoLogPoll() {}
 void servoLogStatus(ServoLogStatus *out) {
 	memset(out, 0, sizeof(*out));
 }

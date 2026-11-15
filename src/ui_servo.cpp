@@ -596,6 +596,9 @@ static bool cutsBlind() {
 	return smp.state != (uint8_t)SenseState::Online;
 }
 
+static_assert(SERVO_LOG_PREALLOC_BYTES == 16u * 1024u * 1024u,
+              "SERVO_UI_LOG_LIMIT names the servo log's 16 MiB");
+
 /**
  * @brief The dial band's second line while RUNNING with a servo log: the
  *        file being written, dim; the rows dropped, or why the log stopped
@@ -607,13 +610,19 @@ static void logLine(char *buf, size_t n, uint16_t *col) {
 	buf[0] = '\0';
 	*col = C_AMBER;
 	switch (lg.fault) {
-		case SdLogEnd::CardFull:     snprintf(buf, n, SERVO_UI_LOG_FULL); return;
+		case SdLogEnd::CardFull:
+			snprintf(buf, n, lg.active ? SERVO_UI_LOG_FULL : SERVO_UI_LOG_NO_ROOM);
+			return;
 		case SdLogEnd::WriteFailed:  snprintf(buf, n, SERVO_UI_LOG_FAILED); return;
 		case SdLogEnd::OpenFailed:   snprintf(buf, n, SERVO_UI_LOG_NO_OPEN); return;
 		case SdLogEnd::NoFreeNumber: snprintf(buf, n, SERVO_UI_LOG_NO_NUMBER); return;
 		default:                     break;
 	}
 	if (!lg.active) return;
+	if (lg.atLimit) {
+		snprintf(buf, n, SERVO_UI_LOG_LIMIT);
+		return;
+	}
 	if (lg.dropped) {
 		snprintf(buf, n, SERVO_UI_LOG_DROPPED_FMT, (unsigned long)lg.fileNumber,
 		         (unsigned long)lg.dropped);

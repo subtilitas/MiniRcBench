@@ -1365,7 +1365,7 @@ void servoLogFollow(uint16_t seq) {
 
 void servoLogBack() { g_servoLogCalls.backs++; }
 
-void servoLogPoll(uint32_t) {}
+void servoLogPoll() {}
 
 void servoLogStatus(ServoLogStatus *out) { *out = g_servoLog; }
 

@@ -225,7 +225,7 @@ void loop() {
 	// is made only while nothing is queued or in flight, so a pass reads
 	// the card at most once, for this call or for the poll's batch start.
 	// Nothing while no servo log is open. @see servo_log.h
-	servoLogPoll(millis());
+	servoLogPoll();
 #endif
 
 #if SERIAL_TELEMETRY 

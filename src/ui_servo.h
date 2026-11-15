@@ -115,6 +115,10 @@ struct TouchState;
 #define SERVO_UI_LOG_DROPPED_FMT "SRV%05lu.CSV: %lu ROWS DROPPED"
 /** @brief ...amber after a write found the card full. */
 #define SERVO_UI_LOG_FULL "LOG STOPPED: CARD FULL"
+/** @brief ...amber when the card had no 64 KiB free in one run for the file. */
+#define SERVO_UI_LOG_NO_ROOM "NO LOG: CARD FULL"
+/** @brief ...amber once the rows filled the file's whole 16 MiB. */
+#define SERVO_UI_LOG_LIMIT "LOG STOPPED AT 16 MIB"
 /** @brief ...amber after a write, the cache's flush or the swap check failed. */
 #define SERVO_UI_LOG_FAILED "LOG STOPPED: CARD WRITE FAILED"
 /** @brief ...amber when the file did not open. */

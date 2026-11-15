@@ -1,7 +1,8 @@
 // Host-test stub for ChaN's FatFs, as vendored by no-OS-FatFS-SD-SDIO-SPI.
 //
-// The part of the API that sd_log.cpp, sd_log_next.cpp and kst_files.cpp call, with FatFs's own
-// names, values and argument order. sd_log.cpp only typechecks against it.
+// The part of the API that sd_log.cpp, sd_log_next.cpp, servo_log.cpp and
+// kst_files.cpp call, with FatFs's own names, values and argument order.
+// sd_log.cpp and servo_log.cpp only typecheck against it.
 // kst_files.cpp is linked into the suite against fake_fatfs.cpp, an in-memory
 // volume; what FatFs itself does on a card is exercised on hardware.
 #pragma once
@@ -12,6 +13,7 @@ typedef unsigned int UINT;
 typedef uint8_t BYTE;
 typedef uint16_t WORD;
 typedef uint32_t FSIZE_t;
+typedef uint32_t DWORD;
 
 typedef enum {
 	FR_OK = 0, FR_DISK_ERR, FR_INT_ERR, FR_NOT_READY, FR_NO_FILE,
@@ -40,7 +42,11 @@ typedef uint64_t LBA_t;
 
 /** The fields of FatFs's volume object that sd_log.cpp and sd_log_next.cpp read. */
 typedef struct { BYTE fs_type; WORD id; LBA_t volbase; } FATFS;
-typedef struct { int handle; FSIZE_t pos; bool writing; } FIL;
+/** The fields of FatFs's file object that servo_log.cpp sets or reads: the
+ *  fast-seek table and the file pointer (f_tell()). */
+typedef struct { int handle; FSIZE_t pos; bool writing; DWORD *cltbl; FSIZE_t fptr; } FIL;
+#define f_tell(fp) ((fp)->fptr)
+#define CREATE_LINKMAP ((FSIZE_t)0 - 1)
 typedef struct { int handle; UINT next; } DIR;
 typedef struct {
 	FSIZE_t fsize;
@@ -56,6 +62,7 @@ FRESULT f_read(FIL *fp, void *buf, UINT btr, UINT *br);
 FRESULT f_write(FIL *fp, const void *buf, UINT btw, UINT *bw);
 FRESULT f_sync(FIL *fp);
 FRESULT f_truncate(FIL *fp);
+FRESULT f_lseek(FIL *fp, FSIZE_t ofs);
 FRESULT f_expand(FIL *fp, FSIZE_t fsz, uint8_t opt);
 FRESULT f_stat(const char *path, FILINFO *fno);
 FRESULT f_opendir(DIR *dp, const char *path);

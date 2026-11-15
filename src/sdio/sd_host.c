@@ -273,6 +273,47 @@ sd_err_t sdh_write_poll(const sdh_bus_t *b, sdh_card_t *c, sdh_wr_t *w, bool *do
 	return finish(b, e);
 }
 
+sd_err_t sdh_read_start(const sdh_bus_t *b, sdh_card_t *c, uint32_t lba, uint8_t *buf,
+                        sdh_rd_t *r) {
+	r->active = false;
+	if (!c->ready) return SDE_NOT_READY;
+	if (!buf || ((uintptr_t)buf & 3u) || lba >= c->sectors) return SDE_PARAM;
+	sd_err_t e = b->rx_arm(b->ctx, buf, SDP_BLOCK_BYTES, 1, s_crc);
+	if (e != SDE_OK) return e;
+	e = cmdR1(b, 17, address(c, lba), SDP_RESP_R1, 0);
+	if (e != SDE_OK) {
+		b->rx_stop(b->ctx);
+		if (sdh_err_is_fatal(e)) c->ready = false;
+		return finish(b, e);
+	}
+	r->buf = buf;
+	r->t0_us = b->now_us(b->ctx);
+	r->active = true;
+	return SDE_OK;
+}
+
+sd_err_t sdh_read_poll(const sdh_bus_t *b, sdh_card_t *c, sdh_rd_t *r, bool *done) {
+	*done = false;
+	if (!r->active) {
+		*done = true;
+		return SDE_PARAM;
+	}
+	sd_err_t e;
+	if (b->rx_ready(b->ctx)) {
+		e = b->rx_wait(b->ctx, SDH_READ_TIMEOUT_US);   /* in: returns at once */
+	} else {
+		if ((uint32_t)(b->now_us(b->ctx) - r->t0_us) < SDH_READ_TIMEOUT_US) return SDE_OK;
+		e = SDE_TIMEOUT;
+	}
+	*done = true;
+	r->active = false;
+	b->rx_stop(b->ctx);
+	b->stop_clock(b->ctx);
+	if (e == SDE_OK && !sdp_rx_check(r->buf, SDP_BLOCK_BYTES, s_crc)) e = SDE_CRC;
+	if (sdh_err_is_fatal(e)) c->ready = false;
+	return e;
+}
+
 /** @brief Common argument checks of read and write. */
 static sd_err_t checkRange(const sdh_card_t *c, uint32_t lba, uint32_t count, const void *buf) {
 	if (!c->ready) return SDE_NOT_READY;

@@ -111,7 +111,13 @@ struct CardModel {
 	uint32_t busyUs;    /**< The card programming one block; each look at it costs 10 us. */
 	uint64_t busyUntil; /**< When the block in flight is programmed. */
 	bool     pendingErr; /**< The block in flight was not taken. */
-	unsigned reads;     /**< Blocks read from the card. */
+	unsigned reads;     /**< Blocks read from the card, waited for: sdh_read() on the board. */
+	unsigned checks;    /**< Swap-check reads started (sdh_read_start()). */
+	uint64_t readyAt;   /**< When the read started is in. */
+	bool     reading;   /**< A swap-check read is under way. */
+	uint32_t readLba;
+	uint8_t *readBuf;
+	sd_err_t readErr;   /**< Its result once in. */
 	unsigned writes;    /**< Blocks sent to the card. */
 	bool     failRead;  /**< A read of @ref failLba fails: no response. */
 	uint32_t failLba;
@@ -147,7 +153,31 @@ static sd_err_t devWritePoll(void *, bool *done) {
 	return *done && g_card.pendingErr ? SDE_WRITE : SDE_OK;
 }
 
-static const sdc_dev_t kDev = { nullptr, devRead, devWriteStart, devWritePoll };
+/** @brief CMD17 and its response, the receiver armed: about 20 us. */
+static sd_err_t devReadStart(void *, uint32_t lba, uint8_t *buf) {
+	g_us += 20;
+	if (g_disk.removed) return SDE_NO_RESPONSE;
+	g_card.checks++;
+	g_card.reading = true;
+	g_card.readLba = lba;
+	g_card.readBuf = buf;
+	g_card.readyAt = g_us + g_card.readUs;
+	g_card.readErr = g_card.failRead && lba == g_card.failLba ? SDE_TIMEOUT : SDE_OK;
+	return SDE_OK;
+}
+
+/** @brief One look at the receiver: about 5 us. */
+static sd_err_t devReadPoll(void *, bool *done) {
+	g_us += 5;
+	*done = g_us >= g_card.readyAt;
+	if (!*done) return SDE_OK;
+	g_card.reading = false;
+	if (g_card.readErr != SDE_OK) return g_card.readErr;
+	return ramDiskRead(g_card.readBuf, g_card.readLba, 1) == RES_OK ? SDE_OK : SDE_TIMEOUT;
+}
+
+static const sdc_dev_t kDev = { nullptr, devRead, devWriteStart, devWritePoll, devReadStart,
+                                devReadPoll };
 
 /** @brief Blocks queued by the writes of the call being measured. */
 static unsigned g_queued = 0;
@@ -242,7 +272,9 @@ struct Loop {
 	uint64_t worstPassUs;   /**< The longest core0 time of cardCachePoll() and servoLogPoll(). */
 	uint64_t worstGapUs;    /**< The longest time between two readings. */
 	uint64_t lastReadingUs;
-	unsigned worstReads;    /**< The most card reads in one pass. */
+	unsigned worstReads;    /**< The most card reads waited for in one pass. */
+	unsigned runReads;      /**< Card reads waited for while the run went on. */
+	uint32_t frameMs;       /**< The UI frame: a reading each; 0 for one each pass. */
 	unsigned worstQueued;   /**< The most blocks one servoLogPoll() queued while the run went on. */
 	bool     running;       /**< The run is on: the queue counts. */
 	SupplyGuard guard;
@@ -262,6 +294,7 @@ static void loopReset() {
 	g_loop.rules = { true, true, true };
 	g_loop.logging = true;
 	g_loop.lastReadingUs = g_us;
+	g_loop.frameMs = 25;
 }
 
 /** @brief Core1 judging the published sample, within its next pass. */
@@ -292,7 +325,7 @@ static void takeReading() {
 static void pass() {
 	g_us += 50;   // USB, the bridge, the UI between its frames
 	if ((int32_t)(nowMs() - g_loop.nextUiMs) >= 0) {
-		g_loop.nextUiMs = nowMs() + 25;
+		g_loop.nextUiMs = nowMs() + g_loop.frameMs;
 		if (g_loop.read) {
 			takeReading();
 			guardStep();
@@ -304,12 +337,13 @@ static void pass() {
 	sdLogFlush();
 	cardCachePoll();
 	g_queued = 0;
-	if (g_loop.logging) servoLogPoll(nowMs());
+	if (g_loop.logging) servoLogPoll();
 	if (g_loop.running && g_queued > g_loop.worstQueued) g_loop.worstQueued = g_queued;
 	uint64_t took = g_us - t0;
 	if (took > g_loop.worstPassUs) g_loop.worstPassUs = took;
 	unsigned reads = g_card.reads - r0;
 	if (reads > g_loop.worstReads) g_loop.worstReads = reads;
+	if (g_loop.running) g_loop.runReads += reads;
 	guardStep();
 }
 
@@ -673,21 +707,14 @@ static void testRun(const char *vol, BYTE fmt, DWORD au) {
 	}
 	g_loop.flags = 0;
 	if (fmt == FM_FAT32) {
-		// The entry is written by the syncs alone: every 2000 ms from the
-		// open, each at the first pass the cache is idle.
-		bool every = g_entryWrites.size() >= 4;
-		uint32_t last = g_startMs, least = 0xFFFFFFFFu, most = 0;
-		for (uint32_t ms : g_entryWrites) {
-			uint32_t gap = ms - last;
-			if (gap < least) least = gap;
-			if (gap > most) most = gap;
-			last = ms;
-		}
-		printf("  (%u syncs, %lu to %lu ms apart)\n", (unsigned)g_entryWrites.size(),
-		       (unsigned long)least, (unsigned long)most);
-		checkTrue("the entry synced every 2000 ms, 2000 ms the shortest",
-		          every && least == 2000 && most <= 2030);
+		// The run writes rows only: the entry, written by the open's sync
+		// with the reserve's size, is not written again before the close.
+		checkTrue("no entry written during the run", g_entryWrites.empty());
+		FILINFO fi;
+		checkTrue("the entry on the card: the reserve's size", f_stat("/LOGS/SRV00001.CSV", &fi) == FR_OK &&
+		          fi.fsize == SERVO_LOG_PREALLOC_BYTES);
 	}
+	checkTrue("no card read waited for during the run", g_loop.runReads == 0);
 	checkTrue("no reading before the open is a row",
 	          g_loop.readings.size() > 0 && g_smp.seq > seqBefore);
 	// A pass whose sample is not new adds no row.
@@ -811,53 +838,139 @@ static void testRun(const char *vol, BYTE fmt, DWORD au) {
 	f_mount(nullptr, "", 0);
 }
 
-/** @brief The card fills during the run: the rows written are kept, the file closed. */
+/** @brief The ending of @p got: the end line for @p s with a start-up time of 40 ms. */
+static bool endsWithEnd(const std::string &got, const ServoLogStatus &s) {
+	std::string e = endLine(ServoLogHow::Stop, s.rows, s.dropped, 40);
+	return got.size() >= e.size() && got.compare(got.size() - e.size(), e.size(), e) == 0;
+}
+
+/**
+ * @brief A card without the reserve: no log; a reserve cut short and used up
+ *        during the run, with room for the rest at the close and without;
+ *        and such a card then removed in the same run.
+ */
 static void testCardFull() {
-	section("Servo log over FatFs, FAT32: the card full during the run");
+	section("Servo log over FatFs, FAT32: a card without the reserve, a reserve cut short");
+	struct { DWORD keep; bool room, removed; const char *what; } cases[] = {
+		{ 25, true,  false, "100 KiB free: a 64 KiB reserve, room for the rest at the close" },
+		{ 16, false, false, "64 KiB free: a 64 KiB reserve, no room at the close" },
+		{ 16, false, true,  "64 KiB free, the card then removed in the same run" },
+	};
 	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
 	cardTimes(1000, 5000);
 	loopReset();
 	jobSafe();
 	f_mkdir("/LOGS");
 	runFor(100);
-	fill(1);   // one cluster, 4096 bytes: no room for the preallocation
-	WORD idFull = sdLogFs()->id;
-	checkTrue("HOLD TO START: a log", holdStart());
-	g_spotFlushes = 0;
-	g_loop.worstQueued = 0;
+	fill(15);   // 60 KiB free: no reserve of 64 KiB
+	checkTrue("60 KiB free: no log", !holdStart());
 	ServoLogStatus s = logStatus();
-	for (int i = 0; i < 400 && s.fault == SdLogEnd::None; i++) {
-		runFor(250);
+	checkTrue("CARD FULL, no file, the cache off",
+	          !s.active && s.fault == SdLogEnd::CardFull && !exists("/LOGS/SRV00001.CSV") && !sdc_on());
+	checkInt("the 60 KiB still free", (long)freeClusters(), 15);
+	runFor(100);
+	runEnds();
+	runFor(50);
+	f_mount(nullptr, "", 0);
+
+	for (auto &c : cases) {
+		section(c.what);
+		format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+		cardTimes(1000, 5000);
+		loopReset();
+		jobSafe();
+		f_mkdir("/LOGS");
+		runFor(100);
+		fill(c.keep);
+		checkTrue("HOLD TO START: a log", holdStart());
+		FILINFO fi;
+		checkTrue("its reserve 64 KiB, the largest half that fits",
+		          f_stat("/LOGS/SRV00001.CSV", &fi) == FR_OK && fi.fsize == SERVO_LOG_RESERVE_MIN_BYTES);
+		s = logStatus();
+		for (int i = 0; i < 400 && s.fault == SdLogEnd::None; i++) {
+			runFor(250);
+			s = logStatus();
+		}
+		checkTrue("the reserve used up: CARD FULL, the log open, the run on",
+		          s.active && s.fault == SdLogEnd::CardFull && !s.atLimit);
+		checkTrue("no card read waited for during the run", g_loop.runReads == 0);
+		uint32_t rows = s.rows;
+		if (c.removed) g_disk.removed = true;
+		runFor(2000);
+		s = logStatus();
+		checkInt("no rows counted after it", (long)s.rows, (long)rows);
+		checkTrue("CARD FULL kept for the rest of the run", s.active && s.fault == SdLogEnd::CardFull);
+		runEnds();
+		pass();
+		s = logStatus();
+		std::string got, want = expected(g_loop.readings);
+		if (c.removed) {
+			checkTrue("STOP: the close finds no card, WRITE FAILED, the cache off",
+			          !s.active && s.fault == SdLogEnd::WriteFailed && !sdc_on());
+			checkTrue("mounted again: no card", escStatus().state == SdLogState::NoCard);
+			g_disk.removed = false;
+			f_mount(nullptr, "", 0);
+			continue;
+		}
+		checkTrue("STOP: closed, CARD FULL kept, the cache off",
+		          !s.active && s.fault == SdLogEnd::CardFull && s.how == ServoLogHow::Stop && !sdc_on());
+		readFile("/LOGS/SRV00001.CSV", &got);
+		if (c.room) {
+			size_t e = endLine(ServoLogHow::Stop, s.rows, s.dropped, 40).size();
+			checkTrue("past the reserve at the close: the rest of the rows and the end line",
+			          got.size() > SERVO_LOG_RESERVE_MIN_BYTES && endsWithEnd(got, s) &&
+			          want.compare(0, got.size() - e, got, 0, got.size() - e) == 0);
+		} else {
+			checkTrue("the reserve's 64 KiB of rows as given, no end line",
+			          got.size() == SERVO_LOG_RESERVE_MIN_BYTES &&
+			          want.compare(0, got.size(), got) == 0);
+		}
+		checkTrue("the card left mounted", escStatus().state == SdLogState::Idle);
+		f_mount(nullptr, "", 0);
+	}
+}
+
+/**
+ * @brief The whole reserve used: rows taken at every pass, so 16 MiB fill in
+ *        minutes of the model's time. The writing stops at the limit, and
+ *        the close writes the ring's rest and the end line past it.
+ */
+static void testLimit() {
+	section("Servo log over FatFs, FAT32: the rows fill the whole 16 MiB");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	cardTimes(100, 100);
+	loopReset();
+	jobSafe();
+	runFor(100);
+	holdStart();
+	g_loop.frameMs = 0;
+	g_loop.rules = { false, false, false };   // a reading each pass: no guard here
+	ServoLogStatus s = logStatus();
+	for (int i = 0; i < 2000 && !s.atLimit && s.fault == SdLogEnd::None; i++) {
+		runFor(1000);
 		s = logStatus();
 	}
-	checkTrue("CARD FULL, the log still open, the run on", s.active && s.fault == SdLogEnd::CardFull);
-	checkTrue("growing a cluster at a time: no call queued more than 4 blocks, none found the queue full",
-	          g_loop.worstQueued <= 4 && g_spotFlushes == 0);
+	checkTrue("at the limit: the writing stopped, no fault, the log open",
+	          s.active && s.atLimit && s.fault == SdLogEnd::None);
 	uint32_t rows = s.rows;
-	runFor(2000);
+	runFor(100);
 	checkInt("no rows counted after it", (long)logStatus().rows, (long)rows);
-	checkInt("no cluster free", (long)freeClusters(), 0);
+	g_loop.frameMs = 25;
 	runEnds();
 	pass();
 	s = logStatus();
-	checkTrue("STOP: closed, CARD FULL kept, the cache off",
-	          !s.active && s.fault == SdLogEnd::CardFull && s.how == ServoLogHow::Stop && !sdc_on());
-	std::string got;
-	std::string want = expected(g_loop.readings);
-	checkTrue("SRV00001.CSV: the cluster's 4096 bytes, as the rows gave them, no end line",
-	          readFile("/LOGS/SRV00001.CSV", &got) && got.size() == 4096 && want.compare(0, 4096, got) == 0);
-	checkTrue("the card left mounted: the blackbox logger ready", escStatus().state == SdLogState::Idle);
-	checkTrue("and not mounted again", sdLogFs()->id == idFull);
-
-	// The next START: the fault cleared, the card still full.
-	jobSafe();
-	checkTrue("the next START opens SRV00002.CSV", holdStart() && logStatus().fault == SdLogEnd::None &&
-	          logStatus().fileNumber == 2);
-	runFor(2000);
-	checkTrue("its first block finds the card full", logStatus().fault == SdLogEnd::CardFull);
-	runEnds();
-	pass();
-	checkTrue("closed, empty", !logStatus().active && readFile("/LOGS/SRV00002.CSV", &got) && got.empty());
+	FILINFO fi;
+	checkTrue("STOP: closed, no fault, past the 16 MiB with the ring's rest and the end line",
+	          !s.active && s.fault == SdLogEnd::None && f_stat("/LOGS/SRV00001.CSV", &fi) == FR_OK &&
+	          fi.fsize > SERVO_LOG_PREALLOC_BYTES);
+	FIL f;
+	char tail[96];
+	UINT got = 0;
+	std::string e = endLine(ServoLogHow::Stop, s.rows, s.dropped, 40);
+	bool ok = f_open(&f, "/LOGS/SRV00001.CSV", FA_READ) == FR_OK &&
+	          f_lseek(&f, fi.fsize - e.size()) == FR_OK && f_read(&f, tail, (UINT)e.size(), &got) == FR_OK;
+	f_close(&f);
+	checkTrue("the end line last", ok && got == e.size() && e.compare(0, e.size(), tail, got) == 0);
 	f_mount(nullptr, "", 0);
 }
 
@@ -870,7 +983,7 @@ static void testRemoved() {
 	jobSafe();
 	runFor(100);
 	holdStart();
-	runFor(5000);   // past the first sync at 2000 ms
+	runFor(5000);
 	uint32_t before = logStatus().rows;
 	g_disk.removed = true;
 	runFor(1000);
@@ -964,55 +1077,46 @@ static void readThrough(const char *path) {
 }
 
 /**
- * @brief A block FatFs needs fails to read while the cache is healthy: the
- *        directory's block, pushed out of the read cache and the FAT window
- *        by another file's 24 blocks. During the run the sync fails; at the
- *        end the close does. Either is WRITE FAILED, and the card is mounted
- *        again.
+ * @brief The directory's block does not read, pushed out of the read cache
+ *        and the FAT window by another file's 24 blocks: the run goes on, as
+ *        it reads nothing; the close, which reads it, fails. WRITE FAILED,
+ *        and the card is mounted again.
  */
 static void testReadFails() {
-	section("Servo log over FatFs, FAT32: a block FatFs needs does not read, the cache healthy");
-	for (int atClose = 0; atClose < 2; atClose++) {
-		format(FM_FAT32, 2u * 1024u * 1024u, 4096);
-		cardTimes(1000, 5000);
-		loopReset();
-		jobSafe();
-		std::string big(24 * 512, 'b');
-		put("/BIG.BIN", big.c_str());
-		runFor(100);
-		g_entryLba = 0;
-		holdStart();
-		runFor(atClose ? 2500 : 500);   // the first sync, at 2000 ms, writes the entry
-		uint32_t dir = g_entryLba;
-		checkTrue("the entry's block known", dir != 0 || !atClose);
-		if (!atClose) {
-			// The open's sync wrote it: find the block holding the name.
-			for (auto &kv : g_disk.images[g_disk.card])
-				if (memmem(kv.second.data(), 512, "SRV00001CSV", 11)) dir = (uint32_t)kv.first;
-		}
-		WORD id = sdLogFs()->id;
-		readThrough("/BIG.BIN");
-		g_card.failLba = dir;
-		g_card.failRead = true;
-		if (!atClose) {
-			runFor(2000);
-			ServoLogStatus s = logStatus();
-			checkTrue("the sync's read fails: WRITE FAILED, the run on, the cache healthy",
-			          s.active && s.fault == SdLogEnd::WriteFailed && cardCacheState() != CardCache::Failed);
-		}
-		runEnds();
-		pass();
-		g_card.failRead = false;
-		ServoLogStatus s = logStatus();
-		checkTrue(atClose ? "the close's read fails: WRITE FAILED, the cache off"
-		                  : "STOP: WRITE FAILED kept, no close tried, the cache off",
-		          !s.active && s.fault == SdLogEnd::WriteFailed && !sdc_on());
-		checkTrue("the card mounted again", sdLogFs()->id != id && escStatus().state == SdLogState::Idle);
-		std::string got;
-		checkTrue("no end line on the card", readFile("/LOGS/SRV00001.CSV", &got) &&
-		          got.find("# end=") == std::string::npos);
-		f_mount(nullptr, "", 0);
-	}
+	section("Servo log over FatFs, FAT32: the directory's block does not read, the cache healthy");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	cardTimes(1000, 5000);
+	loopReset();
+	jobSafe();
+	std::string big(24 * 512, 'b');
+	put("/BIG.BIN", big.c_str());
+	runFor(100);
+	holdStart();
+	runFor(500);
+	uint32_t dir = 0;
+	for (auto &kv : g_disk.images[g_disk.card])
+		if (memmem(kv.second.data(), 512, "SRV00001CSV", 11)) dir = (uint32_t)kv.first;
+	checkTrue("the entry's block known", dir != 0);
+	WORD id = sdLogFs()->id;
+	readThrough("/BIG.BIN");
+	g_card.failLba = dir;
+	g_card.failRead = true;
+	runFor(5000);
+	ServoLogStatus s = logStatus();
+	checkTrue("5 s on: the run reads nothing, no fault, the cache healthy",
+	          s.active && s.fault == SdLogEnd::None && cardCacheState() != CardCache::Failed &&
+	          g_loop.runReads == 0);
+	runEnds();
+	pass();
+	g_card.failRead = false;
+	s = logStatus();
+	checkTrue("the close's read fails: WRITE FAILED, the cache off",
+	          !s.active && s.fault == SdLogEnd::WriteFailed && !sdc_on());
+	checkTrue("the card mounted again", sdLogFs()->id != id && escStatus().state == SdLogState::Idle);
+	std::string got;
+	checkTrue("no end line on the card", readFile("/LOGS/SRV00001.CSV", &got) &&
+	          got.find("# end=") == std::string::npos);
+	f_mount(nullptr, "", 0);
 }
 
 /**
@@ -1032,26 +1136,30 @@ static void testCache(bool slow) {
 	jobSafe();
 	runFor(100);
 	holdStart();
-	// The open may wait for the card: it runs before the Start command.
+	// The open may wait for the card: it runs before the Start command. Its
+	// blocks go out as one batch in the first passes.
+	runFor(slow ? 30000 : 1000);
 	g_spotFlushes = 0;
-	unsigned reads0 = g_card.reads;
+	unsigned checks0 = g_card.checks, writes0 = g_card.writes;
 	g_loop.worstPassUs = g_loop.worstGapUs = 0;
-	g_loop.worstReads = g_loop.worstQueued = 0;
+	g_loop.worstReads = g_loop.worstQueued = g_loop.runReads = 0;
 	g_loop.lastReadingUs = g_us;
 	runFor(120000);   // two minutes
 	ServoLogStatus s = logStatus();
 	checkTrue("the cache on throughout", sdc_on() && s.active && s.fault == SdLogEnd::None);
 	checkInt("no write of the run found the queue full", (long)g_spotFlushes, 0);
-	checkTrue("no call of the run queued more than 2 blocks: a block of rows, or the sync's entry and FSINFO",
-	          g_loop.worstQueued <= 2);
-	checkTrue("no pass read the card more than once", g_loop.worstReads <= 1);
-	printf("  (worst pass %llu us, worst reading gap %llu us, card reads %u, blocks %u, "
-	       "most blocks a call queued %u)\n",
+	checkTrue("no call of the run queued more than 1 block: a block of rows", g_loop.worstQueued <= 1);
+	checkInt("no card read waited for during the run", (long)g_loop.runReads, 0);
+	unsigned checks = g_card.checks - checks0, blocks = g_card.writes - writes0;
+	printf("  (worst pass %llu us, worst reading gap %llu us, swap checks %u, blocks %u)\n",
 	       (unsigned long long)g_loop.worstPassUs, (unsigned long long)g_loop.worstGapUs,
-	       g_card.reads - reads0, g_card.writes, g_loop.worstQueued);
-	checkTrue("no pass waited for the busy line: at most a read, a transfer and the pass",
-	          g_loop.worstPassUs <= readUs + 100 + 10);
-	checkTrue("a reading at least every 25 ms and one pass", g_loop.worstGapUs <= 25000 + readUs + 250);
+	       checks, blocks);
+	checkTrue("every block's batch checked the serial number, read without a wait",
+	          blocks > 0 && checks >= blocks);
+	checkTrue("no pass waited for the card: at most a block's transfer, 100 us",
+	          g_loop.worstPassUs <= 100);
+	checkTrue("a reading every 25 ms, within a pass and a transfer",
+	          g_loop.worstGapUs <= 25000 + 50 + 100);
 	checkTrue("no cut by the guard during the run", g_loop.cut == GuardCut::None);
 	if (slow) {
 		checkTrue("the card took fewer than the rows: rows dropped and counted", s.dropped > 0);
@@ -1127,16 +1235,17 @@ static void testCutOnTime(uint32_t readUs, uint32_t busyUs) {
 		pass();
 		f_mount(nullptr, "", 0);
 	}
-	printf("  (the cut after the step at most: log off %llu us, log on %llu us; "
-	       "worst pass with the log %llu us, worst reading gap %llu us)\n",
+	printf("  (the cut after the step at most: log off %llu us, log on %llu us; longest gap "
+	       "between readings: log off %llu us, log on %llu us; worst pass with the log %llu us)\n",
 	       (unsigned long long)delay[0], (unsigned long long)delay[1],
-	       (unsigned long long)worstPass[1], (unsigned long long)worstGap[1]);
+	       (unsigned long long)worstGap[0], (unsigned long long)worstGap[1],
+	       (unsigned long long)worstPass[1]);
 	checkTrue("log off: the hard cut within a frame of the step", delay[0] <= 25000 + 100);
-	checkTrue("log on: within a frame, a read, a transfer and a look at the card",
-	          delay[1] <= 25000 + 100 + readUs + 100 + 10);
-	checkTrue("log on: no pass waits for the busy line", worstPass[1] <= readUs + 100 + 10);
-	checkTrue("log on: a reading at least every 250 ms, the heartbeat's and the sensor-lost cut's time",
-	          worstGap[1] < 250000);
+	checkTrue("log on: the hard cut as late as log off, to 0.1 ms",
+	          delay[1] / 100 == delay[0] / 100 || (delay[1] + 50) / 100 == (delay[0] + 50) / 100);
+	checkTrue("log on: the longest gap between readings longer by at most a block's transfer",
+	          worstGap[1] <= worstGap[0] + 100 + 20);
+	checkTrue("log on: no pass waits for the card, at most a block's transfer", worstPass[1] <= 100);
 }
 
 int main() {
@@ -1146,6 +1255,7 @@ int main() {
 	testRun("FAT32", FM_FAT32, 4096);
 	testRun("exFAT", FM_EXFAT, 32768);
 	testCardFull();
+	testLimit();
 	testRemoved();
 	testWriteError();
 	testReadFails();

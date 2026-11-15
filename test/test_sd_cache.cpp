@@ -27,8 +27,17 @@ struct FakeCard {
 	unsigned failWrites = 0;         ///< The next n blocks end with this error.
 	sd_err_t failWith = SDE_OK;
 	bool     failRead = false;
+	bool     failReadStart = false;  ///< The swap check's read is refused at its start.
+	sd_err_t readEndsWith = SDE_OK;  ///< What the swap check's read ends with, when not SDE_OK.
+	unsigned readPolls = 0;          ///< Polls the swap check's read stays under way.
+	unsigned readLeft = 0;
+	bool     reading = false;        ///< The swap check's read is under way.
+	uint32_t readLba = 0;
+	uint8_t *readBuf = nullptr;
 	unsigned startWhileBusy = 0;     ///< A command sent while a block was in flight.
 	unsigned readWhileBusy = 0;
+	unsigned cmdWhileReading = 0;    ///< A command sent while the check's read was under way.
+	unsigned readStarts = 0;         ///< Swap check reads started.
 
 	std::vector<uint8_t> &sector(uint32_t lba) {
 		auto &s = sectors[lba];
@@ -41,6 +50,7 @@ FakeCard g_card;
 
 sd_err_t fakeRead(void *, uint32_t lba, uint32_t n, uint8_t *buf) {
 	if (g_card.inFlight) g_card.readWhileBusy++;
+	if (g_card.reading) g_card.cmdWhileReading++;
 	if (g_card.failRead) return SDE_CRC;
 	for (uint32_t i = 0; i < n; i++) {
 		memcpy(buf + i * SDP_BLOCK_BYTES, g_card.sector(lba + i).data(), SDP_BLOCK_BYTES);
@@ -51,6 +61,7 @@ sd_err_t fakeRead(void *, uint32_t lba, uint32_t n, uint8_t *buf) {
 
 sd_err_t fakeStart(void *, uint32_t lba, const uint8_t *buf) {
 	if (g_card.inFlight) g_card.startWhileBusy++;
+	if (g_card.reading) g_card.cmdWhileReading++;
 	g_card.inFlight = true;
 	g_card.flightLba = lba;
 	g_card.flightData.assign(buf, buf + SDP_BLOCK_BYTES);
@@ -75,7 +86,39 @@ sd_err_t fakePoll(void *, bool *done) {
 	return SDE_OK;
 }
 
-const sdc_dev_t DEV = { nullptr, fakeRead, fakeStart, fakePoll };
+sd_err_t fakeReadStart(void *, uint32_t lba, uint8_t *buf) {
+	if (g_card.inFlight) g_card.readWhileBusy++;
+	if (g_card.reading) g_card.cmdWhileReading++;
+	if (((uintptr_t)buf & 3u) != 0) return SDE_PARAM;   // the receiver's DMA needs it aligned
+	if (g_card.failReadStart) return SDE_NO_RESPONSE;
+	g_card.readStarts++;
+	g_card.reads++;
+	g_card.reading = true;
+	g_card.readLba = lba;
+	g_card.readBuf = buf;
+	g_card.readLeft = g_card.readPolls;
+	return SDE_OK;
+}
+
+sd_err_t fakeReadPoll(void *, bool *done) {
+	*done = false;
+	if (!g_card.reading) {
+		*done = true;
+		return SDE_PARAM;
+	}
+	if (g_card.readLeft) {
+		g_card.readLeft--;
+		return SDE_OK;
+	}
+	*done = true;
+	g_card.reading = false;
+	if (g_card.failRead) return SDE_CRC;
+	if (g_card.readEndsWith != SDE_OK) return g_card.readEndsWith;
+	memcpy(g_card.readBuf, g_card.sector(g_card.readLba).data(), SDP_BLOCK_BYTES);
+	return SDE_OK;
+}
+
+const sdc_dev_t DEV = { nullptr, fakeRead, fakeStart, fakePoll, fakeReadStart, fakeReadPoll };
 
 /** A fresh card: sector 0 holds the serial DE AD BE EF at offset 67. */
 void freshCard() {
@@ -114,8 +157,13 @@ static void testQueue() {
 	checkTrue("a read of a queued sector: its newest copy", r[0] == 0x44 && g_card.reads == reads);
 
 	sdc_poll();
-	checkTrue("the first poll checks the card and sends the first block",
-	          g_card.reads == reads + 1 && g_card.inFlight && g_card.flightLba == 100);
+	checkTrue("the first poll starts the check's read and returns: nothing sent",
+	          g_card.reads == reads + 1 && g_card.reading && !g_card.inFlight);
+	sdc_poll();
+	checkTrue("the second collects it: the same card, nothing sent yet",
+	          !g_card.reading && !g_card.inFlight);
+	sdc_poll();
+	checkTrue("the third sends the first block", g_card.inFlight && g_card.flightLba == 100);
 	sdc_poll();
 	checkTrue("busy: no second block sent", g_card.startWhileBusy == 0 && g_card.written.empty());
 	checkInt("idle after the flush", sdc_flush(), SDC_IDLE);
@@ -123,7 +171,8 @@ static void testQueue() {
 	          g_card.written == std::vector<uint32_t>({ 100, 101, 7, 100 }));
 	checkTrue("and holds the last copy of 100", g_card.sector(100)[0] == 0x44);
 	checkInt("one check per batch", g_card.reads, reads + 1);
-	checkTrue("never a command while busy", g_card.startWhileBusy == 0 && g_card.readWhileBusy == 0);
+	checkTrue("never a command while busy or while the check reads",
+	          g_card.startWhileBusy == 0 && g_card.readWhileBusy == 0 && g_card.cmdWhileReading == 0);
 	checkTrue("idle, none left", sdc_state(&left) == SDC_IDLE && left == 0);
 	sdc_end();
 }
@@ -156,6 +205,7 @@ static void testReadCache() {
 	sdc_write(60, 1, b);
 	sdc_poll();
 	sdc_poll();
+	sdc_poll();
 	checkTrue("a block in flight", g_card.inFlight);
 	sdc_read(61, 1, r);
 	checkTrue("a miss waits for it: no read while busy",
@@ -163,6 +213,7 @@ static void testReadCache() {
 
 	sdc_write(62, 1, b);
 	sdc_write(63, 1, b);
+	sdc_poll();
 	sdc_poll();
 	sdc_poll();
 	checkTrue("another block in flight", g_card.inFlight);
@@ -222,6 +273,7 @@ static void testErrors() {
 	sdc_write(21, 1, b);
 	sdc_poll();
 	sdc_poll();
+	sdc_poll();
 	g_card.failWrites = 3;
 	g_card.failWith = SDE_WRITE;
 	uint8_t r2[2 * SDP_BLOCK_BYTES];
@@ -258,9 +310,92 @@ static void testErrors() {
 	checkInt("an offset past the sector: refused", sdc_begin(&DEV, 0, 510), SDE_PARAM);
 }
 
+
+static void testCheckAsync() {
+	section("SD cache: the swap check's read started in one poll, collected in a later one");
+	freshCard();
+	sdc_begin(&DEV, 0, 67);
+	uint8_t b[SDP_BLOCK_BYTES];
+	block(b, 0x09);
+	g_card.readPolls = 5;
+	sdc_write(30, 1, b);
+	sdc_poll();
+	checkTrue("the first poll starts the read and returns", g_card.reading && g_card.readStarts == 1);
+	for (int i = 0; i < 5; i++) sdc_poll();
+	checkTrue("5 polls: the read under way, each poll one look, nothing sent",
+	          g_card.reading && !g_card.inFlight && g_card.readStarts == 1);
+	uint16_t left = 0;
+	checkTrue("flushing, the block queued", sdc_state(&left) == SDC_FLUSHING && left == 1);
+	sdc_poll();
+	checkTrue("the 7th: the read in, the same card, nothing sent yet", !g_card.reading && !g_card.inFlight);
+	sdc_poll();
+	checkTrue("the 8th sends the block", g_card.inFlight && g_card.flightLba == 30);
+	checkInt("then idle", sdc_flush(), SDC_IDLE);
+
+	// A hit while the check reads touches no card; a miss collects the
+	// check's read first.
+	sdc_write(31, 1, b);
+	sdc_poll();
+	uint8_t r[SDP_BLOCK_BYTES];
+	unsigned reads = g_card.reads;
+	sdc_read(31, 1, r);
+	checkTrue("a queued sector while the check reads: no command", g_card.reading &&
+	          g_card.reads == reads && g_card.cmdWhileReading == 0);
+	sdc_read(90, 1, r);
+	checkTrue("a miss: the check's read collected first, then the card read",
+	          !g_card.reading && g_card.cmdWhileReading == 0 && g_card.reads == reads + 1);
+	checkInt("the batch goes on", sdc_flush(), SDC_IDLE);
+	checkTrue("block 31 on the card", g_card.written.back() == 31);
+
+	// settle collects the read too.
+	sdc_write(32, 1, b);
+	sdc_poll();
+	sdc_settle();
+	checkTrue("settle: the check's read collected, nothing sent", !g_card.reading && !g_card.inFlight);
+	sdc_flush();
+
+	// A start the card refuses, a read that times out, a CRC error, another
+	// card's serial number: each fails the batch, nothing sent.
+	struct { bool startFails; sd_err_t ends; bool swap; const char *what; } fails[] = {
+		{ true,  SDE_OK,      false, "a read the card refuses at its start: failed" },
+		{ false, SDE_TIMEOUT, false, "a read that times out: failed" },
+		{ false, SDE_CRC,     false, "a read with a CRC error: failed" },
+		{ false, SDE_OK,      true,  "another card's serial number: failed" },
+	};
+	for (auto &f : fails) {
+		g_card.failReadStart = f.startFails;
+		g_card.readEndsWith = f.ends;
+		if (f.swap) g_card.sector(0)[69] = 0x00;
+		size_t before = g_card.written.size();
+		sdc_write(40, 1, b);
+		sdc_poll();
+		for (int i = 0; i < 5; i++) sdc_poll();
+		checkTrue("under way or failed, nothing sent", !g_card.inFlight);
+		sdc_poll();
+		checkTrue(f.what, sdc_state(&left) == SDC_FAILED && left == 0 &&
+		          g_card.written.size() == before && !g_card.reading);
+		g_card.failReadStart = false;
+		g_card.readEndsWith = SDE_OK;
+		g_card.sector(0)[69] = 0xBE;
+		sdc_drop();
+	}
+
+	// drop and end collect a read under way.
+	sdc_write(41, 1, b);
+	sdc_poll();
+	checkTrue("a read under way", g_card.reading);
+	sdc_drop();
+	checkTrue("drop: collected, idle", !g_card.reading && sdc_state(nullptr) == SDC_IDLE);
+	sdc_write(42, 1, b);
+	sdc_poll();
+	sdc_end();
+	checkTrue("end: collected, off", !g_card.reading && !sdc_on());
+}
+
 void runSdCacheTests() {
 	testQueue();
 	testReadCache();
 	testFullQueue();
 	testErrors();
+	testCheckAsync();
 }
