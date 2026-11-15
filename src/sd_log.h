@@ -159,6 +159,8 @@ static inline SdLogEnd sdLogWriteEnd(int fr, uint32_t wrote, uint32_t asked) {
 	return (fr == 0 && wrote < asked) ? SdLogEnd::CardFull : SdLogEnd::WriteFailed;
 }
 
+struct RunSum;
+
 /** @brief Counters for the UI. Copied out by sdLogStatus(). */
 struct SdLogStatus {
 	SdLogState state;
@@ -195,6 +197,16 @@ struct SdLogStatus {
 	 */
 	uint32_t   fileNumber;
 	SdLogEnd   end;           /**< Why the last log ended, @ref SdLogEnd. */
+	/**
+	 * @brief The last log's run summary (run_summary.h), ended, with what
+	 *        became of its `.TXT`; nullptr while a log runs, before the first
+	 *        log and after a mount.
+	 *
+	 * Points into the logger's state on core0. A failed start keeps it, as
+	 * it keeps @ref fileNumber; the next start that opens a log reuses it.
+	 */
+	const RunSum *summary;
+	uint8_t    summaryPoles;  /**< MOTOR POLES when the summary ended, for its RPM. */
 };
 
 /**
@@ -224,7 +236,16 @@ bool sdLogBegin();
  */
 bool sdLogStart();
 
-/** @brief Finish the current log: end event, flush, close. No-op when idle. */
+/**
+ * @brief Finish the current log: end event, flush, close, then its run
+ *        summary as `LOGS/LOGnnnnn.TXT`. No-op when idle.
+ *
+ * The summary ends as the stop begins, ended by STOP. Its file is written
+ * only after the `.BFL` has closed clean, into the same directory, over any
+ * `.TXT` of that number. A summary that is not saved leaves the logger
+ * ready: the log itself ended clean, and @ref SdLogStatus::summary says why
+ * (@ref RunSumFile).
+ */
 void sdLogStop();
 
 /**
@@ -232,6 +253,9 @@ void sdLogStop();
  *        one: SD LOG then reads `RECORDING STOPPED BY` and the tool's name
  *        until the next start; a mount keeps it (sdLogMountForget()).
  *        No-op when no log runs.
+ * The run summary records the tool as how the log ended, as sdLogStop()
+ * records STOP.
+ *
  * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
  *        @ref SdLogEnd::ByAm32. A stop that fails keeps the cause it
  *        recorded: CardFull or WriteFailed from the last flush, WriteFailed
@@ -285,6 +309,8 @@ bool sdLogActive();
  *
  * Call from the core0 loop as often as convenient; it rate-limits internally to
  * @ref SD_LOG_RATE_HZ. Cheap and non-blocking — it only fills the ring.
+ * Each frame's snapshot, merged reading and arm state also go to the run
+ * summary (runSumAdd()), before the frame is encoded.
  *
  * @param nowUs    Current micros().
  * @param throttle Commanded throttle, 0..2000. Passed in rather than read back
@@ -362,7 +388,8 @@ static inline SdLogArmAction sdLogArmAction(bool nowArmed, bool wasArmed,
  * @brief Tell the logger the tester armed or disarmed.
  *
  * Starts and stops a log when @ref SD_LOG_AUTO_ON_ARM is set; records an
- * explicit start otherwise. Idempotent.
+ * explicit start otherwise. Idempotent. The state goes into each frame of
+ * the run summary; a stop made here is recorded as DISARM.
  *
  * @param armed New arm state.
  */
