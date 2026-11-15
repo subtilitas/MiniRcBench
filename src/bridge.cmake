@@ -14,10 +14,16 @@
 # Slice 2: the USB side on core0 (src/usb_bridge.cpp), the traffic log, a
 # build option off by default (src/bridge_log.cpp), and the screen USB
 # BRIDGE (src/ui_bridge.cpp), opened from ESC CONFIG.
+#
+# Slice 3: MSP (src/bridge_msp.cpp) and the 4-way interface
+# (src/bridge_4way.cpp), whose bootloader frames are escwire's
+# (escwire.cmake builds lib/rcbench/protocols/escwire/ew_a.c).
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/bridge_wire.cpp
     ${CMAKE_CURRENT_LIST_DIR}/bridge_line_port.cpp
     ${CMAKE_CURRENT_LIST_DIR}/usb_bridge.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/bridge_msp.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/bridge_4way.cpp
     ${CMAKE_CURRENT_LIST_DIR}/bridge_log.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui_bridge.cpp
 )

@@ -173,6 +173,11 @@ void stdio_set_driver_enabled(stdio_driver_t *, bool enabled) {
 	if (enabled) g_consoleBackAt = g_hostTotal;
 }
 
+/** @brief The chip's ID: 0x11, 0x22 to 0x88, so a test sees each byte in place. */
+void pico_get_unique_board_id(pico_unique_board_id_t *id_out) {
+	for (int i = 0; i < PICO_UNIQUE_BOARD_ID_SIZE_BYTES; i++) id_out->id[i] = (uint8_t)(0x11 * (i + 1));
+}
+
 void pico_get_unique_board_id_string(char *id_out, unsigned int len) {
 	if (len) id_out[0] = '\0';
 }

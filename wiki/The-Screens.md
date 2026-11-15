@@ -390,9 +390,9 @@ programming session, and `BACK` in a programmer before it holds SIG.
 
 `MENU → ESC CONFIG` opens a choice of two, as PROGRAMMER: **ESC SETTINGS**,
 which opens the ESC settings screen, AM32, Bluejay and BLHeli_S read
-and written, and **USB BRIDGE**, which passes a desktop ESC tool's
-bytes to the ESC, with `A DESKTOP ESC TOOL OVER USB.` and
-`PASSTHROUGH: AM32 DIRECT MODE.` under it. The strip names the signal pin,
+and written, and **USB BRIDGE**, which lets a desktop ESC tool reach the
+ESC, with `A DESKTOP ESC TOOL OVER USB.` and `MSP, 4-WAY AND PASSTHROUGH.`
+under it. The strip names the signal pin,
 `SIG GP0`. ESC CONFIG takes no pin; the tap on an entry takes SIG. `BACK`
 returns to `MENU`, and so does `BACK` on either tool. See
 [AM32 Configuration](AM32-Configuration) and [USB Bridge](USB-Bridge).
