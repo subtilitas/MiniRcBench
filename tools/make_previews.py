@@ -150,6 +150,7 @@ PREVIEWS = {
     "bridge-preview": [
         "shot_bridge_waiting",
         "shot_bridge_passthrough",
+        "shot_bridge_4way",
         "shot_bridge_writing",
         "shot_bridge_leave",
     ],
