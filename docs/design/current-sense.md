@@ -1,22 +1,22 @@
 # Current sense and the bench converter
 
-Status: slice 1 built and host-tested, not tested on hardware; slices 2 to
-6 not built. The owner's decisions of 2026-11-13 and 2026-11-14 are
-recorded under [decisions](#decisions). On 2026-11-14 the owner answered
-Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt as sold,
-the servo tester switching the supply always, rcbench's limit run as the
-protection, and the settings carried over from the older layouts. One point
-is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V
-boost board the owner modelled names no chip, and the owner does not know
-it, so its ratings come only from bench tests B6 and B7. Slices 2
-to 6 wait on being built and on that module; the protection section is to
-be redesigned for the decisions. The settings carry-over of decision 14 is
-built and host-tested.
-No INA219 has been on the board's bus, and no boost converter has been on
-GP28 or GP29: every figure below is from a datasheet, from rcbench's
-records or computed, and the ones that are not known are stated as unknown.
-The slices are at the end ([slices](#slices)); each builds, passes the host
-suite and merges alone.
+Status: slices 1 and 2 built, slice 1 host-tested and slice 2 checked by
+`tools/make_wiring.py --check` ([slice 2 as built](#slice-2-as-built)), neither
+tested on hardware; slices 3 to 6 not built. The owner's decisions of 2026-11-13
+and 2026-11-14 are recorded under [decisions](#decisions). On 2026-11-14 the
+owner answered Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt
+as sold, the servo tester switching the supply always, rcbench's limit run as
+the protection, and the settings carried over from the older layouts. One point
+is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V boost
+board the owner modelled names no chip, and the owner does not know it, so its
+ratings come only from bench tests B6 and B7. Slices 3 to 6 wait on being built
+and on that module; the protection section is to be redesigned for the
+decisions. The settings carry-over of decision 14 is built and host-tested. No
+INA219 has been on the board's bus, and no boost converter has been on GP28 or
+GP29: every figure below is from a datasheet, from rcbench's records or
+computed, and the ones that are not known are stated as unknown. The slices are
+at the end ([slices](#slices)); each builds, passes the host suite and merges
+alone.
 
 Terms: INA219 is Texas Instruments' (TI) current and power monitor with an
 I2C (Inter-Integrated Circuit) interface; SDA is the I2C serial data line
@@ -1011,6 +1011,55 @@ kst-programming.md decision 10 built, and replaces kst-programming.md's
 INA226 line under "Not in this section" with a link here. Slices 1 to 3
 make the hardware usable; 4 to 6 can merge in any order after 3. Bring-up,
 bench tests B1 to B13, follows slice 3 and is no slice of its own.
+
+### Slice 2 as built
+
+- **The marker.** The connector table in
+  `src/board_rp2350_touch_lcd_2_8.h` marks J3's GP7 and GP6 with `^`, the
+  sensor's connector, and J4's with `*`, "do not use". `role()` in
+  `tools/make_wiring.py` takes the connector: on J3, `SCL` and `SDA`
+  "INA219 SCL, 0x40" and "INA219 SDA, 0x40", 3V3 "3.3 V out: INA219 VCC",
+  GND "ground: INA219 GND only"; J4 pins 7 and 8 "shared I2C: do not use".
+- **The script's checks.** `sensor()` stops the script when `^` is on no
+  connector or on more than one; when that connector carries anything but
+  `PIN_I2C_SCL`, `PIN_I2C_SDA`, 3V3 and GND; when a pin on SCL or SDA
+  elsewhere lacks `*`; when a marker sits on a pin off the bus; and when
+  `INA219_ADDR` is a reserved address or one of the board header's
+  `*_I2C_ADDR`. `define()` reads hex values with a `u` suffix.
+- **Part C.** The converter box reads `BOOST`, `5 V out`, `output
+  disconnect`, and its input box `one LiPo cell of its own, 3.0 V to
+  4.2 V`. The INA219 box, dashed as optional, sits on the output wire:
+  VIN+ from VOUT, VIN- to the servo's plus, its address from `INA219_ADDR`,
+  its shunt from `INA219_SHUNT_MOHM`. A J3 stub to its right carries the
+  four wires to the module's header, and the servo's minus comes from the
+  ground rail round the stub, at the servo's right, so no wire crosses
+  another. The caption under the converter reads `Needed: 5 V, at least
+  3 A, output disconnect, EN high at 3.3 V`: requirements, not ratings,
+  since no module is named ([Q1](#q1-the-converter-module)). The notes
+  give the disconnect, a fuse at the cell, the cell charged off the bench,
+  the pull-down rule on one cell (at most 0.135 times a pull-up at 4.2 V),
+  the pigtail from J3, the screw terminal, and VOUT straight to the servo
+  without the sensor.
+- **Differing from the list above.** The panel title does not name the
+  servo tester, and the note "The servo tester does not switch it" stays:
+  the servo tester drives no enable pin until slice 3 (`src/ui_servo.cpp`,
+  the supply line of its strip), so a title naming it would show a wiring
+  that leaves its servo unpowered. Slice 3 changes both. The Setup row for
+  the converter names KST and Hitec programming for the same reason.
+- **Documents.** README.md: the pin sketch with `^`, the wiring table's
+  part C, the script's checks, "Switched supply (optional)" with the
+  boost, the cell, the sensor and the unnamed module, and a pointer from
+  "Current sensor" to part C. Wiki: Wiring and Verdrahtung (the connector
+  row, part C, the converter, the pull-down on one cell), Setup and
+  Einrichtung (the boost converter, the INA219 and the J3 cable; the Hitec
+  classic row names the boost).
+- **Tests.** `python3 tools/make_wiring.py --check`, in the Docs CI job,
+  fails when `docs/wiring.svg` differs from the drawing, and when
+  `sensor()` takes one of the nine changed sources of `SENSOR_MUTANTS`:
+  the marker on no connector and on two, GP0 in place of J3's GND, an unmarked
+  bus pin on J4, a marker off the bus, another SCL pin, and the address at
+  0x1A, 0x78 and 0x07. Nothing of it is on hardware: no INA219 and no boost
+  converter has been wired to the board.
 
 ## Open questions
 
