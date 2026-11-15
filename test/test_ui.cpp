@@ -5924,6 +5924,14 @@ static void testEfm8Write() {
 	UiRect rb = ctlRect(UI_ROW(s_ewSel, Row));
 	swipe(rb.x + 40, rb.x + 40 + UI_AXIS_LOCK_PX + 2 * UI_SWIPE_STEP_PX + 4, rb.y + rb.h / 2, 2);
 	checkInt("a swipe of 2 coarse steps: 48 more", s_ewDraft[0x1B], beep + 48);
+	checkTrue("POWER RATING selected", ewTapRow("POWER RATING"));
+	{
+		const int cx = BTN_MINUS_X + EDIT_BTN_W, cw = BTN_PLUS_X - cx;
+		checkTrue("2S AND ABOVE, 142 px at scale 2, wider than the bar's 140: at scale 1",
+		          gfxTextW("2S AND ABOVE", 2) > cw &&
+		          fakeTextIs(cx + (cw - gfxTextW("2S AND ABOVE", 1)) / 2, EDIT_Y + 18, "2S AND ABOVE", C_TEXT,
+		                     C_BG, 1));
+	}
 	frames(1);
 	checkTrue("3 rows changed, nothing sent", ewPending() == 3 && e->erases == 0 && e->programs == 0);
 	uiListScrollTo(&s_list, 0);

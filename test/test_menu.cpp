@@ -658,7 +658,7 @@ static void testEscConfig() {
 	          fakeTextIs(set.x + (set.w - 142) / 2, set.y + 16, "ESC SETTINGS", C_TEXT, C_PANEL, 2));
 	checkTrue("its lines at y 112 and 124, dim",
 	          lineIs(112, "AM32 SETTINGS, READ AND WRITTEN.", C_DIM) &&
-	          lineIs(124, "BLUEJAY, BLHELI_S: READ, NOT WRITTEN.", C_DIM));
+	          lineIs(124, "BLUEJAY, BLHELI_S: READ AND WRITTEN.", C_DIM));
 	checkTrue("USB BRIDGE is drawn disabled: an outline, the label C_GRID",
 	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && pixel(br.x + 4, br.y + br.h - 5) == C_BG &&
 	          fakeTextIs(br.x + (br.w - gfxTextW("USB BRIDGE", 2)) / 2, br.y + 16, "USB BRIDGE", C_GRID,

@@ -31,7 +31,7 @@
 /**
  * @brief The ring's device of a firmware: Bluejay's `BJ`, BLHeli_S's `BH`.
  * @param fw An `ew_fw_t`.
- * @return @ref BackupDevice::Count for any other firmware: no backup.
+ * @return `BackupDevice::Count` for any other firmware: no backup.
  */
 BackupDevice efm8BackupDevice(uint8_t fw);
 

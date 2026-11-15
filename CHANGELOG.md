@@ -44,6 +44,30 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: a Bluejay or BLHeli_S ESC's settings are written,
+  slice 4 of
+  [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-4-as-built).
+  On Bluejay 208 and BLHeli_S 33 the list edits the fields rcbench's map
+  lets a write change, 15 and 12, with the editor bar and swipes, and
+  `WRITE...` opens `ESC WRITE`. Its HOLD TO WRITE saves the page as first
+  read in the session to the card as `BACKUP/BJnnn.TXT` or `BHnnn.TXT`,
+  rcbench's ESC settings text (`src/efm8_backup.*`, the prefixes in
+  `src/backup_ring.*`), and then the escwire job writes the draft
+  (`EwJobOp::Write`): re-read, erase, program and read-back, up to 3
+  procedures, on the settings page only. A card that refuses the backup or
+  the BOARD voltage in red stops the write. The results, `WRITE VERIFIED.
+  BACKUP BJ018` over `LEAVING STARTS THE ESC WITH THEM.`, `READ FAILED:
+  NOTHING ERASED.`, `ESC PAGE CHANGED: NOT WRITTEN.`, `WRITE FAILED: PAGE AS
+  READ.`, `HALF WRITTEN: KEEP THE ESC POWERED.` and `NO ANSWER IN THE WRITE:
+  KEEP POWER.`, each with its next step; `READ AGAIN` in `WRITE...`'s place
+  after a changed page or a lost answer; on a half-written page the list
+  edits nothing, `WRITE...` writes the draft again or, after REVERT, the
+  page as read, and BACK is guarded, the second aborting the session with
+  no LEAVE and opening the leave page. A heartbeat lapse lets a write that
+  has sent its erase run to its read-back. The read-only lists save their
+  backup as they open, `SHOWN ONLY. BACKUP BJ018`. ESC CONFIG's line reads
+  `BLUEJAY, BLHELI_S: READ AND WRITTEN.` Tested on rcbench's simulated ESC
+  only; nothing has been written to an ESC.
 - After v0.1.0-rc1: RPM/V and the kV estimate on the tester, slice 3 of
   [esc-commands.md](docs/design/esc-commands.md#slice-3-as-built)
   (`src/kv_est.h`, decisions 6 and 7). While armed the ERPM line reads

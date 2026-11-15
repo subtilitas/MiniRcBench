@@ -200,8 +200,10 @@ void efm8Caption(const ew_ident_t *id, const uint8_t *page, uint16_t sig, char *
 
 /**
  * @brief The two amber strip lines of a read-only list: why, and where its
- *        backup went: `SHOWN ONLY. BACKUP BJ018`, or for lost tags
- *        `REFLASH ON A COMPUTER. BACKUP BH018`.
+ *        backup went.
+ *
+ * The second line reads, for example, `SHOWN ONLY. BACKUP BJ018`, or for
+ * lost tags `REFLASH ON A COMPUTER. BACKUP BH018`.
  * @param id   The identification.
  * @param page The page as read.
  * @param b    The backup's fate.
