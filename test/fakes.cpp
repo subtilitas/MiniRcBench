@@ -44,20 +44,26 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <deque>
+
 // ---------------------------------------------------------------------------
 // virtual clock and the Pico SDK surface the firmware uses
 // ---------------------------------------------------------------------------
 
 // Time is virtual: it advances only when a test says so. plat.h's millis() and
 // micros() are inline wrappers over these, so faking the SDK timebase fakes
-// both without the firmware knowing.
-static uint32_t g_ms = 0;
+// both without the firmware knowing. The count is in microseconds, so bytes
+// 120 us apart can be stamped; millis() is it divided by 1000.
+static uint64_t g_us = 0;
 
-void fakeAdvance(uint32_t ms) { g_ms += ms; }
-uint64_t time_us_64() { return (uint64_t)g_ms * 1000u; }
-uint32_t time_us_32() { return g_ms * 1000u; }
-void sleep_ms(uint32_t d) { g_ms += d; }
-void sleep_us(uint64_t us) { g_ms += (uint32_t)(us / 1000u); }
+void fakeAdvance(uint32_t ms) { g_us += (uint64_t)ms * 1000u; }
+void fakeAdvanceUs(uint32_t us) { g_us += us; }
+uint64_t time_us_64() { return g_us; }
+uint32_t time_us_32() { return (uint32_t)g_us; }
+void sleep_ms(uint32_t d) { g_us += (uint64_t)d * 1000u; }
+// Whole milliseconds only: the sensor's recovery waits of a few
+// microseconds move no time, so the tests' millisecond steps stay exact.
+void sleep_us(uint64_t us) { g_us += us / 1000u * 1000u; }
 
 // --- ADC: a steady ~3.92 V pack through the board's 200k/100k divider ---
 void adc_init() {}
@@ -185,8 +191,15 @@ extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
 	g_pins[gpio].function = (int)fn;
-	// As the SDK does: selecting a function turns the pad's input on.
+	// As the SDK does: selecting a function turns the pad's input on, and
+	// writes the whole control register, which zeroes the overrides.
 	g_pins[gpio].inputOff = false;
+	g_pins[gpio].inover = GPIO_OVERRIDE_NORMAL;
+}
+extern "C" void gpio_set_inover(unsigned gpio, unsigned value) {
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].inover = (uint8_t)value;
+	g_pins[gpio].inoverWrites++;
 }
 extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	if (gpio >= FAKE_GPIOS) return;
@@ -212,7 +225,10 @@ extern "C" void gpio_set_input_enabled(uint32_t gpio, bool on) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].inputOff = !on;
 }
 
-uint32_t clock_get_hz(enum clock_index) { return 150000000u; }
+/** @brief clk_sys and clk_peri: 150 MHz, as SDK 2.1.1 sets them. */
+static uint32_t g_clockHz[2] = { 150000000u, 150000000u };
+uint32_t clock_get_hz(enum clock_index i) { return g_clockHz[i == clk_peri]; }
+void fakeClockSet(enum clock_index i, uint32_t hz) { g_clockHz[i == clk_peri] = hz; }
 
 // --- Critical sections: one thread, so there is nothing to exclude ---
 extern "C" void critical_section_init(critical_section_t *) {}
@@ -228,14 +244,183 @@ extern "C" void critical_section_exit(critical_section_t *) {}
 spi_inst_t *spi0 = nullptr;
 spi_inst_t *spi1 = nullptr;
 
-// --- UART: never readable. No ESC here to answer a telemetry request ---
-uart_inst_t *uart0 = nullptr;
-uart_inst_t *uart1 = nullptr;
-unsigned uart_init(uart_inst_t *, unsigned baud) { return baud; }
-void uart_deinit(uart_inst_t *) {}
-bool uart_is_readable(uart_inst_t *) { return false; }
-uint8_t uart_getc(uart_inst_t *) { return 0; }
-void uart_set_format(uart_inst_t *, unsigned, unsigned, enum uart_parity_t) {}
+// --- UART0: a PL011 receiver as the S.BUS job sees it. The line is a queue
+//     of UARTDR words as an 8E2 receiver would load them, each due when its
+//     character, 11 bit times from its start bit, is in. A word due while
+//     the UART is on and GP1 is on the UART function with its input inverted
+//     enters the 32-entry receive FIFO, and is dropped otherwise. A word due
+//     while the FIFO is full is lost, and the next word that enters carries
+//     OE. The receiver reads the word in its own format: at 8N1 the parity
+//     bit is taken as the stop bit, so a parity bit of 0 is FE; at odd parity
+//     PE is the other way round. A character whose start bit came before the
+//     receiver was on is caught in its middle: it loads as FE with its data
+//     shifted. uart_set_format() on a running UART takes the SDK's 15 bit
+//     times with the receiver off, as uart_disable_before_lcr_write() waits,
+//     and only the character in progress at its start completes, in the old
+//     format. Not modelled: the bits on the wire, what a line that is not
+//     inverted would read, the transmitter ---
+
+/** @brief The two UART instances; only their addresses are used. */
+struct uart_inst { int id; };
+static uart_inst g_uartInst[2] = { {0}, {1} };
+uart_inst_t *uart0 = &g_uartInst[0];
+uart_inst_t *uart1 = &g_uartInst[1];
+
+/** @brief A word on the line and when its last bit is in. */
+struct FakeLineWord { uint64_t dueUs; uint16_t word; };
+static std::deque<FakeLineWord> g_line;
+static uint16_t g_rxFifo[FAKE_UART_FIFO];
+static unsigned g_rxHead, g_rxCount;
+static bool     g_rxOverrunPending;
+static uint64_t g_rxOnUs;         /**< When the receiver last came on. */
+static uint32_t g_initTakesUs;    /**< Time uart_init() leaves the receiver on before it returns. */
+static FakeUart g_uart;
+static uart_hw_t g_uartHw;
+
+/** @brief One character's time, us, from its start bit to its load: 11 bits. */
+static uint64_t uartCharUs() { return g_uart.baud ? 11000000u / g_uart.baud : 0; }
+
+/** @brief The even parity bit of @p b. */
+static uint16_t uartEvenParity(uint8_t b) {
+	uint16_t p = 0;
+	for (; b; b &= (uint8_t)(b - 1u)) p ^= 1u;
+	return p;
+}
+
+/** @brief Load one word from the line, if the receiver hears it, as its format reads it. */
+static void uartTake(const FakeLineWord &lw) {
+	uint16_t w = lw.word;
+	if (!g_uart.enabled || g_pins[1].function != GPIO_FUNC_UART ||
+	    g_pins[1].inover != GPIO_OVERRIDE_INVERT || g_uart.dataBits != 8) {
+		g_uart.dropped++;
+		return;
+	}
+	if (lw.dueUs < g_rxOnUs + uartCharUs()) {
+		// Started before the receiver was on: a 0 bit inside it is taken
+		// for the start bit.
+		w = (uint16_t)(((w & 0xFFu) >> 1) | UART_UARTDR_FE_BITS);
+		g_uart.caughtMid++;
+	} else if (!(w & UART_UARTDR_BE_BITS)) {
+		uint16_t pbit = uartEvenParity((uint8_t)w) ^ ((w & UART_UARTDR_PE_BITS) ? 1u : 0u);
+		if (g_uart.parity == UART_PARITY_NONE)
+			w = (uint16_t)((w & 0xFFu) | (pbit ? 0u : UART_UARTDR_FE_BITS));
+		else if (g_uart.parity == UART_PARITY_ODD)
+			w ^= UART_UARTDR_PE_BITS;
+	}
+	if (g_rxCount == FAKE_UART_FIFO) {
+		g_rxOverrunPending = true;
+		g_uart.lost++;
+		return;
+	}
+	if (g_rxOverrunPending) w |= UART_UARTDR_OE_BITS;
+	g_rxOverrunPending = false;
+	g_rxFifo[(g_rxHead + g_rxCount++) % FAKE_UART_FIFO] = w;
+}
+
+/** @brief Move every word due by now off the line, into the FIFO or away. */
+static void uartLine() {
+	uint64_t now = time_us_64();
+	while (!g_line.empty() && g_line.front().dueUs <= now) {
+		FakeLineWord lw = g_line.front();
+		g_line.pop_front();
+		uartTake(lw);
+	}
+}
+
+/** @brief The PL011 after a reset: off, FIFO empty, no overrun owed. */
+static void uartClear() {
+	g_rxHead = g_rxCount = 0;
+	g_rxOverrunPending = false;
+	g_uart.enabled = false;
+}
+
+void fakeUartReset() {
+	g_line.clear();
+	g_uart = FakeUart{};
+	uartClear();
+	g_initTakesUs = 0;
+	g_clockHz[1] = 150000000u;
+}
+void fakeUartLine(uint64_t dueUs, uint16_t word) { g_line.push_back(FakeLineWord{dueUs, word}); }
+void fakeUartInitTakes(uint32_t us) { g_initTakesUs = us; }
+FakeUart fakeUart() {
+	uartLine();
+	FakeUart u = g_uart;
+	u.fifo = g_rxCount;
+	u.queued = (unsigned)g_line.size();
+	return u;
+}
+
+fake_uart_fr::operator uint32_t() const {
+	uartLine();
+	return g_rxCount ? 0u : UART_UARTFR_RXFE_BITS;
+}
+fake_uart_dr::operator uint32_t() const {
+	uartLine();
+	g_uart.drReads++;
+	if (!g_rxCount) return 0;
+	uint16_t w = g_rxFifo[g_rxHead];
+	g_rxHead = (g_rxHead + 1u) % FAKE_UART_FIFO;
+	g_rxCount--;
+	return w;
+}
+uart_hw_t *uart_get_hw(uart_inst_t *) { return &g_uartHw; }
+
+unsigned uart_init(uart_inst_t *, unsigned baud) {
+	// Words due before the UART was on were never received.
+	uartLine();
+	uartClear();
+	g_uart.inits++;
+	uint32_t hz = g_clockHz[1];
+	if (hz == 0) return 0;
+	// uart_set_baudrate() of SDK 2.1.1, hardware_uart/uart.c.
+	uint32_t div = 8u * hz / baud + 1u;
+	uint32_t ibrd = div >> 7, fbrd;
+	if (ibrd == 0)           { ibrd = 1; fbrd = 0; }
+	else if (ibrd >= 65535u) { ibrd = 65535; fbrd = 0; }
+	else                     fbrd = (div & 0x7Fu) >> 1;
+	g_uart.ibrd = ibrd;
+	g_uart.fbrd = fbrd;
+	g_uart.baud = (unsigned)((4ull * hz) / (64u * ibrd + fbrd));
+	// uart_init() sets 8N1 and turns the UART on.
+	g_uart.dataBits = 8;
+	g_uart.stopBits = 1;
+	g_uart.parity = UART_PARITY_NONE;
+	g_uart.enabled = true;
+	g_rxOnUs = time_us_64();
+	// The receiver runs at 8N1 until the caller's next call.
+	g_us += g_initTakesUs;
+	return g_uart.baud;
+}
+void uart_deinit(uart_inst_t *) {
+	uartLine();
+	uartClear();
+	g_uart.deinits++;
+}
+bool uart_is_readable(uart_inst_t *) { return !(g_uartHw.fr & UART_UARTFR_RXFE_BITS); }
+uint8_t uart_getc(uart_inst_t *) { return (uint8_t)g_uartHw.dr; }
+void uart_set_format(uart_inst_t *, unsigned bits, unsigned stop, enum uart_parity_t p) {
+	uartLine();
+	if (g_uart.enabled) {
+		// uart_disable_before_lcr_write(), SDK 2.1.1: UARTEN off, then a
+		// wait of about 15 bit times. The character under way completes.
+		uint64_t now = time_us_64();
+		uint32_t scaled = g_clockHz[1] / 3662u;
+		uint64_t wait = scaled ? (((uint64_t)64u * g_uart.ibrd + g_uart.fbrd) << 10) / scaled : 0;
+		while (!g_line.empty() && g_line.front().dueUs <= now + wait) {
+			FakeLineWord lw = g_line.front();
+			g_line.pop_front();
+			if (lw.dueUs < now + uartCharUs()) uartTake(lw);
+			else g_uart.dropped++;
+		}
+		g_us = now + wait;
+		g_uart.formatWaitUs = (uint32_t)wait;
+		g_rxOnUs = g_us;
+	}
+	g_uart.dataBits = bits;
+	g_uart.stopBits = stop;
+	g_uart.parity = (int)p;
+}
 void uart_set_fifo_enabled(uart_inst_t *, bool) {}
 
 // ---------------------------------------------------------------------------

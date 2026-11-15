@@ -34,21 +34,24 @@ and voltage (see [Current sensor](#current-sensor); design note
 under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`).
 
-Six features are designed and not built. An S.BUS (Futaba's serial bus for
-receiver channels) receiver monitor is described in
-`docs/design/rx-signals.md`, with an S.BUS output that the owner decided on
-and that is not designed yet; rcbench's S.BUS decoder is in the tree and
-tested on the host, and the firmware does not build it. MENU's RX SIGNALS
-row stands for these tools and is drawn disabled, `NOT BUILT`. A PPM
-(pulse-position modulation) output is not built, by the owner's decision.
-An angle meter on the board's QMI8658 IMU (inertial measurement unit), for
-incidence, decalage, dihedral and control-surface throw, is designed in
-`docs/design/angle-meter.md` and not built; it waits on the owner's answers
-to the note's open questions. A run summary per blackbox log, written
-beside the log and shown on SD LOG, with the board's PCF85063 real-time
-clock dating the files on the card as an option, is planned in
-`docs/design/run-summary.md` and not built; it waits on the owner's answers
-to that note's open questions.
+An S.BUS (Futaba's serial bus for receiver channels) receiver monitor is
+described in `docs/design/rx-signals.md`. Its core1 job is built and tested on
+the host: during its pin claim it receives on GP1 through UART0 (universal
+asynchronous receiver-transmitter 0) with the pad's input inverted, decodes the
+frames with rcbench's decoder and keeps the channels, flags, frame rate and
+error counts for a screen to read. It has not run on hardware, and the
+inversion on the pin is not measured. No screen opens it yet: the S.BUS MONITOR
+screen is slice 3 of the design note, and MENU's RX SIGNALS row, which stands
+for the S.BUS tools, is drawn disabled, `NOT BUILT`. An S.BUS output is decided
+on by the owner and not designed yet. A PPM (pulse-position modulation) output
+is not built, by the owner's decision. An angle meter on the board's QMI8658
+IMU (inertial measurement unit), for incidence, decalage, dihedral and
+control-surface throw, is designed in `docs/design/angle-meter.md` and not
+built; it waits on the owner's answers to the note's open questions. A run
+summary per blackbox log, written beside the log and shown on SD LOG, with the
+board's PCF85063 real-time clock dating the files on the card as an option, is
+planned in `docs/design/run-summary.md` and not built; it waits on the owner's
+answers to that note's open questions.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
 change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
@@ -120,7 +123,8 @@ throttle frame, then stops the pump with no edges, releases the pin (a plain
 input with the pulls off), puts the pull-up back on it and ends the KISS
 receiver. Core1 then runs that screen's job instead (`src/core1_job.h`), and
 `loop1()` is `escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs
-on core0 and has no core1 job; no other job is built yet. Leaving the screen
+on core0 and has no core1 job; the servo tester, the KST and Hitec
+programmers and the S.BUS monitor each have one. Leaving the screen
 rebuilds the pump from the wiring it had, disarmed.
 
 ---
@@ -151,8 +155,8 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use. Set under SETTINGS → SIG PIN |
-| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo. Set under SETTINGS → AUX PIN |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use: the S.BUS job uses UART0's receiver only. Set under SETTINGS → SIG PIN |
+| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
 Only GP0 and GP1 are free (`BOARD_FREE_GPIO_MASK` = `0x00000003`). Both are
@@ -2221,10 +2225,11 @@ src/
   hitec_job.{h,cpp}     the Hitec programmer's core1 job: rcbench's session, entry, read, write
   hitec_line_port.{h,cpp} the job's Hitec line, rcbench's RP2350 line driver
   hitec_files.{h,cpp}   Hitec's SAVE AS files, its record of a write and its backups
+  sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
-  servo.cmake, kst.cmake, hitec.cmake, sense.cmake  each feature's firmware sources (test/*.mk: its tests)
+  servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
@@ -2273,9 +2278,7 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
 the S.BUS (Futaba's serial bus for receiver channels) decoder, and the
-current sensor's bus record (`sense_bus.c`). The decoder is built in the host
-suite only so far: nothing in `src/` calls it and the firmware does not build
-it. Files include each other as plain
+current sensor's bus record (`sense_bus.c`). Files include each other as plain
 siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
@@ -2305,13 +2308,13 @@ those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
 `test_hitec_session_write.c` and `test_hitec_card.c`, with
 `hitec_headers.cpp` built as C++11, and `test_sbus.c` (12 cases). The SDIO
-tests run the card protocol against a simulated card. Time is virtual —
-`millis()` advances only when a test says so — which makes hold-to-arm,
-hold-to-write and gesture repeat deterministic rather than dependent on
-machine speed. The fake ESC serves a real settings blob recovered from the
-reference configurator, so the UI tests operate on values a real ESC would
-report. The suite renders 111 screens to PPM (portable pixmap) images as it
-runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
+tests run the card protocol against a simulated card. Time is virtual and
+counted in microseconds — `millis()` advances only when a test says so — which
+makes hold-to-arm, hold-to-write and gesture repeat deterministic rather than
+dependent on machine speed. The fake ESC serves a real settings blob recovered
+from the reference configurator, so the UI tests operate on values a real ESC
+would report. The suite renders 111 screens to PPM (portable pixmap) images as
+it runs, one file per `fakeDumpFrame()` name, so a layout change is visible in
 the frames:
 
 - five of the splash: as it boots, with no answer from the touch
@@ -2362,7 +2365,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.2%**: 9,857 of 10,035 lines in 60 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.2%**: 9,973 of 10,151 lines in 62 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
@@ -2377,7 +2380,15 @@ Makefile does not list `ui_am32.cpp` in `SRCS`. `test_claim.cpp` includes `core1
 the same way, to put fake jobs in its job table, and the Makefile does not list it either;
 `test_servo.cpp` includes `ui_servo.cpp`, and `test/servo.mk` does not list it. The servo
 PWM driver runs against a register fake in `fakes.cpp` that records each pin's function,
-level and pull and each slice's wrap, divider and enable.
+level, pull and input override and each slice's wrap, divider and enable.
+The S.BUS job runs against a UART0 fake there: a line of UARTDR words each due
+at a time, the 32-entry receive FIFO with its overrun, the divisors of SDK
+2.1.1 from a settable `clk_peri`, and a receiver that hears the line only with
+GP1 on the UART function and its input inverted, reads each character in the
+format set, 8N1 after `uart_init()`, and loads a character caught in its middle
+as a framing error. `test/sbus_line.h` puts a receiver's frames on that line,
+120 µs a byte, with parity, framing and break faults, cut frames and any
+footer.
 
 The I2C1 bus is `test/fake_i2c.cpp`: the parts on it by address, the clocks of
 each transaction (9 per byte, 2 for a start and a stop, 1 for a repeated
