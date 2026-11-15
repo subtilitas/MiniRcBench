@@ -51,6 +51,7 @@ enum class SettingsRowId : uint8_t {
 	Backlight,    /**< BACKLIGHT, - and +. */
 	BuiltFor,     /**< BUILT FOR, read-only. */
 	Version,      /**< VERSION, the firmware's, read-only. */
+	Clock,        /**< CLOCK, the board's clock to the minute or NOT SET, read-only. */
 	LastRestart,  /**< LAST RESTART, why the chip restarted, read-only. */
 	Uptime,       /**< UPTIME, time since boot, read-only. */
 };

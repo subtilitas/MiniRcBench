@@ -22,8 +22,12 @@
  * As the IMU driver, and unlike touch, the clock sends nothing while the
  * record shows the bus stuck.
  *
- * Setting the clock is slice 5 of docs/design/run-summary.md and not built:
- * this file reads the clock and keeps it.
+ * clockSet() sets it, from the line command of clock_line.h on the USB
+ * serial port: the software reset, STOP with CLKOUT off, the time with OS
+ * clear, STOP released, each its own transfer, then the read of 00h to 0Ah
+ * back. The set time becomes the kept reading, and the count of sets goes up
+ * by one, which a running log's summary notes at its stop. The board has no
+ * cell on J2, so the clock is set again after each power-up.
  *
  * @see docs/design/run-summary.md, "The clock"
  */
@@ -50,6 +54,9 @@
 #define CLOCK_CTL1_STOP      0x20u  /**< Control_1 bit 5: the time does not count. */
 #define CLOCK_CTL1_12_24     0x02u  /**< Control_1 bit 1: 12-hour mode. */
 #define CLOCK_SECONDS_OS     0x80u  /**< Seconds bit 7: the oscillator has stopped. */
+
+/** @brief Bytes of the set's time write: the pointer, then 04h to 0Ah. */
+#define CLOCK_TIME_WRITE_BYTES 8u
 
 /** @brief Written to Control_1: the software reset, every register to its reset value. */
 #define CLOCK_SOFT_RESET     0x58u
@@ -78,6 +85,14 @@ enum class ClockBoot : uint8_t {
 	TestMode,     /**< EXT_TEST = 1. */
 	Hour12,       /**< 12_24 = 1: the hours register holds another format. */
 	BadTime,      /**< A time register out of range, or a digit above 9. */
+};
+
+/** @brief What clockSet() did. */
+enum class ClockSetResult : uint8_t {
+	Set = 0,   /**< Written and read back running at the time sent: the clock is set. */
+	BadDate,   /**< Not a time clockValid() accepts; nothing sent. */
+	NoAnswer,  /**< The bus record shows the bus stuck, or a transfer failed. */
+	ReadBack,  /**< Written, and the read-back is not the time sent, running; the part is stopped. */
 };
 
 /** @brief The clock as core0 keeps it, at one moment. */
@@ -148,6 +163,14 @@ void clockFromSecs(uint32_t secs, ClockTime *out);
  */
 uint32_t clockFatTime(const ClockTime *t);
 
+/**
+ * @brief The weekday register's value for @p t: 0 Sunday to 6 Saturday, the
+ *        part's default assignment, 2000-01-01 a Saturday.
+ * @param t A valid time.
+ * @return 0 to 6.
+ */
+uint8_t clockWeekday(const ClockTime *t);
+
 /** @brief Bytes clockText() writes, the NUL included. */
 #define CLOCK_TEXT_BYTES 20
 
@@ -196,6 +219,30 @@ ClockBoot clockBoot();
  * @param[out] out The reading; its time is all 0 while not set.
  */
 void clockNow(ClockReading *out);
+
+/**
+ * @brief Set the part to @p t and keep it: four transfers, each its own
+ *        START and STOP, then one read of 00h to 0Ah.
+ *
+ * 58h to Control_1, the software reset; 20h and 07h from 00h, STOP with
+ * CAP_SEL 0 and CLKOUT off; 04h to 0Ah, the time with OS clear and the
+ * weekday from the date; 00h to Control_1, STOP released. 308 clocks on
+ * the wire, 770 µs at 400 kHz, the read-back included. A failed transfer
+ * ends the set there. Only @ref ClockSetResult::Set changes the kept time:
+ * the set time from the moment STOP was released, and the count of sets
+ * one higher. Any other result leaves the kept time and the count as they
+ * were, and the part may be left reset or stopped, not set at the next
+ * boot. A read-back that differs sends 20h to Control_1 after it, STOP, so
+ * that the next boot reads the part as not set.
+ *
+ * Core0, between frames, never from inside FatFs. It touches no card and
+ * no motor state, so it is accepted during a log, which keeps its
+ * durations from the timer.
+ *
+ * @param t The local time to set, 2000 to 2099.
+ * @return What the set did.
+ */
+ClockSetResult clockSet(const ClockTime *t);
 
 /** @} */
 

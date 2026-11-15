@@ -35,6 +35,7 @@
 #include "sense.h"
 #include "version.h"
 #include "diag.h"
+#include "clock.h"
 
 #include "plat.h"
 #include <stdio.h>
@@ -170,6 +171,8 @@ static uint32_t s_captionKey = 0;
 static int s_shownRate = -1, s_shownErr = -1;
 /** @brief The uptime second last drawn, so UPTIME repaints once a second. */
 static uint32_t s_shownUptime = 0;
+/** @brief The CLOCK row's minute last drawn, so it repaints once a minute. */
+static uint32_t s_shownClock = 0;
 
 /** @brief This frame's touch. */
 static const TouchState *s_t = nullptr;
@@ -388,9 +391,48 @@ static_assert(sizeof(BOARD_LABEL) - 1 <= BUILT_FOR_WIDEST,
 #define VERSION_WIDEST 6
 static_assert(sizeof(FW_VERSION_STRING) - 1 <= VERSION_WIDEST,
               "the version is wider than VERSION's value column");
+/** @brief CLOCK's widest value, `2026-11-14 15:42`, characters. */
+#define CLOCK_ROW_WIDEST 16
+/**
+ * @brief CLOCK's caption. The board has no cell on J2, so the clock is lost
+ *        at power-off and set again over USB after each power-up
+ *        (docs/design/run-summary.md, decision 6).
+ */
+#define CLOCK_ROW_CAPTION "SET AT EACH POWER-UP"
+static_assert(UI_MARGIN + 6 * (int)(sizeof(CLOCK_ROW_CAPTION) - 1) - 1 + 4 <=
+                  RO_R - (6 * CLOCK_ROW_WIDEST - 1),
+              "CLOCK's caption runs into its widest value");
+/**
+ * @brief The kept clock to the minute, `2026-11-14 15:42`, or `NOT SET`
+ *        in C_DIM. No bus transfer.
+ */
+static void clockValue(char *b, size_t n, uint16_t *c) {
+	ClockReading r;
+	clockNow(&r);
+	if (!r.set) {
+		snprintf(b, n, "NOT SET");
+		*c = C_DIM;
+		return;
+	}
+	char t[CLOCK_TEXT_BYTES];
+	clockText(&r.t, t);
+	snprintf(b, n, "%.16s", t);
+	*c = C_GRID;
+}
+static void clockCaption(char *b, size_t n, uint16_t *c) {
+	snprintf(b, n, "%s", CLOCK_ROW_CAPTION);
+	*c = C_DIM;
+}
+/** @brief What the CLOCK row shows, as a number: 0 not set, else minutes since 2000 plus 1. */
+static uint32_t clockShown() {
+	ClockReading r;
+	clockNow(&r);
+	return r.set ? clockToSecs(&r.t) / 60u + 1u : 0u;
+}
 static constexpr SettingsRow ROWS_BOARD[] = {
-	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
-	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr,      nullptr },
+	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr,      nullptr },
+	{ "CLOCK",     SettingsKind::ReadOnly, CLOCK_ROW_WIDEST, clockValue,   nullptr, nullptr, nullptr, nullptr, clockCaption, nullptr },
 };
 
 /**
@@ -534,10 +576,10 @@ static UiRect partRect(const Item &it, UiPart part) {
 	}
 }
 
-/** @brief Whether any of the UPTIME row shows in the viewport. */
-static bool uptimeInView() {
+/** @brief Whether any of row @p r shows in the viewport. */
+static bool rowInView(const SettingsRow *r) {
 	for (uint8_t i = 0; i < s_itemCount; i++) {
-		if (s_items[i].row != &ROWS_DIAG[1]) continue;
+		if (s_items[i].row != r) continue;
 		return clipToView(partRect(s_items[i], UiPart::Row)).h > 0;
 	}
 	return false;
@@ -956,14 +998,18 @@ bool uiSettingsTick(const TouchState *t) {
 	// with a finger involved repaints.
 	if (s_t->down || s_t->released) s_redraw = true;
 
-	// UPTIME is the one value that moves on its own: a repaint each second
-	// while its row shows.
+	// UPTIME and CLOCK are the values that move on their own: a repaint
+	// each second while UPTIME's row shows, each minute while CLOCK's does,
+	// and when the clock is set.
 	if (fitView()) s_redraw = true;
 	uint32_t up = diagUptimeSeconds();
-	if (up != s_shownUptime && uptimeInView()) s_redraw = true;
+	if (up != s_shownUptime && rowInView(&ROWS_DIAG[1])) s_redraw = true;
+	uint32_t clk = clockShown();
+	if (clk != s_shownClock && rowInView(&ROWS_BOARD[2])) s_redraw = true;
 
 	if (s_redraw) {
 		s_shownUptime = up;
+		s_shownClock = clk;
 		s_redraw = false;
 		drawAll();
 	} else {

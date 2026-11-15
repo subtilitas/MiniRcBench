@@ -4184,18 +4184,19 @@ static void testBoardRow() {
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
 
-	// The scroll range. 6 captions of 20 px and 14 rows at a 50 px pitch are
-	// 820 px of content; the viewport, y 40 to 239, is 200 px, so the list
-	// scrolls 0 px to 620 px. Dragged past its end, it stops at 620 px, with
-	// VERSION's row, content y 650, at y 40 + 650 - 620 = 70, then the
+	// The scroll range. 6 captions of 20 px and 15 rows at a 50 px pitch are
+	// 870 px of content; the viewport, y 40 to 239, is 200 px, so the list
+	// scrolls 0 px to 670 px. Dragged past its end, it stops at 670 px, with
+	// CLOCK's row, content y 700, at y 40 + 700 - 670 = 70, then the
 	// DIAGNOSTICS caption, LAST RESTART's row at y 140 and UPTIME's, content
-	// y 770, at y 190.
+	// y 820, at y 190.
 	const UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
 	settingsDrag(-180);
 	settingsDrag(-180);
 	settingsDrag(-180);
-	checkInt("at the end of the list, VERSION's row is at y 70",
-	         ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 70);
+	settingsDrag(-180);
+	checkInt("at the end of the list, CLOCK's row is at y 70",
+	         ctlRect(UI_ROW(SettingsRowId::Clock, Row)).y, 70);
 	checkInt("LAST RESTART's at y 140",
 	         ctlRect(UI_ROW(SettingsRowId::LastRestart, Row)).y, 140);
 	checkInt("and UPTIME's, the last, at y 190",
@@ -4203,31 +4204,47 @@ static void testBoardRow() {
 	settingsDrag(-180);
 	checkInt("and a drag past the end does not move it",
 	         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 190);
+	// CLOCK, not set: its label 12 px down the row and its caption 25 px
+	// down, both from x 8; the value right-aligned to x 232, 18 px down.
+	checkTrue("CLOCK's label, over its caption",
+	          fakeTextIs(UI_MARGIN, 70 + 12, "CLOCK", C_DIM, C_BG, 1));
+	checkTrue("its caption: SET AT EACH POWER-UP",
+	          fakeTextIs(UI_MARGIN, 70 + 25, "SET AT EACH POWER-UP", C_DIM, C_BG, 1));
+	checkTrue("CLOCK reads NOT SET, dim",
+	          fakeTextIs(232 - gfxTextW("NOT SET", 1), 70 + 18, "NOT SET", C_DIM, C_BG, 1));
+	checkTrue("CLOCK has no control",
+	          !ctlPresent(UI_ROW(SettingsRowId::Clock, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::Clock, Toggle)) &&
+	          !ctlEnabled(UI_ROW(SettingsRowId::Clock, Row)));
+	checkControlTable("SETTINGS, at the end");
+	checkTrue("the clock is set to the shot's uptime", fakeClockSetMs(FAKE_SHOT_UPTIME_MS));
+	frames(2);
+	fakeDumpFrame("shot_settings_scrolled.ppm");
+	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 550 = 90,
+	// VERSION's, content y 650, at y 140.
+	settingsDrag(120);
+	checkInt("120 px back, BUILT FOR's row is at y 90",
+	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 90);
+	checkTrue("BUILT FOR names the board, right-aligned",
+	          fakeTextIs(232 - gfxTextW(g_board->label, 1), 90 + 18, g_board->label,
+	                     C_GRID, C_BG, 1));
+	checkInt("VERSION's row at y 140",
+	         ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 140);
 	// The rows' text: label at x 8, value right-aligned to x 232, both
 	// 18 px down the 44 px row.
-	checkTrue("VERSION's label", fakeTextIs(UI_MARGIN, 70 + 18, "VERSION", C_DIM, C_BG, 1));
+	checkTrue("VERSION's label", fakeTextIs(UI_MARGIN, 140 + 18, "VERSION", C_DIM, C_BG, 1));
 	checkTrue("VERSION reads the firmware's version, " FW_VERSION_STRING,
-	          fakeTextIs(232 - gfxTextW(FW_VERSION_STRING, 1), 70 + 18, FW_VERSION_STRING,
+	          fakeTextIs(232 - gfxTextW(FW_VERSION_STRING, 1), 140 + 18, FW_VERSION_STRING,
 	                     C_GRID, C_BG, 1));
 	checkTrue("VERSION has no control",
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Minus)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Toggle)) &&
 	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)));
-	checkControlTable("SETTINGS, at the end");
-	checkTrue("the clock is set to the shot's uptime", fakeClockSetMs(FAKE_SHOT_UPTIME_MS));
-	frames(2);
-	fakeDumpFrame("shot_settings_scrolled.ppm");
-	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 500 = 140.
-	settingsDrag(120);
-	checkInt("120 px back, BUILT FOR's row is at y 140",
-	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 140);
-	checkTrue("BUILT FOR names the board, right-aligned",
-	          fakeTextIs(232 - gfxTextW(g_board->label, 1), 140 + 18, g_board->label,
-	                     C_GRID, C_BG, 1));
 	const UiRect save1 = ctlRect(UI_FIX(SettingsCtl::Save));
 	checkTrue("HOLD TO SAVE does not move with the list, at y 268",
 	          save1.y == 268 && save1.y == save0.y && save1.h == save0.h);
 	// Back up: at 0 px, MOTOR POLES' row, content y 20, is at y 60.
+	settingsDrag(180);
 	settingsDrag(180);
 	settingsDrag(180);
 	settingsDrag(180);

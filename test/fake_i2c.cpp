@@ -324,6 +324,11 @@ void rtcCatchUp(FakePcf85063 *p) {
 
 void rtcWrite(FakePcf85063 *p, const uint8_t *src, size_t len) {
 	if (len < 1) return;
+	if (p->logN < FAKE_RTC_LOG) {
+		FakeRtcWrite *w = &p->log[p->logN++];
+		w->len = (uint8_t)len;
+		memcpy(w->b, src, len < sizeof(w->b) ? len : sizeof(w->b));
+	}
 	rtcCatchUp(p);
 	p->ptr = src[0] < 0x12 ? src[0] : 0;
 	if (len < 2) return;
@@ -331,6 +336,7 @@ void rtcWrite(FakePcf85063 *p, const uint8_t *src, size_t len) {
 	for (size_t i = 1; i < len; i++) {
 		uint8_t r = p->ptr, v = src[i];
 		p->ptr = (uint8_t)((p->ptr + 1) % 0x12);
+		if (p->refuse && r == p->refuseReg) continue;
 		if (r == 0 && v == 0x58) {
 			fakePcf85063Reset(p);
 			p->resets++;
