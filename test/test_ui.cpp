@@ -3646,6 +3646,26 @@ static void testTouchLoss() {
 	holdToArm();
 	checkTrue("answering: HOLD TO ARM arms", uiArmed());
 	tapId(UI_FIX(TesterCtl::Arm));
+
+	// A 3D-mode ESC's note gives the row to the touch note, since nothing on
+	// the tester works until the touch answers; it returns with the touch.
+	esc3dSetNote(true);
+	uiInit();
+	frames(4);
+	checkTrue("the 3D note on the bottom row",
+	          fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1));
+	fakeTouchAnswers(false);
+	frames(4);
+	checkTrue("lost: TOUCH NOT ANSWERING takes the row, no 3D note",
+	          hintIs(UI_TOUCH_LOST_TEXT, C_AMBER) &&
+	          !fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1));
+	fakeTouchAnswers(true);
+	frames(1);
+	checkTrue("answering: the 3D note again",
+	          fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1));
+	esc3dSetNote(false);
+	uiInit();
+	frames(4);
 	fakeSdLogSet(&logWas);
 }
 
