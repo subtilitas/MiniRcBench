@@ -39,10 +39,11 @@ einer der beiden tauscht SIG und AUX, sodass beide nie einen Pin teilen.
 > zerstören. J5 Pin 3 bleibt frei.
 
 **Der Wandler.** Ein Aufwärtswandler gibt seinen Eingang an den Ausgang
-weiter, solange er aus ist, außer er trennt die Last ab: Nur ein
+weiter, solange er aus ist, es sei denn, er trennt die Last ab: Nur ein
 synchroner Aufwärtswandler mit Ausgangstrennung kommt in Frage, ein Modul
-ohne EN nicht. Aus einer Zelle, 3,0 V bis 4,2 V, bleibt ein
-Aufwärtswandler über die ganze Entladung unter seinen 5 V am Ausgang. Aus
+ohne EN nicht. Bei einer Zelle, 3,0 V bis 4,2 V, bleibt der Eingang über
+die ganze Entladung unter den 5 V am Ausgang, ein Aufwärtswandler kann sie
+also regeln. Aus
 einem Akku mit zwei Zellen oder einem Labornetzteil tut es ein Abwärts-
 oder ein Auf-/Abwärtswandler, etwa der Pololu S13V30F5. Das Modul von Teil
 C ist nicht benannt: Die 5-V-Boost-Platine in den mechanischen Modellen des
@@ -58,9 +59,10 @@ wenn das EN-Kabel an einem Steckverbinder abgeht.
   Beide bilden einen Spannungsteiler. Bei der höchsten benutzten VIN muss
   der Pull-down EN unter der Ausschaltschwelle des Wandlers und auf
   höchstens 3,6 V halten, und auf höchstens 0,5 V, solange die Platine aus
-  ist. An einer Zelle, höchstens 4,2 V, sind das höchstens 0,135 mal der
-  Pull-up: 13,5 kΩ bei einem Pull-up von 100 kΩ.
-- Das EN des Pololu S13V30F5 hat einen Pull-up von 475 kΩ. Für ihn ist der
+  ist. An einer Zelle, höchstens 4,2 V, sind das höchstens das 0,135-Fache
+  des Pull-ups (die Grenze von 0,5 V; die Ausschaltschwelle des Moduls kann
+  weniger verlangen): 13,5 kΩ bei einem Pull-up von 100 kΩ.
+- Der EN des Pololu S13V30F5 hat einen Pull-up von 475 kΩ. Für ihn ist der
   Pull-down 10 kΩ: EN liegt bei 22 V auf 0,45 V. 100 kΩ legen bei 12 V
   2,09 V an EN, und der Wandler bleibt auch außerhalb der Servotester-, KST-
   und Hitec-Bildschirme an.

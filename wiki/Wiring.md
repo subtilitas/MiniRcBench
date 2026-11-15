@@ -34,15 +34,15 @@ the value. A step of either swaps SIG and AUX, so the two never share a pin.
 > the servo's supply, 4.8 V to 6.0 V or 8.4 V for a high-voltage servo, and
 > that can destroy the board. Leave J5 pin 3 unconnected.
 
-**The converter.** A boost passes its input to the output while it is
-off, unless it disconnects the load: only a synchronous boost with output
-disconnect qualifies, and a module with no EN does not. From one cell,
-3.0 V to 4.2 V, a boost stays below its 5 V output over the whole
-discharge. From a pack of two cells or a bench supply, a buck or a
-buck-boost does the same, such as the Pololu S13V30F5. The module of part
-C is not named: the 5 V boost board in the project's mechanical models
-names no chip, so its disconnect, its EN threshold and its current limit
-are not known until they are measured on the bench.
+**The converter.** A boost passes its input to the output while it is off,
+unless it disconnects the load: only a synchronous boost with output
+disconnect qualifies, and a module with no EN does not. From one cell, 3.0 V
+to 4.2 V, the input stays below the 5 V output over the whole discharge, so
+a boost can regulate it. From a pack of two cells or a bench supply, a buck
+or a buck-boost does the same, such as the Pololu S13V30F5. The module of
+part C is not named: the 5 V boost board in the project's mechanical models
+names no chip, so its disconnect, its EN threshold and its current limit are
+not known until they are measured on the bench.
 
 **The pull-down.** Fit it at the converter, from EN to GND, so EN stays low
 when the EN wire comes off at a connector.
@@ -52,7 +52,8 @@ when the EN wire comes off at a connector.
   two form a divider. At the highest VIN used, the pull-down must hold EN
   below the converter's off threshold and at or below 3.6 V, and at or
   below 0.5 V while the board is off. On one cell, 4.2 V at most, that is
-  at most 0.135 times the pull-up: 13.5 kΩ for a pull-up of 100 kΩ.
+  at most 0.135 times the pull-up (the 0.5 V limit; the module's off
+  threshold can ask for less): 13.5 kΩ for a pull-up of 100 kΩ.
 - The Pololu S13V30F5's EN has a pull-up of 475 kΩ. For it the pull-down is
   10 kΩ: EN reads 0.45 V at 22 V. 100 kΩ puts 2.09 V on EN at 12 V, and the
   converter stays on outside the servo tester, KST and Hitec screens.
