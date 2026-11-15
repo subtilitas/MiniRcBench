@@ -244,6 +244,29 @@ static void testRefusals() {
 	finish();
 }
 
+static void testDriverRefuses() {
+	section("ESC settings job: a leave whose frame the driver refuses");
+	checkTrue("in mode", startInMode(0xB2, true));
+	sim_t *e = fakeEwSim();
+	int starts = e->starts;
+	sim_script(e, F_START_FALSE, 0, 1, 0);
+	uint16_t seq = escwireJobCommand(EwJobOp::Leave);
+	checkTrue("taken, not refused: it ran and ended at once", taken(seq) &&
+	          status().refused == EwJobRefusal::None && status().lastOp == EwJobOp::Leave);
+	checkTrue("Ended, the driver's failure, not left", status().job == EwJobState::Ended &&
+	          status().result == EW_SES_ERR_DRIVER && !status().left && !status().inMode);
+	checkTrue("the driver refused the frame: the ESC heard nothing", e->starts == starts + 1 &&
+	          e->contacted && !e->dead);
+	finish();
+
+	section("ESC settings job: a refused command keeps the last operation");
+	start(0xB2, true);
+	seq = escwireJobCommand(EwJobOp::Read);
+	checkTrue("Read before Enter: refused, the last operation still Enter's",
+	          taken(seq) && status().refused == EwJobRefusal::State && status().lastOp == EwJobOp::Enter);
+	finish();
+}
+
 static void testSilent() {
 	section("ESC settings job: an ESC that does not answer");
 	start(0xB2, true);
@@ -351,6 +374,7 @@ void runEscwireJobTests() {
 	testBind();
 	testEnterReadLeave();
 	testRefusals();
+	testDriverRefuses();
 	testSilent();
 	testHeartbeat();
 	testRelease();

@@ -58,22 +58,28 @@ static void publish() {
 	critical_section_exit(&s_cs);
 }
 
-/** @brief An operation the session started, or its refusal. */
-static void started(EwJobOp op, ew_ses_t r) {
-	s_lastOp = op;
-	if (r == EW_SES_BUSY) {
-		s_state = EwJobState::Busy;
-		return;
-	}
-	// Ended at once: a refusal leaves the session as it was.
-	s_refused = EwJobRefusal::State;
-}
-
 /** @brief The running operation ended with @p r. */
 static void ended(ew_ses_t r) {
 	s_result = (uint8_t)r;
 	if (s_lastOp == EwJobOp::Leave && r == EW_SES_OK) s_left = true;
 	s_state = s_ses.in_mode ? EwJobState::InMode : EwJobState::Ended;
+}
+
+/**
+ * @brief What the session said to @p op: started, refused before anything
+ *        went out, or run and ended at once, when the driver refused its
+ *        first transaction or the guard its frame.
+ */
+static void started(EwJobOp op, ew_ses_t r) {
+	if (r == EW_SES_ERR_STATE || r == EW_SES_ERR_ARG || r == EW_SES_ERR_DIRTY ||
+	    r == EW_SES_ERR_ERASED) {
+		// The session as it was.
+		s_refused = EwJobRefusal::State;
+		return;
+	}
+	s_lastOp = op;
+	if (r == EW_SES_BUSY) s_state = EwJobState::Busy;
+	else ended(r);
 }
 
 /** @brief Take a command from core0. */
