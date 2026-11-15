@@ -21,7 +21,8 @@
  * One composite device, two functions:
  *
  * - **CDC ACM** on interfaces 0 and 1 — the serial port, exactly as before, so
- *   `SD_DEBUG` output still arrives and picocom still works.
+ *   `SD_DEBUG` output still arrives and picocom still works. It reads one
+ *   line command, the clock's (clock_line.h).
  * - **MSC** on interface 2 — a removable drive that reports *no medium* until
  *   the user asks for it. @see usb_msc.h
  *
@@ -50,9 +51,23 @@ void usbDevInit();
  *
  * Must be called from core0 only, and must keep being called while a host is
  * reading the card — this is what moves the data. It is bounded work: TinyUSB
- * processes what has arrived and returns.
+ * processes what has arrived and returns. Then the bytes the host sent on the
+ * serial port go to the clock's line command, up to one line a call, which
+ * a set of the clock answers after 770 µs on the bus (clock_line.h).
  */
 void usbDevTask();
+
+/**
+ * @brief Turn the clock's line command on or off; on from power-up.
+ *
+ * For a user that takes the serial port's bytes over, the USB bridge: off
+ * when it takes the port, on when it gives it back. While off,
+ * usbDevTask() reads no byte of the host's, so the bridge gets them all and
+ * no `CLOCK` answer lands in its stream. Turning it on forgets the part of a
+ * line read before it was turned off. Core0 only, as usbDevTask().
+ * @param on On.
+ */
+void usbDevClockLineEnable(bool on);
 
 /**
  * @brief Give the serial port to the console, or take it from it.

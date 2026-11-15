@@ -59,15 +59,17 @@ and neither has run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slices 1 to 4 are built and host-tested: the summary
+on 2026-11-15. Its slices 1 to 5 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
 ([Blackbox logging to microSD](#blackbox-logging-to-microsd)), SD LOG
-showing it after a stop, and the clock read at start-up, dating the files
-and the summary's clock lines while it runs; the firmware cannot set the
-clock yet. The owner's board has no cell in the RTC socket J2, so its
-clock is to be set again after each power-up, and files written before the
-set have FAT date 0.
+showing it after a stop, the clock read at start-up, dating the files and
+the summary's clock lines while it runs, and the clock set from a computer
+over the USB serial port with `tools/set_clock.py`
+([Setting the clock](#setting-the-clock)). The owner's board has no cell
+in the RTC socket J2, so its clock is set again after each power-up, and
+files written before the set have FAT date 0. Nothing of it has run on the
+board.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
@@ -320,9 +322,10 @@ git -C ~/pico-sdk submodule update --init --depth 1 lib/tinyusb
 export PICO_SDK_PATH=~/pico-sdk
 ```
 
-`lib/tinyusb` is required. Serial telemetry runs over USB CDC (communications
-device class). Without the submodule the SDK builds with no USB support and
-reports no error.
+`lib/tinyusb` is required. Serial telemetry, and the line that sets the
+clock ([Setting the clock](#setting-the-clock)), run over USB CDC
+(communications device class). Without the submodule the SDK builds with no
+USB support and reports no error.
 
 Build:
 
@@ -683,6 +686,7 @@ colour, read-only values grey, and a toggle that is on fills blue.
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
 | BOARD | **VERSION** | The firmware version from `src/version.h`, for example `0.1.0`. Read-only |
+| BOARD | **CLOCK** | The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in grey, with the caption `SET AT EACH POWER-UP`: the board has no cell on J2, so `tools/set_clock.py` sets it again after each power-up ([Setting the clock](#setting-the-clock)). Redrawn once a minute and after a set while its row shows. Read-only |
 | DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG`. Read-only. See below |
 | DIAGNOSTICS | **UPTIME** | Time since boot as hours, minutes and seconds, `H:MM:SS`, for example `1:02:03`. Redrawn once a second while its row shows. Read-only |
 
@@ -1100,8 +1104,8 @@ looks the same to a board with no card-detect line
 `LOG99999.BFL` no log starts and SD LOG says so. A file is
 created new, never over an existing one. Logs an earlier firmware wrote to
 the card's root stay there and are not counted. Files carry the time of the
-board's real-time clock when the clock was running at start-up, else FAT
-date and time 0; the firmware cannot set the clock yet (see below).
+board's real-time clock while the clock is set in that power-up, else FAT
+date and time 0 (see below).
 
 Each log that stops clean gets a run summary beside it, `LOGS/LOGnnnnn.TXT`
 with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
@@ -1148,8 +1152,7 @@ off, 07h to Control_2. FatFs stamps files through `get_fattime()`, which returns
 the kept time packed while the clock is set and 0 otherwise; the SD library's
 `my_rtc.c`, with its own `get_fattime()`, is not in the firmware build. The
 run summary takes the clock at the log's start and
-at its stop. Nothing in the firmware sets the clock yet: that is slice 5 of
-`docs/design/run-summary.md`, over USB. Tested against a register-level model of
+at its stop. Tested against a register-level model of
 the part in `test/fake_i2c.*` (`test/test_clock.cpp`); not tested on hardware.
 
 ![SD log screen](docs/log-preview.png)
@@ -1190,6 +1193,70 @@ RP2350 uses, forces VBUS detection on and never reports an unplug: a cable
 pulled with the board on its battery arrives as a bus suspend, as a sleeping
 host does, and a suspend is not handled. EJECT on SD LOG takes the card back
 then. Not tested on hardware.
+
+### Setting the clock
+
+The board has no cell in its RTC socket J2, so the clock is lost whenever
+3.3 V goes away: set it again after each power-up. Until then files carry
+FAT date 0 and a log's summary reads `not set`. There is no page on the
+device to set it; a computer on the USB cable sets it over the serial port:
+
+```text
+python3 tools/set_clock.py
+```
+
+It needs Python 3 and the `pyserial` package (`python3 -m pip install
+pyserial`), on Windows, Linux and macOS. It finds the board by its USB
+vendor and product IDs, 2E8A:4006, or takes `--port` (`COM5`,
+`/dev/ttyACM0`); `--list` names the boards it finds, `--query` reads the
+clock without setting it, `--help` lists the options. It waits for the
+computer's next whole second and sends it as local time: no time zone, no
+daylight saving, so at a daylight-saving change the clock is set again by
+hand. Its host tests are `test/test_set_clock.py`, run by `make -C test run`.
+
+The serial port takes one line command (`src/clock_line.*`), read on core0
+in `usbDevTask()`'s pass without waiting for input, one line a pass. A line
+ends at a CR (carriage return) or an LF (line feed); a line that does not
+start with `CLOCK` is ignored, and so is a line that starts as one of the
+board's answers does (`CLOCK SET `, `CLOCK NOW `, `CLOCK NOT SET`,
+`CLOCK REFUSED`), so that a terminal echoing them back, as Linux opens a
+`ttyACM` port by default, sets nothing. The rest are parsed byte for byte
+and answered with one line ending in CR LF:
+
+| Sent | Answer |
+|---|---|
+| `CLOCK 2026-11-14 15:42:07` | `CLOCK SET 2026-11-14 15:42:07` |
+| `CLOCK?` | `CLOCK NOW 2026-11-14 15:42:09` or `CLOCK NOT SET` |
+| a date or time out of range, or a day the month does not have (`2027-02-29`, `24:00:00`, years outside 2000 to 2099) | `CLOCK REFUSED: BAD DATE` |
+| any other line that starts with `CLOCK`, longer than 32 characters among them | `CLOCK REFUSED: BAD LINE` |
+| a line that starts as an answer does | nothing |
+| no answer at 0x51, a failed transfer, the bus stuck | `CLOCK REFUSED: RTC NOT ANSWERING` |
+| the read-back is not the time sent | `CLOCK REFUSED: RTC READ-BACK DIFFERS` |
+
+A set (`clockSet()`) is four transfers on the shared I2C1 bus, each noted to
+the current sensor's bus record (`senseNote()`): 58h to Control_1, the
+software reset; 20h and 07h from 00h, STOP with CLKOUT off; the time with OS
+clear and the weekday from the date; 00h to Control_1, STOP released. A read
+of 00h to 0Ah then checks the part runs at the time sent. The set is 308
+clocks on the wire, 770 µs at 400 kHz, the read-back included. Only a set
+that reads back changes the kept time, which runs from the moment STOP was
+released, and counts one set more; the part starts its count about 0.5 s
+after that, so the kept time can run up to 1 s behind it. A refused set
+leaves the kept time as it was; the part can be left reset or stopped and
+reads not set at the next start-up. A read-back that differs is followed by
+20h to Control_1, STOP, so a restart with 3.3 V up, after a watchdog or a
+crash, reads the part as not set rather than a time nothing checked.
+`usbDevClockLineEnable()` turns the line off for a user that takes the
+port's bytes over, the USB bridge; while off, no byte is read.
+
+A set is accepted at any time, during a log as well: it changes no card and
+no motor state, and the log's durations come from the timer. The log's
+summary then reads `Clock at stop: 2026-11-14 15:44:31 (clock set during
+the log)`. The set holds core0 for its 770 µs on the bus: a log frame due
+in that time is taken up to 770 µs late, and the frames keep their 2 ms
+schedule, which `sdLogTick()` resets only when it falls 8 ms behind; not
+measured on the board. SETTINGS → BOARD → CLOCK shows the kept time to the
+minute or `NOT SET`.
 
 ### Tuning
 
@@ -2961,7 +3028,8 @@ src/
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
   run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure)
-  clock.{h,cpp}         the PCF85063A real-time clock: start-up read, kept time, get_fattime()
+  clock.{h,cpp}         the PCF85063A real-time clock: start-up read, the set, kept time, get_fattime()
+  clock_line.{h,cpp}    the serial port's CLOCK line command: parser, answers, line reader
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_log_summary.{h,cpp} the run summary's .TXT beside its log, over FatFs
   sd_hw_config.c        SD wiring for the FatFs driver
@@ -2969,7 +3037,7 @@ src/
     sd_proto.{h,c}, sd_host.{h,c}  wire formats and card protocol (pure C)
     sd_pio.{h,c}, sd_pio.pio       RP2350 bus: 2 state machines, 32 instructions, 2 DMA channels
     sd_card_glue.c, compat/SDIO/   the SD library's callbacks and the two headers it includes
-  usb_dev.{h,cpp}       USB device: CDC serial plus MSC
+  usb_dev.{h,cpp}       USB device: CDC serial plus MSC; hands serial input to the CLOCK line
   usb_descriptors.c     USB descriptors
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
@@ -2983,6 +3051,7 @@ tools/
   make_wiring.py        draws docs/wiring.svg from the pin sources; --check fails on drift
   check_wiki.py         wiki link, anchor and image checks
   coverage.py           host-suite line coverage: writes and checks the README and STATUS.md figures
+  set_clock.py          sets the board's clock to the computer's local time over USB serial
 Doxyfile                API doc config -> docs/html/
 docs/                   generated docs + preview images
 docs/design/            design notes, kept in step with the code
@@ -3114,7 +3183,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.5%**: 12,869 of 13,069 lines in 84 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.5%**: 12,610 of 12,807 lines in 82 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

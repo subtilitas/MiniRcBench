@@ -458,6 +458,7 @@ Obergrenze des Testers; `BACK` führt dorthin zurück, wo sie geöffnet wurde.
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
 | BOARD | **VERSION** | Nur Anzeige. Die Firmware-Version, zum Beispiel `0.1.0` |
+| BOARD | **CLOCK** | Nur Anzeige. Die Uhr der Platine auf die Minute, `2026-11-14 15:42`, oder grau `NOT SET`. Die Zeile darunter, `SET AT EACH POWER-UP` (bei jedem Einschalten stellen): Die Platine hat keine Zelle für ihre Uhr, also stellt ein Computer sie nach jedem Einschalten mit `tools/set_clock.py` neu ([SD-Aufzeichnung](SD-Aufzeichnung#die-uhr)). Wird einmal pro Minute neu gezeichnet, solange die Zeile sichtbar ist |
 | DIAGNOSTICS | **LAST RESTART** | Nur Anzeige. Warum die Platine zuletzt gestartet ist: `POWER-ON` (eingeschaltet), `BROWN-OUT` (die Versorgung ist zu weit abgesunken), `RUN PIN` (der Reset-Eingang), `WATCHDOG`, `UPDATE` (der Neustart, nachdem eine neue Firmware auf die Platine kopiert wurde), `REBOOT` (ein Neustart über den Watchdog, den ein anderes Programm angefordert hat, zum Beispiel picotool), `DEBUGGER`, `GLITCH` (ein kurzer Einbruch der Versorgung), `POWER-DOWN` oder `UNKNOWN`. Bernstein bei `BROWN-OUT`, `GLITCH` und `WATCHDOG` |
 | DIAGNOSTICS | **UPTIME** | Nur Anzeige. Zeit seit dem Start der Platine, Stunden, Minuten und Sekunden, zum Beispiel `1:02:03`. Wird einmal pro Sekunde neu gezeichnet, solange die Zeile sichtbar ist |
 

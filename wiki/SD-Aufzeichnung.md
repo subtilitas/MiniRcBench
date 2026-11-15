@@ -27,11 +27,10 @@ Groß- und Kleinschreibung (`log00007.bfl` ist für die Karte `LOG00007.BFL`);
 andere Namen wie `LOG0007.BFL`, `LOG00007.TXT` oder ein umbenanntes Log
 zählen nicht. Vorhandene Logs werden nicht überschrieben. Logs, die eine
 frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
-mit. Jede Datei trägt die Zeit der Echtzeituhr der Platine, wenn die Uhr
-beim Start schon lief: Die Platine liest sie dann und kann sie noch nicht
-stellen. Sonst, wie auf einer Platine, deren Uhr ohne Strom war, tragen die
-Dateien das FAT-Datum und die Uhrzeit 0, die kein gültiges Datum sind; wie
-ein Computer sie zeigt, ist nicht geprüft.
+mit. Jede Datei trägt die Zeit der Echtzeituhr der Platine, sobald die Uhr
+seit dem Einschalten gestellt ist (siehe [Die Uhr](#die-uhr)). Davor tragen
+die Dateien das FAT-Datum und die Uhrzeit 0, die kein gültiges Datum sind;
+wie ein Computer sie zeigt, ist nicht geprüft.
 
 Die Platine liest `LOGS` einmal, bei der ersten Aufzeichnung nach dem
 Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB DRIVE`,
@@ -48,6 +47,50 @@ schreibgeschützt), steck sie zurück und drück `RETRY MOUNT`.
 
 Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
 10 MHz.
+
+---
+
+## Die Uhr
+
+Die Echtzeituhr der Platine datiert die Logs, ihre Zusammenfassungen und die
+Sicherungen der Geräte auf der Karte. Die Platine hat keine Zelle in ihrem
+Uhrensockel J2, also geht die Uhr jedes Mal verloren, wenn die Platine ohne
+Strom ist: nach jedem Einschalten neu stellen. Auf dem Gerät gibt es keine
+Seite dafür. Die Platine mit ihrem USB-Kabel an einen Computer anschließen
+und im Quellordner der Firmware ausführen:
+
+```text
+python3 tools/set_clock.py
+```
+
+Es braucht Python 3 und das Paket pyserial (`python3 -m pip install
+pyserial`), unter Windows, Linux oder macOS. Es findet die Platine selbst am
+USB; findet es keine oder mehrere, sagt es das, und `--port` nennt eine,
+zum Beispiel `--port COM5` unter Windows oder `--port /dev/ttyACM0` unter
+Linux. `--list` nennt die gefundenen Platinen. Es antwortet mit der
+gestellten Zeit, `CLOCK SET 2026-11-14 15:42:07`. `--query` liest die Uhr,
+ohne sie zu stellen, und `--help` nennt die Optionen.
+
+Die Uhr übernimmt die Ortszeit des Computers: keine Zeitzone und keine
+Sommerzeit. Nach einer Umstellung auf oder von Sommerzeit neu stellen.
+
+SETTINGS → BOARD → `CLOCK` zeigt die Zeit auf die Minute, oder grau
+`NOT SET`; die Zeile darunter lautet `SET AT EACH POWER-UP` (bei jedem
+Einschalten stellen). Bis zum Stellen tragen Dateien das FAT-Datum 0, und
+eine Zusammenfassung lautet `Clock at start: not set`. Stellen während
+einer Aufzeichnung ist erlaubt: Die Aufzeichnung läuft weiter, und ihre
+Zusammenfassung ergänzt die Zeit am Ende um `(clock set during the log)`.
+
+Ein Terminalprogramm am seriellen Port der Platine kann dieselben Zeilen
+senden: `CLOCK 2026-11-14 15:42:07` stellt die Uhr, `CLOCK?` liest sie
+und wird mit `CLOCK NOW` und der Zeit beantwortet. Die Platine übergeht ihre
+eigenen Antworten, wenn ein Terminal sie zurückschickt.
+Eine falsche Zeile wird mit `CLOCK REFUSED: BAD LINE` beantwortet, ein
+Datum, das es nicht gibt, mit `CLOCK REFUSED: BAD DATE`, ein Uhrenchip, der
+nicht antwortet, mit `CLOCK REFUSED: RTC NOT ANSWERING`.
+
+Die Uhr ist auf der Platine noch nicht gelaufen: das Stellen, die Zeit, die
+sie hält, und die Daten auf einer Karte sind nicht geprüft.
 
 ---
 
@@ -115,7 +158,7 @@ Sie enthält einen Wert je Zeile:
 | Zeile | Inhalt |
 |---|---|
 | `Log`, `Firmware` | Der Dateiname der Aufzeichnung und die Firmware-Version |
-| `Clock at start`, `Clock at stop` | Die Uhr der Platine zu Beginn und am Ende der Aufzeichnung, als `2026-11-14 15:42:07`, oder `not set`, wenn die Uhr beim Start nicht lief |
+| `Clock at start`, `Clock at stop` | Die Uhr der Platine zu Beginn und am Ende der Aufzeichnung, als `2026-11-14 15:42:07`, oder `not set`, solange die Uhr nicht gestellt ist; nach dem Stellen während der Aufzeichnung ergänzt die Zeile am Ende `(clock set during the log)` ([Die Uhr](#die-uhr)) |
 | `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` oder `ESC SETTINGS` |
 | `Duration`, `Armed` | Die Dauer der Aufzeichnung und die Zeit, die sie davon scharf war, in Sekunden |
 | `Max RPM` | Die höchste Drehzahl: DShot-eRPM (elektrische Drehzahl), oder KISS-eRPM in einer Aufzeichnung ohne DShot-eRPM, geteilt durch die Hälfte des Werts von `MOTOR POLES` beim Beenden |
