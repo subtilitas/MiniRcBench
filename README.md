@@ -1412,23 +1412,21 @@ not stored. The tester shows no note for the direction.
 
 ## AM32 ESC configuration
 
-**MENU → ESC CONFIG → ESC SETTINGS** reads and edits an AM32 ESC's
-settings and reads a Bluejay or BLHeli_S ESC's over the signal wire. It does
-not flash ESC firmware and does not write a Bluejay or BLHeli_S ESC. The
+**MENU → ESC CONFIG → ESC SETTINGS** reads, edits and writes the settings
+of an AM32, Bluejay or BLHeli_S ESC over the signal wire. It does not flash
+ESC firmware and never changes a Bluejay or BLHeli_S ESC's tags. The
 transports are `src/am32_bl.h` for the greeting and AM32, and rcbench's
 escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 
 MENU's second row, **ESC CONFIG**, opens a chooser
 (`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
 scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
-`BLUEJAY, BLHELI_S: READ, NOT WRITTEN.`, and `USB BRIDGE` drawn disabled with
+`BLUEJAY, BLHELI_S: READ AND WRITTEN.`, and `USB BRIDGE` drawn disabled with
 `A DESKTOP ESC TOOL OVER USB.` and `NOT BUILT` under it
 (`docs/design/usb-bridge.md`). The strip reads `SIG GP0`. The chooser claims
 nothing; the tap on ESC SETTINGS claims SIG. Its BACK, and ESC SETTINGS'
 BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
-the pin claim is not free. ESC SETTINGS writes AM32 only: writing a Bluejay
-or BLHeli_S ESC is slice 4 of `docs/design/bluejay-blheli-s.md`, not built.
-Its titles
+the pin claim is not free. Its titles
 are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
 and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
@@ -1436,6 +1434,8 @@ and the list's strip names the firmware, for example
 ![ESC CONFIG and a Bluejay ESC](docs/esc-preview.png)
 
 ![A Bluejay or BLHeli_S page](docs/efm8-preview.png)
+
+![Writing a Bluejay page](docs/efm8-write-preview.png)
 
 ![AM32 config](docs/am32-preview.png)
 
@@ -1537,7 +1537,7 @@ The job opens rcbench's line driver, `ew_line` on one PIO state machine of
 holds it high 500 ms more, makes its own first contact, 3 tries of 100 ms,
 and identifies the page from its first 112 bytes at 0x1A00, or 0x3000 on
 EFM8BB51; then it reads the whole page, 112 bytes for BLHeli_S and 255 for
-Bluejay. Nothing is erased or programmed. The connect page reads
+Bluejay. The read erases and programs nothing. The connect page reads
 `EFM8 E8B2 ANSWERED: READING.` (28 characters, 167 px) meanwhile, and in
 place of `POWER-CYCLE THE ESC` and its three lines, which do not apply to a
 bootloader that waits, `EFM8 BOOTLOADER` over `THE ESC WAITS IN ITS
@@ -1551,25 +1551,40 @@ The page decides what opens, by rcbench's `ew_id_efm8()`
 | Page | Screen | Strip |
 |---|---|---|
 | Bluejay layout 208, BLHeli_S layout 33, marker 0x55 0xAA | the list | `BLUEJAY 0.21  LAYOUT 208  E8B2` (30 characters, 179 px), grey |
-| Bluejay layouts 33 to 207, BLHeli_S layout 32 | the list | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.`, amber |
-| Name tag 0xFF with BLHeli_S layout 33 or Bluejay layout 208: the ESC lost its tags | the list | `ESC LOST ITS TAGS: READ-ONLY.` over `REFLASH ON A COMPUTER. NO BACKUP.` |
-| Settings marker not 0x55 0xAA | the list | `SETTINGS MARKER WRONG: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.` |
+| Bluejay layouts 33 to 207, BLHeli_S layout 32 | the list, read-only | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` over `SHOWN ONLY. BACKUP BJ018`, amber |
+| Name tag 0xFF with BLHeli_S layout 33 or Bluejay layout 208: the ESC lost its tags | the list, read-only | `ESC LOST ITS TAGS: READ-ONLY.` over `REFLASH ON A COMPUTER. BACKUP BH018` |
+| Settings marker not 0x55 0xAA | the list, read-only | `SETTINGS MARKER WRONG: READ-ONLY.` over `SHOWN ONLY. BACKUP BJ018` |
 | The first 112 bytes 0xFF | the connect page | status `EFM8 E8B2: SETTINGS PAGE EMPTY`; `PAGE EMPTY, AS AFTER A CUT WRITE.` / `KEEP THE ESC POWERED: SEE MANUAL.` |
 | Any other page rcbench does not take | the connect page | status `EFM8 E8B2: PAGE NOT KNOWN`, `BLUEJAY ON EFM8BB1: NOT TAKEN`, `BLUEJAY LAYOUT 205: NOT TAKEN`, `BLHELI_S 16.9: NOT TAKEN` or `EFM8 E8B3: PART NOT KNOWN`; `NOT BLUEJAY OR BLHELI_S AS KNOWN:` / `NOTHING IS WRITTEN.` |
 
+A read-only list saves its backup as it opens, as AM32's read-only view
+does, since no write follows: the second strip line names it,
+`BACKUP BJ018`, or reads `SHOWN ONLY. NO CARD: NO BACKUP.`,
+`SHOWN ONLY. USB DRIVE: NO BACKUP.` while a USB host holds the card, or
+`SHOWN ONLY. BACKUP FAILED.`; for lost tags `REFLASH ON A COMPUTER.
+NO CARD.`, `REFLASH ON A COMPUTER. USB DRIVE.` or `REFLASH ON A COMPUTER.
+BACKUP FAILED.` A list opened again on a page whose text is the ring's
+latest backup saves no second copy and names that one.
+
 The list shows rcbench's fields for the page's firmware and layout
-(`ew_map_s.c`, `ew_map_bj.c`), every row read-only in grey: its group above
-its label, MOTOR, STARTUP, BRAKE, LIMITS, SOUND, INPUT and OTHER, and the
-value as rcbench writes it, in capitals; DIRECTION's 3 and 4 read `3D` and
-`3D REVERSED`, and a value none of the field's reads `RAW 17` in amber. The
-revision bytes 0x00 to 0x02 are on the strip. A tap selects a row, for its
-note; nothing edits. `WRITE...` and `REVERT` are drawn disabled, and the
-bar under the list reads, in grey, `SHOWN ONLY: WRITING IS NOT BUILT.` /
+(`ew_map_s.c`, `ew_map_bj.c`): its group above its label, MOTOR, STARTUP,
+BRAKE, LIMITS, SOUND, INPUT and OTHER, and the value as rcbench writes it,
+in capitals; DIRECTION's 3 and 4 read `3D` and `3D REVERSED`, and a value
+none of the field's reads `RAW 17` in amber. The revision bytes 0x00 to
+0x02 are on the strip. On Bluejay 208 and BLHeli_S 33 the fields rcbench's
+map lets a write change are edited as on AM32, below: 15 on Bluejay, 12 on
+BLHeli_S. The rest, BLHeli_S' three throttle bytes, Bluejay's PWM INDICATOR
+and SAFETY ARM, are grey and shown only. On a read-only list every row is
+grey, a tap selects a row for its note, and `WRITE...` and `REVERT` are
+drawn disabled. The bar under the list reads, in grey,
+`TAP A SETTING TO EDIT`, or on a read-only list
+`SHOWN ONLY: NOTHING IS WRITTEN.`, over
 `BACK SENDS LEAVE: THE ESC STARTS.` HEX opens `ESC HEX`: the 112 or 255
 bytes, 8 to a line, in a list that scrolls; its BACK returns to the list.
 
-The strip's two amber lines, in this order: the selected row's note, why a
-list is read-only, then the 3D note, else the caption.
+The strip's two amber lines, in this order: the BACK guard's, the selected
+row's note, why a list is read-only, a half-written page's, then the 3D
+note, else the caption.
 
 | When | Lines |
 |---|---|
@@ -1582,6 +1597,78 @@ A read that opens a list with DIRECTION at 3D or 3D REVERSED sets the
 tester's 3D note, `3D MODE ESC: 0-50% REVERSED AT 2X`, and one at NORMAL
 or REVERSED clears it; a page whose marker is wrong leaves it, since its
 firmware loads its defaults at its next start.
+
+#### Writing a Bluejay or BLHeli_S page
+
+`WRITE...` opens `ESC WRITE`, as on AM32: the strip counts the changes,
+each change is its label and `old -> new` (`MEDIUM HIGH -> MEDIUM LOW` is the
+widest, 25 characters), and the backup line reads
+`BACKUP FIRST: BACKUP/BJ001.TXT`, `BACKUP: BACKUP/BJ001.TXT` once saved,
+or `NO CARD: OLD VALUES LOST ON LEAVING` in amber. Only HOLD TO WRITE,
+1000 ms, writes. First the page as first read in the session goes to the
+card, `BACKUP/BJnnn.TXT` for Bluejay or `BACKUP/BHnnn.TXT` for BLHeli_S, in
+the ring every device shares (`src/backup_ring.h`), as rcbench's ESC
+settings text (`src/efm8_backup.h`): `ESC settings backup, format 1`,
+`Firmware:`, `Layout:`, `Processor: EFM8`, `Signature: E8B2`, one line per
+field, the whole page's bytes, the tags at 0x40 to 0x6F among them, and a
+CRC-32 line. A card that refuses it stops the write,
+`NO BACKUP ON THE CARD: NOT WRITTEN`; with no card the write runs and the
+backup stays in memory, as on AM32. The BOARD voltage in its red band
+refuses the write as on AM32. Then the job runs rcbench's write: the guard
+lets only editable fields change, each to one of its values, the page is
+read again and compared with the first read, then erased, sent, programmed
+and read back; a failed step or a read-back that differs runs it again from
+the erase, 3 times at most. The guard refuses an erase or program anywhere
+but the settings page, the bootloader's area and the firmware among it.
+`WRITING: DO NOT UNPLUG.` stands meanwhile, BACK drawn disabled. The result,
+at y 196 and 208:
+
+| Result | First line | Second line |
+|---|---|---|
+| verified | `WRITE VERIFIED. BACKUP BJ018`, green | `LEAVING STARTS THE ESC WITH THEM.` |
+| the re-read failed | `READ FAILED: NOTHING ERASED.` | `TAP OK, WRITE AGAIN.` |
+| the page changed since the read | `ESC PAGE CHANGED: NOT WRITTEN.` | `TAP OK, READ AGAIN.` |
+| 3 procedures, the page read back as read | `WRITE FAILED: PAGE AS READ.` | `TAP OK, WRITE AGAIN.` |
+| the page read back as neither | `HALF WRITTEN: KEEP THE ESC POWERED.` | `TAP OK, WRITE AGAIN NOW.` |
+| no answer after the erase | `NO ANSWER IN THE WRITE: KEEP POWER.` | `TAP OK, THEN READ AGAIN.` |
+
+After a changed page or a lost answer `READ AGAIN` takes `WRITE...`'s place
+until a read succeeds; a read of a page not half written takes it as the
+page as read and keeps the edits, and a page that differs from the one
+backed up gets a backup of its own before the next write. While a page is half written the list
+edits nothing, LEAVE is refused, and the strip reads
+`HALF WRITTEN: KEEP THE ESC POWERED.` over `READ AGAIN, THEN WRITE.` or,
+once read, `WRITE AGAIN NOW. REVERT: AS READ.`: `WRITE...` writes the draft
+again, or after REVERT the page as first read, its tags included, on a page
+that reads `THE PAGE AS READ, TAGS INCLUDED.` with its hold live. BACK on a
+half-written page shows `HALF WRITTEN. BACK AGAIN LEAVES IT;` over
+`A POWER CYCLE THEN LOSES ITS TAGS.`; the second BACK aborts the session
+with no LEAVE and opens the leave page. Edits not written arm the same
+guard as on AM32. A write that ended the session, a heartbeat stop or a
+driver failure, says `THE SESSION ENDED. TAP OK TO SEARCH.`: OK greets the
+ESC again and BACK opens the leave page. A verified write with DIRECTION at
+3D or 3D REVERSED sets the tester's 3D note, one at NORMAL or REVERSED
+clears it, and a half-written page with 3D in its draft sets it.
+
+A session that ends with the page half written, by a driver failure, a
+heartbeat stop, a frame the guard refuses after the erase, a READ AGAIN cut
+that way, or the guard's second BACK, leaves a page the next session reads as
+it is: most likely empty or with lost tags, which it does not write, or, with
+marker and tags intact, as a writable page that is not the old one. The
+result's second line then reads `SESSION ENDED: RESTORE ON A COMPUTER.`, and
+with no backup on a card the backup line reads `NO BACKUP: OLD PAGE ON THIS
+SCREEN.` in amber. The session's first read is kept for the rest of the visit,
+the first such page only: `OLD PAGE` (`Am32Ctl::OldPage`) on the connect page
+opens its bytes as ESC HEX, in amber under `OLD PAGE, BEFORE THE CUT WRITE:`
+over `ON THIS SCREEN ONLY: COPY IT.` or `ALSO ON THE CARD: BACKUP BJ018`, and
+an EFM8 list's ESC HEX shows them under the page's own.
+
+Why a cut write loses the tags, and the way back, are in
+`docs/design/bluejay-blheli-s.md`: a power cut between the erase and the
+end of the program leaves the firmware to store its defaults with the tags
+0xFF at its next start; the next session reads `ESC LOST ITS TAGS:
+READ-ONLY.`, and the tags return with a firmware flash on a computer.
+Keep the ESC powered after a cut write. None of this is verified on an ESC.
 
 **BACK from the list sends LEAVE** (that note's decision 3): the frame
 `00 01`, which starts the ESC's firmware, 500 µs of idle line, 300 ms of low
@@ -1618,10 +1705,11 @@ and returns to MENU. There is no left button after LEAVE. An AM32 session in
 which no EFM8 bootloader answered has no leave page: BACK gives DShot the
 pin at once.
 
-The job (`src/escwire_job.h`) stops a running entry or read with
+The job (`src/escwire_job.h`) stops a running entry, read or write with
 `ew_session_stop()` when core0's heartbeat lapses for 250 ms, and lets a
-running LEAVE finish. A board restart while an EFM8 bootloader waits sends
-DShot into it: the bench cannot know.
+running LEAVE finish: a write that has sent its erase runs to its read-back,
+starts no other procedure, and then parks the line. A board restart while an
+EFM8 bootloader waits sends DShot into it: the bench cannot know.
 
 ### Layouts outside 2 to 4
 
@@ -3238,7 +3326,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.5%**: 13,255 of 13,459 lines in 85 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 13,720 of 13,942 lines in 86 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

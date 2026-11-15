@@ -1,11 +1,12 @@
 # Bluejay and BLHeli_S settings
 
 Status: designed; the owner answered its questions on 2026-11-15, see
-[decisions](#decisions). Slices 1 to 3 are built
+[decisions](#decisions). Slices 1 to 4 are built
 ([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built),
-[slice 3 as built](#slice-3-as-built)): slice 1's copies of rcbench's
-escwire and their tests, slice 2's detection and slice 3's read, slices 2
-and 3 tested on the host only; slices 4 to 6 wait on being built. The
+[slice 3 as built](#slice-3-as-built), [slice 4 as built](#slice-4-as-built)):
+slice 1's copies of rcbench's escwire and their tests, slice 2's
+detection, slice 3's read and slice 4's write, slices 2 to 4 tested on the
+host only; slices 5 and 6 wait on being built. The
 feature is item (6) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: Bluejay and BLHeli_S settings, rcbench's
@@ -624,10 +625,11 @@ What an interrupted write leaves, and the way back:
 | Cut | Page | ESC | Screen | Way back |
 |---|---|---|---|---|
 | Before the erase (the re-read, a failed address) | as read | in its bootloader | `READ FAILED: NOTHING ERASED.` | WRITE again |
-| The link, between erase and read-back, the ESC powered | empty or partly programmed | in its bootloader, waiting | `TORN` or `LOST`; BACK guarded | the wire back on, READ AGAIN, then WRITE: the draft, or REVERT and WRITE for the page as read. The session's RAM copy holds the tags, so the write restores them |
+| The link, between erase and read-back, the ESC powered | empty or partly programmed | in its bootloader, waiting | `TORN` or `LOST`; BACK guarded | while the session goes on: the wire back on, READ AGAIN, then WRITE: the draft, or REVERT and WRITE for the page as read. The session's RAM copy holds the tags, so the write restores them. A driver failure, a lapse or the guard's second BACK ends the session: as the lapse after the erase, below |
 | The ESC's power, between erase and program end | as above | at its next start: defaults, tags 0xFF; or, cut inside the program, the marker written and later bytes 0xFF, which the firmware reads without a range check (`Eeprom.asm` 62 to 84) and runs on, tags 0xFF | `LOST` | the next session shows `ESC LOST ITS TAGS: READ-ONLY.`; the tags return with a firmware flash for the ESC's layout on a computer, the backup's byte lines naming the layout tag (bytes 0x40 to 0x4F), or with a restore (decision 4) |
 | The bench (cell, USB cable, reset), after the erase | as above | in its bootloader while powered; DShot frames reach it after the bench restarts | none until reopened: then `SETTINGS PAGE EMPTY` or a refusal | keep the ESC powered; a restore, if built, writes the backup that went to the card before the erase; without one, a computer tool; a power cycle loses the tags |
-| A heartbeat lapse | | | none | the write runs to its read-back |
+| A heartbeat lapse, before the erase | as read | in its bootloader; the session ended, the line parked | `STOPPED BEFORE THE ERASE: AS READ.` over `THE SESSION ENDED. TAP OK TO SEARCH.` | OK greets again; the next session reads the page as it was |
+| A heartbeat lapse, after the erase | as written once the read-back proves it, else empty or partly programmed | in its bootloader; the write ran to its read-back, then the session ended, the line parked | the result over `THE SESSION ENDED. TAP OK TO SEARCH.`, or, half written, over `SESSION ENDED: RESTORE ON A COMPUTER.` | written: OK greets again, and LEAVE goes from the next session's list. Half written: a later session reads the page as it is, mostly empty or with lost tags, which rcbench writes neither of; a page whose marker and tags survived reads as writable, and a write there starts from the torn page, not the old one; keep the ESC powered and restore it on a computer, from the backup on the card or the old page on `OLD PAGE` while ESC SETTINGS stays open |
 
 The cue for the user is the same in each case: after a cut write, keep the
 ESC powered. The page says so in the result lines and the manual explains
@@ -636,10 +638,11 @@ into it whatever the screen does: the bench cannot know.
 
 ### The firmware as it is today
 
-With slice 3 built, a BLHeli_S or Bluejay ESC that enters its bootloader
+With slice 4 built, a BLHeli_S or Bluejay ESC that enters its bootloader
 while ESC SETTINGS is open and answers its greeting is read through the
-escwire job and shown as a read-only list; nothing writes it
-([slice 3 as built](#slice-3-as-built)). The answer sets MENU's run cue and
+escwire job; Bluejay 208 and BLHeli_S 33 are edited and written, the other
+pages shown read-only ([slice 4 as built](#slice-4-as-built)). The answer
+sets MENU's run cue and
 gives the claim the leave page (`pinClaimWantLeavePage()`). BACK from the
 list sends LEAVE, `00 01`, and DShot returns once it went out; every other
 BACK after the answer opens the leave page of decision 8, and DShot returns
@@ -1132,6 +1135,189 @@ a Bluejay or BLHeli_S ESC; the entry after the AM32 greeting's answer (B4),
 the floating gap between `am32BlEnd()` and the bind, LEAVE starting the
 firmware and the time to DShot after it (B11), and the connect cycle's
 entry times (B1 to B3) are the sources', not measured.
+
+### Slice 4 as built
+
+Files: `src/efm8_backup.{h,cpp}`, the backup's text and save;
+`BackupDevice::Bluejay` and `BackupDevice::BlheliS`, the prefixes `BJ` and
+`BH`, in `src/backup_ring.*`; `EwJobOp::Write`, `escwireJobWrite()` and
+the status's `dirty`, `reread`, `writing`, `refuse` and `badOff` in
+`src/escwire_job.*`; `efm8RowEditable()`, `efm8Step()`,
+`efm8CoarseFactor()`, `efm8Changes()`, `efm8WriteResult()` and the write's
+texts in `src/efm8_view.*`; the screen's states `S_EW_PAGE` and
+`S_EW_WRITING`, the editable list, READ AGAIN (`Am32Ctl::ReadAgain`), the
+guard on a half-written page, `backupFirst()`, shared with AM32's write,
+and `drawWriteTail()`, shared with AM32's page, in `src/ui_am32.*`; ESC
+CONFIG's line `BLUEJAY, BLHELI_S: READ AND WRITTEN.` in
+`src/ui_registry.cpp`. Host tests in `test/test_escwire_job.cpp` (the
+write on the simulated ESC), `test/test_efm8_view.cpp` (the editable rows,
+the steps, the results' lines, the backup's text and save),
+`test/test_backup_ring.cpp` (BJ and BH in the one ring) and
+`test/test_ui.cpp` (`testEfm8Write()`, through the screen);
+`fakeEwOnlySettingsPage()` in `test/fake_escwire_port.*` compares the
+simulated ESC's whole flash, 64 KiB, outside the settings page with its
+state before, and checks that every erase and program frame the ESC saw
+came after an address frame naming the settings page with no read between,
+and that the log held every transaction. `fakeEwReset()` fills every byte
+outside the settings page with a pattern holding no 0xFF, so an erase of
+the firmware or the bootloader changes bytes the comparison sees. The base
+address, page size and bootloader address of E8B1, E8B2 and E8B5 are
+rcbench's (`ew_id.h`, and the simulated ESC's own copy in `ew_sim.h`): the
+check holds the write to the page those constants name, and it does not
+check them against the parts. The screenshots
+`shot_efm8_edit`, `shot_efm8_write`, `shot_efm8_writing`,
+`shot_efm8_verified`, `shot_efm8_lost`, `shot_efm8_guard`,
+`shot_efm8_asread`, `shot_efm8_ended` and `shot_efm8_oldpage`.
+
+Texts, at scale 1 unless named, (6n − 1) px for n characters; the note's
+own are under [the list, the editor and the write page](#the-list-the-editor-and-the-write-page)
+and [what each page shows](#what-each-page-shows), and
+`test/test_efm8_view.cpp` holds each to its width:
+
+| Where | Text | Width |
+|---|---|---|
+| The editable list's bar, first line, `C_GRID` | `TAP A SETTING TO EDIT` | 21, 125 px |
+| A read-only list's bar, first line | `SHOWN ONLY: NOTHING IS WRITTEN.` | 31, 185 px |
+| The strip of a half-written list, under `HALF WRITTEN: KEEP THE ESC POWERED.` | `READ AGAIN, THEN WRITE.`; once read, `WRITE AGAIN NOW. REVERT: AS READ.` | 23, 137 px; 33, 197 px |
+| A heartbeat stop before the erase | `STOPPED BEFORE THE ERASE: AS READ.` | 34, 203 px |
+| The line driver failed before the erase | `LINE DRIVER FAILED: NOTHING ERASED.` | 35, 209 px |
+| A draft the session or the screen refuses | `NOT WRITTEN: REFUSED, NOTHING SENT.` | 35, 209 px |
+| Under a write that ended the session | `THE SESSION ENDED. TAP OK TO SEARCH.` | 36, 215 px |
+| ...with the page half written | `SESSION ENDED: RESTORE ON A COMPUTER.` | 37, 221 px |
+| ESC WRITE's backup line then, no backup on a card, amber | `NO BACKUP: OLD PAGE ON THIS SCREEN.` | 35, 209 px |
+| The connect page's button, scale 1 | `OLD PAGE` | 8, 47 px |
+| The old page's ESC HEX, strip, amber, and the heading in a list's dump | `OLD PAGE, BEFORE THE CUT WRITE:` over `ON THIS SCREEN ONLY: COPY IT.` or `ALSO ON THE CARD: BACKUP BJ018` | 31, 185 px; 29, 173 px; 30, 179 px |
+| A read-only list's second line, USB holding the card | `SHOWN ONLY. USB DRIVE: NO BACKUP.`; lost tags `REFLASH ON A COMPUTER. USB DRIVE.` | 33, 197 px each |
+| Chooser, ESC SETTINGS' second line | `BLUEJAY, BLHELI_S: READ AND WRITTEN.` | 36, 215 px |
+
+Choices the note left open, the developer's:
+
+- **The backup.** The page as first read in an escwire session, with the
+  contact and identification it was read under, is the session's backup;
+  a later session after the cycle greets again has its own. It is saved as
+  AM32's is, in `backupFirst()`, on core0 with the flush waited for: the
+  EFM8 bootloader waits for its next command with no timeout, and the job
+  is idle in mode, so a heartbeat lapse during the flush stops nothing; the
+  screen feeds the heartbeat before it sends Write. A Write the job refuses
+  for a lapse is asked again. The card-swap check is AM32's. A read-only
+  list saves its backup as it opens, as AM32's read-only view does.
+- **The job's write.** `escwireJobWrite()` copies the draft into the
+  command block; core1 copies it into its own buffer when it takes the
+  command and calls `ew_session_write()`, which judges and copies it. The
+  status is published when the session's `writing` or `dirty` changes, so
+  core0 sees a half-written page from the erase on. The lapse and the
+  release call `ew_session_stop()` for a write as for a read: rcbench's
+  stop cuts a write before its first erase or program at once and lets one
+  after it run to its read-back.
+- **Editing.** A row edits where rcbench's map has it `EW_ACC_EDIT` on a
+  written layout; the rest are drawn `ReadOnly`. A step goes to the next of
+  the field's values, `alt` among them; a value none of the field's steps
+  to the nearest value in that direction. A coarse step is the range over
+  11, rounded up, as on AM32: 24 for 0 to 255. A value wider than the
+  editor bar's 140 px at scale 2, `2S AND ABOVE`, is drawn at scale 1 there,
+  on AM32's bar too.
+- **A half-written page.** The list edits nothing; REVERT stays, so that
+  `WRITE...` writes the page as first read; `WRITE...` writes the draft sent
+  last or the page as read, as the session takes, once a read came. The
+  strip names the state under the row's note and the read-only lines.
+- **READ AGAIN.** It reads in the list, BACK drawn disabled meanwhile. A
+  page not half written read again is the page as read from then on, and
+  the edits go onto it field by field, so a changed page keeps the user's
+  changes; a half-written page keeps the page as first read, which the
+  session does too. A read that fails keeps READ AGAIN.
+- **A session that ended in a write.** A heartbeat stop, a driver failure
+  or a frame the guard refuses after the erase leave the session ended:
+  the result's second line says `THE SESSION ENDED. TAP OK TO SEARCH.`, OK
+  greets the ESC again as after a session that stopped
+  ([slice 3 as built](#slice-3-as-built)), and BACK opens the leave page. A
+  half-written page is then read by the next session as what it is, most
+  likely empty or with lost tags, which rcbench writes neither of; a page
+  whose marker and tags survived reads as writable, and its first read is
+  the torn page. Either way the RAM copy of the old page went with the
+  session. So the second line reads
+  `SESSION ENDED: RESTORE ON A COMPUTER.` instead, and the screen keeps the
+  session's first read, the page the backup holds, for the rest of the
+  visit (`ewKeepOldPage()`, by the review of pull request 102): `OLD PAGE`
+  on the connect page opens its bytes as ESC HEX, and a later EFM8 list's
+  ESC HEX shows them under its own, so that they can be copied by hand.
+  Without a backup on a card ESC WRITE's backup line says the page is on
+  the screen only. A READ AGAIN that ends the session on a half-written
+  page, and the guard's second BACK, keep it the same way. Only the first
+  page kept stays: a later session that ends half written, on a torn page
+  it read as writable, does not replace it (by the re-review of pull
+  request 102).
+- **The guard's second BACK** sends Stop, which aborts the idle session and
+  parks the line with no LEAVE, and opens the leave page with STAY
+  returning to the connect page, which greets again.
+- **The tester's 3D note.** A verified write sets it from the page written;
+  a half-written page with DIRECTION at 3D in the draft sets it, as AM32's
+  write sets it once the ESC accepted the block.
+- **The AM32 path.** An AM32 read after an EFM8 session in the same visit
+  starts with no backup saved, as a new device.
+- **READ AGAIN's page.** READ AGAIN takes the session's identification and
+  rebuilds the rows. A page read again that is not half written and differs
+  from the page the backup holds becomes the backup's page: the next write
+  saves a backup of it first, under the next number.
+- **The BOARD voltage after the backup.** The write asks it again after the
+  backup's flush, as KST does. The flush runs on the spot and `ui.cpp`
+  judges the board's cell once a frame, so today the second check sees what
+  the first saw; it holds for a flush that one day spans frames.
+- **Read-only backups.** A USB host holding the card has its own lines. A
+  list opened again on a page whose text is the ring's latest backup, of the
+  same device, saves no second copy and names that backup
+  ([backups.md](backups.md#what-the-ring-holds)).
+
+Mutations, each applied to a copy of the tree, the suite built and run: 78, 69
+failing the suite, 57 before the review of pull request 102 and 21 for its
+fixes, with the 10 earlier ones whose code changed run again, all failing
+again. Nine pass. Six are equivalent: Write taken outside InMode without the
+job's own check, which `ew_session_write()` refuses the same way; `WRITE...`
+live on a read-only list without its layout check, where no row edits, so
+there is never a change to write; LEAVE asked again on a half-written page,
+which the guard keeps from ever sending LEAVE; the write's refusal of a page
+other than ESC WRITE showed, which no path reaches, as on AM32; READ AGAIN
+copying the session's identification and rows, which a read does not change;
+and the backup's check that the ring's latest number is the same device's,
+whose file name, with its prefix, exists only then. Three are backstops the
+suite cannot see: the screen's own `ew_image_check()` before Write, whose
+drafts the session's guard refuses alike (the job's tests hold the guard to
+each refusal); the clamp of a draft longer than 256 bytes in
+`escwireJobWrite()`, which no caller sends and which would only overrun
+memory; and the BOARD check after the backup's flush, which sees the cell the
+check before it saw. The others fail the suite: the draft not copied to core1
+or its length lost, the erase not published, a lapse or the release aborting,
+`dirty` or `reread` not reported; rows editable on read-only pages or
+shown-only fields editable, a step to any byte, the coarse factor rounded
+down, CHANGED or LOST needing no read, an ended session not said or a
+half-written one said as any, a stopped half-written page called stopped, the
+backup name cut, the no-card lines swapped or a USB host's taken for them,
+changes counted wrong; Bluejay saved as BH, a capture failure ignored, the
+next name taken as the latest, BJ and BH swapped in the ring, a copy equal to
+the latest saved again or one differing not saved; `WRITE...` dead on a
+half-written page, edits on it, the page as read not writable, no BOARD
+refusal, a write with no backup or after a failed one, the verified page not
+taken, the 3D note not set by a write or by a half-written draft, a Write
+refused for a lapse not asked again, no guard on a half-written page, its
+second BACK not aborting or sending LEAVE, BACK live while writing, edits
+dropped or an ended session kept by READ AGAIN, a failed READ AGAIN taken as a
+read, a page read again getting no backup, OK after an ended session going to
+the list, the old page not kept by an ended write, an ended READ AGAIN or the
+guard's abort, replaced by a later session's, kept across visits, not offered
+on the session's page, not under a list's dump or without its backup's name,
+the screen-only backup line missing, the read-only backup not saved, the
+backup state kept into a second session or into an AM32 answer after it, the
+as-read line missing, the half-written strip's lines swapped, REVERT or a
+swipe doing nothing, shown rows drawn editable, the backup line naming AM, the
+sent draft not kept, a wide value at scale 2; in the fake, no pattern outside
+the page, a read keeping the address, an overflowed log passing. The script
+and its list are kept with the build's scratch files, outside the repository.
+
+Not verified: everything on an ESC. No write of this slice has reached a
+Bluejay or BLHeli_S ESC: the erase, program and read-back are rcbench's
+simulated ESC's, the window in which a power cut loses the tags is not
+measured, and what an ESC does on LEAVE after a write, and whether it runs
+on the page written, is B6 and B11. The card's flush on core0 before the
+write is not timed on the board.
 
 ## Decisions
 

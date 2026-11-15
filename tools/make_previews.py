@@ -109,6 +109,15 @@ PREVIEWS = {
         "shot_efm8_readonly",
         "shot_efm8_empty",
     ],
+    # Writing a Bluejay page: an edit in the editor bar, ESC WRITE before the
+    # hold with its backup line, the verified result, and the answer lost
+    # after the erase.
+    "efm8-write-preview": [
+        "shot_efm8_edit",
+        "shot_efm8_write",
+        "shot_efm8_verified",
+        "shot_efm8_lost",
+    ],
     # The servo tester: SAFE before START, one servo driven by the horn, two
     # servos with REVERSE B, and SET holding a heli profile behind its
     # warning.

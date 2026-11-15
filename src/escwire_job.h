@@ -17,8 +17,8 @@
  * | State | The line | Leaves it |
  * |---|---|---|
  * | Opening | driven high from the bind (`ew_session_hold()`) | Enter: Busy |
- * | Busy | the entry, a read or the leave | its end: InMode, or Ended |
- * | InMode | on the pull-up; the ESC waits in its bootloader | Read, Leave: Busy |
+ * | Busy | the entry, a read, a write or the leave | its end: InMode, or Ended |
+ * | InMode | on the pull-up; the ESC waits in its bootloader | Read, Write, Leave: Busy |
  * | Ended | parked: the entry failed, a stop cut the session, or the leave ran | the release |
  * | Closed | an input with its pull-up (escwirePortClose()) | the release |
  *
@@ -30,15 +30,24 @@
  * floating, is the one core1 pass before the bind (decision of the note's
  * "The escwire session"). Enter holds the line 500 ms more, the shortest
  * hold rcbench takes, then makes the first contact and identifies the page.
- * Read reads the whole page. Leave sends `00 01`, which starts the ESC's
- * firmware, idles 500 us, drives the line low 300 ms and parks it. Nothing
- * here writes an ESC's settings: there is no write command.
+ * Read reads the whole page. Write is rcbench's write of a draft
+ * (`ew_session_write()`): the guard judges it, the page is read again and
+ * compared with the first read, then erased, sent and programmed, and read
+ * back; a failed step or a read-back that differs runs the procedure again
+ * from the erase, 3 times at most. Only the settings page is erased or
+ * programmed: rcbench's guard refuses any other address, the bootloader's
+ * among them, and a layout that is not written. Leave sends `00 01`, which
+ * starts the ESC's firmware, idles 500 us, drives the line low 300 ms and
+ * parks it.
  *
  * Heartbeat (core1UiAlive()): with it lapsed no operation starts, and a
- * running entry or read is stopped with `ew_session_stop()`, never
- * `ew_session_abort()`; a stop outside a write cuts at once and parks the
- * line. A running leave finishes: its frame has gone, and the rest is
- * 300 ms of low line. The release does the same, then closes the line.
+ * running entry, read or write is stopped with `ew_session_stop()`, never
+ * `ew_session_abort()`. A stop outside a write's erase and program cuts at
+ * once and parks the line; a write that has sent its erase or program runs
+ * to its read-back, starts no other procedure, and then parks the line
+ * (docs/design/bluejay-blheli-s.md, "The escwire session"). A running leave
+ * finishes: its frame has gone, and the rest is 300 ms of low line. The
+ * release does the same, then closes the line.
  */
 
 #pragma once
@@ -53,13 +62,14 @@ enum class EwJobOp : uint8_t {
 	Enter,  /**< The hold, the first contact and the identification: from Opening. */
 	Read,   /**< The whole page: from InMode. */
 	Leave,  /**< `00 01`, then the line low and parked: from InMode. */
-	Stop,   /**< `ew_session_stop()`: a running entry or read is cut; any state. */
+	Stop,   /**< `ew_session_stop()`: a running entry or read is cut, a write runs to its read-back; any state. */
+	Write,  /**< The draft escwireJobWrite() holds: from InMode. */
 };
 
 /** @brief Where the job is. @see the table in escwire_job.h */
 enum class EwJobState : uint8_t {
 	Opening,  /**< Bound, the line driven high, nothing started. */
-	Busy,     /**< The entry, a read or the leave runs. */
+	Busy,     /**< The entry, a read, a write or the leave runs. */
 	InMode,   /**< The ESC answered and waits; no operation runs. */
 	Ended,    /**< The session ended: no ESC in mode on this session. */
 	Closed,   /**< The line is closed. */
@@ -84,9 +94,19 @@ struct EwJobStatus {
 	bool         haveRead;   /**< A read of the whole page succeeded. */
 	bool         stalled;    /**< A heartbeat lapse stopped an operation. */
 	bool         left;       /**< The leave ran to its end: `00 01` went out. */
+	bool         dirty;      /**< An erase or program went and no read-back proved the page: half written. */
+	bool         reread;     /**< Half written, and a read came since: a write may follow. */
+	bool         writing;    /**< The running write has sent its erase or program. */
+	uint8_t      refuse;     /**< The guard's last refusal, an `ew_refuse_t`. */
+	uint16_t     badOff;     /**< The byte the guard refused. */
 	ew_contact_t contact;    /**< The first contact's answer. */
 	ew_ident_t   id;         /**< What identification found. */
-	uint8_t      page[EW_PAGE_MAX];  /**< The page as read: `id.len` bytes, the first 112 after the entry alone. */
+	/**
+	 * The page as read: `id.len` bytes, the first 112 after the entry alone.
+	 * A verified write makes it the page written; while the page is half
+	 * written it stays the page as first read.
+	 */
+	uint8_t      page[EW_PAGE_MAX];
 };
 
 /**
@@ -94,12 +114,23 @@ struct EwJobStatus {
  *
  * One command is held at a time, and a new one replaces a command core1 has
  * not taken yet, except that a Stop not yet taken stays and the later
- * command is dropped.
+ * command is dropped. Write goes through escwireJobWrite(), which holds the
+ * draft with it; Write sent here writes the draft held last.
  * @param op What to do.
  * @return The seq the held command carries; compare with
  *         @ref EwJobStatus::ackSeq.
  */
 uint16_t escwireJobCommand(EwJobOp op);
+
+/**
+ * @brief Send Write with @p n bytes of @p draft, copied. Core0. The draft
+ *        replaces any held earlier, as escwireJobCommand() does.
+ * @param draft The page to write, `id.len` bytes.
+ * @param n     Its length; more than `EW_PAGE_MAX` is cut to it, and the
+ *              session refuses a length other than the page's.
+ * @return The seq the held command carries.
+ */
+uint16_t escwireJobWrite(const uint8_t *draft, uint16_t n);
 
 /** @brief Copy the last status core1 published. Core0. */
 void escwireJobStatus(EwJobStatus *out);

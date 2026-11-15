@@ -13,6 +13,8 @@ names, what the ring holds and the write cache's scope; the SD write cache of
 | KST SERVO | KST and Chaservo servos | the image read at entry, rcbench's text format ([kst-programming.md](kst-programming.md#storage)) | `KST` |
 | AM32 CONFIG | AM32 ESCs (electronic speed controllers) | the settings block read at entry, as text (`src/am32_backup.*`) | `AM` |
 | Hitec | Hitec servos | the first full read after the entry, rcbench's servo file text, saved by `hitecFilesFirstWrite()` (`src/hitec_files.h`, [hitec-programming.md](hitec-programming.md#storage)) | `HT` |
+| ESC SETTINGS | Bluejay ESCs | the settings page as first read in the escwire session, rcbench's ESC settings text (`src/efm8_backup.h`, [bluejay-blheli-s.md](bluejay-blheli-s.md#slice-4-as-built)) | `BJ` |
+| ESC SETTINGS | BLHeli_S ESCs | as Bluejay's | `BH` |
 
 ## Card layout
 
@@ -97,7 +99,15 @@ Automatic backups only: one per session, before the session's first write.
   into the ring as a Hitec backup, under the next number, before the
   session's first write, and the session's backup takes the number after
   it. A Hitec ring entry holds a servo file or such a record; both load.
-- AM32 has no record and no LOAD.
+- AM32, Bluejay and BLHeli_S have no record and no LOAD.
+- Bluejay and BLHeli_S save a backup before a session's first write and,
+  for a page that is only shown (an older layout, lost tags, a wrong
+  marker), as its list opens. That second kind skips the save when the
+  ring's latest backup is the same device's and holds the same text byte
+  for byte (`efm8BackupSave()` with `skipSame`), so a list opened again and
+  again on one ESC does not push older backups, a write's among them, out
+  of the 50 numbers. Only the latest backup is compared: the same page
+  after another device's backup is saved again.
 
 ## AM32 backup
 
@@ -173,6 +183,10 @@ DShot pump stops, so the log has nothing to record.
 - `test_kst_ui.cpp`: the backup line, a backup row on FILES and its LOAD,
   SAVE AS refused at 50 files.
 - `test_am32.cpp`: the AM32 backup's text and its checksum.
+- `test_efm8_view.cpp`: the Bluejay and BLHeli_S backup's text, read back by
+  rcbench's parser, and its save as `BJ001.TXT`; `test_backup_ring.cpp`: BJ
+  and BH in the one ring; `test_ui.cpp`: the backup before the first EFM8
+  write and the read-only lists' backups.
 - `test_ui.cpp`: the AM32 backup through the screen, a card that refuses it,
   no second backup in a session.
 

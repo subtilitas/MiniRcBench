@@ -3,9 +3,9 @@
 # AM32-Konfiguration
 
 Dieser Bildschirm liest, ändert und schreibt die Einstellungen eines AM32-ESC
-(Electronic Speed Controller, Motorregler) über das Signalkabel, und er liest
-und zeigt die eines Bluejay- oder BLHeli_S-ESC. Er braucht keinen Laptop und
-keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
+(Electronic Speed Controller, Motorregler) und eines Bluejay- oder
+BLHeli_S-ESC über das Signalkabel. Er braucht keinen Laptop und keinen
+Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 <img src="img/am32-list.png" width="240" alt="AM32-Einstellungsliste">
 
@@ -25,8 +25,8 @@ keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 läuft weiter, bis du `ESC SETTINGS` antippst. `USB BRIDGE` ist grau
 gezeichnet, darunter `NOT BUILT` (nicht gebaut), und tut nichts. `BACK`
 führt zu MENU zurück. Der Bildschirm heißt für jede ESC-Firmware
-`ESC SETTINGS`; er liest und schreibt AM32 und liest Bluejay und
-BLHeli_S, ohne sie zu schreiben: siehe [EFM8-ESCs](#efm8-escs).
+`ESC SETTINGS`; er liest und schreibt AM32, Bluejay und BLHeli_S: zu den
+letzten beiden siehe [EFM8-ESCs](#efm8-escs).
 
 Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
 Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
@@ -113,15 +113,15 @@ BLHeli_S-ESCs ein gültiger Gruß, also kann ein solcher ESC antworten. Der
 Bildschirm unterscheidet die Antwort von einer AM32-Antwort: `471` mit 0xE8
 vier Bytes danach nennt den EFM8-Chip eines Bluejay- oder BLHeli_S-ESC
 (`E8B1`, `E8B2` oder `E8B5`). Der Tester liest dann die Einstellungen dieses
-ESC und zeigt sie; er ändert sie nicht. Laut dem Quelltext der Bootloader;
-an keinem ESC gesehen.
+ESC, und bei Bluejay 0.21 und BLHeli_S 16.3 bis 16.7 kannst du sie ändern
+und schreiben. Laut dem Quelltext der Bootloader; an keinem ESC gesehen.
 
 Die Seite zeigt `EFM8 E8B2 ANSWERED: READING.` (geantwortet, wird gelesen)
 und statt `POWER-CYCLE THE ESC` die Zeile `EFM8 BOOTLOADER`: Der ESC wartet
 in seinem Bootloader auf Befehle, und seine Firmware läuft nicht, bis er ihn
 verlässt. Der Tester hält die Signalleitung eine halbe Sekunde hoch, grüßt
 den Bootloader erneut und liest seine Einstellungsseite, 112 Bytes bei
-BLHeli_S und 255 bei Bluejay. Nichts wird gelöscht oder geschrieben. Mit
+BLHeli_S und 255 bei Bluejay. Das Lesen löscht und schreibt nichts. Mit
 rcbenchs simuliertem ESC dauert das unter einer Sekunde; an keinem ESC
 gemessen.
 
@@ -129,16 +129,18 @@ gemessen.
 
 Dann öffnet sich die Liste. Der Streifen nennt die Firmware, ihre Version,
 das Einstellungslayout und den Chip, zum Beispiel
-`BLUEJAY 0.21  LAYOUT 208  E8B2`. Jede Zeile ist grau: angezeigt, nicht
-änderbar. Namen und Werte sind die aus rcbenchs Tabellen, in Großbuchstaben;
-die bidirektionalen Einstellungen von DIRECTION heißen `3D` und
-`3D REVERSED`. Ein Wert, der keiner der Einstellung ist, steht zum Beispiel
-als `RAW 17` in Bernstein. `WRITE...` und `REVERT` sind grau, und unter der
-Liste steht `SHOWN ONLY: WRITING IS NOT BUILT.` (nur angezeigt, Schreiben
-ist nicht gebaut) / `BACK SENDS LEAVE: THE ESC STARTS.` (BACK sendet LEAVE,
+`BLUEJAY 0.21  LAYOUT 208  E8B2`. Namen und Werte sind die aus rcbenchs
+Tabellen, in Großbuchstaben; die bidirektionalen Einstellungen von
+DIRECTION heißen `3D` und `3D REVERSED`. Ein Wert, der keiner der
+Einstellung ist, steht zum Beispiel als `RAW 17` in Bernstein. Bei Bluejay
+0.21 und BLHeli_S 16.3 bis 16.7 änderst du die Einstellungen wie bei AM32,
+siehe unten: 15 bei Bluejay, 12 bei BLHeli_S. Graue Zeilen werden nur
+angezeigt: die Gasgrenzen von BLHeli_S, PWM INDICATOR und SAFETY ARM von
+Bluejay. Unter der Liste steht `TAP A SETTING TO EDIT` (Einstellung zum
+Ändern antippen) / `BACK SENDS LEAVE: THE ESC STARTS.` (BACK sendet LEAVE,
 der ESC startet).
 
-<img src="img/efm8-list.png" width="240" alt="Die Einstellungen eines Bluejay-0.21-ESC, jede Zeile grau, WRITE... und REVERT grau">
+<img src="img/efm8-list.png" width="240" alt="Die Einstellungen eines Bluejay-0.21-ESC, die änderbaren Zeilen weiß, WRITE... und REVERT grau bis zu einer Änderung">
 
 Tipp eine Zeile an, um sie zu wählen. Manche Zeilen haben einen Hinweis,
 zwei Zeilen in Bernstein im Streifen:
@@ -161,15 +163,92 @@ gewählte Zeile im Streifen und setzt im Tester
 <img src="img/efm8-hex.png" width="240" alt="ESC HEX: die Bytes der Bluejay-Seite, 8 pro Zeile">
 
 Eine ältere Version und eine Seite, die die Firmware neu geschrieben hat,
-erscheinen genauso, mit zwei Zeilen in Bernstein im Streifen:
+öffnen sich nur lesbar: jede Zeile grau, `WRITE...` grau, unter der Liste
+`SHOWN ONLY: NOTHING IS WRITTEN.` (nur angezeigt, nichts wird geschrieben)
+und zwei Zeilen in Bernstein im Streifen. Mit eingesteckter Karte gehen
+die Einstellungen beim Öffnen der Liste auf die Karte, als
+`BACKUP/BJnnn.TXT` bei Bluejay oder `BACKUP/BHnnn.TXT` bei BLHeli_S:
 
 | Seite | Streifen |
 |---|---|
-| Bluejay vor 0.21, BLHeli_S vor 16.3 | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
-| Der ESC hat seine Tags verloren, die 48 Bytes, die seine Hardware nennen | `ESC LOST ITS TAGS: READ-ONLY.` / `REFLASH ON A COMPUTER. NO BACKUP.` |
-| Die Einstellungsmarke ist falsch | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
+| Bluejay vor 0.21, BLHeli_S vor 16.3 | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` / `SHOWN ONLY. BACKUP BJ018` |
+| Der ESC hat seine Tags verloren, die 48 Bytes, die seine Hardware nennen | `ESC LOST ITS TAGS: READ-ONLY.` / `REFLASH ON A COMPUTER. BACKUP BH018` |
+| Die Einstellungsmarke ist falsch | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. BACKUP BJ018` |
+
+Ohne Karte lautet die zweite Zeile `SHOWN ONLY. NO CARD: NO BACKUP.`
+(`REFLASH ON A COMPUTER. NO CARD.` bei verlorenen Tags), solange USB
+DRIVE die Karte hält `SHOWN ONLY. USB DRIVE: NO BACKUP.` (`REFLASH ON A
+COMPUTER. USB DRIVE.`), und mit einer Karte, die die Datei ablehnt,
+`... BACKUP FAILED.` Dieselbe Seite, erneut geöffnet, speichert keine
+zweite Kopie, solange ihre Sicherung die neueste auf der Karte ist.
 
 <img src="img/efm8-readonly.png" width="240" alt="Bluejay 0.19: BLUEJAY 0.19, LAYOUT 206: READ-ONLY. in Bernstein">
+
+**Schreiben.** Ändere wie bei AM32: Zeile antippen, dann `-` und `+`, oder
+die Zeile seitwärts wischen. `WRITE...` öffnet `ESC WRITE` mit jeder
+Änderung und der Sicherung, die zuerst gespeichert wird, zum Beispiel
+`BACKUP FIRST: BACKUP/BJ001.TXT`. Halte `HOLD TO WRITE` 1 s lang. Der
+Tester speichert die Einstellungen, wie er sie zuerst gelesen hat, auf die
+Karte, mit den Tags, die die Hardware des ESC nennen, schreibt dann die
+Änderungen, liest die Seite zurück und vergleicht sie. Nur die
+Einstellungsseite wird geschrieben; Firmware und Bootloader des ESC werden
+nie gelöscht. Eine Karte, die die Sicherung ablehnt, stoppt das Schreiben;
+ohne Karte läuft es, und die alten Werte gehen beim Verlassen des
+Bildschirms verloren, wie die Seite in Bernstein sagt.
+
+<img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH von 40 auf 88 geändert, türkis, in der Bearbeitungsleiste"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 Änderungen und BACKUP FIRST: BACKUP/BJ001.TXT">
+
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in Bernstein, BACK und OK grau"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in Grün, LEAVING STARTS THE ESC WITH THEM.">
+
+| Ergebnis | Bedeutung und nächster Schritt |
+|---|---|
+| `WRITE VERIFIED. BACKUP BJ018` / `LEAVING STARTS THE ESC WITH THEM.` | Zurückgelesen und gleich. `BACK` aus der Liste sendet LEAVE, und der ESC startet mit den neuen Einstellungen |
+| `READ FAILED: NOTHING ERASED.` | Das Lesen vor dem Löschen ist gescheitert. OK antippen und erneut schreiben |
+| `ESC PAGE CHANGED: NOT WRITTEN.` | Die Seite im ESC weicht vom Gelesenen ab. OK antippen, dann `READ AGAIN` |
+| `WRITE FAILED: PAGE AS READ.` | Drei Versuche haben nicht gegriffen; der ESC hat seine alten Einstellungen. Erneut schreiben |
+| `HALF WRITTEN: KEEP THE ESC POWERED.` | Die Seite ist weder die alte noch die neue. Sofort erneut schreiben |
+| `NO ANSWER IN THE WRITE: KEEP POWER.` | Der ESC hat nach dem Löschen seiner Seite nicht mehr geantwortet. Eingeschaltet lassen, Kabel prüfen, `READ AGAIN`, dann schreiben |
+
+**Nach einem abgebrochenen Schreiben den ESC eingeschaltet lassen.** Seine
+Seite kann gelöscht oder halb geschrieben sein. Solange er Strom hat,
+wartet er in seinem Bootloader, und der Tester hält die Seite noch wie
+gelesen, mit den Tags: `READ AGAIN`, dann schreibt `WRITE...` deine
+Änderungen oder, nach `REVERT`, die Seite wie gelesen
+(`THE PAGE AS READ, TAGS INCLUDED.`). Ein Aus- und Einschalten vorher lässt
+den ESC seine Standardwerte speichern und die Tags endgültig verlieren: Die
+nächste Sitzung zeigt `ESC LOST ITS TAGS: READ-ONLY.`, und nur ein
+Firmware-Flash für diesen ESC am Computer bringt sie zurück. Die
+Sicherungsdatei auf der Karte enthält sie. Solange eine Seite halb
+geschrieben ist, warnt `BACK` zuerst,
+`HALF WRITTEN. BACK AGAIN LEAVES IT;` / `A POWER CYCLE THEN LOSES ITS TAGS.`
+(halb geschrieben; ein zweites BACK lässt sie so, ein Aus- und Einschalten
+verliert dann die Tags); ein zweites `BACK` öffnet die Verlassenseite, und
+kein LEAVE wird gesendet.
+
+Dieser Weg zurück gilt nur, solange die Sitzung weiterläuft. Endet sie
+mit halb geschriebener Seite, durch einen ausgefallenen Leitungstreiber,
+einen Herzschlag-Stopp oder das zweite `BACK`, zeigt das Ergebnis
+`SESSION ENDED: RESTORE ON A COMPUTER.` (Sitzung beendet, am Computer
+wiederherstellen): Die nächste Sitzung liest die Seite, wie sie ist,
+meist leer oder mit verlorenen Tags, was sie nicht schreibt, oder als
+beschädigte Seite, die nur ganz aussieht, und der Tester kann die alte
+nicht wiederherstellen. ESC eingeschaltet lassen und am Computer
+wiederherstellen. Die alte Seite, wie die Sitzung sie zuerst gelesen hat,
+steht in der Sicherung auf der Karte, `ALSO ON THE CARD: BACKUP BJ018`;
+ohne Karte zeigt die Sicherungszeile `NO BACKUP: OLD PAGE ON THIS SCREEN.`
+(keine Sicherung, alte Seite nur auf diesem Bildschirm). Bis du ESC
+SETTINGS verlässt, zeigt `OLD PAGE` auf der Verbindungsseite ihre Bytes,
+ebenso ESC HEX einer späteren Liste unter deren eigenen: Schreib sie vor
+dem Verlassen ab.
+
+<img src="img/efm8-ended.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. SESSION ENDED: RESTORE ON A COMPUTER. NO BACKUP: OLD PAGE ON THIS SCREEN."> <img src="img/efm8-oldpage.png" width="240" alt="ESC HEX der alten Seite in Bernstein: OLD PAGE, BEFORE THE CUT WRITE: ON THIS SCREEN ONLY: COPY IT.">
+
+<img src="img/efm8-lost.png" width="240" alt="NO ANSWER IN THE WRITE: KEEP POWER. TAP OK, THEN READ AGAIN."> <img src="img/efm8-guard.png" width="240" alt="HALF WRITTEN. BACK AGAIN LEAVES IT; A POWER CYCLE THEN LOSES ITS TAGS. im Streifen, READ AGAIN">
+
+<img src="img/efm8-asread.png" width="240" alt="ESC WRITE mit 0 CHANGES: THE PAGE AS READ, TAGS INCLUDED. und HOLD TO WRITE">
+
+Nichts davon ist an einem ESC geprüft: Das Schreiben lief bisher nur gegen
+rcbenchs simulierten ESC.
 
 Eine Seite, die der Tester nicht annimmt, bleibt auf der Verbindungsseite,
 mit dem, was sie ist: `EFM8 E8B2: SETTINGS PAGE EMPTY` mit
