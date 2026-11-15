@@ -1023,7 +1023,16 @@ stays on; MENU's run cue stands from the claim's begin
    start with 0x00. The greeting, twelve 0x00 bytes first, is no RUN either: a
    frame whose last 9 bytes are 0x0D, `BLHeli` and two more is `INIT`. The
    unfinished write decides the note `FLASH THE ESC AGAIN BEFORE USE.` only, and
-   BACK's 3000 ms wait follows the write-class frame.
+   BACK's 3000 ms wait follows the write-class frame. It lasts through the
+   close, the leave page and BRIDGE's reopen, which leave the ESC's flash as
+   cut as it was, so every later BACK of the claim gives the note until a RUN.
+   RESTART DSHOT clears it with MENU's run cue
+   (`usbBridgeWriteUnfinishedClear()`, called by `src/ui_bridge.cpp`) and ends
+   the claim, and the next entry starts with none: the page that ended the
+   claim gave the note, and the board cannot tell whether the ESC on SIG is
+   the same one, nor whether it was flashed since. Nothing else clears it; a
+   claim with a write in it ends through the screen only at RESTART DSHOT, as
+   a claim that has had the page keeps it until it is Free.
 6. **The closed line**, `THE PC CLOSED THE PORT.`, shows after DTR falls
    with a byte forwarded either way since the open, and goes with the PC's
    next byte.
@@ -1072,7 +1081,7 @@ stays on; MENU's run cue stands from the claim's begin
     sets nothing; turning it on drops a line begun before. The suite links
     the real `usb_dev.cpp` against the CDC fake for this.
 
-**Tests.** `runUsbBridgeTests`, 170 checks in 21 sections, on the CDC fake, the
+**Tests.** `runUsbBridgeTests`, 177 checks in 21 sections, on the CDC fake, the
 line fake and the claim: the naming; DshotDisplay's sections, a frame reaching
 the wire whole, the reply's offsets from the end, an unacknowledged SET BUFFER
 that does not stall, a late reply during a repaint, a whole late reply in the
@@ -1086,8 +1095,10 @@ first, 1999 ms and 2000 ms idle, an ESC answer and a frame waiting for the slot
 keeping the session, a later `$`, DTR falling only after it was set, a tool that
 never sets it; a port close while gathering; the write rules, 2999 ms and
 3000 ms, the answer, ERASE, the payload, RUN, the greeting, a port close after a
-write; BACK with the PC still connected, nothing read and nothing new sent; the
-console through the leave page and BRIDGE; a refused bind and another screen's
+write, a claim's end with no RESTART DSHOT keeping the unfinished write; BACK
+with the PC still connected, nothing read and nothing new sent; the console
+through the leave page and BRIDGE, the unfinished write kept through BRIDGE and
+cleared at RESTART DSHOT; a refused bind and another screen's
 claim; a collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC;
 the run cue from the claim's begin and the open, kept through a RUN and the
 close, cleared by an eRPM frame at the millisecond and by RESTART DSHOT, and
@@ -1096,10 +1107,12 @@ text held at the open; a `CLOCK` line through the real `usbDevTask()`, setting
 the clock with the console on the port and going to the wire as data, setting
 nothing, with the bridge on it. No frame is handed to the wire while the claim
 is not Running for the bridge, and DShot is never up with the line open, checked
-on every pass of every section. `runBridgeUiTests`, 139 checks in 6 sections:
+on every pass of every section. `runBridgeUiTests`, 147 checks in 6 sections:
 the entry, the screen's every line and width at rest, Stopping, PORT OPEN and
 CLOSED, the counts and their 250 ms, the closed line, a write with BACK
-disabled, the leave page and its steps, BRIDGE and RESTART DSHOT, BACK while
+disabled, the leave page and its steps, BRIDGE and RESTART DSHOT, the FLASH
+note again at the BACK after BRIDGE, gone at the BACK after BRIDGE and a RUN,
+and absent after RESTART DSHOT and a fresh entry, BACK while
 Stopping, after a failed bind and with no claim, RETRY, USB DRIVE, another
 claim, LOST, SIG on GP1, the leave page at BACK with no traffic at all, between
 an INIT's handover and its answer, after MSP alone, after a RUN and after a
@@ -1125,6 +1138,13 @@ repeats, is removed. Four survive:
 - RESTART DSHOT without the screen's own `pinClaimUnplugDue()` test:
   `uiLeaveTouch()` returns Restart only once the page is released and
   live, which needs the same state; `pinClaimRestart()` checks it too.
+
+Nine more of the unfinished write's span, each applied alone, all fail the
+suite: the open clearing it; RESTART DSHOT not clearing it;
+`usbBridgeWriteUnfinishedClear()` doing nothing; every claim's end clearing
+it; the close clearing it; BRIDGE on the page clearing it; a passthrough RUN
+not clearing it; the 4-way interface's RUN not clearing it; the leave page
+drawn without the note.
 
 
 ### Slice 3 as built
@@ -1193,7 +1213,9 @@ reaches the wire.
 6. **Write-class 4-way frames** are the data after a Write's SET BUFFER,
    PROGRAM and ERASE. BACK is disabled from the first of them until the
    command's answer, at most 3000 ms after the last; Verify's data are not
-   a write. Only DeviceReset's RUN ends the unfinished write.
+   a write. Of the 4-way commands only DeviceReset's RUN ends the unfinished
+   write; it lasts through BRIDGE's reopen until RESTART DSHOT, as in
+   passthrough (slice 2, call 5).
 7. **Answers.** InitFlash: signature low byte, high byte, the answer's
    fourth byte, the interface mode; 4 bytes of 0 when it fails. PageErase
    answers with the page's address as Betaflight computes it, page × 1024
@@ -1271,10 +1293,11 @@ modes section has `$` and 0x2F first, the 4-way interface outlasting 5 s, and
 later `$` and 0x2F forwarded in passthrough. Three mutants of the Reads at
 0xFFFF all fail the suite: the skip of SET ADDRESS left out, and the model's
 address not advanced on READ or on PROGRAM.
-`runBridgeUiTests`, 150 checks in 7 sections, has one for slice 3:
+`runBridgeUiTests`, 164 checks in 7 sections, has one for slice 3:
 `4-WAY INTERFACE`, the last line's MSP and
 4-way names at their widths, the refusal line, BACK disabled through a 4-way
-write and the leave page's note after it.
+write and the leave page's note after it, again at the BACK after BRIDGE, and
+gone at the BACK after BRIDGE and DeviceReset's RUN.
 
 **Mutations.** 137 of the new code, each applied alone: 65 in
 `bridge_4way.cpp`, 38 in `usb_bridge.cpp`, 28 in `bridge_msp.cpp`, 5 in

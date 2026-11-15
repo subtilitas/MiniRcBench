@@ -129,7 +129,10 @@ Nach einem Schreiben ohne anschließenden Start der Firmware zeigt die Seite
 zusätzlich `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu
 flashen).
 In der 4-Way-Schnittstelle zählt nur das Zurücksetzen des ESC durch das
-Programm als dieser Start, nicht sein Trennen.
+Programm als dieser Start, nicht sein Trennen. Der Hinweis bleibt nach
+`BRIDGE`: Jedes spätere `BACK` zeigt ihn wieder, bis das Programm die
+Firmware startet. `RESTART DSHOT` beendet die Sitzung, und das nächste
+`USB BRIDGE` beginnt ohne den Hinweis.
 
 <img src="img/bridge-leave-read.png" width="240" alt="Die Verlassenseite nach einer Sitzung, die nur las: 1 POWER THE ESC OFF., 2 RESTART DSHOT., ohne FLASH-Hinweis, BRIDGE, RESTART DSHOT und BACK grau">
 

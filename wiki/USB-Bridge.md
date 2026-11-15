@@ -114,7 +114,9 @@ the bridge instead. After a write not followed by a start of the firmware
 the page adds `FLASH THE ESC AGAIN BEFORE USE.`: flash the ESC again
 before you use it.
 In the 4-way interface only the tool's reset of the ESC counts as that
-start, not its disconnect.
+start, not its disconnect. The note stays after `BRIDGE`: every later
+`BACK` brings it back until the tool starts the firmware. `RESTART DSHOT`
+ends the session, and the next `USB BRIDGE` starts without the note.
 
 <img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 RESTART DSHOT., no FLASH note, BRIDGE, RESTART DSHOT and BACK grey">
 

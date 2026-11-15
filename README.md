@@ -3212,7 +3212,7 @@ unfinished write, not `cmd_InterfaceExit`.
 |---|---|
 | a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
 | before the line is bound: Stopping, or a failed bind | returns to MENU; DShot comes back at once, or once the job has let the line go |
-| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, RESTART DSHOT, live 1000 ms after the line is let go, to MENU |
+| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, and the note stays for its next BACK until a RUN; RESTART DSHOT, live 1000 ms after the line is let go, ends the claim and the note with it and returns to MENU |
 
 Once the line is bound the ESC may wait in its bootloader whatever the
 tool sent: one powered up while SIG is held high enters it, AM32 2.22

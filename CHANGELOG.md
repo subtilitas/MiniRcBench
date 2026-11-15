@@ -2061,6 +2061,15 @@ protocol.
   set it only at the open, so DShot returned with no warning on an ESC that
   AM32 2.22 can put in its bootloader after about 2 s without a signal. The
   cue is set when the claim begins (`usbBridgeRunCueSet()`). Host-tested.
+- After v0.1.0-rc1: USB BRIDGE's leave page keeps the note
+  `FLASH THE ESC AGAIN BEFORE USE.` after `BRIDGE`. The bridge's open
+  cleared the unfinished write, so after a write with no RUN, `BRIDGE` and
+  `BACK` gave a page without the note while the ESC's flash was still cut.
+  The unfinished write now lasts through the reopen, in passthrough and the
+  4-way interface, and is cleared only by a RUN, `cmd_DeviceReset`'s among
+  them, or by the page's RESTART DSHOT
+  (`usbBridgeWriteUnfinishedClear()`), which ends the claim: the next entry
+  to USB BRIDGE starts with none. Host-tested, not on hardware.
 - AM32 CONFIG showed LOW VOLT CUTOFF, VARIABLE PWM and BRAKE ON STOP as off
   and on, and AM32 stores three values in each: a stored 2 read ON, and a
   press of - or + made it 1, changing the mode. They are three-value
