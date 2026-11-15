@@ -1,9 +1,10 @@
 # Run summary per log, dated by the board's clock
 
-Status: designed, not built; the owner's choice of 2026-11-14 from the
-feature survey, feature 4 of 6, built as a design note and then slices
-with reviews. The owner answered its questions on 2026-11-15, see
-[decisions](#decisions); slices wait on being built.
+Status: designed; slice 1 of 6 built, host tests only, not called by the
+logger yet ([slice 1 as built](#slice-1-as-built)). The owner's choice of
+2026-11-14 from the feature survey, feature 4 of 6, built as a design note
+and then slices with reviews. The owner answered its questions on
+2026-11-15, see [decisions](#decisions); slices 2 to 6 wait on being built.
 
 Each blackbox log gets a run summary: the highest RPM, current and
 temperature, the lowest voltage, the charge used and the armed time. SD LOG
@@ -166,7 +167,10 @@ Details:
   that restarted; the counting goes on from the new value. A counter that
   stays at 0 for the whole log is reported unknown, as an ESC that does
   not count; SD LOG then shows the figure from current (see
-  [display](#on-the-device)).
+  [display](#on-the-device)). The counter has no hold: one damaged KISS frame
+  that passes the CRC-8 with a wrong count adds its jump to the rise, and a
+  falsely low one reads as a restart after which the next good frame adds the
+  difference back; either can add up to 65535 mAh. Not measured.
 - **Used, from current.** Each logged frame adds its current times the time to
   the next frame: current in 0.01 A units times microseconds, in a 64-bit sum;
   1 mAh is 3.6 × 10^8 of those units. The time between two frames is measured
@@ -177,6 +181,9 @@ Details:
   alone; it is the one reported when KISS's current stays 0 for the whole log.
   With EDT's 1 A steps the step alone can be 1 A off for the whole run: 28 mAh
   per 100 s. Whether ESCs round or truncate the EDT current is not verified.
+  One damaged EDT current frame holds its value until the next EDT current
+  frame, at most 1000 ms: a false 255 A adds up to about 71 mAh. Not
+  measured.
 - **Armed.** The time within the log during which the tester was armed,
   summed per frame from `sdLogSetArmed()`'s state. `uiTick()` reports the
   arm state once per 25 ms frame, so each arm or disarm edge is good to
@@ -209,11 +216,13 @@ writer to shared state would need the critical section on every frame, and
 the summary would still have to reach core0 to be written. The gain, one
 frame of eRPM, does not pay for that.
 
-RAM, estimated from the fields above, not measured:
+RAM: the running summary as `sizeof(RunSum)` gives it for the RP2350
+(arm-none-eabi-gcc 13.3); the clock estimated from its fields, not
+measured:
 
 | Item | Bytes |
 |---|---:|
-| the running summary: for voltage, current and temperature a per-frame and an EDT-only figure, each with its raw and held extreme, the last three new values and their arrival times; the eRPM figure likewise; KISS zero flags and the gap-filled flags for `MIXED`; the KISS counter's last value and rise; two 64-bit current sums; armed, known-current and total time in 64-bit µs; start and stop clock readings | about 350 |
+| the running summary: for voltage, current and temperature a per-frame and an EDT-only figure, each with its raw and held extreme, the last three new values and their arrival times; the eRPM figure likewise; KISS zero flags and the gap-filled flags for `MIXED`; the KISS counter's last value and rise; two 64-bit current sums; armed, known-current and total time in 64-bit µs; start and stop clock readings | 464 |
 | the text of the file | 0: built in the logger's ring, `s_ringBuf`, 8192 bytes |
 | the clock: the reading at boot, its timer value, a flag | 16 |
 
@@ -705,6 +714,95 @@ to 800, L above.
 
 Slices 1 to 3 do not depend on the clock; slices 4 and 5 do not depend on
 the summary. Each slice updates STATUS.md and CHANGELOG.md.
+
+## Slice 1 as built
+
+The summary core, `src/run_summary.h` and `src/run_summary.cpp`, with host
+tests in `test/test_run_summary.cpp` (`runRunSummaryTests`). It is compiled
+into the firmware, and nothing calls it: `sdLogTick()`, `sdLogStop()` and
+`enterError()` hand it nothing until slice 2, and no `.TXT` reaches the
+card. SD LOG does not change.
+
+| Block | Where | Contract |
+|---|---|---|
+| The sample | `RunSumSample` | escSnapshot()'s block, escMerge()'s reading of it at `nowMs` with `KISS_STALE_MS` and `EDT_STALE_MS`, millis(), `time_us_64()` and the arm state |
+| Start, update, end | `runSumBegin()`, `runSumAdd()`, `runSumEnd()`, `runSumFileResult()` | the start takes the time and the arm state; each sample counts the interval since the last; the end counts the last interval and how the log ended (`RunSumEnd`: STOP, DISARM, the three tools, CARD FULL, WRITE FAILED); samples after the end and a second end are ignored |
+| The values | `runSumMaxErpm()`, `runSumMaxAmps()`, `runSumMaxTemp()`, `runSumMinVolts()`, `runSumUsedCounter()`, `runSumUsedCurrent()` | each value's held and raw figure and its source tag, by the rules of [the values](#the-values) |
+| The file | `runSumText()`, `runSumTxtName()`, `RUN_SUM_FORMAT` | the text of [format](#format), both clock lines `not set`; `LOGnnnnn.TXT` |
+| SD LOG's rows | `runSumRowText()`, `RunSumRow`, `RunSumRowText` | rows 2 to 8 of [on the device](#on-the-device): label, value or `--`, tag, and an alert flag for MAX TEMP at 90 °C and above and for `NOT SAVED` |
+
+Choices made where the sections above leave room:
+
+- **A new value.** A value is new when its arrival time differs from that
+  of the last value counted from the same source; the per-frame figure
+  keeps one time for KISS and one for EDT. The raw extreme counts new
+  values only, as the held one does.
+- **The window across sources.** The per-frame figure's last three values
+  are taken in arrival order whatever their source. The held value carries
+  the source of the value it holds, which `peak from` names.
+- **The minimum voltage.** A disarmed sample empties both voltage windows,
+  so a held minimum is three consecutive new values while armed. A value of
+  0.00 V is skipped and does not break the run.
+- **Fewer than three new values.** The held value is unknown; the line
+  names the source, says `fewer than 3 new values in a row` and gives the
+  raw value, and SD LOG shows `--`. The first line below is an example.
+- **KISS sent 0.** The EDT-only figure is reported when at least one KISS
+  frame was fresh, every fresh one carried 0 in the field, and EDT gave a
+  value. With no fresh KISS frame the per-frame figure is EDT's alone and
+  reads `EDT` without `KISS sent 0`; with KISS's zeros and no EDT value the
+  line reports KISS's 0.
+- **A `MIXED` minimum** reads `minimum from EDT` where a maximum reads
+  `peak from EDT`, as in the second line below. Temperature has one step
+  for both sources: `KISS and EDT, 1 C steps`.
+- **The current's hold.** A sample's current holds over the interval to
+  the next sample, for at most its source's stale window counted from the
+  sample. The EDT-only sum keeps its own known time, which its line gives.
+  A source tags the figure from current only when it held for more than
+  0 µs.
+- **The intervals.** The interval from the start to the first sample is
+  armed when the log started armed, and without current. A sample stamped
+  before the last one adds no time.
+- **The KISS counter.** Its first value is the first fresh KISS frame of
+  the log; a frame from before the start that is stale at the first sample
+  is not one.
+- **Rounding.** mAh to the nearest, half up; seconds to the nearest tenth;
+  `Written` in kB of 1024 bytes, as SD LOG's WRITTEN row; ARMED on SD LOG
+  in whole seconds, cut, as UPTIME (`diagUptimeText()`).
+- **Ended by** has two texts more than the table of cases, `CARD FULL` and
+  `WRITE FAILED`. A summary a card error ended writes no file, so they
+  appear only in the text the function builds.
+- **USED on SD LOG** shows the counter's rise when it is above 0 mAh; a
+  counter that stayed flat reads `0 mAh` in the file, and SD LOG shows the
+  figure from current. `>99999mAh` applies to both.
+- **MAX RPM** is untagged from DShot; the fit check takes the tagged right
+  edge, x 197, for every value but ARMED and SUMMARY, as the fit table
+  does.
+
+```text
+Max current: unknown (KISS, 0.01 A steps, fewer than 3 new values in a row; raw 12.00 A)
+Min voltage: 14.75 V (KISS and EDT, 0.01 V and 0.25 V steps, minimum from EDT, while armed; raw 14.50 V)
+```
+
+Measured by the host tests: the longest text, every field at its widest,
+is 894 bytes; `runSumTxtName()`'s `LOGnnnnn.TXT` is not a log's name to
+`sdLogNameNumber()`, so the files do not move the next log's number. The
+FatFs part over the RAM disk is slice 2's.
+
+The tests cover the list of [tests](#tests) for `test_run_summary.cpp`, the
+note's example text byte for byte, and each case of the table of cases
+that a sample can produce. 95 mutations of `src/run_summary.cpp` and
+`src/run_summary.h` were run against the suite: 91 fail it, and 4 are
+equivalent:
+
+- MAX TEMP's alert without its `heldOk` test: the held value is 0 whenever
+  `heldOk` is false;
+- the KISS counter's arrival check removed: a frame counted again adds
+  0 mAh and keeps the same last value;
+- `centi()` without its sign check: no decoder gives a negative voltage or
+  current;
+- `runSumRpm()` with `poles > 2`: at 2 poles both divide by 1.
+
+Not verified on hardware: nothing of this slice runs on the board yet.
 
 ## Decisions
 

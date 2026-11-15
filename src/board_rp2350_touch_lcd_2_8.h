@@ -48,9 +48,11 @@
  *
  *     J4 (12P): 1=GND  2=VBUS 3=USB_N 4=USB_P 5=GND   6=3V3
  *               7=GP7* 8=GP6* 9=GP0   10=GP1  11=GP28 12=GP29
- *     J3  (4P): 1=GP7* 2=GP6* 3=3V3   4=GND
+ *     J3  (4P): 1=GP7^ 2=GP6^ 3=3V3   4=GND
  *     J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
- *                                     (* = on the shared I2C bus, do not reuse)
+ *         (^ = on the shared I2C bus: SCL and SDA of the optional INA219
+ *              current sensor, J3 its connector with its 3V3 and GND)
+ *         (* = on the shared I2C bus, do not use)
  *
  * @note TP_RST is its own net, separate from LCD_RST. The touch driver
  *       pulses it itself.
