@@ -6085,6 +6085,29 @@ static void testEfm8Write() {
 	          fakeTextIs(BTN_WRITE.x + (BTN_WRITE.w - gfxTextW("READ AGAIN", 1)) / 2, BTN_WRITE.y + (BTN_WRITE.h - 7) / 2,
 	                     "READ AGAIN", C_TEXT, C_PANEL, 1));
 	checkControlTable("ESC SETTINGS, the EFM8 list with READ AGAIN");
+	// The read's transaction never ends: the driver fails, and the session
+	// with it.
+	sim_script(e, F_STUCK, 1, 1, 0);
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN whose driver fails: the session ended, the cycle greets again",
+	          efm8UntilDone() && untilState(S_CONNECT, 80) && s_connectNote == CN_EW_STOPPED &&
+	          pinClaimLeavePage());
+	e->fail = F_NONE;
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, true);
+	checkTrue("the list again", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	efm8Page()[0x1B] = 41;
+	fakeEwSnapshot();
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held: changed", efm8HoldWrite() && efm8UntilDone() && s_ewMustRead);
+	tapId(UI_FIX(Am32Ctl::Ok));
 	tapId(UI_FIX(Am32Ctl::ReadAgain));
 	checkTrue("read", efm8UntilDone() && s_state == S_EW_LIST && !s_ewMustRead);
 	checkTrue("the page as it is now, the edit kept", s_ewPage[0x1B] == 41 && s_ewDraft[0x1B] == 41 &&

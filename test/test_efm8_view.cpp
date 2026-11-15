@@ -526,6 +526,10 @@ static void testBackup() {
 	checkTrue("a changed byte: the checksum refuses it", ew_file_parse(text, n, &f, &line) == EW_FILE_ERR_CHECKSUM ||
 	          ew_file_parse(text, n, &f, &line) == EW_FILE_ERR_MALFORMED);
 	checkInt("too small a buffer: nothing", (long)efm8BackupFormat(&c, &id, page, text, 100), 0);
+	ew_ident_t other = id;
+	other.layout = 207;
+	checkInt("an identification that does not fit the page: no text",
+	         (long)efm8BackupFormat(&c, &other, page, text, sizeof(text)), 0);
 
 	section("EFM8 backup: BLHeli_S, and the read-only pages");
 	sim_s_page(page);
