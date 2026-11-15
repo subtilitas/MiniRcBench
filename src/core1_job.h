@@ -6,8 +6,8 @@
  * claims a PIO state machine is the core that frees it; the AM32 transport,
  * on core0, is the exception. While the pin claim holds (pin_claim.h),
  * escTaskPoll() returns at once and core1 runs one job instead: the servo
- * tester, the KST programmer, the Hitec programmer, the S.BUS monitor or
- * the ESC settings session of a Bluejay or BLHeli_S ESC.
+ * tester, the KST programmer, the Hitec programmer, the S.BUS monitor, the
+ * USB bridge or the ESC settings session of a Bluejay or BLHeli_S ESC.
  * `loop1()` calls escTaskPoll() and then core1JobPoll(); with no job,
  * core1JobPoll() returns at once too.
  *
@@ -16,6 +16,8 @@
  * docs/design/kst-programming.md, docs/design/hitec-programming.md and
  * docs/design/rx-signals.md: servo_job.h, kst_job.h, hitec_job.h and
  * sbus_job.h.
+ * Core1Job::Bridge is the USB bridge's job of docs/design/usb-bridge.md:
+ * bridge_wire.h.
  * Core1Job::EscWire is the job of docs/design/bluejay-blheli-s.md:
  * escwire_job.h.
  *
@@ -37,6 +39,7 @@ enum class Core1Job : uint8_t {
 	Kst,    /**< KST and Chaservo programming on SIG (kst_job.h). */
 	Hitec,  /**< Hitec programming on SIG (hitec_job.h). */
 	Sbus,   /**< The S.BUS monitor: UART0 receive on GP1, SIG or AUX (sbus_job.h). */
+	Bridge, /**< The USB bridge: a 19200 baud PIO line on SIG (bridge_wire.h). */
 	EscWire,  /**< ESC SETTINGS after an EFM8 bootloader answered: rcbench's escwire on SIG (escwire_job.h). */
 };
 

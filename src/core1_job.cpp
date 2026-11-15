@@ -9,6 +9,7 @@
 #include "kst_job.h"
 #include "hitec_job.h"
 #include "sbus_job.h"
+#include "bridge_wire.h"
 #include "escwire_job.h"
 
 #include "plat.h"
@@ -23,6 +24,7 @@ static const Core1JobOps *s_ops[] = {
 	&KST_JOB_OPS,    // Core1Job::Kst
 	&HITEC_JOB_OPS,  // Core1Job::Hitec
 	&SBUS_JOB_OPS,   // Core1Job::Sbus
+	&BRIDGE_JOB_OPS, // Core1Job::Bridge
 	&ESCWIRE_JOB_OPS,  // Core1Job::EscWire
 };
 static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::EscWire + 1,

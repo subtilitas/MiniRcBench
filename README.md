@@ -76,9 +76,11 @@ the owner answered its questions on 2026-11-15.
 A USB bridge, through which an ESC tool on a desktop computer reaches the
 ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
-interface of flight controllers, is designed in `docs/design/usb-bridge.md`
-and not built; the owner answered its questions on 2026-11-15. It
-is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`.
+interface of flight controllers, is designed in `docs/design/usb-bridge.md`;
+the owner answered its questions on 2026-11-15. It
+is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`. Its
+slice 1 is built, tested on the host only, and nothing opens it yet: its
+pin user, its core1 job and its line, two PIO state machines on SIG.
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
 module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
@@ -149,9 +151,9 @@ receiver. Core1 then runs that screen's job instead (`src/core1_job.h`), and
 `loop1()` is `escTaskPoll(); core1JobPoll();`. ESC SETTINGS' AM32
 transport runs on core0; its core1 job, rcbench's escwire session
 (`src/escwire_job.h`), starts only once a Bluejay or BLHeli_S bootloader
-answered. The servo tester, the KST and Hitec programmers and the S.BUS
-monitor each have one. Leaving the screen rebuilds the pump from the
-wiring it had, disarmed.
+answered. The servo tester, the KST and Hitec programmers, the S.BUS monitor
+and the USB bridge each have one. Leaving the screen rebuilds the pump from
+the wiring it had, disarmed, once the job has let the pins go.
 
 ---
 
@@ -181,7 +183,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use: the S.BUS job uses UART0's receiver only. Set under SETTINGS → SIG PIN |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use: the S.BUS job uses UART0's receiver only, and the USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
 | KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
@@ -2785,11 +2787,14 @@ src/
   sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
   ui_sbus.{h,cpp}       S.BUS MONITOR: the claim of GP1, the channels and counts, the leave page
   sbus_view.{h,cpp}     what S.BUS MONITOR shows: the link state, the bars' ink, the texts (pure)
+  bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
+  bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
+  bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
-  servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, angle.cmake  each feature's firmware sources (test/*.mk: its tests)
+  servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
@@ -3060,6 +3065,21 @@ running machine, at a period's start or at 5 points inside one, takes effect
 at the next period. It also runs the init's forced `pull noblock` and
 `out isr, 32`. The Firmware job holds its words to `pioasm`.
 
+`make pioemu` also runs `test/pio_bridge_emu.py`. It assembles the USB
+bridge's transmitter, `src/bridge_line.pio`, and `src/pio_uart_rx.pio` and
+runs both on one pad, one state machine cycle at a time, set up as
+`src/bridge_line_port.cpp` sets them up: 42 runs. Each byte's start bit,
+data bits and stop bit are 8 cycles; the pad is driven from the first start
+bit to the end of the last stop bit and let go then, with the next byte late
+or not; the bytes of a frame are 82 cycles apart; the receiver hears every
+byte sent, its echo, and has it in its FIFO before the transmitter waits for
+the next; an ESC's reply 0.3 ms after the release is received at 8 phases
+of a cycle with its bits 2 % and 3 % longer and 2 % shorter, with the pad
+never driven by both. A control run with bits 3 % shorter has to lose
+bytes. The Firmware job holds its words to `pioasm`. `test/test_bridge.cpp`
+runs the bridge's job on `test/fake_bridge_line.h`, a wire on the virtual
+clock with those cycle counts and a model ESC, and through the pin claim.
+
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs one job per row:
@@ -3067,7 +3087,7 @@ at the next period. It also runs the init's forced `pull noblock` and
 | Job | What it catches |
 |---|---|
 | **Firmware** | Real Pico SDK build of the RP2350-Touch-LCD-2.8 image, pinned by `CMakeLists.txt`, plus UF2 validation, a check that no file of the SD library's SDIO driver is in the image, the third-party notices written and checked for the image, and the PIO emulator's assembler compared with `pioasm` |
-| **Host tests** | Protocol, codec and UI regressions a compile cannot see, and the SDIO PIO programs run in a cycle-level model against a card model |
+| **Host tests** | Protocol, codec and UI regressions a compile cannot see, the SDIO PIO programs run in a cycle-level model against a card model, and the backlight and USB bridge PIO programs in models of their own |
 | **Coverage** | Line coverage below 93% in total or 85% in any file, or a README or STATUS.md coverage figure that no longer matches `tools/coverage.py` |
 | **Blackbox round-trip** | Encodes a log and decodes it with Betaflight's own `blackbox_decode`, comparing every value |
 | **Config permutations** | All 32 combinations of `AM32_PUSH_PULL_TX`, `AM32_FORCE_LOW_JUMP`, `LCD_ROTATION`, `KISS_TELEM_ENABLE` and `SD_LOG_ENABLE`, warnings fatal |

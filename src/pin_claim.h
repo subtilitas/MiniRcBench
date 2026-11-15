@@ -9,7 +9,7 @@
  *
  * | Role | Pin | Claimed by |
  * |---|---|---|
- * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | ESC settings (AM32), servo A, KST and Hitec programming; the S.BUS monitor |
+ * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | ESC settings (AM32), servo A, KST and Hitec programming; the S.BUS monitor; the USB bridge |
  * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode; the S.BUS monitor when AUX is GP1 |
  *
  * Every claim is escTaskSuspend(): with the signal pin gone the ESC hears no
@@ -28,9 +28,9 @@
  * |---|---|---|
  * | Free | DShot runs on both pins | pinClaimBegin() |
  * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
- * | Held | both pins free; the GPIOs are latched; SERVO, KST and the S.BUS monitor start their job; HITEC as its entry asks, ESC SETTINGS when an EFM8 bootloader answered (pinClaimStartJob()) | Running once it binds |
+ * | Held | both pins free; the GPIOs are latched; SERVO, KST, the S.BUS monitor and the USB bridge start their job; HITEC as its entry asks, ESC SETTINGS when an EFM8 bootloader answered (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO, KST, HITEC and the S.BUS monitor show the leave page (ui_leave.h), and AM32 after an EFM8 bootloader answered | Restoring |
+ * | Leaving | the job releases its pins; SERVO, KST, HITEC and the S.BUS monitor show the leave page (ui_leave.h), and AM32 after an EFM8 bootloader answered | Restoring: on RESTART DSHOT with the leave page, else once the job is idle |
  * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
  *
  * ESC SETTINGS (PinUser::Am32) defers its job: its AM32 bootloader
@@ -47,7 +47,18 @@
  * without it. ESC SETTINGS does so when an EFM8 bootloader, Bluejay's or
  * BLHeli_S's, answers its greeting: that bootloader waits for commands with
  * no timeout, and DShot frames could pass as one
- * (docs/design/bluejay-blheli-s.md, "Safety").
+ * (docs/design/bluejay-blheli-s.md, "Safety"). The USB bridge is to do so
+ * after a write-class frame with no RUN behind it
+ * (docs/design/usb-bridge.md, decision 10); nothing opens the bridge yet.
+ *
+ * A claim without the leave page restores DShot only once its job is idle:
+ * the job lets its pins and state machines go first, so DShot is never
+ * rebuilt on a pin a job still drives. The USB bridge is the one such user
+ * with a job; its release finishes the frame under way, at most
+ * @ref BRIDGE_RELEASE_MAX_MS. Every call that reads or changes the claim
+ * moves Leaving on, pinClaimState() among them, so DShot comes back once the
+ * job is idle whether or not the screen still polls. An AM32 claim no EFM8
+ * bootloader answered has started no job and restores at once.
  *
  * HITEC defers its job too: the entry tap on PROGRAMMER claims SIG, and the
  * screen calls pinClaimStartJob() at once for CLASSIC and for D SERIES with
@@ -84,6 +95,7 @@ enum class PinUser : uint8_t {
 	Kst,    /**< KST SERVO: SIG. */
 	Hitec,  /**< HITEC SERVO: SIG. */
 	Sbus,   /**< The S.BUS monitor: the role on GP1, AUX with SIG or SIG alone (sbus_job.h). */
+	Bridge, /**< The USB bridge: SIG (bridge_wire.h). */
 	Count,  /**< How many pin users; not a user. */
 };
 
@@ -106,6 +118,10 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	// The monitor drives nothing; an ESC on SIG only loses its frames. When
 	// GP1 is SIG its screen makes its own ESC check (ui_sbus.h).
 	{ PinUser::Sbus,  Core1Job::Sbus,  true,  false, false },
+	// The bridge needs the ESC on the pin and answering, as AM32 does; BACK
+	// gives DShot back, the leave page only after an unfinished write
+	// (docs/design/usb-bridge.md, "The pin").
+	{ PinUser::Bridge, Core1Job::Bridge, false, false, false },
 };
 
 /**
@@ -145,7 +161,7 @@ enum class ClaimRefusal : uint8_t {
 	None,          /**< Not refused; the claim is Stopping. */
 	Armed,         /**< The tester is armed. */
 	Busy,          /**< A claim holds, or is still restoring. */
-	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST and HITEC; AM32 and the S.BUS monitor are exempt. */
+	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST and HITEC; AM32, the S.BUS monitor and the USB bridge are exempt. */
 	KissLive,      /**< A KISS frame within @ref KISS_STALE_MS (500 ms), AUX asked for. */
 	SamePin,       /**< AUX asked for, and SIG and AUX are the same GPIO. */
 };
@@ -176,9 +192,10 @@ struct ClaimFacts {
  * - **EscAnswering**, SERVO, KST and HITEC. Servo pulses of 1000 to 2000 us
  *   are a valid PWM throttle signal, and a KST or Hitec entry sends frames
  *   into whatever is on the wire. The screen keeps asking; the claim follows by
- *   itself 500 ms after the ESC goes quiet. AM32 is exempt: it needs the ESC
- *   on the pin. The S.BUS monitor is exempt: it drives nothing, and when GP1
- *   is SIG its screen makes the check itself (ui_sbus.h).
+ *   itself 500 ms after the ESC goes quiet. AM32 and the USB bridge are
+ *   exempt: they need the ESC on the pin. The S.BUS monitor is exempt: it
+ *   drives nothing, and when GP1 is SIG its screen makes the check itself
+ *   (ui_sbus.h).
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
  *   PWM would drive against it; for the S.BUS monitor the telemetry wire is
  *   where the receiver goes.
@@ -259,9 +276,11 @@ uint8_t pinClaimJobError();
  *
  * From Stopping, DShot is resumed at once. From Held and Running the job is
  * asked to stop and the claim is Leaving. A claim without the leave page
- * (pinClaimLeavePage()), an AM32 claim no EFM8 bootloader answered, which
- * has started no job either, resumes DShot within this call. A call from a screen
- * that does not hold the claim does nothing.
+ * (pinClaimLeavePage()) resumes DShot once its job is idle: an AM32 claim no
+ * EFM8 bootloader answered, which has started no job, within this call; the USB
+ * bridge on the first call into the claim after its job let the pin go,
+ * pinClaimPoll() or pinClaimState() alike. A call from a screen that does
+ * not hold the claim does nothing.
  *
  * @param who The screen leaving.
  */
@@ -302,7 +321,8 @@ void pinClaimRetry(PinUser who);
  * Acts only while @p who holds the claim and it is Stopping, Held or
  * Running. It lasts until the claim is Free. A claim still Stopping has
  * driven nothing on SIG and resumes at once. ESC SETTINGS calls it when an
- * EFM8 bootloader answers its greeting.
+ * EFM8 bootloader answers its greeting; the USB bridge is to call it after a
+ * write-class frame (docs/design/usb-bridge.md, decision 10).
  *
  * @param who The screen.
  */

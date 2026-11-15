@@ -37,7 +37,8 @@ static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 /**
  * @brief The claim shows the leave page before DShot restarts: SERVO, KST,
  *        HITEC and the S.BUS monitor always, AM32 once an EFM8 bootloader
- *        answered. @see PIN_USERS, pinClaimWantLeavePage()
+ *        answered, the USB bridge once it asks. @see PIN_USERS,
+ *        pinClaimWantLeavePage()
  */
 static bool needsUnplug() { return s_unplug; }
 
@@ -62,21 +63,33 @@ static void restore() {
 }
 
 /**
- * @brief Leaving: restore, unless the leave page is due.
+ * @brief Leaving: restore once the job is idle, unless the leave page is due.
  *
  * SERVO, KST, HITEC and the S.BUS monitor wait for RESTART DSHOT, which
  * pinClaimUnplugDue() offers only once their job is idle; so does an AM32
  * claim after an EFM8 bootloader answered (pinClaimWantLeavePage()), which
  * ESC SETTINGS asks for before it starts its job. Any other AM32 claim has
  * neither a job nor the page, so it restores within the call that ended it.
+ * The USB bridge has a job and no page: it restores on
+ * the first look at the claim that finds its job idle, settle()'s included,
+ * so DShot is never rebuilt on a pin the job's state machines still drive,
+ * and comes back after a screen that ended the claim and closed.
  */
 static void leaveStep() {
 	if (needsUnplug()) return;
+	if (core1JobPhase() != Core1JobPhase::Idle) return;
 	restore();
 }
 
-/** @brief Restoring ends when the pump runs again. Nothing is left to do. */
+/**
+ * @brief Leaving moves on without its screen: a claim without the leave page
+ *        restores once its job is idle. Restoring ends when the pump runs
+ *        again. Run by every call that reads or changes the claim, so a
+ *        screen that ended the claim and closed, as ESC SETTINGS does,
+ *        leaves no claim behind for MENU's look at it.
+ */
 static void settle() {
+	if (s_state == ClaimState::Leaving) leaveStep();
 	if (s_state != ClaimState::Restoring || escTaskSuspended()) return;
 	s_state = ClaimState::Free;
 	s_who   = PinUser::None;

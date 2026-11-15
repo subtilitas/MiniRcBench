@@ -47,6 +47,7 @@ void runRunSummaryTests();
 void runEscwireJobTests();
 void runEfm8ViewTests();
 void runClockTests();
+void runBridgeTests();
 void core1JobInit();
 
 int main() {
@@ -91,6 +92,7 @@ int main() {
 	runEscwireJobTests();
 	runEfm8ViewTests();
 	runClockTests();
+	runBridgeTests();
 
 	section("Critical sections");
 	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);
