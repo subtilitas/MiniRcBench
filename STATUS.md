@@ -75,7 +75,7 @@ Its screen, S.BUS MONITOR (`src/ui_sbus.h`, with the pure formatter
 16 channel bars in raw units with the value in µs, CH17 and CH18, the frame
 rate and the error counts, and the leave page. RX SIGNALS
 (`src/ui_rx_signals.h`) is the chooser behind the MENU row; its OUTPUT, the
-S.BUS output, is drawn disabled, `NOT BUILT` (open item 19).
+S.BUS output, is drawn disabled, `NOT BUILT` (open item 31).
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
 2026-11-13, is built in its 10 slices, host tests only, not on hardware.
 Slice 1: the leave page
@@ -316,6 +316,7 @@ record either way.
 | AM32 settings editor over the signal wire (AM32 is an open-source ESC firmware) | init string, CRC-16/ARC, 39-field codec, timing advance encodings, write interlock; PROTOCOL zero-based as AM32's `enum inputType`, TEMP LIMIT and CURRENT LIMIT `OFF` where AM32 applies no limit, `3D MODE` at byte 0x12; LOW VOLT CUTOFF, PWM TYPE and BRAKE ON STOP as three values with the third gated by firmware and an unedited byte written back as read; KV, MAX RAMP, MIN DUTY, ABS VOLT CUT and ACTIVE BRAKE on AM32's scales; the strip's notes for 3D MODE, a protection off and a PROTOCOL without DShot, the next step under a write that is not verified, the connect page's lines for a reply it cannot parse and for `NO VALID SETTINGS`, MENU's `POWER-CYCLE THE ESC TO RUN IT` until an eRPM frame after the handshake (`testAm32Guidance()`); the tester's `3D MODE ESC: THROTTLE SCALE DIFFERS` set by a list read and by a write of 3D MODE on that the ESC accepted, its read-back failing or differing included, cleared by a list read and a verified write with it off, kept by an edit not written, a refused write, a failed read, a write of it off not verified, a read that does not open the list and the read-only view of a layout not known, drawn armed and disarmed and beside `NO TELEMETRY`, `SWIPE ACTIVE` in its place while the pad is engaged and the note back on release (`testAm32TesterNote()`); the firmware gates (ABSOLUTE from 2.21, the 200 A limit from 2.21, PWM FREQ above 48 kHz from 2.19), the PROTOCOL note for 2 to 9 (EDT ARM included: a zero frame relocks it), layouts 1 and 5 to 8 opened in the read-only view: the bytes in hex, no field, its strip in each backup state, the backup with no field line saved as it opens, BACK its one control, a hold and taps where the list's controls stand writing nothing, a write forced into the write state refused on the layout (`testAm32ReadOnly()`), bytes 0x2A to 0x2D listed from 1.80, 0x2E from 1.94, 0x2F from 2.16 with a note below 1.80 (AlkaMotors commits 9909ea7, f917c01, aa590e8), ADVANCE in 0..3 below 2.19, every row tapped on 14 firmware versions and three layouts, a stored number outside the firmware's range read as the byte, every field over all 256 bytes on eight firmware versions against a literal table of ranges, arbitrary blocks written back through the screen; the facts behind them read from AM32's source (am32-firmware/AM32 tags v2.05, v2.16, v2.18 to v2.22 and `main` 077b6a4; the configurator at 06955fe; AlkaMotors/AM32-MultiRotor-ESC-firmware tags v1.77 to v2.01), not measured; the screen on the pin claim, the latched GPIO, the drain before the handover; the list on `ui_list` and the swipe of 16 px per coarse step; the backup before the first write (`src/am32_backup.*`): its text and checksum, `BACKUP/AM001.TXT` holding the settings as read at entry, a card that refuses it stopping the write, no second backup in a session | hardware use recorded: ab79c67, bd90e17, both before the screen moved onto the pin claim; the claim and its drain, the swipe of 16 px per coarse step and the backup: not tested on hardware |
 | Device backups: the ring of `BACKUP/` (`src/backup_ring.*`), the card calls and the directory scope (`src/card_dir.*`); [backups.md](docs/design/backups.md) | the ring's rules, saves of two devices, a rename under another device's number, the list of one device, gaps, no marker, directories and names outside the ring, refusals, no card and a USB-held card (`runBackupTests`); the card phases over FatFs R0.15 itself (`make -C test kstcount`) | not tested on hardware |
 | Blackbox logs in `LOGS/` (`SD_LOG_DIR_PATH`) | the next log's file over FatFs R0.15 (`make -C test lognum`); the rest of `sd_log.cpp` is typechecked only | not tested on hardware |
+| Run summary core (`src/run_summary.*`), slice 1 of [run-summary.md](docs/design/run-summary.md#slice-1-as-built) | `runRunSummaryTests`: the extremes, sources, charge, armed time, the `.TXT` text byte for byte and SD LOG's row texts and fits; 95 mutations, 91 failing the suite and 4 equivalent, listed in the note | host only: the logger does not call it, so nothing of it runs on the board |
 | SD write cache for the backup claims (`src/sdio/sd_cache.*`, `src/card_cache.*`, the glue in `src/sdio/sd_card_glue.c`, `sdh_write_start()` and `sdh_write_poll()`); [sd-write-cache.md](docs/design/sd-write-cache.md) | the cache against a fake card (`runSdCacheTests`), the asynchronous block write against the simulated card (`runSdioTests`); the KST write waiting for the flush, a failed flush, the claim turning the cache on and off, a running log stopped, AM32's write refused after a failed flush, against a fake of `card_cache.h`; the glue and `card_cache.cpp` are built by the firmware only | not tested on hardware |
 | Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the PIO and pad calls around those decisions are compiled only | not tested on hardware; open item 8 |
 | MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): BEEP THE ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG and SETTINGS as 40 px rows, scrolled 36 px to reach SETTINGS | every registry entry opens and BACK returns to MENU; opening MENU disarms; BEEP's flash and refusal on its row, refused armed, with no ESC answering, with the motor turning and while the ESC settles; the rows drawn disabled and `DSHOT RESTARTING ON SIG GP0` while the claim restores, and a tap on a row opens nothing; over test registries, six rows do not scroll and seven scroll 36 px; SD LOG, the sixth row, is whole and takes a tap at 0 px, and SETTINGS, the seventh, is cut to 6 px until MENU is dragged 36 px; MENU opens at 0 px again when a tool returns; the UNSAVED status on MENU after leaving SETTINGS, its row revealed by a drag; the label and status fit check at build time | not recorded |
@@ -668,9 +669,9 @@ not run on hardware (item 18).
       MONITOR opens S.BUS MONITOR and whose OUTPUT is drawn disabled,
       `NOT BUILT`. The UART inversion on the pin, a receiver's level and
       frames on GP1 and the screen's reading of them are not tested on
-      hardware (the note's slice 6, the bring-up). The output waits on its
-      encoder in rcbench and on its design, of which the note lists the
-      points to settle.
+      hardware (the note's slice 6, the bring-up). The output is designed
+      in [sbus-output.md](docs/design/sbus-output.md), not built (item
+      31).
     - [current-sense.md](docs/design/current-sense.md): the converter takes
       one LiPo cell, 3.0 V to 4.2 V, into a synchronous boost with load
       disconnect, 5.0 V, at least 3 A out; the shunt stays 0.1 Ω; the servo
@@ -807,7 +808,15 @@ not run on hardware (item 18).
     `tools/set_clock.py`; no cell is fitted in the RTC socket J2, so the
     clock is lost whenever 3.3 V goes away and files are dated only after
     the clock is set in that power-up; local time with no time zone is
-    accepted. Slices wait on being built.
+    accepted. Slice 1 is built, host tests only
+    ([slice 1 as built](docs/design/run-summary.md#slice-1-as-built)): the
+    summary core in `src/run_summary.*`, the held and raw extremes over
+    three new values, the per-frame KISS or EDT source with `MIXED`, the
+    EDT-only figure when KISS sends 0, the minimum voltage while armed, the
+    KISS counter's rise and the charge from current, the armed time, the
+    `.TXT` text with both clock lines `not set`, and SD LOG's row texts. The
+    logger does not call it, so no `.TXT` is written and SD LOG does not
+    change; slices 2 to 6 wait on being built.
 
 27. **Angle meter on the board's IMU, designed, not built.** The owner's choice
     of 2026-11-14 from the feature survey (item 28): incidence, decalage,
@@ -902,6 +911,40 @@ not run on hardware (item 18).
     driver against SDK 2.1.1 with `STRICT=ON`, and nothing in `src/` calls
     them. Slices 2 to 6 wait on being built. `ESC SETTINGS` serves AM32 only
     until the Bluejay slices land. Nothing of it has run on an ESC.
+31. **S.BUS output, designed, not built; waits on a bootloader probe.**
+    The owner's decisions 1, 4, 5 and 6 of
+    [rx-signals.md](docs/design/rx-signals.md#decisions) (item 19).
+    [sbus-output.md](docs/design/sbus-output.md) designs S.BUS OUTPUT,
+    opened from OUTPUT on RX SIGNALS: a frame every 14 ms on GP0 through
+    UART0's TX, the pad's output inverted by OUTOVER in the same register
+    write as the UART function, rcbench's `sbus_encode()` and
+    `sbus_from_us()` copied unchanged from rcbench b88593d3 (on rcbench's
+    `main` since pull request 847, 19 host cases), in place of the copy of
+    5ef42efd, whose decoder code is the same. A new pin user, `SbusOut`,
+    with the claim's ESC check in every wiring; 16 sliders on two pages;
+    the throttle channel, 1 to 4, starting at raw 172 and held under
+    172 + 1639 × MAX THROTTLE / 2000, raw 499 (1200 µs) at the default;
+    CH17, CH18 and the failsafe and frame-lost bits on SET; frames stop on
+    STOP, BACK, a heartbeat lapse, more than 30 s without touch with the
+    throttle or a switch channel off its START value, and touch loss once
+    pull request #49 is merged (item 23). Read from source, not run on an
+    ESC: AM32 2.22 and Bluejay 0.21 take no throttle from an S.BUS line.
+    BLHeli_S 16.7 may detect it as Multishot; in a model of the line, with
+    channel 16 at 1500 µs or CH17 on, it calibrates a 140 µs throttle range
+    into its flash, arms and meets its motor-start condition in each of 200
+    runs, after about 40 s at the median (4.5 s to 199 s); the claim's ESC
+    check cannot see a BLHeli_S ESC. The owner
+    decided on 2026-11-15 (the note's decision 1): S.BUS OUTPUT is built
+    only together with a bootloader probe, the connect cycle of
+    [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions)
+    decision 2 on GP0 before the first START of a visit, START refused
+    while an EFM8 or AM32 bootloader answers. An answer sets MENU's run
+    cue, and after an EFM8 answer the leave page is ESC SETTINGS' decision
+    8 page, which asks for the ESC's battery to come off before DShot
+    returns. The probe costs about 1.1 s per visit and misses an unpowered
+    ESC. No question is open. The slices wait on the probe and on slices 2
+    and 3 of ESC SETTINGS (item 30; slice 2 is pull request 83, under
+    review); its slice 1 is built.
 
 ## Known limitations
 
@@ -984,7 +1027,7 @@ not run on hardware (item 18).
 **Host suite.** `make -C test run` compiles the firmware sources with a C++17
 compiler against the stubs in `test/stubs/`, and the DShot core in
 `src/dshot/` and the SDIO protocol layers in `src/sdio/` as C11, and runs one
-binary, `dshot_tests`. `test/test_main.cpp` runs twenty-seven suites:
+binary, `dshot_tests`. `test/test_main.cpp` runs twenty-eight suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
@@ -1014,6 +1057,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs twenty-seven suites:
 | `runBackupTests` | `test_backup_ring.cpp` | the ring of `BACKUP/`: its rules, saves of two devices and a rename under another device's number, a rename FatFs reports failed that took effect, two files under one number, the list of one device from the latest, a gap, no marker and an unreadable one, a directory under a ring name, names outside the ring, a marker or a read-only oldest file the card refuses, a change of directory that fails, load, no card and a USB-held card with no FatFs call |
 | `runSdCacheTests` | `test_sd_cache.cpp` | the SD write cache over a fake card: the queue's order, a read of a queued sector, one swap check per batch, no command while busy, read cache hits and the oldest pushed out, a miss that waits for the block in flight, a full queue, retries, a failed block, a changed serial number, refusals with the cache off |
 | `runDiagTests` | `test_diag.cpp` | the restart reason's decoding from CHIP_RESET, the watchdog's REASON, the enable query and the boot type, its order, its texts' widths, the capture through the fakes, the uptime's text |
+| `runRunSummaryTests` | `test_run_summary.cpp` | the run summary of [run-summary.md](docs/design/run-summary.md#slice-1-as-built) through escMerge() at 500 Hz: held maxima with one and two outliers not counted and three counted, the raw extreme, a value without a new arrival counted once, stale eRPM, KISS and EDT at their windows, a KISS gap filled by EDT tagged `MIXED` with the held value's own source, KISS at 0 giving EDT's figure, the minimum voltage while armed with 0.00 V ignored and a disarm restarting the run, maxima over the whole log, KISS eRPM only without DShot eRPM, the counter across an ESC restart, a gap and a stale frame from before the start, the charge from current against hand sums with 600 ms and 1200 ms stalls, armed time with edges, 75 minutes past the `micros()` and `millis()` wraps, the ends and the file states, the `.TXT` name, the note's example text byte for byte, the longest text under 1000 bytes, SD LOG's row texts and their fits |
 | `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, BEEP's flash and its refusals by core1's readiness, AM32, SERVO, SERVO PROGRAMMER and SETTINGS drawn disabled while the claim restores, MENU's scroll over registries of six and seven rows and its return at 0 px, the seven rows by device with SD LOG whole at 0 px and SETTINGS cut until dragged, RX SIGNALS acting with no status while the claim is Free and drawn disabled while it is Stopping or Held, its chooser opened and left, PROGRAMMER's entries, lines and BACK with SERVO SUPPLY at OWN, GP28 and GP29, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, DIAGNOSTICS' LAST RESTART and UPTIME, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, HOLD DEFAULTS' 1 s hold, its `DEFAULTS LOADED - RESTART TO UNDO` note and what ends it, AM32's own wait beside another claim, SERVO SUPPLY as a core section, the strip following AUX and the claim |
 
 The fake critical section in `test/fakes.cpp` marks a section at
@@ -1153,6 +1197,8 @@ model.
 | `src/pin_claim.h` | 15 | 14 | 93.3% |
 | `src/plat.h` | 10 | 10 | 100.0% |
 | `src/rpm_filter.h` | 17 | 17 | 100.0% |
+| `src/run_summary.cpp` | 356 | 352 | 98.9% |
+| `src/run_summary.h` | 2 | 2 | 100.0% |
 | `src/sbus_job.cpp` | 109 | 109 | 100.0% |
 | `src/sbus_job.h` | 5 | 5 | 100.0% |
 | `src/sbus_view.cpp` | 73 | 73 | 100.0% |
@@ -1189,7 +1235,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 76 | 76 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **10606** | **10427** | **98.3%** |
+| **Total** | **10964** | **10781** | **98.3%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

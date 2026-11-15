@@ -41,18 +41,24 @@ channels, the link state, the frame rate and the error counts (see
 During its pin claim it receives on GP1 through UART0 (universal asynchronous
 receiver-transmitter 0) with the pad's input inverted and decodes the frames
 with rcbench's decoder. It is tested on the host only; the inversion on the
-pin is not measured. An S.BUS output, OUTPUT on the same chooser, is decided
-on by the owner and not designed yet; the chooser draws it disabled,
-`NOT BUILT`. A PPM (pulse-position modulation) output
-is not built, by the owner's decision. An angle meter on the board's QMI8658
-IMU (inertial measurement unit), for incidence, decalage, dihedral and
-control-surface throw, is designed in `docs/design/angle-meter.md` and not
+pin is not measured. An S.BUS output to a flight controller, OUTPUT on the
+same chooser, sending a frame every 14 ms on GP0 through UART0 with the
+pad's output inverted, the throttle channel under MAX THROTTLE, is designed
+in `docs/design/sbus-output.md` and not built: it waits on a check for an
+ESC bootloader on GP0 before START, which needs the Bluejay and BLHeli_S
+reading of ESC SETTINGS first. The chooser draws it disabled,
+`NOT BUILT`. A PPM (pulse-position modulation) output is not built, by
+the owner's decision. An angle meter on the board's QMI8658 IMU (inertial
+measurement unit), for incidence, decalage, dihedral and control-surface
+throw, is designed in `docs/design/angle-meter.md` and not
 built; the owner answered its questions on 2026-11-15, and its entry is an
 eighth MENU row, `TOOLS`, with a chooser. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
-designed in `docs/design/run-summary.md` and not built; the owner answered
-its questions on 2026-11-15. The owner's board has no cell in the RTC
+designed in `docs/design/run-summary.md`; the owner answered its questions
+on 2026-11-15. Its slice 1, the summary computed from the telemetry and the
+text of its file, is built and host-tested; the logger does not call it, so
+no summary file is written yet. The owner's board has no cell in the RTC
 socket J2, so its clock is set again after each power-up, and files
 written before the set have FAT date 0.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
@@ -2143,7 +2149,10 @@ The RX SIGNALS row opens RX SIGNALS (`src/ui_rx_signals.cpp`), a chooser
 with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT**, an S.BUS output to a flight controller, is drawn
-disabled with `NOT BUILT` under it and opens nothing: it is not designed.
+disabled with `NOT BUILT` under it and opens nothing: it is designed in
+`docs/design/sbus-output.md` and not built; it waits on a check for an ESC
+bootloader on GP0, which needs ESC SETTINGS' Bluejay and BLHeli_S reading
+first.
 The row is drawn disabled while the pin claim is not free, as the other rows
 that lead to a claim.
 
@@ -2480,6 +2489,7 @@ src/
   esc_merge.{h,cpp}     per-field preference between KISS and EDT (pure)
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
+  run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure; not called yet)
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_hw_config.c        SD wiring for the FatFs driver
   sdio/                 SDIO card driver, MIT, written from the SD specification
@@ -2611,7 +2621,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 10,427 of 10,606 lines in 65 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 10,781 of 10,964 lines in 67 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` cannot be linked on the host (FatFs and the SPI driver come with it), so the
