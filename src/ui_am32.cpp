@@ -1,6 +1,7 @@
 /**
  * @file ui_am32.cpp
- * @brief AM32 config screen: connect, browse settings, edit, write back.
+ * @brief ESC SETTINGS: connect, browse AM32 settings, edit, write back; an
+ *        EFM8 bootloader's answer named, and the leave page after it.
  *
  * The screen is a state machine. Nothing touches the ESC until the pin claim
  * holds the signal pin (pin_claim.h), and nothing writes until the user has
@@ -22,6 +23,7 @@
 #include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
+#include "ui_leave.h"
 #include "ui_list.h"
 #include "ui_widgets.h"
 #include "ui_screen.h"
@@ -132,6 +134,19 @@ static_assert(sizeof(AM32_UI_NO_SETTINGS_1) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_NO_SETTINGS_2) - 1 <= RESULT_CHARS &&
               sizeof(AM32_UI_NOT_AM32) - 1 <= RESULT_CHARS,
               "a connect line runs off the panel");
+// The EFM8 status: %04X is four hex digits, the signature.
+static_assert(sizeof(AM32_UI_EFM8_FMT) - 1 - 4 + 4 <= RESULT_CHARS, "the EFM8 status runs off the panel");
+// The titles, at scale 2 from x 8, end 4 px or more before BACK.
+static_assert(UI_MARGIN + 12 * (int)(sizeof(AM32_UI_TITLE) - 1) - 2 + 4 <= UI_BACK_X &&
+              UI_MARGIN + 12 * (int)(sizeof(AM32_UI_TITLE_HEX) - 1) - 2 + 4 <= UI_BACK_X &&
+              UI_MARGIN + 12 * (int)(sizeof(AM32_UI_TITLE_WRITE) - 1) - 2 + 4 <= UI_BACK_X,
+              "an ESC SETTINGS title runs into BACK");
+// The leave page's steps, from x 20.
+static_assert(sizeof(AM32_UI_LEAVE_1) - 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(AM32_UI_LEAVE_1A) - 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(AM32_UI_LEAVE_1B) - 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(AM32_UI_LEAVE_2) - 1 <= UI_LEAVE_STEP_CHARS,
+              "a leave step runs past x 232");
 // The read-only view's lines: the layout is one digit (am32Plausible() takes
 // 1 to 8), "%u" two characters; the backup's name five characters.
 static_assert(sizeof(AM32_UI_RO_FMT) - 1 - 1 <= RESULT_CHARS, "the read-only line runs off the panel");
@@ -164,14 +179,20 @@ static_assert(EDIT_H >= UI_TAP_MIN && FOOT_H >= UI_TAP_MIN,
 enum Am32Screen : uint8_t {
 	S_HANDOVER,  /**< Waiting for the pin claim to hold the signal pin. */
 	S_CONNECT,   /**< Prompting for ESC power, retrying the handshake. */
-	S_LIST,      /**< Browsing and editing settings; with s_hexView, AM32 HEX. */
-	S_PAGE,      /**< AM32 WRITE before the hold: the changes and HOLD TO WRITE. */
-	S_WRITING,   /**< AM32 WRITE: the write in progress, then its result. */
+	S_LIST,      /**< Browsing and editing settings; with s_hexView, ESC HEX. */
+	S_PAGE,      /**< ESC WRITE before the hold: the changes and HOLD TO WRITE. */
+	S_WRITING,   /**< ESC WRITE: the write in progress, then its result. */
 	/**
 	 * A layout the table is not checked against: the bytes, BACK alone.
 	 * No state leads from here to S_WRITING.
 	 */
 	S_VIEW,
+	/**
+	 * The leave page, after an EFM8 bootloader answered: BACK from any
+	 * other state opens it. STAY returns to s_leaveFrom; LEAVE lets go of
+	 * SIG; RESTART DSHOT gives it back to DShot.
+	 */
+	S_LEAVE,
 };
 
 static Am32Screen s_state = S_HANDOVER;
@@ -247,10 +268,18 @@ enum ConnectNote : uint8_t {
 	CN_NONE,         /**< Silence or a read that failed: the status alone. */
 	CN_GARBLED,      /**< Bytes came back that are not a bootloader's reply. */
 	CN_NO_SETTINGS,  /**< The bootloader answered; its settings are not AM32's. */
+	CN_EFM8,         /**< An EFM8 bootloader answered: named, nothing read. */
 };
 static ConnectNote s_connectNote = CN_NONE;
 
-/** @brief A handshake succeeded since the restart: MENU's cue stands. */
+/** @brief The leave page: its phase and its presses. */
+static UiLeave    s_leave;
+/** @brief Where STAY on the leave page returns to. */
+static Am32Screen s_leaveFrom = S_CONNECT;
+/** @brief The signature of the EFM8 bootloader that answered in this session; 0 for none. */
+static uint16_t   s_efm8Sig = 0;
+
+/** @brief A handshake succeeded, or an EFM8 bootloader answered, since the restart: MENU's cue stands. */
 static bool     s_blReached = false;
 /** @brief When that handshake succeeded, ms. */
 static uint32_t s_blReachedMs = 0;
@@ -301,11 +330,14 @@ static int changeCount(const uint8_t *from, const uint8_t *to) {
 	return n;
 }
 
-/** @brief The write runs: AM32 WRITE shows WRITING and BACK is drawn disabled. */
+/** @brief The write runs: ESC WRITE shows WRITING and BACK is drawn disabled. */
 static bool writing() { return s_state == S_WRITING && strcmp(s_status, "WRITING...") == 0; }
 
-/** @brief Header BACK acts: in every state but while the write runs. */
-static bool backLive() { return !writing(); }
+/**
+ * @brief Header BACK acts: in every state but while the write runs and on
+ *        the leave page, where it is drawn disabled (menu-b.md, decision 25).
+ */
+static bool backLive() { return !writing() && s_state != S_LEAVE; }
 
 /**
  * @brief The write page's HOLD TO WRITE acts: there are edits, and the page
@@ -432,14 +464,15 @@ static bool listNote(const char **l1, const char **l2) {
 }
 
 /**
- * @brief The title: AM32 HEX over the hex dump of the list, AM32 WRITE on the
- *        write page, else AM32 CONFIG (docs/design/menu-b.md, decision 13).
- *        The read-only view is the main view: its title stays AM32 CONFIG.
+ * @brief The title: ESC HEX over the hex dump of the list, ESC WRITE on the
+ *        write page, else ESC SETTINGS (docs/design/menu-b.md, decision 13,
+ *        as revised by bluejay-blheli-s.md's call A). The read-only view
+ *        and the leave page are the main view's: ESC SETTINGS. @see am32_titles
  */
 static const char *title() {
-	if (s_state == S_LIST && s_hexView) return "AM32 HEX";
-	if (s_state == S_PAGE || s_state == S_WRITING) return "AM32 WRITE";
-	return "AM32 CONFIG";
+	if (s_state == S_LIST && s_hexView) return AM32_UI_TITLE_HEX;
+	if (s_state == S_PAGE || s_state == S_WRITING) return AM32_UI_TITLE_WRITE;
+	return AM32_UI_TITLE;
 }
 
 static void drawHeader() {
@@ -456,11 +489,12 @@ static void drawHeader() {
 	if (s_state == S_LIST || s_state == S_PAGE || s_state == S_WRITING || s_state == S_VIEW) {
 		am32DeviceName(s_eeprom, name);
 		char buf[48];
+		// The firmware is named here, not in the title (am32_titles).
 		if (name[0]) {
-			snprintf(buf, sizeof(buf), "%s  %s  FW %u.%u", name, am32BlEscTypeName(),
+			snprintf(buf, sizeof(buf), "%s  %s  AM32 %u.%u", name, am32BlEscTypeName(),
 			         s_eeprom[AM32_OFF_MAIN_REVISION], s_eeprom[AM32_OFF_SUB_REVISION]);
 		} else {
-			snprintf(buf, sizeof(buf), "%s  FW %u.%u  LAYOUT %u", am32BlEscTypeName(),
+			snprintf(buf, sizeof(buf), "%s  AM32 %u.%u  LAYOUT %u", am32BlEscTypeName(),
 			         s_eeprom[AM32_OFF_MAIN_REVISION], s_eeprom[AM32_OFF_SUB_REVISION],
 			         s_layoutRev);
 		}
@@ -481,6 +515,13 @@ static void drawHeader() {
 		} else {
 			uiStripText(buf, C_DIM);
 		}
+	} else if (s_state == S_LEAVE) {
+		// The bootloader that answered, and the pin it waits on.
+		uint8_t sig = pinClaimGpio(PIN_SIG);
+		if (sig == PIN_CLAIM_NO_GPIO) sig = settings()->dshotPin;
+		char buf[32];
+		snprintf(buf, sizeof(buf), "EFM8 %04X  SIG GP%u", (unsigned)s_efm8Sig, (unsigned)sig);
+		uiStripText(buf, C_DIM);
 	} else if (s_status[0]) {
 		uiStripText(s_status, C_DIM);
 	}
@@ -503,6 +544,7 @@ static void drawConnect() {
 	// anything about it would be noise.
 	// The status above, at y 176, names the bytes or the layout; these
 	// lines say what it means.
+	// An EFM8 bootloader's answer: the status names it, and nothing is read.
 	if (s_connectNote == CN_GARBLED) {
 		gfxTextCenter(196, "REPLY NOT UNDERSTOOD:", C_AMBER, 1);
 		gfxTextCenter(210, AM32_UI_NOT_AM32, C_AMBER, 1);
@@ -513,8 +555,9 @@ static void drawConnect() {
 
 	// A spinner beats a static screen: it shows we are still retrying. Under
 	// a note it shrinks and moves down, clear of the note's lines.
-	int r = s_connectNote == CN_NONE ? 40 : 16;
-	int cy = s_connectNote == CN_NONE ? 240 : 266;
+	bool lines = s_connectNote == CN_GARBLED || s_connectNote == CN_NO_SETTINGS;
+	int r = lines ? 16 : 40;
+	int cy = lines ? 266 : 240;
 	int phase = (int)((millis() / 150) % 12);
 	for (int i = 0; i < 12; i++) {
 		int ang = i * 30;
@@ -658,7 +701,7 @@ static const char *backupLine(uint16_t *col) {
 }
 
 /**
- * @brief AM32 WRITE: the changes from the ESC as read when the page opened to
+ * @brief ESC WRITE: the changes from the ESC as read when the page opened to
  *        the edits, field by field, label in `C_TEXT` and `old -> new`
  *        (uiChangeText()); at most @ref WP_LINES, then `AND n MORE`. Under
  *        them the state: nothing before the hold, @ref AM32_UI_WRITING while
@@ -728,6 +771,71 @@ static void drawWritePage() {
 	}
 }
 
+static void endClaim();
+
+/**
+ * @brief The leave page of decision 8 of docs/design/bluejay-blheli-s.md:
+ *        unplug the ESC's battery, then LEAVE; plug it in after RESTART
+ *        DSHOT. No left button after LEAVE: there is no next device.
+ */
+static void drawLeave() {
+	UiLeaveText tx;
+	memset(&tx, 0, sizeof(tx));
+	tx.step[0][0] = AM32_UI_LEAVE_1;
+	tx.step[0][1] = AM32_UI_LEAVE_1A;
+	tx.step[0][2] = AM32_UI_LEAVE_1B;
+	tx.step[1][0] = AM32_UI_LEAVE_2;
+	tx.next = nullptr;
+	if (s_leave.phase == UiLeavePhase::Releasing) tx.note[0] = UI_LEAVE_RELEASING;
+	uiLeaveDraw(&s_leave, tx, s_frameTouch, millis());
+}
+
+/**
+ * @brief BACK after an EFM8 answer: the leave page, before LEAVE. The
+ *        transport keeps SIG until LEAVE; STAY returns to @p from.
+ * @param from The state BACK left.
+ */
+static void openLeave(Am32Screen from) {
+	s_leaveFrom = from;
+	s_guard = UiBackGuard{};
+	s_state = S_LEAVE;
+	uiLeaveOpen(&s_leave, UiLeavePhase::Before, UI_HOLD_MS);
+	s_redraw = true;
+}
+
+/**
+ * @brief One frame of the leave page.
+ * @param t This frame's touch.
+ * @return false once RESTART DSHOT gave SIG back to DShot: the screen leaves.
+ */
+static bool leaveTick(const TouchState *t) {
+	uint32_t now = millis();
+	uiLeavePoll(&s_leave, pinClaimUnplugDue(), now);
+	switch (uiLeaveTouch(&s_leave, t, now)) {
+		case UiLeaveEv::Stay:
+			s_state = s_leaveFrom;
+			break;
+		case UiLeaveEv::Leave:
+			// The claim has the leave page: DShot waits for RESTART DSHOT.
+			endClaim();
+			break;
+		case UiLeaveEv::Restart:
+			if (!pinClaimUnplugDue()) break;
+			pinClaimRestart(PinUser::Am32);
+			// The steps power-cycled the ESC: MENU's cue goes.
+			s_blReached = false;
+			s_state = S_HANDOVER;
+			return false;
+		case UiLeaveEv::Next:
+		case UiLeaveEv::None:
+			break;
+	}
+	// RESTART DSHOT turns live by the clock: the page repaints every frame,
+	// as the connect page does.
+	s_redraw = true;
+	return true;
+}
+
 // ---------------------------------------------------------------------------
 // state machine
 // ---------------------------------------------------------------------------
@@ -769,6 +877,8 @@ void uiAm32Enter() {
 #endif
 	s_attempt = 0;
 	s_connectNote = CN_NONE;
+	s_efm8Sig = 0;
+	s_leaveFrom = S_CONNECT;
 	s_editRepeat = Repeat{};
 	am32BlSetBaud(AM32_LINK_BAUD);
 	memset(s_eeprom, 0, sizeof(s_eeprom));
@@ -780,13 +890,22 @@ void uiAm32Enter() {
 	claimPins();
 }
 
-void uiAm32Exit() {
-	// The transport lets go of the pin before DShot takes it back. An AM32
-	// claim has no core1 job and no leave page, so pinClaimEnd() resumes the
-	// pump within the call.
+/**
+ * @brief The transport lets go of the pin, the card's queued writes end,
+ *        and the claim ends: DShot resumes within the call, or, once an EFM8
+ *        bootloader answered, the claim waits for RESTART DSHOT.
+ */
+static void endClaim() {
 	am32BlEnd();
 	cardCacheEnd();
 	pinClaimEnd(PinUser::Am32);
+}
+
+void uiAm32Exit() {
+	// The transport lets go of the pin before DShot takes it back. An AM32
+	// claim has no core1 job, and no leave page unless an EFM8 answered, so
+	// pinClaimEnd() resumes the pump within the call.
+	endClaim();
 	s_state = S_HANDOVER;
 }
 
@@ -826,7 +945,21 @@ static void tryConnect() {
 	if (r != AM32_OK) {
 		const uint8_t *rx;
 		uint8_t n = am32BlLastRx(&rx);
+		BlAnswer a = am32BlAnswer();
 
+		if (a.kind == BlAnswerKind::Efm8) {
+			// Bluejay's or BLHeli_S's bootloader: it waits for commands with
+			// no timeout, and DShot frames could pass as one. The claim gets
+			// the leave page, MENU the run cue; nothing is read
+			// (docs/design/bluejay-blheli-s.md, slice 2).
+			s_efm8Sig = a.signature;
+			pinClaimWantLeavePage(PinUser::Am32);
+			s_blReached = true;
+			s_blReachedMs = millis();
+			snprintf(s_status, sizeof(s_status), AM32_UI_EFM8_FMT, (unsigned)a.signature);
+			s_connectNote = CN_EFM8;
+			return;
+		}
 		if (n) {
 			// Bytes arrived: the link is alive and this is a framing or rate
 			// problem, which is a different fix from silence entirely.
@@ -837,6 +970,9 @@ static void tryConnect() {
 			return;
 		}
 
+		// Silence after an EFM8 answer keeps its line: the bootloader still
+		// waits, as nothing started its firmware.
+		if (s_connectNote == CN_EFM8) return;
 		snprintf(s_status, sizeof(s_status), "WAITING... (TRY %d)", s_attempt);
 		s_connectNote = CN_NONE;
 		return;
@@ -1014,7 +1150,7 @@ static void lookUpBackup() {
 }
 
 /**
- * @brief `WRITE...` tapped: AM32 WRITE, on the settings as they are now. The
+ * @brief `WRITE...` tapped: ESC WRITE, on the settings as they are now. The
  *        hold starts fresh, so the tap's own press is never timed.
  */
 static void openPage() {
@@ -1131,8 +1267,18 @@ static void handleListGesture(const TouchState *t) {
 
 uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	// BACK is drawn disabled while the write runs (backLive()).
+	// BACK is drawn disabled while the write runs and on the leave page (backLive()).
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backLive());
+	if (s_state == S_LEAVE) {
+		if (s_leave.phase == UiLeavePhase::Before) {
+			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Stay), UI_LEAVE_LEFT, true);
+			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Leave), UI_LEAVE_WIDE, s_leave.leaveEnabled);
+		} else {
+			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Restart), UI_LEAVE_WIDE,
+			             uiLeaveRestartLive(&s_leave, millis()));
+		}
+		return n;
+	}
 	if (s_state == S_PAGE) {
 		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::WriteHold), BTN_OK, pageWritable());
 		return n;
@@ -1169,8 +1315,8 @@ bool uiAm32Tick(const TouchState *t) {
 	// BACK is drawn by drawHeader() in every state, so it has to be handled in
 	// every state. Doing it here rather than per-state stops it being a button
 	// that is visible but inert on whichever screen forgot to check for it.
-	// On release, like every navigation tap. It goes one level up: AM32 HEX
-	// and AM32 WRITE to the list, the list through its guard to MENU. While
+	// On release, like every navigation tap. It goes one level up: ESC HEX
+	// and ESC WRITE to the list, the list through its guard to MENU. While
 	// the write runs it is drawn disabled and does nothing (backLive()).
 	if (backLive()) {
 		bool back = false;
@@ -1195,7 +1341,11 @@ bool uiAm32Tick(const TouchState *t) {
 				back = true;
 			}
 		}
-		if (back) {
+		if (back && s_efm8Sig) {
+			// An EFM8 bootloader answered: SIG goes back to DShot only from
+			// the leave page (docs/design/bluejay-blheli-s.md, decision 8).
+			openLeave(s_state);
+		} else if (back) {
 			s_leaving = true;
 			uiAm32Exit();
 			return false;
@@ -1258,6 +1408,10 @@ bool uiAm32Tick(const TouchState *t) {
 			// BACK, above, is the one control: nothing here selects, steps
 			// or writes.
 			break;
+
+		case S_LEAVE:
+			if (!leaveTick(t)) return false;
+			break;
 	}
 
 	if (s_redraw) {
@@ -1270,6 +1424,7 @@ bool uiAm32Tick(const TouchState *t) {
 			case S_PAGE:
 			case S_WRITING:  drawWritePage(); break;
 			case S_VIEW:     drawView();    break;
+			case S_LEAVE:    drawLeave();   break;
 		}
 	}
 
@@ -1290,6 +1445,6 @@ bool uiAm32RunCue(uint32_t lastRpmMs) {
 bool uiAm32Esc3d() { return s_esc3d; }
 
 const UiScreen UI_AM32 = {
-	UiScreenId::Am32, "AM32 CONFIG", PinUser::Am32, nullptr,
+	UiScreenId::Am32, AM32_UI_TITLE, PinUser::Am32, nullptr,
 	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr, false,
 };

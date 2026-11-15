@@ -152,7 +152,7 @@ struct TouchState;
  *         ESC status alert, STALLED. */
 #define UI_COL_ALERT    C_MAGENTA
 /** @brief A value edited and not yet written, applied or saved, and its
- *         bar: the field rows of AM32 CONFIG, KST SERVO, HITEC SERVO and
+ *         bar: the field rows of ESC SETTINGS, KST SERVO, HITEC SERVO and
  *         SERVO SET, their editor bars and the write pages' new values. */
 #define UI_COL_CHANGED  C_CYAN
 /** @brief A setting that stays on until it is turned off: LATCH on, a toggle
@@ -225,7 +225,7 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
  *                    disabled control: an outline, a grey label and no pressed
  *                    look. Pass the expression the screen's control table
  *                    reports for `UI_FIX(UI_BACK)` and gates the tap on, and
- *                    key the repaint on it: the write pages of AM32 CONFIG,
+ *                    key the repaint on it: the write pages of ESC SETTINGS,
  *                    KST SERVO and HITEC SERVO while a write runs, and the
  *                    leave page in every phase.
  */
@@ -283,7 +283,7 @@ void uiStripTwoLines(const char *top, uint16_t topCol, const char *bottom, uint1
  * them. A press that lands anywhere but BACK disarms it. There is no timer.
  * Zero-initialised it is disarmed.
  *
- * AM32 CONFIG's list and SERVO SET use it (slice 5 of the note, "Write rule
+ * ESC SETTINGS' list and SERVO SET use it (slice 5 of the note, "Write rule
  * and guard"), with the verbs `WRITTEN` and `APPLIED`.
  */
 struct UiBackGuard {

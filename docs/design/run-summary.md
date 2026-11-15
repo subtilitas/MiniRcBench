@@ -322,7 +322,7 @@ The lines in other cases:
 |---|---|
 | clock not set, and every log before slice 4 | `Clock at start: not set`, `Clock at stop: not set` |
 | a set during the log | `Clock at stop: 2026-11-14 15:44:31 (clock set during the log)` |
-| ended by disarming or a tool | `Ended by: DISARM`, `KST SERVO`, `HITEC SERVO`, `AM32 CONFIG` |
+| ended by disarming or a tool | `Ended by: DISARM`, `KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` |
 | RPM from KISS | `Max RPM: 18400 RPM (KISS, eRPM 128800 in 100 eRPM steps, 14 poles; raw 18400 RPM)` |
 | EDT current | `Max current: 23 A (EDT, 1 A steps; raw 25 A)` |
 | EDT voltage | `Min voltage: 14.75 V (EDT, 0.25 V steps, while armed; raw 14.50 V)` |
