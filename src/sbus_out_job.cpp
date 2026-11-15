@@ -7,6 +7,11 @@
 #include "sbus_job.h"
 #include "pin_claim.h"
 #include "settings.h"
+#include "config.h"
+#include "escwire_job.h"
+#include "escwire_port.h"
+#include "greet_cycle.h"
+#include "ew_a.h"
 
 #include "plat.h"
 #include <hardware/gpio.h>
@@ -24,6 +29,8 @@ static_assert(SBUS_OUT_FRAME_US + SBUS_GAP_US <= SBUS_OUT_MIN_US,
               "frames at the shortest spacing keep the decoder's gap");
 static_assert(SBUS_OUT_MIN_US <= SBUS_OUT_PERIOD_US, "the spacing bound is below the period");
 static_assert(SBUS_FRAME_BYTES <= 32u, "a frame fits the PL011's 32-entry TX FIFO");
+static_assert(SBUS_OUT_PROBE_RX_MAX <= EW_RX_MAX, "the probe's capture is one the driver takes");
+static_assert(AM32_GREET_TMO_MS * 1000u <= EW_FIRST_US_MAX, "the wait for an answer is one the driver takes");
 
 // ---------------------------------------------------------------------------
 // the pure core
@@ -118,6 +125,11 @@ uint16_t sbusOutCeilRaw(uint16_t maxThrottle) {
 	                  (SBUS_OUT_RAW_HI - SBUS_OUT_RAW_LO) * mt / 2000u);
 }
 
+bool sbusOutProbeAnswer(const BlAnswer &a, bool *efm8) {
+	*efm8 = a.kind == BlAnswerKind::Efm8 || a.fragment;
+	return *efm8 || a.kind == BlAnswerKind::Am32;
+}
+
 uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {
 	if (sigGpio == SBUS_OUT_GPIO) return PIN_SIG;
 	if (auxGpio == SBUS_OUT_GPIO) return PIN_SIG | PIN_AUX;
@@ -149,11 +161,43 @@ static sbus_frame_t s_sent;        /**< The frame last loaded. */
 static uint32_t     s_lastMs;      /**< millis() of the pass that loaded it. */
 static bool         s_releasing;   /**< The release has begun. */
 static uint32_t     s_releaseMs;   /**< millis() of the release's first pass. */
+static SbusOutPhase s_phase = SbusOutPhase::Off;  /**< Where the bind is. */
+/** @} */
+
+/**
+ * @defgroup sbus_out_job_probe The probe (core1 only)
+ * @{
+ */
+static ew_driver_t s_line;          /**< The escwire line on GP0, from the bind to the switch. */
+static GreetCycle  s_cycle;         /**< ESC SETTINGS' connect cycle. */
+static bool        s_greeting;      /**< A greeting is on the wire. */
+/**
+ * @brief Every greeting of the running cycle went out and came back with no
+ *        answer and its capture whole: at the cycle's end the UART takes GP0.
+ */
+static bool        s_clean;
+static bool        s_answered;      /**< A bootloader answered in this bind. */
+static bool        s_efm8;          /**< An EFM8 bootloader, or a piece of its answer, in this bind. */
+static uint16_t    s_signature;     /**< The last EFM8 answer's signature. */
+static uint32_t    s_cycles;        /**< Cycles ended in this bind. */
+static uint16_t    s_answerSeq;     /**< Answers since the start; never cleared. */
+static uint16_t    s_efm8Seq;       /**< EFM8 answers and pieces since the start; never cleared. */
+static uint32_t    s_answerMs;      /**< millis() of the last answer; never cleared. */
+static uint8_t     s_greet[EW_A_CONTACT_LEN];     /**< rcbench's first contact. */
+static uint8_t     s_reply[SBUS_OUT_PROBE_RX_MAX]; /**< What came back. */
 /** @} */
 
 /** @brief Hand the status to core0. */
 static void publish() {
 	SbusOutStatus st;
+	st.phase = s_phase;
+	st.answered = s_answered;
+	st.efm8 = s_efm8;
+	st.signature = s_signature;
+	st.cycles = s_cycles;
+	st.answerSeq = s_answerSeq;
+	st.efm8Seq = s_efm8Seq;
+	st.answerMs = s_answerMs;
 	st.ackSeq = s_core.ackSeq;
 	st.running = s_core.running;
 	st.tripped = s_core.tripped;
@@ -166,12 +210,31 @@ static void publish() {
 	critical_section_exit(&s_cs);
 }
 
-/** @brief Core1's state after a bind or a release: SAFE, nothing sent. */
+/** @brief Core1's state after a bind, the switch or a release: SAFE, nothing sent. */
 static void clearState(uint16_t ackSeq) {
 	sbusOutCoreReset(&s_core, ackSeq);
 	memset(&s_sent, 0, sizeof(s_sent));
 	s_lastMs = 0;
 	s_releasing = false;
+}
+
+/** @brief The probe's state for a new bind: a quiet phase from @p nowMs, nothing answered. */
+static void probeReset(uint32_t nowMs) {
+	greetCycleStart(&s_cycle, nowMs);
+	s_greeting = false;
+	s_clean = true;
+	s_answered = false;
+	s_efm8 = false;
+	s_signature = 0;
+	s_cycles = 0;
+}
+
+/** @brief The seq of the command block: commands up to it are not taken. */
+static uint16_t heldSeq() {
+	critical_section_enter_blocking(&s_cs);
+	uint16_t seq = s_cmd.seq;
+	critical_section_exit(&s_cs);
+	return seq;
 }
 
 /**
@@ -213,31 +276,119 @@ static uint8_t sbusOutJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	// teardown leaves GP0 an SIO input with the pull-up (esc_task.cpp,
 	// escTaskPoll()'s teardown); as AUX with KISS on, the KISS receiver's
 	// end leaves it on the NULL function with the pulls off (pio_uart_rx.cpp,
-	// pioUartRxEnd()). The pull-down holds the line at its idle level from
-	// here on.
+	// pioUartRxEnd()).
 	gpio_set_dir(SBUS_OUT_GPIO, GPIO_IN);
 	gpio_put(SBUS_OUT_GPIO, 0);
-	gpio_pull_down(SBUS_OUT_GPIO);
+	// The UART from the bind, with no pad on it: a clock it cannot use
+	// refuses the bind before the probe drives anything.
 	if (!sbusBaudOk(uart_init(uart0, SBUS_BAUD))) {
 		uart_deinit(uart0);
-		padRelease();
+		// The line where the pump's teardown and the probe hold it: high.
+		gpio_pull_up(SBUS_OUT_GPIO);
 		return CORE1_JOB_CLOCK;
 	}
 	uart_set_format(uart0, 8, 2, UART_PARITY_EVEN);
 	// No pad carries UART0's RX during this claim.
 	uart_hw_t *hw = uart_get_hw(uart0);
 	hw->cr = hw->cr & ~UART_UARTCR_RXE_BITS;
-	padToUart();
 
-	critical_section_enter_blocking(&s_cs);
-	uint16_t seq = s_cmd.seq;
-	critical_section_exit(&s_cs);
-	clearState(seq);
+	// The probe's line: the open parks the pad on its pull-down, the pull-up
+	// follows in the same call, so the line rests high as between greetings.
+	uint8_t err = escwirePortOpen(SBUS_OUT_GPIO, &s_line);
+	if (err != 0) {
+		uart_deinit(uart0);
+		gpio_pull_up(SBUS_OUT_GPIO);
+		return escwireJobBindError(err);
+	}
+	s_line.line(s_line.ctx, EW_LINE_UP);
+	(void)ew_a_contact(s_greet);
+	probeReset(millis());
+	s_phase = SbusOutPhase::Probe;
+	clearState(heldSeq());
 	publish();
 	return CORE1_JOB_OK;
 }
 
+/**
+ * @brief The probe passed: GP0 from the escwire line to the UART. The close
+ *        leaves an SIO input, low, on the pull-up (escwire_port.h); the
+ *        pull-down takes the line to the UART's idle level before the UART
+ *        has the pad. No command sent before this pass is taken.
+ */
+static void toUart() {
+	escwirePortClose();
+	gpio_pull_down(SBUS_OUT_GPIO);
+	padToUart();
+	s_phase = SbusOutPhase::Uart;
+	clearState(heldSeq());
+}
+
+/** @brief Judge the capture of one greeting, read at @p nowMs. */
+static void judge(const ew_capture_t *cap, uint32_t nowMs) {
+	BlAnswer a = blAnswerClassify(s_reply, cap->n);
+	bool efm8;
+	if (sbusOutProbeAnswer(a, &efm8)) {
+		s_clean = false;
+		s_answered = true;
+		s_answerSeq++;
+		s_answerMs = nowMs;
+		if (efm8) {
+			s_efm8 = true;
+			s_efm8Seq++;
+			s_signature = a.signature;
+		}
+	} else if (cap->aborted || cap->overflow) {
+		// A capture not whole proves no silence.
+		s_clean = false;
+	}
+}
+
+/** @brief A greeting's wait ended, or it did not go: the cycle counts it. */
+static void greeted(uint32_t nowMs) {
+	greetCycleSent(&s_cycle, nowMs);
+	if (s_cycle.sent != 0) return;
+	// The burst's last greeting: the cycle ends.
+	s_cycles++;
+	if (s_clean) toUart();
+	s_clean = true;
+}
+
+/** @brief One pass of the probe: the quiet phase, a greeting, or its answer. */
+static void probeStep(uint32_t nowMs) {
+	if (s_greeting) {
+		ew_capture_t cap;
+		if (!s_line.poll(s_line.ctx, &cap)) return;
+		s_greeting = false;
+		judge(&cap, nowMs);
+		greeted(nowMs);
+		return;
+	}
+	if (greetCyclePhase(&s_cycle, nowMs) != GreetPhase::Greet) return;
+	ew_xfer_t x;
+	memset(&x, 0, sizeof(x));
+	x.rate = EW_RATE_A;
+	x.n_tx = EW_A_CONTACT_LEN;
+	x.max_rx = SBUS_OUT_PROBE_RX_MAX;
+	x.first_us = AM32_GREET_TMO_MS * 1000u;
+	x.gap_us = EW_A_GAP_US;
+	x.tx = s_greet;
+	x.rx = s_reply;
+	if (s_line.start(s_line.ctx, &x)) {
+		s_greeting = true;
+		return;
+	}
+	// The greeting did not go: this cycle proves nothing.
+	s_clean = false;
+	greeted(nowMs);
+}
+
 static void sbusOutJobStep(uint32_t nowMs, bool uiAlive) {
+	if (s_phase == SbusOutPhase::Probe) {
+		// No command is taken: START waits for a cycle with no answer.
+		probeStep(nowMs);
+		publish();
+		return;
+	}
 	critical_section_enter_blocking(&s_cs);
 	SbusOutCmd cmd = s_cmd;
 	critical_section_exit(&s_cs);
@@ -259,6 +410,16 @@ static void sbusOutJobStep(uint32_t nowMs, bool uiAlive) {
 }
 
 static bool sbusOutJobRelease(uint32_t nowMs) {
+	if (s_phase == SbusOutPhase::Probe) {
+		// A greeting on the wire is cut; GP0 stays an SIO input on the
+		// pull-up and never reaches the UART.
+		escwirePortClose();
+		uart_deinit(uart0);
+		s_phase = SbusOutPhase::Off;
+		clearState(s_core.ackSeq);
+		publish();
+		return true;
+	}
 	// No frame is loaded from here on; the one on the wire completes.
 	s_core.running = false;
 	if (!s_releasing) {
@@ -274,6 +435,7 @@ static bool sbusOutJobRelease(uint32_t nowMs) {
 	padRelease();
 	uart_deinit(uart0);
 	// No frame outlives the claim: a status read after it reads empty.
+	s_phase = SbusOutPhase::Off;
 	clearState(s_core.ackSeq);
 	publish();
 	return true;
@@ -304,4 +466,61 @@ void sbusOutJobStatus(SbusOutStatus *out) {
 	critical_section_enter_blocking(&s_cs);
 	*out = s_status;
 	critical_section_exit(&s_cs);
+}
+
+/**
+ * @defgroup sbus_out_job_core0 Core0 only
+ * @{
+ */
+/** @brief efm8Seq at the last sbusOutProbeRestart(): a later one marks the claim. */
+static uint16_t s_efm8Mark = 0;
+/** @brief answerSeq when the run cue last went: a later one sets it again. */
+static uint16_t s_cueMark = 0;
+/** @} */
+
+bool sbusOutProbePassed() {
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	return st.phase == SbusOutPhase::Uart;
+}
+
+SbusOutProbeState sbusOutProbePoll() {
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	// The claim's row has the leave page from the start; an EFM8 answer asks
+	// for it as ESC SETTINGS does, so a row without it would still get it.
+	if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);
+	switch (st.phase) {
+		case SbusOutPhase::Off:   return SbusOutProbeState::Off;
+		case SbusOutPhase::Uart:  return SbusOutProbeState::Passed;
+		case SbusOutPhase::Probe: break;
+	}
+	return st.answered ? SbusOutProbeState::Answered : SbusOutProbeState::Checking;
+}
+
+bool sbusOutProbeEfm8() {
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	return st.efm8Seq != s_efm8Mark;
+}
+
+bool sbusOutRunCue(uint32_t lastRpmMs) {
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	if (st.answerSeq == s_cueMark) return false;
+	// An eRPM frame stamped after the last answer: the firmware runs again.
+	if (lastRpmMs != 0 && (int32_t)(lastRpmMs - st.answerMs) > 0) {
+		s_cueMark = st.answerSeq;
+		return false;
+	}
+	return true;
+}
+
+void sbusOutProbeRestart() {
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	if (st.efm8Seq == s_efm8Mark) return;
+	// The page's first step took the ESC's battery off.
+	s_efm8Mark = st.efm8Seq;
+	s_cueMark = st.answerSeq;
 }

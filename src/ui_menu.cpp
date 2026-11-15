@@ -10,6 +10,7 @@
 #include "ui_widgets.h"
 #include "usb_bridge.h"
 #include "ui_am32.h"
+#include "sbus_out_job.h"
 #include "esc_task.h"
 #include "esc_merge.h"
 #include "settings.h"
@@ -189,8 +190,9 @@ static void drawMenu(MenuEdt edt, bool runCue) {
 		snprintf(cap, sizeof(cap), UI_MENU_CAPTION_FMT, (unsigned)settings()->dshotPin,
 		         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
 	}
-	// After an AM32 session that reached the bootloader, a second line says
-	// what starts the ESC again: leaving sends it no command. @see uiAm32RunCue()
+	// After a session that reached a bootloader, a second line says what
+	// starts the ESC again: leaving sends it no command. @see uiAm32RunCue(),
+	// usbBridgeRunCue(), sbusOutRunCue()
 	if (runCue) uiStripTwoLines(cap, capCol, AM32_UI_RUN_CUE, UI_COL_WARN);
 	else uiStripText(cap, capCol);
 	// Read-only: the firmware enables EDT for each ESC as it appears, and
@@ -244,9 +246,11 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		MenuEdt edt = rd.edtFresh ? MenuEdt::On
 		            : escFieldFresh(tel.lastRpmMs, millis(), ESC_LINK_STALE_MS) ? MenuEdt::Off
 		                                                                        : MenuEdt::NoEsc;
-		// ESC SETTINGS' cue, or the USB bridge's (usb_bridge.h): both are
-		// a bootloader that answered and was not told to run.
-		bool runCue = uiAm32RunCue(tel.lastRpmMs) | usbBridgeRunCue(tel.lastRpmMs);
+		// ESC SETTINGS' cue, the USB bridge's (usb_bridge.h) or the S.BUS
+		// output's probe's (sbus_out_job.h): each is a bootloader that
+		// answered and was not told to run.
+		bool runCue = uiAm32RunCue(tel.lastRpmMs) | usbBridgeRunCue(tel.lastRpmMs) |
+		              sbusOutRunCue(tel.lastRpmMs);
 		uint32_t key = frameKey(edt, runCue);
 		if (key != s_drawnKey) {
 			s_drawnKey = key;
