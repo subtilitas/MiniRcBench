@@ -16,12 +16,18 @@
 
 #include "check.h"
 #include "fakes.h"
+#include "fake_escwire_port.h"
 #include "core1_job.h"
 #include "esc_task.h"
 #include "pin_claim.h"
 #include "sbus_out_job.h"
 #include "settings.h"
+#include "ui.h"
+#include "ui_am32.h"
+#include "ui_widgets.h"
+#include "gfx.h"
 #include "plat.h"
+#include "ew_line.h"
 
 #include <hardware/gpio.h>
 #include <hardware/uart.h>
@@ -31,6 +37,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -444,6 +451,34 @@ static bool runToFrame(uint32_t frames, uint32_t stepUs) {
 	return st.frames > frames;
 }
 
+/** @brief No ESC on GP0: rcbench's model, unplugged; the line's counts at 0. */
+static void noEsc() {
+	fakeEwReset(0xB2, true);
+	fakeEwSim()->dead = true;
+}
+
+/** @brief Passes every 500 us until the probe passed; false after 3 s. */
+static bool probeToSafe() {
+	uint64_t until = time_us_64() + 3000000;
+	while (!sbusOutProbePassed() && time_us_64() < until) {
+		fakeAdvanceUs(500);
+		if (g_beat) escHeartbeat();
+		core1JobPoll();
+	}
+	return sbusOutProbePassed();
+}
+
+/**
+ * @brief An S.BUS output claim with @p roles, no ESC on GP0, through the
+ *        probe to SAFE: Running once the probe passed, else Free.
+ */
+static ClaimState claimToSafe(uint8_t roles) {
+	noEsc();
+	ClaimState s = claimToBind(roles);
+	if (s != ClaimState::Running || !probeToSafe()) return ClaimState::Free;
+	return s;
+}
+
 /** @brief Send a command of @p kind; returns its seq. */
 static uint16_t send(SbusOutCmdKind kind, uint16_t raw = 992, uint8_t thrCh = SBUS_OUT_THR_DEFAULT) {
 	SbusOutCmd c = cmdOf(kind, 0, raw, thrCh, sbusOutCeilRaw(400));
@@ -487,9 +522,9 @@ static bool gp0Released() {
 	       p.inover == GPIO_OVERRIDE_NORMAL && !p.output && !p.high && p.pull == FakePull::Down;
 }
 
-/** @brief The default wiring: the bind, register by register. */
+/** @brief The default wiring: the bind, the probe's line and the switch, register by register. */
 static void testJobBind() {
-	section("S.BUS output job: the bind, register by register");
+	section("S.BUS output job: the bind, the probe's line and the switch, register by register");
 
 	fakePwmReset();
 	fakeUartReset();
@@ -502,35 +537,59 @@ static void testJobBind() {
 	gpio_set_dir(0, GPIO_OUT);
 	gpio_put(0, 1);
 	FakePin gp1 = fakePin(1);
+	noEsc();
 	int ctrl0 = fakeGpioCtrlWrites(0);
 	checkTrue("the claim runs the shipped job",
 	          claimToBind(sbusOutClaimRoles(0, 1)) == ClaimState::Running &&
 	          core1JobRunning() == Core1Job::SbusOut);
 	FakePin p = fakePin(0);
 	FakeUart u = fakeUart();
-	checkTrue("the pull-down on GP0", p.pull == FakePull::Down);
-	checkTrue("the pull-down before uart_init()", p.pullAt != 0 && p.pullAt < u.initAt);
+	checkTrue("SIO's output enable off and its output low first",
+	          !p.output && !p.high && p.dirAt < u.initAt && p.putAt < u.initAt);
 	checkInt("100,000 baud from 150 MHz", u.baud, 100000);
 	checkTrue("8E2", u.dataBits == 8 && u.stopBits == 2 && u.parity == UART_PARITY_EVEN);
 	checkTrue("then the receiver off: RXE clear, TXE and UARTEN set",
 	          u.formatAt > u.initAt && u.crAt > u.formatAt && !u.rxe && u.txe && u.enabled);
-	checkInt("one write of GP0's control register", fakeGpioCtrlWrites(0) - ctrl0, 1);
-	FakeCtrlWrite w = fakeGpioCtrlWrite(0, ctrl0);
-	checkInt("FUNCSEL UART and OUTOVER inverted in that write", w.value, CTRL_UART_INV);
-	checkTrue("after the UART is set up", w.at > u.crAt);
-	checkTrue("the pad first: IE on, OD off", p.padMaskAt != 0 && p.padMaskAt < w.at);
-	checkTrue("SIO's output enable off and its output low first",
-	          !p.output && !p.high && p.dirAt < p.pullAt && p.putAt < p.pullAt);
+	checkTrue("the probe's line opened on GP0", fakeEwOpen() && fakeEwOpens() == 1 &&
+	          fakeEwGpio() == 0);
+	checkInt("one write of GP0's control register: the line's", fakeGpioCtrlWrites(0) - ctrl0, 1);
+	FakeCtrlWrite pw = fakeGpioCtrlWrite(0, ctrl0);
+	checkInt("FUNCSEL PIO2, no override", pw.value, GPIO_FUNC_PIO2);
+	checkTrue("after the UART is set up", pw.at > u.crAt);
+	checkTrue("then the pull-up, the input on: the line rests high",
+	          p.pull == FakePull::Up && p.pullAt > pw.at && !p.inputOff &&
+	          fakeEwSim()->line == EW_LINE_UP);
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	checkTrue("the probe: not passed, nothing sent", st.phase == SbusOutPhase::Probe &&
+	          !sbusOutProbePassed() && fakeEwSim()->starts == 0 && !st.running);
+	checkTrue("GP1 untouched", samePin(fakePin(1), gp1) && fakeGpioCtrlWrites(1) == 0);
+
+	// The switch, once a cycle passed with no answer.
+	checkTrue("the probe passes", probeToSafe());
+	p = fakePin(0);
+	checkInt("three writes of GP0's control register in all", fakeGpioCtrlWrites(0) - ctrl0, 3);
+	FakeCtrlWrite sio = fakeGpioCtrlWrite(0, ctrl0 + 1);
+	FakeCtrlWrite w = fakeGpioCtrlWrite(0, ctrl0 + 2);
+	checkInt("the line closed: GP0 on SIO", sio.value, GPIO_FUNC_SIO);
+	checkTrue("the line closed once", !fakeEwOpen() && fakeEwCloses() == 1);
+	checkInt("then FUNCSEL UART and OUTOVER inverted in one write", w.value, CTRL_UART_INV);
+	checkTrue("SIO's output enable off and its output low before it",
+	          !p.output && !p.high && p.dirAt < w.at && p.putAt < w.at);
+	checkTrue("the pull-down between them: the line falls to the UART's idle level",
+	          p.pull == FakePull::Down && p.pullAt > sio.at && p.pullAt < w.at);
+	checkTrue("the pad first: IE on, OD off", p.padMaskAt > p.pullAt && p.padMaskAt < w.at);
 	checkTrue("then isolation cleared", p.padIsoAt > w.at);
 	uint32_t pad = fakePad(0);
 	checkTrue("the pad: IE set, OD and ISO clear",
 	          (pad & PADS_BANK0_GPIO0_IE_BITS) &&
 	          !(pad & (PADS_BANK0_GPIO0_OD_BITS | PADS_BANK0_GPIO0_ISO_BITS)));
 	checkTrue("GP0 never on the UART without the inversion", neverUartPlain());
-	checkTrue("GP1 untouched", samePin(fakePin(1), gp1) && fakeGpioCtrlWrites(1) == 0);
-	SbusOutStatus st;
+	checkTrue("GP1 still untouched", samePin(fakePin(1), gp1) && fakeGpioCtrlWrites(1) == 0);
+	checkTrue("UART0 set up once, at the bind", fakeUart().inits == 1 && fakeUart().enabled);
 	sbusOutJobStatus(&st);
-	checkTrue("SAFE: not running, nothing sent", !st.running && !st.tripped && st.frames == 0);
+	checkTrue("SAFE: not running, nothing sent", st.phase == SbusOutPhase::Uart &&
+	          !st.running && !st.tripped && st.frames == 0);
 	runTo(time_us_64() + 100000, 500);
 	checkInt("SAFE for 100 ms: no character on the wire", fakeUartTxCount(), 0);
 	checkTrue("GP0 still bound, inverted", fakePin(0).ctrl == CTRL_UART_INV);
@@ -541,7 +600,7 @@ static void testJobBind() {
 	// A command sent before the bind is not taken.
 	freshPump(0, 1);
 	send(SbusOutCmdKind::Start);
-	checkTrue("a START sent before the claim", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("a START sent before the claim", claimToSafe(PIN_SIG) == ClaimState::Running);
 	runTo(time_us_64() + 50000, 500);
 	sbusOutJobStatus(&st);
 	checkTrue("is not taken: SAFE, no frame", !st.running && fakeUartTxCount() == 0);
@@ -591,7 +650,7 @@ static void testJobLine() {
 	fakeUartReset();
 	freshPump(0, 1);
 	teardownState(0);
-	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("running", claimToSafe(PIN_SIG) == ClaimState::Running);
 	g_beat = true;
 	escHeartbeat();
 	uint16_t seq = send(SbusOutCmdKind::Start);
@@ -679,7 +738,7 @@ static void testJobCeiling() {
 	fakePwmReset();
 	fakeUartReset();
 	freshPump(0, 1);
-	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("running", claimToSafe(PIN_SIG) == ClaimState::Running);
 	g_beat = true;
 	static const uint16_t MT[] = { 400, 1000 };
 	for (uint16_t mt : MT) {
@@ -715,7 +774,7 @@ static void testJobRelease() {
 	// hand the pad back to it driving.
 	gpio_set_dir(0, GPIO_OUT);
 	gpio_put(0, 1);
-	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("running", claimToSafe(PIN_SIG) == ClaimState::Running);
 	g_beat = true;
 	escHeartbeat();
 	send(SbusOutCmdKind::Start);
@@ -767,7 +826,7 @@ static void testJobRelease() {
 
 	// A transmitter that never sends: the next frame waits for TXFE.
 	freshPump(0, 1);
-	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("running", claimToSafe(PIN_SIG) == ClaimState::Running);
 	fakeUartTxStuck(true);
 	FakeUart su = fakeUart();
 	escHeartbeat();
@@ -780,7 +839,7 @@ static void testJobRelease() {
 
 	// While SAFE nothing is on the wire: one pass.
 	freshPump(0, 1);
-	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("running", claimToSafe(PIN_SIG) == ClaimState::Running);
 	pinClaimEnd(PinUser::SbusOut);
 	core1JobPoll();
 	checkTrue("SAFE: released in one pass", core1JobPhase() == Core1JobPhase::Idle &&
@@ -791,7 +850,7 @@ static void testJobRelease() {
 
 	// A BUSY that never clears: the backstop, 10 ms after the first pass.
 	freshPump(0, 1);
-	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("running", claimToSafe(PIN_SIG) == ClaimState::Running);
 	fakeUartTxStuck(true);
 	pinClaimEnd(PinUser::SbusOut);
 	core1JobPoll();
@@ -818,7 +877,7 @@ static void testJobHeartbeat() {
 	fakePwmReset();
 	fakeUartReset();
 	freshPump(0, 1);
-	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("running", claimToSafe(PIN_SIG) == ClaimState::Running);
 	g_beat = true;
 	escHeartbeat();
 	send(SbusOutCmdKind::Start);
@@ -855,10 +914,14 @@ static void testJobHeartbeat() {
 	g_beat = true;
 	checkTrue("back to free", claimEnd());
 	freshPump(0, 1);
+	noEsc();
 	checkTrue("a new visit", claimToBind(PIN_SIG) == ClaimState::Running);
 	sbusOutJobStatus(&st);
-	checkTrue("starts SAFE with no trip", !st.running && !st.tripped && !st.refused &&
-	                                      st.frames == 0);
+	checkTrue("starts in the probe, with no trip", st.phase == SbusOutPhase::Probe &&
+	          !st.running && !st.tripped && !st.refused && st.frames == 0);
+	checkTrue("then SAFE with no trip", probeToSafe());
+	sbusOutJobStatus(&st);
+	checkTrue("not running, nothing sent", !st.running && !st.tripped && st.frames == 0);
 	checkTrue("back to free", claimEnd());
 }
 
@@ -873,7 +936,7 @@ static void testJobWirings() {
 	kissEndState(0);
 	FakePin gp1 = fakePin(1);
 	checkTrue("SIG GP1, AUX GP0: runs with SIG and AUX",
-	          claimToBind(sbusOutClaimRoles(1, 0)) == ClaimState::Running);
+	          claimToSafe(sbusOutClaimRoles(1, 0)) == ClaimState::Running);
 	checkTrue("it binds GP0", fakePin(0).ctrl == CTRL_UART_INV);
 	checkTrue("from the KISS receiver's NULL and no pulls: the pull-down on",
 	          fakePin(0).pull == FakePull::Down);
@@ -889,7 +952,7 @@ static void testJobWirings() {
 	fakePwmReset();
 	fakeUartReset();
 	freshPump(0, 0, false);
-	checkTrue("SIG GP0, AUX GP0: runs with SIG", claimToBind(sbusOutClaimRoles(0, 0)) == ClaimState::Running);
+	checkTrue("SIG GP0, AUX GP0: runs with SIG", claimToSafe(sbusOutClaimRoles(0, 0)) == ClaimState::Running);
 	checkTrue("it binds GP0", fakePin(0).ctrl == CTRL_UART_INV);
 	checkTrue("back to free", claimEnd());
 
@@ -918,7 +981,7 @@ static void testJobWirings() {
 	fakeUartReset();
 	freshPump(0, 1);
 	gp1 = fakePin(1);
-	checkTrue("SIG GP0 and AUX GP1 both asked: runs", claimToBind(PIN_SIG | PIN_AUX) == ClaimState::Running);
+	checkTrue("SIG GP0 and AUX GP1 both asked: runs", claimToSafe(PIN_SIG | PIN_AUX) == ClaimState::Running);
 	checkTrue("GP1 untouched", samePin(fakePin(1), gp1) && fakeGpioCtrlWrites(1) == 0);
 	checkTrue("back to free", claimEnd());
 
@@ -927,25 +990,30 @@ static void testJobWirings() {
 	fakeUartReset();
 	freshPump(0, 1);
 	// GP0 on the NULL function, as the KISS receiver leaves AUX, and SIO
-	// set to drive it high: a refused bind leaves it an SIO input, low.
+	// set to drive it high: a refused bind leaves SIO driving nothing and
+	// the line on the pull-up.
 	kissEndState(0);
 	gpio_set_dir(0, GPIO_OUT);
 	gpio_put(0, 1);
+	noEsc();
+	int ctrl0 = fakeGpioCtrlWrites(0);
 	fakeClockSet(clk_peri, 1000000u);
 	checkTrue("clk_peri 1 MHz: held, not running", claimToBind(PIN_SIG) == ClaimState::Held);
 	checkInt("CLOCK", pinClaimJobError(), CORE1_JOB_CLOCK);
 	checkTrue("UART0 off again", !fakeUart().enabled && fakeUart().deinits == 1);
-	checkTrue("GP0 never on the UART", fakePin(0).function != GPIO_FUNC_UART && neverUartPlain());
-	bool uartEver = false;
-	for (int i = 0; i < fakeGpioCtrlWrites(0); i++)
-		uartEver |= (fakeGpioCtrlWrite(0, i).value & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS) == GPIO_FUNC_UART;
-	checkTrue("no control write named the UART", !uartEver);
-	checkTrue("GP0 left a low input", gp0Released());
+	checkTrue("the probe's line never opened", fakeEwOpens() == 0);
+	checkInt("GP0's control register not written", fakeGpioCtrlWrites(0) - ctrl0, 0);
+	FakePin cp = fakePin(0);
+	checkTrue("SIO's output enable off and its output low before uart_init()",
+	          !cp.output && !cp.high && cp.dirAt < fakeUart().initAt && cp.putAt < fakeUart().initAt);
+	checkTrue("the pull-up after the refusal: the line stays high",
+	          cp.pull == FakePull::Up && cp.pullAt > fakeUart().initAt);
 	fakeClockSet(clk_peri, 150000000u);
 	pinClaimRetry(PinUser::SbusOut);
 	core1JobPoll();
-	checkTrue("RETRY at 150 MHz: running", pinClaimPoll() == ClaimState::Running &&
-	                                       fakePin(0).ctrl == CTRL_UART_INV);
+	checkTrue("RETRY at 150 MHz: the probe runs", pinClaimPoll() == ClaimState::Running &&
+	          fakeEwOpen() && !sbusOutProbePassed());
+	checkTrue("then SAFE, GP0 the UART's", probeToSafe() && fakePin(0).ctrl == CTRL_UART_INV);
 	checkTrue("back to free", claimEnd());
 
 	// The ESC check, in both wirings.
@@ -994,6 +1062,497 @@ static void testJobWirings() {
 	checkTrue("while it holds: any other user busy",
 	          claimToBind(sbusOutClaimRoles(1, 0)) == ClaimState::Running &&
 	          pinClaimBegin(PinUser::Sbus, PIN_SIG) == ClaimRefusal::Busy);
+	checkTrue("back to free", claimEnd());
+}
+
+/** @brief @p n UI frames of 25 ms: core1's passes every 500 us, the pump's pass, the UI. */
+static void outFrames(int n) {
+	for (int i = 0; i < n; i++) {
+		for (int k = 0; k < 50; k++) {
+			fakeAdvanceUs(500);
+			core1JobPoll();
+		}
+		fakePumpPoll();
+		uiTick();
+	}
+}
+
+#define UI_IDS_FRAMES(n) outFrames(n)
+#include "ui_ids.h"
+
+// ---------------------------------------------------------------------------
+// the bootloader probe, on rcbench's simulated ESC behind the escwire line
+// ---------------------------------------------------------------------------
+
+/** @brief Passes every 500 us for @p ms, the heartbeat stamped. */
+static void passMs(uint32_t ms) { runTo(time_us_64() + (uint64_t)ms * 1000u, 500); }
+
+/** @brief Transaction @p i of the line was rcbench's first contact. */
+static bool greetingAt(int i) {
+	uint8_t c[EW_A_CONTACT_LEN];
+	ew_a_contact(c);
+	const sim_t *e = fakeEwSim();
+	return i < e->starts && e->log[i].n == EW_A_CONTACT_LEN &&
+	       memcmp(e->log[i].b, c, sizeof(c)) == 0;
+}
+
+/** @brief No write of GP0's control register named the UART since write @p from. */
+static bool neverUart(int from) {
+	for (int i = from; i < fakeGpioCtrlWrites(0); i++)
+		if ((fakeGpioCtrlWrite(0, i).value & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS) == GPIO_FUNC_UART)
+			return false;
+	return true;
+}
+
+/** @brief GP0 as the probe leaves it: an SIO input, low, on the pull-up. */
+static bool gp0Up() {
+	FakePin p = fakePin(0);
+	return p.function == GPIO_FUNC_SIO && p.outover == GPIO_OVERRIDE_NORMAL && !p.output &&
+	       !p.high && p.pull == FakePull::Up;
+}
+
+/** @brief An eRPM frame stamped @p ms after the last answer the job read (negative: before it). */
+static uint32_t rpmAfterAnswer(int32_t ms) {
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	return st.answerMs + (uint32_t)ms;
+}
+
+/** @brief The rule: which replies are an ESC on GP0. */
+static void testProbeRule() {
+	section("S.BUS output probe: which replies are an ESC on GP0");
+
+	struct Case { const char *what; uint8_t b[9]; int n; bool answer; bool efm8; };
+	static const Case CASES[] = {
+		{ "silence: none", {0}, 0, false, false },
+		{ "Bluejay's EFM8 answer: an ESC, EFM8",
+		  {0x34, 0x37, 0x31, 0x64, 0xE8, 0xB2, 0x06, 0x01, 0x30}, 9, true, true },
+		{ "rcbench's AM32 answer: an ESC, not EFM8",
+		  {0x34, 0x37, 0x31, 0x14, 0x35, 0x06, 0x06, 0x01, 0x30}, 9, true, false },
+		{ "an EFM8 answer with its 4 lost: a piece, EFM8",
+		  {0x37, 0x31, 0x64, 0xE8, 0xB2, 0x06, 0x01, 0x30}, 8, true, true },
+		{ "bytes that are no answer: none",
+		  {0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55}, 9, false, false },
+		{ "a 0xC2 alone: none", {0xC2}, 1, false, false },
+	};
+	// The cue and the mark compare these counts with core0's marks, which
+	// take their type: 16 bits would read the cue as gone after exactly
+	// 65,536 answers.
+	checkTrue("the answer counts are 32 bits wide",
+	          sizeof(SbusOutStatus::answerSeq) == 4 && sizeof(SbusOutStatus::efm8Seq) == 4);
+	for (const Case &c : CASES) {
+		bool efm8 = !c.efm8;
+		bool answer = sbusOutProbeAnswer(blAnswerClassify(c.b, c.n), &efm8);
+		checkTrue(c.what, answer == c.answer && efm8 == c.efm8);
+	}
+}
+
+/** @brief No ESC on GP0: one cycle, then SAFE; START impossible before it. */
+static void testProbeNoAnswer() {
+	section("S.BUS output probe: no answer, one cycle, then SAFE");
+
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	teardownState(0);
+	noEsc();
+	g_beat = true;
+	escHeartbeat();
+	uint16_t stop = send(SbusOutCmdKind::Safe);
+	checkTrue("bound: the probe", claimToBind(PIN_SIG) == ClaimState::Running &&
+	          sbusOutProbePoll() == SbusOutProbeState::Checking && !sbusOutProbePassed());
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	checkTrue("the bind takes a STOP held before it as acknowledged", st.ackSeq == stop);
+	uint32_t t0 = millis();
+	uint16_t early = send(SbusOutCmdKind::Start);
+	checkTrue("so a START sent now is held, not dropped behind it", early == (uint16_t)(stop + 1));
+	while (millis() - t0 < 999) runTo(time_us_64() + 500, 500);
+	sbusOutJobStatus(&st);
+	checkTrue("999 ms: quiet, nothing sent, the line on the pull-up",
+	          fakeEwSim()->starts == 0 && fakeEwSim()->line == EW_LINE_UP &&
+	          fakePin(0).pull == FakePull::Up && fakePin(0).function == GPIO_FUNC_PIO2);
+	checkTrue("the START sent in it: not taken", !st.running && st.ackSeq != early);
+	while (fakeEwSim()->starts == 0 && millis() - t0 < 1010) runTo(time_us_64() + 500, 500);
+	checkInt("the first greeting 1000 ms after the bind", (long)(millis() - t0), 1000);
+	checkTrue("rcbench's first contact", greetingAt(0));
+	uint16_t late = 0;
+	while (fakeEwSim()->starts < 3 && millis() - t0 < 1200) runTo(time_us_64() + 500, 500);
+	late = send(SbusOutCmdKind::Start);
+	checkTrue("a START during the third greeting: the probe still runs",
+	          !sbusOutProbePassed() && sbusOutProbePoll() == SbusOutProbeState::Checking);
+	checkTrue("then SAFE", probeToSafe());
+	uint32_t passed = millis() - t0;
+	sbusOutJobStatus(&st);
+	checkInt("three greetings", fakeEwSim()->starts, 3);
+	checkTrue("each the first contact", greetingAt(1) && greetingAt(2));
+	checkInt("one cycle", (long)st.cycles, 1);
+	checkInt("SAFE once the third greeting's wait ended, ms", (long)passed, 1118, 2);
+	checkTrue("Passed: the gate open", sbusOutProbePoll() == SbusOutProbeState::Passed &&
+	          sbusOutProbePassed() && st.phase == SbusOutPhase::Uart);
+	checkTrue("no answer: no cue, no EFM8 mark", !st.answered && !sbusOutRunCue(0) &&
+	          !sbusOutProbeEfm8());
+	passMs(50);
+	sbusOutJobStatus(&st);
+	checkTrue("the START sent during the probe: never taken",
+	          st.ackSeq == late && !st.running && fakeUartTxCount() == 0);
+	send(SbusOutCmdKind::Start);
+	checkTrue("a START now: frames", runToFrame(0, 500));
+	// STOP and START again: no probe between them.
+	send(SbusOutCmdKind::Safe);
+	passMs(20);
+	send(SbusOutCmdKind::Start);
+	runTo(time_us_64() + 500, 500);
+	sbusOutJobStatus(&st);
+	checkTrue("STOP, START: RUNNING on the next pass, no probe between",
+	          st.running && fakeEwOpens() == 1 && fakeEwSim()->starts == 3);
+	checkTrue("back to free", claimEnd());
+	checkTrue("the gate shut once the job is off", !sbusOutProbePassed() &&
+	          sbusOutProbePoll() == SbusOutProbeState::Off);
+}
+
+/** @brief An EFM8 bootloader answers: START refused, the cue, the leave page; then unplugged. */
+static void testProbeEfm8() {
+	section("S.BUS output probe: an EFM8 bootloader answers, then is unplugged");
+
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	teardownState(0);
+	fakeEwReset(0xB2, true);
+	fakeEwAnswerEach(true);
+	g_beat = true;
+	escHeartbeat();
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	uint32_t seq0 = st.answerSeq, efm0 = st.efm8Seq;
+	int ctrl0 = fakeGpioCtrlWrites(0);
+	checkTrue("bound: the probe", claimToBind(PIN_SIG) == ClaimState::Running);
+	passMs(1100);
+	sbusOutJobStatus(&st);
+	checkTrue("its greeting answered", st.answered && st.efm8 && st.signature == 0xE8B2);
+	checkTrue("Answered, the cue, the EFM8 mark",
+	          sbusOutProbePoll() == SbusOutProbeState::Answered && sbusOutRunCue(0) &&
+	          sbusOutProbeEfm8());
+	checkTrue("the claim keeps its leave page", pinClaimLeavePage());
+	uint16_t start = send(SbusOutCmdKind::Start);
+	passMs(2300);
+	sbusOutJobStatus(&st);
+	checkInt("three cycles", (long)st.cycles, 3);
+	checkInt("nine answers counted", st.answerSeq - seq0, 9);
+	checkInt("nine of them EFM8", st.efm8Seq - efm0, 9);
+	checkTrue("START refused: still the probe, the gate shut",
+	          st.phase == SbusOutPhase::Probe && !sbusOutProbePassed() && !st.running &&
+	          st.ackSeq != start);
+	checkTrue("GP0 never on the UART, nothing sent on it",
+	          neverUart(ctrl0) && fakeUartTxCount() == 0 && fakeUart().txWrites == 0);
+	// The ESC unplugged: the next cycle with no answer passes.
+	fakeEwSim()->dead = true;
+	uint32_t cycles = st.cycles;
+	checkTrue("unplugged: SAFE", probeToSafe());
+	sbusOutJobStatus(&st);
+	checkTrue("after a whole cycle with no answer", st.cycles >= cycles + 1 &&
+	          st.cycles <= cycles + 2);
+	checkTrue("the START sent during the probe: never taken", !st.running);
+	send(SbusOutCmdKind::Start);
+	checkTrue("a START now: frames", runToFrame(0, 500));
+	checkTrue("back to free", claimEnd());
+	checkTrue("the claim over: the cue and the EFM8 mark kept",
+	          sbusOutRunCue(0) && sbusOutProbeEfm8());
+	sbusOutProbeRestart();
+	checkTrue("RESTART DSHOT: both gone", !sbusOutRunCue(0) && !sbusOutProbeEfm8());
+	fakeEwAnswerEach(false);
+}
+
+/** @brief An AM32 bootloader answers: START refused, the cue, no EFM8 step; MENU's strip. */
+static void testProbeAm32() {
+	section("S.BUS output probe: an AM32 bootloader answers; MENU's cue");
+
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	teardownState(0);
+	fakeEwResetAm32();
+	fakeEwAnswerEach(true);
+	g_beat = true;
+	escHeartbeat();
+	checkTrue("bound: the probe", claimToBind(PIN_SIG) == ClaimState::Running);
+	uint32_t bindMs = millis();
+	uint16_t start = send(SbusOutCmdKind::Start);
+	passMs(1200);
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	checkTrue("answered, AM32: no EFM8 mark", st.answered && !st.efm8 && st.signature == 0 &&
+	          !sbusOutProbeEfm8());
+	checkTrue("Answered, the cue", sbusOutProbePoll() == SbusOutProbeState::Answered &&
+	          sbusOutRunCue(0));
+	checkTrue("START refused", !st.running && st.ackSeq != start && !sbusOutProbePassed());
+	fakeEwSim()->dead = true;
+	checkTrue("unplugged: SAFE", probeToSafe());
+	checkTrue("back to free", claimEnd());
+	sbusOutProbeRestart();
+	checkTrue("RESTART DSHOT after AM32 alone: the cue stays", sbusOutRunCue(0));
+	checkTrue("an eRPM frame stamped at the answer: stays", sbusOutRunCue(rpmAfterAnswer(0)));
+	checkTrue("one stamped before it: stays", sbusOutRunCue(rpmAfterAnswer(-5)));
+	checkTrue("one from before the probe: stays", sbusOutRunCue(bindMs));
+
+	// MENU shows it.
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	outFrames(2);
+	tapId(UI_FIX(TesterCtl::Menu));
+	outFrames(2);
+	checkTrue("MENU: the strip's second line reads POWER-CYCLE THE ESC TO RUN IT",
+	          uiCurrentScreen() == UiScreenId::Menu &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	// Stamped now, by the clock: after the answer.
+	t.lastRpmMs = millis();
+	fakeSetTelemetry(&t);
+	outFrames(2);
+	checkTrue("an eRPM frame after the answer: the cue gone from MENU", !sbusOutRunCue(0) &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
+	memset(&t, 0, sizeof(t));
+	fakeSetTelemetry(&t);
+	tapId(UI_FIX(UI_BACK));
+	outFrames(1);
+	fakeEwAnswerEach(false);
+}
+
+/** @brief A piece of an EFM8 answer, bytes that are none, and a greeting that did not prove silence. */
+static void testProbeReplies() {
+	section("S.BUS output probe: a piece of an answer, noise, a greeting cut or refused");
+
+	// A piece: the EFM8 answer with its leading 4 lost.
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	fakeEwReset(0xB2, true);
+	fakeEwAnswerEach(true);
+	static const uint8_t PIECE[9] = {0x37, 0x31, 0x64, 0xE8, 0xB2, 0x06, 0x01, 0x30, 0x00};
+	memcpy(fakeEwSim()->answer, PIECE, sizeof(PIECE));
+	g_beat = true;
+	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+	passMs(1200);
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	checkTrue("a piece of an EFM8 answer: Answered, EFM8, no signature",
+	          st.answered && st.efm8 && st.signature == 0 && !sbusOutProbePassed() &&
+	          sbusOutProbeEfm8() && sbusOutRunCue(0));
+	checkTrue("back to free", claimEnd());
+	sbusOutProbeRestart();
+	checkTrue("RESTART DSHOT: the mark and the cue gone", !sbusOutProbeEfm8() && !sbusOutRunCue(0));
+
+	// Noise: bytes that are no bootloader's answer. No cue, but the cycle
+	// repeats: an FC's S.BUS input sends nothing.
+	fakeEwReset(0xB2, true);
+	fakeEwAnswerEach(true);
+	memset(fakeEwSim()->answer, 0x55, sizeof(fakeEwSim()->answer));
+	freshPump(0, 1);
+	sbusOutJobStatus(&st);
+	uint32_t seq0 = st.answerSeq;
+	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+	passMs(3500);
+	sbusOutJobStatus(&st);
+	checkTrue("bytes that are none: three cycles, still the probe",
+	          st.cycles == 3 && st.phase == SbusOutPhase::Probe && !sbusOutProbePassed());
+	checkTrue("no answer counted, no cue, no mark", st.answerSeq == seq0 && !st.answered &&
+	          !sbusOutRunCue(0) && !sbusOutProbeEfm8() &&
+	          sbusOutProbePoll() == SbusOutProbeState::Checking);
+	fakeEwSim()->dead = true;
+	checkTrue("silent: SAFE after the next whole cycle", probeToSafe());
+	checkTrue("back to free", claimEnd());
+	fakeEwAnswerEach(false);
+
+	// The EFM8 model as it is: its first answer, then 0xC2 to each later
+	// contact, its reply to a frame whose CRC fails. The 0xC2 hold START too.
+	fakeEwReset(0xB2, true);
+	freshPump(0, 1);
+	sbusOutJobStatus(&st);
+	seq0 = st.answerSeq;
+	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+	passMs(3500);
+	sbusOutJobStatus(&st);
+	checkTrue("one answer, then 0xC2 only: three cycles, still the probe",
+	          st.cycles == 3 && st.answerSeq == seq0 + 1 && !sbusOutProbePassed());
+	fakeEwSim()->dead = true;
+	checkTrue("unplugged: SAFE", probeToSafe());
+	checkTrue("back to free", claimEnd());
+	sbusOutProbeRestart();
+
+	// A greeting refused by the driver: that cycle proves nothing, the next
+	// passes.
+	freshPump(0, 1);
+	noEsc();
+	fakeEwSim()->fail = F_START_FALSE;
+	fakeEwSim()->fail_at = 1;
+	fakeEwSim()->fail_n = 1;
+	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+	checkTrue("SAFE", probeToSafe());
+	sbusOutJobStatus(&st);
+	checkTrue("the second greeting refused: two cycles, six greetings",
+	          st.cycles == 2 && fakeEwSim()->starts == 6 && !st.answered);
+	checkTrue("back to free", claimEnd());
+
+	// A capture cut or not whole: the driver parks the pad on its pull-down;
+	// the job puts the pull-up back at once, so the line is high on every
+	// pass from the bind to SAFE, through the next quiet phase.
+	static const uint8_t FAULTS[] = { F_ABORTED, F_OVERFLOW };
+	static const char *const KIND[] = { "cut", "not whole" };
+	for (int f = 0; f < 2; f++) {
+		for (int at = 0; at < 3; at++) {
+			freshPump(0, 1);
+			noEsc();
+			fakeEwSim()->fail = FAULTS[f];
+			fakeEwSim()->fail_at = at;
+			fakeEwSim()->fail_n = 1;
+			checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+			bool up = true, quietSeen = false;
+			uint64_t until = time_us_64() + 3000000;
+			while (!sbusOutProbePassed() && time_us_64() < until) {
+				fakeAdvanceUs(500);
+				escHeartbeat();
+				core1JobPoll();
+				if (sbusOutProbePassed()) break;
+				up &= fakePin(0).pull == FakePull::Up && !fakePin(0).inputOff &&
+				      fakeEwSim()->line == EW_LINE_UP;
+				sbusOutJobStatus(&st);
+				quietSeen |= st.cycles == 1 && fakeEwSim()->starts == 3;
+			}
+			sbusOutJobStatus(&st);
+			char what[96];
+			snprintf(what, sizeof(what), "greeting %d's capture %s: two cycles, six greetings",
+			         at + 1, KIND[f]);
+			checkTrue(what, sbusOutProbePassed() && st.cycles == 2 &&
+			          fakeEwSim()->starts == 6 && !st.answered);
+			checkTrue("the pull-up on every pass, the next quiet phase among them",
+			          up && quietSeen);
+			checkTrue("back to free", claimEnd());
+		}
+	}
+}
+
+/** @brief The release mid-probe, BACK TO OUTPUT, a refused open. */
+static void testProbeRelease() {
+	section("S.BUS output probe: the release mid-probe, a new visit, a refused open");
+
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	teardownState(0);
+	noEsc();
+	g_beat = true;
+	int ctrl0 = fakeGpioCtrlWrites(0);
+	checkTrue("bound", claimToBind(PIN_SIG) == ClaimState::Running);
+	passMs(500);
+	pinClaimEnd(PinUser::SbusOut);
+	core1JobPoll();
+	checkTrue("BACK in the quiet phase: let go in one pass",
+	          core1JobPhase() == Core1JobPhase::Idle && !fakeEwOpen() && fakeEwCloses() == 1);
+	FakePin p = fakePin(0);
+	FakeUart u = fakeUart();
+	checkTrue("GP0 an SIO input, low, on the pull-up: the probe's level", gp0Up());
+	checkTrue("never on the UART", neverUart(ctrl0) && fakeUartTxCount() == 0);
+	checkTrue("UART0 stopped after the line closed",
+	          !u.enabled && u.deinits == 1 && u.deinitAt > p.functionAt);
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	checkTrue("the status: off", st.phase == SbusOutPhase::Off && !sbusOutProbePassed());
+	pinClaimPoll();
+	checkTrue("the leave page is due", pinClaimUnplugDue() && escTaskSuspended());
+
+	// BACK TO OUTPUT: a new visit, and a new probe.
+	pinClaimKeep(PinUser::SbusOut);
+	core1JobPoll();
+	checkTrue("BACK TO OUTPUT: the probe again", pinClaimPoll() == ClaimState::Running &&
+	          fakeEwOpens() == 2 && sbusOutProbePoll() == SbusOutProbeState::Checking);
+	uint16_t start = send(SbusOutCmdKind::Start);
+	uint64_t until = time_us_64() + 1100000;
+	while (fakeEwSim()->starts == 0 && time_us_64() < until) runTo(time_us_64() + 500, 500);
+	runTo(time_us_64() + 2000, 500);
+	sbusOutJobStatus(&st);
+	checkTrue("a greeting on the wire, START not taken",
+	          fakeEwSim()->running && !st.running && st.ackSeq != start);
+	pinClaimEnd(PinUser::SbusOut);
+	core1JobPoll();
+	checkTrue("BACK mid-greeting: cut, let go in one pass",
+	          core1JobPhase() == Core1JobPhase::Idle && !fakeEwSim()->running && !fakeEwOpen());
+	checkTrue("GP0 an SIO input on the pull-up, never the UART's", gp0Up() && neverUart(ctrl0));
+	pinClaimPoll();
+	pinClaimRestart(PinUser::SbusOut);
+	fakePumpPoll();
+	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
+
+	// A refused open of the line: nothing driven, the pull-up, RETRY.
+	static const uint8_t ERRS[] = { EW_LINE_ERR_PIO, EW_LINE_ERR_DMA, EW_LINE_ERR_CLOCK };
+	static const uint8_t JOB[] = { CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK };
+	static const char *const NAMES[] = { "PIO", "DMA", "CLOCK" };
+	for (int i = 0; i < 3; i++) {
+		fakePwmReset();
+		fakeUartReset();
+		freshPump(0, 1);
+		kissEndState(0);
+		gpio_set_dir(0, GPIO_OUT);
+		gpio_put(0, 1);
+		noEsc();
+		fakeEwRefuse(ERRS[i]);
+		int ctrlRef = fakeGpioCtrlWrites(0);
+		char what[72];
+		snprintf(what, sizeof(what), "the line refused (%s): held, its reason", NAMES[i]);
+		checkTrue(what, claimToBind(PIN_SIG) == ClaimState::Held && pinClaimJobError() == JOB[i]);
+		p = fakePin(0);
+		checkTrue("UART0 off again, GP0's control register not written",
+		          !fakeUart().enabled && fakeUart().deinits == 1 &&
+		          fakeGpioCtrlWrites(0) == ctrlRef);
+		checkTrue("SIO driving nothing, the pull-up on", !p.output && !p.high &&
+		          p.pull == FakePull::Up);
+		fakeEwRefuse(0);
+		pinClaimRetry(PinUser::SbusOut);
+		core1JobPoll();
+		checkTrue("RETRY: the probe", pinClaimPoll() == ClaimState::Running && fakeEwOpen());
+		checkTrue("back to free", claimEnd());
+	}
+}
+
+/** @brief Each visit probes; START only after this visit's probe passed. */
+static void testProbeVisits() {
+	section("S.BUS output probe: each visit probes again");
+
+	fakePwmReset();
+	fakeUartReset();
+	freshPump(0, 1);
+	g_beat = true;
+	checkTrue("SAFE after the probe", claimToSafe(PIN_SIG) == ClaimState::Running);
+	send(SbusOutCmdKind::Start);
+	checkTrue("frames", runToFrame(0, 500));
+	pinClaimEnd(PinUser::SbusOut);
+	passMs(5);
+	pinClaimPoll();
+	checkTrue("BACK: the leave page", pinClaimUnplugDue());
+	checkTrue("the gate shut", !sbusOutProbePassed());
+	pinClaimKeep(PinUser::SbusOut);
+	core1JobPoll();
+	checkTrue("BACK TO OUTPUT: a new probe", pinClaimPoll() == ClaimState::Running &&
+	          !sbusOutProbePassed() && fakeEwOpens() == 2);
+	int n = fakeUartTxCount();
+	// START every 100 ms of the probe: none is taken.
+	bool any = false;
+	for (int k = 0; k < 11; k++) {
+		send(SbusOutCmdKind::Start);
+		passMs(100);
+		SbusOutStatus st;
+		sbusOutJobStatus(&st);
+		any |= st.running;
+	}
+	checkTrue("a START every 100 ms of the probe: none taken", !any && fakeUartTxCount() == n);
+	checkTrue("then SAFE", probeToSafe());
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	checkTrue("the last of them not taken either", !st.running && fakeUartTxCount() == n);
+	send(SbusOutCmdKind::Start);
+	checkTrue("a START now: frames", runToFrame(0, 500));
 	checkTrue("back to free", claimEnd());
 }
 
@@ -1076,32 +1635,84 @@ static void listSources(const std::string &dir, std::vector<std::string> *out) {
 }
 
 /**
+ * @brief Whether @p line reaches a pin user or a core1 job by a number
+ *        rather than by its name, or walks the tables that hold them.
+ *
+ * Caught: a cast to PinUser or Core1Job, a pointer or reference to one
+ * included, C-style, functional, braced, `static_cast` or
+ * `reinterpret_cast`, a `const` among them; and any use of the user rows or
+ * the job table, `PIN_USERS` or, in core1_job.cpp where it is static,
+ * `s_ops`, an index or a range-for over them that picks a row by its fields.
+ * Another file's own `s_ops` (bridge_4way.cpp) is not the job table. A
+ * name match alone misses `(PinUser)((int)PinUser::Count - 1)`, which is
+ * SbusOut.
+ *
+ * Not caught: a value of the enum made without a cast, through `memcpy()`,
+ * a union, a template's deduction or bytes read from storage; a cast hidden
+ * behind a macro or a typedef of another name. Review has to find those.
+ */
+static bool byNumber(const std::string &line, const std::string &file) {
+	static const std::regex OPS("\\bs_ops\\b");
+	static const std::string TABLE = "/core1_job.cpp";
+	if (file.size() >= TABLE.size() &&
+	    file.compare(file.size() - TABLE.size(), TABLE.size(), TABLE) == 0 &&
+	    std::regex_search(line, OPS))
+		return true;
+	static const std::regex CAST(
+		"\\(\\s*(const\\s+)?(PinUser|Core1Job)\\s*(const\\s*)?[*&]?\\s*\\)|"
+		"\\b(PinUser|Core1Job)\\s*[({]|"
+		"\\b(static|reinterpret|const)_cast\\s*<\\s*(const\\s+)?(PinUser|Core1Job)\\b|"
+		"\\bPIN_USERS\\b");
+	return std::regex_search(line, CAST);
+}
+
+/**
  * @brief Nothing in `src/` but the job's declarations and definitions, its
- *        line in the job table and the claim's row names the output, so no
- *        screen and no path can claim or command it
- *        (docs/design/sbus-output.md, decision 1: the probe first).
+ *        line in the job table, the claim's row and the probe's leave page
+ *        names the output, and nothing reaches a pin user or a job by a
+ *        number, so no screen and no path can claim or command it
+ *        (docs/design/sbus-output.md, decision 1: the probe, and the screen
+ *        after it).
  *
  * Every source file under `src/` is read, with its comments blanked, line by
- * line. A line that names the output must be one of the lines below, in the
- * file named: an inline function in pin_claim.h that claimed the output, or a
- * call anywhere else, fails.
+ * line. A line that names the output, or reaches a user or a job by a
+ * number (byNumber()), must be one of the lines below, in the file named: an
+ * inline function in pin_claim.h that claimed the output, a cast to a user
+ * or a job, or a call anywhere else, fails.
  */
 static void testUnreachable() {
-	section("S.BUS output: nothing outside the job's declarations, its table line and the claim's row names it");
+	section("S.BUS output: nothing outside the job, its table line and the claim's row names it");
 
 	struct Allowed { const char *file; const char *line; };
 	static const Allowed ALLOWED[] = {
 		{ "../src/pin_claim.h", "{ PinUser::SbusOut, Core1Job::SbusOut, true, true, false }," },
+		{ "../src/pin_claim.h", "static constexpr PinUserInfo PIN_USERS[] = {" },
+		// pinUserInfo() and pinUsersComplete(): each row by its user.
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS)" },
+		{ "../src/pin_claim.h", "return PIN_USERS[0];" },
+		{ "../src/pin_claim.h", "for (const PinUserInfo &u : PIN_USERS) n += (int)u.who == w;" },
+		{ "../src/pin_claim.h",
+		  "static_assert(pinUsersComplete(), \"a pin user has no row in PIN_USERS, or two\");" },
+		{ "../src/core1_job.cpp", "static const Core1JobOps *s_ops[] = {" },
 		{ "../src/core1_job.cpp", "&SBUS_OUT_JOB_OPS," },
 		{ "../src/core1_job.cpp",
 		  "static_assert(sizeof(s_ops) / sizeof(s_ops[0]) == (unsigned)Core1Job::SbusOut + 1," },
+		// core1JobInit(): each job's init, no bind.
+		{ "../src/core1_job.cpp", "for (const Core1JobOps *ops : s_ops)" },
+		{ "../src/core1_job.cpp", "if (s_ops[(uint8_t)job] == nullptr) return false;" },
+		{ "../src/core1_job.cpp", "const Core1JobOps *ops = s_ops[(uint8_t)s_job];" },
 		{ "../src/sbus_out_job.h", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio);" },
 		{ "../src/sbus_out_job.h", "uint16_t sbusOutJobCommand(const SbusOutCmd *c);" },
 		{ "../src/sbus_out_job.h", "extern const Core1JobOps SBUS_OUT_JOB_OPS;" },
 		{ "../src/sbus_out_job.cpp", "uint8_t sbusOutClaimRoles(uint8_t sigGpio, uint8_t auxGpio) {" },
 		{ "../src/sbus_out_job.cpp", "const Core1JobOps SBUS_OUT_JOB_OPS = {" },
 		{ "../src/sbus_out_job.cpp", "uint16_t sbusOutJobCommand(const SbusOutCmd *c) {" },
+		// An EFM8 answer to the probe asks for the leave page: it lets go of
+		// nothing and starts nothing.
+		{ "../src/sbus_out_job.cpp",
+		  "if (st.efm8Seq != s_efm8Mark) pinClaimWantLeavePage(PinUser::SbusOut);" },
 	};
+
 	static const char *const NAMES[] = {
 		"PinUser::SbusOut", "Core1Job::SbusOut", "sbusOutJobCommand", "SBUS_OUT_JOB_OPS",
 		"sbusOutClaimRoles",
@@ -1123,7 +1734,7 @@ static void testUnreachable() {
 			std::string line = trim(code.substr(pos, nl - pos));
 			pos = nl + 1;
 			lineNo++;
-			bool names = false;
+			bool names = byNumber(line, f);
 			for (const char *n : NAMES) names |= line.find(n) != std::string::npos;
 			if (!names) continue;
 			bool ok = false;
@@ -1133,7 +1744,7 @@ static void testUnreachable() {
 		}
 	}
 	checkTrue("the sources were read, subdirectories too", files.size() > 100 && deep);
-	checkTrue("no other line names it", hits.empty());
+	checkTrue("no other line names it or reaches it by a number", hits.empty());
 	if (!hits.empty()) printf("   %s\n", hits.c_str());
 	bool each = true;
 	for (int u : used) each &= u == 1;
@@ -1141,6 +1752,44 @@ static void testUnreachable() {
 	checkTrue("a call in a comment is blanked, one in code is not",
 	          stripComments("x(); // pinClaimBegin(PinUser::SbusOut)\n/* a */ y(\"//\");")
 	              == "x(); \n y(\"//\");");
+	// The matcher on the ways to a user or a job by a number.
+	static const char *const BY_NUMBER[] = {
+		"pinClaimBegin((PinUser)((int)PinUser::Count - 1), 1);",
+		"core1JobStart((Core1Job)7, 0, 0xFF);",
+		"core1JobStart(( Core1Job )7, 0, 0xFF);",
+		"PinUser u = PinUser(7);",
+		"auto j = Core1Job (7);",
+		"PinUser u = PinUser{7};",
+		"auto u = static_cast<PinUser>(7);",
+		"auto j = static_cast< Core1Job >(n);",
+		"auto j = reinterpret_cast<Core1Job>(n);",
+		"pinClaimBegin(PIN_USERS[7].who, 1);",
+		"s_ops[7]->bind(0, 1);",
+		"pinClaimBegin(*(PinUser *)&n, 1);",
+		"pinClaimBegin(*( const PinUser* )p, 1);",
+		"auto u = *reinterpret_cast<PinUser *>(&n);",
+		"auto u = *reinterpret_cast<const PinUser*>(p);",
+		"for (const PinUserInfo &u : PIN_USERS) if (u.unplug && u.escCheck && !u.deferJob) pinClaimBegin(u.who, 1);",
+		"for (const Core1JobOps *o : s_ops) o->bind(0, 1);",
+	};
+	bool all = true;
+	for (const char *l : BY_NUMBER) all &= byNumber(l, "../src/core1_job.cpp");
+	checkTrue("each cast and index to a user or a job is caught", all);
+	static const char *const BY_NAME[] = {
+		"static constexpr const PinUserInfo &pinUserInfo(PinUser who) {",
+		"enum class PinUser : uint8_t {",
+		"enum class Core1Job : uint8_t {",
+		"bool core1JobStart(Core1Job job, uint8_t sigGpio, uint8_t auxGpio);",
+		"Core1Job core1JobRunning() {",
+		"const PinUserInfo &u = pinUserInfo(who);",
+		"uint8_t n = (uint8_t)job;",
+	};
+	bool none = true;
+	for (const char *l : BY_NAME) none &= !byNumber(l, "../src/core1_job.cpp");
+	checkTrue("a type named, a parameter or a loop is not", none);
+	checkTrue("another file's own s_ops is not the job table",
+	          !byNumber("const Op *o = &s_ops[s_op];", "../src/bridge_4way.cpp") &&
+	          byNumber("const Op *o = &s_ops[s_op];", "../src/core1_job.cpp"));
 }
 
 void runSbusOutJobTests() {
@@ -1156,6 +1805,13 @@ void runSbusOutJobTests() {
 	testJobRelease();
 	testJobHeartbeat();
 	testJobWirings();
+	testProbeRule();
+	testProbeNoAnswer();
+	testProbeEfm8();
+	testProbeAm32();
+	testProbeReplies();
+	testProbeRelease();
+	testProbeVisits();
 	testUnreachable();
 	g_beat = true;
 	EscTelemetry t;

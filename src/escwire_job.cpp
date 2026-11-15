@@ -153,8 +153,7 @@ static void escwireJobInit() {
 	critical_section_init(&s_cs);
 }
 
-/** @brief The `ew_line_err_t` of a refused open as the bind failure a screen names. */
-static uint8_t bindError(uint8_t lineErr) {
+uint8_t escwireJobBindError(uint8_t lineErr) {
 	switch (lineErr) {
 		case EW_LINE_ERR_CLOCK: return CORE1_JOB_CLOCK;
 		case EW_LINE_ERR_DMA:   return CORE1_JOB_DMA;
@@ -186,7 +185,7 @@ static uint8_t escwireJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 		s_state = EwJobState::Closed;
 		memset(&s_ses, 0, sizeof(s_ses));
 		publish();
-		return bindError(s_lineError);
+		return escwireJobBindError(s_lineError);
 	}
 	(void)ew_session_init(&s_ses, &d);
 	// The open parked the pad on its pull-down: high again at once.

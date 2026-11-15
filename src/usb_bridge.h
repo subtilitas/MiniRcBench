@@ -239,7 +239,7 @@ bool usbBridgeMotorRefused();
 
 /**
  * @brief MENU's run cue, `POWER-CYCLE THE ESC TO RUN IT`, ORed with ESC
- *        SETTINGS' (ui_menu.cpp).
+ *        SETTINGS' and the S.BUS output's probe's (ui_menu.cpp).
  *
  * Set when the claim begins, usbBridgeRunCueSet(), and at every open: from
  * then on the ESC may wait in its bootloader, whatever the tool sends, or

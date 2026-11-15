@@ -81,6 +81,30 @@ protocol.
   Servo-Tester, Servotester, SD-Logging and SD-Aufzeichnung describe it. A
   real card's latency and the cuts' timing with the log on are not tested on
   hardware.
+- After v0.1.0-rc1: the S.BUS output's bootloader probe, slice 3 of
+  [sbus-output.md](docs/design/sbus-output.md#slice-3-as-built), tested on
+  the host only; nothing opens the output yet. Every bind of the S.BUS
+  output's job first runs ESC SETTINGS' connect cycle on GP0, 1000 ms on the
+  pull-up and then 3 greetings, rcbench's first contact, on ESC SETTINGS'
+  escwire line driver from core1, and repeats it until a cycle passes in
+  which no greeting got a byte back; only then does UART0 take GP0. The line
+  goes back to the pull-up after every greeting, so each quiet second is on
+  the pull-up. The job takes no command during the probe and none sent before
+  it, so START is impossible until such a cycle has passed in that bind, and
+  BACK TO OUTPUT probes again. An answer from an EFM8 bootloader (Bluejay,
+  BLHeli_S), a piece of one, or an AM32 bootloader sets MENU's run cue,
+  `POWER-CYCLE THE ESC TO RUN IT`, until an eRPM frame after it; an EFM8
+  answer marks the claim for the leave page's step that asks for the ESC's
+  battery to come off and calls `pinClaimWantLeavePage()`. The screen of
+  slice 4 is to offer START only through `sbusOutProbePassed()`. UART0 now
+  starts at the bind with no pad on it, the pull-down comes when the probe's
+  line closes, and a refused bind, for the UART's clock or the line's
+  resources, leaves GP0 on the pull-up. The unreachability test also fails a
+  line under `src/` that reaches a pin user or a core1 job by a cast, a
+  pointer cast or a walk over the user rows or the job table. The escwire
+  line's fake writes the driver's pad changes to the GPIO fake and serves
+  rcbench's AM32 model. CI's stack check of the job reads the probe's call
+  graphs: 376 bytes of 1,792.
 - After v0.1.0-rc1: MSP and the 4-way interface on the USB bridge, slice 3
   of [usb-bridge.md](docs/design/usb-bridge.md#slice-3-as-built), tested on
   the host only. The PC's first byte chooses the mode: `$` MSP (the MultiWii
@@ -149,17 +173,17 @@ protocol.
   `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, `LATE` or `UNSEEN` in the time's
   place, `--` for a figure whose conditions do not hold; before the first
   step after START, the supply's start-up time. With CURRENT SENSE at NONE
-  nothing is timed. A step is timed 500 ms after the servo came to rest:
-  the last timed move's arrival or the end of a late or unseen move's
-  window, or 3061 ms after any other change of the pulse. The time is an
-  upper bound on when the current shows the arrival, by up to 61 ms of the
-  sensor's lag, one read and two conversion cycles, and a PWM frame; a
-  servo easing its drive near the target can show the arrival before the
-  horn stops. The timing changes no pulse and no cut. Host tests in
+  nothing is timed, and a move under way when it turns NONE is void as lost
+  (not reachable through the screens). A step is timed 500 ms after the servo
+  came to rest: the last timed move's arrival or the end of a late or unseen
+  move's window, or 3061 ms after any other change of the pulse. The time is
+  an upper bound on when the current shows the arrival, by up to 61 ms of the
+  sensor's lag, one read and two conversion cycles, and a PWM frame; a servo
+  easing its drive near the target can show the arrival before the horn stops.
+  The timing changes no pulse and no cut. Host tests in
   `test/test_move_timer.cpp` and `test/test_servo.cpp`, against rcbench's
-  servo model too, mutation-checked;
-  README and the wiki pages Servo-Tester and Servotester describe it. Not
-  tested on hardware.
+  servo model too, mutation-checked; README and the wiki pages Servo-Tester
+  and Servotester describe it. Not tested on hardware.
 - After v0.1.0-rc1: a Bluejay or BLHeli_S ESC's settings are written, slice 4
   of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-4-as-built).
   On Bluejay 208 and BLHeli_S 33 the list edits the fields rcbench's map lets

@@ -1,15 +1,18 @@
 # S.BUS output
 
-Status: slices 1 and 2 built, host tests only, not tested on hardware
-([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built)):
-rcbench's encoder is copied from b88593d3, and the core1 job
-`src/sbus_out_job.*` with its pin user `PinUser::SbusOut` sends frames on the
-host suite's UART0 fake. Nothing opens the job: by the owner's decision of
-2026-11-15 ([decision 1](#decisions)) S.BUS OUTPUT is built only together
-with a bootloader probe on GP0, slice 3, and no screen offers START before
-it. The probe's prerequisites, slices 1 to 3 of
+Status: slices 1 to 3 built, host tests only, not tested on hardware
+([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built),
+[slice 3 as built](#slice-3-as-built)): rcbench's encoder is copied from
+b88593d3, and the core1 job `src/sbus_out_job.*` with its pin user
+`PinUser::SbusOut` probes GP0 for an ESC's bootloader at every bind and,
+once a probe cycle passes with no answer, sends frames on the host suite's
+UART0 fake. Nothing opens the job: by the owner's decision of 2026-11-15
+([decision 1](#decisions)) S.BUS OUTPUT is built only together with the
+bootloader probe, and no screen offers START before it; the screen, slice 4,
+offers START only while the probe's gate, `sbusOutProbePassed()`, holds.
+The probe's prerequisites, slices 1 to 3 of
 [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown), are built
-([work breakdown](#work-breakdown)). Slices 3 to 5 are not built. The owner
+([work breakdown](#work-breakdown)). Slices 4 and 5 are not built. The owner
 chose an S.BUS output on 2026-11-14 ([rx-signals.md](rx-signals.md#decisions),
 decisions 1, 4, 5 and 6): inverted 8E2 at 100,000 baud on GP0, UART0's TX
 pin; the encoder from rcbench, copied unchanged; the throttle channel under
@@ -127,7 +130,8 @@ is not offered.
 | Level | 3.3 V push-pull from IOVDD, the RP2350's I/O supply |
 | Idle | low: the UART idles high and OUTOVER inverts it |
 | While SAFE and after STOP | low: the UART bound and idle, no frames |
-| After the release | low: a plain input with the pad's pull-down |
+| During the probe | high: the pad's pull-up, with ESC SETTINGS' greetings in bursts ([the bootloader probe](#the-bootloader-probe)) |
+| After the release | low: a plain input with the pad's pull-down; high on the pull-up after a release during the probe or a refused bind ([slice 3 as built](#slice-3-as-built)) |
 | FC input | an S.BUS pad, an inverter in front of a UART or a UART that inverts in hardware; Betaflight opens it inverted by default (`rx/sbus.c` lines 205 to 207). Whether a given FC reads a 3.3 V high: not verified |
 | Supply | none: the board sends signal and ground only. The FC takes power from its own USB port or its own supply |
 
@@ -160,20 +164,27 @@ The baud divisor is the monitor's: 100,000 baud exactly from `clk_peri` at
 **The bind**, in this order:
 
 1. `gpio_set_dir(0, GPIO_IN)` and `gpio_put(0, 0)`, so SIO drives nothing
-   whatever an earlier owner left, then `gpio_pull_down(0)`. As SIG, the
-   pump's teardown leaves GP0 an SIO input with the pull-up on
-   (`escTaskPoll()`'s teardown in `esc_task.cpp`); as AUX with KISS on, the
-   KISS receiver's end leaves it on the NULL function with the pulls off
-   (`pioUartRxEnd()` in `pio_uart_rx.cpp`). The pull-down holds the line at
-   its idle level from here on.
+   whatever an earlier owner left. As SIG, the pump's teardown leaves GP0
+   an SIO input with the pull-up on (`escTaskPoll()`'s teardown in
+   `esc_task.cpp`); as AUX with KISS on, the KISS receiver's end leaves it
+   on the NULL function with the pulls off (`pioUartRxEnd()` in
+   `pio_uart_rx.cpp`).
 2. `uart_init(uart0, 100000)`; the bind refuses with `CORE1_JOB_CLOCK` when
    the rate it returns is more than 1 % off, by the monitor's `sbusBaudOk()`
-   (`sbus_job.h`).
+   (`sbus_job.h`). A refused bind turns UART0 off again and puts the
+   pull-up on GP0: as SIG the level the line already rests at, the pump's
+   teardown having left the pull-up; as AUX with KISS on, where GP0 had its
+   pulls off, the pull-up is new and holds the line high.
 3. `uart_set_format(uart0, 8, 2, UART_PARITY_EVEN)`, then the receiver off:
    RXE cleared in UARTCR. No pad carries UART0's RX during this claim, and
    what an unrouted UART input reads is not verified; with RXE off it is
-   moot.
-4. GP0 to the UART with its output inverted, in one write of the control
+   moot. No pad carries its TX either until step 5.
+4. The [bootloader probe](#the-bootloader-probe) on the escwire line, GP0
+   on the pull-up, until a probe cycle passes with no answer
+   ([slice 3 as built](#slice-3-as-built)). The line's close leaves GP0 an
+   SIO input, low, on the pull-up; then `gpio_pull_down(0)`, which holds
+   the line at its idle level from here on.
+5. GP0 to the UART with its output inverted, in one write of the control
    register: FUNCSEL `GPIO_FUNC_UART` and OUTOVER `GPIO_OVERRIDE_INVERT`
    together. `gpio_set_function()` writes the whole control register and
    zeroes OUTOVER (`gpio.c` lines 38 to 53), so the SDK's two calls,
@@ -185,7 +196,10 @@ The baud divisor is the monitor's: 100,000 baud exactly from `clk_peri` at
 
 GP1 keeps its function: in the default wiring it is AUX and not asked for.
 
-**The release**, once the last frame is out:
+**The release** during the probe closes the escwire line, which cuts a
+greeting on the wire, leaves GP0 an SIO input on the pull-up, and then
+turns UART0 off: the pad never was the UART's. **The release** after step
+5, once the last frame is out:
 
 1. No new frame is loaded from the pass the stop arrives on.
 2. The job returns false (stays Stopping) while UARTFR.BUSY is set: the
@@ -418,9 +432,9 @@ OUTPUT on the leave page, which asked for the lead to be unplugged.
 - **Where it comes from.** The connect cycle, the greeting and the reading
   of an EFM8 or AM32 answer are built by slices 1 to 3 of
   [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown). The probe is a
-  phase of the S.BUS OUTPUT claim before the UART bind; how its job shares
-  that line driver is the probe slice's design ([work
-  breakdown](#work-breakdown)).
+  phase of the S.BUS OUTPUT claim before the UART bind: the job's first
+  phase, on ESC SETTINGS' escwire line driver
+  ([slice 3 as built](#slice-3-as-built)).
 
 ## Safety
 
@@ -440,7 +454,7 @@ The rules are the servo tester's ([servo-tester.md](servo-tester.md),
 | UI stalls 250 ms | `core1UiAlive()` false while RUNNING: frames stop, `Tripped` latched, chip `STALLED`, a new HOLD TO START needed |
 | Touch lost | the frames stop on the touch-loss rule pull request #49 brings to the tester and the servo tester, once it is merged ([STATUS.md](../../STATUS.md) open item 23); until then the idle stop below is the backstop, since a controller that stops answering reads as no touch |
 | Idle | more than `IDLE_DISARM_MS`, 30 s, with no touch while the throttle channel is above raw 172, or any of channels 5 to 16, CH17 and CH18 differs from the START frame: frames stop, as the tester disarms; the note says why |
-| BACK | the leave: frames stop, the last one completes, GP0 is let go low ([UART0 on GP0](#uart0-on-gp0)) |
+| BACK | the leave: frames stop, the last one completes, GP0 is let go low ([UART0 on GP0](#uart0-on-gp0)); during the probe, GP0 is let go high on the pull-up |
 
 Why each rule:
 
@@ -573,7 +587,9 @@ held when it was encoded.
 **Published status**, read by core0 once per UI frame: the frame last
 loaded, so the screen shows what the line carries; RUNNING, the trip, an
 encoder refusal, the frame count and `millis()` of the last frame. The
-release clears it.
+release clears it. The probe adds its phase, whether a bootloader answered
+in this bind, and counts of the answers that no release clears
+([slice 3 as built](#slice-3-as-built)).
 
 ## Screen
 
@@ -803,9 +819,10 @@ source it can calibrate, arm and start its motor on S.BUS.
 |---|---|---|
 | pio0 | backlight | backlight |
 | pio1 | SDIO | SDIO |
-| pio2 | DShot and KISS | empty |
-| UART0 | unused | TX on GP0, RX off |
-| DMA | 3 of 16 | 3 of 16 |
+| pio2 | DShot and KISS | empty after the probe |
+| PIO, during the probe | | the escwire line: one state machine and 25 words in a block with room, as for ESC SETTINGS' job; which block is not verified |
+| UART0 | unused | enabled from the bind, TX on GP0 after the probe, RX off |
+| DMA | 3 of 16 | 5 of 16 during the probe, the escwire line's 2; 3 of 16 after it |
 
 The claim exists for the pin, not for resources.
 
@@ -861,9 +878,10 @@ Checked:
 - the line: the bytes the TX fake sent, fed with their times to rcbench's
   decoder, give back the frames the core built, at 14 ms, with no gap
   inside a frame and none under 2000 µs between frames;
-- the job through the claim: the pull-down first, the clock refusal and RETRY,
-  RXE off, GP0's control register never on the UART function without OUTOVER
-  inverted, GP1 untouched; the release only after BUSY clears, SIO's output
+- the job through the claim: SIO's output off first, the clock refusal and
+  RETRY, RXE off, the pull-down at the switch from the probe, GP0's control
+  register never on the UART function without OUTOVER inverted, GP1
+  untouched; the release only after BUSY clears, SIO's output
   enable for GP0 off before FUNCSEL leaves the UART, GP0 on SIO before
   `uart_deinit()`, OUTOVER normal, the pull-down on, the status cleared; the
   probe before the first bind of each visit, START refused while a model EFM8 or
@@ -874,7 +892,7 @@ Checked:
   LEAVE, STAY returning to the probe, and DShot back on SIG only after
   LEAVE and RESTART DSHOT; each wiring, GP0 as SIG and as AUX, and the NO GP0
   backstop; the ESC check in both wirings and its end 500 ms after the last eRPM
-  frame; KISS on AUX GP0; a new visit starting SAFE with no trip;
+  frame; KISS on AUX GP0; a new visit starting in the probe with no trip;
 - the screen through MENU and RX SIGNALS by control id: OUTPUT live and
   opening the screen; HOLD TO START at 1000 ms and not at 999 ms; STOP on
   press, on the main view and on SET; the sliders disabled while SAFE, a
@@ -926,7 +944,7 @@ Each slice builds, passes the host suite and merges alone.
 | 0. Prerequisites, met | slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown), built: the escwire copies (slice 1), the detection of an EFM8 answer with the run cue and the per-claim leave page (slice 2), the connect cycle and its job (slice 3) | there | there |
 | 1. Encoder copy, built | `sbus.c`, `sbus.h`, `test_sbus.c` from rcbench b88593d3; `lib/rcbench/README.md`, STATUS, CHANGELOG | 3 replaced, 3 edited | 300 changed in copies, 30 of documentation |
 | 2. Job, built | `sbus_out_job.*`, the user and job rows, `CORE1_JOB_NO_GP0`, the TX side of the UART0 fake, the control-register record, `test/test_sbus_out_job.cpp`, STATUS, CHANGELOG | 2 new in `src/`, 1 new in `test/`, 8 edited | 350 in `src/`, 700 in `test/` |
-| 3. Probe | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, MENU's run cue at an answer, `pinClaimWantLeavePage()` and decision 8's leave page after an EFM8 answer, its host tests on the bootloader models of slice 0 | 3 edited in `src/`, 1 new in `test/` | 200 in `src/`, 350 in `test/` |
+| 3. Probe, built | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, MENU's run cue at an answer, `pinClaimWantLeavePage()` and the mark for decision 8's leave page after an EFM8 answer, the gate `sbusOutProbePassed()`, its host tests on the bootloader models of slice 0 | `sbus_out_job.*`, `escwire_job.*`, `ui_menu.cpp`, a comment in `usb_bridge.h`, `rx.cmake`; in `test/` the job's test file, the escwire line's fake and the GPIO stub; CI's stack step | 400 in `src/`, 700 in `test/` |
 | 4. Screen | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
 | 5. Bring-up | the bench tests above | none | none |
 
@@ -987,17 +1005,19 @@ the note left open, or made more exact:
   screen that sends a wrong ceiling cannot pass MAX THROTTLE. A lower
   ceiling from the screen is kept. Settings do not change during a claim.
 - **The bind starts as the release does:** SIO's output enable for GP0 off
-  and its output low, then the pull-down, whatever an earlier owner left.
+  and its output low, whatever an earlier owner left. The pull-down comes
+  at the switch from the probe ([slice 3 as built](#slice-3-as-built)).
 - **A backstop for the release.** The release lets GP0 go
   `SBUS_OUT_RELEASE_MAX_MS`, 10 ms, after its first pass even while BUSY
   stays set, so a UART that never finishes cannot hold the claim in
   Leaving. The last frame needs at most 3,000 µs.
 - **A clock refusal never routes the UART to the pad.** The bind has set
-  only SIO's output and the pull-down by then; it turns UART0 off and leaves
-  GP0 as the release does, a low SIO input with the pull-down.
-- **Each bind starts SAFE with no trip**, the note's "visit", and takes no
+  only SIO's output by then; it turns UART0 off and puts the pull-up on GP0
+  ([slice 3 as built](#slice-3-as-built), transition 6).
+- **Each bind starts with no trip**, the note's "visit", and takes no
   command sent before it: the bind takes the command block's seq as
-  acknowledged.
+  acknowledged. It starts in the probe; the switch to the UART starts SAFE
+  and takes the seq again ([slice 3 as built](#slice-3-as-built)).
 - **RXE is cleared by a read-modify-write of UARTCR** after
   `uart_set_format()`, which on the chip restores UARTCR after its wait.
 - **The status is published on every pass**, as the servo job's is.
@@ -1023,18 +1043,18 @@ kin write PUE and PDE, and a pin's pull is read from them, so a
 whole-register write that drops the pull-down is seen. What the PL011 drives
 while disabled and the level on the pin are not modelled.
 
-Mutation check: 98 mutations of `src/sbus_out_job.cpp`, each built into the
-host suite and run. 94 fail it: the clamps, the START frame and its
-channels, the seq rule, each kind's rule in Take, MAX THROTTLE's ceiling on
-core1 and its clamp at 1811, the trip, the 7,000 µs bound and the grid, the
-TXFE wait, the refusal, the ceiling and the roles, the NO GP0 refusal, SIO's
-output off and low at the bind, the pull-down and its order, the pull-down
-dropped by a pad write that names PDE, the baud check and the clock
-refusal's release of GP0, 8E2 and RXE, OUTOVER and the single
-control-register write, IE, OD and ISO and their order, the stale-command
-rule at the bind, the status fields, BUSY and the backstop, the release's
-function, pull-down and order, the critical section's initialisation, and
-the kept STOP. Four survive:
+Mutation check, on slice 2's code: 98 mutations of `src/sbus_out_job.cpp`,
+each built into the host suite and run. 94 fail it: the clamps, the START
+frame and its channels, the seq rule, each kind's rule in Take, MAX THROTTLE's
+ceiling on core1 and its clamp at 1811, the trip, the 7,000 µs bound and the
+grid, the TXFE wait, the refusal, the ceiling and the roles, the NO GP0
+refusal, SIO's output off and low at the bind, the pull-down and its order,
+the pull-down dropped by a pad write that names PDE, the baud check and the
+clock refusal's release of GP0, 8E2 and RXE, OUTOVER and the single
+control-register write, IE, OD and ISO and their order, the stale-command rule
+at the bind, the status fields, BUSY and the backstop, the release's function,
+pull-down and order, the critical section's initialisation, and the kept STOP.
+Four survive:
 
 - `SbusOutStatus::refused` published as false. The published field is not
   tested: no command reaches an encoder refusal through the job, since the
@@ -1049,6 +1069,282 @@ the kept STOP. Four survive:
   does not drive, as the bind has turned its output off; judged
   equivalent, not verified on the chip. Moving the clear before the write,
   with none after, fails the suite.
+
+### Slice 3 as built
+
+Files: `src/sbus_out_job.h` and `.cpp`, the probe as the job's first phase,
+the bind and the switch to the UART in their new order, and core0's gate,
+state, EFM8 mark and run cue; `src/escwire_job.*`, whose
+`escwireJobBindError()` names the bind failure of a refused open of the
+line for the escwire job and the probe alike; `src/ui_menu.cpp`, whose
+run cue ORs `sbusOutRunCue()`; `src/rx.cmake`, which builds the probe's
+classification and connect cycle with their call graphs. In the host
+suite: `test/fake_escwire_port.*` writes the line driver's pad changes to
+the GPIO fake, serves rcbench's AM32 model (`fakeEwResetAm32()`) and, on
+request, answers every first contact (`fakeEwAnswerEach()`); the stub
+`hardware/gpio.h` names the PIO functions; `test/test_sbus_out_job.cpp`
+runs the slice 2 tests through the probe and seven new tests of it. The
+probe's tests share the job's file and harness rather than a new file: the
+probe is a phase of the job. CI's "S.BUS output job stack on core1" reads
+the probe's call graphs and adds the deepest line-driver function, as the
+ESC settings step does: 376 bytes against 1,792, 192 in slice 2. The chain
+is `sbusOutJobStep()`, 112 bytes, and `publish()`, 152, with 112 for the
+driver's `ew_line_start()` through the pointers of `ew_driver_t`.
+
+How the probe shares the line driver, and the rest the note left open, the
+developer's:
+
+- **One job, two phases.** The probe is `SbusOutPhase::Probe` of the S.BUS
+  output's job, not a job of its own: one bind, one release, one row in the
+  claim, and core1 holds GP0 from the bind to the release. The job opens ESC
+  SETTINGS' line on GP0 with `escwirePortOpen()`, rcbench's `ew_line`, one PIO
+  state machine of 25 words and 2 DMA channels while it is open, and runs ESC
+  SETTINGS' connect cycle (`greet_cycle.h`) on core1's `millis()`. The driver
+  returns at once (`ew_wire.h`), so a pass of the probe waits for nothing. The
+  AM32 transport, `am32_bl`, with which ESC SETTINGS greets on core0, is not
+  used: it busy-waits and masks interrupts for each byte, and it runs on core0,
+  where no job runs.
+- **The greeting** is rcbench's first contact (`ew_a_contact()`), 17 bytes,
+  eight 0x00, 0x0D, `BLHeli`, 0xF4 0x7D, at 52 µs a bit; ESC SETTINGS sends the
+  same with twelve 0x00. Both are valid greetings for the EFM8 bootloader
+  ([bluejay-blheli-s.md](bluejay-blheli-s.md#the-greeting-already-fits)), and
+  rcbench's session sends this one to AM32's. One greeting is 8.84 ms on the
+  wire; it waits `AM32_GREET_TMO_MS`, 30 ms, for a first byte, as ESC SETTINGS'
+  does, and `EW_A_GAP_US`, 2 ms, for each next, up to 40 bytes, as many as the
+  AM32 handshake reads. A cycle with no answer takes 1,000 ms and 3 × 38.8 ms,
+  1,117 ms; with passes every 500 µs the host suite's takes 1,118 ms.
+- **What counts as an answer.** `sbusOutProbeAnswer()` reads
+  `blAnswerClassify()`: an EFM8 answer, or a reply holding a piece of one
+  (`BlAnswer::fragment`), is an EFM8 bootloader; an AM32 answer an AM32
+  bootloader. Only these set the cue and the counts, and only an EFM8 one the
+  mark.
+- **Any byte holds START.** A greeting whose capture holds any byte, a
+  bootloader's answer or not, makes its cycle prove no silence, and so does a
+  greeting that did not go out, refused by the driver, or whose capture is cut
+  or not whole. So the UART takes GP0 only after a cycle of 3 greetings each
+  sent, each read whole, and each answered by no byte at all. Bytes that are no
+  bootloader's answer set no cue and no mark; only the cycle repeats. This
+  differs from ESC SETTINGS, which reads such bytes as no answer and so may
+  give DShot back after them: ESC SETTINGS greets an ESC that should answer,
+  where the probe greets a line that should carry an FC's S.BUS input, which
+  sends nothing. A byte there is something that transmits on GP0, a
+  bootloader's garbled answer among the candidates, and holding START for it
+  costs an FC nothing. rcbench's EFM8 model is such a case: it answers a later
+  contact with 0xC2, and the probe holds START for it.
+- **The line between greetings.** The driver parks the pad on its pull-down
+  after a capture it cut or could not take whole (`ew_line_poll()`,
+  `ew_wire.h`). The job puts the line back to `EW_LINE_UP` after every
+  capture, so every quiet phase and every wait between greetings is on the
+  pull-up, as decision 1 asks.
+- **The gate.** Core1 takes no command during the probe. The bind takes the
+  command block's seq as acknowledged, as slice 2's did, so a STOP held from an
+  earlier visit does not hold back later commands, and the switch does it again,
+  so no START sent before the switch is ever taken. Each bind starts in the
+  probe, so BACK TO OUTPUT (`pinClaimKeep()`) probes again; STOP and START
+  within a visit do not. For slice 4: `sbusOutProbePassed()`, the gate, true
+  from the switch to the release, and `sbusOutProbePoll()`, once a UI frame, for
+  the rows' area: Off, Checking, Answered or Passed.
+- **The run cue and the EFM8 mark need no screen.** The status counts answers
+  and EFM8 answers and stamps the last one (`answerSeq`, `efm8Seq`, `answerMs`),
+  and no release clears them. The counts and core0's marks are 32 bits: at one
+  answer a greeting, wrapping takes over 5 years, where 16 bits would read the
+  cue as gone after exactly 65,536 answers. `sbusOutRunCue()`, ORed into MENU's,
+  stands from an answer of either kind until an eRPM frame stamped after the
+  last answer, as ESC SETTINGS' does. `sbusOutProbeEfm8()`, the mark for
+  decision 8's first step on the leave page, stands from an EFM8 answer or a
+  piece of one until `sbusOutProbeRestart()`, which RESTART DSHOT calls; it
+  clears the cue too, since that page took the ESC's battery off. After an AM32
+  answer alone RESTART DSHOT leaves the cue: the page asks for no power-off, and
+  the cue waits for an eRPM frame.
+- **`pinClaimWantLeavePage()`** is called by `sbusOutProbePoll()` while the EFM8
+  mark stands, as the owner's decision asks. The claim's row already gives
+  `PinUser::SbusOut` the leave page from the claim's start, so today the call
+  changes nothing; it keeps the page if the row ever drops it.
+- **The heartbeat does not stop the probe.** It sends only the greeting, as ESC
+  SETTINGS' cycle does, and START needs the heartbeat in any case.
+- **The unreachability test** also fails a line under `src/` that reaches a pin
+  user or a core1 job by a number or walks the tables that hold them: a cast to
+  `PinUser` or `Core1Job`, a pointer or a reference to one, `const` or not,
+  C-style, functional, braced, `static_cast` or `reinterpret_cast`; and any use
+  of `PIN_USERS` or the job table, an index or a range-for that picks a row by
+  its fields. The tables' declarations, `pinUserInfo()`, `pinUsersComplete()`,
+  `core1JobInit()` and the job table's lookups are allowed by line. It does not
+  catch an enum value made without a cast, through `memcpy()`, a union, a
+  template or stored bytes, nor a cast behind a macro or a typedef of another
+  name; the test says so. The probe adds one allowed line, the call of
+  `pinClaimWantLeavePage(PinUser::SbusOut)`.
+- **The model of a bootloader.** rcbench's simulated ESC answers the first
+  contact once and a later one with 0xC2, its reply to a frame whose CRC fails.
+  By the EFM8 bootloader's source a later contact's leading 0x00 read as a
+  restart and the rest as a new greeting (below), so the probe's tests ask the
+  model to answer every contact, the EFM8 and the AM32 alike, and test the
+  model as it is too. Not tested on an ESC.
+- **The greeting, read from the bootloaders' sources.** Read for this slice,
+  not tested on hardware:
+  - AM32's bootloader takes the 17-byte greeting: `bootloader/main.c` at
+    578ff29, lines 604 to 611, checks `rxBuffer[16]` for 0x7D and bytes 8 and
+    9 for 0x0D and `B` before it checks the 21-byte greeting at
+    `rxBuffer[20]`, and the same 17-byte check is at 3a9e057, lines 293 to
+    300. A recognised greeting sends the device information and returns
+    before any line that counts toward `invalid_command`:
+    `send_BAD_ACK()` and `send_BAD_CRC_ACK()` (lines 555 to 565), the reply
+    to an unknown command (about line 816), a full buffer (about line 1036)
+    and a receive that ends with no message (about line 1045). The probe's
+    repeated greetings do not walk an AM32 out of its bootloader.
+  - Betaflight's 4-way interface sends this 17-byte string in builds without
+    `USE_SERIAL_4WAY_SK_BOOTLOADER`, the 21-byte one with it
+    (`src/main/io/serial_4way_avrootloader.c` at 134ce0f, lines 206 to 211).
+  - The EFM8 bootloader of Bluejay (`src/BLHeliBootLoad.inc` at 0368d11) and
+    of BLHeli_S (`BLHeli_S SiLabs/BLHeliBootLoad.inc` at a5bcf99) syncs on
+    each byte's start bit (`getc`, lines 356 to 362 and 329 to 333). In its
+    command loop a second greeting's first four 0x00 are the command 0x00 0x00
+    and its CRC 0x0000, which restarts the bootloader (`main` to `rst`, lines
+    149 to 199 and 139 to 181). The restart waits 100 µs (`init`, lines 66 to
+    68 in Bluejay's), and the scan needs a falling edge before the `B`: the
+    four 0x00 and the 0x0D left give about 2 ms of line, so the scan finds
+    the greeting again and the bootloader answers it.
+
+
+GP0 at each transition. The SDK calls are read in SDK 2.1.1, the driver's
+in `ew_line.c`; the pad's behaviour is the RP2350 datasheet's as slice 2
+records it. None is measured.
+
+1. **Before the bind.** As SIG, an SIO input on the pull-up, the pump's
+   teardown; as AUX with KISS on, the NULL function with the pulls off.
+2. **The bind.** SIO's output enable off and its output low. `uart_init()`
+   resets UART0 and enables it with TX and RX (`uart.c` lines 42 to 92) and
+   writes no pad register; then 8E2 and RXE off. GP0's FUNCSEL is not the
+   UART's, so the UART's high idle reaches no pin. Then `ew_line_open()`:
+   the state machine's pin latch high and its direction an input before
+   the pad is the machine's, the pull-down, 2 mA and slow slew, the PIO's
+   function through `gpio_set_function()`, the input buffer off
+   (`ew_line.c` lines 168 to 242). In the same call `EW_LINE_UP`: the
+   pull-up, the input buffer on, the pad released (lines 415 to 433). The
+   line has the pull-down only between those writes, microseconds, as in ESC
+   SETTINGS' bind; not measured.
+3. **The probe.** In the quiet phase an input on the pull-up, the PIO's
+   function. A greeting drives the pad at both levels for its 17 bytes and
+   releases it within one state-machine cycle of the last stop bit to the
+   pull-up for the answer (`ew_wire.h`). After a capture the driver cut or
+   could not take whole it parks the pad on its pull-down; the job puts
+   `EW_LINE_UP` back on the same pass, after every capture. The line rests
+   high, the idle level of the greeting's serial line, in every quiet phase.
+4. **The switch.** `ew_line_close()`: the pull-down, `gpio_init()`, which
+   sets SIO's output enable off and its output low before it selects SIO
+   (`gpio.c` lines 278 to 282), drive and slew as before the open, the
+   machine stopped, its direction released and its resources freed
+   (`ew_line.c` lines 244 to 275); `escwirePortClose()` then puts the
+   pull-up on. Then the job's pull-down: the line falls from the pull-up's
+   high to the pull-down's low, the inverted UART's idle level. Then slice
+   2's `padToUart()`: IE on and OD off, one control-register write with
+   FUNCSEL UART and OUTOVER inverted, ISO cleared. The UART is idle since
+   the bind, so the pad shows its inverted idle, low. SIO drives nothing at
+   any point and the pad never carries the UART's high idle. The close's
+   pull-down stands while it stops the machine, aborts and unclaims its two
+   DMA channels and removes the program, and the port's pull-up until the
+   job's pull-down: microseconds, not measured.
+5. **A release during the probe.** `ew_line_close()` cuts a greeting on the
+   wire, the pad first, and the port puts the pull-up on: GP0 an SIO input
+   on the pull-up, the level of the probe; then `uart_deinit()`. The pad
+   never was the UART's. A greeting cut short is a scan that fails for a
+   bootloader, which then answers nothing; not verified on an ESC.
+6. **A refused clock.** `uart_init()`'s rate more than 1 % off refuses the
+   bind before the line opens: `uart_deinit()`, then the pull-up, SIO
+   already off, GP0's function as the earlier owner left it. A refused open
+   of the line, for its PIO, its DMA channels or its clock, does the same
+   after `uart_init()`; the refused open claims nothing and leaves the pin
+   untouched (`ew_line.h`), and the bind failure is the escwire job's
+   (`CORE1_JOB_PIO`, `CORE1_JOB_DMA`, `CORE1_JOB_CLOCK`). The line has not
+   been low since the pump's teardown, and the pull-up keeps it there, as ESC
+   SETTINGS' refused bind does, so a bootloader that may wait on it sees no
+   edge; in the AUX wiring with KISS on, the pulls were off and the pull-up
+   is new.
+7. **A release after the switch**: slice 2's, unchanged, which leaves GP0
+   an SIO input, low, on the pull-down. Each release leaves the line at the
+   level its phase held: high during the probe, low after the switch.
+
+Tests (`runSbusOutJobTests`, on rcbench's EFM8 and AM32 models behind the
+escwire line, the UART0 fake and the GPIO fake): which replies are an ESC on
+GP0; the bind, the line and the switch write by write, from SIO driving high,
+OD and ISO set by hand; no ESC: nothing sent for 999 ms, the first greeting at
+1000 ms, three contacts, SAFE at 1,118 ms after one cycle, a STOP held before
+the bind taken as acknowledged, a START sent in the quiet phase and one during
+the third greeting never taken, START then frames, STOP and START with no probe
+between, the gate shut once the job is off; an EFM8 bootloader: Answered,
+signature 0xE8B2, the cue, the EFM8 mark, the leave page, three cycles and nine
+answers with START refused and GP0 never on the UART, unplugged and SAFE after
+the next whole cycle, the mark and the cue kept after the claim and gone at
+RESTART DSHOT; an AM32 bootloader: Answered, the cue and no mark, the cue kept
+by RESTART DSHOT and by eRPM frames stamped at the answer, before it and before
+the probe, MENU's strip line `POWER-CYCLE THE ESC TO RUN IT`, gone after an
+eRPM frame after the answer; a piece of an EFM8 answer taken as one; bytes that
+are no answer holding START through three cycles with no cue and no mark; the
+EFM8 model's 0xC2 to later contacts holding it too; a greeting refused costing
+one cycle; a capture cut and a capture not whole at each of the three greetings
+costing one cycle, with GP0 on the pull-up and the line at `EW_LINE_UP` on
+every pass, through the next quiet phase; the answer counts 32 bits wide; a
+release in the quiet phase and in the middle of a greeting, each in one pass,
+GP0 an SIO input on the pull-up and never the UART's; BACK TO OUTPUT probing
+again; a refused clock and a refused open of the line for PIO, DMA and CLOCK,
+nothing written to GP0's control register, the pull-up, RETRY; a START every
+100 ms of a second visit's probe, none taken; and the unreachability test's
+matcher on seventeen casts, pointer casts, indices and walks over the tables,
+and seven lines it must pass.
+
+Mutation check: each mutation applied to a copy of the tree, the host suite
+built and run. 102 on the branch before main was merged: 86 of
+`src/sbus_out_job.cpp`, 2 of its header, 1 of `src/ui_menu.cpp`, 2 of
+`src/escwire_job.cpp` and 11 of the unreachability test. 99 fail the suite:
+the rule's EFM8, piece and AM32 cases and noise taken as an answer; SIO's
+output off and low at the bind; the clock refusal's `uart_deinit()`, its
+pull-up, a pull-down in its place and the refusal ignored; the refused open's
+`uart_deinit()`, its pull-up, its bind failure, the refusal ignored and the
+line opened before the UART; the pull-up after the open, the greeting's bytes,
+the quiet phase's start, the phase, the bind's acknowledged seq; each field of
+the probe's reset; the switch without the close, without the pull-down, the
+pull-down after the UART write, the close after it, the phase and the
+switch's acknowledged seq; the pull-up after a capture dropped; a byte, a cut
+capture and a capture not whole each no longer holding the cycle, and none
+holding it; each step of counting an answer, the EFM8 branch taken for AM32;
+the cycle's count, its end at every greeting, the UART without a clean cycle
+and a cycle never clean again; the poll's wait, the greeting's end, the
+judging, greetings in the quiet phase, the capture's size, the wait for an
+answer, the rate; the refused greeting's unclean cycle and its count;
+commands taken in the probe and the status not published; the release
+mid-probe as the UART's, without the close, without `uart_deinit()`, without
+the phase or the publish, and the phase left after the UART's release; the
+gate, each state of the poll, the EFM8 mark, each condition of the run cue
+and of RESTART DSHOT's clear; either answer count 16 bits wide; the pad's IE
+and OD write and its ISO clear at the switch; MENU's cue; two of the escwire
+job's bind failures; and each alternative of the matcher, and the matcher
+dropped. One of them, `pinClaimWantLeavePage()`'s call removed, fails only
+the unreachability test's check that each allowed line is still there: by
+behaviour it is equivalent, as the claim's row gives the leave page from the
+start. After main was merged, whose `bridge_4way.cpp` has a file-static
+`s_ops` of its own, the matcher's 13 mutations and two of the probe's ran
+again on the merged tree: 14 fail. Three survive in all, each equivalent:
+
+- `EW_A_GAP_US` ten times longer as the wait between an answer's bytes.
+  rcbench's model ends an answer by its byte count and does not model the
+  wait after its last byte, so the host cannot tell. On the chip a longer
+  wait would lengthen each answered greeting, not change what holds a cycle.
+- The release during the probe without its `clearState()`. The probe takes
+  no command and sends no frame, so the frames' state is still the bind's
+  reset when it ends; the call keeps the status cleared by the release
+  whatever the probe does.
+- Each allowed line found at least once in place of exactly once. A second,
+  identical copy of an allowed line does what the first does: a declaration,
+  the claim's row, which `pinUsersComplete()` holds to one, or the request
+  for the leave page.
+
+The script is not kept.
+
+Not verified: everything on a pin and an ESC. No greeting of the probe has
+reached a Bluejay, BLHeli_S or AM32 bootloader from this board; whether
+rcbench's 17-byte contact gets the same answers as ESC SETTINGS' 21-byte
+greeting, what a bootloader does with a greeting cut short, and the line's
+level through the pull changes at the bind and the switch are read from the
+sources, not measured.
 
 ## Choices
 
@@ -1116,7 +1412,13 @@ None open.
   measured; whether its motor turns on 3 ms of power in 14 ms.
 - What an answering bootloader does with S.BUS frames; what an FC does
   with the probe's second of high line and with the greetings.
+- That an ESC answers the probe's 17-byte greeting as its bootloader's
+  source says ([slice 3 as built](#slice-3-as-built)); what a bootloader
+  does with a greeting cut short by a release.
+- The level on GP0 through the pull changes at the probe's open and at the
+  switch to the UART; which PIO block the probe's line takes.
 - Whether repeated greetings count toward the AM32 bootloader's limit of
-  invalid commands.
+  invalid commands on an ESC; by the source at 578ff29 they do not
+  ([slice 3 as built](#slice-3-as-built)).
 - Betaflight's behaviour, read and not run; ArduPilot and INAV not read.
 - Pull request #49's touch-loss rule, not merged.
