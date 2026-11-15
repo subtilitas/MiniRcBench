@@ -259,9 +259,9 @@ static int modelBl(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
 			// AM32's bootloader sets the address back to 0 after a READ
 			// (578ff29 main.c line 810). The EFM8 bootloader's read loop
 			// does `inc DPTR` for each byte (BLHeliBootLoad.inc, rd1;
-			// from the BLHeli_S and Bluejay sources, not in this
-			// repository and not verified here): the address is past
-			// the bytes read.
+			// checked by review against bitdump/BLHeli and
+			// bird-sanctuary/bluejay, not in this repository): the
+			// address is past the bytes read.
 			if (!g_bl.efm8) g_bl.addr = 0;
 			else g_bl.addr = (uint16_t)(g_bl.addr + c);
 			return c + 3;

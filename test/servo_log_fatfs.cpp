@@ -113,6 +113,7 @@ struct CardModel {
 	uint64_t busyUntil; /**< When the block in flight is programmed. */
 	bool     pendingErr; /**< The block in flight was not taken. */
 	const char *failHolding; /**< A block holding this text is not taken; nullptr for none. */
+	unsigned failWrites; /**< Blocks that are not taken, from the next one: a write error, not tried again. */
 	unsigned reads;     /**< Blocks read from the card, waited for: sdh_read() on the board. */
 	unsigned checks;    /**< Swap-check reads started (sdh_read_start()). */
 	uint64_t readyAt;   /**< When the read started is in. */
@@ -160,7 +161,10 @@ static sd_err_t devWriteStart(void *, uint32_t lba, const uint8_t *buf) {
 	}
 	g_us += g_card.xferUs;
 	g_card.writes++;
-	if (g_card.failHolding && memmem(buf, 512, g_card.failHolding, strlen(g_card.failHolding))) {
+	if (g_card.failWrites) {
+		g_card.failWrites--;
+		g_card.pendingErr = true;
+	} else if (g_card.failHolding && memmem(buf, 512, g_card.failHolding, strlen(g_card.failHolding))) {
 		g_card.pendingErr = true;
 	} else {
 		g_card.pendingErr = ramDiskWrite(buf, lba, 1) != RES_OK;
@@ -1504,6 +1508,37 @@ static void testStaleBatch() {
 }
 
 /**
+ * @brief An open given up on a slow card with blocks queued, the same card,
+ *        and the end's flush failing on its first block with a write error
+ *        that is not tried again: the failure comes in the flush, before the
+ *        close and the removal, the card is mounted again, the serial number
+ *        is the same and the file is removed. A flush that fails later, in
+ *        cardCacheEnd() after the close and the removal were queued, would
+ *        drop them and leave the file.
+ */
+static void testFlushFails() {
+	section("Servo log over FatFs, FAT32: an open given up with blocks queued, the end's flush failing");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	cardTimes(100000, 511000);
+	loopReset();
+	jobSafe();
+	f_mkdir("/LOGS");
+	runFor(100);
+	checkTrue("the open given up, too slow", !holdStart() && logStatus().slow);
+	uint16_t left = 0;
+	checkTrue("blocks queued", cardCacheState(&left) == CardCache::Flushing && left > 1);
+	WORD id = sdLogFs()->id;
+	g_card.failWrites = 1;
+	runEnds();
+	pass();
+	checkInt("the one failure used", (long)g_card.failWrites, 0);
+	checkTrue("the flush failed: the card mounted again, the cache off", !sdc_on() && sdLogFs()->id != id);
+	FILINFO fi;
+	checkTrue("the file removed from the same card", f_stat("/LOGS/SRV00001.CSV", &fi) == FR_NO_FILE);
+	f_mount(nullptr, "", 0);
+}
+
+/**
  * @brief A card with its free room in pieces of 1 MiB: the 4 MiB try
  *        searches the whole FAT and finds none. On a card that reads a block
  *        in 1 ms the 64 KiB try follows; on one at 100 ms the first search
@@ -1831,6 +1866,7 @@ int main() {
 	testSwapGiveUp();
 	testSerialTransient();
 	testStaleBatch();
+	testFlushFails();
 	testFragmented();
 	testCache(false);
 	testCache(true);

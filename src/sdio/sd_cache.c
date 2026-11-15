@@ -217,7 +217,6 @@ void sdc_recheck(void) {
 	sdc_settle();
 	if (!s_on || s_state == SDC_FAILED || s_count == 0) return;
 	s_batchChecked = false;
-	s_checkAttempt = 0;
 }
 
 sdc_state_t sdc_flush(void) {

@@ -1769,8 +1769,9 @@ applies: no file, no cache, and a running blackbox log goes on.
   file closed and left on the card with no remount, and the same with the
   number read, the file removed; an open given up on a slow card with 20 blocks
   queued and its batch already checked, then card B in the slot: none of the 19
-  blocks reaches card B, which keeps its own file; a removed card's
-  pass at most 5 ms, one unanswered command; the cache on for the log only, one
+  blocks reaches card B, which keeps its own file; the same card with the end's
+  first block refused, the card mounted again and the file removed; a removed
+  card's pass at most 5 ms, one unanswered command; the cache on for the log only, one
   block a call, never a flush on the spot, every block's batch checked without a
   wait, at most 100 µs a pass, rows dropped and counted on the slow card; the
   hard cut and the gap between readings on both cards with the log off and on.
@@ -1818,15 +1819,17 @@ applies: no file, no cache, and a running blackbox log goes on.
   block that did not come: 11 mutants, 9 failing the tests. Equivalent: the
   close after a recovery, refused by FatFs as above, and a second recovery after
   the first, which mounts the same card again. Fifth, after the end's fresh swap
-  check (`cardCacheRecheck()`, `sdc_recheck()`) and its unread serial number: 8
-  mutants of `src/servo_log.cpp` and `src/sdio/sd_cache.c`, 5 failing the tests:
-  the recheck call left out, the batch kept checked, a remount on a serial
-  number that does not read, no remount on one that differs, the removal on one
-  that does not read. Three survive and are equivalent in the model: the flush
-  replaced by a check of the state, as `cardCacheEnd()` flushes after it under
-  the same check; the settle left out of `sdc_recheck()`, which matters only
-  for a check read under way when it is called, one the model's card does not
-  have there; the check's try count not reset, which is 0 already.
+  check (`cardCacheRecheck()`, `sdc_recheck()`) and its unread serial number: 11
+  mutants of `src/servo_log.cpp` and `src/sdio/sd_cache.c`, 9 failing the tests:
+  the recheck call left out, the recheck a no-op, the batch kept checked, the
+  settle left out of `sdc_recheck()` (a block in flight), the check's try count
+  reset (a retrying check gets 2 more reads), the flush replaced by a check of
+  the state (a flush that fails first inside `cardCacheEnd()` drops the close
+  and the removal and leaves the file), a remount on a serial number that does
+  not read, no remount on one that differs, the removal on one that does not
+  read. Two survive and are equivalent: `sdc_recheck()` with no test for a
+  Failed cache and with no test for an empty queue, since a failed cache has
+  dropped its queue and an empty queue clears its mark itself.
 - **Not on hardware.** No card has taken the log on the board: its read
   latency, its busy time, and the cuts' timing with the log on are not
   measured (bench test B12, a 60 s log with the supply on, is still to

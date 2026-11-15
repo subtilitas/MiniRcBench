@@ -1230,7 +1230,7 @@ reaches the wire.
     `PROPELLER OFF. DSHOT IS OFF.` on line 2 stays while the PC asks for
     the motor.
 
-**Tests.** `runBridgeProtoTests`, 216 checks in 13 sections: the MSP answers,
+**Tests.** `runBridgeProtoTests`, 218 checks in 13 sections: the MSP answers,
 each command's length, checksum and contents, `$M!`, the four
 `MSP_SET_PASSTHROUGH` modes, version 2 and jumbo frames dropped; the 4-way
 reader, CRC-16/XMODEM's check value, 256 parameters as 0, the CRC answer, the 3D
@@ -1263,12 +1263,13 @@ a READ, refusing a READ there, as bootloader 578ff29 does (`main.c` lines 753 to
 815); a model with VERIFY stands in for BLHeli_32, whose bootloader is not
 verified. The model BLHeli_S advances its address by the bytes read and by the
 bytes programmed, as the `inc DPTR` of the BLHeli_S and Bluejay bootloader
-source does (`BLHeliBootLoad.inc`, `rd1` and `pro5`; not in this repository,
-so not verified here), so a Read at 0xFFFF sends no SET ADDRESS and returns
-the bytes at the address the last READ or PROGRAM left: 0x1A70 after 0x70
-bytes at 0x1A00, then 0x1A74. The model AM32 refuses the same Read.
-`runUsbBridgeTests`' modes section has `$` and 0x2F first, the 4-way
-interface outlasting 5 s, and later `$` and 0x2F forwarded in passthrough. Three mutants of the Reads at
+source does (`BLHeliBootLoad.inc`, `rd1` and `pro5`, checked by review against
+bitdump/BLHeli, BLHeli_S SiLabs, and bird-sanctuary/bluejay; the sources are not
+in this repository), so a Read at 0xFFFF sends no SET ADDRESS and returns the
+bytes at the address the last READ or PROGRAM left: 0x1A70 after 0x70 bytes at
+0x1A00, then 0x1A74. The model AM32 refuses the same Read. `runUsbBridgeTests`'
+modes section has `$` and 0x2F first, the 4-way interface outlasting 5 s, and
+later `$` and 0x2F forwarded in passthrough. Three mutants of the Reads at
 0xFFFF all fail the suite: the skip of SET ADDRESS left out, and the model's
 address not advanced on READ or on PROGRAM.
 `runBridgeUiTests`, 150 checks in 7 sections, has one for slice 3:

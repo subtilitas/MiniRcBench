@@ -1192,9 +1192,11 @@ protocol.
   synced and no rows, closed when the read error leaves the card ready (a CRC
   or frame error). A fatal read error marks the card not ready and FatFs
   refuses the close; the host model does not cover that case. The card is
-  mounted again only when the flush fails or the serial number differs. Host
-  tests in `test/servo_log_fatfs.cpp`; the mutants and the survivors are in
-  the slice 6 note.
+  mounted again only when the flush fails or the serial number differs. A swap
+  inside a batch during a run is not covered
+  ([sd-write-cache.md](docs/design/sd-write-cache.md#card-swap)). Host tests in
+  `test/servo_log_fatfs.cpp` and `test/test_sd_cache.cpp`; the mutants and the
+  survivors are in the slice 6 note.
 
 - After v0.1.0-rc1: the S.BUS OUTPUT source test refuses, in the gate of HOLD
   TO START, the 11 alternative tokens `or`, `and`, `not`, `bitor`, `bitand`,
@@ -1203,7 +1205,8 @@ protocol.
   `?`, with a failing sample for each form. `test/test_bridge_proto.cpp` reads
   at 0xFFFF on a model BLHeli_S, which advances its address by the bytes read
   and programmed, with no SET ADDRESS sent; the advance is from the BLHeli_S
-  and Bluejay bootloader source, which is not in this repository.
+  and Bluejay bootloader source (`rd1` and `pro5` of `BLHeliBootLoad.inc`,
+  checked by review against bitdump/BLHeli and bird-sanctuary/bluejay).
 
 - After v0.1.0-rc1: the models, CAD files and drawings move from MIT to
   CC BY-NC-SA 4.0 (Creative Commons Attribution-NonCommercial-ShareAlike 4.0
