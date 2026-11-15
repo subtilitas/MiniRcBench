@@ -24,8 +24,8 @@ receive an enable command. The firmware sends it; see below.
 
 Bidirectional DShot and EDT work on hardware with the DShot driver of
 DshotDisplay v2.3 (owner report; no defect known). This firmware's DShot
-driver comes from rcbench and has not run on hardware here yet; rcbench ran it
-at DShot600 on one AM32 ESC.
+driver comes from rcbench and has not run on hardware in MiniRcBench yet;
+rcbench ran it at DShot600 on one AM32 ESC.
 
 **KISS telemetry** is an optional third wire from the ESC's telemetry pad. Its
 steps are 0.01 V and 0.01 A, against EDT's 0.25 V and 1 A, and it carries
