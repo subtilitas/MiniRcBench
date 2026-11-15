@@ -57,6 +57,12 @@ change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
 `docs/design/esc-commands.md` and not built; they wait on the owner's
 answers to that note's open questions.
+A USB bridge, through which an ESC tool on a desktop computer reaches the
+ESC's bootloader on SIG over the board's USB serial port, by passthrough at
+19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
+interface of flight controllers, is designed in `docs/design/usb-bridge.md`
+and not built; it waits on the owner's answers to that note's open
+questions.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the

@@ -801,7 +801,7 @@ not run on hardware (item 18).
        QMI8658: incidence, decalage, dihedral, surface throw;
     4. a run summary per log, optionally dated with the board's RTC
        (real-time clock);
-    5. a USB one-wire bridge for desktop ESC tools;
+    5. a USB one-wire bridge for desktop ESC tools, designed in item 29;
     6. Bluejay and BLHeli_S settings.
 
     Not chosen now: a PWM ESC mode with a tachometer. For (1),
@@ -816,6 +816,28 @@ not run on hardware (item 18).
     tester's 3D note text, and a direction note on the tester. Its firmware
     facts are read from source and the BLHeli_32 command specification;
     none has been checked on an ESC.
+
+29. **USB bridge for desktop ESC tools, designed, not built.** Item (5) of
+    the owner's feature choice (item 28), the port of DshotDisplay's
+    `feat/usb-bridge` at 6693084.
+    [usb-bridge.md](docs/design/usb-bridge.md) designs a USB BRIDGE screen
+    that takes SIG through the pin claim, as a core1 job with a PIO line,
+    and connects the ESC's bootloader to the board's existing CDC serial
+    port, with the console off while it runs. Passthrough at 19200 baud
+    8N1 with the wire's own echo, DshotDisplay's bridge, serves the AM32
+    configurator in Direct mode; ESC-Configurator speaks only MSP and the
+    4-way interface through a flight controller, so it needs a second mode
+    the board answers itself, not in DshotDisplay. DshotDisplay's bridge
+    tests pass on the host at 6693084 (28 checks); it has no hardware
+    record. The note waits on the owner's answers to its twelve open
+    questions: the entry, to be answered with question 1 of item (6)'s
+    note, which modes, how the mode is chosen, one serial port or two, the
+    name the board gives in MSP, a RUN command on leaving, BACK during a
+    flash, the traffic log, `SERIAL_TELEMETRY`, BACK after an unfinished
+    write, the card served while bridging, and the tester's 3D note after
+    a bridge write.
+    BLHeliSuite is closed source and not verified; nothing has run on an
+    ESC.
 
 ## Known limitations
 
