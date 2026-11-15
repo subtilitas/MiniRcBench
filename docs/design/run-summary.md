@@ -1,16 +1,18 @@
 # Run summary per log, dated by the board's clock
 
-Status: planned, not built; the owner's choice of 2026-11-14 from the
+Status: designed, not built; the owner's choice of 2026-11-14 from the
 feature survey, feature 4 of 6, built as a design note and then slices
-with reviews. It waits on the owner's answers to the eight
-[open questions](#open-questions).
+with reviews. The owner answered its questions on 2026-11-15, see
+[decisions](#decisions); slices wait on being built.
 
 Each blackbox log gets a run summary: the highest RPM, current and
 temperature, the lowest voltage, the charge used and the armed time. SD LOG
 shows it once the log stops, and the logger writes it as a small text file
 beside the log, `LOGS/LOG00012.TXT` beside `LOGS/LOG00012.BFL`. As an
 option, the board's PCF85063 real-time clock dates the logs, the summaries
-and the device backups on the card.
+and the device backups on the card. The board has no cell on its clock, so
+the clock is set again in each power-up and files written before that are
+undated.
 
 ## Terms
 
@@ -105,8 +107,8 @@ only while it is fresh by the firmware's existing windows: KISS for
 eRPM for 500 ms (`ESC_LINK_STALE_MS`).
 
 Each value but the minimum voltage covers the whole log, from START or
-arming to the stop (open question 3). The minimum voltage counts only
-while the tester is armed, whatever question 3 decides: before arming and
+arming to the stop (decision 3). The minimum voltage counts only
+while the tester is armed, whatever decision 3 says: before arming and
 after disarming it would record the ESC powering up or browning out as
 the pack is plugged or pulled, not the sag under load.
 
@@ -133,8 +135,7 @@ at the logger's 500 Hz, 40 ms of KISS at 50 Hz, and an unknown time of
 EDT, which the ESC paces. The raw extreme, every value counted, is kept as
 well and written to the file beside the held one, as it is the one a
 viewer finds in the `.BFL`; the raw minimum voltage, like the held one,
-counts only while armed. The held value is the one SD LOG shows (open
-question 8).
+counts only while armed. The held value is the one SD LOG shows (decision 8).
 
 | Value | From | Rule | Unknown when |
 |---|---|---|---|
@@ -353,7 +354,7 @@ show the run; while a log runs, and whenever there is no summary (after a
 mount, with no card), they show the counters as today. After a stop,
 FRAMES, WRITTEN, DROPPED FRAMES, BUF PEAK and WORST FLUSH are in the
 log's file; CARD and MOUNT are hidden until the next START or mount. They
-matter when no card mounts, and then no summary shows (open question 1).
+matter when no card mounts, and then no summary shows (decision 1).
 After a log a card error ended, the rows show the run up to the failure,
 `SUMMARY` reads `NOT SAVED`, and the note lines say how it ended.
 
@@ -377,7 +378,7 @@ After a log a card error ended, the rows show the run up to the failure,
   says which step applies. An unknown value is `--`.
 - The held values show; the raw ones are in the file only.
 - `USED` shows the KISS counter's rise when it rose; otherwise the figure
-  from current, labelled `USED FROM CURRENT` (open question 4); otherwise
+  from current, labelled `USED FROM CURRENT` (decision 4); otherwise
   `--`.
 - `USED FROM CURRENT` above 99,999 mAh reads `>99999mAh`; the file has
   the full figure.
@@ -409,8 +410,8 @@ The note lines above START (y 217 and 228) and their texts do not change:
 The MENU status of SD LOG does not change.
 
 After an auto log stops, the user is on the tester, not on SD LOG. Whether
-the tester shows a line of the run is open question 2; this note designs
-SD LOG only.
+the tester shows a line of the run is decided: it does not (decision 2),
+and SD LOG is the only place the run shows.
 
 ## The clock
 
@@ -471,8 +472,8 @@ with `+` and `-` (`_trace_print.py`), and the mechanical model has it as
 
 Not verified, and not known:
 
-- whether a cell is fitted on the owner's board, and which type the board
-  is meant for (open question 6);
+- which cell type the board is meant for: no cell is fitted on the owner's
+  board (decision 6);
 - whether a cell on J2 is charged through D4 while 3V3 is up: with no
   resistor drawn, D4 can drive current into a cell whose voltage is below
   3V3 minus D4's drop, which a primary lithium cell must not take;
@@ -490,8 +491,11 @@ Not verified, and not known:
 - the crystal's load capacitance, so whether CAP_SEL's 7 pF is right, and
   the drift: not measured.
 
-Without a cell, the clock is lost each time 3V3 goes away, and the OS flag
-says so at the next boot.
+The owner's board has no cell on J2 (decision 6). The clock is lost each
+time 3V3 goes away, and the OS flag says so at the next boot. A power-up
+therefore starts with the clock not set, and it runs only after the set
+of the next section. A reset with 3V3 up, which keeps the clock, is the
+one case in which the boot read finds a running clock.
 
 ### Reading it
 
@@ -549,12 +553,27 @@ which come from the timer; its file says the clock was set during it.
 
 SETTINGS → BOARD gets a read-only row `CLOCK`: `2026-11-14 15:42`
 (16 characters, 95 px) or `NOT SET` in `C_DIM`, repainted once a minute.
-A page on the device to set the date with steppers is open question 5.
+There is no page on the device to set the date (decision 5): a power-up
+without a computer on the USB port leaves the clock not set.
 
 The clock holds the local time it was given: no time zone, no daylight
-saving (open question 7). FAT stores local time as well.
+saving (decision 7). FAT stores local time as well.
+
+### Files before the clock is set
+
+Files are dated only after the clock is set in that power-up. Until then
+`get_fattime()` returns 0, so a file created or changed in that period
+carries FAT date 0, as every file does today. A `.TXT` of a log that ran
+in that period reads `Clock at start: not set` and, when the stop came
+before the set, `Clock at stop: not set`. A log that a set interrupts
+keeps the line the table of cases gives for it. A file that FatFs stamps
+at a later sync, after the set, gets the set clock's time as its
+modification time, so one `.BFL` can carry date 0 as creation time and a
+real modification time. The order of the backup ring is then known from
+the dates only for files written after a set.
 
 ### FAT dates today
+
 
 Today every file and directory the firmware writes after a power-on has
 date and time 0. A timer that another firmware image started may run on
@@ -570,7 +589,7 @@ tests define their own `get_fattime()`, 2026-01-01.
 
 [backups.md](backups.md#the-ring) says the files' dates cannot tell the
 ring's order, as the board's clock is not used; that stays true until the
-clock is built and set.
+clock is built, and then only for files written after a set.
 
 ### FAT dates with the clock
 
@@ -653,10 +672,11 @@ Host, each mutation-checked: break the code, see the test fail, restore.
 Bench, after the slices:
 
 1. The RTC answers at 0x51; OS is 1 after the first power-up.
-2. Set from a computer, power off with and without a cell on J2, read it
-   back; the time after 24 h against the computer.
+2. Set from a computer, power off, power up: the clock reads not set, as
+   the board has no cell on J2; the time after 24 h on 3V3 against the
+   computer.
 3. A log's `.BFL` and `.TXT` dates on Windows, Linux and macOS, and a file
-   written before the clock was set.
+   written before the clock was set, which carries FAT date 0.
 4. A run with EDT only and one with KISS: the summary against the log in
    logwiju; the integral against the KISS counter.
 5. The time a stop takes with the summary, on a slow card.
@@ -680,33 +700,46 @@ to 800, L above.
    boot, `get_fattime()`, `my_rtc.c` out of the build, the dates in the
    `.TXT`; host tests. Without a set clock nothing changes on the card.
 5. **Setting the clock** (S to M). The serial line, `tools/set_clock.py`,
-   the CLOCK row; README and wiki. Changes with open question 5.
+   the CLOCK row; README and wiki. Decision 5 makes the line over USB the
+   only way.
 6. **Bring-up** (bench). The bench list above.
 
 Slices 1 to 3 do not depend on the clock; slices 4 and 5 do not depend on
 the summary. Each slice updates STATUS.md and CHANGELOG.md.
 
+## Decisions
+
+Decisions of the owner, 2026-11-15, answering the open questions of
+2026-11-14:
+
+1. **Where the run shows.** Rows 2 to 8 of SD LOG after a stop, option
+   (a). FRAMES, WRITTEN, DROPPED FRAMES, BUF PEAK and WORST FLUSH move to
+   the `.TXT` file; CARD and MOUNT are hidden until the next START or
+   mount. This is the note's recommendation.
+2. **Last run on the tester.** Option (b): SD LOG is the only place. The
+   tester shows no line of the run after an auto log stops. No
+   recommendation was given.
+3. **What the maxima cover.** Option (a): the whole log, so the `.TXT`
+   agrees with the `.BFL`. The minimum voltage counts only while armed.
+   This is the recommendation.
+4. **mAh with EDT only.** Option (a): SD LOG shows it as `USED FROM
+   CURRENT`. This is the recommendation.
+5. **Setting the clock.** Option (a): a line over USB from
+   `tools/set_clock.py`. No page on the device. This is the
+   recommendation.
+6. **Cell on the RTC socket J2.** No cell is fitted. The clock is lost
+   whenever 3.3 V goes away, and files are dated only after the clock is
+   set in that power-up. Before the set a file has FAT date 0 and the
+   summary reads `not set`; see
+   [files before the clock is set](#files-before-the-clock-is-set). No
+   recommendation was given.
+7. **Local time, no time zone.** Option (a): acceptable. The pilot sets
+   the clock again by hand at a daylight-saving change. No recommendation
+   was given.
+8. **Maxima and minimum on SD LOG.** Option (a): the held value, counted
+   only when three consecutive new values reach it. This is the
+   recommendation.
+
 ## Open questions
 
-1. Where the run shows: rows 2 to 8 of SD LOG after a stop, with FRAMES,
-   WRITTEN, DROPPED FRAMES, BUF PEAK and WORST FLUSH moving to the `.TXT`
-   and CARD and MOUNT hidden, until the next START or mount (recommended);
-   or a page of its own, which needs a control SD LOG has no room for?
-2. Does the tester show the last run in one line after an auto log stops,
-   or is SD LOG the only place?
-3. Max RPM, current and temperature and the charge used over the whole
-   log (recommended: the `.TXT` agrees with the `.BFL`), or only while
-   armed? The minimum voltage counts only while armed either way.
-4. With EDT only, mAh comes from 1 A steps, up to 28 mAh off per 100 s by
-   the step alone: show it on SD LOG as USED FROM CURRENT (recommended), or
-   only in the `.TXT`?
-5. Setting the clock: a line over USB from `tools/set_clock.py`
-   (recommended), a page on the device, or both?
-6. Is a cell fitted to the RTC socket J2 on the owner's board, and which
-   type? Without one the clock is lost whenever 3.3 V goes away.
-7. The clock keeps local time with no time zone, set again by hand at a
-   daylight-saving change: acceptable?
-8. Maxima and the minimum on SD LOG: the held value, counted only when
-   three consecutive new values reach it, so one damaged frame sets
-   nothing (recommended); or the raw extreme, which agrees with the
-   `.BFL` and a viewer? The file holds both either way.
+None open. Questions 1 to 8 are answered by decisions 1 to 8.

@@ -3,9 +3,9 @@
 Status: designed, not built. The owner chose the angle meter on 2026-11-14
 from the feature survey, as item 3 of 6: incidence, decalage, dihedral and
 control-surface throw, in degrees and in mm, from the QMI8658 IMU on the
-board, at 0x6B on I2C1. The design waits on the owner's answers to the
-[open questions](#open-questions), first among them the entry: MENU has
-seven rows by menu structure B, and a row for the meter would be an eighth.
+board, at 0x6B on I2C1. The owner answered its questions on 2026-11-15,
+see [decisions](#decisions), first among them the entry: an eighth MENU
+row, `TOOLS`, opening a chooser. Slices wait on being built.
 No line of it is built, and nothing of it has run on a board. The sensor
 facts come from QST's datasheets and Waveshare's schematic and demo code;
 the ones this project has not seen on the bus are marked as such and listed
@@ -363,12 +363,10 @@ set it.
 The zero stays valid only while the model and the axis stay where they
 were. The meter cannot tell that the model moved; the wiki says so.
 
-ZERO and MAX last for one visit, as [question 4](#open-questions)
-recommends: SETUP and FLIP CAL keep them, BACK from the main view drops
-them, and a new visit starts unzeroed with no MAX, as the model may have
-moved in between. ALONG AXIS and SIGN stay as set for as
-long as the board runs; whether a restart keeps them is [open question
-4](#open-questions).
+ZERO and MAX last for one visit, by [decision 4](#decisions): SETUP and FLIP CAL
+keep them, BACK from the main view drops them, and a new visit starts unzeroed
+with no MAX, as the model may have moved in between. ALONG AXIS and SIGN stay as
+set, and the settings block keeps them across a restart (decision 4).
 
 ## Calibration
 
@@ -422,10 +420,11 @@ The sensitivities of `x` and `y` stay at 1; finding them needs each in-plane
 axis upright both ways, the board on its edges. One long edge carries the
 PWR, RESET and BOOT buttons, at x −22.43 mm in the model; standing the board
 on it presses them. Those poses are hand-held against a square block, and
-are [open question 3](#open-questions).
+are decision 3's second step: taken only if bench test B6 shows a gain
+error over 0.2° (decision 3).
 
 The result is applied as `a' = (a − o) / k` per axis before the formula.
-Where it is kept is [open question 4](#open-questions).
+It is kept in the settings block (decision 4).
 
 ## Accuracy
 
@@ -445,12 +444,11 @@ Display resolution and accuracy are different things.
   not touch both edges, a clip that deflects the surface: none of these is
   in the sensor's figures.
 
-The screen shows 0.1° and 0.1 mm. rcbench's RUDDER shows the IMU's degrees
-in hundredths and every mm in tenths (`shared/ui/servo_rudder_panel.c`,
-`num_text()`); 0.1° here is a choice that waits on the accuracy, [open
-question 5](#open-questions). The real accuracy is unknown until bench test
-B6 measures it against known angles; until then the wiki gives no accuracy
-figure.
+The screen shows 0.1° and 0.1 mm. rcbench's RUDDER shows the IMU's degrees in
+hundredths and every mm in tenths (`shared/ui/servo_rudder_panel.c`,
+`num_text()`); 0.1° here is the owner's choice (decision 5) and waits on the
+accuracy. The real accuracy is unknown until bench test B6 measures it against
+known angles; until then the wiki gives no accuracy figure.
 
 ## Still and settled
 
@@ -472,8 +470,10 @@ each frame, and a single sample's noise, 0.018°, is already a third of it.
 The four-sample frames and the LPF keep the test from failing on noise
 alone; bench test B4 checks it.
 
-How the angles reach the model depends on [open question
-2](#open-questions): `imu_feed()` takes only WitMotion byte frames.
+How the angles reach the model is decided (decision 2, option b):
+`imu_feed()` takes only WitMotion byte frames, so rcbench gets a function
+that takes three angles and a time, and this project copies that commit
+unchanged.
 
 ## Holding the board
 
@@ -519,8 +519,8 @@ the fixed surface, where it would meet the wing as the surface deflects;
 on a surface narrower than the board it overhangs the trailing edge.
 
 A printed cradle, designed from the STEP model, would give a defined flat
-base, a slot for the band and a place for the LiPo; whether to make one is
-[open question 6](#open-questions).
+base, a slot for the band and a place for the LiPo; the owner decided
+against one in the first build (decision 6).
 
 ## Millimetres
 
@@ -634,17 +634,19 @@ scale 3 for the pilot to watch it settle.
 
 The footer is SETTINGS' layout: `HOLD TO KEEP`, 12 characters at scale 2,
 142 px, in a 150 px button from x 6, and `AGAIN`, 58 px, in a 72 px button
-from x 162. The 1 s hold keeps the result; where it is kept is [open
-question 4](#open-questions). BACK leaves without keeping it.
+from x 162. The 1 s hold keeps the result; it is kept in the
+settings block (decision 4). BACK leaves without keeping it.
 
 ## Entry
 
-Menu structure B gives MENU seven rows, BEEP THE ESC, AM32 CONFIG, SERVO
+Menu structure B gave MENU seven rows, BEEP THE ESC, AM32 CONFIG, SERVO
 TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, scrolling 36 px
-([menu-b.md](menu-b.md#menu), decisions 32 and 33). A row for the meter
-would be an eighth. This note proposes and does not decide; menu-b.md's
-rows stay as they are until the owner answers [open question
-1](#open-questions).
+([menu-b.md](menu-b.md#menu), decisions 32 and 33). The owner decided on
+2026-11-15 (decision 1) that the meter takes an eighth row, `TOOLS`, in the
+place of option (b) below. The resulting MENU, with the rows of the other
+notes decided the same day, is the revision line in
+[menu-b.md](menu-b.md#menu). The table lists the options the decision
+chose from.
 
 MENU's scroll range is rows × 42 px − 258 px (`uiListMaxScroll()`). At
 scroll 0 row n starts at y 62 + 42 × (n − 1) in a viewport that ends at
@@ -667,9 +669,10 @@ within `menuRowsFit()`'s rule with no status. A TOOLS chooser entry reads
 `C_DIM`), in the manner of the PROGRAMMER chooser's entries. The chooser's
 title `TOOLS` is 58 px.
 
-Recommended: (b). Of the owner's other choices of 2026-11-14, the USB
-one-wire bridge is a tool of the same kind and could take the chooser's
-second entry; that is the bridge's note's question, not this one's.
+Chosen: (b), the recommendation. The USB bridge does not take the
+chooser's second entry: it sits in the `ESC CONFIG` chooser of
+[usb-bridge.md](usb-bridge.md#decisions). The `TOOLS` chooser holds
+`ANGLE METER` alone for now.
 
 ## Interlocks
 
@@ -685,8 +688,8 @@ second entry; that is the bridge's note's question, not this one's.
   screen is open.
 - **Interrupt lines.** INT1 and INT2 stay disabled; GP8 and GP9 are not
   configured.
-- **Flash.** If the calibration, LENGTH, ALONG AXIS or SIGN is kept in
-  the settings block ([open question 4](#open-questions)), a flash save
+- **Flash.** The calibration, LENGTH, ALONG AXIS and SIGN are kept in
+  the settings block (decision 4), so a flash save
   parks core1 and erases a sector, so no tap saves. SETUP's rows apply at
   once in RAM and are saved once, when BACK leaves SETUP and a value
   changed; LENGTH's hold-to-repeat writes nothing. FLIP CAL saves on its
@@ -705,9 +708,9 @@ second entry; that is the bridge's note's question, not this one's.
 |---|---|---|---|
 | `shared/servo/servo_rudder.c`, `include/servo_rudder.h` | 111, 80 | `lib/rcbench/shared/servo/` | copied unchanged |
 | `test/host/test_servo_rudder.c` | 173, 4 cases | `test/rcbench/` | copied unchanged; needs only `greatest.h` |
-| `shared/bench/imu.c`, `include/imu.h` | 352, 204 | `lib/rcbench/shared/bench/` | by [open question 2](#open-questions) |
-| `protocols/witmotion/witmotion.c`, `include/witmotion.h` | 256, 205 | `lib/rcbench/protocols/witmotion/` | only with option (a) of question 2: `imu.h` includes `witmotion.h` |
-| `test/host/test_witmotion.c` | 451, 14 cases | `test/rcbench/` | only with option (a); copied unchanged |
+| `shared/bench/imu.c`, `include/imu.h` | 352, 204 | `lib/rcbench/shared/bench/` | copied unchanged, after rcbench adds the three-angle function (decision 2) |
+| `protocols/witmotion/witmotion.c`, `include/witmotion.h` | 256, 205 | `lib/rcbench/protocols/witmotion/` | only if rcbench's `imu.h` still includes `witmotion.h` after the new function (decision 2, option b) |
+| `test/host/test_witmotion.c` | 451, 14 cases | `test/rcbench/` | only with `witmotion.c`; copied unchanged |
 | `test/host/test_imu.c`, `test_imu_filter.c`, `wit_frame.h` | 352, 485, 46 | `test/rcbench/` | not copyable unchanged. `test_imu.c` includes `imu_rig.h`, which includes `ble_sim.h`, rcbench's BLE (Bluetooth Low Energy) simulator, `imu_ctl.h` and `witmotion.h`; `test_imu.c` itself includes `servo_rudder_auto.h` and `servo_gap.h`. Two cases of `test_imu_filter.c`, `a_connect_a_reconnect_and_a_bind_seed_the_filter` and `the_limits_1_and_50_hold_and_out_of_range_values_are_clamped`, need `imu_sensor.h`. The cases on `imu.h` alone are adapted, as `test_out_pwm_map.c` was |
 
 rcbench's `servo_rudder_auto.c`, RUDDER AUTO, is not ported: it programs
@@ -738,7 +741,7 @@ New code in `src/`:
 ### Host
 
 - **rcbench's tests.** `test_servo_rudder.c` unchanged; the IMU model's by
-  question 2.
+  decision 2.
 - **Driver**, `test/test_qmi8658.cpp`, against a register-level fake of the
   part on the I2C stub of `test/fakes.*`: the probe's three outcomes;
   after the reset, 0x4D at 0x80 at 15 ms going on to the configuration,
@@ -803,10 +806,10 @@ Each slice builds, passes the host suite and merges alone, in this order.
 
 | Slice | Content | Files | Lines, rough |
 |---|---|---|---|
-| 1. Copies | `servo_rudder.*` and its test; the IMU model by question 2; `test/angle.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 to 8 copied, 1 new, 5 edited | 360 to 1,830 copied, with tests; 80 new or changed |
+| 1. Copies | `servo_rudder.*` and its test; the IMU model by decision 2; `test/angle.mk`; the `test/Makefile` lists, `lib/rcbench/README.md`, README, STATUS, CHANGELOG | 3 to 8 copied, 1 new, 5 edited | 360 to 1,830 copied, with tests; 80 new or changed |
 | 2. Driver | `qmi8658.*`, `angle.cmake`, `BOARD_IMU_AXES`, the IMU tick in `uiTick()`, `senseNote()` in place of `senseNoteTouch()`, the bus recovery ahead of `senseTick()`'s mode test with its test at `NONE`, the register fake, `test_qmi8658.cpp`, the `-I` lists of `ci.yml` | 3 new in `src/`, 2 new in `test/`, about 8 edited | 300 in `src/`; 550 in `test/` |
 | 3. Model | `angle_model.*`, `test_angle_model.cpp` | 2 new in `src/`, 1 new in `test/` | 300 in `src/`; 600 in `test/` |
-| 4. Screen | `ui_angle.*`, the entry by question 1, the settings fields by question 4 with their carry-over, the screen tests, `test_ids.cpp`, the preview, `tools/make_previews.py` | 2 new in `src/`, about 10 edited | 700 in `src/`; 600 in `test/` |
+| 4. Screen | `ui_angle.*`, the entry by decision 1, the settings fields by decision 4 with their carry-over, the screen tests, `test_ids.cpp`, the preview, `tools/make_previews.py` | 2 new in `src/`, about 10 edited | 700 in `src/`; 600 in `test/` |
 | 5. Docs | the README section, the wiki pages in English and German and `tools/check_wiki.py`, CHANGELOG, STATUS, this note's status | 2 new, 5 edited | 350 of documentation |
 | 6. Bring-up | bench tests B1 to B9 | none | none |
 
@@ -814,47 +817,36 @@ Slice 3 depends on slice 1; slice 2 on nothing but the tree; slice 4 on
 both. Slice 5 can go with slice 4, as other features' screen slices carry
 their pages.
 
+## Decisions
+
+Decisions of the owner, 2026-11-15, answering the open questions of
+2026-11-14. Each is the note's recommendation.
+
+1. **The entry.** Option (b): an eighth MENU row, `TOOLS`, as row 6 before
+   SD LOG, opening a chooser whose first entry is `ANGLE METER`. 3 taps
+   from the tester. SETTINGS moves to row 8 behind a drag of 76 px. The
+   resulting MENU is recorded in [menu-b.md](menu-b.md#menu). This is the
+   recommendation.
+2. **rcbench's IMU model.** Option (b): a function that takes three
+   angles and a time is added to `imu.c` in rcbench and tested there, and
+   that commit is copied unchanged. This is the recommendation.
+3. **Calibration.** Option (b): the flip of three poses, then option (c)
+   if bench test B6 shows a gain error over 0.2°. This is the
+   recommendation.
+4. **What a restart keeps.** Option (d): the calibration, LENGTH, ALONG
+   AXIS and SIGN in the settings block, `SETTINGS_VERSION` 5 to 6 with the
+   carry-over of current-sense.md decision 14. ZERO and MAX for the visit
+   only. This is the recommendation.
+5. **Display resolution.** Option (a): 0.1° and 0.1 mm, until bench test
+   B6 gives the accuracy. This is the recommendation.
+6. **A holder.** Option (b): none in the first build; the wiki describes
+   the standoffs, a straight bar for incidence, a clip and a band past the
+   glass. This is the recommendation.
+7. **Recording.** Option (a): the screen only. This is the recommendation.
+
 ## Open questions
 
-1. **The entry.** Which entry opens the meter: (a) an eighth MENU row,
-   `ANGLE METER`, as row 6 before SD LOG, 2 taps from the tester, SETTINGS
-   moving to row 8 behind a drag of 76 px; (b) an eighth MENU row, `TOOLS`,
-   in the same place, opening a chooser whose first entry is
-   `ANGLE METER`, 3 taps; (c) `TOOLS` in SD LOG's row 6, with SD LOG and
-   ANGLE METER as its entries, seven rows kept, 3 taps, SD LOG's card
-   status off MENU; (d) a row in SETTINGS after DIAGNOSTICS, 2 taps and
-   2 drags from MENU, 3 taps and 2 drags from the tester by way of MENU.
-   Recommended: (b). See [entry](#entry).
-2. **rcbench's IMU model.** `imu_feed()` takes WitMotion byte frames only.
-   (a) Copy `imu.c` unchanged with rcbench's WitMotion parser and hand it
-   each frame as a WitMotion angle frame, at 180° / 32768, 0.0055°, a step;
-   (b) add a function to `imu.c` in rcbench that takes three angles and a
-   time, test it there, and copy that commit unchanged; (c) copy
-   `servo_rudder.c` only and write the filter and the still time here.
-   Recommended: (b), the order the owner chose for the S.BUS encoder.
-3. **Calibration.** (a) ZERO only; (b) the flip of three poses, screen up,
-   end for end, screen down: the offsets of all three axes and the gain of
-   the normal; (c) (b) and four hand-held edge poses against a square
-   block for the gains of the two in-plane axes. Recommended: (b), then (c)
-   if bench test B6 shows a gain error over 0.2°.
-4. **What a restart keeps.** Six values: the calibration, LENGTH, ALONG
-   AXIS, SIGN, ZERO and MAX. Each is kept in the settings block,
-   `SETTINGS_VERSION` 5 to 6 with the carry-over of current-sense.md
-   decision 14, or in RAM until a restart, or for the visit only.
-   Recommended: the calibration, LENGTH, ALONG AXIS and SIGN in the
-   settings block; ZERO and MAX for the visit only, since the model may
-   move between visits.
-5. **Display resolution.** 0.1° and 0.1 mm, or 0.01° and 0.1 mm as
-   rcbench's RUDDER shows the IMU's angle. Recommended: 0.1° until bench
-   test B6 gives the accuracy, since a hundredth would show digits the
-   meter cannot vouch for.
-6. **A holder.** A printed cradle designed from the STEP model, with a flat
-   base, a slot for a band and a place for the LiPo; or none, and the wiki
-   describes the standoffs, a straight bar for incidence, a clip and a band
-   past the glass. Recommended: none in the first build; a cradle once the
-   bench has weighed and measured the board.
-7. **Recording.** The screen only, or each ZERO and each settled reading
-   also written to the card. Recommended: the screen only.
+None open. Questions 1 to 7 are answered by decisions 1 to 7.
 
 ## To confirm
 

@@ -1,7 +1,8 @@
 # Bluejay and BLHeli_S settings
 
-Status: designed, not built; waits on the owner's answers to the eight
-[open questions](#open-questions). The feature is item (6) of the owner's
+Status: designed, not built; the owner answered its questions on
+2026-11-15, see [decisions](#decisions); slices wait on being built. The
+feature is item (6) of the owner's
 feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
 open item 28: Bluejay and BLHeli_S settings, rcbench's
 `protocols/escwire` copied, a design note first, then slices with reviews.
@@ -228,7 +229,7 @@ desktop tool that picks the firmware image to flash by it (not verified
 here) could pick an image for other hardware from a wrong tag. The tags return
 with a firmware flash for that ESC's layout, whose image carries them
 (`CSEG AT 1A40h`, `A.inc` line 50), or with a restore from a backup of the
-same ESC ([question 4](#open-questions)).
+same ESC (decision 4).
 
 The firmware's own saves have the same window: a DShot save command, or the
 defaults above, erase the page and write it back with interrupts off, and a
@@ -381,8 +382,9 @@ to 152); a wrong value misreads the TEMPERATURE limit.
 
 ### One screen, two transports
 
-AM32 CONFIG grows; no second screen. Its connect page sends the greeting it
-sends today, and the answer decides which editor opens:
+The AM32 CONFIG screen grows into `ESC SETTINGS`; there is no second
+settings screen. Its connect page sends the greeting it sends today, and
+the answer decides which editor opens:
 
 - An AM32 family byte: the AM32 editor as today, on `am32_bl` on core0.
 - `471` with signature `E8B1`, `E8B2` or `E8B5`: the screen ends `am32_bl`
@@ -393,16 +395,18 @@ sends today, and the answer decides which editor opens:
 
 The classification moves out of `am32BlHandshake()` into a pure function
 on the reply's bytes, tested on the host; the bit-banged link stays as it
-is. The MENU row, the titles and the strip follow
-[question 1](#open-questions); this note writes them for its recommendation,
-`ESC CONFIG`.
+is. MENU's row 2 is the chooser `ESC CONFIG` (decision 1), whose first entry,
+`ESC SETTINGS` (12 characters, 142 px at scale 2), is this screen, for every
+firmware, and whose second is `USB BRIDGE`
+([usb-bridge.md](usb-bridge.md#entry)). The chooser claims nothing; an
+entry's tap claims SIG. Whichever of this note's slice 2 and the bridge's
+slice 2 merges first builds the chooser, and the other adds its entry.
+The firmware shows on the strip.
 
-A separate screen would need its own MENU row, against the seven rows of
-[menu-b.md](menu-b.md#menu), or a chooser, and the user would have to know
-which firmware the ESC runs before the first byte. The connect page needs
-no such choice: the greeting is the same, the bootloader's answer names the
-part. The cost is the connect cycle below, which serves both firmwares at
-once.
+A screen per firmware would make the user know which firmware the ESC runs
+before the first byte. The `ESC SETTINGS` entry needs no such choice: the
+greeting is the same, the bootloader's answer names the part. The cost is the
+connect cycle below, which serves both firmwares at once.
 
 ### The connect cycle
 
@@ -415,7 +419,7 @@ inside the 46 ms after an AM32's power-up, start its firmware
 ([AM32's bootloader](#am32s-bootloader)). All three bootloaders, once
 entered, wait on a high line with no timeout. So the line rests high most of
 the time and the greetings come in short bursts. The connect page runs in
-phases, by [question 2](#open-questions) (d):
+phases, by decision 2:
 
 | Phase | Time | Line | Status line |
 |---|---|---|---|
@@ -493,7 +497,7 @@ by a core1 job, as KST and Hitec run theirs:
   most (rcbench README lines 200 to 230).
 - LEAVE: `ew_session_leave()`: the frame `00 01`, which starts the firmware
   (`BLHeliBootLoad.inc` 184 to 197), 500 µs idle, 300 ms low, then the line
-  parked, and the claim gives SIG back to DShot. [Question 3](#open-questions).
+  parked, and the claim gives SIG back to DShot (decision 3).
 - The heartbeat: when core0's heartbeat lapses for 250 ms the job calls
   `ew_session_stop()`, never `ew_session_abort()`: a stop lets a write that
   has sent its erase run to its read-back, then parks the line (rcbench
@@ -562,7 +566,7 @@ Results, at y 196 and 208:
 
 | Result | First line | Second line |
 |---|---|---|
-| `EW_SES_OK` | `WRITE VERIFIED. BACKUP BJ018` (28, 167 px), green | `LEAVING STARTS THE ESC WITH THEM.` (33, 197 px); with question 3 (b), AM32's `POWER-CYCLE THE ESC TO APPLY.` |
+| `EW_SES_OK` | `WRITE VERIFIED. BACKUP BJ018` (28, 167 px), green | `LEAVING STARTS THE ESC WITH THEM.` (33, 197 px); AM32's `POWER-CYCLE THE ESC TO APPLY.` stays AM32's |
 | `EW_SES_ERR_READ` | `READ FAILED: NOTHING ERASED.` (28, 167 px), amber | `TAP OK, WRITE AGAIN.` (20, 119 px) |
 | `EW_SES_ERR_CHANGED` | `ESC PAGE CHANGED: NOT WRITTEN.` (30, 179 px) | `TAP OK, READ AGAIN.` (19, 113 px) |
 | `EW_SES_ERR_WRITE_FAILED` | `WRITE FAILED: PAGE AS READ.` (27, 161 px) | `TAP OK, WRITE AGAIN.` |
@@ -590,16 +594,16 @@ live, where AM32 WRITE draws the hold disabled for a page with no change.
 | Disarmed, DShot drained | the pin claim, as for AM32 | a throttle frame in the middle of a session; MENU disarms on the way in |
 | Propeller off | the README and the manual, as for AM32 | a motor that starts when the firmware starts after LEAVE |
 | Guard on every frame | rcbench's `ew_guard_frame()`: no erase or program outside the settings page, none into the bootloader, a page of a written layout with tags, marker and unnamed bytes as read | a write that changes a tag, a write of an older layout, a stray erase |
-| Backup before the first write | the ring of `BACKUP/`, from the page as first read in this session ([backups.md](backups.md)); a card that refuses it stops the write, as for AM32 | the old settings and the tags, kept for a reflash's choice or a restore ([question 4](#open-questions)) |
+| Backup before the first write | the ring of `BACKUP/`, from the page as first read in this session ([backups.md](backups.md)); a card that refuses it stops the write, as for AM32 | the old settings and the tags, kept for a reflash's choice or a restore (decision 4) |
 | Re-read before the erase | rcbench's write, step 2 | a write over a page that changed since the read |
 | Read-back after the program | rcbench's write, step 4; up to 3 procedures | a write reported done that is not |
 | 1000 ms hold | AM32 WRITE's HOLD TO WRITE | a brush of the glass writing |
 | BACK disabled while writing | the write page | leaving between erase and program |
-| BACK guarded while half written | the list after `TORN` or `LOST` | leaving an erased page behind: the first BACK shows `HALF WRITTEN. BACK AGAIN LEAVES IT;` (35, 209 px) over `A POWER CYCLE THEN LOSES ITS TAGS.` (34, 203 px); the second aborts the session, sends no LEAVE, and goes to the leave page of [question 8](#open-questions) |
+| BACK guarded while half written | the list after `TORN` or `LOST` | leaving an erased page behind: the first BACK shows `HALF WRITTEN. BACK AGAIN LEAVES IT;` (35, 209 px) over `A POWER CYCLE THEN LOSES ITS TAGS.` (34, 203 px); the second aborts the session, sends no LEAVE, and goes to the leave page of decision 8 |
 | Stop, not abort | the job on a heartbeat lapse | a core0 stall cutting a write between erase and program |
 | BOARD voltage red | the write page, as AM32 | a bench brown-out during the write |
-| Run cue | MENU's `POWER-CYCLE THE ESC TO RUN IT`, set at the EFM8's answer, cleared by a LEAVE sent, by RESTART DSHOT on the leave page, whose steps power-cycle the ESC, or by an eRPM frame after it ([question 3](#open-questions)) | an ESC left in its bootloader, unseen |
-| No DShot into a waiting bootloader | after an EFM8 answered and no LEAVE went, SIG returns to DShot only from a leave page after the user unplugs the ESC's supply ([question 8](#open-questions)) | DShot frames read as commands: the EFM8 bootloader checks only the CRC's low byte (`BLHeliBootLoad.inc` 401 to 406, 177; BLHeli_S's copy 369 to 375, 164), so a garbled 4-byte frame passes about 1 time in 256 for arbitrary bytes, and can be a run, a set address, an erase or a program; only the bootloader's own area is refused (lines 233 to 238). What DShot frames read as is B12. Not verified on an ESC |
+| Run cue | MENU's `POWER-CYCLE THE ESC TO RUN IT`, set at the EFM8's answer, cleared by a LEAVE sent, by RESTART DSHOT on the leave page, whose steps power-cycle the ESC, or by an eRPM frame after it (decision 3) | an ESC left in its bootloader, unseen |
+| No DShot into a waiting bootloader | after an EFM8 answered and no LEAVE went, SIG returns to DShot only from a leave page after the user unplugs the ESC's supply (decision 8) | DShot frames read as commands: the EFM8 bootloader checks only the CRC's low byte (`BLHeliBootLoad.inc` 401 to 406, 177; BLHeli_S's copy 369 to 375, 164), so a garbled 4-byte frame passes about 1 time in 256 for arbitrary bytes, and can be a run, a set address, an erase or a program; only the bootloader's own area is refused (lines 233 to 238). What DShot frames read as is B12. Not verified on an ESC |
 
 What an interrupted write leaves, and the way back:
 
@@ -607,7 +611,7 @@ What an interrupted write leaves, and the way back:
 |---|---|---|---|---|
 | Before the erase (the re-read, a failed address) | as read | in its bootloader | `READ FAILED: NOTHING ERASED.` | WRITE again |
 | The link, between erase and read-back, the ESC powered | empty or partly programmed | in its bootloader, waiting | `TORN` or `LOST`; BACK guarded | the wire back on, READ AGAIN, then WRITE: the draft, or REVERT and WRITE for the page as read. The session's RAM copy holds the tags, so the write restores them |
-| The ESC's power, between erase and program end | as above | at its next start: defaults, tags 0xFF; or, cut inside the program, the marker written and later bytes 0xFF, which the firmware reads without a range check (`Eeprom.asm` 62 to 84) and runs on, tags 0xFF | `LOST` | the next session shows `ESC LOST ITS TAGS: READ-ONLY.`; the tags return with a firmware flash for the ESC's layout on a computer, the backup's byte lines naming the layout tag (bytes 0x40 to 0x4F), or with a restore ([question 4](#open-questions)) |
+| The ESC's power, between erase and program end | as above | at its next start: defaults, tags 0xFF; or, cut inside the program, the marker written and later bytes 0xFF, which the firmware reads without a range check (`Eeprom.asm` 62 to 84) and runs on, tags 0xFF | `LOST` | the next session shows `ESC LOST ITS TAGS: READ-ONLY.`; the tags return with a firmware flash for the ESC's layout on a computer, the backup's byte lines naming the layout tag (bytes 0x40 to 0x4F), or with a restore (decision 4) |
 | The bench (cell, USB cable, reset), after the erase | as above | in its bootloader while powered; DShot frames reach it after the bench restarts | none until reopened: then `SETTINGS PAGE EMPTY` or a refusal | keep the ESC powered; a restore, if built, writes the backup that went to the card before the erase; without one, a computer tool; a power cycle loses the tags |
 | A heartbeat lapse | | | none | the write runs to its read-back |
 
@@ -708,7 +712,7 @@ at most `EW_FILE_MAX`, 5280 bytes.
 
 Only an ESC settles these:
 
-- B1. A Bluejay 0.21 ESC on DShot, ESC CONFIG opened: it answers in the
+- B1. A Bluejay 0.21 ESC on DShot, `ESC SETTINGS` opened: it answers in the
   first quiet second, `471d E8 B2 06 01 30`; the time from the pump's stop.
 - B2. The same with BLHeli_S 16.7, which may not have taken the inverted
   frames before.
@@ -751,83 +755,46 @@ own README and wiki lines (the owner's decision 27 of
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Copies | the files of [what is copied](#what-is-copied), `src/escwire.cmake`, `test/escwire.mk`, the fixture check in CI, `lib/rcbench/README.md` | about 40 new | the 210 copied cases | `lib/rcbench/README.md`, STATUS, CHANGELOG | |
-| 2. Detection | the classification; an EFM8 answer named on the connect page, `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters, 197 px), nothing read; the run cue set by that answer, cleared by RESTART DSHOT or eRPM; a leave page per claim in `pin_claim`, set for `PinUser::Am32` at an EFM8's answer (today `unplug` is fixed per user, `pin_claim.h` line 88), the leave page of question 8, which closes [today's limitation](#the-firmware-as-it-is-today); the connect loop stays as today, so no ESC is drawn into its bootloader more often than now; the MENU label and titles by question 1 | about 200 | about 250 | README "AM32 ESC configuration", wiki in both languages, previews, STATUS | |
+| 2. Detection | the classification; an EFM8 answer named on the connect page, `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters, 197 px), nothing read; the run cue set by that answer, cleared by RESTART DSHOT or eRPM; a leave page per claim in `pin_claim`, set for `PinUser::Am32` at an EFM8's answer (today `unplug` is fixed per user, `pin_claim.h` line 88), the leave page of decision 8, which closes [today's limitation](#the-firmware-as-it-is-today); the connect loop stays as today, so no ESC is drawn into its bootloader more often than now; the chooser `ESC CONFIG` and the title `ESC SETTINGS` by decision 1 | about 200 | about 250 | README "AM32 ESC configuration", wiki in both languages, previews, STATUS | |
 | 3. Read | the connect cycle, `escwire_job`, the claim's job, the read, the list read-only for every page, the views, HEX, the strip notes, the 3D note, LEAVE's `00 01` frame | about 650 | about 650 | README section, wiki, previews | 1, 2 |
 | 4. Write | WRITE..., ESC WRITE, the backups and their prefixes, the results, the guarded BACK, the heartbeat stop | about 400 | about 500 | as above | 3 |
 | 5. Bring-up | B1 to B13 | none | none | the record in STATUS | 1 to 4 |
-| 6. Restore | by question 4, after rcbench has one | | | | 4 |
+| 6. Restore | by decision 4, after rcbench has one | | | | 4 |
+
+## Decisions
+
+Decisions of the owner, 2026-11-15, answering the open questions of
+2026-11-14:
+
+1. **Entry and naming.** Option (e), together with decision 1 of
+   [usb-bridge.md](usb-bridge.md#decisions) (its option c). MENU's row 2
+   is the chooser `ESC CONFIG`, holding `ESC SETTINGS`, the one settings
+   screen for AM32, Bluejay and BLHeli_S, and `USB BRIDGE`. This note
+   recommended option (a), one renamed screen; (e) is the pair that the
+   bridge's recommendation and this note's (a) make together.
+2. **The connect cycle.** Option (d): 1000 ms quiet on the pull-up, then 3
+   greetings, about 125 ms, in turn. This is the recommendation.
+3. **Leaving.** Option (a1): LEAVE sends rcbench's `00 01`, the result line
+   reads `LEAVING STARTS THE ESC WITH THEM.`, and the run cue is cleared
+   when LEAVE went out. This is the recommendation.
+4. **Repair after a cut write.** Option (a) now: no repair here, lost tags
+   read read-only. rcbench is asked for option (b), the EFM8 restore;
+   slice 6 waits on it. This is the recommendation.
+5. **Backup names.** Option (a): `BJnnn.TXT` for Bluejay and `BHnnn.TXT`
+   for BLHeli_S. This is the recommendation.
+6. **A write without a card.** Option (a): as AM32, the write runs, the
+   backup stays in RAM and the write page says `NO CARD: OLD VALUES LOST ON
+   LEAVING` in amber. This is the recommendation.
+7. **Older layouts.** Option (a): read-only lists with rcbench's field
+   names. This is the recommendation.
+8. **Leaving without LEAVE.** Option (a): the leave page of SERVO TESTER,
+   KST SERVO and HITEC SERVO. This is the recommendation.
 
 ## Open questions
 
-1. **Entry and naming.** (a) AM32 CONFIG's row grows: its MENU label and
-   title become `ESC CONFIG` (10 characters, 118 px at scale 2, x 8 to
-   125), the sub-views `ESC WRITE` (106 px) and `ESC HEX` (82 px) for every
-   firmware, the firmware on the strip; MENU keeps seven rows
-   (recommended). This changes the label of menu-b's MENU table and the AM32
-   titles of decision 13; with [esc-commands.md](esc-commands.md#open-questions)
-   question 1 (a) MENU's first two rows read `ESC COMMANDS` and `ESC
-   CONFIG`. (b) The row and title stay `AM32 CONFIG` and show a Bluejay or
-   BLHeli_S ESC under that name. (c) A chooser in the row, as PROGRAMMER:
-   AM32 and BLUEJAY / BLHELI_S, each with its own connect; one more tap, no
-   connect cycle needed. (d) An eighth MENU row; MENU scrolls 78 px. (e)
-   With question 1 (c) of [usb-bridge.md](usb-bridge.md#open-questions),
-   the row is a chooser; this screen is its first line for every firmware,
-   titled `ESC SETTINGS` (12 characters, 142 px at scale 2), beside USB
-   BRIDGE, and option (c) here becomes one more chooser line. The owner
-   answers the two questions together.
-2. **The connect cycle.** (a) 1000 ms quiet at entry, then 5000 ms of
-   greetings and 1000 ms quiet in turn: a power-cycled Bluejay answers
-   within 6 s, but an AM32 powered up in a greet phase starts its firmware,
-   about 5 times in 6, and by AM32's source returns about 2 s later. (b)
-   The quiet second at entry only, then greetings as today: a power-cycled
-   Bluejay most likely does not answer; an AM32 answers after its
-   firmware's reset, as today. (c) No cycle: the user picks the firmware
-   first, question 1 (c). (d) 1000 ms quiet on the pull-up, then 3
-   greetings, about 125 ms, in turn (recommended: a quiet line keeps all
-   three bootloaders waiting, and a powered EFM8 answers in the first
-   second; an AM32 power-up meets a burst about 15 % of the time and then
-   answers after its firmware's 2 s reset; not measured).
-3. **Leaving.** (a) LEAVE sends rcbench's `00 01`, which starts the
-   firmware, and the result line reads `LEAVING STARTS THE ESC WITH THEM.`
-   (recommended: rcbench does it, the bootloader takes it, and the firmware
-   reads its page at every start, `Bluejay.asm` 471). With it, (a1) the
-   run cue is cleared when LEAVE went out (recommended; LEAVE has no
-   answer, B11), or (a2) only by eRPM, which BLHeli_S never sends, so its
-   cue stays until RESTART DSHOT or a bench restart. (b) Nothing, as AM32
-   CONFIG today: the result line asks for a power cycle, the run cue stays until
-   RESTART DSHOT on question 8's leave page or eRPM, and SIG returns to
-   DShot only by question 8.
-4. **Repair after a cut write.** (a) None here: lost tags read read-only,
-   and the manual explains a reflash on a computer, the backup naming the
-   layout tag. (b) An EFM8 restore written in rcbench first, as its AM32
-   restore: a verified backup with the same signature, firmware and layout,
-   written onto a page whose name tag reads 0xFF or that reads empty, tags
-   included; then a slice here (recommended: build (a) now and ask rcbench
-   for (b); a bench restart in a write is the likely cut, and only a restore
-   brings that ESC back without a computer).
-5. **Backup names.** (a) `BJnnn.TXT` for Bluejay and `BHnnn.TXT` for
-   BLHeli_S in the ring of `BACKUP/` (recommended: the name says the
-   firmware, as `AM` and `HT` do). (b) One prefix, `ES`, for both.
-6. **A write without a card.** (a) As AM32: the write runs, the backup stays
-   in RAM until a write with a card saves it, and the write page says `NO
-   CARD: OLD VALUES LOST ON LEAVING` in amber (recommended: in the session
-   the RAM copy is enough to repair a cut write). (b) Refused without a card,
-   since only a backup on the card outlives a bench restart; worth taking
-   with question 4 (b).
-7. **Older layouts.** (a) Bluejay 0.2 to 0.20 and BLHeli_S 16.0 to 16.2
-   shown as read-only lists with rcbench's field names, as rcbench does
-   (recommended). (b) Only the bytes, as AM32 CONFIG's view of a layout it
-   does not know.
-8. **Leaving without LEAVE.** After an EFM8 answered and no LEAVE went: the
-   BACK guard's second press after `TORN` or `LOST`, BACK on the connect
-   page after an answer the screen did not read, question 3 (b). (a) The
-   leave page of SERVO TESTER, KST SERVO and HITEC SERVO, its steps
-   `UNPLUG THE ESC BATTERY, THEN LEAVE.` (35 characters, 209 px from x 20)
-   with `ITS BOOTLOADER WAITS FOR COMMANDS` (33, 197 px) and `AND MAY READ
-   DSHOT AS ONE.` (26, 155 px), then `PLUG IT IN AFTER RESTART DSHOT.` (31,
-   185 px); RESTART DSHOT acts 1000 ms after LEAVE, as there (recommended:
-   DShot into a waiting bootloader can pass as a command, see
-   [safety](#safety)). (b) DShot at once, as AM32 CONFIG does today.
+None open. Questions 1 to 8 are answered by decisions 1 to 8. Asking
+rcbench for the EFM8 restore (decision 4) is a request to another project,
+not a question to the owner.
 
 ## Not verified
 

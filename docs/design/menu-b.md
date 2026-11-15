@@ -192,6 +192,23 @@ row opens the RX SIGNALS chooser, has no status, as a tool row (decision
 18), and is drawn disabled only while the claim is not Free. The drawing
 and the table below show it as slice 9 built it.
 
+Revised on 2026-11-15 by the owner's decisions on four design notes
+([esc-commands.md](esc-commands.md#decisions) decision 1,
+[usb-bridge.md](usb-bridge.md#decisions) decision 1,
+[bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) decision 1 and
+[angle-meter.md](angle-meter.md#decisions) decision 1): MENU has eight rows,
+none built yet. 1 ESC COMMANDS (BEEP THE ESC's place), 2 ESC CONFIG, a
+chooser holding ESC SETTINGS, the one settings screen for AM32, Bluejay and
+BLHeli_S, and USB BRIDGE, 3 SERVO TESTER, 4 SERVO PROGRAMMER, 5 RX SIGNALS,
+6 TOOLS, a chooser holding ANGLE METER, 7 SD LOG, 8 SETTINGS. The scroll
+range is rows × 42 px − 258 px, the content minus the viewport, as
+`uiListMaxScroll()` computes it: 8 × 42 − 258 = 78 px. Row 6 starts at
+y 272 and shows whole at scroll 0, row 7 starts at y 314 and shows 6 px,
+row 8 starts at y 356 and shows nothing at scroll 0; SD LOG is whole after
+a drag of 34 px and SETTINGS after a drag of 76 px. The drawing and the table below
+show the seven rows as slice 9 built them; the decisions below stay as
+recorded.
+
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
    40 | SIG GP0  AUX GP1  DSHOT600     [EDT OFF]  |  strip; chip 12 px, C_RED

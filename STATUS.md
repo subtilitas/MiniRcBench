@@ -782,22 +782,29 @@ not run on hardware (item 18).
     Also: every file and directory the firmware writes after a power-on
     has FAT date and time 0, because the SD library's `get_fattime()`
     returns 0 while the RP2350's always-on timer is not running, and
-    nothing starts it; not checked on a card. Waits on
-    the owner's answers to the note's eight questions.
+    nothing starts it; not checked on a card. The owner answered the
+    note's eight questions on 2026-11-15: the run shows on SD LOG only,
+    not on the tester; the maxima cover the whole log; mAh from current
+    shows as USED FROM CURRENT; the clock is set over USB from
+    `tools/set_clock.py`; no cell is fitted in the RTC socket J2, so the
+    clock is lost whenever 3.3 V goes away and files are dated only after
+    the clock is set in that power-up; local time with no time zone is
+    accepted. Slices wait on being built.
 
-27. **Angle meter on the board's IMU, designed, not built.** The owner's
-    choice of 2026-11-14 from the feature survey (item 28): incidence,
-    decalage, dihedral and control-surface throw, in degrees and mm, from
-    the QMI8658 at 0x6B on I2C1.
-    [angle-meter.md](docs/design/angle-meter.md) describes the driver on
-    core0 after the touch and current-sensor reads, the angle from the
-    accelerometer alone, ZERO, a three-pose flip calibration, the screen
-    and six slices on rcbench's `servo_rudder.c` and `imu.c`: copies,
-    driver, model, screen, docs and bring-up. It waits on the owner's
-    answers to its seven open questions, first the entry: an ANGLE METER
-    row, a TOOLS row with a chooser, TOOLS in SD LOG's row, or a SETTINGS
-    row. Which QMI8658 variant is fitted, its byte order, its axes on the
-    board, the board's mass and the real accuracy are not verified.
+27. **Angle meter on the board's IMU, designed, not built.** The owner's choice
+    of 2026-11-14 from the feature survey (item 28): incidence, decalage,
+    dihedral and control-surface throw, in degrees and mm, from the QMI8658 at
+    0x6B on I2C1. [angle-meter.md](docs/design/angle-meter.md) describes the
+    driver on core0 after the touch and current-sensor reads, the angle from the
+    accelerometer alone, ZERO, a three-pose flip calibration, the screen and six
+    slices on rcbench's `servo_rudder.c` and `imu.c`: copies, driver, model,
+    screen, docs and bring-up. The owner answered its seven questions on
+    2026-11-15: an eighth MENU row, `TOOLS`, opening a chooser whose first entry
+    is ANGLE METER; the IMU model added in rcbench first; the three-pose flip;
+    the calibration, LENGTH, ALONG AXIS and SIGN kept in the settings block;
+    0.1° and 0.1 mm; no holder in the first build; the screen only. Slices wait
+    on being built. Which QMI8658 variant is fitted, its byte order, its axes on
+    the board, the board's mass and the real accuracy are not verified.
 
 28. **The owner's feature choice of 2026-11-14.** From the feature survey
     of 2026-11-14 the owner chose six features for the build list, each to
@@ -815,56 +822,57 @@ not run on hardware (item 18).
     6. Bluejay and BLHeli_S settings, designed in item 30.
 
     Not chosen now: a PWM ESC mode with a tachometer. For (1),
-    [esc-commands.md](docs/design/esc-commands.md) designs an ESC COMMANDS
-    page, beacons 1 to 5, direction and 3D mode, each change saved in the
-    ESC behind a 1 s hold, and an RPM/V reading and a kV estimate on the
-    tester. Not built. The note waits on the owner's answers to its ten
-    open questions: where the page lives, save with each change, a hold or
-    a write page, the 3D note after 3D OFF and across a restart, commands
-    and beacons with no ESC answering, where the two figures go on the
-    tester, the estimate's minimum throttle, the ESC information reply, the
-    tester's 3D note text, and a direction note on the tester. Its firmware
-    facts are read from source and the BLHeli_32 command specification;
-    none has been checked on an ESC.
+    [esc-commands.md](docs/design/esc-commands.md) designs an ESC COMMANDS page,
+    beacons 1 to 5, direction and 3D mode, each change saved in the ESC behind a
+    1 s hold, and an RPM/V reading and a kV estimate on the tester. Not built.
+    The owner answered the note's ten questions on 2026-11-15: `ESC COMMANDS` in
+    place of `BEEP THE ESC` as MENU's first row; a save after each change; the
+    hold on the page; the 3D note stays until a restart or an AM32 read;
+    commands and beacons refused with no ESC answering; `RPM/V` on the ERPM line
+    and `KV EST` in place of the pole count; the estimate from 75 % throttle and
+    not held after the disarm; the ESC information reply left out; the 3D note
+    text `3D MODE ESC: 0-50% REVERSED AT 2X`; no direction note. Its firmware
+    facts are read from source and the BLHeli_32 command specification; none has
+    been checked on an ESC.
 
-29. **USB bridge for desktop ESC tools, designed, not built.** Item (5) of
-    the owner's feature choice (item 28), the port of DshotDisplay's
-    `feat/usb-bridge` at 6693084.
-    [usb-bridge.md](docs/design/usb-bridge.md) designs a USB BRIDGE screen
-    that takes SIG through the pin claim, as a core1 job with a PIO line,
-    and connects the ESC's bootloader to the board's existing CDC serial
-    port, with the console off while it runs. Passthrough at 19200 baud
-    8N1 with the wire's own echo, DshotDisplay's bridge, serves the AM32
-    configurator in Direct mode; ESC-Configurator speaks only MSP and the
-    4-way interface through a flight controller, so it needs a second mode
-    the board answers itself, not in DshotDisplay. DshotDisplay's bridge
-    tests pass on the host at 6693084 (28 checks); it has no hardware
-    record. The note waits on the owner's answers to its twelve open
-    questions: the entry, to be answered with question 1 of item (6)'s
-    note, which modes, how the mode is chosen, one serial port or two, the
-    name the board gives in MSP, a RUN command on leaving, BACK during a
-    flash, the traffic log, `SERIAL_TELEMETRY`, BACK after an unfinished
-    write, the card served while bridging, and the tester's 3D note after
-    a bridge write.
-    BLHeliSuite is closed source and not verified; nothing has run on an
-    ESC.
+29. **USB bridge for desktop ESC tools, designed, not built.** Item (5) of the
+    owner's feature choice (item 28), the port of DshotDisplay's
+    `feat/usb-bridge` at 6693084. [usb-bridge.md](docs/design/usb-bridge.md)
+    designs a USB BRIDGE screen that takes SIG through the pin claim, as a core1
+    job with a PIO line, and connects the ESC's bootloader to the board's
+    existing CDC serial port, with the console off while it runs. Passthrough at
+    19200 baud 8N1 with the wire's own echo, DshotDisplay's bridge, serves the
+    AM32 configurator in Direct mode; ESC-Configurator speaks only MSP and the
+    4-way interface through a flight controller, so it needs a second mode the
+    board answers itself, not in DshotDisplay. DshotDisplay's bridge tests pass
+    on the host at 6693084 (28 checks); it has no hardware record. The owner
+    answered the note's twelve questions on 2026-11-15, each as recommended: the
+    entry is the chooser `ESC CONFIG`, holding `ESC SETTINGS` and `USB BRIDGE`
+    (with item 30); both modes; the mode from the PC's first byte; one serial
+    port; `MRCB` as the MSP name; no RUN on leaving; BACK disabled during a
+    write; a build-option traffic log; `SERIAL_TELEMETRY` stays 1; a leave page
+    after an unfinished write; no bridge while USB DRIVE holds the card; the 3D
+    note follows a bridge write. Slices wait on being built. BLHeliSuite is
+    closed source and not verified; nothing has run on an ESC.
 30. **Bluejay and BLHeli_S settings, designed, not built.** Item (6) of the
     owner's feature choice of 2026-11-14 (item 28).
-    [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows AM32
-    CONFIG: its greeting is already a valid greeting for the EFM8 bootloader
-    of both firmwares, whose answer, `471d` and the signature E8B1, E8B2 or
-    E8B5, hands the ESC to rcbench's `protocols/escwire`, copied unchanged
-    with 210 of its host cases and run by a core1 job; quiet seconds between
-    short bursts of greetings let a Bluejay enter, and keep an AM32 in, its
-    bootloader. Bluejay 0.21 and BLHeli_S 16.3 to 16.7 are written, older
-    layouts shown, with a backup before the first write, a re-read and a
-    read-back. Read from both firmwares' source: a write cut between erase
-    and program, then a restart of the ESC, leaves the 48 tag bytes 0xFF and
-    the page read-only. It waits on the owner's answers to the note's eight
-    open questions: the entry and its name, the connect cycle, the frame
-    that starts the firmware on leaving, a restore after a cut write, the
-    backup names, a write without a card, how older layouts show, and
-    leaving an ESC in its bootloader. Nothing of it has run on an ESC.
+    [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows AM32 CONFIG
+    into the `ESC SETTINGS` screen: its greeting is already a valid greeting for
+    the EFM8 bootloader of both firmwares, whose answer, `471d` and the
+    signature E8B1, E8B2 or E8B5, hands the ESC to rcbench's
+    `protocols/escwire`, copied unchanged with 210 of its host cases and run by
+    a core1 job; quiet seconds between short bursts of greetings let a Bluejay
+    enter, and keep an AM32 in, its bootloader. Bluejay 0.21 and BLHeli_S 16.3
+    to 16.7 are written, older layouts shown, with a backup before the first
+    write, a re-read and a read-back. Read from both firmwares' source: a write
+    cut between erase and program, then a restart of the ESC, leaves the 48 tag
+    bytes 0xFF and the page read-only. The owner answered the note's eight
+    questions on 2026-11-15: the one settings screen is `ESC SETTINGS`, in the
+    chooser `ESC CONFIG` beside `USB BRIDGE`; 1000 ms quiet, then 3 greetings in
+    turn; LEAVE sends `00 01`; no repair here, and rcbench is asked for an EFM8
+    restore; backups `BJnnn.TXT` and `BHnnn.TXT`; a write without a card runs;
+    older layouts read-only; a leave page after an answer with no LEAVE. Slices
+    wait on being built. Nothing of it has run on an ESC.
 
 ## Known limitations
 

@@ -47,26 +47,29 @@ on by the owner and not designed yet; the chooser draws it disabled,
 is not built, by the owner's decision. An angle meter on the board's QMI8658
 IMU (inertial measurement unit), for incidence, decalage, dihedral and
 control-surface throw, is designed in `docs/design/angle-meter.md` and not
-built; it waits on the owner's answers to the note's open questions. A run
+built; the owner answered its questions on 2026-11-15, and its entry is an
+eighth MENU row, `TOOLS`, with a chooser. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
-planned in `docs/design/run-summary.md` and not built; it waits on the owner's
-answers to that note's open questions.
+designed in `docs/design/run-summary.md` and not built; the owner answered
+its questions on 2026-11-15. The board has no cell on its clock, so the
+clock is set again after each power-up and earlier files stay undated.
 An ESC COMMANDS page, sending DShot beacons, direction and 3D mode, each
 change saved in the ESC behind a 1 s hold, and an RPM-per-volt reading and
 a kV estimate on the tester, labelled `KV EST`, are designed in
-`docs/design/esc-commands.md` and not built; they wait on the owner's
-answers to that note's open questions.
+`docs/design/esc-commands.md` and not built; the owner answered its
+questions on 2026-11-15.
 A USB bridge, through which an ESC tool on a desktop computer reaches the
 ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
 interface of flight controllers, is designed in `docs/design/usb-bridge.md`
-and not built; it waits on the owner's answers to that note's open
-questions.
+and not built; the owner answered its questions on 2026-11-15. It
+is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`.
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page AM32 CONFIG has, with rcbench's escwire module,
-is designed in `docs/design/bluejay-blheli-s.md` and not built; it waits
-on the owner's answers to that note's open questions.
+is designed in `docs/design/bluejay-blheli-s.md` and not built; the owner
+answered its questions on 2026-11-15. The screen is `ESC SETTINGS`, in the
+`ESC CONFIG` chooser.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the
