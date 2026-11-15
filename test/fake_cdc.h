@@ -17,6 +17,9 @@
  *   to the PC's side at once, unless the PC has stopped taking bytes
  *   (fakeCdcHostStall()), when it stays and the buffer fills.
  * - **DTR.** `tud_cdc_connected()` reads it; the PC sets and clears it.
+ * - **The SDK.** `stdio_set_driver_enabled()` records the console's state,
+ *   so the suite links the real usb_dev.cpp; `tusb_init()`, the board ID
+ *   and the serial number string do nothing.
  *
  * Bytes are not timed: a test reads the PC's side when its model of a tool
  * would.
@@ -35,6 +38,16 @@ void fakeCdcDtr(bool on);
 /** @brief The PC writes @p n bytes: packets of at most 64 behind what it wrote before. */
 void fakeCdcHostWrite(const uint8_t *d, int n);
 
+/**
+ * @brief The PC writes @p n bytes with a USB gap: the first @p split go as
+ *        fakeCdcHostWrite() does, the rest only @p gapUs from now, as a host
+ *        whose transfer stalls between two packets.
+ */
+void fakeCdcHostWriteGap(const uint8_t *d, int n, int split, uint32_t gapUs);
+
+/** @brief Text the console wrote to TinyUSB's transmit buffer, not flushed: what printf() leaves. */
+void fakeCdcConsoleText(const char *s);
+
 /** @brief Bytes the PC wrote that the board has not read. */
 int fakeCdcHostQueued();
 
@@ -50,7 +63,7 @@ long fakeCdcHostTotal();
 /** @brief The PC stops taking bytes, or takes them again. */
 void fakeCdcHostStall(bool on);
 
-/** @brief Whether the console has the port (usbDevConsole()). */
+/** @brief Whether the console has the port: the stdio driver enabled (usbDevConsole() in the real usb_dev.cpp). */
 bool fakeConsoleOn();
 
 /** @brief Times usbDevConsole() changed it since the reset. */

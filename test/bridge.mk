@@ -7,7 +7,9 @@
 #                       slot and the ring (docs/design/usb-bridge.md, slice 1);
 #                       the USB side and the screen USB BRIDGE (slice 2).
 #                       The log is off, as the firmware builds it: its
-#                       entry points are bridge_log.h's empty inlines
+#                       entry points are bridge_log.h's empty inlines.
+#                       usb_dev.cpp too, against the CDC fake: the console
+#                       switch and the clock's serial line beside the bridge
 #   BRIDGE_TESTS        the test files; test_bridge.cpp holds
 #                       runBridgeTests(), test_usb_bridge.cpp
 #                       runUsbBridgeTests(), test_bridge_ui.cpp
@@ -23,7 +25,7 @@
 # The line's two PIO programs, src/bridge_line.pio and src/pio_uart_rx.pio,
 # run in test/pio_bridge_emu.py, which `make pioemu` runs.
 BRIDGE_SRCS        := ../src/bridge_wire.cpp ../src/usb_bridge.cpp \
-                      ../src/ui_bridge.cpp
+                      ../src/ui_bridge.cpp ../src/usb_dev.cpp
 BRIDGE_TESTS       := test_bridge.cpp fake_bridge_line.cpp test_usb_bridge.cpp fake_cdc.cpp \
                       test_bridge_ui.cpp
 BRIDGE_DEVICE_SRCS := ../src/bridge_line_port.cpp

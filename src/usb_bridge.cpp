@@ -27,7 +27,12 @@ static bool           s_ready = false;           /**< It is whole and waits for 
 static uint8_t        s_rx[256];                 /**< Bytes from the ring on their way to the PC. */
 static bool           s_dtr = false;             /**< DTR at the last pass. */
 static bool           s_portClosed = false;
-static bool           s_unfinished = false;
+static bool           s_unfinished = false;      /**< A write-class frame and no RUN since the open. */
+static bool           s_reached = false;         /**< A bootloader answered, or a write went, and no RUN since. */
+static bool           s_initWait = false;        /**< An INIT went; a byte beyond its echo is the answer. */
+static uint32_t       s_initMark = 0;            /**< Bytes received once its echo is in. */
+static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */
+static uint32_t       s_cueMs = 0;               /**< millis() when it was set. */
 static bool           s_writeWait = false;
 static uint32_t       s_writeAtMs = 0;           /**< millis() of the write-class frame's handover. */
 static uint32_t       s_writeMark = 0;           /**< Bytes received once its echo is in: one more is its answer. */
@@ -35,6 +40,15 @@ static uint32_t       s_writeMark = 0;           /**< Bytes received once its ec
 // ---------------------------------------------------------------------------
 // naming a frame
 // ---------------------------------------------------------------------------
+
+uint16_t usbBridgeCrc16(const uint8_t *d, uint16_t n) {
+	uint16_t crc = 0;
+	for (uint16_t i = 0; i < n; i++) {
+		crc ^= d[i];
+		for (int b = 0; b < 8; b++) crc = (crc & 1u) ? (uint16_t)((crc >> 1) ^ 0xA001u) : (uint16_t)(crc >> 1);
+	}
+	return crc;
+}
 
 BridgeCmd usbBridgeCmdOf(const uint8_t *f, uint16_t n, bool afterSetBuffer) {
 	if (n == 0) return BridgeCmd::None;
@@ -49,7 +63,11 @@ BridgeCmd usbBridgeCmdOf(const uint8_t *f, uint16_t n, bool afterSetBuffer) {
 		case 0x03: return BridgeCmd::Read;
 		case 0x01: return BridgeCmd::Program;
 		case 0x02: return BridgeCmd::Erase;
-		case 0x00: return BridgeCmd::Run;
+		case 0x00:
+			// RUN is 4 bytes with its CRC: a payload's tail after a USB gap
+			// can start with 0x00 too.
+			if (n == 4 && usbBridgeCrc16(f, 2) == (uint16_t)(f[2] | f[3] << 8)) return BridgeCmd::Run;
+			return BridgeCmd::Other;
 		case 0xFD: return BridgeCmd::KeepAlive;
 		default:   return BridgeCmd::Other;
 	}
@@ -102,12 +120,18 @@ static void openBridge() {
 	s_ready = false;
 	s_portClosed = false;
 	s_unfinished = false;
+	s_reached = false;
+	s_initWait = false;
 	s_writeWait = false;
 	s_dtr = tud_cdc_connected();
 	endSession();
 	bridgeWireKeepEcho(true);
 	usbDevConsole(false);
+	usbDevClockLineEnable(false);
 	s_console = true;
+	// Console text TinyUSB still holds would reach the tool before the first
+	// echo.
+	tud_cdc_write_clear();
 	// What the PC sent before the open belongs to whatever came before, and
 	// would reach the ESC as noise (DshotDisplay's usbBridgeBegin()).
 	uint8_t junk[64];
@@ -128,8 +152,24 @@ static void closeBridge() {
 	bridgeLogDumpBegin();
 }
 
+/**
+ * @brief An INIT's answer: a byte the wire received beyond its echo. A
+ *        bootloader is reached: BACK gives the leave page, MENU the run cue.
+ */
+static void initAnswerCheck() {
+	if (!s_initWait) return;
+	BridgeWireStats w;
+	bridgeWireStats(&w);
+	if ((int32_t)(w.received - s_initMark) <= 0) return;
+	s_initWait = false;
+	s_reached = true;
+	s_cue = true;
+	s_cueMs = millis();
+}
+
 /** @brief The gathered frame went to the slot: name it, count it, log it. */
 static void handedOver(uint32_t now) {
+	initAnswerCheck();
 	BridgeCmd c = usbBridgeCmdOf(s_buf, s_len, s_afterSetBuffer);
 	s_afterSetBuffer = c == BridgeCmd::SetBuffer;
 	s_last.cmd = c;
@@ -140,11 +180,20 @@ static void handedOver(uint32_t now) {
 		BridgeWireStats w;
 		bridgeWireStats(&w);
 		s_unfinished = true;
+		s_reached = true;
 		s_writeWait = true;
 		s_writeAtMs = now;
 		s_writeMark = w.received + s_len;
 	} else if (c == BridgeCmd::Run) {
 		s_unfinished = false;
+		s_reached = false;
+		s_cue = false;
+	}
+	s_initWait = c == BridgeCmd::Init;
+	if (s_initWait) {
+		BridgeWireStats w;
+		bridgeWireStats(&w);
+		s_initMark = w.received + s_len;
 	}
 	bridgeLogAdd(BLOG_HOST_TO_ESC, s_buf, s_len);
 	s_stats.toEsc += s_len;
@@ -188,6 +237,7 @@ static void forward() {
 			s_ready = true;
 	}
 	if (s_ready && bridgeWireSend(s_buf, s_len)) handedOver(now);
+	initAnswerCheck();
 
 	// The ring to the PC: what the port takes; the rest waits in the ring.
 	uint32_t room = tud_cdc_write_available();
@@ -218,6 +268,7 @@ void usbBridgeTask() {
 	// The console gets the port back once the claim is Free, after the dump.
 	if (s_console && bridgeLogDumpStep() && pinClaimHolder() != PinUser::Bridge) {
 		usbDevConsole(true);
+		usbDevClockLineEnable(true);
 		s_console = false;
 	}
 }
@@ -244,6 +295,16 @@ bool usbBridgeWriteWaiting() {
 }
 
 bool usbBridgeWriteUnfinished() { return s_unfinished; }
+
+bool usbBridgeBootloaderReached() { return s_reached; }
+
+bool usbBridgeRunCue(uint32_t lastRpmMs) {
+	// An eRPM frame stamped after the answer: the firmware runs again.
+	if (s_cue && lastRpmMs != 0 && (int32_t)(lastRpmMs - s_cueMs) > 0) s_cue = false;
+	return s_cue;
+}
+
+void usbBridgeRunCueClear() { s_cue = false; }
 
 bool usbBridgePortOpen() { return tud_cdc_connected(); }
 

@@ -19,6 +19,9 @@
 #include "pin_claim.h"
 #include "fake_cdc.h"
 #include "tusb.h"
+#include "usb_dev.h"
+
+#include <pico/stdio.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +34,10 @@ static void check(const char *what, bool ok) {
 	printf("  %-60s %s\n", what, ok ? "ok" : "FAIL");
 	if (!ok) g_failed++;
 }
+
+// --- usb_dev.h: the console through the CDC fake's record of it, no clock line ---
+void usbDevConsole(bool on) { stdio_set_driver_enabled(nullptr, on); }
+void usbDevClockLineEnable(bool) {}
 
 // --- the clock ---
 static uint64_t g_us = 1000000;

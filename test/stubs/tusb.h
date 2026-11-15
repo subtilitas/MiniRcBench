@@ -77,6 +77,7 @@ bool     tud_cdc_connected(void);
 uint32_t tud_cdc_write_available(void);
 uint32_t tud_cdc_write(const void *buffer, uint32_t bufsize);
 uint32_t tud_cdc_write_flush(void);
+bool     tud_cdc_write_clear(void);
 uint32_t tud_cdc_available(void);
 uint32_t tud_cdc_read(void *buffer, uint32_t bufsize);
 

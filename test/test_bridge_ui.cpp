@@ -143,7 +143,7 @@ static int escFlood(const uint8_t *, int, uint8_t *r, uint32_t *d) {
 
 static const uint8_t SET_ADDR[] = {0xFF, 0x00, 0x7E, 0x00, 0x3C, 0x8B};
 static const uint8_t PROG[]     = {0x01, 0x01, 0x11, 0x22};
-static const uint8_t RUN[]      = {0x00, 0x00, 0x11, 0x22};
+static const uint8_t RUN[]      = {0x00, 0x00, 0x00, 0x00};   // 00 00 and its CRC
 
 /** @brief The tester, default settings, no ESC, no card, the PC on the port with DTR clear. */
 static void freshUi(FakeEscReply r = escAck) {
@@ -557,6 +557,70 @@ static void testLostAndGp1() {
 	brFrames(2);
 }
 
+/** @brief The model bootloader answers the greeting: AM32's answer, or an EFM8's. */
+static bool g_efm8 = false;
+static int escGreets(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
+	*d = 300;
+	if (usbBridgeCmdOf(f, (uint16_t)n, false) == BridgeCmd::Init) {
+		static const uint8_t AM32[] = {0x34, 0x37, 0x31, 0x00, 0x1F, 0x06, 0x06, 0x01, 0x30};
+		static const uint8_t EFM8[] = {0x34, 0x37, 0x31, 0x64, 0xE8, 0xB2, 0x06, 0x01, 0x30};
+		memcpy(r, g_efm8 ? EFM8 : AM32, 9);
+		return 9;
+	}
+	r[0] = 0x30;
+	return 1;
+}
+
+/** @brief A tool that greets, reads and lets go without RUN: BACK gives the leave page. */
+static void testReadOnly() {
+	section("USB BRIDGE: a read-only session leaves the bootloader waiting");
+	static const uint8_t INIT21[21] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	                                   0x0D, 'B', 'L', 'H', 'e', 'l', 'i', 0xF4, 0x7D};
+	const uint8_t rd[] = {0x03, 0x10, 0x00, 0x00};
+	for (int e = 0; e < 2; e++) {
+		g_efm8 = e == 1;
+		freshUi(escGreets);
+		openBridgeScreen();
+		untilOpen();
+		fakeCdcDtr(true);
+		fakeCdcHostWrite(INIT21, sizeof(INIT21));
+		brFrames(2);
+		fakeCdcHostWrite(rd, sizeof(rd));
+		brFrames(2);
+		fakeCdcDtr(false);
+		brFrames(2);
+		checkTrue(g_efm8 ? "EFM8: greeted and read, no write, no RUN" : "AM32: greeted and read, no write, no RUN",
+		          usbBridgeBootloaderReached() && !usbBridgeWriteUnfinished() && usbBridgeRunCue(0));
+		tapId(UI_FIX(UI_BACK));
+		brFrames(1);
+		checkTrue("BACK: the leave page, DShot down", uiCurrentScreen() == UiScreenId::Bridge &&
+		          ctlPresent(UI_FIX(BridgeCtl::Restart)) && escTaskSuspended());
+		checkTrue("its steps; no FLASH note after a session with no write",
+		          leaveStepIs(UI_LEAVE_STEP_Y, '1', BRIDGE_UI_LEAVE_1, true) &&
+		          leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', UI_LEAVE_RESTART, false) &&
+		          allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
+		if (g_efm8) fakeDumpFrame("shot_bridge_leave_read.ppm");
+		brFrames(44);
+		tapId(UI_FIX(BridgeCtl::Restart));
+		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+		checkTrue("RESTART DSHOT: MENU, Free, the cue gone", uiCurrentScreen() == UiScreenId::Menu &&
+		          pinClaimState() == ClaimState::Free && !usbBridgeRunCue(0));
+		tapId(UI_FIX(UI_BACK));
+	}
+	g_efm8 = false;
+
+	// A greeting nobody answers reaches nothing: BACK to MENU.
+	freshUi(nullptr);
+	openBridgeScreen();
+	untilOpen();
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	brFrames(4);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("a greeting with no answer: BACK to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	tapId(UI_FIX(UI_BACK));
+}
+
 void runBridgeUiTests() {
 	g_together = 0;
 	testLayout();
@@ -564,6 +628,7 @@ void runBridgeUiTests() {
 	testWriteAndLeave();
 	testBackStates();
 	testLostAndGp1();
+	testReadOnly();
 	checkInt("DShot never up with the bridge's line", g_together, 0);
 	freshUi();
 	fakeBridgeLineReset();

@@ -50,7 +50,10 @@
  * ERASE and a payload are write-class: from the handover until the
  * frame's answer, a byte received beyond its echo, or
  * @ref BRIDGE_WRITE_WAIT_MS, BACK is drawn disabled (decision 7); and from
- * then until a RUN, BACK opens the leave page (decision 10). The frames
+ * then until a RUN, the leave page carries `FLASH THE ESC AGAIN BEFORE USE.`.
+ * An answered INIT, or a write, reaches a bootloader: from then until a
+ * RUN, BACK opens the leave page (decision 10 as revised), and MENU shows
+ * the run cue until a RUN, RESTART DSHOT or an eRPM frame. The frames
  * themselves are forwarded unchanged.
  *
  * Core0 only.
@@ -118,8 +121,10 @@ struct BridgeLast {
  * more, its CRC: AM32's 21 bytes and the 17 of Betaflight's other builds.
  * A frame after SET BUFFER is its payload whatever it holds. Otherwise the
  * first byte: 0xFF SET ADDRESS, 0xFE SET BUFFER, 0x03 READ, 0x01 PROGRAM,
- * 0x02 ERASE, 0x00 RUN, 0xFD KEEP ALIVE (am32_bl.h; Betaflight's
- * `serial_4way_avrootloader.c` lines 49 to 64).
+ * 0x02 ERASE, 0xFD KEEP ALIVE (am32_bl.h; Betaflight's
+ * `serial_4way_avrootloader.c` lines 49 to 64), and 0x00 RUN only for a
+ * frame of 4 bytes whose last two are the CRC of the first two: a payload's
+ * tail after a USB gap of 2 ms can start with 0x00 as well.
  *
  * @param f              The frame.
  * @param n              Its length; 0 gives None.
@@ -127,6 +132,15 @@ struct BridgeLast {
  * @return Its command.
  */
 BridgeCmd usbBridgeCmdOf(const uint8_t *f, uint16_t n, bool afterSetBuffer);
+
+/**
+ * @brief The bootloader frames' CRC, CRC-16/ARC: polynomial 0xA001
+ *        reflected, initial value 0, low byte first on the wire. Pure.
+ * @param d The bytes.
+ * @param n How many.
+ * @return The CRC.
+ */
+uint16_t usbBridgeCrc16(const uint8_t *d, uint16_t n);
 
 /** @brief PROGRAM, ERASE and a SET BUFFER payload. Pure. @param c A command. @return True for those three. */
 bool usbBridgeCmdWrites(BridgeCmd c);
@@ -172,6 +186,33 @@ bool usbBridgeWriteWaiting();
  * @return True after such a frame.
  */
 bool usbBridgeWriteUnfinished();
+
+/**
+ * @brief A bootloader may be waiting on SIG: BACK gives the leave page
+ *        (decision 10 as revised, docs/design/usb-bridge.md "Safety").
+ *
+ * Set when an INIT's answer comes, a byte the wire receives beyond the
+ * INIT's echo, and by a write-class frame; cleared by a RUN only, and by
+ * the next open. A session that only greeted and read leaves the ESC in its
+ * bootloader as much as one that wrote.
+ * @return True from then until a RUN.
+ */
+bool usbBridgeBootloaderReached();
+
+/**
+ * @brief MENU's run cue, `POWER-CYCLE THE ESC TO RUN IT`, ORed with ESC
+ *        SETTINGS' (ui_menu.cpp).
+ *
+ * Set when an INIT's answer comes; cleared by a RUN, by
+ * usbBridgeRunCueClear() at RESTART DSHOT, and by an eRPM frame stamped
+ * after the answer: the firmware runs again. Kept across the close.
+ * @param lastRpmMs EscTelemetry::lastRpmMs.
+ * @return True while the cue shows.
+ */
+bool usbBridgeRunCue(uint32_t lastRpmMs);
+
+/** @brief RESTART DSHOT on the leave page, whose steps power the ESC off: the cue goes. */
+void usbBridgeRunCueClear();
 
 /** @brief DTR is set: `PORT OPEN` on the screen. @return tud_cdc_connected(). */
 bool usbBridgePortOpen();

@@ -302,7 +302,7 @@ static void drawFoot(bool retry) {
 /** @brief The leave page: opened releasing, BACK having asked for the line. */
 static void drawLeave() {
 	uint32_t now = millis();
-	struct { bool back, left, wide, live, restartPress, released; unsigned sig; } k;
+	struct { bool back, left, wide, live, restartPress, released, write; unsigned sig; } k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.left = uiPressing(UI_LEAVE_LEFT, s_t);
@@ -310,6 +310,7 @@ static void drawLeave() {
 	k.live = uiLeaveRestartLive(&s_leave, now);
 	k.restartPress = s_leave.restartPress;
 	k.released = s_leave.phase == UiLeavePhase::Released;
+	k.write = usbBridgeWriteUnfinished();
 	k.sig = sigGpio();
 	if (!changed(K_TOP, &k, sizeof(k))) return;
 	uiHeader(BRIDGE_UI_TITLE, s_t, backActs());
@@ -321,8 +322,10 @@ static void drawLeave() {
 	memset(&tx, 0, sizeof(tx));
 	tx.step[0][0] = BRIDGE_UI_LEAVE_1;
 	tx.step[1][0] = UI_LEAVE_RESTART;
-	tx.note[0] = BRIDGE_UI_LEAVE_NOTE;
-	if (!k.released) tx.note[1] = UI_LEAVE_RELEASING;
+	// The note after a write with no RUN; a session that only read has none.
+	int note = 0;
+	if (k.write) tx.note[note++] = BRIDGE_UI_LEAVE_NOTE;
+	if (!k.released) tx.note[note] = UI_LEAVE_RELEASING;
 	tx.next = BRIDGE_UI_BACK_TO;
 	uiLeaveDraw(&s_leave, tx, s_t, now);
 }
@@ -365,9 +368,10 @@ void uiBridgeEnter() {
  */
 static bool back() {
 	if (!s_claimed) return false;
-	// After a write with no RUN behind it, the ESC's flash may be cut: DShot
-	// waits for RESTART DSHOT on the leave page (decision 10).
-	if (usbBridgeWriteUnfinished() && pinClaimState() == ClaimState::Running)
+	// Once a bootloader answered, or a write went, with no RUN behind it, the
+	// ESC may wait in its bootloader and its flash may be cut: DShot waits
+	// for RESTART DSHOT on the leave page (decision 10 as revised).
+	if (usbBridgeBootloaderReached() && pinClaimState() == ClaimState::Running)
 		pinClaimWantLeavePage(PinUser::Bridge);
 	pinClaimEnd(PinUser::Bridge);
 	if (!pinClaimLeavePage()) return false;
@@ -391,6 +395,8 @@ bool uiBridgeTick(const TouchState *t) {
 		UiLeaveEv ev = uiLeaveTouch(&s_leave, s_t, millis());
 		if (ev == UiLeaveEv::Restart && pinClaimUnplugDue()) {
 			pinClaimRestart(PinUser::Bridge);
+			// The steps powered the ESC off: MENU's cue goes.
+			usbBridgeRunCueClear();
 			return false;
 		}
 		if (ev == UiLeaveEv::Next && pinClaimUnplugDue()) {

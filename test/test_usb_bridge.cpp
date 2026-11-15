@@ -27,6 +27,10 @@
 #include "ui.h"
 #include "plat.h"
 #include "tusb.h"
+#include "usb_dev.h"
+#include "clock.h"
+#include "fake_i2c.h"
+#include "board_pins.h"
 
 #include <string.h>
 
@@ -40,6 +44,8 @@ static int g_strayBytes = 0;
 static int g_wireSeen = 0;
 /** @brief Times DShot was up while the bridge's line was open. */
 static int g_together = 0;
+/** @brief Core0's pass runs the real usbDevTask(), the clock's line with it, not tud_task() alone. */
+static bool g_devTask = false;
 
 /** @brief One pass of the three: the pump, core1's job, then core0's bridge task. */
 static void pass(bool core0 = true) {
@@ -47,7 +53,8 @@ static void pass(bool core0 = true) {
 	fakePumpPoll();
 	core1JobPoll();
 	if (core0) {
-		tud_task();
+		if (g_devTask) usbDevTask();
+		else tud_task();
 		usbBridgeTask();
 	}
 	if (bridgeLineIsOpen() && !escTaskSuspended()) g_together++;
@@ -202,7 +209,7 @@ static const uint8_t SET_ADDR[] = {0xFF, 0x00, 0x7E, 0x00, 0x3C, 0x8B};
 static const uint8_t SET_BUF[]  = {0xFE, 0x00, 0x01, 0x02, 0x8A, 0x1C};
 static const uint8_t PROG[]     = {0x01, 0x01, 0x11, 0x22};
 static const uint8_t ERASE[]    = {0x02, 0x01, 0x11, 0x22};
-static const uint8_t RUN[]      = {0x00, 0x00, 0x11, 0x22};
+static const uint8_t RUN[]      = {0x00, 0x00, 0x00, 0x00};   // 00 00 and its CRC, 0000h
 static const uint8_t INIT21[21] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                    0x0D, 'B', 'L', 'H', 'e', 'l', 'i', 0xF4, 0x7D};
 
@@ -219,13 +226,22 @@ static void testNaming() {
 	checkTrue("0x03 READ", usbBridgeCmdOf(rd, 4, false) == BridgeCmd::Read);
 	checkTrue("0x01 PROGRAM", usbBridgeCmdOf(PROG, 4, false) == BridgeCmd::Program);
 	checkTrue("0x02 ERASE", usbBridgeCmdOf(ERASE, 4, false) == BridgeCmd::Erase);
-	checkTrue("0x00 RUN", usbBridgeCmdOf(RUN, 4, false) == BridgeCmd::Run);
+	checkInt("CRC-16/ARC of 123456789", usbBridgeCrc16((const uint8_t *)"123456789", 9), 0xBB3D);
+	checkInt("of BLHeli: the greeting's F4 7D", usbBridgeCrc16((const uint8_t *)"BLHeli", 6), 0x7DF4);
+	checkTrue("0x00 0x00 and its CRC: RUN", usbBridgeCmdOf(RUN, 4, false) == BridgeCmd::Run);
+	const uint8_t runBad[] = {0x00, 0x00, 0x11, 0x22}, run5[] = {0x00, 0x00, 0x00, 0x00, 0x00};
+	const uint8_t run01[] = {0x00, 0x01, 0xC1, 0xC0};
+	checkTrue("a wrong CRC: no RUN", usbBridgeCmdOf(runBad, 4, false) == BridgeCmd::Other);
+	checkTrue("5 bytes: no RUN", usbBridgeCmdOf(run5, 5, false) == BridgeCmd::Other);
+	checkTrue("3 bytes: no RUN", usbBridgeCmdOf(run5, 3, false) == BridgeCmd::Other);
+	checkTrue("00 01 and its CRC: RUN", usbBridgeCrc16(run01, 2) == 0xC0C1 &&
+	          usbBridgeCmdOf(run01, 4, false) == BridgeCmd::Run);
 	checkTrue("0xFD KEEP ALIVE", usbBridgeCmdOf(ka, 4, false) == BridgeCmd::KeepAlive);
 	checkTrue("0x42: FRAME", usbBridgeCmdOf(other, 2, false) == BridgeCmd::Other);
 	checkTrue("the 21-byte greeting, twelve 0x00 first: INIT, not RUN",
 	          usbBridgeCmdOf(INIT21, 21, false) == BridgeCmd::Init);
 	checkTrue("the 17-byte greeting: INIT", usbBridgeCmdOf(INIT21 + 4, 17, false) == BridgeCmd::Init);
-	checkTrue("the marker one byte early: not INIT", usbBridgeCmdOf(INIT21, 20, false) == BridgeCmd::Run);
+	checkTrue("the marker one byte early: not INIT", usbBridgeCmdOf(INIT21, 20, false) == BridgeCmd::Other);
 	checkTrue("its last 9 bytes alone: INIT", usbBridgeCmdOf(INIT21 + 12, 9, false) == BridgeCmd::Init);
 	checkTrue("8 of them: not", usbBridgeCmdOf(INIT21 + 13, 8, false) == BridgeCmd::Other);
 	checkTrue("after SET BUFFER, any frame is its PAYLOAD",
@@ -733,9 +749,30 @@ static void testWriteRules() {
 	          usbBridgeLast().cmd == BridgeCmd::Payload && usbBridgeWriteWaiting());
 	run(20);
 	checkTrue("its ACK", !usbBridgeWriteWaiting());
+	// A payload whose tail comes 5 ms after its head, 4 ms after its last
+	// packet: two frames, the second starting with 0x00, which is no RUN.
+	fakeCdcHostWrite(SET_BUF, sizeof(SET_BUF));
+	run(10);
+	uint8_t split[258];
+	for (int i = 0; i < 258; i++) split[i] = (uint8_t)(i + 1);
+	split[200] = 0x00;
+	split[201] = 0x00;
+	const uint32_t f0 = bstats().frames;
+	fakeCdcHostWriteGap(split, sizeof(split), 200, 5000);
+	run(300);
+	checkTrue("a payload split by a 4 ms gap: two frames, the tail named FRAME",
+	          bstats().frames == f0 + 2 && usbBridgeLast().cmd == BridgeCmd::Other &&
+	          usbBridgeLast().len == 58);
+	checkTrue("its 0x00 0x00 no RUN: still unfinished", usbBridgeWriteUnfinished() &&
+	          usbBridgeBootloaderReached());
+	const uint8_t runBad[] = {0x00, 0x00, 0x11, 0x22};
+	fakeCdcHostWrite(runBad, sizeof(runBad));
+	run(10);
+	checkTrue("00 00 with a wrong CRC: no RUN", usbBridgeWriteUnfinished());
 	fakeCdcHostWrite(RUN, sizeof(RUN));
 	run(10);
-	checkTrue("RUN: the write is finished", usbBridgeLast().cmd == BridgeCmd::Run && !usbBridgeWriteUnfinished());
+	checkTrue("RUN: the write is finished", usbBridgeLast().cmd == BridgeCmd::Run && !usbBridgeWriteUnfinished() &&
+	          !usbBridgeBootloaderReached());
 	fakeCdcHostWrite(INIT21, sizeof(INIT21));
 	run(20);
 	checkTrue("the greeting is no RUN and no write", !usbBridgeWriteUnfinished() && !usbBridgeWriteWaiting());
@@ -830,6 +867,155 @@ static void testLeavePageConsole() {
 	pass();
 	checkTrue("RESTART DSHOT: Free, the console on", pinClaimState() == ClaimState::Free && fakeConsoleOn());
 	checkInt("DShot never up with the line", g_together, 0);
+}
+
+/** @brief The model bootloader's answer to the greeting: AM32's, or an EFM8's with E8B2. */
+static bool g_efm8 = false;
+static int escGreeting(const uint8_t *f, int n, uint8_t *r, uint32_t *d) {
+	*d = 300;
+	if (usbBridgeCmdOf(f, (uint16_t)n, false) == BridgeCmd::Init) {
+		static const uint8_t AM32[] = {0x34, 0x37, 0x31, 0x00, 0x1F, 0x06, 0x06, 0x01, 0x30};
+		static const uint8_t EFM8[] = {0x34, 0x37, 0x31, 0x64, 0xE8, 0xB2, 0x06, 0x01, 0x30};
+		memcpy(r, g_efm8 ? EFM8 : AM32, 9);
+		return 9;
+	}
+	if (f[0] == 0x03) {
+		for (int i = 0; i < 16; i++) r[i] = (uint8_t)i;
+		r[16] = 0x12;
+		r[17] = 0x34;
+		r[18] = 0x30;
+		return 19;
+	}
+	r[0] = 0x30;
+	return 1;
+}
+
+/**
+ * @brief A session that only greets and reads leaves the bootloader
+ *        waiting: the flag of the leave page, and MENU's run cue, until a
+ *        RUN, an eRPM frame or usbBridgeRunCueClear().
+ */
+static void testBootloaderReached() {
+	section("USB bridge: a bootloader reached by a read-only session");
+	for (int e = 0; e < 2; e++) {
+		g_efm8 = e == 1;
+		fresh(escGreeting);
+		openBridge();
+		usbBridgeRunCueClear();
+		fakeBridgeLineResponder(nullptr);
+		fakeCdcHostWrite(INIT21, sizeof(INIT21));
+		run(30);
+		checkTrue(g_efm8 ? "EFM8: a greeting nobody answers reaches nothing" :
+		                   "AM32: a greeting nobody answers reaches nothing",
+		          !usbBridgeBootloaderReached() && !usbBridgeRunCue(0));
+		fakeBridgeLineResponder(escGreeting);
+		fakeCdcHostWrite(INIT21, sizeof(INIT21));
+		run(30);
+		checkTrue(g_efm8 ? "EFM8: its answer reaches the bootloader, the cue set" :
+		                   "AM32: its answer reaches the bootloader, the cue set",
+		          usbBridgeBootloaderReached() && usbBridgeRunCue(0) && !usbBridgeWriteUnfinished());
+		const uint8_t rd[] = {0x03, 0x10, 0x00, 0x00};
+		fakeCdcHostWrite(rd, sizeof(rd));
+		run(30);
+		fakeCdcDtr(false);
+		run(10);
+		checkTrue("a read, the port closed: still reached, the cue kept",
+		          usbBridgeBootloaderReached() && usbBridgeRunCue(0));
+		endBridge();
+		checkTrue("kept after the close", usbBridgeBootloaderReached() && usbBridgeRunCue(0));
+	}
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	t.lastRpmMs = millis() - 5000;
+	checkTrue("an eRPM frame from before the answer: the cue stays", usbBridgeRunCue(t.lastRpmMs));
+	t.lastRpmMs = millis();
+	fakeAdvance(1);
+	checkTrue("one after it: the cue goes", !usbBridgeRunCue(t.lastRpmMs) && !usbBridgeRunCue(0));
+
+	fresh(escGreeting);
+	openBridge();
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	run(30);
+	fakeCdcHostWrite(RUN, sizeof(RUN));
+	run(10);
+	checkTrue("RUN: nothing reached, no cue", !usbBridgeBootloaderReached() && !usbBridgeRunCue(0));
+	fakeCdcHostWrite(INIT21, sizeof(INIT21));
+	run(30);
+	usbBridgeRunCueClear();
+	checkTrue("RESTART DSHOT's clear: no cue, the flag kept", !usbBridgeRunCue(0) && usbBridgeBootloaderReached());
+	endBridge();
+	g_efm8 = false;
+}
+
+/** @brief Console text TinyUSB still holds at the open never reaches the tool. */
+static void testStaleConsole() {
+	section("USB bridge: console text held at the open is dropped");
+	fresh(escAck);
+	fakeCdcHostStall(true);
+	fakeCdcConsoleText("arm=0 thr=   0 rpm=     0\n");
+	openBridge();
+	fakeCdcHostStall(false);
+	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
+	run(20);
+	uint8_t host[64];
+	int hn = hostAll(host, sizeof(host));
+	checkTrue("the PC's first bytes are the echo", hn == 7 && memcmp(host, SET_ADDR, 6) == 0);
+	endBridge();
+}
+
+/**
+ * @brief The clock's serial line of run-summary.md slice 5, through the real
+ *        usbDevTask(): a CLOCK line sets the clock while the console has the
+ *        port, and goes to the ESC as data while the bridge has it.
+ */
+static void testClockLine() {
+	section("USB bridge: the clock's serial line beside the bridge");
+	fakeI2cReset();
+	FakePcf85063 *rtc = fakeI2cAddPcf85063(PCF85063_I2C_ADDR);
+	clockInit();
+	g_devTask = true;
+	fresh(escAck);
+	static const char LINE[] = "CLOCK 2026-01-01 00:00:00\n";
+	const int len = (int)sizeof(LINE) - 1;
+	uint32_t w0 = rtc->writes;
+	fakeCdcHostWrite((const uint8_t *)LINE, len);
+	run(20);
+	static char text[512];
+	int n = fakeCdcHostRead((uint8_t *)text, sizeof(text) - 1);
+	text[n] = '\0';
+	ClockReading c;
+	clockNow(&c);
+	checkTrue("the console's port: the line sets the clock and is answered",
+	          rtc->writes > w0 && c.set && c.t.year == 2026 && strstr(text, "CLOCK SET") != nullptr);
+
+	fakePcf85063Set(rtc, 2030, 6, 15, 12, 0, 0);
+	clockInit();
+	openBridge();
+	const int wire0 = fakeBridgeLineWireCount();
+	w0 = rtc->writes;
+	fakeCdcHostWrite((const uint8_t *)LINE, len);
+	run(30);
+	n = fakeCdcHostRead((uint8_t *)text, sizeof(text) - 1);
+	text[n] = '\0';
+	clockNow(&c);
+	checkTrue("the bridge's port: the line goes to the wire as data",
+	          wireFrame(wire0, (const uint8_t *)LINE, len));
+	checkTrue("and does not set the clock", rtc->writes == w0 && c.t.year == 2030);
+	checkTrue("the PC gets the echo and the ESC's ACK, no CLOCK answer",
+	          n == len + 1 && strstr(text, "CLOCK SET") == nullptr);
+	// Half a line read by nobody, then the bridge gives the port back.
+	fakeCdcHostWrite((const uint8_t *)"CLOCK 20", 8);
+	run(10);
+	endBridge();
+	checkTrue("the console back", fakeConsoleOn());
+	fakeCdcHostWrite((const uint8_t *)LINE, len);
+	run(20);
+	n = fakeCdcHostRead((uint8_t *)text, sizeof(text) - 1);
+	text[n] = '\0';
+	clockNow(&c);
+	checkTrue("then a line sets the clock again", c.t.year == 2026 && strstr(text, "CLOCK SET") != nullptr);
+	g_devTask = false;
+	fakeI2cReset();
 }
 
 /** @brief A refused bind never opens the bridge nor takes the console. */
@@ -956,6 +1142,9 @@ void runUsbBridgeTests() {
 	testBackWithHost();
 	testLeavePageConsole();
 	testRefusedBind();
+	testBootloaderReached();
+	testStaleConsole();
+	testClockLine();
 	testCollision();
 	testLost();
 	checkInt("over every section: no PC byte outside the claim", g_strayBytes, 0);

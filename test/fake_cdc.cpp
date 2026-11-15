@@ -5,8 +5,11 @@
  */
 
 #include "fake_cdc.h"
-#include "usb_dev.h"
 #include "tusb.h"
+
+#include <pico/stdio.h>
+#include <pico/time.h>
+#include <pico/unique_id.h>
 
 #include <string.h>
 
@@ -14,6 +17,7 @@
 static uint8_t  g_hostQ[65536];
 static int      g_hostQLen = 0;
 static uint16_t g_pkt[4096];
+static uint64_t g_pktAt[4096];   /**< time_us_64() from which each packet may move in. */
 static int      g_pktN = 0;
 
 static uint8_t  g_rx[CFG_TUD_CDC_RX_BUFSIZE];
@@ -48,22 +52,31 @@ void fakeCdcReset() {
 
 void fakeCdcDtr(bool on) { g_dtr = on; }
 
-void fakeCdcHostWrite(const uint8_t *d, int n) {
+/** @brief Queue @p n bytes as packets that may move in from @p atUs on. */
+static void queue(const uint8_t *d, int n, uint64_t atUs) {
 	while (n > 0) {
 		int p = n > 64 ? 64 : n;
 		if (g_hostQLen + p > (int)sizeof(g_hostQ) || g_pktN >= (int)(sizeof(g_pkt) / sizeof(g_pkt[0])))
 			return;
 		memcpy(g_hostQ + g_hostQLen, d, p);
 		g_hostQLen += p;
+		g_pktAt[g_pktN] = atUs;
 		g_pkt[g_pktN++] = (uint16_t)p;
 		d += p;
 		n -= p;
 	}
 }
 
+void fakeCdcHostWrite(const uint8_t *d, int n) { queue(d, n, 0); }
+
+void fakeCdcHostWriteGap(const uint8_t *d, int n, int split, uint32_t gapUs) {
+	queue(d, split, 0);
+	queue(d + split, n - split, time_us_64() + gapUs);
+}
+
 /** @brief The board's buffer empty: the next packet moves in. Once per tud_task(). */
 static void takePacket() {
-	if (g_rxPos < g_rxLen || g_pktN == 0) return;
+	if (g_rxPos < g_rxLen || g_pktN == 0 || time_us_64() < g_pktAt[0]) return;
 	int p = g_pkt[0];
 	memcpy(g_rx, g_hostQ, p);
 	g_rxLen = p;
@@ -71,6 +84,7 @@ static void takePacket() {
 	memmove(g_hostQ, g_hostQ + p, g_hostQLen - p);
 	g_hostQLen -= p;
 	memmove(g_pkt, g_pkt + 1, (g_pktN - 1) * sizeof(g_pkt[0]));
+	memmove(g_pktAt, g_pktAt + 1, (g_pktN - 1) * sizeof(g_pktAt[0]));
 	g_pktN--;
 }
 
@@ -137,19 +151,34 @@ uint32_t tud_cdc_write(const void *buffer, uint32_t bufsize) {
 	return n;
 }
 
+bool tud_cdc_write_clear(void) {
+	g_txLen = 0;
+	return true;
+}
+
 uint32_t tud_cdc_write_flush(void) {
 	int before = g_txLen;
 	deliver();
 	return (uint32_t)(before - g_txLen);
 }
 
-// --- usb_dev.h's console switch ---
+bool tusb_init(void) { return true; }
 
-void usbDevConsole(bool on) {
-	if (on == g_console) return;
-	g_console = on;
+// --- the SDK calls of usb_dev.cpp ---
+
+void stdio_set_driver_enabled(stdio_driver_t *, bool enabled) {
+	if (enabled == g_console) return;
+	g_console = enabled;
 	g_switches++;
-	if (on) g_consoleBackAt = g_hostTotal;
+	if (enabled) g_consoleBackAt = g_hostTotal;
 }
 
-bool usbDevConsoleOn() { return g_console; }
+void pico_get_unique_board_id_string(char *id_out, unsigned int len) {
+	if (len) id_out[0] = '\0';
+}
+
+extern "C" void usbDescSetSerial(const char *) {}
+
+void fakeCdcConsoleText(const char *s) {
+	tud_cdc_write(s, (uint32_t)strlen(s));
+}
