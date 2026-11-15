@@ -37,22 +37,23 @@ INCLUDES := -Istubs -I../src -I.
 DEFINES := $(EXTRA_DEFINES)
 
 # The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
-# current sensor and the ESC settings list their own sources, so none of them
-# edits this file for that. @see servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk,
-# escwire.mk
-include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk
+# current sensor, the ESC settings and the angle meter list their own sources,
+# so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk,
+# rx.mk, sense.mk, escwire.mk, angle.mk
+include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk angle.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
 # expand to nothing.
 FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS) $(RX_CSRCS) $(SENSE_CSRCS) \
-                 $(ESCWIRE_CSRCS)
-FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS) $(ESCWIRE_CTESTS)
+                 $(ESCWIRE_CSRCS) $(ANGLE_CSRCS)
+FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS) $(ESCWIRE_CTESTS) \
+                  $(ANGLE_CTESTS)
 FEATURE_CXXTESTS := $(HITEC_CXXTESTS) $(ESCWIRE_CXXTESTS)
 FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES) \
                          $(ESCWIRE_CTEST_DEFINES)
 FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES) $(RX_INCLUDES) $(SENSE_INCLUDES) \
-                    $(ESCWIRE_INCLUDES)
+                    $(ESCWIRE_INCLUDES) $(ANGLE_INCLUDES)
 INCLUDES += $(FEATURE_INCLUDES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
