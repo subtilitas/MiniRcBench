@@ -25,7 +25,7 @@ Aufzeichnung: Liegen `LOG00001.BFL` bis `LOG00005.BFL` auf der Karte und ist
 leeres oder neues `LOGS` beginnt mit `LOG00001.BFL`. Namen zählen in jeder
 Groß- und Kleinschreibung (`log00007.bfl` ist für die Karte `LOG00007.BFL`);
 andere Namen wie `LOG0007.BFL`, `LOG00007.TXT` oder ein umbenanntes Log
-zählen nicht. Vorhandene Dateien werden nicht überschrieben. Logs, die eine
+zählen nicht. Vorhandene Logs werden nicht überschrieben. Logs, die eine
 frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
 mit. Die Platine stellt keine Uhr; welches Datum die Dateien tragen, ist nicht
 geprüft.
@@ -68,13 +68,13 @@ Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder AM32 CONFIG
 `RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `AM32 CONFIG`). Nach dem
 Werkzeug startet `START` eine neue Aufzeichnung.
 
-**Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder
-die Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten,
-bis die obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der
-Aufzeichnung, gibt den ungenutzten Platz zurück und schließt die Datei. Eine
-Aufzeichnung, die ein Stromausfall oder eine gezogene Karte abschneidet, wird
-nicht geschlossen. Was sie enthält, hängt davon ab, wann sie abgeschnitten
-wurde:
+**Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder die
+Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten, bis die
+obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der Aufzeichnung, gibt
+den ungenutzten Platz zurück, schließt die Datei und schreibt die
+Zusammenfassung des Laufs daneben. Eine Aufzeichnung, die ein Stromausfall oder
+eine gezogene Karte abschneidet, wird nicht geschlossen. Was sie enthält, hängt
+davon ab, wann sie abgeschnitten wurde:
 
 - **In ihren ersten 2 s:** Sie liest sich als 0 Byte. Die Dateigröße auf
   der Karte wird während der Aufzeichnung alle 2 s geschrieben, das erste
@@ -94,6 +94,76 @@ wurde:
 Das sind Fakten aus dem Code der Firmware und der von ihr genutzten
 FatFs-Bibliothek, nicht an einer Karte gemessen. Wie ein Viewer eine solche
 Datei behandelt, ist nicht getestet.
+
+---
+
+## Die Zusammenfassung des Laufs
+
+Jede sauber beendete Aufzeichnung bekommt daneben eine Textdatei mit
+derselben Nummer: `LOG00012.TXT` neben `LOG00012.BFL`. Jeder Texteditor
+öffnet sie. Das Beenden schreibt sie, sobald die Aufzeichnung geschlossen
+ist: `STOP`, das Entschärfen, das eine durch Scharfschalten begonnene
+Aufzeichnung beendet, und ein Werkzeug, das die Karte nimmt. Eine
+Aufzeichnung, die ein Kartenfehler beendete, bekommt keine.
+
+Sie enthält einen Wert je Zeile:
+
+| Zeile | Inhalt |
+|---|---|
+| `Log`, `Firmware` | Der Dateiname der Aufzeichnung und die Firmware-Version |
+| `Clock at start`, `Clock at stop` | `not set`: Die Uhr der Platine wird nicht genutzt |
+| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` oder `AM32 CONFIG` |
+| `Duration`, `Armed` | Die Dauer der Aufzeichnung und die Zeit, die sie davon scharf war, in Sekunden |
+| `Max RPM` | Die höchste Drehzahl: DShot-eRPM (elektrische Drehzahl), oder KISS-eRPM in einer Aufzeichnung ohne DShot-eRPM, geteilt durch die Hälfte des Werts von `MOTOR POLES` beim Beenden |
+| `Max current`, `Max temperature` | Der höchste Strom und die höchste Temperatur des ESC (Electronic Speed Controller, Motorregler): KISS, solange KISS aktuell ist, EDT (Extended DShot Telemetry) in seinen Lücken; EDT allein, wenn KISS in jedem Frame 0 sandte, ein ESC ohne diesen Sensor |
+| `Min voltage` | Die niedrigste Spannung im scharfen Zustand, aus denselben Quellen; ein Wert von 0,00 V zählt nicht |
+| `Used, ESC counter` | Um wie viel der KISS-Zähler der Milliamperestunden (mAh) während der Aufzeichnung stieg |
+| `Used, from current` | Der Strom über die Zeit aufsummiert, mit der Zeit, in der er bekannt war |
+| `Frames` bis `Worst flush` | Die Zähler, die SD LOG während der Aufzeichnung zeigt |
+
+Ein Maximum oder Minimum zählt einen Wert erst, wenn drei neue Messwerte in
+Folge ihn erreichen, damit eine einzelne beschädigte Antwort keinen setzt.
+Der Wert `raw` in Klammern zählt jeden Messwert, so wie ihn ein Viewer in
+der `.BFL` findet. Jede Zeile nennt ihre Quelle, `DShot`, `KISS`, `EDT`
+oder `KISS and EDT`, wenn EDT Lücken in KISS füllte, und ihre Schrittweite.
+Ein Wert ohne Messung lautet `unknown`, mit dem Grund. `C` steht für Grad
+Celsius. Die Datei ist englisch. Ein Beispiel:
+
+```text
+MiniRcBench run summary, format 1
+Log: LOG00012.BFL
+Firmware: 0.1.0
+Clock at start: not set
+Clock at stop: not set
+Ended by: STOP
+Duration: 144.2 s
+Armed: 102.5 s
+Max RPM: 18450 RPM (DShot, eRPM 129150, 14 poles; raw 18460 RPM)
+Max current: 23.41 A (KISS, 0.01 A steps; raw 23.55 A)
+Max temperature: 51 C (KISS, 1 C steps; raw 51 C)
+Min voltage: 14.82 V (KISS, 0.01 V steps, while armed; raw 14.79 V)
+Used, ESC counter: 312 mAh (KISS, 1 mAh steps)
+Used, from current: 305 mAh (KISS, current known for 144.0 s of 144.2 s)
+Frames: 72100
+Dropped frames: 0 (0 bytes)
+Written: 1043 kB
+Buffer peak: 2048 of 8192 bytes
+Worst flush: 12 ms
+```
+
+Die `.TXT`-Dateien ändern die Nummern der Aufzeichnungen nicht: Nur Namen
+auf `.BFL` zählen. Eine `.TXT` mit der Nummer der neuen Aufzeichnung, die
+auf der Karte blieb, nachdem ihre Aufzeichnung am Computer gelöscht wurde,
+wird ersetzt.
+
+Lässt sich die Zusammenfassung nicht schreiben, weil die Karte voll ist
+oder ein Schreibvorgang fehlschlug, bleibt die Aufzeichnung vollständig auf
+der Karte, und `STATUS` bleibt `READY`. Es bleibt keine `.TXT` zurück, oder,
+nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. Der
+SD-LOG-Bildschirm zeigt die Zusammenfassung nicht und auch nicht, ob sie
+gespeichert wurde. Die Zusammenfassung ist mit den Host-Tests der Firmware
+geprüft, über der FatFs-Bibliothek auf einer simulierten Karte; an einer
+Karte ist sie nicht getestet.
 
 ---
 
@@ -185,10 +255,11 @@ Karte nicht eingebunden.
 <img src="img/log-usb-serving.png" width="240" alt="Die Karte als USB-Laufwerk">
 
 `USB DRIVE` auf dem SD-LOG-Bildschirm stellt die Karte dem Computer am
-USB-Kabel (Universal Serial Bus) als Wechsellaufwerk bereit. `.BFL`-Dateien
-herüberkopieren, das Laufwerk am Computer auswerfen, und der Tester nimmt die
-Karte zurück. Der Bildschirm zeigt die bisher gelesene Datenmenge, zum Beispiel
-`3.0 MB READ`, in Hellgrün: ein laufender Messwert.
+USB-Kabel (Universal Serial Bus) als Wechsellaufwerk bereit. `.BFL`-Dateien und
+ihre `.TXT`-Zusammenfassungen herüberkopieren, das Laufwerk am Computer
+auswerfen, und der Tester nimmt die Karte zurück. Der Bildschirm zeigt die
+bisher gelesene Datenmenge, zum Beispiel `3.0 MB READ`, in Hellgrün: ein
+laufender Messwert.
 
 Die Platine ist ohnehin ein USB-Gerät, für Strom und den seriellen Anschluss.
 Das Laufwerk ist eine zweite USB-Schnittstelle am selben Kabel.
@@ -258,11 +329,11 @@ Felder pro Frame:
 |---|---|
 | `loopIteration`, `time` | Frame-Zähler und Zeit |
 | `motor[0]` | Befohlenes Gas |
-| `eRPM[0]` | eRPM (elektrische Drehzahl) aus bidirektionalem DShot |
+| `eRPM[0]` | eRPM aus bidirektionalem DShot |
 | `eRPMkiss[0]` | eRPM aus KISS |
 | `vbatLatest`, `amperageLatest` | Spannung und Strom aus KISS; 0, solange KISS nicht aktiv ist |
-| `vbatEdt`, `amperageEdt` | Spannung und Strom aus EDT (Extended DShot Telemetry) |
-| `escTemperature[0]` | Temperatur des ESC (Electronic Speed Controller, Motorregler) |
+| `vbatEdt`, `amperageEdt` | Spannung und Strom aus EDT |
+| `escTemperature[0]` | Temperatur des ESC |
 | `escConsumption` | Verbrauchte mAh (nur KISS) |
 | `escStress` | EDT-Stresswert |
 
