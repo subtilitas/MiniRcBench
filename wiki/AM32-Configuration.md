@@ -141,8 +141,10 @@ strip:
 
 DIRECTION at `3D` or `3D REVERSED` also shows the 3D note on the strip when
 no row is selected, and sets the tester's
-`3D MODE ESC: 0-50% REVERSED AT 2X`. `HEX` shows the bytes as read, 8 to a line; drag to scroll the
-255 bytes of a Bluejay page.
+`3D MODE ESC: 0-50% REVERSED AT 2X`. `HEX` shows the bytes as read, 8 to
+a line; drag to scroll the 255 bytes of a Bluejay page.
+
+<img src="img/efm8-3d.png" width="240" alt="A BLHeli_S ESC with DIRECTION at 3D: the 3D note in amber on the strip, the row reading 3D">
 
 <img src="img/efm8-hex.png" width="240" alt="ESC HEX: the Bluejay page's bytes, 8 to a line">
 
@@ -164,7 +166,7 @@ KNOWN`, `BLUEJAY ON EFM8BB1: NOT TAKEN` and the like with `NOT BLUEJAY OR
 BLHELI_S AS KNOWN:` / `NOTHING IS WRITTEN.` An empty page has lost its
 tags already; keeping the ESC powered keeps it in its bootloader.
 
-<img src="img/efm8-empty.png" width="240" alt="An empty settings page: EFM8 E8B2: SETTINGS PAGE EMPTY and its two lines">
+<img src="img/efm8-empty.png" width="240" alt="An empty settings page: EFM8 E8B2: SETTINGS PAGE EMPTY and its two lines"> <img src="img/efm8-refused.png" width="240" alt="A page not known: EFM8 E8B5: PAGE NOT KNOWN, NOT BLUEJAY OR BLHELI_S AS KNOWN: and NOTHING IS WRITTEN.">
 
 **Leaving the list.** `BACK` from the list sends the bootloader LEAVE,
 which starts the ESC's firmware: the page reads `LEAVING` and
@@ -176,6 +178,8 @@ answer: whether the ESC started is not seen, and not verified on an ESC.
 
 If the ESC stops answering before its page is read, the page shows
 `THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` and greets again.
+
+<img src="img/efm8-stopped.png" width="240" alt="THE ESC ANSWERED, THEN STOPPED. and SEARCHING AGAIN. under the connect page's quiet status">
 
 Everywhere else after such an answer, on the connect page while reading,
 after a page that is not taken, or after the search started again, the

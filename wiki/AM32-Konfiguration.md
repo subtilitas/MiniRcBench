@@ -156,6 +156,8 @@ gewählte Zeile im Streifen und setzt im Tester
 `3D MODE ESC: 0-50% REVERSED AT 2X`. `HEX` zeigt die Bytes wie gelesen,
 8 pro Zeile; zieh, um durch die 255 Bytes einer Bluejay-Seite zu blättern.
 
+<img src="img/efm8-3d.png" width="240" alt="Ein BLHeli_S-ESC mit DIRECTION auf 3D: der 3D-Hinweis in Bernstein im Streifen, die Zeile zeigt 3D">
+
 <img src="img/efm8-hex.png" width="240" alt="ESC HEX: die Bytes der Bluejay-Seite, 8 pro Zeile">
 
 Eine ältere Version und eine Seite, die die Firmware neu geschrieben hat,
@@ -178,7 +180,7 @@ und ähnliche mit `NOT BLUEJAY OR BLHELI_S AS KNOWN:` /
 `NOTHING IS WRITTEN.` Eine leere Seite hat ihre Tags schon verloren;
 eingeschaltet bleibt der ESC in seinem Bootloader.
 
-<img src="img/efm8-empty.png" width="240" alt="Eine leere Einstellungsseite: EFM8 E8B2: SETTINGS PAGE EMPTY und ihre zwei Zeilen">
+<img src="img/efm8-empty.png" width="240" alt="Eine leere Einstellungsseite: EFM8 E8B2: SETTINGS PAGE EMPTY und ihre zwei Zeilen"> <img src="img/efm8-refused.png" width="240" alt="Eine unbekannte Seite: EFM8 E8B5: PAGE NOT KNOWN, NOT BLUEJAY OR BLHELI_S AS KNOWN: und NOTHING IS WRITTEN.">
 
 **Die Liste verlassen.** `BACK` aus der Liste sendet dem Bootloader LEAVE,
 das die ESC-Firmware startet: Die Seite zeigt `LEAVING` und in Bernstein
@@ -192,6 +194,8 @@ an keinem ESC geprüft.
 Antwortet der ESC nicht mehr, bevor seine Seite gelesen ist, zeigt die
 Seite `THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` (geantwortet,
 dann verstummt; sucht erneut) und grüßt erneut.
+
+<img src="img/efm8-stopped.png" width="240" alt="THE ESC ANSWERED, THEN STOPPED. und SEARCHING AGAIN. unter dem ruhigen Status der Verbindungsseite">
 
 Überall sonst nach einer solchen Antwort, auf der Verbindungsseite während
 des Lesens, nach einer Seite, die nicht angenommen wird, oder nachdem die
