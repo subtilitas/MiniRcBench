@@ -36,10 +36,11 @@ INCLUDES := -Istubs -I../src -I.
 #   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0" run
 DEFINES := $(EXTRA_DEFINES)
 
-# The servo tester, the KST and Hitec programmers, the S.BUS monitor and the
-# current sensor list their own sources, so none of them edits this file for
-# that. @see servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk
-include servo.mk kst.mk hitec.mk rx.mk sense.mk
+# The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
+# current sensor and the angle meter list their own sources, so none of them
+# edits this file for that. @see servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk,
+# angle.mk
+include servo.mk kst.mk hitec.mk rx.mk sense.mk angle.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
@@ -64,7 +65,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
         $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \
-        $(SENSE_TESTS) $(SENSE_SRCS)
+        $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
 # have to compile. CI's "Config permutations" job already builds all of src/

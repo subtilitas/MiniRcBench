@@ -383,11 +383,13 @@ void senseInit() {
 }
 
 void senseTick(uint32_t nowMs) {
-	if (s_mode != (uint8_t)SenseMode::Ina219) return;
+	// The bus is shared with touch and the IMU (inertial measurement unit),
+	// so it is recovered whatever CURRENT SENSE says.
 	if (sense_bus_recovery_due(&s_bus, nowMs)) {
 		recoverBus();
 		sense_bus_recovered(&s_bus, nowMs);
 	}
+	if (s_mode != (uint8_t)SenseMode::Ina219) return;
 	// Every tick: sense_bus.h stamps the part's time here.
 	if (sense_part_probe_due(&s_part, nowMs)) {
 		// A stuck bus sends nothing; the probe stays due until it is free.
@@ -398,8 +400,10 @@ void senseTick(uint32_t nowMs) {
 	lockedPublish();
 }
 
-void senseNoteTouch(int result, size_t want) {
-	sense_bus_note(&s_bus, errAfter(result, want));
+sense_err_t senseNote(int result, size_t want) {
+	sense_err_t e = errAfter(result, want);
+	sense_bus_note(&s_bus, e);
+	return e;
 }
 
 bool senseDeclared() { return s_mode == (uint8_t)SenseMode::Ina219; }
