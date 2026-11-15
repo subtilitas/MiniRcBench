@@ -2,6 +2,8 @@
 #
 #   make          syntax-check, build and run
 #   make build    build only
+#   make run      run the suite, the C test programs and test_set_clock.py,
+#                 the host tests of tools/set_clock.py
 #   make syntax   typecheck the device-only sources
 #   make pioemu   run the SDIO and backlight PIO programs in cycle-level models
 #   make bbcheck  round-trip a log through the upstream blackbox_decode
@@ -177,6 +179,8 @@ run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN)
 		./$$t || { echo "FAIL $$t"; exit 1; }; \
 		echo "$$(basename $$t): passed"; \
 	done
+	@out=$$(python3 test_set_clock.py 2>&1) || { echo "$$out"; exit 1; }; \
+		echo "test_set_clock.py: $$(echo "$$out" | grep '^Ran ')"
 
 # Every device source, plus both settings of the two feature switches so the
 # disabled paths cannot rot unnoticed.
