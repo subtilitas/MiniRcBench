@@ -1034,8 +1034,12 @@ The settle counts from the UI frame on which the throttle sent left the band of
 `uiTick()` after `escSetThrottle()`): a finger resting on the bar at `MAX 100%`
 moves the throttle by about 11 a pixel, and a settle that restarted on every
 change would never end. 1000 ms leaves 0.48 % of a step in the display filter.
-The eRPM check covers a motor still spinning up; one eRPM step is 0.20 % to 0.39
-% of the value, inside the 0.5 %. The motor's own spin-up time is not measured.
+The eRPM check covers a motor still spinning up. Up to 234,375 eRPM one eRPM
+step is 0.20 % to 0.39 % of the value, inside the 0.5 %; above it a step is
+1 / period (1 % at 600,000 eRPM). Once the check has passed it holds until the
+settle restarts or another condition fails, so noisy replies do not make the
+field flicker between the figure and `KV EST --`. The motor's own spin-up time
+is not measured.
 At the default `MAX 20%` the estimate never shows. The widest texts fit, held by
 `static_assert`s in `src/ui.cpp`: `ERPM 60000000  RPM/V 99999`, 26 characters at
 the decoder's largest eRPM, 155 px, ends 27 px before the `RPM` label at x 192;

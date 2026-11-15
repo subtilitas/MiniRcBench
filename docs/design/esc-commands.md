@@ -987,10 +987,16 @@ Choices the note left open:
   filtered eRPM is more than 0.5 % from the last reply, compared as
   |filtered − reply| × 1000 against the reply × 5 in 64 bits, 0.5 % itself
   passing. It covers a motor still spinning up after the throttle stood,
-  and the filter catching up after a step. One eRPM step is 0.20 % to
-  0.39 % of the value, inside the 0.5 %; how often a real motor's reply
-  jitters past it is not measured. RPM/V does not wait for it, as it needs
-  conditions 1 and 2 only.
+  and the filter catching up after a step. Up to 234,375 eRPM one eRPM step
+  is 0.20 % to 0.39 % of the value, inside the 0.5 %; above it the period is
+  whole microseconds and a step is 1 / period, 1 % at 600,000 eRPM. Once the
+  check has passed it holds, `KvEstView::erpmHeld` fed back as
+  `KvEstIn::erpmHeld` on the next frame, until the settle restarts or a
+  condition fails: replies that jitter past 0.5 % do not flicker the field
+  between the figure and `--`. A real change of speed at a constant t keeps
+  the figure, computed from the filtered eRPM, while the filter follows it.
+  How often a real motor's reply jitters past it is not measured. RPM/V does
+  not wait for it, as it needs conditions 1 and 2 only.
 - **The widest ERPM line** is `ERPM 60000000  RPM/V 99999`, not
   `ERPM 1234567  RPM/V 99999`: the decoder's largest eRPM is 60,000,000, a
   period of 1 µs (`erpm_from_payload()`, `src/dshot/dshot_telem.c`).

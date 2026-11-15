@@ -1761,6 +1761,12 @@ protocol.
 
 ### Fixed
 
+- After v0.1.0-rc1: the `KV EST` field no longer flickers between the figure
+  and `--` when the eRPM replies are noisy. Once the filtered eRPM has been
+  within 0.5 % of the last reply, the check holds until the throttle leaves
+  its band of 20 or another condition fails (`KvEstView::erpmHeld`). The
+  claim that one eRPM step is 0.20 % to 0.39 % held only up to 234,375 eRPM;
+  above it a step is 1 / period. Host-tested.
 - AM32 CONFIG showed LOW VOLT CUTOFF, VARIABLE PWM and BRAKE ON STOP as off
   and on, and AM32 stores three values in each: a stored 2 read ON, and a
   press of - or + made it 1, changing the mode. They are three-value

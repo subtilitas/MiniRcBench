@@ -8176,8 +8176,10 @@ static void testTesterKvEst() {
 		         (unsigned)kvEstRpmPerVolt(shown / 7, 1600));
 		checkTrue("a step in eRPM: RPM/V from the filtered 157675, 1408",
 		          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(shown / 7, 1600) == 1408);
-		checkTrue("  the filter 3.7 % off the reply: KV EST --",
-		          textAlone(10, 114, "KV EST --", C_TEXT));
+		char k1[16];
+		snprintf(k1, sizeof(k1), "KV EST %u", (unsigned)kvEstKv(shown / 7, 1600, t));
+		checkTrue("  the filter 3.7 % off the reply: the figure stays, from the filtered eRPM",
+		          textAlone(10, 114, k1, C_TEXT));
 	}
 	kvFrames(80, 163800, 15.75f, 16.0f);   // past the snap: the reply exactly
 	{
