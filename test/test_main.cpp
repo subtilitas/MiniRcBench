@@ -25,6 +25,7 @@ void runServoSupplyTests();
 void runSenseTests();
 void runSupplyGuardTests();
 void runQmi8658Tests();
+void runAngleModelTests();
 void runUsbMscTests();
 void runDshotFrameTests();
 void runDshotTelemTests();
@@ -45,6 +46,8 @@ void runBackupTests();
 void runSdCacheTests();
 void runDiagTests();
 void runRunSummaryTests();
+void runClockTests();
+void runBridgeTests();
 void core1JobInit();
 
 int main() {
@@ -61,6 +64,7 @@ int main() {
 	runSenseTests();
 	runSupplyGuardTests();
 	runQmi8658Tests();
+	runAngleModelTests();
 	runUiTests();
 	runKissTests();
 	runGfxTests();
@@ -87,6 +91,8 @@ int main() {
 	runEscCmdUiTests();
 	runDiagTests();
 	runRunSummaryTests();
+	runClockTests();
+	runBridgeTests();
 
 	section("Critical sections");
 	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);

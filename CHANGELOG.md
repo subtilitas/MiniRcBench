@@ -64,6 +64,66 @@ protocol.
   screen suites, mutation-checked; README and the wiki pages Servo-Tester,
   The-Screens, KST-Programming, Hitec-Programming and Troubleshooting with
   their German pairs describe them. Not tested on hardware.
+- After v0.1.0-rc1: the angle meter's model, slice 3 of
+  [angle-meter.md](docs/design/angle-meter.md#slice-3-as-built)
+  (`src/angle_model.*`), pure. It averages the samples of the QMI8658 IMU
+  (inertial measurement unit) in fours, calibrates them per chip axis, maps them
+  to the board's edges by `BOARD_IMU_AXES`, and feeds `theta`, `atan2(a_u, a_z)`
+  about the edge ALONG AXIS names, and the tilt of that edge into rcbench's IMU
+  model at IMU FILTER 3. A reading is settled after 1000 ms still; from a tilt
+  of 45° it is amber, from 70° `---`. ZERO takes the first settled frame at
+  least 1000 ms after the finger lifts, or none within 10 s; MAX holds the
+  largest settled deflection each side; SIGN turns the reading and swaps the
+  sides; LENGTH gives the trailing edge's travel; the IMU's temperature since
+  the zero warns from 2.0 °C. The three-pose flip, screen up, turned end for
+  end, screen down, finds each axis' offset and the normal's gain.
+  `src/angle.cmake` builds it into the firmware with rcbench's `servo_rudder.c`,
+  `imu.c` and `witmotion.c`, `-Wtype-limits` off for `imu.c`, and CI's syntax
+  checks get the WitMotion include directory. Nothing calls the model yet: the
+  screen, slice 4, does. Host tests in `test/test_angle_model.cpp`; the cases of
+  rcbench's `test_imu.c` (9) and `test_imu_filter.c` (10) that need `imu.h`
+  alone are adapted into `test/rcbench/`. Not tested on hardware.
+- After v0.1.0-rc1: the host suite sets the fake clock before each screenshot
+  that draws from the clock: `fakeClockAlign()` before the KST search
+  spinner and the ESC SETTINGS connect spinner (`shot_kst_search`,
+  `shot_kst_switched`, `shot_am32_connect`, `shot_am32_connect_garbled`,
+  `shot_am32_efm8`) and
+  `fakeClockSetMs()` before SETTINGS' UPTIME (`shot_settings_scrolled`). The
+  previews no longer change when a test is added or removed. No firmware
+  change.
+- After v0.1.0-rc1: the USB bridge's line and claim, slice 1 of
+  [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), tested on the
+  host only; nothing opens it yet. `PinUser::Bridge` claims SIG with no ESC
+  check and no leave page of its own and runs `Core1Job::Bridge`
+  (`src/bridge_wire.*`): DshotDisplay's frame slot and 1024-byte ring
+  between the cores, on a 19200 baud 8N1 line of two PIO state machines in
+  one block (`src/bridge_line_port.*`). The transmitter,
+  `src/bridge_line.pio`, is 7 words and sets the pad's direction by
+  side-set: driven through a frame, an input with its pull-up between
+  frames. `pio_uart_rx` receives on the same pad, and the job matches the
+  echo against the bytes sent, counting a frame whose echo differs or comes
+  short as a collision. The release finishes the frame under way, at most
+  250 ms. `test/pio_bridge_emu.py` runs both programs on one pad and CI
+  holds its assembly to pioasm; `test/test_bridge.cpp` runs the job on a
+  line fake and through the claim.
+- After v0.1.0-rc1: the board's real-time clock dates the files on the
+  card and the run summary's clock lines, slice 4 of
+  [run-summary.md](docs/design/run-summary.md#slice-4-as-built).
+  `src/clock.*` reads the PCF85063A at 0x51 once at start-up, after
+  `senseInit()`, with its transfers noted to the current sensor's bus
+  record; a running clock's time is kept by the microsecond timer. With the
+  oscillator-stop flag set, as after a power-up without a cell on J2, the
+  firmware sends the part's software reset and turns CLKOUT off; with STOP,
+  EXT_TEST, 12-hour mode or a register out of range it writes nothing.
+  `get_fattime()` returns the kept time while the clock is set and 0
+  otherwise, and the SD library's `my_rtc.c` is left out of the firmware.
+  The `.TXT` carries `Clock at start` and `Clock at stop` as
+  `2026-11-14 15:42:07` or `not set`. Nothing sets the clock yet (slice 5),
+  so a board whose clock lost its power keeps FAT date 0. Host tests in
+  `test/test_clock.cpp` against a register-level PCF85063A model in
+  `test/fake_i2c.*`, and the clock lines in `test/test_run_summary.cpp` and
+  `test/sd_log_fatfs.cpp`. README and the wiki pages SD-Logging and
+  SD-Aufzeichnung describe the file dates. Not tested on hardware.
 - After v0.1.0-rc1 (a93e1c1): ESC COMMANDS, slice 2 of
   [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built), MENU's
   first row in place of BEEP THE ESC (decision 1, `src/ui_esc_cmd.*`). BEEP
@@ -125,10 +185,9 @@ protocol.
   `witmotion.*`, the WitMotion decoder `imu.h` includes. Their tests,
   `test_servo_rudder.c`, `test_imu_angles.c` with `wit_frame.h` and
   `test_witmotion.c`, 25 cases, are in `test/rcbench/`, run by `make -C test
-  run` through `test/angle.mk`. Nothing in `src/` calls them yet, and the
-  firmware does not build them. The cases of rcbench's `test_imu.c` and
-  `test_imu_filter.c` that need `imu.h` alone are not adapted; open for
-  slice 3.
+  run` through `test/angle.mk`. Slice 3, above, builds them into the
+  firmware with their caller and adapts the cases of rcbench's `test_imu.c`
+  and `test_imu_filter.c` that need `imu.h` alone.
 - After v0.1.0-rc1: each blackbox log that stops clean gets its run
   summary beside it, `LOGS/LOGnnnnn.TXT`, slice 2 of
   [run-summary.md](docs/design/run-summary.md#slice-2-as-built).
@@ -808,6 +867,14 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: a pin claim without the leave page restores DShot only
+  once its core1 job has let the pin go, so DShot is never rebuilt on a pin
+  a job's state machines still drive. Any call into the claim,
+  `pinClaimState()` included, moves it on, so it needs no poll from the
+  screen that ended it. AM32, which has no job, restores
+  within BACK as before; the USB bridge, slice 1 of
+  [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built), is the first
+  user with a job and no page.
 - After v0.1.0-rc1 (a93e1c1): the servo tester switches the servo's supply
   with SERVO SUPPLY at `GP28` or `GP29`, slice 3 of
   [current-sense.md](docs/design/current-sense.md#slice-3-as-built) and

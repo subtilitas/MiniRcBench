@@ -52,19 +52,22 @@ angle meter on the board's QMI8658 IMU (inertial measurement unit), for
 incidence, decalage, dihedral and control-surface throw, is designed in
 `docs/design/angle-meter.md`; the owner answered its questions on 2026-11-15,
 and its entry is an eighth MENU row, `TOOLS`, with a chooser. The rcbench files
-it builds on are copied into `lib/rcbench/` and host-tested; nothing calls them
-yet. Its IMU driver is built and host-tested, and nothing opens it yet: the
-screen is not built, and the driver has not run on a board. A run
+it builds on are copied into `lib/rcbench/` and host-tested. Its IMU driver and
+its model, which turns the driver's samples into the angle through those files,
+are built and host-tested, and nothing calls them yet: the screen is not built,
+and neither has run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slices 1 to 3 are built and host-tested: the summary
+on 2026-11-15. Its slices 1 to 4 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
-([Blackbox logging to microSD](#blackbox-logging-to-microsd)), and SD LOG
-showing it after a stop; the clock is not built. The owner's board has no cell
-in the RTC socket J2, so its clock is set again after each power-up, and
-files written before the set have FAT date 0.
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)), SD LOG
+showing it after a stop, and the clock read at start-up, dating the files
+and the summary's clock lines while it runs; the firmware cannot set the
+clock yet. The owner's board has no cell in the RTC socket J2, so its
+clock is to be set again after each power-up, and files written before the
+set have FAT date 0.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
@@ -74,9 +77,11 @@ the owner answered its questions on 2026-11-15.
 A USB bridge, through which an ESC tool on a desktop computer reaches the
 ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
-interface of flight controllers, is designed in `docs/design/usb-bridge.md`
-and not built; the owner answered its questions on 2026-11-15. It
-is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`.
+interface of flight controllers, is designed in `docs/design/usb-bridge.md`;
+the owner answered its questions on 2026-11-15. It
+is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`. Its
+slice 1 is built, tested on the host only, and nothing opens it yet: its
+pin user, its core1 job and its line, two PIO state machines on SIG.
 Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
 module, is designed in `docs/design/bluejay-blheli-s.md`; the owner
@@ -146,8 +151,9 @@ input with the pulls off), puts the pull-up back on it and ends the KISS
 receiver. Core1 then runs that screen's job instead (`src/core1_job.h`), and
 `loop1()` is `escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs
 on core0 and has no core1 job; the servo tester, the KST and Hitec
-programmers and the S.BUS monitor each have one. Leaving the screen
-rebuilds the pump from the wiring it had, disarmed.
+programmers, the S.BUS monitor and the USB bridge each have one. Leaving the
+screen rebuilds the pump from the wiring it had, disarmed, once the job has
+let the pins go.
 
 ---
 
@@ -177,7 +183,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use: the S.BUS job uses UART0's receiver only. Set under SETTINGS → SIG PIN |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use: the S.BUS job uses UART0's receiver only, and the USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
 | KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
@@ -1039,14 +1045,16 @@ looks the same to a board with no card-detect line
 (`src/sd_log_next.cpp`, tested over FatFs by `make -C test lognum`). After
 `LOG99999.BFL` no log starts and SD LOG says so. A file is
 created new, never over an existing one. Logs an earlier firmware wrote to
-the card's root stay there and are not counted. The board sets no clock.
+the card's root stay there and are not counted. Files carry the time of the
+board's real-time clock when the clock was running at start-up, else FAT
+date and time 0; the firmware cannot set the clock yet (see below).
 
 Each log that stops clean gets a run summary beside it, `LOGS/LOGnnnnn.TXT`
 with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
 `docs/design/run-summary.md`). It is plain ASCII (American Standard Code for
 Information Interchange) text, one value a line: the log's name, the
-firmware version, the clock at the start and the stop (`not set`: the clock
-is not built), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
+firmware version, the clock at the start and the stop (`2026-11-14 15:42:07`
+or `not set`), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
 `HITEC SERVO` or `ESC SETTINGS`), its duration and armed time, the maximum
 RPM, current and temperature, the minimum voltage while armed, the charge
 used by the KISS counter and from the current, and the logger's counters
@@ -1072,6 +1080,23 @@ removed when the card still allows it; after a close that fails, an empty
 `.TXT`. The `.TXT`, the `.BFL` beside it and every failure path are tested
 over FatFs R0.15 on a RAM disk by `make -C test lognum`
 (`test/sd_log_fatfs.cpp`).
+
+The clock is the board's PCF85063A at 0x51 on I2C1 (`src/clock.*`). `setup()`
+reads its registers 00h to 0Ah once, after `senseInit()`: 14 bytes on the wire,
+129 clocks, with a 1000 µs timeout, noted to the current sensor's bus record. A
+running clock, with the oscillator-stop flag OS and the bits STOP, EXT_TEST and
+12_24 clear and every time register in range, is the time from then on, kept by
+the 64-bit microsecond timer; no bus transfer follows. Anything else leaves the
+clock not set until the next start-up. With OS set, the oscillator has stopped
+since the time was written, as at every power-up of a board without a cell on
+J2: the firmware sends the software reset, 58h to Control_1, and turns CLKOUT
+off, 07h to Control_2. FatFs stamps files through `get_fattime()`, which returns
+the kept time packed while the clock is set and 0 otherwise; the SD library's
+`my_rtc.c`, with its own `get_fattime()`, is not in the firmware build. The
+run summary takes the clock at the log's start and
+at its stop. Nothing in the firmware sets the clock yet: that is slice 5 of
+`docs/design/run-summary.md`, over USB. Tested against a register-level model of
+the part in `test/fake_i2c.*` (`test/test_clock.cpp`); not tested on hardware.
 
 ![SD log screen](docs/log-preview.png)
 
@@ -2505,10 +2530,11 @@ three failed transactions take the part offline, two timeouts of 1000 µs in
 a row or a line held low mark the bus stuck, and a recovery, 9 clocks on SCL
 and a STOP, runs at once and every 100 ms while it is stuck, with CURRENT
 SENSE at `NONE` too, since touch and the IMU share the bus. The touch
-driver and the IMU driver report their own transfers to the same record; an
-abort with a line still low 10 µs after it counts as a stuck bus, not as a
-missing part. The probe reads the configuration register first and writes
-a register only when it reads as an INA219's, 399Fh or 19EFh; another chip
+driver, the IMU driver and the clock's read at start-up (`src/clock.cpp`)
+report their own transfers to the same record; an abort with a line still
+low 10 µs after it counts as a stuck bus, not as a missing part. The probe
+reads the configuration register first and writes a register only when it
+reads as an INA219's, 399Fh or 19EFh; another chip
 at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
 (`src/sense.h`), under a lock of its own, for core1, where the servo
@@ -2692,11 +2718,15 @@ src/
   sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
   ui_sbus.{h,cpp}       S.BUS MONITOR: the claim of GP1, the channels and counts, the leave page
   sbus_view.{h,cpp}     what S.BUS MONITOR shows: the link state, the bars' ink, the texts (pure)
+  bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
+  bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
+  bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
-  servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, angle.cmake  each feature's firmware sources (test/*.mk: its tests)
+  angle_model.{h,cpp}   the angle meter's model: frames, calibration, theta and tilt, ZERO, MAX, the flip (pure)
+  servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
   am32_bl.{h,cpp}       one-wire bootloader transport
@@ -2714,6 +2744,7 @@ src/
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
   run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure)
+  clock.{h,cpp}         the PCF85063A real-time clock: start-up read, kept time, get_fattime()
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_log_summary.{h,cpp} the run summary's .TXT beside its log, over FatFs
   sd_hw_config.c        SD wiring for the FatFs driver
@@ -2753,9 +2784,9 @@ current sensor's bus record (`sense_bus.c`), the escwire core for ESC
 settings over the signal wire with its RP2350 line driver, which nothing
 calls yet, and for the angle meter the control-surface arithmetic
 (`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
-the WitMotion decoder `imu.h` includes, which the host suite alone builds
-and nothing calls yet. Files include each other as plain
-siblings, except two drivers with folders of their own: the DShot
+the WitMotion decoder `imu.h` includes, which the angle model
+(`src/angle_model.cpp`) calls; nothing calls the model yet. Files include
+each other as plain siblings, except two drivers with folders of their own: the DShot
 driver in `src/dshot/`, so that it can be compared with its rcbench original,
 and the SDIO card driver in `src/sdio/`, whose `compat/` headers have to keep
 the paths the SD library includes.
@@ -2774,30 +2805,31 @@ cd test && make
 
 Needs nothing but a C++17 compiler and a C11 compiler: the DShot core in
 `src/dshot/`, the SDIO protocol layers in `src/sdio/` and the rcbench files in
-`lib/rcbench/` are compiled as C, as the firmware compiles them, and linked
-into the C++ suite. `make run` also builds and runs rcbench's own tests of
-those files as C11 programs: `test/rcbench/test_servo_sweep.c` and
+`lib/rcbench/` are compiled as C, as the firmware compiles them, and linked into
+the C++ suite. `make run` also builds and runs rcbench's own tests of those
+files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_out_pwm_map.c`, and the seven KST tests `test_kst_wire.c`,
 `test_kst_reg.c`, `test_kst_plan.c`, `test_kst_session.c`, `test_kst_pio.c`,
 `test_kst_file.c` and `test_kst_store.c`, and the eight Hitec tests
-`test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`,
-`test_hitec_reg.c`, `test_hitec_reg_plan.c`, `test_hitec_session.c`,
-`test_hitec_session_write.c` and `test_hitec_card.c`, with
-`hitec_headers.cpp` built as C++11, `test_sbus.c` (12 cases), and the
-twelve escwire tests `test_ew_a.c`, `test_ew_id.c`, `test_ew_map.c`,
-`test_ew_guard.c`, `test_ew_session.c`, `test_ew_session_write.c`,
-`test_ew_file.c`, `test_ew_file_load.c`, `test_ew_pio.c`, `test_ew_text.c`,
-`test_ew_session_text.c` and `test_ew_file_e32.c` (210 cases), with
-`escwire_headers.cpp` built as C++11, and the angle meter's
-`test_servo_rudder.c`, `test_imu_angles.c` and `test_witmotion.c` (25
-cases). The SDIO tests run the card protocol against a simulated card. Time is
-virtual and counted in microseconds — `millis()` advances only when a test
-says so — which makes hold-to-arm, hold-to-write and gesture repeat
-deterministic rather than dependent on machine speed. The fake ESC serves a
-real settings blob recovered from the reference configurator, so the UI tests
-operate on values a real ESC would report. The suite renders 125 screens to
-PPM (portable pixmap) images as it runs, one file per `fakeDumpFrame()` name,
-so a layout change is visible in the frames:
+`test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`, `test_hitec_reg.c`,
+`test_hitec_reg_plan.c`, `test_hitec_session.c`, `test_hitec_session_write.c`
+and `test_hitec_card.c`, with `hitec_headers.cpp` built as C++11, `test_sbus.c`
+(12 cases), and the twelve escwire tests `test_ew_a.c`, `test_ew_id.c`,
+`test_ew_map.c`, `test_ew_guard.c`, `test_ew_session.c`,
+`test_ew_session_write.c`, `test_ew_file.c`, `test_ew_file_load.c`,
+`test_ew_pio.c`, `test_ew_text.c`, `test_ew_session_text.c` and
+`test_ew_file_e32.c` (210 cases), with `escwire_headers.cpp` built as C++11, and
+the angle meter's `test_servo_rudder.c`, `test_imu_angles.c` and
+`test_witmotion.c` (25 cases), copied unchanged, and `test_imu.c` (9 cases) and
+`test_imu_filter.c` (10), adapted from rcbench's to the cases that need `imu.h`
+alone. The SDIO tests run the card protocol against a simulated card. Time is
+virtual and counted in microseconds — `millis()` advances only when a test says
+so — which makes hold-to-arm, hold-to-write and gesture repeat deterministic
+rather than dependent on machine speed. The fake ESC serves a real settings blob
+recovered from the reference configurator, so the UI tests operate on values a
+real ESC would report. The suite renders 125 screens to PPM (portable pixmap)
+images as it runs, one file per `fakeDumpFrame()` name, so a layout change is
+visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
@@ -2846,6 +2878,15 @@ so a layout change is visible in the frames:
 
 Failing tests dump their frame too.
 
+The fake clock in `test/fakes.cpp` advances only when a test says so, and
+it is not reset between tests, so a test added or removed earlier in the
+run shifts it. A screen that draws from the clock is therefore captured
+after the test sets the clock: `fakeClockAlign()` moves it to a whole spinner
+turn (1800 ms) before the KST search spinner and the ESC SETTINGS connect
+spinner, and `fakeClockSetMs()` sets the time since boot to 10000 h before
+SETTINGS' UPTIME. The images in `docs/` and `wiki/img/` do not change when a
+test is added or removed.
+
 `make previews` restitches the images in `docs/` from those frames. It is a separate
 target so a test run does not leave the working tree dirty.
 
@@ -2855,7 +2896,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,458 of 11,647 lines in 73 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 11,956 of 12,145 lines in 77 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -2929,6 +2970,16 @@ the shared bus record, BACK's CTRL7 00h also after a CTRL7 write that timed out,
 nothing to 0x6B while the driver is closed, touch and the INA219 on the same
 bus, and the bus time of a frame in each failure mode, at most 1730 µs.
 
+`test_angle_model.cpp` runs the angle meter's model on synthetic gravity
+vectors, a board turned about a tilted line and fed as the driver's samples:
+`theta` and the tilt for each ALONG AXIS, SIGN and axis map, TOO STEEP from 70°
+and amber from 45°, the frames of four samples, stale at 300 ms, SETTLED at
+1000 ms, ZERO 1000 ms after the lift and its 10 s limit, MAX from settled
+frames, the wrap at ±180°, the travel, the temperature warning at 2.0 °C, the
+calibration and the errors it removes, the flip's arithmetic against values
+worked by hand and its steps, NaN and degenerate inputs, and the texts in
+tenths.
+
 `make pioemu`, which `make` runs too, runs `test/pio_sdio_emu.py`. It assembles
 the two SDIO PIO programs from `src/sdio/sd_pio.pio` itself and runs them one
 system clock at a time at 150 MHz against a model of an SD card, through a
@@ -2968,6 +3019,21 @@ running machine, at a period's start or at 5 points inside one, takes effect
 at the next period. It also runs the init's forced `pull noblock` and
 `out isr, 32`. The Firmware job holds its words to `pioasm`.
 
+`make pioemu` also runs `test/pio_bridge_emu.py`. It assembles the USB
+bridge's transmitter, `src/bridge_line.pio`, and `src/pio_uart_rx.pio` and
+runs both on one pad, one state machine cycle at a time, set up as
+`src/bridge_line_port.cpp` sets them up: 42 runs. Each byte's start bit,
+data bits and stop bit are 8 cycles; the pad is driven from the first start
+bit to the end of the last stop bit and let go then, with the next byte late
+or not; the bytes of a frame are 82 cycles apart; the receiver hears every
+byte sent, its echo, and has it in its FIFO before the transmitter waits for
+the next; an ESC's reply 0.3 ms after the release is received at 8 phases
+of a cycle with its bits 2 % and 3 % longer and 2 % shorter, with the pad
+never driven by both. A control run with bits 3 % shorter has to lose
+bytes. The Firmware job holds its words to `pioasm`. `test/test_bridge.cpp`
+runs the bridge's job on `test/fake_bridge_line.h`, a wire on the virtual
+clock with those cycle counts and a model ESC, and through the pin claim.
+
 ### Continuous integration
 
 `.github/workflows/ci.yml` runs one job per row:
@@ -2975,7 +3041,7 @@ at the next period. It also runs the init's forced `pull noblock` and
 | Job | What it catches |
 |---|---|
 | **Firmware** | Real Pico SDK build of the RP2350-Touch-LCD-2.8 image, pinned by `CMakeLists.txt`, plus UF2 validation, a check that no file of the SD library's SDIO driver is in the image, the third-party notices written and checked for the image, and the PIO emulator's assembler compared with `pioasm` |
-| **Host tests** | Protocol, codec and UI regressions a compile cannot see, and the SDIO PIO programs run in a cycle-level model against a card model |
+| **Host tests** | Protocol, codec and UI regressions a compile cannot see, the SDIO PIO programs run in a cycle-level model against a card model, and the backlight and USB bridge PIO programs in models of their own |
 | **Coverage** | Line coverage below 93% in total or 85% in any file, or a README or STATUS.md coverage figure that no longer matches `tools/coverage.py` |
 | **Blackbox round-trip** | Encodes a log and decodes it with Betaflight's own `blackbox_decode`, comparing every value |
 | **Config permutations** | All 32 combinations of `AM32_PUSH_PULL_TX`, `AM32_FORCE_LOW_JUMP`, `LCD_ROTATION`, `KISS_TELEM_ENABLE` and `SD_LOG_ENABLE`, warnings fatal |

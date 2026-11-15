@@ -251,6 +251,7 @@ static void leaveAll() {
 static void testOpenAndSearch() {
 	section("KST screen: PROGRAMMER opens it, the claim, the search");
 	freshKst(false);
+	fakeClockAlign(FAKE_SPINNER_TURN_MS);
 	openChooser();
 	checkTrue("PROGRAMMER claims nothing: DShot runs on SIG",
 	          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free &&
@@ -1647,6 +1648,7 @@ static void testSwitchedSupply() {
 	freshKst(false);
 	settings()->servoSupply = 1;
 	servoSupplyConfigure(1);
+	fakeClockAlign(FAKE_SPINNER_TURN_MS);
 	supplySimInit(&g_sup, fakeKstSim(), time_us_32());
 	g_supOn = true;
 	openKst();

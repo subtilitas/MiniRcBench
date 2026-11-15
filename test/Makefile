@@ -3,7 +3,8 @@
 #   make          syntax-check, build and run
 #   make build    build only
 #   make syntax   typecheck the device-only sources
-#   make pioemu   run the SDIO and backlight PIO programs in cycle-level models
+#   make pioemu   run the SDIO, backlight and USB bridge PIO programs in
+#                 cycle-level models
 #   make bbcheck  round-trip a log through the upstream blackbox_decode
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
@@ -42,6 +43,8 @@ DEFINES := $(EXTRA_DEFINES)
 # so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk,
 # rx.mk, sense.mk, escwire.mk, angle.mk
 include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk angle.mk
+# The USB bridge, the same way. @see bridge.mk
+include bridge.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
@@ -60,17 +63,18 @@ INCLUDES += $(FEATURE_INCLUDES)
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp test_servo_supply.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_esc_cmd.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_esc_cmd_ui.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp test_run_summary.cpp \
+        test_dshot_edt.cpp test_esc_cmd.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_esc_cmd_ui.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp test_run_summary.cpp test_clock.cpp \
         fakes.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_esc_cmd.cpp ../src/esc_3d.cpp ../src/ui_registry.cpp ../src/ui_servo_prog.cpp ../src/ui_esc_config.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/ui_leave.cpp ../src/board_desc.cpp \
         ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/bl_answer.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
-        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp \
+        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp ../src/clock.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
         $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \
-        $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS)
+        $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS) \
+        $(BRIDGE_TESTS) $(BRIDGE_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
 # have to compile. CI's "Config permutations" job already builds all of src/
@@ -84,7 +88,8 @@ DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp ../src/sd_log_next.cpp ../src/sd_log_summary.cpp \
                ../src/pio_uart_rx.cpp \
                ../src/settings_flash.cpp ../src/main.cpp ../src/card_cache.cpp \
-               $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS)
+               $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS) \
+               $(BRIDGE_DEVICE_SRCS)
 
 # The DShot core in src/dshot/ and the SD card protocol layers in src/sdio/
 # are C11, and are compiled here as C, by $(CC), into objects the suite links.
@@ -206,6 +211,7 @@ syntax:
 pioemu:
 	python3 pio_sdio_emu.py --cc "$(CC)"
 	python3 pio_backlight_emu.py
+	python3 pio_bridge_emu.py
 
 # Round-trip a generated log through the upstream decoder.
 #

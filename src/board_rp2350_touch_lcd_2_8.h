@@ -137,14 +137,15 @@
  * A placeholder, X, Y and Z in that order with no sign turned: the chip's
  * orientation against the board's edges is not known. Bench test B3 of
  * docs/design/angle-meter.md sets it. Each axis appears once
- * (qmi8658AxesValid()).
+ * (qmi8658AxesValid()). The angle model maps the chip's samples by it
+ * (angleSetupDefaults()).
  */
 #define BOARD_IMU_AXES 1, 2, 3
 /** @} */
 
 /**
  * @defgroup lcd28_pins_rtc RTC — PCF85063ATL
- * @brief Present on the board but unused by this firmware.
+ * @brief Read once at boot by clock.h; its INT line is unused.
  * @{
  */
 #define PIN_RTC_INT   5        /**< RTC alarm / timer interrupt. */
