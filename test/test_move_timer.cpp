@@ -328,8 +328,8 @@ static void testWhenTimed() {
 	tickLate(&r, 22, 0.12f, 8);
 	checkTrue("the hold's reading taken 497 ms after that one, passed at 505: still in",
 	          r.t.holding);
-	tickLate(&r, 25, 0.12f, 8);
-	checkTrue("taken 522 ms after it: the hold closed, 120 mA",
+	tickLate(&r, 5, 0.12f, 8);
+	checkTrue("taken 502 ms after it, passed at 510: the hold closed, 120 mA",
 	          !r.t.holding && r.t.res.holdOk && r.t.res.holdMa == 120);
 
 	// A clipped reading has no value: not in the level before.
@@ -601,7 +601,7 @@ static void testVoid() {
 	checkTrue("STOP in the hold: arrived, no hold", stateIs(r, MoveState::Arrived) &&
 	          !r.t.res.holdOk && !r.t.holding);
 
-	// CURRENT SENSE at NONE: nothing is timed, and the result stays.
+	// CURRENT SENSE at NONE: nothing is timed; a move under way is void.
 	rigInit(&r);
 	r.state = SenseState::None;
 	startAt(&r, 0.0f);
@@ -621,8 +621,12 @@ static void testVoid() {
 	stepTo(&r, 2000, 0.10f);
 	r.state = SenseState::None;
 	tick(&r, 25, 0.90f);
-	checkTrue("NONE during a move: it ends, the result as it was",
-	          stateIs(r, MoveState::Measuring) && !r.t.timing);
+	checkTrue("NONE during a move: it ends, void as lost, the line reads dashes",
+	          stateIs(r, MoveState::Void, MoveVoid::Lost) && !r.t.timing);
+	char dashes[MOVE_TEXT_MAX + 1];
+	checkTrue("the line reads MOVE -- S  PEAK -- A  HOLD -- A",
+	          moveTimerText(&r.t.res, dashes, sizeof(dashes)) &&
+	          strcmp(dashes, "MOVE -- S  PEAK -- A  HOLD -- A") == 0);
 	rigInit(&r);
 	moveOnce(&r);
 	r.state = SenseState::None;

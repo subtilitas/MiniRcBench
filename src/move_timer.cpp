@@ -224,9 +224,10 @@ void moveTimerStep(MoveTimer *t, const MoveIn *in, uint32_t nowMs) {
 		t->on = false;
 		return;
 	}
-	// CURRENT SENSE at NONE: nothing is timed, and the result stays.
+	// CURRENT SENSE at NONE: no step is timed and a step leaves the result
+	// as it is. A move or hold under way ends in the stale rule below as
+	// Lost, since NONE is not Online.
 	bool sensed = in->sample.state != (uint8_t)SenseState::None;
-	if (!sensed) t->timing = t->holding = false;
 	bool changed = in->out[0] != t->out[0] || in->out[1] != t->out[1];
 	if (!t->on) {
 		// The pulses start: a new run.
