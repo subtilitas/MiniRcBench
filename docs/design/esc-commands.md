@@ -372,7 +372,7 @@ not read (decision 8).
 
 ### MENU entry
 
-On 2026-11-15, before decision 1, since PR #66, MENU had seven rows: BEEP THE
+From PR #66 until decision 1 of 2026-11-15, MENU had seven rows: BEEP THE
 ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS,
 at a 42 px pitch in a 258 px viewport, so MENU scrolled 36 px
 ([menu-b.md](menu-b.md#menu), decision 33). The page needs a way in, and each

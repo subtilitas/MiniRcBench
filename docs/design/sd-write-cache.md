@@ -298,8 +298,7 @@ A batch that fails:
   The stop is recorded with the tool's name (`sdLogStopFor()`), and SD LOG
   reads `RECORDING STOPPED BY KST SERVO`, `RECORDING STOPPED BY HITEC SERVO`
   or `RECORDING STOPPED BY ESC SETTINGS` until the next start; a mount keeps
-  it. Without a mounted card the cache stays off
-  for the claim.
+  it. Without a mounted card the cache stays off for the claim.
 - SERVO TESTER's servo log calls `cardCacheBegin()` at HOLD TO START, with
   a current sensor declared and a card mounted, and `cardCacheEnd()` once
   the run is over, after its close; it stops a running blackbox log as

@@ -141,15 +141,15 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
   230 | RX SIGNALS                                |  no status
   272 | TOOLS                                     |  sixth row, ends at y 311
   314 | SD LOG                           NO CARD  |  6 px at scroll 0
-  356 | SETTINGS                         UNSAVED  |  below the fold at scroll 0
   320 +-------------------------------------------+
+  356   SETTINGS                         UNSAVED     below the fold at scroll 0
 ```
 
 | Item | Value |
 |---|---|
 | Viewport | y 62 to 319, 258 px (`MENU_VIEW_H`) |
 | Rows | 40 px tall (`MENU_ROW_H`) at a 42 px pitch (`MENU_ROW_PITCH`), x 8 to 231 |
-| Eight rows | 336 px of content: scroll range 0 px to 78 px. TOOLS, the sixth, is whole at 0 px; SD LOG, the seventh, shows 6 px and is whole after a 34 px drag; SETTINGS, the eighth, shows nothing and is whole from y 278 to y 317 after a 76 px drag |
+| Eight rows | 336 px of content: scroll range 0 px to 78 px. TOOLS, the sixth, is whole at 0 px; SD LOG, the seventh, shows 6 px and is whole after a 34 px drag; SETTINGS, the eighth, shows nothing at 0 px, is whole after a 76 px drag, and sits at y 278 to 317 at the 78 px limit |
 | Label | scale 2 at x 16, 13 px below the row's top |
 | Status | scale 1, right-aligned to x 222, 16 px below the row's top, in the fact's colour |
 | Scroll bar | 3 px wide at x 235, drawn only while the list scrolls |
@@ -708,8 +708,9 @@ Slice C is built. The code differs from the sketches above in these places:
 - SETTINGS shows no tool section yet, since no registry entry has one.
 
 Revised by [menu-b.md](menu-b.md#decisions): the registry's rows are those
-of [MENU](#menu), SD LOG the sixth and SETTINGS the seventh, reached with a
-36 px drag (decisions 32 and 33); a row refused while the claim is not Free
+of [MENU](#menu), SD LOG the seventh and SETTINGS the eighth, whole after
+drags of 34 px and 76 px (decisions 32 and 33, and the eight rows of
+menu-b.md's revision of 2026-11-15); a row refused while the claim is not Free
 is drawn disabled under its own status, and `PINS BUSY` is gone (decision
 15 f); `SettingsCtl::Reset` is `Defaults` (decision 14); `UiScreenId` adds
 `ServoProg` and `RxSignals` (decisions 19 and 35), and `Hitec` came with
@@ -796,7 +797,7 @@ Tests slice C adds:
 Revised by [menu-b.md](menu-b.md#decisions): the registry walk passes the
 leave page, not the unplug page (owner decision 3); the refused rows are drawn
 disabled under the restarting caption in place of `PINS BUSY` (decision
-15 f); RESET is HOLD DEFAULTS (decision 14). The built registry has seven
+15 f); RESET is HOLD DEFAULTS (decision 14). The built registry has eight
 rows; the scroll test keeps its test-only registries of six and seven.
 
 ## Slices
@@ -925,6 +926,8 @@ is accepted.
    servo programmers in place of a row per programmer; MENU has seven rows
    and scrolls 36 px; the tester's pole count and MAX open SETTINGS too,
    through `uiOpenTool()`, which disarms as opening MENU does.
+   Revised again by menu-b.md's decisions of 2026-11-15: MENU has eight
+   rows and scrolls 78 px.
 2. **BEEP.** An action row on MENU, with the sent or refused flash on the
    row.
 3. **Poles and ceiling.** Motor poles and throttle ceiling move to the top

@@ -695,7 +695,7 @@ entry not yet built is drawn disabled with `NOT BUILT` under it, as RX SIGNALS'
 OUTPUT was. `ESC SETTINGS` served AM32 only until the Bluejay slices landed, and
 STATUS.md said so. Slice 2 of bluejay-blheli-s.md merged first and built the
 chooser ([slice 2 as built](bluejay-blheli-s.md#slice-2-as-built)): `USB BRIDGE`
-is the second line of `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, with no
+was the second line of `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, with no
 screen, so this note's slice 2 gives it its screen there, as it does ([slice 2
 as built](#slice-2-as-built)).
 
