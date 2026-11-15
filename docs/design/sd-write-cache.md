@@ -334,20 +334,20 @@ recorded in this note.
 - `test_sd_cache.cpp` (`runSdCacheTests`): the cache over a fake card with a
   busy time per block. The order kept for a sector written twice; a read of a
   queued sector; one swap check per batch; no command while busy; read cache
-  hits, the oldest pushed out, a written sector's entry; a miss that waits
-  for the block in flight; a full queue that flushes until the write fits;
-  the swap check's read started in one poll and collected in a later one,
-  nothing sent meanwhile, a hit while it reads touching no card, a miss, a
-  settle, a drop, an end and a begin collecting it first; a start refused,
-  a read that times out and a CRC error each tried 3 times, then failing
-  the batch, two of them and then a read going on, the count new with each
-  batch; another serial number failing it at once; the wait hook at every
-  look of a flush, a settle, a drop, an end and a full queue, and KST's
-  card stamp never more than a look old across three timed-out reads;
-  two retries that land, three that fail; reads refused while failed, and a
-  miss whose wait ends the batch; `sdc_settle()` ending the block in flight;
-  a write error token; a changed serial number and a check that does not
-  read; refusals with the cache off.
+  hits, the oldest pushed out, a written sector's entry; a miss that waits for
+  the block in flight; a full queue that flushes until the write fits; the swap
+  check's read started in one poll and collected in a later one, nothing sent
+  meanwhile, a hit while it reads touching no card, a miss, a settle, a drop, an
+  end and a begin collecting it first; a start the card does not answer, a read
+  that times out and a CRC error each tried 3 times, then failing the batch, two
+  of them and then a read going on, the count new with each batch; a start
+  refused as not ready, an error bit in the status and another serial number
+  failing it at once; the wait hook at every look of a flush, a settle, a drop,
+  an end and a full queue, and KST's card stamp never more than a look old
+  across three timed-out reads; two retries that land, three that fail; reads
+  refused while failed, and a miss whose wait ends the batch; `sdc_settle()`
+  ending the block in flight; a write error token; a changed serial number and a
+  check that does not read; refusals with the cache off.
 - `test_kst_ui.cpp`: the claim turns the cache on and stops a running log; no
   write frame while the flush runs; the page's count; the write after the flush;
   a failed flush with no write frame and the card mounted again; the next write

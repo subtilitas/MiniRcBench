@@ -1525,11 +1525,11 @@ The log of [logging to the card](#logging-to-the-card), with CURRENT SENSE at
 applies: no file, no cache, and a running blackbox log goes on.
 
 - **The module.** `src/servo_log.{h,cpp}`, core0 only. HOLD TO START on
-  SERVO TESTER calls `servoLogStart()`, then sends the Start command and
-  hands its seq to `servoLogFollow()`; BACK calls `servoLogBack()`.
-  `servoLogPoll()` runs on every pass of `loop()` after `cardCachePoll()`.
-  Core1 calls nothing of it: the job, the cuts and the move timing are as
-  slice 5 left them.
+  SERVO TESTER calls `servoLogStart()` in one frame, then sends the Start
+  command in the next and hands its seq to `servoLogFollow()`; BACK calls
+  `servoLogBack()`. `servoLogPoll()` runs on every pass of `loop()` after
+  `cardCachePoll()`. Core1 calls nothing of it: the job, the cuts and the
+  move timing are as slice 5 left them.
 - **The columns, units and rate.** The note's header,
   `ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags`, as the file's first
   line, and one row per new reading (`SenseSample::seq`), 40 a second at
@@ -1595,28 +1595,31 @@ applies: no file, no cache, and a running blackbox log goes on.
   trip by its cause first, then a supply that did not come up, then BACK, else
   STOP.
 - **Every card access of core0 during the run.** Two calls a pass, after the
-  UI's frame: - `cardCachePoll()`: one step of the flush (sd-write-cache.md,
-  "The flush step"), which never waits for the card: the swap check's read
-  started (CMD17), or one look at the receiver, a block's transfer, about 0.1 ms
-  at 10 MHz, or one look at DAT0 and CMD13. The check's read is collected in a
-  later pass, so the 100 ms the SD specification allows a read is spent between
-  passes, not in one. - `servoLogPoll()`: at most one f_write() of one whole
-  512-byte block, only while the cache reads Idle, nothing queued and nothing in
-  flight, and only inside the reserve (`f_tell()` plus 512 within it). FatFs
-  then takes the block's cluster from the fast-seek table, not from the FAT; its
-  file pointer is on a block's boundary and the block whole, so it writes the
-  block from the ring (disk_write) and neither reads it nor touches its window:
-  no read. The cache queues the block in RAM: one of 32, the queue empty, so
-  never a flush on the spot. - No f_sync() during the run: it reads the
-  directory's block to write the entry (move_window() in FatFs), from the read
-  cache or from the card. The entry the open put on the card already holds the
-  reserve's size, so a sync during the run would add only the modification time.
-  Nothing else touches the card: the blackbox log is stopped, SD LOG and USB
-  DRIVE are not reachable from SERVO TESTER, and the screen reads no file. -
-  Past the reserve no block is written during the run: the writing stops, and
-  the close writes the rest with fast seek off. - The open's blocks are on the
-  card before the Start; an open given up drains its blocks during the run, one
-  flush step a pass, the same steps as above.
+  UI's frame:
+  - `cardCachePoll()`: one step of the flush (sd-write-cache.md, "The flush
+    step"), which never waits for the card: the swap check's read started
+    (CMD17), or one look at the receiver, a block's transfer, about 0.1 ms at 10
+    MHz, or one look at DAT0 and CMD13. The check's read is collected in a later
+    pass, so the 100 ms the SD specification allows a read is spent between
+    passes, not in one.
+  - `servoLogPoll()`: at most one f_write() of one whole 512-byte block, only
+    while the cache reads Idle, nothing queued and nothing in flight, and only
+    inside the reserve (`f_tell()` plus 512 within it). FatFs then takes the
+    block's cluster from the fast-seek table, not from the FAT; its file pointer
+    is on a block's boundary and the block whole, so it writes the block from
+    the ring (disk_write) and neither reads it nor touches its window: no read.
+    The cache queues the block in RAM: one of 32, the queue empty, so never a
+    flush on the spot.
+  - No f_sync() during the run: it reads the directory's block to write the
+    entry (move_window() in FatFs), from the read cache or from the card. The
+    entry the open put on the card already holds the reserve's size, so a sync
+    during the run would add only the modification time. Nothing else touches
+    the card: the blackbox log is stopped, SD LOG and USB DRIVE are not
+    reachable from SERVO TESTER, and the screen reads no file.
+  - Past the reserve no block is written during the run: the writing stops, and
+    the close writes the rest with fast seek off.
+  - The open's blocks are on the card before the Start; an open given up drains
+    its blocks during the run, one flush step a pass, the same steps as above.
 - **The run's writes.** The rows wait in a ring of 16384 bytes
   (`SERVO_LOG_RING_BYTES`, about 15 s of rows); a row it has no room for is
   dropped and counted. The note's design let the cache's 32 blocks absorb a slow
@@ -1626,9 +1629,9 @@ applies: no file, no cache, and a running blackbox log goes on.
   card during a run, a block's transfer; no card read is waited for, on a card
   that reads a block in 1 ms and on one at the SD specification's 100 ms with a
   busy time of 511 ms. The hard cut after a step of current, 200 steps at every
-  phase: log off at most 25.01 ms, log on at most 25.04 ms, within one frame of
+  phase: log off at most 25.01 ms, log on at most 25.03 ms, within one frame of
   25 ms and a block's transfer. The longest gap between readings: log off 25.00
-  ms, log on at most 25.06 ms, longer by at most the block's transfer, which can
+  ms, log on at most 25.07 ms, longer by at most the block's transfer, which can
   fall in the pass before a frame. The open: 557 ms the first time after a mount
   with a blackbox log to stop and 120 ms the next on the 1 ms card; on the card
   at the limits it was given up at 2.2 s and 2.1 s; core1 took every Start. A
@@ -1685,53 +1688,87 @@ applies: no file, no cache, and a running blackbox log goes on.
   - The log takes the cache only while it runs; between runs, SAFE, the
     cache is off, as outside the backup claims.
   - No `.TXT` beside the `.CSV`: the end line carries what a summary would.
+  - The open's limit is 2000 ms: a heartbeat of 250 ms is no bound here, as the
+    Start goes out in a later frame with fresh stamps, so the limit only caps
+    the wait after HOLD TO START. A card at the specification's limits passes it
+    before the reserve is taken, given up at 2.2 s in the model, and gets no
+    log. The limit is checked between FatFs calls; one call is not cut short.
+    The blackbox log's stop runs before the clock starts, and the directory's
+    scan, the first after a mount, is one call: on a card that reads a block in
+    100 ms with 600 files in `LOGS/` the open holds core0 11.8 s before it is
+    given up, the servo still SAFE and the supply off.
 - **Tests.** `test/servo_log_fatfs.cpp` in `make -C test lognum`, over FatFs
-  R0.15 on FAT32 and exFAT, the logger, `card_cache.cpp` and `sd_cache.c`
-  as they ship, under them a card model with a read time, a transfer and a
-  busy time, the swap check's read started and polled as on the board, and
-  a modelled core0 loop with core1's supply guard: the row and end texts,
-  rounding at ±499 and ±500 µA and at `INT32_MIN`, every end's name and
-  cause, the run's end across the seq's wrap; the name sequence beside
-  `LOG00005.BFL`, a lower-case name, four and six digits, another
-  extension, a longer name, the number kept and read again after a mount,
-  `SRV99999.CSV`; the header, a row per reading byte for byte, a clipped
-  and a reset reading, the end line, the file truncated to its rows; no
-  entry written and no card read waited for during the run; a blackbox log
-  stopped with its `.TXT`; STOP not yet taken; a START not yet taken and a
-  refused one; BACK and every cut and trip; no sensor, no card; 60 KiB free,
-  no log; a 64 KiB reserve used up with room at the close and without, and
-  such a card then removed in the same run; the whole 16 MiB used, with
-  room after it and without; a card removed; a block not taken; the
-  directory's block unreadable, the run going on and the close failing; the
-  end line's block not taken at the close; the cache on for the log only,
-  one block a call, never a flush on the spot, every block's batch checked
-  without a wait, at most 100 µs a pass, rows dropped and counted on the
-  slow card; the hard cut and the gap between readings on both cards with
-  the log off and on. `test/test_sdio.cpp` (`testReadAsync()`):
-  `sdh_read_start()` and `sdh_read_poll()` on the simulated card with a data
-  latency. `test/test_sd_cache.cpp` (`testCheckAsync()`): the swap check
-  over several polls and each way it fails. `test/test_servo.cpp`
-  (`testLogScreen()`): HOLD TO START opening the log while the job is not
-  RUNNING and following the Start's seq, BACK, the line's texts and
-  colours, the blind note first, the widths; the frame `shot_servo_log.ppm`.
-  `test_ui.cpp`, `test_run_summary.cpp` and `test/sd_log_fatfs.cpp`: SERVO
-  TESTER's stop. Mutation check, first: 90 mutants of `src/servo_log.cpp`,
-  the slice's lines of `src/ui_servo.cpp`, `src/sd_log.h`,
-  `src/sd_log_next.cpp`, `src/sd_log.cpp`, `src/run_summary.cpp` and
-  `src/ui_sdlog.cpp`, 79 failing the tests. Then, after the read path and
-  the reserve: 76 mutants of `src/sdio/sd_host.c`'s read, `src/sdio/sd_cache.c`'s
-  swap check, `src/servo_log.cpp` and the new screen lines; 71 fail the
-  tests, 5 do not. Equivalent: the reserve kept at 16 MiB in place of the
-  half the card gave, where FatFs's fast seek refuses a write past the map
-  as a short write, CARD FULL as well; the end line tried after a drain that
-  failed, which fails the same way; the close's check of a cache already
-  Failed, where every FatFs write and the close fail too and record WRITE
-  FAILED; the poll's return once the writing has stopped, since the writing
-  stops only while nothing is queued, so the cache cannot fail before the
-  close, which the test of a full card then removed in the same run shows.
-  Not killed: a fast-seek map that fails, which needs a FAT read to fail at
-  the open while the reserve's FAT blocks are in the read cache from
-  f_expand(); no test reaches it.
+  R0.15 on FAT32 and exFAT, the logger, `card_cache.cpp` and `sd_cache.c` as
+  they ship, under them a card model with a read time, a transfer and a busy
+  time, the swap check's read started and polled as on the board, and a modelled
+  core0 loop with core1's supply guard and its 250 ms heartbeat and touch rules:
+  the row and end texts, rounding at ±499 and ±500 µA and at `INT32_MIN`, every
+  end's name and cause, the run's end across the seq's wrap, the open's limit at
+  1999 and 2000 ms and across the clock's wrap; the name sequence beside
+  `LOG00005.BFL`, a lower-case name, four and six digits, another extension, a
+  longer name, the number kept and read again after a mount, `SRV99999.CSV`; the
+  header, a row per reading byte for byte, a clipped and a reset reading, the
+  end line, the file truncated to its rows; every block of the open on the card
+  before the Start; no entry written and no card read waited for during the run;
+  a blackbox log stopped with its `.TXT`; STOP not yet taken; a START not yet
+  taken and a refused one; BACK and every cut and trip; no sensor, no card,
+  `servoLogWanted()` with each missing; a mounted card on which the cache does
+  not start; a FAT block that does not read during the reserve's search,
+  OpenFailed and tried once, not CARD FULL and not searched again for the small
+  reserve; exFAT's free count that does not read, OpenFailed; the open's flush
+  failing at the entry and at FSINFO, the card mounted again and the file
+  removed; an open given up and never followed by a Start's seq, ended by the
+  next open; 60 KiB free, no log and 3 blocks read, no search of the FAT; a 64
+  KiB reserve used up to its last block, 128 blocks, with room at the close and
+  without, and such a card then removed in the same run; the whole 4 MiB used,
+  with room after it and without, and the next START not at the limit; a card
+  removed; a block not taken; the directory's block unreadable, the run going on
+  and the close failing; the end line's block not taken at the close; the open's
+  time on both cards, 557 ms and 120 ms on the 1 ms card, given up at 2.2 s and
+  2.1 s on the slow one, the Start taken each time; a slow card with 600 files
+  in `LOGS/`, given up after the directory's scan of 11.8 s with no reserve
+  taken; the cache on for the log only, one block a call, never a flush on the
+  spot, every block's batch checked without a wait, at most 100 µs a pass, rows
+  dropped and counted on the slow card; the hard cut and the gap between
+  readings on both cards with the log off and on. `test/test_sdio.cpp`
+  (`testReadAsync()`): `sdh_read_start()` and `sdh_read_poll()` on the simulated
+  card with a data latency, the wait hook at every look, CMD12 after a failure,
+  a CRC error tried again. `test/test_sd_cache.cpp` (`testCheckAsync()`,
+  `testWaitHook()`): the swap check over several polls; a start the card does
+  not answer, a timeout and a CRC error each tried 3 times; a start refused as
+  not ready, an error bit in the status and another serial number failing at
+  once; the count starting again each batch; `sdc_begin()` collecting a read
+  under way; the wait hook in `sdc_settle()`, `sdc_flush()` and a full queue's
+  wait; KST's card stamp no older than 1 ms across three check reads that time
+  out. `test/test_servo.cpp` (`testLogScreen()`, `testLogStartOrder()`): the
+  note in the hold's frame, the open in the next, the Start in the one after
+  with an open of 800 ms, with and without the switch, core1 taking it with the
+  heartbeat and touch fresh; BACK between the open and the Start; the line's
+  texts and colours, the widths; the frame `shot_servo_log.ppm`. `test_ui.cpp`,
+  `test_run_summary.cpp` and `test/sd_log_fatfs.cpp`: SERVO TESTER's stop.
+- **Mutation check.** First: 90 mutants of `src/servo_log.cpp`, the slice's
+  lines of `src/ui_servo.cpp`, `src/sd_log.h`, `src/sd_log_next.cpp`,
+  `src/sd_log.cpp`, `src/run_summary.cpp` and `src/ui_sdlog.cpp`, 79 failing the
+  tests. Second, after the read path and the reserve: 76 mutants, 71 failing.
+  Third, after the start steps, the open's limit and flush and the check's
+  retries: 65 mutants, 6 of `src/sdio/sd_host.c`'s read, 13 of
+  `src/sdio/sd_cache.c`'s check, retries and waits, 13 of the start steps in
+  `src/ui_servo.cpp`, 33 of `src/servo_log.cpp`; 55 fail the tests, 10 do not.
+  Equivalent: the file's object marked closed after a recovery, where FatFs
+  refuses the old object by the volume's new id; a fast-seek map that fails, as
+  the 8 words hold a contiguous run's 4 and the reserve's FAT blocks are in
+  FatFs's window or the cache; the open's f_sync() failing, which needs a write
+  to fail while the queue holds the open's few blocks, a Failed cache the
+  flush's check catches the same way; the reserve kept at 4 MiB for the small
+  one, where fast seek refuses a write past the map as a short write, CARD FULL
+  as well; the end line tried after a drain that failed, which fails the same
+  way; the close's check of a Failed cache, where every FatFs write and the
+  close fail too and record WRITE FAILED; the poll's return once the writing has
+  stopped, the close catching a later failure the same way; the Start sent
+  without the live() check, and BACK without `startStepsDrop()`, each covered by
+  the other: BACK clears the step, and after BACK the claim is no longer
+  running, so the Start step gives the log the job's last seq as well; the step
+  cleared again on entering SERVO, which BACK has cleared already.
 - **Not on hardware.** No card has taken the log on the board: its read
   latency, its busy time, and the cuts' timing with the log on are not
   measured (bench test B12, a 60 s log with the supply on, is still to

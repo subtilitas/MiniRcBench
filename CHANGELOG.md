@@ -73,8 +73,8 @@ protocol.
   bus's `rx_ready()` (`busRxReady()` in `src/sdio/sd_pio.c`), start it in one
   flush step and collect it in a later one. A read with a CRC, frame, timeout or
   no-response error is tried again, 3 reads in all, with CMD12 after each
-  failure but no wait for its busy, as `sdh_read()` tries a block; a different
-  number fails the batch at once. Every wait of core0 on the cache calls the
+  failure but no wait for its busy, as `sdh_read()` tries a block; another
+  error or a different number fails the batch at once. Every wait of core0 on the cache calls the
   driver's wait hook, so KST SERVO's and HITEC SERVO's card stamp stays fresh
   across a check read that times out. `sdLogNameNumberOf()` and the scan and
   open of `src/sd_log_next.*` take the kind of log. Host tests in

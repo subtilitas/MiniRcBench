@@ -2238,12 +2238,10 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   read and 511 ms a block, it was given up at 2.2 s and 2.1 s, and the Start was
   taken every time. During the run a pass spends at most a block's transfer, 0.1
   ms, on the card. The hard cut came at most 25.01 ms after a step of current
-  without the log and 25.04 ms with it; the longest gap between readings grew
-  from 25.00 ms to at most 25.06 ms, by at most the block's transfer (`make -C
+  without the log and 25.03 ms with it; the longest gap between readings grew
+  from 25.00 ms to at most 25.07 ms, by at most the block's transfer (`make -C
   test lognum`, `test/servo_log_fatfs.cpp`). A real card's latency and the cuts'
   timing on the board with the log on are not measured.
-
-
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -3636,7 +3634,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.3%**: 15,345 of 15,606 lines in 94 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.3%**: 15,383 of 15,644 lines in 94 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
