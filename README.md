@@ -59,15 +59,17 @@ and neither has run on a board. A run
 summary per blackbox log, written beside the log and shown on SD LOG, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 designed in `docs/design/run-summary.md`; the owner answered its questions
-on 2026-11-15. Its slices 1 to 4 are built and host-tested: the summary
+on 2026-11-15. Its slices 1 to 5 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
 ([Blackbox logging to microSD](#blackbox-logging-to-microsd)), SD LOG
-showing it after a stop, and the clock read at start-up, dating the files
-and the summary's clock lines while it runs; the firmware cannot set the
-clock yet. The owner's board has no cell in the RTC socket J2, so its
-clock is to be set again after each power-up, and files written before the
-set have FAT date 0.
+showing it after a stop, the clock read at start-up, dating the files and
+the summary's clock lines while it runs, and the clock set from a computer
+over the USB serial port with `tools/set_clock.py`
+([Setting the clock](#setting-the-clock)). The owner's board has no cell
+in the RTC socket J2, so its clock is set again after each power-up, and
+files written before the set have FAT date 0. Nothing of it has run on the
+board.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
@@ -318,9 +320,10 @@ git -C ~/pico-sdk submodule update --init --depth 1 lib/tinyusb
 export PICO_SDK_PATH=~/pico-sdk
 ```
 
-`lib/tinyusb` is required. Serial telemetry runs over USB CDC (communications
-device class). Without the submodule the SDK builds with no USB support and
-reports no error.
+`lib/tinyusb` is required. Serial telemetry, and the line that sets the
+clock ([Setting the clock](#setting-the-clock)), run over USB CDC
+(communications device class). Without the submodule the SDK builds with no
+USB support and reports no error.
 
 Build:
 
@@ -681,6 +684,7 @@ colour, read-only values grey, and a toggle that is on fills blue.
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
 | BOARD | **VERSION** | The firmware version from `src/version.h`, for example `0.1.0`. Read-only |
+| BOARD | **CLOCK** | The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in grey, with the caption `SET AT EACH POWER-UP`: the board has no cell on J2, so `tools/set_clock.py` sets it again after each power-up ([Setting the clock](#setting-the-clock)). Redrawn once a minute and after a set while its row shows. Read-only |
 | DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG`. Read-only. See below |
 | DIAGNOSTICS | **UPTIME** | Time since boot as hours, minutes and seconds, `H:MM:SS`, for example `1:02:03`. Redrawn once a second while its row shows. Read-only |
 
@@ -1098,8 +1102,8 @@ looks the same to a board with no card-detect line
 `LOG99999.BFL` no log starts and SD LOG says so. A file is
 created new, never over an existing one. Logs an earlier firmware wrote to
 the card's root stay there and are not counted. Files carry the time of the
-board's real-time clock when the clock was running at start-up, else FAT
-date and time 0; the firmware cannot set the clock yet (see below).
+board's real-time clock while the clock is set in that power-up, else FAT
+date and time 0 (see below).
 
 Each log that stops clean gets a run summary beside it, `LOGS/LOGnnnnn.TXT`
 with the log's number (`src/run_summary.*`, `src/sd_log_summary.*`,
@@ -1146,8 +1150,7 @@ off, 07h to Control_2. FatFs stamps files through `get_fattime()`, which returns
 the kept time packed while the clock is set and 0 otherwise; the SD library's
 `my_rtc.c`, with its own `get_fattime()`, is not in the firmware build. The
 run summary takes the clock at the log's start and
-at its stop. Nothing in the firmware sets the clock yet: that is slice 5 of
-`docs/design/run-summary.md`, over USB. Tested against a register-level model of
+at its stop. Tested against a register-level model of
 the part in `test/fake_i2c.*` (`test/test_clock.cpp`); not tested on hardware.
 
 ![SD log screen](docs/log-preview.png)
@@ -1188,6 +1191,70 @@ RP2350 uses, forces VBUS detection on and never reports an unplug: a cable
 pulled with the board on its battery arrives as a bus suspend, as a sleeping
 host does, and a suspend is not handled. EJECT on SD LOG takes the card back
 then. Not tested on hardware.
+
+### Setting the clock
+
+The board has no cell in its RTC socket J2, so the clock is lost whenever
+3.3 V goes away: set it again after each power-up. Until then files carry
+FAT date 0 and a log's summary reads `not set`. There is no page on the
+device to set it; a computer on the USB cable sets it over the serial port:
+
+```text
+python3 tools/set_clock.py
+```
+
+It needs Python 3 and the `pyserial` package (`python3 -m pip install
+pyserial`), on Windows, Linux and macOS. It finds the board by its USB
+vendor and product IDs, 2E8A:4006, or takes `--port` (`COM5`,
+`/dev/ttyACM0`); `--list` names the boards it finds, `--query` reads the
+clock without setting it, `--help` lists the options. It waits for the
+computer's next whole second and sends it as local time: no time zone, no
+daylight saving, so at a daylight-saving change the clock is set again by
+hand. Its host tests are `test/test_set_clock.py`, run by `make -C test run`.
+
+The serial port takes one line command (`src/clock_line.*`), read on core0
+in `usbDevTask()`'s pass without waiting for input, one line a pass. A line
+ends at a CR (carriage return) or an LF (line feed); a line that does not
+start with `CLOCK` is ignored, and so is a line that starts as one of the
+board's answers does (`CLOCK SET `, `CLOCK NOW `, `CLOCK NOT SET`,
+`CLOCK REFUSED`), so that a terminal echoing them back, as Linux opens a
+`ttyACM` port by default, sets nothing. The rest are parsed byte for byte
+and answered with one line ending in CR LF:
+
+| Sent | Answer |
+|---|---|
+| `CLOCK 2026-11-14 15:42:07` | `CLOCK SET 2026-11-14 15:42:07` |
+| `CLOCK?` | `CLOCK NOW 2026-11-14 15:42:09` or `CLOCK NOT SET` |
+| a date or time out of range, or a day the month does not have (`2027-02-29`, `24:00:00`, years outside 2000 to 2099) | `CLOCK REFUSED: BAD DATE` |
+| any other line that starts with `CLOCK`, longer than 32 characters among them | `CLOCK REFUSED: BAD LINE` |
+| a line that starts as an answer does | nothing |
+| no answer at 0x51, a failed transfer, the bus stuck | `CLOCK REFUSED: RTC NOT ANSWERING` |
+| the read-back is not the time sent | `CLOCK REFUSED: RTC READ-BACK DIFFERS` |
+
+A set (`clockSet()`) is four transfers on the shared I2C1 bus, each noted to
+the current sensor's bus record (`senseNote()`): 58h to Control_1, the
+software reset; 20h and 07h from 00h, STOP with CLKOUT off; the time with OS
+clear and the weekday from the date; 00h to Control_1, STOP released. A read
+of 00h to 0Ah then checks the part runs at the time sent. The set is 308
+clocks on the wire, 770 µs at 400 kHz, the read-back included. Only a set
+that reads back changes the kept time, which runs from the moment STOP was
+released, and counts one set more; the part starts its count about 0.5 s
+after that, so the kept time can run up to 1 s behind it. A refused set
+leaves the kept time as it was; the part can be left reset or stopped and
+reads not set at the next start-up. A read-back that differs is followed by
+20h to Control_1, STOP, so a restart with 3.3 V up, after a watchdog or a
+crash, reads the part as not set rather than a time nothing checked.
+`usbDevClockLineEnable()` turns the line off for a user that takes the
+port's bytes over, the USB bridge; while off, no byte is read.
+
+A set is accepted at any time, during a log as well: it changes no card and
+no motor state, and the log's durations come from the timer. The log's
+summary then reads `Clock at stop: 2026-11-14 15:44:31 (clock set during
+the log)`. The set holds core0 for its 770 µs on the bus: a log frame due
+in that time is taken up to 770 µs late, and the frames keep their 2 ms
+schedule, which `sdLogTick()` resets only when it falls 8 ms behind; not
+measured on the board. SETTINGS → BOARD → CLOCK shows the kept time to the
+minute or `NOT SET`.
 
 ### Tuning
 
@@ -1936,6 +2003,7 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
 | Supply up | high | CENTRE, then what the controls command | `GP28 SUPPLY ON` |
 | STOP, on SERVO or SET | low in the same core1 pass as level 0 on the pins | level 0 | `GP28 SUPPLY ON AT START` |
 | A heartbeat lapse of 250 ms | low | level 0, `STALLED` | as SAFE |
+| A cut of the current sensor (below) | low in the same core1 pass as level 0 | level 0, the cut's chip | as SAFE |
 | BACK | low at once; an undriven input after the last pulse, before the pins return to DShot | level 0 | |
 
 - The supply counts as up at the first reading of the current sensor taken
@@ -1968,6 +2036,37 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
   `AND ITS BEC WIRE GETS THE SUPPLY.` in amber.
 - With SERVO SUPPLY at `OWN` the screen drives neither GP28 nor GP29, and the
   supply's rules and texts above do not apply.
+
+**Protection.** With CURRENT SENSE at `INA219` the servo tester stops on
+the sensor's readings (slice 4 of `docs/design/current-sense.md`,
+`src/supply_guard.*`). Each new reading is judged once; a sample already
+seen, or one 250 ms old or older, never counts. Not tested on hardware.
+
+| Cut | Condition | Applies | Chip, magenta | Dial |
+|---|---|---|---|---|
+| Hard | one reading at 3.0 A or more, either sign, or clipped (`GUARD_HARD_MA`) | always | `OVERCURRENT` | `STOPPED: CURRENT 3.0 A OR MORE` |
+| Stall | readings above 1.0 A for 400 ms, none at or below it between (`GUARD_STALL_MA`, `GUARD_STALL_MS`) | always | `STALL` | `STOPPED: OVER 1.0 A FOR 400 MS` |
+| Collapse | after the start-up reading, readings under 4.0 V for 1000 ms, none at or above it between (`GUARD_LOW_MV`, `GUARD_LOW_MS`) | GP28 or GP29 | `LOW SUPPLY` | `STOPPED: UNDER 4.0 V FOR 1000 MS` |
+| Sensor lost | the part not online, or no reading for 250 ms since START (`SENSE_STALE_MS`) | GP28 or GP29 | `NO SENSOR` | `CURRENT SENSOR LOST: SUPPLY OFF.` |
+
+- A cut ends the pulses and the sweep and, with the switch, takes the enable
+  pin low in the same core1 pass, before level 0 on the pins. The chip and
+  the dial's line stay until the next HOLD TO START; the dial's second line
+  reads `HOLD TO START AGAIN.`, or `START WAITS FOR THE CURRENT SENSOR.` while
+  a lost sensor refuses START.
+- A run of the stall or the collapse rule starts again after a gap of
+  250 ms between two readings. A transient fault of the bus, one or two
+  failed reads, cuts nothing; three take the part offline, which is the
+  sensor-lost cut.
+- With `OWN` only the hard and the stall cut apply: the bench knows neither
+  the user's supply voltage nor whether it runs through the sensor.
+  While RUNNING with `OWN` and the sensor not online, the dial's second line
+  reads `NO SENSOR READING: NO CURRENT CUTS.`, dim.
+- The stall rule, decision 13's, trips on many servos held at MIN or MAX
+  against their end stop; bench test B8 checks it on the owner's servos.
+- Beside a chip wider than RUNNING, `OVERCURRENT`, `LOW SUPPLY` or
+  `NO SENSOR`, the caption reads by role alone, `SIG  50 HZ  1000-2000 US`,
+  and at 333 Hz with one servo `SIG  333 HZ`.
 
 **SET.** The PULSE rows change only while SAFE. TYPE loads one of rcbench's
 profiles:
@@ -2210,6 +2309,16 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    has ended; the servo leaves programming mode and its backup in memory goes.
    The page then reads `THE SCREEN STALLED, SO THE BENCH SWITCHED THE
    SERVO'S SUPPLY OFF.`, and RETRY powers it up and reads it again.
+   With CURRENT SENSE at `INA219`, while the supply is on, one reading at
+   3.0 A or more, or clipped, or readings under 4.0 V for 1000 ms after the
+   start-up reading, switch it off in the same core1 pass, during an
+   operation too; the frame on the wire finishes, since the line driver
+   cannot cut one. The session is power-cycled as at a stall and the page
+   reads `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY
+   OFF.` or `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT
+   OFF.`; the supply stays off until RETRY. With the sensor not answering,
+   `-- A` on the strip, nothing is cut and the session goes on. Not tested
+   on hardware.
 
 | Result | Colour | Meaning |
 |---|---|---|
@@ -2434,7 +2543,10 @@ not 0 answers ID 0 is not measured.
    stalls for 250 ms switches it off: at once during the entry, else once
    a running read or write has ended. The page then reads
    `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` with
-   RETRY.
+   RETRY. With CURRENT SENSE at `INA219` the hard and the collapse cut of
+   KST SERVO apply too: the supply off and the transaction on the line cut
+   in the same core1 pass, a write's too, and the page names the cut. Not
+   tested on hardware.
 
 | Result | Colour | Meaning |
 |---|---|---|
@@ -2732,7 +2844,8 @@ at 0x40 is read once a second, and nothing but the register pointer is
 written to it. Each reading is published as a `SenseSample`
 (`src/sense.h`), under a lock of its own, for core1, where the servo
 tester's job reads the bus voltage back after each switch-on and switch-off
-([Servo tester](#servo-tester)).
+([Servo tester](#servo-tester)), and the servo, KST and Hitec jobs cut the
+supply on its readings (`src/supply_guard.*`).
 
 ## Device backups
 
@@ -2937,7 +3050,8 @@ src/
   blackbox_encode.{h,cpp} Betaflight blackbox log writer (pure)
   log_ring.{h,cpp}      ring buffer between encoder and card (pure)
   run_summary.{h,cpp}   a log's run summary: extremes, charge, file text (pure)
-  clock.{h,cpp}         the PCF85063A real-time clock: start-up read, kept time, get_fattime()
+  clock.{h,cpp}         the PCF85063A real-time clock: start-up read, the set, kept time, get_fattime()
+  clock_line.{h,cpp}    the serial port's CLOCK line command: parser, answers, line reader
   sd_log.{h,cpp}        FatFs writer, lifecycle, drop accounting
   sd_log_summary.{h,cpp} the run summary's .TXT beside its log, over FatFs
   sd_hw_config.c        SD wiring for the FatFs driver
@@ -2945,7 +3059,7 @@ src/
     sd_proto.{h,c}, sd_host.{h,c}  wire formats and card protocol (pure C)
     sd_pio.{h,c}, sd_pio.pio       RP2350 bus: 2 state machines, 32 instructions, 2 DMA channels
     sd_card_glue.c, compat/SDIO/   the SD library's callbacks and the two headers it includes
-  usb_dev.{h,cpp}       USB device: CDC serial plus MSC
+  usb_dev.{h,cpp}       USB device: CDC serial plus MSC; hands serial input to the CLOCK line
   usb_descriptors.c     USB descriptors
   usb_msc.{h,cpp}       the SD card as a read-only USB drive
   tusb_config.h         TinyUSB configuration
@@ -2959,6 +3073,7 @@ tools/
   make_wiring.py        draws docs/wiring.svg from the pin sources; --check fails on drift
   check_wiki.py         wiki link, anchor and image checks
   coverage.py           host-suite line coverage: writes and checks the README and STATUS.md figures
+  set_clock.py          sets the board's clock to the computer's local time over USB serial
 Doxyfile                API doc config -> docs/html/
 docs/                   generated docs + preview images
 docs/design/            design notes, kept in step with the code
@@ -3090,7 +3205,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 12,882 of 13,097 lines in 82 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.5%**: 12,794 of 12,993 lines in 83 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
@@ -3143,7 +3258,9 @@ the readout's text, and the touch driver, `cst328.cpp`, reading every frame
 beside the sensor present, absent and failing. It includes `cst328.cpp` in a
 namespace of its own, beside the scripted touch of `fakes.cpp` the screen tests
 use. rcbench has no test of `sense_bus.c` of its own; its tests reach it
-through drivers that are not copied.
+through drivers that are not copied. `test_supply_guard.cpp` holds the cuts'
+rules at each threshold, pure; `test_servo.cpp`, `test_kst_job.cpp`,
+`test_hitec_job.cpp` and the screens' suites run them on the INA219 model.
 
 The I2C fake also holds a QMI8658 model: a register file with the power-on
 values, WHO_AM_I and REVISION_ID, the pointer, address auto-increment and the

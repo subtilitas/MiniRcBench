@@ -26,10 +26,9 @@ in any letter case (`log00007.bfl` is `LOG00007.BFL` to the card); other
 names, such as `LOG0007.BFL`, `LOG00007.TXT` or a renamed log, are ignored.
 Existing logs are not overwritten. Logs an earlier firmware wrote to the
 card's root stay there and are not counted. Each file carries the time of
-the board's real-time clock when the clock was already running at start-up:
-the board reads it then, and cannot set it yet. Otherwise, as on a board
-whose clock lost its power, the files carry FAT date and time 0, which is
-no valid date; how a computer shows it is not verified.
+the board's real-time clock once the clock is set in that power-up (see
+[The clock](#the-clock)). Before that, the files carry FAT date and time
+0, which is no valid date; how a computer shows it is not verified.
 
 The board reads `LOGS` once, at the first log after the card is mounted
 (power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount) and at
@@ -45,6 +44,47 @@ it on a computer (`USB DRIVE` is read-only), put it back and press
 
 The board reads the card over 4-bit SDIO (Secure Digital Input/Output) at
 10 MHz.
+
+---
+
+## The clock
+
+The board's real-time clock dates the logs, their summaries and the device
+backups on the card. The board has no cell in its clock socket J2, so the
+clock is lost each time the board loses power: set it again after each
+power-up. There is no page on the device to set it. Connect the board to a
+computer with its USB cable and run, in the firmware's source folder:
+
+```text
+python3 tools/set_clock.py
+```
+
+It needs Python 3 and the pyserial package (`python3 -m pip install
+pyserial`), on Windows, Linux or macOS. It finds the board on USB by itself;
+with no board or several found it says so, and `--port` names one, for
+example `--port COM5` on Windows or `--port /dev/ttyACM0` on Linux.
+`--list` names the boards it finds. It answers with the time it set,
+`CLOCK SET 2026-11-14 15:42:07`. `--query` reads the clock without setting
+it, and `--help` lists the options.
+
+The clock takes the computer's local time: no time zone and no daylight
+saving. After a daylight-saving change, set it again.
+
+SETTINGS → BOARD → `CLOCK` shows the time to the minute, or `NOT SET` in
+grey; the line under it reads `SET AT EACH POWER-UP`. Until the set, files
+carry FAT date 0 and a run summary reads `Clock at start: not set`. A set
+during a log is allowed: the log goes on, and its summary adds `(clock set
+during the log)` to the stop's time.
+
+A terminal program on the board's serial port can send the same lines:
+`CLOCK 2026-11-14 15:42:07` sets the clock, `CLOCK?` reads it and is
+answered `CLOCK NOW` and the time. The board ignores its own answers when a
+terminal echoes them back. A wrong line is answered `CLOCK REFUSED: BAD
+LINE`, a date that does not exist `CLOCK REFUSED: BAD DATE`, a clock chip
+that does not answer `CLOCK REFUSED: RTC NOT ANSWERING`.
+
+The clock has not run on the board yet: the set, the time it keeps and the
+dates on a card are not verified.
 
 ---
 
@@ -105,7 +145,7 @@ It holds one value a line:
 | Line | Content |
 |---|---|
 | `Log`, `Firmware` | The log's file name and the firmware version |
-| `Clock at start`, `Clock at stop` | The board's clock at the log's start and stop, as `2026-11-14 15:42:07`, or `not set` when the clock was not running at start-up |
+| `Clock at start`, `Clock at stop` | The board's clock at the log's start and stop, as `2026-11-14 15:42:07`, or `not set` while the clock is not set; after a set during the log the stop's line adds `(clock set during the log)` ([The clock](#the-clock)) |
 | `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` or `ESC SETTINGS` |
 | `Duration`, `Armed` | The log's length and the time armed within it, in seconds |
 | `Max RPM` | The highest RPM: DShot eRPM (electrical RPM), or KISS eRPM in a log without DShot eRPM, divided by half the `MOTOR POLES` value at the stop |

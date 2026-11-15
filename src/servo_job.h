@@ -13,8 +13,8 @@
  * | State | Pins | Leaves it |
  * |---|---|---|
  * | SAFE | bound to PWM at level 0: no edges, the line low | Start |
- * | RUNNING | the pulse each servo's command maps to | Safe, a heartbeat lapse, a cut of the switched supply |
- * | Tripped | SAFE, latched after a heartbeat lapse, a silent touch controller or a stuck bus while RUNNING; kept across rebinds | Start, or a new screen session (servoJobNewSession()) |
+ * | RUNNING | the pulse each servo's command maps to | Safe, a heartbeat lapse, a cut |
+ * | Tripped | SAFE, latched after a heartbeat lapse, a silent touch controller, a stuck bus or a cut of supply_guard.h while RUNNING; kept across rebinds | Start, or a new screen session (servoJobNewSession()) |
  *
  * Every pass of `loop1()`, the job takes a new profile while SAFE, takes a new
  * command, checks the heartbeat, computes each servo's target (the sweep curve
@@ -36,8 +36,13 @@
  * current-sense.md read: off while SAFE, on at START, off at STOP, at a
  * heartbeat lapse, at a cut and at the release. servoPowerStep(), pure, makes
  * every decision about it; the job drives the enable pin from its phase.
- * With `OWN` the job drives no enable pin and servoPowerStep() changes
- * nothing.
+ * With `OWN` the job drives no enable pin, and servoPowerStep() applies
+ * only the hard and the stall cut of supply_guard.h, which end the pulses.
+ *
+ * With CURRENT SENSE at INA219 the guard (supply_guard.h) is armed from
+ * START: the hard and the stall cut always, and with the switch the
+ * collapse cut and the sensor-lost cut too. A cut ends the pulses, switches
+ * the supply off in the same pass, and latches the trip with its cause.
  *
  * | Supply | Enable pin | Pulses |
  * |---|---|---|
@@ -57,15 +62,16 @@
 #include "sense.h"
 #include "servo_model.h"
 #include "servo_sweep.h"
+#include "supply_guard.h"
 
 /**
  * @defgroup servo_power_rules The switched supply's read-back
  * @brief The bus voltage at the sensor's IN-, the servo's side of the shunt
  *        (docs/design/current-sense.md, "Read-back from the bus voltage").
+ *        @ref SUPPLY_ON_MIN_MV and @ref SUPPLY_READ_LAG_MS are in
+ *        supply_guard.h, which the collapse rule shares.
  * @{
  */
-/** @brief On: after the switch-on, the first reading at or above this, mV. */
-#define SUPPLY_ON_MIN_MV    4500u
 /**
  * @brief Did not come on: no reading at or above @ref SUPPLY_ON_MIN_MV this
  *        long after the switch-on, ms; without a sensor, the pulses start
@@ -78,18 +84,6 @@
 #define SUPPLY_NOT_OFF_MV   2500u
 /** @brief ... taken this long or longer after the switch-off, ms. */
 #define SUPPLY_NOT_OFF_MS   2000u
-/**
- * @brief A reading counts for the read-back only when core0 took it more
- *        than this long after the switch command, ms.
- *
- * SenseSample::takenMs is when core0 read the result, not when the INA219
- * measured it: the bus sample of the bench's configuration is up to one
- * conversion cycle, 17.55 ms, older than the read. A reading taken this
- * long or less after the command can still carry the output's voltage from
- * before it. 18 is 17.55 ms rounded up; "more than" covers the part of a
- * millisecond that millis() hides.
- */
-#define SUPPLY_READ_LAG_MS  18u
 /** @brief ServoPower::upMs while no start-up time was measured. */
 #define SUPPLY_UP_NONE      0xFFFFu
 /** @} */
@@ -137,6 +131,10 @@ enum class ServoPowerFault : uint8_t {
 	NoStart,      /**< No reading at or above 4.5 V within 500 ms of the switch-on. */
 	TouchSilent,  /**< The touch controller did not answer for 250 ms: STOP is out of reach. */
 	BusStuck,     /**< The sensor found the shared bus stuck: STOP is out of reach. */
+	Overcurrent,  /**< The hard cut: a reading at or above 3.0 A, or clipped. */
+	Stall,        /**< The stall cut: readings above 1.0 A for 400 ms. */
+	LowSupply,    /**< The collapse cut: readings under 4.0 V for 1000 ms after start-up. */
+	NoSensor,     /**< The sensor-lost cut: the part offline, or no reading for 250 ms. */
 };
 
 /** @brief The read-back after a switch-off, with a sensor declared. */
@@ -159,7 +157,7 @@ enum class ServoStartBlock : uint8_t {
 struct ServoStatus {
 	uint16_t ackSeq;      /**< Seq of the last command taken. */
 	bool     running;     /**< RUNNING: START taken; the pins carry pulses once the supply is up. */
-	bool     tripped;     /**< A heartbeat lapse, a silent touch controller or a stuck bus stopped the pulses. */
+	bool     tripped;     /**< A heartbeat lapse, a silent touch controller, a stuck bus or a cut stopped the pulses; powerFault names the last three. */
 	bool     sweeping;    /**< A sweep runs. */
 	uint8_t  bindError;   /**< 0, or the Core1JobError of a refused rebind. */
 	uint16_t outUs[2];    /**< What each pin carries, us; 0 for none. */
@@ -259,6 +257,7 @@ struct ServoPower {
 	uint32_t        onMs;      /**< millis() of the last switch-on. */
 	uint32_t        offMs;     /**< millis() of the last switch-off. */
 	uint16_t        upMs;      /**< The last start-up time, ms; @ref SUPPLY_UP_NONE for none. */
+	SupplyGuard     guard;     /**< The cuts on the sensor's readings, armed while RUNNING. */
 };
 
 /** @brief What servoPowerStep() reads on one pass. */
@@ -268,8 +267,9 @@ struct ServoPowerIn {
 };
 
 /**
- * @brief Put @p p into Off at a bind: the supply off, no read-back. The
- *        fault is kept unless @p fresh, as the trip latch is.
+ * @brief Put @p p into Off at a bind: the supply off, no read-back, the
+ *        guard disarmed. The fault is kept unless @p fresh, as the trip latch
+ *        is.
  * @param[out] p    The state.
  * @param switched  SERVO SUPPLY at GP28 or GP29.
  * @param fresh     A new screen session: the fault and the start-up time go.
@@ -302,10 +302,16 @@ void servoPowerOff(ServoPower *p, bool sensed, uint32_t nowMs);
 /**
  * @brief One pass of the switched supply, after servoCoreStep(). Pure.
  *
- * With no switch it changes nothing. With one:
+ * With a sensor declared, the guard (supply_guard.h) is armed at the first
+ * pass RUNNING and disarmed at the first pass not. With no switch it then
+ * applies the hard and the stall cut, and nothing else: a cut ends the
+ * pulses and the sweep, outUs is 0 on both pins, the trip latches and the
+ * fault records the cut; START clears the fault. With one:
  *
- * 1. While RUNNING, a silent touch controller or a stuck bus ends the pulses
- *    and the sweep, latches the trip and records the fault.
+ * 1. While RUNNING, a silent touch controller, a stuck bus or a cut of the
+ *    guard, in this order, ends the pulses and the sweep, latches the trip
+ *    and records the fault. With the switch the guard applies every rule:
+ *    hard, stall, collapse and sensor lost.
  * 2. Not RUNNING: the supply off (servoPowerOff()). RUNNING with the supply
  *    off: the switch-on, which clears the fault and the start-up time.
  * 3. Starting: with a sensor, a fresh reading taken more than

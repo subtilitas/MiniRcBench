@@ -29,6 +29,8 @@
 #include "kst_supply_sim.h"
 #include "servo_supply.h"
 #include "settings.h"
+#include "sense.h"
+#include "fake_i2c.h"
 
 static int g_forbidden = 0;
 
@@ -57,21 +59,38 @@ static bool g_alive = true;
 static SupplySim g_sup;
 static bool      g_switched = false;
 
+/** @brief The INA219 on the fake bus while a test of the cuts runs, or null. */
+static FakeIna219 *g_ina = nullptr;
+/** @brief The converter's output while the enable pin is high, V. */
+static double      g_vout = 5.0;
+/** @brief millis() of the last sensor read. */
+static uint32_t    g_senseMs = 0;
+
 /** @brief The level the bench drives on GP28. */
 static bool enHigh() {
 	FakePin p = fakePin(servoSupplyPinOf(1));
 	return p.output && p.high;
 }
 
-/** @brief @p ms passes of core1, one a millisecond. */
+/** @brief @p ms passes of core1, one a millisecond; with g_ina, core0 reads it every 25 ms first. */
 static void passes(uint32_t ms) {
 	for (uint32_t i = 0; i < ms; i++) {
 		fakeAdvance(1);
 		if (g_alive) escHeartbeat();
 		if (g_switched) supplySimUpdate(&g_sup, enHigh(), time_us_32());
+		if (g_ina && millis() - g_senseMs >= 25) {
+			g_ina->voutV = enHigh() ? g_vout : 0.0;
+			g_senseMs = millis();
+			senseTick(g_senseMs);
+		}
 		core1JobPoll();
 		if (g_switched) supplySimUpdate(&g_sup, enHigh(), time_us_32());
 	}
+}
+
+/** @brief Passes up to and including the next one in which core0 reads the sensor. */
+static void passToRead() {
+	do passes(1); while (g_senseMs != millis());
 }
 
 static KstStatus status() {
@@ -921,6 +940,290 @@ static void testSwitchedClose() {
 }
 
 // ---------------------------------------------------------------------------
+// the cuts of the current sensor's guard
+// ---------------------------------------------------------------------------
+
+/** @brief CURRENT SENSE at INA219 with the part on the fake bus, read every 25 ms. */
+static void sensorOn() {
+	fakeI2cReset();
+	settings()->currentSense = 1;
+	senseConfigure(0);   // a fresh part record: probed at the next read
+	senseConfigure(1);
+	g_ina = fakeI2cAddIna219(INA219_ADDR);
+	g_vout = 5.0;
+	g_senseMs = millis();
+	senseTick(millis());
+}
+
+/** @brief CURRENT SENSE back at NONE, the bus empty. */
+static void sensorOff() {
+	g_ina = nullptr;
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+}
+
+/** @brief Switched, with the sensor: InMode with a backup, the supply on. */
+static void sensedInMode() {
+	sensorOn();
+	switchedInMode();
+}
+
+static void testSwitchedCuts() {
+	section("KST job, switched: the hard and the collapse cut");
+
+	// The hard cut during a read: off in the pass that reads 3.2 A.
+	sensedInMode();
+	checkTrue("in the mode, the supply on, a backup", status().job == KstJobState::InMode &&
+	          enHigh() && status().hasBackup && status().cut == GuardCut::None);
+	g_ina->currentA = 2.9;
+	passes(1000);
+	checkTrue("2.9 A for 1 s: on, no stall rule here", enHigh() && status().job == KstJobState::InMode);
+	send(KstOp::ReadAll);
+	passes(1);
+	checkTrue("a read runs", status().job == KstJobState::Busy);
+	g_ina->currentA = 3.2;
+	passToRead();
+	checkTrue("3.2 A read: GP28 low in that pass", !enHigh());
+	checkTrue("the read finishes its frame, then SearchEnded",
+	          until(KstJobState::SearchEnded, 10));
+	KstStatus st = status();
+	checkTrue("the cut named Hard, the session power-cycled",
+	          st.cut == GuardCut::Hard && !st.inMode && !st.hasBackup && !st.stalled);
+	checkInt("the read's result: aborted", st.result, KST_SES_ERR_ABORTED);
+	unsigned ons = g_sup.switchOns;
+	g_ina->currentA = 0;
+	passes(3000);
+	checkTrue("no switch-on until RETRY, the cut still Hard", !enHigh() && g_sup.switchOns == ons &&
+	          status().job == KstJobState::SearchEnded && status().cut == GuardCut::Hard);
+	uint16_t seq = send(KstOp::Search);
+	passes(1);
+	checkTrue("RETRY: taken, the cut cleared", status().ackSeq == seq &&
+	          status().job == KstJobState::Searching && status().cut == GuardCut::None);
+	checkTrue("found again after the off time", until(KstJobState::InMode, 5000) && enHigh());
+
+	// The collapse in the mode: 3.9 V for 1000 ms.
+	g_ina->currentA = 0.1;
+	passes(100);
+	g_vout = 3.9;
+	passToRead();
+	uint32_t lowAt = millis();
+	while (enHigh() && millis() - lowAt < 2000) passToRead();
+	checkInt("3.9 V: off at the reading 1000 ms after the first under 4.0 V",
+	         millis() - lowAt, 1000);
+	st = status();
+	checkTrue("Collapse, SearchEnded at once: nothing ran", st.cut == GuardCut::Collapse &&
+	          st.job == KstJobState::SearchEnded && !st.inMode);
+	g_vout = 5.0;
+
+	// A write cut: the screen learns the session had written.
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	send(KstOp::ReadAll);
+	passes(1);
+	until(KstJobState::InMode, 2000);
+	KstCmd edit;
+	memset(&edit, 0, sizeof(edit));
+	edit.op = KstOp::Edit;
+	edit.target = status().image;
+	kst_field_edit(&edit.target, KST_F_BOOST, 19);
+	kstJobCommand(&edit);
+	passes(1);
+	for (int i = 0; i < 5000 && status().job == KstJobState::Busy && status().wroteRegs == 0; i++)
+		passes(1);
+	checkTrue("a write under way, a register written",
+	          status().job == KstJobState::Busy && status().wroteRegs != 0);
+	g_ina->currentA = 3.3;
+	passToRead();
+	checkTrue("3.3 A during the write: GP28 low in that pass", !enHigh());
+	until(KstJobState::SearchEnded, 20);
+	st = status();
+	checkTrue("SearchEnded, Hard, the write in doubt kept for the screen",
+	          st.cut == GuardCut::Hard && st.stallWrote && st.wroteRegs == 0);
+	g_ina->currentA = 0;
+
+	// A cut during a search's entry: the search ends, off.
+	send(KstOp::Search);
+	passes(2005);
+	checkTrue("an attempt's entry, the supply on", enHigh() &&
+	          status().job == KstJobState::Searching);
+	g_sup.windowUs = 1;   // the servo misses the entry: the search keeps trying
+	g_ina->currentA = 3.2;
+	passToRead();
+	checkTrue("3.2 A in the entry: GP28 low", !enHigh());
+	checkTrue("the search ends after its frame", until(KstJobState::SearchEnded, 10) &&
+	          status().cut == GuardCut::Hard && status().seek != KstSeek::Searching);
+	ons = g_sup.switchOns;
+	passes(2500);
+	checkTrue("no new attempt", g_sup.switchOns == ons && !enHigh());
+	g_sup.windowUs = 0;
+	g_ina->currentA = 0;
+
+	// A cut while an entry frame is on the wire: the search finishes that
+	// frame, the supply off throughout, then SearchEnded.
+	fakeKstFrameHold(5000);
+	g_sup.windowUs = 1;
+	send(KstOp::Search);
+	for (int i = 0; i < 4000 && !(enHigh() && fakeKstLineBusy()); i++) passes(1);
+	checkTrue("an entry frame on the wire, the supply on", enHigh() && fakeKstLineBusy());
+	ons = g_sup.switchOns;
+	g_ina->currentA = 3.2;
+	g_senseMs = millis() - 25;
+	passes(1);
+	checkTrue("3.2 A: off, the search still finishing its frame",
+	          !enHigh() && status().job == KstJobState::Searching && fakeKstLineBusy());
+	bool rose = false;
+	for (int i = 0; i < 20 && status().job == KstJobState::Searching; i++) {
+		passes(1);
+		rose = rose || enHigh();
+	}
+	checkTrue("then SearchEnded, the search ended, the supply never on again",
+	          status().job == KstJobState::SearchEnded && status().seek != KstSeek::Searching &&
+	          !rose && g_sup.switchOns == ons);
+	// The same with BACK in the cut's pass: the leave drains the search.
+	g_ina->currentA = 0;
+	send(KstOp::Search);
+	for (int i = 0; i < 4000 && !(enHigh() && fakeKstLineBusy()); i++) passes(1);
+	checkTrue("again an entry frame on the wire, the supply on", enHigh() && fakeKstLineBusy() &&
+	          status().job == KstJobState::Searching);
+	ons = g_sup.switchOns;
+	g_ina->currentA = 3.2;
+	g_senseMs = millis() - 25;
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("3.2 A and BACK while a frame is out: off, Leaving",
+	          !enHigh() && status().job == KstJobState::Leaving && status().cut == GuardCut::Hard);
+	rose = false;
+	for (int i = 0; i < 2100 && status().job != KstJobState::Closed; i++) {
+		passes(1);
+		rose = rose || enHigh();
+	}
+	checkTrue("closed, the supply never on again", status().job == KstJobState::Closed && !rose &&
+	          g_sup.switchOns == ons);
+	fakeKstFrameHold(0);
+	g_sup.windowUs = 0;
+	g_ina->currentA = 0;
+	finishSwitched();
+	sensorOn();
+	startSwitched();
+
+	// A cut in a positive entry delay: the supply on, no frame yet.
+	send(KstOp::Search);
+	passes(1);
+	s_seek.delayMs = 300;
+	passes(2100);
+	checkTrue("the entry delay: on, no entry", enHigh() &&
+	          s_seek.phase == KstSupplyPhase::Delay);
+	uint32_t frames = fakeKstSim()->n_frames;
+	g_ina->currentA = 3.2;
+	passToRead();
+	checkTrue("3.2 A in the delay: off, SearchEnded at once, no frame",
+	          !enHigh() && status().job == KstJobState::SearchEnded &&
+	          status().seek != KstSeek::Searching && fakeKstSim()->n_frames == frames);
+	passes(500);
+	checkTrue("still no frame", fakeKstSim()->n_frames == frames && !enHigh());
+	g_ina->currentA = 0;
+
+	// A cut in REBOOT's entry: then RETRY finds the servo again.
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	send(KstOp::ReadAll);
+	passes(1);
+	until(KstJobState::InMode, 2000);
+	send(KstOp::Reboot);
+	passes(3005);
+	checkTrue("REBOOT's entry runs", status().job == KstJobState::Rebooting &&
+	          (status().reboot == KstReboot::Enter || status().reboot == KstReboot::Read));
+	g_ina->currentA = 3.2;
+	passToRead();
+	checkTrue("3.2 A in REBOOT's entry: off", !enHigh());
+	checkTrue("SearchEnded after the frame", until(KstJobState::SearchEnded, 10));
+	g_ina->currentA = 0;
+	send(KstOp::Search);
+	checkTrue("RETRY: found and read again", until(KstJobState::InMode, 5000) && enHigh());
+
+	// A cut in REBOOT's on wait.
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	send(KstOp::ReadAll);
+	passes(1);
+	until(KstJobState::InMode, 2000);
+	send(KstOp::Reboot);
+	passes(2100);
+	checkTrue("REBOOT's on wait", status().reboot == KstReboot::On && enHigh());
+	g_ina->currentA = 3.2;
+	passToRead();
+	st = status();
+	checkTrue("3.2 A in the on wait: off, SearchEnded at once, no entry",
+	          !enHigh() && st.job == KstJobState::SearchEnded && st.reboot == KstReboot::None &&
+	          st.cut == GuardCut::Hard);
+	g_ina->currentA = 0;
+
+	// BACK while the cut read still finishes its frame: the leave takes it.
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	send(KstOp::ReadAll);
+	passes(1);
+	g_ina->currentA = 3.2;
+	g_senseMs = millis() - 25;
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("3.2 A and BACK in one pass: off, Leaving, the cut named",
+	          !enHigh() && status().job == KstJobState::Leaving && status().cut == GuardCut::Hard);
+	checkTrue("closed 2000 ms after the cut", until(KstJobState::Closed, 2100));
+	finishSwitched();
+	// A new claim forgets the cut: its search switches on again.
+	startSwitched();
+	g_ina->currentA = 0;
+	checkTrue("a new claim after a cut: no cut in its status", status().cut == GuardCut::None);
+	send(KstOp::Search);
+	checkTrue("a new claim after a cut: found, on", until(KstJobState::InMode, 5000) && enHigh() &&
+	          status().cut == GuardCut::None);
+
+	// BACK after a cut: the close waits 2000 ms from the cut's switch-off.
+	send(KstOp::Search);
+	until(KstJobState::InMode, 5000);
+	g_ina->currentA = 3.2;
+	passToRead();
+	uint32_t cutUs = time_us_32();
+	g_ina->currentA = 0;
+	send(KstOp::Leave);
+	passes(1);
+	checkTrue("BACK after the cut: closed 2000 ms after it", until(KstJobState::Closed, 2100) &&
+	          fakeKstLineClosedUs() - cutUs >= 1999000u);
+	finishSwitched();
+
+	// The release's first pass reads a cut too: the read it aborts would
+	// keep the supply on until its frame ends.
+	sensedInMode();
+	send(KstOp::ReadAll);
+	passes(1);
+	g_ina->currentA = 3.2;
+	fakeAdvance(1);
+	escHeartbeat();
+	g_senseMs = millis();
+	senseTick(g_senseMs);
+	core1JobStop();
+	core1JobPoll();
+	checkTrue("3.2 A at the release: GP28 low in its first pass",
+	          !enHigh() && status().cut == GuardCut::Hard && status().job == KstJobState::Leaving);
+	g_ina->currentA = 0;
+	finishSwitched();
+
+	// CURRENT SENSE at NONE: 3.2 A through a sensor nobody reads cuts nothing.
+	sensorOff();
+	switchedInMode();
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->currentA = 3.2;
+	ina->voutV = 5.0;
+	passes(500);
+	checkTrue("NONE: on, in the mode", enHigh() && status().job == KstJobState::InMode &&
+	          status().cut == GuardCut::None);
+	finishSwitched();
+	fakeI2cReset();
+}
+
+// ---------------------------------------------------------------------------
 // the card phase
 // ---------------------------------------------------------------------------
 
@@ -1041,5 +1344,6 @@ void runKstJobTests() {
 	testSwitchedLapse();
 	testSwitchedLatch();
 	testSwitchedClose();
+	testSwitchedCuts();
 	testCardPhase();
 }

@@ -84,9 +84,11 @@ Position, wird kraftlos oder fährt in seine eigene Failsafe-Stellung.
 Die Zeile unter dem Titel zeigt den Pin mit Rolle und Nummer, die Framerate
 und den Impulsbereich, `SIG GP0  50 HZ  1000-2000 US`, oder
 `SIG+AUX  50 HZ  1000-2000 US` mit zwei Servos, dazu eine Statusanzeige:
-`SAFE` (grün), `RUNNING` (rot) oder `STALLED` (magenta). Bei 333 Hz mit
-einem MIN ab 1000 µs hat die Zeile keinen Platz für die Nummer und zeigt
-`SIG  333 HZ  1000-2000 US`, oder `SIG+AUX  333 HZ` mit zwei Servos.
+`SAFE` (grün), `RUNNING` (rot), `STALLED` (magenta), oder nach einer
+Abschaltung durch den Stromsensor `OVERCURRENT`, `STALL`, `LOW SUPPLY` oder
+`NO SENSOR` (magenta, siehe [Die Abschaltungen](#die-abschaltungen)). Bei
+333 Hz mit einem MIN ab 1000 µs hat die Zeile keinen Platz für die Nummer und
+zeigt `SIG  333 HZ  1000-2000 US`, oder `SIG+AUX  333 HZ` mit zwei Servos.
 
 In SAFE mit einem Servo steht rechts in der Anzeigezeile `TWO SERVOS:` und
 `SET > SERVOS`: Die Zeile SERVOS des SET-Bildschirms schaltet Servo B ein
@@ -111,7 +113,9 @@ nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
   SET-Bildschirm zeigt, wie lange es dauerte, `SUPPLY UP IN 25 MS`.
 - **Wieder aus:** bei `STOP`, wenn der Bildschirm 250 ms hängt, wenn das
   Touchpanel 250 ms nicht antwortet (`STOPPED: TOUCH DID NOT ANSWER`), wenn
-  der I2C-Bus hängt (`STOPPED: TOUCH BUS STUCK`), und bei `BACK`.
+  der I2C-Bus hängt (`STOPPED: TOUCH BUS STUCK`), bei einer Abschaltung
+  durch den Stromsensor ([Die Abschaltungen](#die-abschaltungen)), und bei
+  `BACK`.
 - **Kam nicht hoch:** Mit dem Sensor und ohne 4,5 V innerhalb von 500 ms geht
   der Wandler aus, und das Zifferblatt zeigt
   `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
@@ -228,6 +232,43 @@ der Strom des Servos nur über die Schraubklemme des Moduls.
 - Während ein Sweep läuft, steht sein Zähler oben auf der Skala.
 
 Der Strom wird 40-mal pro Sekunde gelesen, jeder Wert als Mittel über 17 ms.
+
+### Die Abschaltungen
+
+Mit dem Stromsensor hält der Servotester bei diesen Messwerten von selbst
+an. Nicht auf Hardware getestet: Kein INA219 und kein Wandler war an der
+Platine.
+
+| Anzeige | Zifferblatt | Wann |
+|---|---|---|
+| `OVERCURRENT` | `STOPPED: CURRENT 3.0 A OR MORE` | ein Messwert von 3,0 A oder mehr, in beiden Richtungen, oder ein Messwert am Ende des Messbereichs |
+| `STALL` | `STOPPED: OVER 1.0 A FOR 400 MS` | Messwerte über 1,0 A für 400 ms, keiner dazwischen bei 1,0 A oder darunter |
+| `LOW SUPPLY` | `STOPPED: UNDER 4.0 V FOR 1000 MS` | mit SERVO SUPPLY auf `GP28` oder `GP29`: Messwerte unter 4,0 V für 1000 ms, nachdem die Versorgung hochkam |
+| `NO SENSOR` | `CURRENT SENSOR LOST: SUPPLY OFF.` | mit SERVO SUPPLY auf `GP28` oder `GP29`: Der Sensor antwortet nicht mehr, oder 250 ms vergehen ohne Messwert |
+
+- Die Impulse enden sofort, und mit `GP28` oder `GP29` geht der Wandler im
+  selben Schritt des zweiten Prozessorkerns aus. Die Anzeige bleibt bis zum
+  nächsten `HOLD TO START`; die zweite Zeile des Zifferblatts zeigt
+  `HOLD TO START AGAIN.`
+- Solange der Sensor nach einer Abschaltung nicht antwortet, zeigt die
+  zweite Zeile des Zifferblatts `START WAITS FOR THE CURRENT SENSOR.`, und
+  `HOLD TO START` ist grau; antwortet er wieder, `HOLD TO START AGAIN.`
+- Mit `OWN` gelten nur `OVERCURRENT` und `STALL`: Die Bank kennt weder die
+  Spannung deiner Versorgung noch, ob ihr Strom durch den Sensor fließt.
+  Was das Servo ohne Impulse tut, ist Sache des Servos. Antwortet der
+  Sensor mit `OWN` im Lauf nicht mehr, wird nichts abgeschaltet, und das
+  Zifferblatt zeigt `NO SENSOR READING: NO CURRENT CUTS.` in Grau.
+- Die Stall-Abschaltung löst auch bei vielen Servos aus, die bei MIN oder
+  MAX an ihrem eigenen Endanschlag stehen und dort Blockierstrom ziehen.
+  Nicht gemessen; der Banktest B8 der Entwurfsnotiz prüft es.
+- Eine Abschaltung braucht nach einem Stromsprung bis etwa 60 ms. Die
+  Abschaltungen schützen das Servo und den Shunt des Sensors; sie sind
+  keine Sicherung.
+- Neben `OVERCURRENT`, `LOW SUPPLY` und `NO SENSOR` nennt die Zeile unter
+  dem Titel den Pin nur mit der Rolle, `SIG  50 HZ  1000-2000 US`, und bei
+  333 Hz mit einem Servo `SIG  333 HZ`.
+
+<img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in Magenta, STOPPED: CURRENT 3.0 A OR MORE auf dem Zifferblatt"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in Magenta, CURRENT SENSOR LOST: SUPPLY OFF. über START WAITS FOR THE CURRENT SENSOR.">
 
 ---
 

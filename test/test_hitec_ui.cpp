@@ -1155,6 +1155,61 @@ static void testSupplyCurrent() {
 	fakeI2cReset();
 }
 
+/** @brief Whether @p text, wrapped at 37 characters, is on the main view's lines from @p k, in @p col. */
+static bool wrappedAt(int k, const char *text, uint16_t col, int lines) {
+	char l[3][48];
+	int n = kstWrap(text, 37, l, 3);
+	if (n != lines || strstr(l[n - 1], "...")) return false;
+	for (int i = 0; i < n; i++)
+		if (!mainLineIs(k + i, l[i], col)) return false;
+	return true;
+}
+
+static void testSupplyCuts() {
+	section("Hitec screen: the hard and the collapse cut");
+	freshHitec(HITEC_D, true);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	fakeI2cReset();
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->voutV = 5.0;
+	checkTrue("the field list on GP28", toList(HITEC_D) && enHigh());
+	ina->currentA = 3.2;
+	hitecFrames(3);
+	checkTrue("3.2 A: the supply off, Main with RETRY", !enHigh() &&
+	          uiHitecView() == HitecView::Main && job().cut == GuardCut::Hard &&
+	          ctlEnabled(UI_FIX(HitecCtl::Retry)));
+	checkTrue("the strip: SIG GP0  SUPPLY OFF", lineIs(UI_STRIP_Y + 4, "SIG GP0  SUPPLY OFF", C_DIM));
+	checkTrue("the cause on two amber lines, then RETRY's line",
+	          wrappedAt(0, UI_CUT_HARD_TEXT, C_AMBER, 2) && mainLineIs(2, UI_CUT_RETRY, C_AMBER));
+	checkControlTable("Hitec cut");
+	fakeDumpFrame("shot_hitec_cut.ppm");
+	ina->currentA = 0.1;
+	tapId(UI_FIX(HitecCtl::Retry));
+	checkTrue("RETRY reads again", untilView(HitecView::List, 1200) && enHigh() &&
+	          job().cut == GuardCut::None);
+	ina->voutV = 3.8;
+	for (int i = 0; i < 60 && enHigh(); i++) hitecFrame();
+	hitecFrames(2);
+	checkTrue("3.8 V for 1 s: off, the collapse's text", !enHigh() &&
+	          job().cut == GuardCut::Collapse && wrappedAt(0, UI_CUT_LOW_TEXT, C_AMBER, 2) &&
+	          mainLineIs(2, UI_CUT_RETRY, C_AMBER));
+	// A stall, not a cut: the stall's own text still.
+	ina->voutV = 5.0;
+	tapId(UI_FIX(HitecCtl::Retry));
+	untilView(HitecView::List, 1200);
+	for (int i = 0; i < 400; i++) core1Pass();
+	hitecFrames(4);
+	checkTrue("a stall after RETRY: the stall's text, no cut",
+	          job().stalled && job().cut == GuardCut::None &&
+	          wrappedAt(0, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER, 2));
+	leaveAll();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	supply(false);
+}
+
 /**
  * @brief A write that waits for the card's flush ends with its page: a stall
  *        while it waits takes the screen to Main, and the next write opens
@@ -2084,6 +2139,7 @@ void runHitecUiTests() {
 	testRecordAtEntry();
 	testClassic();
 	testSupplyCurrent();
+	testSupplyCuts();
 	testFlushWaitEndsWithThePage();
 	testStallAndBack();
 	testIdAndBack();

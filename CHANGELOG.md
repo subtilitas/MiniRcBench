@@ -68,6 +68,51 @@ protocol.
   backup as they open, `SHOWN ONLY. BACKUP BJ018`. ESC CONFIG's line reads
   `BLUEJAY, BLHELI_S: READ AND WRITTEN.` Tested on rcbench's simulated ESC
   only; nothing has been written to an ESC.
+- After v0.1.0-rc1: the cuts on the current sensor's readings, slice 4 of
+  [current-sense.md](docs/design/current-sense.md#slice-4-as-built)
+  (`src/supply_guard.*`), with CURRENT SENSE at INA219. The servo tester
+  stops on one reading of 3.0 A or more of either sign or a clipped one
+  (`OVERCURRENT`), on readings above 1.0 A for 400 ms (`STALL`), and with
+  SERVO SUPPLY at `GP28` or `GP29` on readings under 4.0 V for 1000 ms after
+  the supply came up (`LOW SUPPLY`) and on a sensor not online or 250 ms
+  without a reading (`NO SENSOR`, `CURRENT SENSOR LOST: SUPPLY OFF.`). The
+  pulses end and the enable pin goes low in the same core1 pass; the chip,
+  magenta, and the dial's note stay until HOLD TO START. With `OWN` only
+  the first two apply, and while RUNNING with the sensor not online the dial
+  reads `NO SENSOR READING: NO CURRENT CUTS.` KST SERVO and HITEC SERVO switch the supply off on the
+  hard and the collapse cut while it is on, during a read or a write too:
+  the session is power-cycled, Hitec cuts the transaction on the line, and
+  the page names the cut over RETRY; no switch-on follows until RETRY. Each
+  new reading counts once, and a stale one never. Host tests in
+  `test/test_supply_guard.cpp`, `test/test_servo.cpp`,
+  `test/test_kst_job.cpp`, `test/test_hitec_job.cpp` and the KST and Hitec
+  screen suites, mutation-checked; README and the wiki pages Servo-Tester,
+  The-Screens, KST-Programming, Hitec-Programming and Troubleshooting with
+  their German pairs describe them. Not tested on hardware.
+- After v0.1.0-rc1: the board's clock is set from a computer over the USB
+  serial port, slice 5 of
+  [run-summary.md](docs/design/run-summary.md#slice-5-as-built).
+  `tools/set_clock.py` finds the board by its USB IDs, 2E8A:4006, or takes
+  `--port`, and sends the computer's local time as
+  `CLOCK 2026-11-14 15:42:07`; `--query` sends `CLOCK?`, `--list` names the
+  boards found. The firmware reads the line in `usbDevTask()`'s pass,
+  one line a pass (`src/clock_line.*`), parses it strictly and answers
+  `CLOCK SET` and the time, `CLOCK NOW` and the time or `CLOCK NOT SET`, or
+  `CLOCK REFUSED:` with `BAD DATE`, `BAD LINE`, `RTC NOT ANSWERING` or
+  `RTC READ-BACK DIFFERS`; other lines are ignored, and so are lines that
+  start as an answer does, so a terminal echoing the answers back sets
+  nothing. `usbDevClockLineEnable()` turns the line off for the USB bridge.
+  `clockSet()` writes the PCF85063A in four transfers through `senseNote()`,
+  the software reset, STOP with CLKOUT off, the time with OS clear, STOP
+  released, and reads it back, stopping the part when the read-back differs; a
+  set that reads back becomes the kept time and counts one set more, so a log
+  across it reads `(clock set during the log)`. A set is accepted during a
+  log. SETTINGS → BOARD gains a read-only `CLOCK` row, the time to the
+  minute or `NOT SET`, with the caption `SET AT EACH POWER-UP`: the board
+  has no cell on J2. Host tests in `test/test_clock.cpp`, `test/test_menu.cpp`
+  and `test/test_set_clock.py`, which `make -C test run` runs. README and
+  the wiki pages SD-Logging, SD-Aufzeichnung, The-Screens and
+  Die-Bildschirme describe the set. Not tested on hardware.
 - After v0.1.0-rc1: RPM/V and the kV estimate on the tester, slice 3 of
   [esc-commands.md](docs/design/esc-commands.md#slice-3-as-built)
   (`src/kv_est.h`, decisions 6 and 7). While armed the ERPM line reads
