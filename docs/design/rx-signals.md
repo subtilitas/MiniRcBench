@@ -16,9 +16,10 @@ in [sbus-output.md](sbus-output.md) and not built: it waits on a bootloader
 probe on GP0 and on the ESC SETTINGS slices the probe needs; its encoder is
 rcbench's, on rcbench's `main` since pull request 847. The PPM sections
 stay as the record of a design that is not built, by decision 1. Both
-tools sit on the pin claim of [pin-claim.md](pin-claim.md) under one MENU row, RX
-SIGNALS, which opens a chooser with MONITOR and OUTPUT (decision 4); OUTPUT
-is drawn disabled with `NOT BUILT` until the output exists ([MENU](#menu)).
+tools sit on the pin claim of [pin-claim.md](pin-claim.md) under one MENU
+row, RX SIGNALS, which opens a chooser with MONITOR and OUTPUT (decision
+4); OUTPUT is drawn disabled with `NOT BUILT` until the output exists
+([MENU](#menu)).
 The decoder is rcbench's, host-tested there and nowhere measured on a pin.
 
 ## Terms

@@ -3,9 +3,9 @@
 Status: designed, not built. By the owner's decision of 2026-11-15
 ([decision 1](#decisions)) S.BUS OUTPUT is built only together with a
 bootloader probe on GP0, which needs the connect cycle and the EFM8 answer
-of ESC SETTINGS: the slices wait on the probe, and the probe waits on read
-slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown)
-([work breakdown](#work-breakdown)). The owner chose an
+of ESC SETTINGS: the slices wait on the probe, and the probe waits on
+slices 2 and 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown);
+its slice 1 is built ([work breakdown](#work-breakdown)). The owner chose an
 S.BUS output on 2026-11-14 ([rx-signals.md](rx-signals.md#decisions),
 decisions 1, 4, 5 and 6): inverted 8E2 at 100,000 baud on GP0, UART0's TX
 pin; the encoder from rcbench, copied unchanged; the throttle channel under
@@ -265,8 +265,9 @@ a measurement.
   each 32-edge capture against the DShot frame time it measured, within
   1/16 (`signal.c` lines 171, 172; `dshot.c` lines 74 to 77): 26.7 µs at
   DShot600, while 32 S.BUS edges span at least 310 µs. No frame passes;
-  without frames it restarts itself after 0.5 s armed or drops back to
-  detection after 2 s (`main.c` lines 2137 to 2156).
+  without frames it resets itself, 0.5 s after its last frame when armed
+  and 2 s after it when not (`main.c` lines 2137 to 2162), and starts in
+  detection again.
 - `USE_CRSF_INPUT` builds read a serial input instead (`main.c` lines 243,
   2006); no target in `Inc/targets.h` defines it.
 
@@ -345,8 +346,10 @@ of pull request 82, checked against the lines named), not a measurement:
   frame, the ESC completed the calibration, wrote a range of about 140 µs
   to its flash, armed on the held run as stop and met its motor-start
   condition (`wait_for_power_on`, lines 3930 to 4008: a reading above stop,
-  and the pulses still there 100 ms later) within about 40 s in each of
-  200 runs. After four stalls it re-detects, arms and starts again (lines
+  and the pulses still there 100 ms later) in each of 200 runs, after
+  about 40 s at the median: 4.5 s to 199 s, 91 s at the 90th percentile,
+  with channel 16 at 1500 µs; 4.5 s to 198 s with CH17 on. After four
+  stalls it re-detects, arms and starts again (lines
   4574 to 4579). Whether the motor turns on readings above stop for about
   3 ms of every 14 ms the source does not settle.
 
@@ -372,23 +375,40 @@ OUTPUT on the leave page, which asked for the lead to be unplugged.
   EFM8 bootloader on the high line inside the quiet second; a powered
   BLHeli_S still looking for a signal checks for 15 ms of high line at each
   pass through detection. An AM32 enters its bootloader only in the 46 ms
-  after its own power-up; an AM32 already running answers DShot, which the
-  claim's ESC check sees. A bootloader that answers a greeting is an ESC on
-  GP0.
+  after each reset: its power-up, or its firmware's own reset 0.5 s or 2 s
+  after its last frame (above); an AM32 already running answers DShot,
+  which the claim's ESC check sees. A bootloader that answers a greeting
+  is an ESC on GP0.
 - **START refused.** While an EFM8 or AM32 bootloader answers, START is
-  refused and the rows' area says so ([unavailable pin](#unavailable-pin)).
-  The cycle repeats until one cycle passes with no answer, so START stays
-  refused until the ESC is unplugged: an answering bootloader may read
-  S.BUS frames as commands (not verified what each would do). Then the UART
-  binds and the screen is SAFE.
+  refused and the rows' area asks for the ESC's battery and lead to come
+  off ([unavailable pin](#unavailable-pin)). The cycle repeats until one
+  cycle passes with no answer, so for an EFM8 START stays refused until the
+  ESC is unplugged: an answering bootloader may read S.BUS frames as
+  commands (not verified what each would do). Then the UART binds and the
+  screen is SAFE. Whether the repeated greetings count toward the AM32
+  bootloader's limit of invalid commands is not verified; if they do, an
+  AM32 can leave its bootloader for its firmware and a later cycle passes
+  with it still on GP0, which is harmless, since AM32 takes no throttle
+  from S.BUS (above).
+- **An ESC left in its bootloader**, by
+  [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) decision 8 and its
+  slice 2: a powered EFM8 that answered waits in its bootloader, and DShot
+  must not reach it. So an answer of either kind sets MENU's run cue,
+  `POWER-CYCLE THE ESC TO RUN IT` (29 characters, 173 px), as an answer on
+  ESC SETTINGS does; and an EFM8 answer in the claim calls
+  `pinClaimWantLeavePage()` and gives the leave page decision 8's first
+  step ([leave page](#leave-page)), so SIG returns to DShot only after the
+  page asks for the ESC's battery to come off.
 - **What it misses.** An ESC that is unpowered during the probe, and an
   ESC plugged in after it. The warnings stay on every view before START.
 - **Cost.** About 1.1 s per visit before START is offered. For that time an
   FC on GP0 sees the line on the pull-up, high, which an inverted S.BUS
-  input reads as a break, and the greetings; it reads no frame from either.
-  What a given FC does with a second of high line is not verified.
+  input reads as a break, and the greetings. By reasoning, not verified,
+  it reads no frame from either: each 0x00 of the 19,200 baud greeting
+  reads at 100,000 baud as 0xF0 with a parity error. What a given FC does
+  with a second of high line is not verified.
 - **Where it comes from.** The connect cycle, the greeting and the reading
-  of an EFM8 or AM32 answer are built by read slices 1 to 3 of
+  of an EFM8 or AM32 answer are built by slices 1 to 3 of
   [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown). The probe is a
   phase of the S.BUS OUTPUT claim before the UART bind; how its job shares
   that line driver is the probe slice's design ([work
@@ -645,7 +665,8 @@ accident than one, and CH17 or CH18 can be an FC's arm switch. The footer
 holds `STOP` on press while RUNNING, in SET's right button, as SERVO
 TESTER's SET does. While SAFE the footer carries the second warning,
 `NEVER TO AN ESC. PROPS OFF.` (27 characters, 161 px, `UI_COL_WARN`), at
-x 8, y 287, so SET too warns before START. Header BACK returns to the main
+x 8, y 287, ending at x 168, so SET too warns before START; the right
+button, from x 162, is not drawn then. Header BACK returns to the main
 view (menu-b.md, decision 5).
 
 ### Unavailable pin
@@ -659,7 +680,7 @@ the monitor's ([rx-signals.md](rx-signals.md#screen)), and no chip:
 | KISS frames on AUX, GP0 is AUX | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | `UI_COL_WARN` | 173, 155 and 179 px |
 | The claim drains DShot | `RELEASING SIG GP0` | `C_DIM` | 101 px |
 | The bootloader probe runs | `CHECKING GP0 FOR AN ESC.` | `C_DIM` | 143 px |
-| A bootloader answered the probe | `AN ESC ANSWERS ON GP0.` `UNPLUG IT. START WAITS UNTIL` `A CHECK FINDS NO ESC.` | `UI_COL_WARN` | 131, 167 and 125 px |
+| A bootloader answered the probe | `AN ESC BOOTLOADER ANSWERS ON GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | `UI_COL_WARN` | 197, 191 and 185 px |
 | Held, the job not bound yet | `TAKING SIG GP0` | `C_DIM` | 83 px |
 | The bind refused the clock | `SIG GP0 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46 | `UI_COL_WARN` | 203 px |
 | No role on GP0 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | `UI_COL_WARN` | 95 and 173 px |
@@ -701,6 +722,30 @@ BACK before a claim held, or while it is Stopping, returns to MENU with
 DShot resumed at once and no page. DShot on an FC's S.BUS input is a
 signal into an input; the FC reads no frame from it, so unplugging is for
 the ESC that goes back on SIG, not for the FC.
+
+**After an EFM8 answered the probe** in the claim, the page is decision 8
+of [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions), as ESC SETTINGS
+shows it after an EFM8 answer (its slice 2): BACK opens it before LEAVE,
+with STAY (23 px in the 110 px button at 6, 214), which returns to the
+screen and the probe, and LEAVE (scale 2, 58 px, in the wide button at 6,
+268), which lets GP0 go; the steps:
+
+| Text | Characters | Width at scale 1 |
+|---|---|---|
+| `1 UNPLUG THE ESC BATTERY, THEN LEAVE.` | 37 | 221 px, to x 228 |
+| `  ITS BOOTLOADER WAITS FOR COMMANDS` | 35 | 209 px |
+| `  AND MAY READ DSHOT AS ONE.` | 28 | 167 px |
+| `2 UNPLUG THE FLIGHT CONTROLLER.` | 31 | 185 px |
+| `  DSHOT RESTARTS ON SIG GP0.` | 28 | 167 px |
+| `3 RESTART DSHOT.` | 16 | 95 px |
+| `  THEN PLUG THE ESC BACK IN.` | 28 | 167 px |
+
+Step 1's lines are ESC SETTINGS' own texts. The steps run from y 66 at a
+12 px pitch, 14 px between steps, and end at y 148, above the notes at
+y 158. After LEAVE the page is the one above, BACK TO OUTPUT and RESTART
+DSHOT; BACK TO OUTPUT runs the probe again. The page holds in either
+wiring: with GP0 as AUX DShot restarts on GP1, but the ESC still waits in
+its bootloader until its supply goes off.
 
 ### The RX SIGNALS entry
 
@@ -807,7 +852,11 @@ Checked:
   `uart_deinit()`, OUTOVER normal, the pull-down on, the status cleared; the
   probe before the first bind of each visit, START refused while a model EFM8 or
   AM32 bootloader answers and offered after one cycle with no answer, no probe
-  between STOP and START; each wiring, GP0 as SIG and as AUX, and the NO GP0
+  between STOP and START; an answer of
+  either kind setting MENU's run cue; an EFM8 answer calling
+  `pinClaimWantLeavePage()`, BACK then opening decision 8's page before
+  LEAVE, STAY returning to the probe, and DShot back on SIG only after
+  LEAVE and RESTART DSHOT; each wiring, GP0 as SIG and as AUX, and the NO GP0
   backstop; the ESC check in both wirings and its end 500 ms after the last eRPM
   frame; KISS on AUX GP0; a new visit starting SAFE with no trip;
 - the screen through MENU and RX SIGNALS by control id: OUTPUT live and
@@ -858,14 +907,15 @@ Each slice builds, passes the host suite and merges alone.
 
 | Slice | Content | Files | Lines, rough |
 |---|---|---|---|
-| 0. Prerequisites | read slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown): the escwire copies, the detection of an EFM8 answer, the connect cycle and its job | there | there |
+| 0. Prerequisites | slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown): the escwire copies (slice 1, built), the detection of an EFM8 answer with the run cue and the per-claim leave page (slice 2, pull request 83, under review), the connect cycle and its job (slice 3) | there | there |
 | 1. Encoder copy | `sbus.c`, `sbus.h`, `test_sbus.c` from rcbench b88593d3; `lib/rcbench/README.md`, STATUS, CHANGELOG | 3 replaced, 3 edited | 300 changed in copies, 30 of documentation |
 | 2. Job | `sbus_out_job.*`, the user and job rows, `CORE1_JOB_NO_GP0`, the TX side of the UART0 fake, the control-register record, `test/test_sbus_out_job.cpp`, STATUS, CHANGELOG | 2 new in `src/`, 1 new in `test/`, 8 edited | 350 in `src/`, 700 in `test/` |
-| 3. Probe | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, its host tests on the bootloader models of slice 0 | 2 edited in `src/`, 1 new in `test/` | 150 in `src/`, 300 in `test/` |
+| 3. Probe | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, MENU's run cue at an answer, `pinClaimWantLeavePage()` and decision 8's leave page after an EFM8 answer, its host tests on the bootloader models of slice 0 | 3 edited in `src/`, 1 new in `test/` | 200 in `src/`, 350 in `test/` |
 | 4. Screen | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
 | 5. Bring-up | the bench tests above | none | none |
 
-By decision 1, slices 1 to 5 wait on slice 0, the probe's prerequisites.
+By decision 1, slices 1 to 5 wait on slice 0, the probe's prerequisites,
+of which slices 2 and 3 of ESC SETTINGS remain.
 Slice 2 depends on slice 1, slice 3 on slices 0 and 2, slice 4 on slice 3,
 slice 5 on all of them. No build offers START without the probe: slice 2
 has no screen, and slice 4 comes after slice 3.
@@ -911,7 +961,7 @@ same day:
    GP0; START is refused while an EFM8 or AM32 bootloader answers, and
    stays refused until the ESC is unplugged, since an answering bootloader
    may read S.BUS frames as commands. The probe misses an unpowered ESC and
-   one plugged in after START; the warnings stay. The question had offered
+   one plugged in after the probe; the warnings stay. The question had offered
    the warnings alone, recommended, or a confirmation tap per visit; the
    decision is neither and puts the slices behind the probe and its
    prerequisites ([the bootloader probe](#the-bootloader-probe), [work
@@ -935,6 +985,8 @@ None open.
 - The BLHeli_S calibration path's timing, from a model of the line, not
   measured; whether its motor turns on 3 ms of power in 14 ms.
 - What an answering bootloader does with S.BUS frames; what an FC does
-  with the probe's second of high line.
+  with the probe's second of high line and with the greetings.
+- Whether repeated greetings count toward the AM32 bootloader's limit of
+  invalid commands.
 - Betaflight's behaviour, read and not run; ArduPilot and INAV not read.
 - Pull request #49's touch-loss rule, not merged.

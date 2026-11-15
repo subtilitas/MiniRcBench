@@ -912,15 +912,20 @@ not run on hardware (item 18).
     ESC: AM32 2.22 and Bluejay 0.21 take no throttle from an S.BUS line.
     BLHeli_S 16.7 may detect it as Multishot; in a model of the line, with
     channel 16 at 1500 µs or CH17 on, it calibrates a 140 µs throttle range
-    into its flash, arms and meets its motor-start condition within about
-    40 s; the claim's ESC check cannot see a BLHeli_S ESC. The owner
+    into its flash, arms and meets its motor-start condition in each of 200
+    runs, after about 40 s at the median (4.5 s to 199 s); the claim's ESC
+    check cannot see a BLHeli_S ESC. The owner
     decided on 2026-11-15 (the note's decision 1): S.BUS OUTPUT is built
     only together with a bootloader probe, the connect cycle of
     [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions)
     decision 2 on GP0 before the first START of a visit, START refused
-    while an EFM8 or AM32 bootloader answers; it costs about 1.1 s per
-    visit and misses an unpowered ESC. No question is open. The slices
-    wait on the probe and on read slices 1 to 3 of ESC SETTINGS (item 30).
+    while an EFM8 or AM32 bootloader answers. An answer sets MENU's run
+    cue, and after an EFM8 answer the leave page is ESC SETTINGS' decision
+    8 page, which asks for the ESC's battery to come off before DShot
+    returns. The probe costs about 1.1 s per visit and misses an unpowered
+    ESC. No question is open. The slices wait on the probe and on slices 2
+    and 3 of ESC SETTINGS (item 30; slice 2 is pull request 83, under
+    review); its slice 1 is built.
 
 ## Known limitations
 
