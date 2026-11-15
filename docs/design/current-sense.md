@@ -1282,7 +1282,8 @@ The cuts of [protection](#protection) and the sensor-lost cut of
     x 145, clear of the chip.
 - **The Hitec job's stack.** CI's "Hitec job stack on core1" reads the call
   graphs of `src/sense.cpp` and `src/supply_guard.cpp` too, 11 files.
-  MUTATION_STACK
+  The deepest chain from the job's three entry points is 1184 bytes of the
+  1792 allowed, in the strict build of this slice.
 - **Tests.** `test/test_supply_guard.cpp` (`runSupplyGuardTests`): each
   rule at its boundary, 2999.999 and 3000 mA of either sign, a clipped
   reading, 1000 and 1000.1 mA, 399 and 400 ms, 4499 and 4500 mV and 18 and

@@ -92,7 +92,7 @@ struct TouchState;
 #define SERVO_UI_CHIP_LOW "LOW SUPPLY"
 /** @brief ...the sensor-lost cut. */
 #define SERVO_UI_CHIP_LOST "NO SENSOR"
-/** @brief The hard cut's note, magenta, over `HOLD TO START AGAIN.` */
+/** @brief The hard cut's note in the dial band, magenta, over the trip's second line. */
 #define SERVO_UI_CUT_HARD "STOPPED: CURRENT 3.0 A OR MORE"
 /** @brief The stall cut's note. */
 #define SERVO_UI_CUT_STALL "STOPPED: OVER 1.0 A FOR 400 MS"
