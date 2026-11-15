@@ -6,7 +6,9 @@ recorded under [decisions](#decisions). On 2026-11-14 the owner answered
 Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt as sold,
 the servo tester switching the supply always, rcbench's limit run as the
 protection, and the settings carried over from the older layouts. One point
-is open: the converter module ([Q1](#q1-the-converter-module)). Slices 2
+is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V
+boost board the owner modelled names no chip, and the owner does not know
+it, so its ratings come only from bench tests B6 and B7. Slices 2
 to 6 wait on being built and on that module; the protection section is to
 be redesigned for the decisions. The settings carry-over of decision 14 is
 built and host-tested.
@@ -969,7 +971,8 @@ Only hardware settles these. Each names what it records.
   3.5 A, beyond the range.
 - B5. Bus voltage against a multimeter at 5 V, idle and at 2 A.
 - B6. The converter: VOUT with EN low at the lowest and the highest VIN
-  (the disconnect); EN from reset, in BOOTSEL and with the board off; the
+  (the disconnect); the EN threshold, rising and falling, at 3.0 V and
+  4.2 V VIN; EN from reset, in BOOTSEL and with the board off; the
   start-up time from EN high to 4.5 V on a scope and from the 1 ms poll;
   the decay after the switch-off with a servo and with none.
 - B7. The converter at 1 A, 2 A and 3 A: VOUT, its current limit, its
@@ -1018,8 +1021,16 @@ Q2 to Q5 and the input of Q1 are answered by the owner's decisions of
 
 The owner chose the input and the topology: one LiPo cell, 3.0 V to 4.2 V,
 into a synchronous boost with load disconnect, 5.0 V, at least 3 A out
-([decision 10](#decisions)). The module is not named. Whichever module the
-owner names is checked on the bench before it is relied on: B6, its
+([decision 10](#decisions)). The module is not named. The owner's
+mechanical model
+[boost_5v_en.step](../../hardware/mechanical/models/boost_5v_en.step) is a
+5 V boost board, 13.7 × 21.7 mm, with one pad besides its 4 corner pads,
+drawn as its enable. Its chip is not known: the owner does not know it
+(2026-11-15), and the board's print names none. So its input range, its
+output current, its current limit, whether it disconnects the load with EN
+low, and its EN threshold are unknown. Whether that board is the module of
+decision 10 is open. Whichever module is used is checked on the bench
+before it is relied on: B6, its
 disconnect with EN low at the lowest and the highest VIN, its EN from
 reset, in BOOTSEL and with the board off, its start-up time and its decay;
 B7, VOUT, its current limit and its temperature at 1 A, 2 A and 3 A. Its EN
