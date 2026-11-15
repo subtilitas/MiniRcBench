@@ -122,6 +122,7 @@ struct CardModel {
 	unsigned writes;    /**< Blocks sent to the card. */
 	bool     failRead;  /**< A read of @ref failLba fails: no response. */
 	uint32_t failLba;
+	unsigned failedReads; /**< Reads of @ref failLba tried and failed, each try counted. */
 };
 static CardModel g_card;
 
@@ -135,7 +136,10 @@ static void cardTimes(uint32_t readUs, uint32_t busyUs) {
 static sd_err_t devRead(void *, uint32_t lba, uint32_t n, uint8_t *buf) {
 	g_card.reads += n;
 	g_us += (uint64_t)g_card.readUs * n;
-	if (g_card.failRead && lba <= g_card.failLba && g_card.failLba < lba + n) return SDE_NO_RESPONSE;
+	if (g_card.failRead && lba <= g_card.failLba && g_card.failLba < lba + n) {
+		g_card.failedReads++;
+		return SDE_NO_RESPONSE;
+	}
 	return ramDiskRead(buf, lba, n) == RES_OK ? SDE_OK : SDE_NO_RESPONSE;
 }
 
@@ -168,6 +172,7 @@ static sd_err_t devReadStart(void *, uint32_t lba, uint8_t *buf) {
 	g_card.readBuf = buf;
 	g_card.readyAt = g_us + g_card.readUs;
 	g_card.readErr = g_card.failRead && lba == g_card.failLba ? SDE_TIMEOUT : SDE_OK;
+	if (g_card.readErr != SDE_OK) g_card.failedReads++;
 	return SDE_OK;
 }
 
@@ -900,7 +905,11 @@ static void testCardFull() {
 	f_mkdir("/LOGS");
 	runFor(100);
 	fill(15);   // 60 KiB free: no reserve of 64 KiB
+	unsigned reads0 = g_card.reads;
 	checkTrue("60 KiB free: no log", !holdStart());
+	printf("  (the open on a full card: %u blocks read)\n", g_card.reads - reads0);
+	checkTrue("the free count says so: no search of the FAT's 2048 blocks",
+	          g_card.reads - reads0 < 64);
 	ServoLogStatus s = logStatus();
 	checkTrue("CARD FULL, no log", !s.active && s.fault == SdLogEnd::CardFull);
 	runFor(100);
@@ -924,7 +933,7 @@ static void testCardFull() {
 		checkTrue("HOLD TO START: a log", holdStart());
 		unsigned writes0 = g_card.writes;
 		FILINFO fi;
-		checkTrue("its reserve 64 KiB, the largest half that fits",
+		checkTrue("its reserve 64 KiB, the small one",
 		          f_stat("/LOGS/SRV00001.CSV", &fi) == FR_OK && fi.fsize == SERVO_LOG_RESERVE_MIN_BYTES);
 		s = logStatus();
 		for (int i = 0; i < 400 && s.fault == SdLogEnd::None; i++) {
@@ -1344,7 +1353,12 @@ static void testOpenFaults() {
 	          !sdLogActive() && escStatus().end == SdLogEnd::ByServo);
 	runEnds();
 	pass();
+	checkTrue("a sensor declared and a card mounted: a log wanted", servoLogWanted());
+	g_declared = false;
+	checkTrue("no sensor declared: no log wanted", !servoLogWanted());
+	g_declared = true;
 	sdLogRelease();
+	checkTrue("no card mounted: no log wanted", !servoLogWanted());
 	jobSafe();
 	checkTrue("no card mounted: no log, nothing to report", !holdStart() && !logStatus().noCache);
 	runEnds();
@@ -1355,12 +1369,16 @@ static void testOpenFaults() {
 	// begins: 128 entries of 4 bytes a block on FAT32.
 	g_card.failLba = (uint32_t)(sdLogFs()->fatbase + (sdLogFs()->last_clst + 1u) / 128u);
 	g_card.failRead = true;
+	g_card.failedReads = 0;
 	jobSafe();
 	checkTrue("the FAT's block at the free hint does not read: no log", !holdStart());
 	g_card.failRead = false;
 	s = logStatus();
 	checkTrue("THE FILE DID NOT OPEN: a card fault, not CARD FULL",
 	          !s.active && s.fault == SdLogEnd::OpenFailed && !s.slow);
+	printf("  (tries of the failed FAT block: %u)\n", g_card.failedReads);
+	checkInt("one search of the FAT, not a second for the small reserve: the block tried once",
+	         (long)g_card.failedReads, 1);
 	runFor(500);
 	runEnds();
 	pass();
@@ -1380,6 +1398,75 @@ static void testOpenFaults() {
 	pass();
 	checkTrue("the run's end: the card mounted again, the cache off", !sdc_on() && sdLogFs()->id != id &&
 	          escStatus().state == SdLogState::Idle);
+
+	// The open's last block, FSINFO, not taken: the entry and the reserve's
+	// FAT blocks are on the card before it. The run's end mounts the card
+	// again first, then removes the file.
+	g_card.failHolding = "RRaA";   // FSINFO's lead signature
+	jobSafe();
+	id = sdLogFs()->id;
+	checkTrue("FSINFO not taken at the open's flush: no log", !holdStart());
+	g_card.failHolding = nullptr;
+	bool onCard = false;
+	for (auto &kv : g_disk.images[g_disk.card])
+		if (memmem(kv.second.data(), 512, "SRV00001CSV", 11)) onCard = true;
+	checkTrue("its entry on the card: SRV00001.CSV again, the earlier ones not there", onCard);
+	s = logStatus();
+	checkTrue("THE FILE DID NOT OPEN, the cache Failed",
+	          !s.active && s.fault == SdLogEnd::OpenFailed && cardCacheState() == CardCache::Failed);
+	runFor(500);
+	runEnds();
+	pass();
+	checkTrue("the run's end: mounted again, the file removed, the cache off",
+	          !sdc_on() && sdLogFs()->id != id && !exists("/LOGS/SRV00001.CSV"));
+	f_mount(nullptr, "", 0);
+
+	// The free count does not read: exFAT keeps none, so f_getfree() reads
+	// the allocation bitmap after a mount. A card fault, not CARD FULL.
+	section("Servo log over FatFs, exFAT: the free count does not read");
+	format(FM_EXFAT, 2u * 1024u * 1024u, 32768);
+	cardTimes(1000, 5000);
+	loopReset();
+	jobSafe();
+	f_mkdir("/LOGS");
+	sdLogRemount();
+	runFor(100);
+	g_card.failLba = (uint32_t)sdLogFs()->bitbase;
+	g_card.failRead = true;
+	checkTrue("the allocation bitmap does not read: no log", !holdStart());
+	g_card.failRead = false;
+	s = logStatus();
+	checkTrue("THE FILE DID NOT OPEN, not CARD FULL", !s.active && s.fault == SdLogEnd::OpenFailed);
+	runFor(500);
+	runEnds();
+	pass();
+	checkTrue("the run's end: no file, the cache off", !sdc_on() && !exists("/LOGS/SRV00001.CSV"));
+	f_mount(nullptr, "", 0);
+
+	// An open given up and never followed by a Start's seq, as when the
+	// screen closed between the open and the Start: the next open ends it
+	// first, then opens its own file.
+	section("Servo log over FatFs, FAT32: an open given up and not followed, then the next START");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	cardTimes(1000, 5000);
+	loopReset();
+	jobSafe();
+	f_mkdir("/LOGS");
+	runFor(100);
+	g_card.failLba = (uint32_t)(sdLogFs()->fatbase + (sdLogFs()->last_clst + 1u) / 128u);
+	g_card.failRead = true;
+	checkTrue("the open given up", !servoLogStart(nowMs()));
+	g_card.failRead = false;
+	runFor(500);
+	checkTrue("no Start's seq: its file still there", exists("/LOGS/SRV00001.CSV"));
+	checkTrue("the next START: a log, SRV00002.CSV", holdStart() && logStatus().fileNumber == 2);
+	checkTrue("the open given up ended first: SRV00001.CSV removed", !exists("/LOGS/SRV00001.CSV"));
+	runFor(500);
+	runEnds();
+	pass();
+	std::string got;
+	checkTrue("SRV00002.CSV whole", readFile("/LOGS/SRV00002.CSV", &got) &&
+	          got == expected(g_loop.readings) + endLine(ServoLogHow::Stop, logStatus().rows, 0, 40));
 	f_mount(nullptr, "", 0);
 
 	// A slow card with 600 files in LOGS/: the directory's scan alone passes

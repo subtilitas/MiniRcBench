@@ -94,7 +94,10 @@ static FIL      s_file;
  *        each cluster in it and never reads the FAT.
  */
 static DWORD    s_clmt[8];
-/** @brief The bytes reserved at the open: SERVO_LOG_PREALLOC_BYTES or a half of it, down to SERVO_LOG_RESERVE_MIN_BYTES. */
+/**
+ * @brief The bytes reserved at the open: SERVO_LOG_PREALLOC_BYTES, or
+ *        SERVO_LOG_RESERVE_MIN_BYTES on a card without that run free.
+ */
 static uint32_t s_reserve = 0;
 /** @brief The rows used the whole SERVO_LOG_PREALLOC_BYTES: the writing stopped there. */
 static bool     s_atLimit = false;

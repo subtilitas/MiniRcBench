@@ -32,6 +32,7 @@ struct FakeCard {
 	sd_err_t failWith = SDE_OK;
 	bool     failRead = false;
 	bool     failReadStart = false;  ///< The swap check's read is refused at its start.
+	sd_err_t readStartErr = SDE_NO_RESPONSE; ///< What a refused start returns.
 	sd_err_t readEndsWith = SDE_OK;  ///< What the swap check's read ends with, when not SDE_OK.
 	unsigned readPolls = 0;          ///< Polls the swap check's read stays under way.
 	unsigned readLeft = 0;
@@ -101,7 +102,7 @@ sd_err_t fakeReadStart(void *, uint32_t lba, uint8_t *buf) {
 	if (g_card.reading) g_card.cmdWhileReading++;
 	if (((uintptr_t)buf & 3u) != 0) return SDE_PARAM;   // the receiver's DMA needs it aligned
 	g_card.readStartTries++;
-	if (g_card.failReadStart) return SDE_NO_RESPONSE;
+	if (g_card.failReadStart) return g_card.readStartErr;
 	g_card.readStarts++;
 	g_card.reads++;
 	g_card.reading = true;
@@ -371,17 +372,21 @@ static void testCheckAsync() {
 	checkTrue("settle: the check's read collected, nothing sent", !g_card.reading && !g_card.inFlight);
 	sdc_flush();
 
-	// A start the card refuses, a read that times out, a CRC error: tried
-	// again, 3 reads in all, then the batch fails, nothing sent. Another
-	// card's serial number fails it at once.
-	struct { bool startFails; sd_err_t ends; bool swap; unsigned tries; const char *what; } fails[] = {
-		{ true,  SDE_OK,      false, 3, "a start the card refuses, 3 times: failed" },
-		{ false, SDE_TIMEOUT, false, 3, "a read that times out, 3 times: failed" },
-		{ false, SDE_CRC,     false, 3, "a read with a CRC error, 3 times: failed" },
-		{ false, SDE_OK,      true,  1, "another card's serial number: failed at once" },
+	// A start the card does not answer, a read that times out, a CRC error:
+	// tried again, 3 reads in all, then the batch fails, nothing sent.
+	// Another error, as a card not initialised or an error bit in its
+	// status, or another card's serial number fails it at once.
+	struct { sd_err_t startErr; sd_err_t ends; bool swap; unsigned tries; const char *what; } fails[] = {
+		{ SDE_NO_RESPONSE, SDE_OK,      false, 3, "a start the card does not answer, 3 times: failed" },
+		{ SDE_OK,          SDE_TIMEOUT, false, 3, "a read that times out, 3 times: failed" },
+		{ SDE_OK,          SDE_CRC,     false, 3, "a read with a CRC error, 3 times: failed" },
+		{ SDE_NOT_READY,   SDE_OK,      false, 1, "a start refused, the card not ready: failed at once" },
+		{ SDE_OK,          SDE_STATUS,  false, 1, "a read with an error bit in the status: failed at once" },
+		{ SDE_OK,          SDE_OK,      true,  1, "another card's serial number: failed at once" },
 	};
 	for (auto &f : fails) {
-		g_card.failReadStart = f.startFails;
+		g_card.failReadStart = f.startErr != SDE_OK;
+		g_card.readStartErr = f.startErr;
 		g_card.readEndsWith = f.ends;
 		g_card.readFailsLeft = 0;
 		if (f.swap) g_card.sector(0)[69] = 0x00;
