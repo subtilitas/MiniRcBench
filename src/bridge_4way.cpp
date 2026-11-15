@@ -292,7 +292,10 @@ static void endNow(uint8_t ack) {
 		} else if (s_cmd == B4W_GET_VERSION) {
 			// Betaflight's encoding (serial_4way.c lines 73 to 87): main
 			// × 1000 + sub 1 × 100 + sub 2, sent as that / 100 and % 100;
-			// here major, minor and patch.
+			// here major, minor and patch. The high part, up to
+			// major × 10 + 9, fits one byte only up to major 24, so
+			// version.h's limit of 99 is cut here, as Betaflight does.
+			static_assert(FW_VERSION_MAJOR <= 24, "GetVersion's high byte overflows");
 			const unsigned v = FW_VERSION_MAJOR * 1000u + FW_VERSION_MINOR * 100u + FW_VERSION_PATCH;
 			par[0] = (uint8_t)(v / 100u);
 			par[1] = (uint8_t)(v % 100u);

@@ -66,8 +66,9 @@
  * then until a RUN, the leave page carries `FLASH THE ESC AGAIN BEFORE USE.`.
  * BACK on a Running bridge always opens the leave page (decision 10 as
  * revised, ui_bridge.h): an ESC can sit in its bootloader with no frame of
- * the PC's answered. MENU shows the run cue from the open until RESTART
- * DSHOT or an eRPM frame. The frames themselves are forwarded unchanged.
+ * the PC's answered. MENU shows the run cue from the claim's begin and
+ * the open until RESTART DSHOT or an eRPM frame. The frames themselves are
+ * forwarded unchanged.
  * In the 4-way interface the same rules hold for its write-class bootloader
  * frames, the data after SET BUFFER, PROGRAM and ERASE: BACK disabled from
  * the handover until the 4-way command's answer, at most

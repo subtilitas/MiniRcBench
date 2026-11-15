@@ -1226,9 +1226,9 @@ reaches the wire.
 10. **Counters** in MSP and the 4-way interface: `PC > ESC` the bytes
     handed to the wire, `ESC > PC` the bytes of the answers to the PC,
     `FRAMES` the bootloader frames.
-11. **The motor refusal** goes on message line 3, blank otherwise, not on
-    line 2 as the screen table first had it: `PROPELLER OFF. DSHOT IS
-    OFF.` stays while the PC asks for the motor.
+11. **The motor refusal** goes on message line 3, blank otherwise, so
+    `PROPELLER OFF. DSHOT IS OFF.` on line 2 stays while the PC asks for
+    the motor.
 
 **Tests.** `runBridgeProtoTests`, 215 checks in 13 sections: the MSP answers,
 each command's length, checksum and contents, `$M!`, the four
@@ -1261,9 +1261,10 @@ MSP gone idle and after a port close, all in one open. The model AM32 answers
 VERIFY 0xC1, acknowledges ERASE without erasing, and sets its address to 0 after
 a READ, refusing a READ there, as bootloader 578ff29 does (`main.c` lines 753 to
 815); a model with VERIFY stands in for BLHeli_32, whose bootloader is not
-verified. `runUsbBridgeTests`' modes section now has `$` and 0x2F first, the
+verified. `runUsbBridgeTests`' modes section has `$` and 0x2F first, the
 4-way interface outlasting 5 s, and later `$` and 0x2F forwarded in passthrough.
-`runBridgeUiTests` adds a section: `4-WAY INTERFACE`, the last line's MSP and
+`runBridgeUiTests`, 150 checks in 7 sections, has one for slice 3:
+`4-WAY INTERFACE`, the last line's MSP and
 4-way names at their widths, the refusal line, BACK disabled through a 4-way
 write and the leave page's note after it.
 
@@ -1271,8 +1272,8 @@ write and the leave page's note after it.
 `bridge_4way.cpp`, 38 in `usb_bridge.cpp`, 28 in `bridge_msp.cpp`, 5 in
 `ui_bridge.cpp` and one in `bl_answer.cpp`. 133 fail the suite; each that
 survived a first run and showed a test missing has its test, and one showed
-`bridge4wayAbort()` redundant, as the mode's end resets the engine right
-after it, and the function is removed. Three survive:
+an abort call redundant, as the mode's end resets the engine right after
+it; the code has no such call. Three survive:
 
 - PROGRAM not write-class in the 4-way interface: the data before it
   already set BACK's wait and the unfinished write, and their 3000 ms reach
