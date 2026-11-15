@@ -4,6 +4,7 @@
 # One list per feature, as servo.cmake, kst.cmake and hitec.cmake. The bus and
 # part decisions are rcbench's sense_bus.c, copied into lib/rcbench/ and built
 # as C (lib/rcbench/README.md); src/sense.cpp supplies its wire over the SDK.
+# src/supply_guard.cpp holds the cuts the core1 jobs make on its readings.
 # Its header is on the target's include path because cst328.cpp, ui.cpp and
 # settings.cpp include sense.h.
 target_sources(MiniRcBench PRIVATE
