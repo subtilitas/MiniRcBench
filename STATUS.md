@@ -74,7 +74,7 @@ Its screen, S.BUS MONITOR (`src/ui_sbus.h`, with the pure formatter
 16 channel bars in raw units with the value in µs, CH17 and CH18, the frame
 rate and the error counts, and the leave page. RX SIGNALS
 (`src/ui_rx_signals.h`) is the chooser behind the MENU row; its OUTPUT, the
-S.BUS output, is drawn disabled, `NOT BUILT` (open item 19).
+S.BUS output, is drawn disabled, `NOT BUILT` (open item 31).
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
 2026-11-13, is built in its 10 slices, host tests only, not on hardware.
 Slice 1: the leave page
@@ -658,9 +658,9 @@ not run on hardware (item 18).
       MONITOR opens S.BUS MONITOR and whose OUTPUT is drawn disabled,
       `NOT BUILT`. The UART inversion on the pin, a receiver's level and
       frames on GP1 and the screen's reading of them are not tested on
-      hardware (the note's slice 6, the bring-up). The output waits on its
-      encoder in rcbench and on its design, of which the note lists the
-      points to settle.
+      hardware (the note's slice 6, the bring-up). The output is designed
+      in [sbus-output.md](docs/design/sbus-output.md), not built (item
+      31).
     - [current-sense.md](docs/design/current-sense.md): the converter takes
       one LiPo cell, 3.0 V to 4.2 V, into a synchronous boost with load
       disconnect, 5.0 V, at least 3 A out; the shunt stays 0.1 Ω; the servo
@@ -880,6 +880,30 @@ not run on hardware (item 18).
     older layouts read-only; a leave page after an answer with no LEAVE. Slices
     wait on being built. `ESC SETTINGS` serves AM32 only until the Bluejay
     slices land. Nothing of it has run on an ESC.
+31. **S.BUS output, designed, not built.** The owner's decisions 1, 4, 5
+    and 6 of [rx-signals.md](docs/design/rx-signals.md#decisions) (item
+    19). [sbus-output.md](docs/design/sbus-output.md) designs S.BUS OUTPUT,
+    opened from OUTPUT on RX SIGNALS: a frame every 14 ms on GP0 through
+    UART0's TX, the pad's output inverted by OUTOVER in the same register
+    write as the UART function, rcbench's `sbus_encode()` and
+    `sbus_from_us()` copied unchanged from rcbench b88593d3 (on rcbench's
+    `main` since pull request 847, 19 host cases), in place of the copy of
+    5ef42efd, whose decoder code is the same. A new pin user, `SbusOut`,
+    with the claim's ESC check in every wiring; 16 sliders on two pages;
+    the throttle channel, 1 to 4, starting at raw 172 and held under
+    172 + 1639 × MAX THROTTLE / 2000, raw 499 (1200 µs) at the default;
+    CH17, CH18 and the failsafe and frame-lost bits on SET; frames stop on
+    STOP, BACK, a heartbeat lapse, 30 s without touch with the throttle up,
+    and touch loss once pull request #49 is merged (item 23). Read from
+    source, not run on an ESC: AM32 2.22 and Bluejay 0.21 take no throttle
+    from an S.BUS line; BLHeli_S 16.7 may detect it as Multishot, rewrite its
+    throttle calibration and then arm, and the claim's ESC check cannot see
+    a BLHeli_S ESC. Betaflight, read and not run, treats a frame with
+    either flag as not received and loses the receiver after 150 ms
+    without frames. One question is open to the owner: whether to add a
+    per-visit `NO ESC ON GP0` confirmation to the notes before START
+    (recommended: notes only). Three slices and a bring-up wait on being
+    built.
 
 ## Known limitations
 

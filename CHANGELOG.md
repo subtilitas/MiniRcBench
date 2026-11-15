@@ -44,6 +44,16 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the design note for the S.BUS output,
+  [sbus-output.md](docs/design/sbus-output.md), designed and not built:
+  S.BUS OUTPUT behind OUTPUT on RX SIGNALS sends a frame every 14 ms on GP0
+  through UART0 with the pad's output inverted, with rcbench's encoder to be
+  copied unchanged from b88593d3, 16 channels on sliders, the throttle
+  channel starting at its stop and held under MAX THROTTLE, CH17, CH18 and
+  the failsafe and frame-lost bits, HOLD TO START and the frame stops of the
+  servo tester. It records, read from source, that AM32 and Bluejay take no
+  throttle from an S.BUS line and that BLHeli_S may take it as Multishot.
+  One question is open to the owner. Documentation only.
 - After v0.1.0-rc1 (a93e1c1): S.BUS MONITOR, slice 3 of
   [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built), opened from
   MENU → RX SIGNALS → MONITOR (`src/ui_sbus.*`). It claims the role that is

@@ -11,9 +11,9 @@ only, none on hardware ([work breakdown](#work-breakdown)). The owner
 answered the note's open questions on 2026-11-14 ([decisions](#decisions)):
 build the S.BUS monitor and an S.BUS output, no PPM output. The S.BUS
 monitor reads a receiver's S.BUS output on GP1 through UART0. The S.BUS
-output, inverted 8E2 at 100,000 baud on GP0 through UART0's TX, is not
-designed: its open points are listed under [S.BUS output](#sbus-output), and
-its encoder is written and tested in rcbench first. The PPM sections stay as
+output, inverted 8E2 at 100,000 baud on GP0 through UART0's TX, is designed
+in [sbus-output.md](sbus-output.md) and not built; its encoder is rcbench's,
+on rcbench's `main` since pull request 847. The PPM sections stay as
 the record of a design that is not built, by decision 1. Both tools sit on
 the pin claim of [pin-claim.md](pin-claim.md) under one MENU row, RX
 SIGNALS, which opens a chooser with MONITOR and OUTPUT (decision 4); OUTPUT
@@ -460,10 +460,10 @@ else. Later work, each a change to this screen and its job:
 The owner's choice of 2026-11-14 ([decision 1](#decisions)), option (c) of
 the question it answered: an S.BUS output on GP0, UART0's TX pin, inverted
 8E2 at 100,000 baud, with the pad's output inverted by OUTOVER, the PL011
-sending, no PIO and no DMA. rcbench has no S.BUS encoder: the encoder is
-written and tested in rcbench first and then copied here unchanged, as the
-decoder was (decision 5). The throttle channel obeys MAX THROTTLE of
-SETTINGS (decision 6). Not designed. To design:
+sending, no PIO and no DMA. The encoder is rcbench's, written and tested
+there and copied here unchanged, as the decoder was (decision 5). The throttle channel obeys MAX THROTTLE of
+SETTINGS (decision 6). Designed in [sbus-output.md](sbus-output.md), which
+settles each point below; this list stays as the record of what was open:
 
 - **Frame timing.** The frame period, 7 ms or 14 ms or a choice, and what
   sends each frame on core1: the PL011's 32-entry transmit FIFO holds a
@@ -731,7 +731,8 @@ A tap on MONITOR opens S.BUS MONITOR through `uiChooseTool()`, as
 PROGRAMMER's entries open their tools: the monitor's entry point asks for
 the claim on that frame, and its origin is MENU, so its BACK before a claim
 held and its RESTART DSHOT return to MENU. OUTPUT, the S.BUS output, is not
-designed (decision 5): its entry has no screen, so it is drawn disabled
+built ([sbus-output.md](sbus-output.md) designs it): its entry has no screen
+yet, so it is drawn disabled
 (`uiButton()`'s outline, the label `C_GRID`), reported disabled in the
 control table, takes no pressed look and opens nothing. Its `NOT BUILT` is
 the status MENU's row carried before (menu-b.md, decision 35), as a line
@@ -789,7 +790,8 @@ Each tool is one `PinUser`, one `Core1Job` and one row in `PIN_USERS`:
 | `Ppm` | `Ppm` | true | true | `PIN_SIG` |
 
 The `Ppm` row and the PPM rules below are not built, by decision 1. The
-S.BUS output's row is to be designed ([S.BUS output](#sbus-output)).
+S.BUS output's row, `SbusOut`, is designed in
+[sbus-output.md](sbus-output.md#pin-claim).
 
 - **Armed and Busy** apply to both, as to every claim. Opening MENU disarms;
   the 250 ms zero-throttle drain runs before either job binds.
@@ -844,7 +846,9 @@ S.BUS output's row is to be designed ([S.BUS output](#sbus-output)).
 | the modules' `README.md` and `CMakeLists.txt` | none | MiniRcBench lists its sources in its own `.cmake` and `.mk` files |
 
 The PPM rows are not built, by decision 1. The S.BUS output's encoder
-comes from rcbench once it is written there (decision 5).
+comes from rcbench at b88593d3, which replaces the copy of 5ef42efd
+([sbus-output.md](sbus-output.md#porting)); the decoder's code is the same
+in both.
 
 `lib/rcbench/README.md` gains the rows and the commit. Copied files keep
 their text and their SPDX line.
@@ -862,7 +866,8 @@ New code in `src/`:
 | `rx.cmake`, `ppm.cmake` | the features' firmware sources (`ppm.cmake`, PPM: not built, decision 1) |
 
 Shared files each slice edits by a line or a few (the second job, user and row
-were PPM's: not built, decision 1; the S.BUS output's are to be designed):
+were PPM's: not built, decision 1; the S.BUS output's are in
+[sbus-output.md](sbus-output.md#porting)):
 `core1_job.h` (two jobs, `CORE1_JOB_NO_GP1`), `core1_job.cpp` (the job table),
 `pin_claim.h` (two users and rows), `ui_registry.cpp` (one line each),
 `CMakeLists.txt`, `test/Makefile`, `test/test_main.cpp`, `test/fakes.*`,
@@ -986,8 +991,8 @@ files differ by one line each. Slice 1a is built.
 | 6. Bring-up | the bench tests above, each tool on its own | none | none |
 
 Slices 1b, 4 and 5 are not built, by the owner's decision 1 of
-2026-11-14. The S.BUS output has no slices yet: its encoder in rcbench
-comes first (decision 5), then its design ([S.BUS output](#sbus-output)).
+2026-11-14. The S.BUS output's slices are in
+[sbus-output.md](sbus-output.md#work-breakdown).
 Slices 2 and 3 are built; slice 3 designed the RX SIGNALS row's chooser
 (decision 4) with the screen ([MENU](#menu), [screen](#screen)).
 
@@ -1181,8 +1186,8 @@ Further decisions of the owner, 2026-11-14, on the output:
 
 None open. Questions 1 to 4 of 2026-11-13 are answered by decisions 1 to
 4; questions 5 to 7 were on the PPM output and fell away with decision 1.
-The S.BUS output's open points are design work, listed under
-[S.BUS output](#sbus-output).
+The S.BUS output's design, with its one question to the owner, is
+[sbus-output.md](sbus-output.md).
 
 ## To confirm
 
