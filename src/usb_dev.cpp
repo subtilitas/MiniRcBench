@@ -105,3 +105,18 @@ void usbDevInit() {
 }
 
 void usbDevTask() { tud_task(); }
+
+// ---------------------------------------------------------------------------
+// the console's switch
+// ---------------------------------------------------------------------------
+
+/** @brief The stdio driver is enabled: usbDevInit() enables it. */
+static bool s_console = true;
+
+void usbDevConsole(bool on) {
+	if (on == s_console) return;
+	s_console = on;
+	stdio_set_driver_enabled(&s_cdcDriver, on);
+}
+
+bool usbDevConsoleOn() { return s_console; }
