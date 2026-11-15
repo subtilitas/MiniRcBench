@@ -3098,7 +3098,7 @@ src/
   tusb_config.h         TinyUSB configuration
 lib/rcbench/            rcbench files copied unchanged: servo sweep, GPIO-to-PWM fold,
                         KST core and line driver, KST file store, Hitec core,
-                        S.BUS decoder, sensor bus, escwire core and line driver,
+                        S.BUS decoder and encoder, sensor bus, escwire core and line driver,
                         control-surface arithmetic, IMU model, WitMotion decoder
 tools/
   sdtest/               standalone SD bring-up test, 2.8" only; built locally, never released
@@ -3120,8 +3120,8 @@ files copied unchanged into `lib/rcbench/` with rcbench's own layout
 (`lib/rcbench/README.md`): the sweep curve, the GPIO-to-PWM map, the KST
 programming core with its RP2350 line driver, the KST file store, and the
 Hitec programming core with its RP2350 line driver, servo file text and CRC,
-the S.BUS (Futaba's serial bus for receiver channels) decoder, the
-current sensor's bus record (`sense_bus.c`), the escwire core for ESC
+the S.BUS (Futaba's serial bus for receiver channels) decoder and encoder,
+the current sensor's bus record (`sense_bus.c`), the escwire core for ESC
 settings over the signal wire with its RP2350 line driver, which nothing
 calls yet, and for the angle meter the control-surface arithmetic
 (`servo_rudder.c`), the IMU (inertial measurement unit) model (`imu.c`) and
@@ -3155,7 +3155,7 @@ files as C11 programs: `test/rcbench/test_servo_sweep.c` and
 `test_hitec_wire.c`, `test_hitec_pre.c`, `test_hitec_pio.c`, `test_hitec_reg.c`,
 `test_hitec_reg_plan.c`, `test_hitec_session.c`, `test_hitec_session_write.c`
 and `test_hitec_card.c`, with `hitec_headers.cpp` built as C++11, `test_sbus.c`
-(12 cases), and the twelve escwire tests `test_ew_a.c`, `test_ew_id.c`,
+(19 cases), and the twelve escwire tests `test_ew_a.c`, `test_ew_id.c`,
 `test_ew_map.c`, `test_ew_guard.c`, `test_ew_session.c`,
 `test_ew_session_write.c`, `test_ew_file.c`, `test_ew_file_load.c`,
 `test_ew_pio.c`, `test_ew_text.c`, `test_ew_session_text.c` and
@@ -3543,8 +3543,8 @@ the list.
 - The Hitec programming core, its RP2350 line driver, the Hitec servo file
   text and its CRC in `lib/rcbench/` come from rcbench at commit 3e29dc1b,
   by the same copyright holder under the same MIT licence.
-- The S.BUS decoder in `lib/rcbench/` comes from rcbench at commit 5ef42efd,
-  by the same copyright holder under the same MIT licence.
+- The S.BUS decoder and encoder in `lib/rcbench/` come from rcbench at commit
+  b88593d3, by the same copyright holder under the same MIT licence.
 - The escwire core, its RP2350 line driver and the servo file store in
   `lib/rcbench/` come from rcbench at commit 2b4f934a, by the same copyright
   holder under the same MIT licence.
@@ -3579,9 +3579,10 @@ rcbench's register model marks the source of each (`hitec_src_t`). No
 vendor code is included.
 
 Futaba and S.BUS are names or trademarks of their owners. They are used in
-this repository only to say which receivers its S.BUS decoder works with.
-MiniRcBench is not affiliated with Futaba and is neither supported nor
-sponsored by it. The S.BUS decoder is rcbench's; no vendor code is included.
+this repository only to say which receivers its S.BUS decoder and which
+devices its S.BUS encoder work with. MiniRcBench is not affiliated with
+Futaba and is neither supported nor sponsored by it. The S.BUS decoder and
+encoder are rcbench's; no vendor code is included.
 
 Every other name of a maker, product, protocol or firmware in this
 repository is a name or trademark of its owner, used only to describe

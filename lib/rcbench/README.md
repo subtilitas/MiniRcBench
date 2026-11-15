@@ -2,8 +2,9 @@
 
 The files under this directory are copied from
 [rcbench](https://github.com/subtilitas/rcbench) with their text unchanged:
-the Hitec files at commit `3e29dc1b`, the S.BUS files and the sensor bus at
-commit `5ef42efd`, the escwire files and the servo file store at commit
+the Hitec files at commit `3e29dc1b`, the S.BUS files at commit `b88593d3`,
+the sensor bus at commit `5ef42efd`, the escwire files and the servo file
+store at commit
 `2b4f934a`, the angle meter's files at commit `e98345aa`, every other file at
 commit `453cf334`. rcbench is MIT
 licensed by the same copyright holder as MiniRcBench, subtilitas, so the
@@ -35,12 +36,19 @@ The Hitec files, at commit `3e29dc1b`:
 | `shared/link/link_crc.c` | `shared/link/link_crc.c` |
 | `shared/link/include/link_crc.h` | `shared/link/include/link_crc.h` |
 
-The S.BUS files and the sensor bus, at commit `5ef42efd`:
+The S.BUS files, at commit `b88593d3`
+(`b88593d346da89b4e57913db7a27f41a23c8edd3`, on rcbench's `main` since
+pull request 847):
 
 | File here | rcbench path |
 | --- | --- |
 | `protocols/sbus/sbus.c` | `protocols/sbus/sbus.c` |
 | `protocols/sbus/include/sbus.h` | `protocols/sbus/include/sbus.h` |
+
+The sensor bus, at commit `5ef42efd`:
+
+| File here | rcbench path |
+| --- | --- |
 | `shared/sense/sense_bus.c` | `shared/sense/sense_bus.c` |
 | `shared/sense/include/sense_bus.h` | `shared/sense/include/sense_bus.h` |
 
@@ -126,13 +134,17 @@ by `test/sense.mk`. rcbench has no test of it of its own: its tests reach it
 through the INA228 and INA3221 drivers, which are not copied, so none is in
 `test/rcbench/`; `test/test_sense.cpp` tests it through the INA219 driver.
 
-The S.BUS decoder (`protocols/sbus/`) is for the S.BUS monitor of
-[rx-signals.md](../../docs/design/rx-signals.md). S.BUS is Futaba's serial bus
-for receiver channels. The S.BUS job, `src/sbus_job.cpp`, feeds it the bytes
-UART0 (universal asynchronous receiver-transmitter 0) receives. It is built as
+The S.BUS decoder and encoder (`protocols/sbus/`) are for the S.BUS monitor
+of [rx-signals.md](../../docs/design/rx-signals.md) and the S.BUS output of
+[sbus-output.md](../../docs/design/sbus-output.md). S.BUS is Futaba's serial
+bus for receiver channels. The S.BUS job, `src/sbus_job.cpp`, feeds the
+decoder the bytes UART0 (universal asynchronous receiver-transmitter 0)
+receives. The encoder, `sbus_encode()`, and `sbus_from_us()` came with
+commit `b88593d3`; between `5ef42efd` and `b88593d3` the decoder's code is
+the same. The module is built as
 C11, in the firmware by `src/rx.cmake` and in the host suite by `test/rx.mk`.
 Its rcbench test, copied unchanged from rcbench `test/host/test_sbus.c` into
-`test/rcbench/`, is `test_sbus.c`, 12 cases.
+`test/rcbench/`, is `test_sbus.c`, 19 cases, 12 of them the decoder's.
 rcbench's `README.md` and `CMakeLists.txt` of the module are not copied:
 this repository lists its sources in its own `.cmake` and `.mk` files.
 

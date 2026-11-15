@@ -44,6 +44,14 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: rcbench's S.BUS encoder, slice 1 of
+  [sbus-output.md](docs/design/sbus-output.md#slice-1-as-built). The S.BUS
+  files in `lib/rcbench/protocols/sbus/` and `test/rcbench/test_sbus.c` are
+  replaced, unchanged, by rcbench's at commit b88593d3: `sbus_encode()`,
+  which packs a frame and refuses one with a channel above 2047,
+  `sbus_from_us()`, the inverse of `sbus_to_us()`, and `SBUS_FOOTER`. The
+  decoder's code is the same as at 5ef42efd, and the S.BUS monitor runs
+  unchanged on it. `test_sbus.c` has 19 cases, 12 of them the decoder's.
 - After v0.1.0-rc1: the angle meter's screen and its documentation, slices 4
   and 5 of [angle-meter.md](docs/design/angle-meter.md#slice-4-as-built),
   tested on the host only. ANGLE METER (`src/ui_angle.*`) opens from MENU →

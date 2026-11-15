@@ -266,8 +266,9 @@ holder). The servo sweep curve, the GPIO-to-PWM fold, the KST programming
 core, its line driver and the KST file store are rcbench files at the same
 commit, and the Hitec programming core, its line driver, the Hitec servo file
 text and its CRC are rcbench files at commit 3e29dc1b, and the S.BUS
-(Futaba's serial bus for receiver channels) decoder and the current sensor's
-bus record, `sense_bus.c`, are rcbench files at commit 5ef42efd, and the
+(Futaba's serial bus for receiver channels) decoder and encoder are rcbench
+files at commit b88593d3, and the current sensor's bus record,
+`sense_bus.c`, is an rcbench file at commit 5ef42efd, and the
 escwire core, its line driver and the servo file store are rcbench files at
 commit 2b4f934a, and the control-surface arithmetic `servo_rudder`, the IMU
 (inertial measurement unit) model `imu` and the WitMotion decoder are
@@ -1250,7 +1251,7 @@ tests, copied unchanged: `test_hitec_wire.c` (11 cases), `test_hitec_pre.c`
 `test_hitec_reg_plan.c` (9), `test_hitec_session.c` (15),
 `test_hitec_session_write.c` (13) and `test_hitec_card.c` (12), and
 `hitec_headers.cpp`, the core's headers compiled as C++11, and rcbench's
-S.BUS decoder test, copied unchanged: `test_sbus.c` (12 cases), and
+S.BUS test, copied unchanged: `test_sbus.c` (19 cases), and
 rcbench's escwire tests, copied unchanged: `test_ew_a.c` (9 cases),
 `test_ew_id.c` (9), `test_ew_map.c` (9), `test_ew_guard.c` (15),
 `test_ew_session.c` (13), `test_ew_session_write.c` (26), `test_ew_file.c`
