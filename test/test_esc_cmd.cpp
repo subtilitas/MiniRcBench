@@ -391,6 +391,8 @@ static void testCmdReadiness() {
 	          escCmdReadiness(true, 0, 1000, 2500, false) == EscCmdReady::Ready);
 	checkTrue("no link-up time: Settling",
 	          escCmdReadiness(true, 0, 0, 9000, false) == EscCmdReady::Settling);
+	checkTrue("link up at 1, now 0 (the clock wrapped back): Settling",
+	          escCmdReadiness(true, 0, 1, 0, false) == EscCmdReady::Settling);
 	checkTrue("Settling before Busy",
 	          escCmdReadiness(true, 0, 1000, 2000, true) == EscCmdReady::Settling);
 	checkTrue("settled and busy: Busy",
@@ -744,6 +746,26 @@ static void testCmdGuards() {
 		          commandFrames(b, at + c.at, b->slot) == 0 &&
 		          b->sent[at + c.at] == 147;
 		checkTrue(c.what, ok);
+	}
+
+	// An arm for 50 ms in the first gap, then a disarm: the save block does
+	// not follow, though the gap's 300 frames have gone by.
+	{
+		Bench *b = benchBoot(Fw::Am32, 5000);
+		benchReady(b);
+		unsigned at = b->slot;
+		benchRequest(b, DSHOT_CMD_SPIN_DIRECTION_2, true);
+		benchRun(b, 100);
+		b->armed = true;
+		b->throttle = 100;
+		benchRun(b, 50);
+		b->armed = false;
+		b->throttle = 0;
+		benchRun(b, 1000);
+		checkTrue("arm and disarm in the first gap: save lost, no 12",
+		          b->pump.seq.state == EscCmdState::SaveLost && b->pump.seq.cmd == 0 &&
+		          firstOf(b, at, DSHOT_CMD_SAVE_SETTINGS) == BENCH_SLOTS &&
+		          commandFrames(b, at + 100, b->slot) == 0);
 	}
 
 	// An arm drops a waiting request; core0 refuses one while armed.

@@ -828,7 +828,7 @@ static inline EscCmdReady escCmdReadiness(bool linkUp, uint32_t erpm,
                                           bool busy) {
 	if (!linkUp) return EscCmdReady::NoAnswer;
 	if (erpm != 0) return EscCmdReady::Turning;
-	if (!linkUpSince || (uint32_t)(nowMs - linkUpSince) < ESC_CMD_SETTLE_MS)
+	if (!linkUpSince || (int32_t)(nowMs - linkUpSince) < (int32_t)ESC_CMD_SETTLE_MS)
 		return EscCmdReady::Settling;
 	if (busy) return EscCmdReady::Busy;
 	return EscCmdReady::Ready;
@@ -1219,7 +1219,7 @@ static inline void escFoldReply(EscTelemetry *tel, dshot_reply_t reply,
 		case DSHOT_TELEM_ERPM:
 			tel->erpm = t->erpm;
 			tel->rpm  = (poles >= 2) ? (t->erpm / (poles / 2)) : t->erpm;
-			tel->lastRpmMs = nowMs;
+			tel->lastRpmMs = nowMs ? nowMs : 1;
 			break;
 		case DSHOT_TELEM_VOLTAGE:
 			tel->volts = t->value * 0.25f;

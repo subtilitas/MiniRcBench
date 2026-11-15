@@ -223,10 +223,13 @@ static void testMenuDisarmAndBeep() {
 	          pixel(beep.x + 4, beep.y + beep.h - 5) == C_INK &&
 	          fakeBeepRequests() == beeps + 1);
 	checkTrue("as beacon 1 without a save", fakeLastCommand(&save) == 1 && !save);
-	escRequestBeep(0);
-	checkInt("escRequestBeep(0) asks for beacon 1", fakeLastCommand(nullptr), 1);
-	escRequestBeep(9);
-	checkInt("escRequestBeep(9) asks for beacon 5", fakeLastCommand(nullptr), 5);
+	beeps = fakeBeepRequests();
+	checkTrue("escRequestBeep(0) asks for beacon 1",
+	          escRequestBeep(0) && fakeBeepRequests() == beeps + 1 &&
+	          fakeLastCommand(nullptr) == 1);
+	checkTrue("escRequestBeep(9) asks for beacon 5",
+	          escRequestBeep(9) && fakeBeepRequests() == beeps + 2 &&
+	          fakeLastCommand(nullptr) == 5);
 	fakeSetCmdReady(EscCmdReady::Ready);
 	menuFrames(16);
 	fakeAdvance(0x80000000u);

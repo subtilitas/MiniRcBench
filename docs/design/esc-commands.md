@@ -119,8 +119,9 @@ What follows for this bench:
   `src/config.h` line 274). Six would act on AM32 and on none of Bluejay
   and BLHeli_S.
 - **The telemetry bit is set** on every command frame already
-  (`out_dshot_send(s_pumpPin, f.command, true)`, `src/esc_task.cpp`
-  line 471).
+  (`escFrameWire()` in `src/esc_task.h`, which slice 1 adds; on main at
+  51f10e0, `out_dshot_send(s_pumpPin, f.command, true)`,
+  `src/esc_task.cpp` line 471).
 - **Direction is 7 and 8, not 20 and 21.** 20 and 21 differ by firmware:
   Bluejay and BLHeli_S save a reversal that a 12 follows, AM32 does not.
   7 and 8 then 12 store the direction on all three open firmwares.
@@ -803,12 +804,11 @@ lapsed; the EDT enable before a sequence and after its last gap; each
 beacon's gap; a sequence and a wait across the `millis()` wrap; a bind, a
 teardown and a drain frame.
 
-Not changed, found while building: `escFoldReply()` stamps `lastRpmMs` with
-`millis()`, and 0 there means "never". The slot at `millis()` 0, once every
-2^32 ms, about 49.7 days, reads the link as down, which resets
-`linkUpSinceMs` and with it the 1500 ms settle and the EDT enable's 300 ms.
-A sequence under way is not affected: within a block only the replies
-count.
+Found while building and fixed: `escFoldReply()` stamped `lastRpmMs` with
+`millis()`, and 0 there means "never", so the slot at `millis()` 0, once
+every 2^32 ms, about 49.7 days, read the link as down. It now stamps 1 in
+place of 0, as the other stamps do. The settle check compares signed, so a
+link-up stamped 1 ms after the slot's clock reads as Settling.
 
 ## Decisions
 
@@ -860,6 +860,12 @@ None open. Questions 1 to 10 are answered by decisions 1 to 10.
 - AM32's 49-byte information layout.
 - That 300 ms between commands suffices for BLHeli_32, and that 1500 ms of
   answers suffices for every AM32 build.
+- That BLHeli_32 takes a command right after the 10 frames of the EDT
+  enable (13) with no 0 frames between them; AM32, Bluejay and BLHeli_S
+  reset their count on a new value.
+- A waiting request survives a teardown and could start on the next bind's
+  ESC if it settles within the 2000 ms wait; no path in slice 1 reaches
+  it, and slice 2 expires it.
 - A motor's spin-up time after a throttle step, and the size of the
   no-load losses and the timing effect on the estimate.
 - Everything on hardware: no command of this design, no direction change
