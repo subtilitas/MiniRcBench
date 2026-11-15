@@ -11,9 +11,8 @@
  * (ui_am32.h), a tap on USB BRIDGE the bridge (ui_bridge.h), each through
  * uiChooseTool(), whose own entry point asks for the pin claim on that
  * frame. An entry with no screen is drawn disabled, reported disabled and
- * opens nothing, with `NOT BUILT` under it (the developer's call B of
- * 2026-11-15). BACK returns to MENU, and so do the
- * tools' BACK and their RESTART DSHOT.
+ * opens nothing. BACK returns to MENU, and so do the tools' BACK and their
+ * RESTART DSHOT.
  *
  * The screen opens only while the pin claim is Free (`freePins`): MENU draws
  * the row disabled under `DSHOT RESTARTING ON SIG GP0` meanwhile, as it does
@@ -32,9 +31,6 @@ struct TouchState;
 #define UI_ESC_CFG_TITLE "ESC CONFIG"
 /** @brief The strip, `C_DIM`, with SIG's GPIO: `SIG GP0`, 7 characters. */
 #define UI_ESC_CFG_STRIP_FMT "SIG GP%u"
-/** @brief The status of an entry with no screen, `C_DIM`, under its button: 9 characters. */
-#define UI_ESC_CFG_NOT_BUILT "NOT BUILT"
-
 /** @brief Lines under an entry. */
 #define UI_ESC_CFG_LINES 2
 

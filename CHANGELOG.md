@@ -1205,7 +1205,11 @@ protocol.
   describes the Bluejay and BLHeli_S write as built and names the servo log;
   the wiki's Home page, in English and German, names ESC COMMANDS, ESC
   SETTINGS for all three firmwares, S.BUS OUTPUT, SETTINGS with DIAGNOSTICS,
-  the servo log and the run summary, with links.
+  the servo log and the run summary, with links. menu.md's tree and MENU show
+  the eight rows and their live entries; the wiki's screens pages title the
+  ESC SETTINGS section by its name. The unused `UI_ESC_CFG_NOT_BUILT` macro is
+  removed, and the comments on MENU's row count and scroll range read eight
+  rows and 78 px.
 - After v0.1.0-rc1: the run's end after a servo log's open given up asks the
   write cache for a fresh swap check, then flushes the queued blocks, then
   reads the volume's serial number (`endGiveUp()` in `src/servo_log.cpp`,

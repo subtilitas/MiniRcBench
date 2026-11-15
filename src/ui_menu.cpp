@@ -25,7 +25,7 @@
 
 /**
  * @defgroup menu_layout MENU layout
- * @brief Six 40 px rows fit under the strip; the seventh scrolls 36 px.
+ * @brief Six 40 px rows fit under the strip; eight rows scroll 78 px.
  * @{
  */
 #define MENU_VIEW_Y0   UI_BODY_Y              /**< First row of the list, y 62. */

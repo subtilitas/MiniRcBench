@@ -1,21 +1,19 @@
 # Bluejay and BLHeli_S settings
 
-Status: slices 1 to 4 of 6 are built
-([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built),
-[slice 3 as built](#slice-3-as-built), [slice 4 as built](#slice-4-as-built)):
-slice 1's copies of rcbench's escwire and their tests, slice 2's
-detection, slice 3's read and slice 4's write, slices 2 to 4 tested on the
-host only; slices 5 and 6 wait on being built. The owner answered its questions on
-2026-11-15, see [decisions](#decisions). The feature is item (6) of the owner's
-feature choice of 2026-11-14, recorded in [STATUS.md](../../STATUS.md)
-open item 28: Bluejay and BLHeli_S settings, rcbench's
-`protocols/escwire` copied, a design note first, then slices with reviews.
-No frame of this design has gone to an ESC (electronic speed controller)
-from this board, and rcbench's
-module has sent none to an ESC either. The firmware facts below are read
-from the sources under [sources](#sources), with the file and line; the
-ones no readable source settles are marked "not verified" and listed again
-under [not verified](#not-verified).
+Status: slices 1 to 4 of 6 are built ([slice 1 as built](#slice-1-as-built),
+[slice 2 as built](#slice-2-as-built), [slice 3 as built](#slice-3-as-built),
+[slice 4 as built](#slice-4-as-built)): slice 1's copies of rcbench's escwire
+and their tests, slice 2's detection, slice 3's read and slice 4's write, slices
+2 to 4 tested on the host only; slice 5, the bring-up, waits; slice 6, the
+restore, is not built. The owner answered its questions on 2026-11-15, see
+[decisions](#decisions). The feature is item (6) of the owner's feature choice
+of 2026-11-14, recorded in [STATUS.md](../../STATUS.md) open item 28: Bluejay
+and BLHeli_S settings, rcbench's `protocols/escwire` copied, a design note
+first, then slices with reviews. No frame of this design has gone to an ESC
+(electronic speed controller) from this board, and rcbench's module has sent
+none to an ESC either. The firmware facts below are read from the sources under
+[sources](#sources), with the file and line; the ones no readable source settles
+are marked "not verified" and listed again under [not verified](#not-verified).
 
 ## Terms
 

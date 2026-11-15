@@ -1544,7 +1544,7 @@ Decisions of the owner, 2026-10-28:
     `hitec_card.c` and `link_crc.c` copied unchanged: one format for both
     benches.
 11. **The write cache.** It runs during the Hitec claim as during the KST
-    SERVO and ESC SETTINGS claims, with the flush barrier before a write.
+    SERVO and AM32 CONFIG claims, with the flush barrier before a write.
 12. **Models not measured.** Writable in their series' layout, as rcbench's
     panel allows, with an amber line on the write page; the 1,000 ms hold is
     the confirmation.

@@ -665,12 +665,12 @@ go, as for the servo tools (`ui_leave.h` lines 19 to 28).
 
 ## Entry
 
-MENU has seven rows: BEEP THE ESC, AM32 CONFIG, SERVO
-TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS
-(`ui_registry.cpp` lines 22 to 30), at a 42 px pitch in a 258 px viewport,
-so MENU scrolls 36 px ([menu-b.md](menu-b.md#menu), decision 33). The
-bridge needs a way in, and each way changes something menu-b.md decides.
-The owner chose option (c) (decision 1). The options:
+On 2026-11-15, before decision 1, MENU had seven rows: BEEP THE ESC, AM32
+CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS
+(`ui_registry.cpp` lines 22 to 30), at a 42 px pitch in a 258 px viewport, so
+MENU scrolled 36 px ([menu-b.md](menu-b.md#menu), decision 33). The bridge needs
+a way in, and each way changes something menu-b.md decides. The owner chose
+option (c) (decision 1). The options:
 
 | Option | MENU | Taps to the bridge | Changes |
 |---|---|---|---|
@@ -688,17 +688,16 @@ and `USB BRIDGE`. The settings screen and the bridge are both ESC configuration
 over SIG, and a chooser takes a new entry as a table line. The labels are the
 owner's.
 
-Design call, the developer's under the owner's MENU decision, 2026-11-15:
-the chooser comes with whichever of this note's slice 2 and slice 2 of
-bluejay-blheli-s.md merges first, and holds both entries from the start.
-The entry not yet built is drawn disabled with `NOT BUILT` under it, as RX
-SIGNALS' OUTPUT is. `ESC SETTINGS` serves AM32 only until the Bluejay
-slices land, and STATUS.md says so. Slice 2 of bluejay-blheli-s.md merged
-first and built the chooser
-([slice 2 as built](bluejay-blheli-s.md#slice-2-as-built)): `USB BRIDGE`
-is the second line of `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, with
-no screen, so this note's slice 2 gives it its screen there, as it does
-([slice 2 as built](#slice-2-as-built)).
+Design call, the developer's under the owner's MENU decision, 2026-11-15: the
+chooser comes with whichever of this note's slice 2 and slice 2 of
+bluejay-blheli-s.md merges first, and holds both entries from the start. The
+entry not yet built is drawn disabled with `NOT BUILT` under it, as RX SIGNALS'
+OUTPUT was. `ESC SETTINGS` served AM32 only until the Bluejay slices landed, and
+STATUS.md said so. Slice 2 of bluejay-blheli-s.md merged first and built the
+chooser ([slice 2 as built](bluejay-blheli-s.md#slice-2-as-built)): `USB BRIDGE`
+is the second line of `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`, with no
+screen, so this note's slice 2 gives it its screen there, as it does ([slice 2
+as built](#slice-2-as-built)).
 
 With [esc-commands.md](esc-commands.md#menu-entry)'s
 option (a), MENU's first two rows read `ESC COMMANDS` and `ESC CONFIG`.

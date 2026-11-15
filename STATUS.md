@@ -506,24 +506,24 @@ ports the first branch's frame slot and ring.
 
 ## Next steps
 
-One pull request is open, the draft #49, the touch-loss stop of item 23;
-it waits for a bench check. The open pull requests were read from the GitHub
-REST API on 2026-11-15; no other is open.
+The draft pull request #49, the touch-loss stop of item 23, waits for a bench
+check. The open pull requests were read from the GitHub REST (Representational
+State Transfer) API (application programming interface) on 2026-11-15.
 
-The release: v0.1.0-rc1 exists, the tag at a93e1c1, published as a
-pre-release with `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes),
+The release: v0.1.0-rc1 exists, the tag at a93e1c1, published as a pre-release
+with `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes),
 `SHA256SUMS.txt` and `THIRD_PARTY_NOTICES.txt`. Its Docs run was skipped, as a
-suffixed tag's is, so no manual is published. That image has not run on
-hardware and predates most tools. v0.1.0-rc2 is not tagged. The owner pushes
-the tags.
+suffixed tag's is, so no manual is published. That image has not run on hardware
+and predates menu structure B and the tools after it. v0.1.0-rc2 is not tagged.
+The owner pushes the tags.
 
 The next work is the bench. [docs/bench-plan.md](docs/bench-plan.md) orders
 every bench test of the design notes and of the open items below into ten
 sessions that build on each other, from the board and the SD card to the
 destructive tests on spare parts, with the setups, pass criteria and the place
-each result goes. v0.1.0 follows the bench checks; a tag without a pre-release suffix then
-publishes the manual (item 7). Menu structure B and the tools after it are
-built, host tests only; none has run on hardware (item 18).
+each result goes. v0.1.0 follows the bench checks; a tag without a pre-release
+suffix then publishes the manual (item 7). Menu structure B and the tools after
+it are built, host tests only; none has run on hardware (item 18).
 
 Waiting on the owner:
 

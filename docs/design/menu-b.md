@@ -31,7 +31,9 @@ decision 19; and MENU gains a seventh row, RX SIGNALS (decision 32), so
 MENU scrolls 36 px, which revises owner decision 1's six rows that never
 scroll (decision 33). Decision 34 changes decision
 15 d and the chooser's D series power line; decision 35 draws the RX
-SIGNALS row disabled until its tools exist.
+SIGNALS row disabled until its tools exist. The owner's decisions of
+2026-11-15 on four other design notes revise MENU to eight rows, all built
+([MENU](#menu)).
 
 The owner decided on 2026-11-13 to build structure B ([decisions 1 to
 4](#decisions)). Decisions 5 to 15 are the rules this note sets for the

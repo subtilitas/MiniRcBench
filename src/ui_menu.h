@@ -6,14 +6,14 @@
  * registry entry (ui_registry.h): a tool opens its screen, and an action
  * row, a screen with `action` set, would act on the row; `UI_MENU` holds
  * none. A row fires on release, a press that slides off cancels, and a
- * vertical drag scrolls once the rows do not fit: seven rows at a 42 px
- * pitch scroll 36 px. BACK returns to the tester.
+ * vertical drag scrolls once the rows do not fit: eight rows at a 42 px
+ * pitch scroll 78 px. BACK returns to the tester.
  *
  * A tool that claims the signal pins, or one that opens only while they are
- * free (SETTINGS, ESC COMMANDS, and the choosers PROGRAMMER and RX
- * SIGNALS), is refused while the pin claim is not Free: its row is drawn
- * disabled under its own status, a tap opens nothing, and the strip reads
- * `DSHOT RESTARTING ON SIG GP0`. That state is reachable for the time
+ * free (SETTINGS, ESC COMMANDS, and the choosers ESC CONFIG, PROGRAMMER,
+ * RX SIGNALS and TOOLS), is refused while the pin claim is not Free: its row
+ * is drawn disabled under its own status, a tap opens nothing, and the strip
+ * reads `DSHOT RESTARTING ON SIG GP0`. That state is reachable for the time
  * Restoring takes after RESTART DSHOT.
  *
  * @see docs/design/menu.md, "MENU"
