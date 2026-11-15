@@ -197,7 +197,8 @@ pins 7 and 8; the script stops when `^` is on more than one connector, when
 that connector carries more than SCL, SDA, 3V3 and GND, or when the address
 is one of the board's own I2C parts. The Docs
 job in `ci.yml` runs `python3 tools/make_wiring.py --check`, which fails when
-the file differs from what the script draws.
+the file differs from what the script draws, and when the script takes one
+of nine changed sources it has to refuse (`SENSOR_MUTANTS`).
 
 ### Wiring the ESC
 
@@ -1570,17 +1571,18 @@ hand: a plug, or a switch in its positive lead.
 enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 
 ```
-  LiPo cell + --fuse-- VIN   BOOST   VOUT -- IN+ [INA219] IN- --  servo +  (red)
-  LiPo cell - ---+---- GND           EN  ---+--------------------  GP28, J4 pin 11
-                 |                          |                      or GP29, J4 pin 12
-                 |                    10 k pull-down
-                 |                          |
-                 +--------------------------+--------------------  servo -  (brown)
-                 |
-  board GND  ----+    one tap: J5 pin 4, or J4 pin 1 or 5
-  board SIG  ----------------------------------------------------  servo signal (GP0, J4 pin 9 or J5 pin 2)
+  LiPo + --fuse-- VIN  BOOST  VOUT -- IN+ [INA219] IN- --  servo +  (red)
+  LiPo - ---+---- GND         EN  --+-------------------  GP28, J4 pin 11
+            |                       |                     or GP29, J4 pin 12
+            |                 10 k pull-down
+            |                       |
+            +-----------------------+-------------------  servo -  (brown)
+            |
+  board GND +   one tap: J5 pin 4, or J4 pin 1 or 5
+  board SIG --------------------------------------------  servo signal
 
-  INA219, optional: SCL J3 pin 1, SDA J3 pin 2, VCC J3 pin 3 (3.3 V), GND J3 pin 4
+  SIG: GP0, J4 pin 9 or J5 pin 2
+  INA219, optional: SCL J3 pin 1, SDA pin 2, VCC pin 3 (3.3 V), GND pin 4
 ```
 
 - The converter: a synchronous boost with output disconnect, 5 V out, at

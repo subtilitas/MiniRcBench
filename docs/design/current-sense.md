@@ -1,23 +1,22 @@
 # Current sense and the bench converter
 
 Status: slices 1 and 2 built, slice 1 host-tested and slice 2 checked by
-`tools/make_wiring.py --check` ([slice 2 as built](#slice-2-as-built)),
-neither tested on hardware; slices 3 to 6 not built. The owner's decisions of 2026-11-13 and 2026-11-14 are
-recorded under [decisions](#decisions). On 2026-11-14 the owner answered
-Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt as sold,
-the servo tester switching the supply always, rcbench's limit run as the
-protection, and the settings carried over from the older layouts. One point
-is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V
-boost board the owner modelled names no chip, and the owner does not know
-it, so its ratings come only from bench tests B6 and B7. Slices 3
-to 6 wait on being built and on that module; the protection section is to
-be redesigned for the decisions. The settings carry-over of decision 14 is
-built and host-tested.
-No INA219 has been on the board's bus, and no boost converter has been on
-GP28 or GP29: every figure below is from a datasheet, from rcbench's
-records or computed, and the ones that are not known are stated as unknown.
-The slices are at the end ([slices](#slices)); each builds, passes the host
-suite and merges alone.
+`tools/make_wiring.py --check` ([slice 2 as built](#slice-2-as-built)), neither
+tested on hardware; slices 3 to 6 not built. The owner's decisions of 2026-11-13
+and 2026-11-14 are recorded under [decisions](#decisions). On 2026-11-14 the
+owner answered Q1 to Q5: one LiPo cell into a synchronous boost, the 0.1 Ω shunt
+as sold, the servo tester switching the supply always, rcbench's limit run as
+the protection, and the settings carried over from the older layouts. One point
+is open: the converter module ([Q1](#q1-the-converter-module)); the 5 V boost
+board the owner modelled names no chip, and the owner does not know it, so its
+ratings come only from bench tests B6 and B7. Slices 3 to 6 wait on being built
+and on that module; the protection section is to be redesigned for the
+decisions. The settings carry-over of decision 14 is built and host-tested. No
+INA219 has been on the board's bus, and no boost converter has been on GP28 or
+GP29: every figure below is from a datasheet, from rcbench's records or
+computed, and the ones that are not known are stated as unknown. The slices are
+at the end ([slices](#slices)); each builds, passes the host suite and merges
+alone.
 
 Terms: INA219 is Texas Instruments' (TI) current and power monitor with an
 I2C (Inter-Integrated Circuit) interface; SDA is the I2C serial data line
@@ -1055,10 +1054,12 @@ bench tests B1 to B13, follows slice 3 and is no slice of its own.
   Einrichtung (the boost converter, the INA219 and the J3 cable; the Hitec
   classic row names the boost).
 - **Tests.** `python3 tools/make_wiring.py --check`, in the Docs CI job,
-  fails when `docs/wiring.svg` differs from the drawing. Each check of
-  `sensor()` was broken in turn and the script run (STATUS.md, open item
-  16). Nothing of it is on hardware: no INA219 and no boost converter has
-  been wired to the board.
+  fails when `docs/wiring.svg` differs from the drawing, and when
+  `sensor()` takes one of the nine changed sources of `SENSOR_MUTANTS`:
+  the marker on no connector and on two, GP0 in place of J3's GND, an unmarked
+  bus pin on J4, a marker off the bus, another SCL pin, and the address at
+  0x1A, 0x78 and 0x07. Nothing of it is on hardware: no INA219 and no boost
+  converter has been wired to the board.
 
 ## Open questions
 
