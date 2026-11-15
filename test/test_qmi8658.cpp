@@ -131,6 +131,24 @@ static void testCodec() {
 // closed, probe
 // ---------------------------------------------------------------------------
 
+/**
+ * @brief Before any reset is written, an opening at millis() 0 probes at
+ *        once: the 2000 ms between resets holds only after a reset. Runs
+ *        first, while the driver has written no reset.
+ */
+static void testFirstProbe() {
+	section("IMU: the first opening, at millis() 0, probes at once");
+	freshBus();
+	fakeAdvance((uint32_t)(0u - millis()));
+	checkInt("millis() wrapped to 0", (long)millis(), 0);
+	FakeQmi8658 *q = fakeI2cAddQmi8658(IMU);
+	qmi8658Start(millis());
+	frame(0);
+	checkTrue("WHO_AM_I read and the reset written in that frame",
+	          q->logN == 3 && !q->log[0].write && q->log[0].reg == QMI8658_REG_WHO_AM_I &&
+	          q->log[2].write && q->log[2].reg == QMI8658_REG_RESET && q->resets == 1);
+}
+
 static void testClosed() {
 	section("IMU: closed, nothing sent to 0x6B");
 	freshBus();
@@ -964,6 +982,7 @@ static void testUiTick() {
 }
 
 void runQmi8658Tests() {
+	testFirstProbe();
 	testCodec();
 	testClosed();
 	testProbe();

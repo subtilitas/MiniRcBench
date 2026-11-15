@@ -955,14 +955,13 @@ out, 1373 µs.
 
 Mutation check: 96 mutants of `src/qmi8658.cpp`, `senseNote()`,
 `senseTick()`'s order and the tick in `uiTick()`, each built and run against
-the host suite. 93 fail it, among them CTRL7's flag set only after its write
-answered, each change to the baseline, and the reset gap as a signed
-difference. Three survive. `<=` in place of `<` in the reset gap is
-equivalent: at exactly 2000 ms both give the same time. The reset gap
-without its "a reset was written" flag differs only in the first 2000 ms
-after power-on, before any reset, which the suite does not reach. The sample
-count's skip of 0 when it wraps comes after 2^32 samples, 4.4 years at
-31.25 Hz.
+the host suite. 94 fail it, among them CTRL7's flag set only after its write
+answered, each change to the baseline, the reset gap as a signed difference,
+and the reset gap without its "a reset was written" flag, which the first
+IMU test catches by opening the meter at millis() 0 before any reset. Two
+survive. `<=` in place of `<` in the reset gap is equivalent: at exactly
+2000 ms both give the same time. The sample count's skip of 0 when it wraps
+comes after 2^32 samples, 4.4 years at 31.25 Hz.
 
 Not verified on the board: everything under [to confirm](#to-confirm) that
 concerns the part, the address, the byte order, the burst's auto-increment,
