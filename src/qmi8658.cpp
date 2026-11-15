@@ -44,7 +44,6 @@ enum class Phase : uint8_t {
 	Probe,      /**< WHO_AM_I, REVISION_ID and the reset, due at s_probeAt. */
 	ResetWait,  /**< dQY_L, due @ref QMI8658_RESET_A_MS after the reset. */
 	BootWait,   /**< WHO_AM_I, due @ref QMI8658_RESET_C_MS after the reset. */
-	Configure,  /**< CTRL1, CTRL2, CTRL5 and CTRL7, each written and read back. */
 	Warmup,     /**< The first @ref QMI8658_WARMUP_MS after CTRL7: nothing read. */
 	Run,        /**< A burst and the time stamp every frame. */
 };
@@ -236,7 +235,6 @@ void qmi8658Start(uint32_t nowMs) {
 }
 
 void qmi8658Stop() {
-	if (s_phase == Phase::Closed) return;
 	// One write, its result noted and counted; a stuck bus sends nothing,
 	// and the next opening's reset turns the accelerometer off.
 	if (s_accelMayBeOn) failed(writeReg(QMI8658_REG_CTRL7, QMI8658_CTRL7_OFF));
@@ -266,7 +264,6 @@ void qmi8658Tick(uint32_t nowMs) {
 				s_phase = Phase::BootWait;
 				return;
 			}
-			s_phase = Phase::Configure;
 			configure(nowMs);
 			return;
 		}
@@ -276,13 +273,9 @@ void qmi8658Tick(uint32_t nowMs) {
 			if (!startStep(readReg(QMI8658_REG_WHO_AM_I, &v, 1), nowMs)) return;
 			s_who = v;
 			if (v != QMI8658_WHO_AM_I_VALUE) return startFailed(nowMs, ImuState::WrongId);
-			s_phase = Phase::Configure;
 			configure(nowMs);
 			return;
 		}
-		case Phase::Configure:
-			configure(nowMs);
-			return;
 		case Phase::Warmup:
 			if (nowMs - s_enAt < QMI8658_WARMUP_MS) return;
 			s_phase = Phase::Run;

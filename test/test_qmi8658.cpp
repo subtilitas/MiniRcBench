@@ -136,9 +136,12 @@ static void testClosed() {
 
 static void testProbe() {
 	section("IMU: no part, NO IMU, probed every 1000 ms");
+	online();
 	freshBus();
 	qmi8658Start(millis());
 	checkTrue("opened: starting", state() == ImuState::Starting);
+	checkTrue("WHO_AM_I and REVISION_ID 0 until read",
+	          qmi8658WhoAmI() == 0 && qmi8658Revision() == 0);
 	frame(0);
 	checkTrue("WHO_AM_I not answered: absent", state() == ImuState::Absent);
 	checkInt("one transaction, the address NACKed", fakeI2cTransactionsTo(IMU), 1);
@@ -277,6 +280,20 @@ static void testResetC() {
 	frame(QMI8658_WARMUP_MS);
 	checkTrue("online 100 ms later", state() == ImuState::Online);
 
+	section("IMU: the bus stuck when dQY_L is due");
+	freshBus();
+	q = fakeI2cAddQmi8658(IMU);
+	qmi8658Start(millis());
+	frame(0);
+	senseNote(PICO_ERROR_TIMEOUT, 1);
+	senseNote(PICO_ERROR_TIMEOUT, 1);
+	frame(QMI8658_RESET_A_MS);
+	checkInt("15 ms, stuck: dQY_L not read", (long)fakeQmiCount(q, false, QMI8658_REG_DQY_L), 0);
+	senseNote(1, 1);
+	frame();
+	checkTrue("free: dQY_L read, configured, no wait for 1750 ms",
+	          fakeQmiCount(q, false, QMI8658_REG_DQY_L) == 1 && configuredFrom(q, 4));
+
 	section("IMU: the C part answering nothing for 1750 ms");
 	freshBus();
 	q = fakeI2cAddQmi8658(IMU);
@@ -348,6 +365,14 @@ static void testMismatch() {
 	frame(QMI8658_RESET_A_MS);
 	checkTrue("CTRL1's read-back NACKed: NO IMU, CTRL2 not written",
 	          state() == ImuState::Absent && fakeQmiCount(q, true, 0x03) == 0);
+	checkInt("one failure counted", (long)qmi8658Counts()->fails, 1);
+
+	section("IMU: a configuration write not answered");
+	q = started();
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 2);
+	frame(QMI8658_RESET_A_MS);
+	checkTrue("CTRL1's write NACKed: NO IMU, not read back",
+	          state() == ImuState::Absent && fakeQmiCount(q, false, 0x02) == 0);
 	checkInt("one failure counted", (long)qmi8658Counts()->fails, 1);
 
 	section("IMU: closed and opened again, the reset still waits for 2000 ms");
@@ -474,6 +499,20 @@ static void testFaults() {
 	frame(QMI8658_WARMUP_MS);
 	checkTrue("a new part's third sample, time stamp 3 again, taken",
 	          state() == ImuState::Online && q->stamp == 3 && qmi8658Latest()->seq == seq0 + 1);
+
+	section("IMU: back from offline, the count starts at 0");
+	for (int i = 0; i < 80; i++) frame();
+	fakeI2cRemove(IMU);
+	for (int i = 0; i < 3; i++) frame();
+	checkTrue("offline again", state() == ImuState::Offline);
+	q = fakeI2cAddQmi8658(IMU);
+	frame(1000);
+	frame(QMI8658_RESET_A_MS);
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC);
+	frame(QMI8658_WARMUP_MS);
+	checkTrue("the first burst NACKed: not offline", state() == ImuState::Starting);
+	frame();
+	checkTrue("the next frame: online", state() == ImuState::Online);
 
 	section("IMU: a failure and a good frame start the count again");
 	q = online();
@@ -618,6 +657,18 @@ static void testStop() {
 	t = fakeI2cTransactionsTo(IMU);
 	qmi8658Stop();
 	checkInt("stopped before CTRL7: nothing sent", fakeI2cTransactionsTo(IMU), t);
+
+	section("IMU: a stop, the part gone, a start and a stop");
+	q = online();
+	qmi8658Stop();
+	fakeI2cRemove(IMU);
+	fakeAdvance(QMI8658_RESET_GAP_MS);
+	qmi8658Start(millis());
+	frame(0);
+	t = fakeI2cTransactionsTo(IMU);
+	qmi8658Stop();
+	checkTrue("no IMU: the second stop sends nothing", state() == ImuState::Closed &&
+	          fakeI2cTransactionsTo(IMU) == t);
 
 	section("IMU: a stop while the bus is stuck sends nothing");
 	q = online();

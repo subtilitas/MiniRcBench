@@ -858,7 +858,8 @@ the INA219 and CST328 models already sit on, and its tests in
   start, whether a transfer failed or a value did not read back. The count
   of three applies to the part once it is configured.
 - **The warm-up reads nothing.** For 100 ms after CTRL7 no burst is read, in
-  place of reading samples and dropping them.
+  place of reading samples and dropping them. The state reads `Online` from
+  the first frame whose burst and time stamp read both answer.
 - **One failure a frame.** A failed transaction ends the IMU's frame, so a
   frame counts at most one. The count goes back to 0 only when the burst and
   the time stamp read both answer, so a time stamp read that fails every
@@ -898,6 +899,13 @@ read back, 311 clocks, 777.5 µs. The worst frame in any failure mode is that
 frame with CTRL7's read-back timing out: 292 clocks and 1000 µs, 1730 µs.
 The longest reading frame that fails is the time stamp's data read timing
 out, 1373 µs.
+
+Mutation check: 88 mutants of `src/qmi8658.cpp`, `senseNote()`,
+`senseTick()`'s order and the tick in `uiTick()`, each built and run against
+the host suite. 85 fail it. Two survivors showed dead code, which is removed:
+a configuration phase no frame could reach and a closed check in
+`qmi8658Stop()`. One is equivalent within the suite: the sample count's skip
+of 0 when it wraps, after 2^32 samples, 4.4 years at 31.25 Hz.
 
 Not verified on the board: everything under [to confirm](#to-confirm) that
 concerns the part, the address, the byte order, the burst's auto-increment,
