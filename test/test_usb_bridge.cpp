@@ -255,6 +255,7 @@ static void testNaming() {
 static void testIntact() {
 	section("USB bridge: a frame reaches the wire intact (DshotDisplay)");
 	fresh(escAck);
+	bridgeWireKeepEcho(false);   // as the 4-way interface of slice 3 leaves it
 	checkTrue("the bridge opens on Running", openBridge());
 	checkTrue("Waiting for the PC's first byte", usbBridgeMode() == BridgeMode::Waiting);
 	const int w0 = fakeBridgeLineWireCount();
@@ -265,7 +266,8 @@ static void testIntact() {
 	uint8_t host[64];
 	int hn = hostAll(host, sizeof(host));
 	checkInt("the PC gets the echo and the ACK", hn, (long)sizeof(SET_ADDR) + 1);
-	checkTrue("the echo first", memcmp(host, SET_ADDR, sizeof(SET_ADDR)) == 0);
+	checkTrue("the echo first: the open keeps echoes, whatever was set before",
+	          memcmp(host, SET_ADDR, sizeof(SET_ADDR)) == 0);
 	checkInt("the ACK last", host[hn - 1], 0x30);
 	checkTrue("Passthrough", usbBridgeMode() == BridgeMode::Passthrough);
 	UsbBridgeStats s = bstats();
@@ -546,7 +548,11 @@ static void testGather() {
 	uint8_t big[400];
 	for (int i = 0; i < 400; i++) big[i] = (uint8_t)(i * 5);
 	w0 = fakeBridgeLineWireCount();
+	frames = bstats().frames;
 	fakeCdcHostWrite(big, sizeof(big));
+	for (int k = 0; k < 5; k++) pass();
+	checkTrue("a full slot goes at once: 5 packets, 1.25 ms, no 2 ms wait",
+	          bstats().frames == frames + 1 && usbBridgeLast().len == 320);
 	run(400);
 	checkTrue("400 bytes: a full slot of 320, then 80", wireFrame(w0, big, 320) &&
 	          wireFrame(w0 + 320, big + 320, 80) && wireFrames(w0) == 2);
@@ -599,6 +605,17 @@ static void testModes() {
 	fakeCdcDtr(false);
 	run(2);
 	checkTrue("a close in Waiting after traffic: the line", usbBridgePortClosed());
+	const uint8_t sb[] = {0xFE, 0x00, 0x01, 0x02, 0x8A, 0x1C}, rd[] = {0x03, 0x10, 0x00, 0x00};
+	fakeCdcHostWrite(sb, sizeof(sb));
+	run(10);
+	fakeCdcDtr(true);
+	run(2);
+	fakeCdcDtr(false);
+	run(2);
+	fakeCdcHostWrite(rd, sizeof(rd));
+	run(10);
+	checkTrue("a SET BUFFER, the port closed, then READ: a new session, READ, no payload",
+	          usbBridgeLast().cmd == BridgeCmd::Read && !usbBridgeWriteUnfinished());
 	endBridge();
 
 	fresh(escAck);
@@ -607,6 +624,37 @@ static void testModes() {
 	run(2);
 	checkTrue("a close before any traffic: no line", !usbBridgePortClosed() &&
 	          usbBridgeMode() == BridgeMode::Waiting);
+	endBridge();
+
+	// Bytes from the ESC count as traffic: an answer 1.8 s late keeps the
+	// session past 2000 ms from the PC's last byte.
+	fresh(escReply);
+	openBridge();
+	static uint8_t late[600];
+	for (int i = 0; i < 600; i++) late[i] = (uint8_t)i;
+	willReply(late, sizeof(late), 1800000);
+	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
+	run(2300);
+	checkTrue("2300 ms after the PC's frame, the ESC still answering: Passthrough",
+	          usbBridgeMode() == BridgeMode::Passthrough && bstats().toHost > 300);
+	endBridge();
+
+	// A frame that waits for the slot is no idle time: the line stalls under
+	// the frame before it for 2.5 s.
+	fresh(escAck);
+	openBridge();
+	uint8_t big[300];
+	for (int i = 0; i < 300; i++) big[i] = (uint8_t)i;
+	fakeCdcHostWrite(big, sizeof(big));
+	run(10);
+	fakeBridgeLineStall(true);
+	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
+	run(2500);
+	checkTrue("a frame waiting 2.5 s for the slot: still Passthrough",
+	          usbBridgeMode() == BridgeMode::Passthrough && bstats().frames == 1);
+	fakeBridgeLineStall(false);
+	run(300);
+	checkTrue("the line moving again: it goes out", bstats().frames == 2);
 	endBridge();
 
 	// 0x00 and other first bytes.
@@ -723,8 +771,14 @@ static void testBackWithHost() {
 	checkTrue("BACK: Leaving, DShot not yet asked back",
 	          pinClaimState() == ClaimState::Leaving && fakeResumeCount() == resumes);
 	const int w0 = fakeBridgeLineWireCount();
-	const int queued = fakeCdcHostQueued();
 	fakeCdcHostWrite(SET_ADDR, sizeof(SET_ADDR));
+	// Core0 before core1: the line is still open, the claim already Leaving.
+	tud_task();
+	usbBridgeTask();
+	const int queued = fakeCdcHostQueued();
+	checkTrue("core0's pass before core1's: closed, the line still open, nothing read",
+	          usbBridgeMode() == BridgeMode::Closed && bridgeWireOpen() &&
+	          queued >= (int)sizeof(SET_ADDR));
 	pass();
 	checkTrue("the next pass: closed, the console still off",
 	          usbBridgeMode() == BridgeMode::Closed && !fakeConsoleOn());
@@ -732,7 +786,7 @@ static void testBackWithHost() {
 	while (pinClaimState() != ClaimState::Free && k++ < 2000) pass();
 	checkTrue("the frame under way finished, Free", pinClaimState() == ClaimState::Free &&
 	          fakeBridgeLineCuts() == 0);
-	checkTrue("nothing read from the PC after BACK", fakeCdcHostQueued() == queued + (int)sizeof(SET_ADDR));
+	checkTrue("nothing read from the PC after BACK", fakeCdcHostQueued() == queued);
 	checkTrue("no new frame on the wire", wireFrames(w0) <= 1);
 	pass();
 	checkTrue("the console back at Free", fakeConsoleOn());

@@ -143,6 +143,34 @@ static void testDump() {
 	check("the end", strstr(text, "--- END ---\n\n") != nullptr);
 }
 
+/** @brief A slow PC: a dump longer than 400 ms that keeps going is not abandoned. */
+static void testSlowPc() {
+	printf("\nBridge log: a slow PC, and a transfer longer than 255 bytes\n");
+	fakeCdcReset();
+	bridgeLogReset();
+	for (int i = 0; i < 100; i++) bridgeLogAdd(BLOG_HOST_TO_ESC, INIT21, sizeof(INIT21));
+	bridgeLogDumpBegin();
+	int steps = 0;
+	while (steps < 1000) {
+		steps++;
+		if (bridgeLogDumpStep()) break;
+		g_us += 50000;
+	}
+	check("steps 50 ms apart, more than 400 ms in all: every line out",
+	      steps > 9 && linesDelivered() == 100 + 5);
+	fakeCdcReset();
+	bridgeLogReset();
+	static uint8_t big[300];
+	bridgeLogAdd(BLOG_HOST_TO_ESC, big, sizeof(big));
+	bridgeLogDumpBegin();
+	dumpAll();
+	static char text[2048];
+	int n = fakeCdcHostRead((uint8_t *)text, sizeof(text) - 1);
+	text[n] = '\0';
+	check("300 bytes: counted as 255, the field's top, 64 shown",
+	      strstr(text, "H>E  255  00 ") != nullptr && strstr(text, "...(64 of 255 shown)") != nullptr);
+}
+
 static void testStall() {
 	printf("\nBridge log: a PC that stops reading\n");
 	fakeCdcReset();
@@ -214,6 +242,7 @@ static void testBridgeOrder() {
 
 int main() {
 	testDump();
+	testSlowPc();
 	testStall();
 	testBridgeOrder();
 	printf("test_bridge_log: %s\n", g_failed ? "FAILED" : "all checks passed");

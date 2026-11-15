@@ -116,12 +116,14 @@ static void openBridge() {
 	bridgeLogNote("bridge opened");
 }
 
-/** @brief The close, at BACK: nothing more is read or sent; the log's dump begins. */
+/**
+ * @brief The close, at BACK: nothing more is read or sent; the log's dump
+ *        begins. A frame being gathered is never handed over: the next open
+ *        starts an empty one.
+ */
 static void closeBridge() {
 	s_open = false;
 	s_mode = BridgeMode::Closed;
-	s_len = 0;
-	s_ready = false;
 	bridgeLogNote("bridge closed");
 	bridgeLogDumpBegin();
 }

@@ -24,9 +24,10 @@ keinen Konfigurator. Er aktualisiert keine ESC-Firmware.
 `ESC CONFIG` ist eine Auswahl. Sie nimmt dem Signalpin nichts weg: DShot
 läuft weiter, bis du `ESC SETTINGS` antippst. Über `USB BRIDGE` erreicht
 ein ESC-Programm auf dem Computer den ESC durch die Platine: siehe
-[USB-Brücke](USB-Bruecke). `BACK` führt zu MENU zurück. Der Bildschirm heißt für jede ESC-Firmware
-`ESC SETTINGS`; er liest und schreibt AM32 und liest Bluejay und
-BLHeli_S, ohne sie zu schreiben: siehe [EFM8-ESCs](#efm8-escs).
+[USB-Brücke](USB-Bruecke). `BACK` führt zu MENU zurück. Der Bildschirm
+heißt für jede ESC-Firmware `ESC SETTINGS`; er liest und schreibt AM32
+und liest Bluejay und BLHeli_S, ohne sie zu schreiben: siehe
+[EFM8-ESCs](#efm8-escs).
 
 Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
 Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
