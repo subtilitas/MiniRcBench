@@ -95,14 +95,16 @@ static void removeJobs() {
 	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
 	s_ops[(uint8_t)Core1Job::Hitec] = nullptr;
 	s_ops[(uint8_t)Core1Job::Sbus]  = nullptr;
+	s_ops[(uint8_t)Core1Job::EscWire] = nullptr;
 }
 
-/** @brief The table as it ships: the servo, KST, Hitec and S.BUS jobs. */
+/** @brief The table as it ships: the servo, KST, Hitec, S.BUS and ESC settings jobs. */
 static void shippedJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = &SERVO_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Kst]   = &KST_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Hitec] = &HITEC_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Sbus]  = &SBUS_JOB_OPS;
+	s_ops[(uint8_t)Core1Job::EscWire] = &ESCWIRE_JOB_OPS;
 }
 
 // ---------------------------------------------------------------------------
@@ -945,9 +947,9 @@ static void testDeferredJob() {
 	installJobs();
 	memset(&g_hitecJob, 0, sizeof(g_hitecJob));
 	s_ops[(uint8_t)Core1Job::Hitec] = &FAKE_HITEC;
-	checkTrue("only HITEC defers its job", pinUserInfo(PinUser::Hitec).deferJob &&
+	checkTrue("HITEC and ESC SETTINGS defer their jobs", pinUserInfo(PinUser::Hitec).deferJob &&
 	          !pinUserInfo(PinUser::Servo).deferJob && !pinUserInfo(PinUser::Kst).deferJob &&
-	          !pinUserInfo(PinUser::Am32).deferJob);
+	          pinUserInfo(PinUser::Am32).deferJob);
 	int resumes = fakeResumeCount();
 	checkTrue("HITEC claims", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
 	pump();
@@ -1345,11 +1347,12 @@ static void testAm32Screen() {
 
 void runClaimTests() {
 	section("Core1 jobs: the table as it ships");
-	checkTrue("the servo, KST, Hitec and S.BUS jobs are in the table",
+	checkTrue("the servo, KST, Hitec, S.BUS and ESC settings jobs are in the table",
 	          s_ops[(uint8_t)Core1Job::Servo] == &SERVO_JOB_OPS &&
 	          s_ops[(uint8_t)Core1Job::Kst] == &KST_JOB_OPS &&
 	          s_ops[(uint8_t)Core1Job::Hitec] == &HITEC_JOB_OPS &&
-	          s_ops[(uint8_t)Core1Job::Sbus] == &SBUS_JOB_OPS);
+	          s_ops[(uint8_t)Core1Job::Sbus] == &SBUS_JOB_OPS &&
+	          s_ops[(uint8_t)Core1Job::EscWire] == &ESCWIRE_JOB_OPS);
 	checkTrue("and the USB bridge's job",
 	          s_ops[(uint8_t)Core1Job::Bridge] == &BRIDGE_JOB_OPS);
 	installJobs();

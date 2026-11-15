@@ -69,9 +69,12 @@ set have FAT date 0.
 An ESC COMMANDS page, MENU's first row, sends DShot beacons, direction and
 3D mode, each change saved in the ESC behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
-ESC from this board yet). An RPM-per-volt reading and a kV estimate on the
-tester, labelled `KV EST`, are designed in the same note and not built;
-the owner answered its questions on 2026-11-15.
+ESC from this board yet). The armed tester shows RPM per volt on its
+`ERPM` line and an estimate of the motor's kV, its speed constant in RPM per
+volt with no load, as `KV EST`, in place of the pole count (slice
+3 of the same note, host tests only, not measured on a motor); see
+[Telemetry and logging](#telemetry-and-logging). The owner answered the
+note's questions on 2026-11-15.
 A USB bridge, through which an ESC tool on a desktop computer reaches the
 ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
@@ -147,11 +150,12 @@ zero frames for at least 250 ms (`ARM_ZERO_THROTTLE_MS`) after the last
 throttle frame, then stops the pump with no edges, releases the pin (a plain
 input with the pulls off), puts the pull-up back on it and ends the KISS
 receiver. Core1 then runs that screen's job instead (`src/core1_job.h`), and
-`loop1()` is `escTaskPoll(); core1JobPoll();`. The AM32 editor's transport runs
-on core0 and has no core1 job; the servo tester, the KST and Hitec
-programmers, the S.BUS monitor and the USB bridge each have one. Leaving the
-screen rebuilds the pump from the wiring it had, disarmed, once the job has
-let the pins go.
+`loop1()` is `escTaskPoll(); core1JobPoll();`. ESC SETTINGS' AM32
+transport runs on core0; its core1 job, rcbench's escwire session
+(`src/escwire_job.h`), starts only once a Bluejay or BLHeli_S bootloader
+answered. The servo tester, the KST and Hitec programmers, the S.BUS monitor
+and the USB bridge each have one. Leaving the screen rebuilds the pump from
+the wiring it had, disarmed, once the job has let the pins go.
 
 ---
 
@@ -483,8 +487,10 @@ touched the screen at power-up, lift the finger before HOLD TO ARM.
   a tap on it opens SETTINGS (`TesterCtl::Poles` at {4, 106, 72, 22},
   `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs MENU's disarm first,
   through `uiOpenTool()` in `src/ui.cpp`, and `BACK` on SETTINGS opened this
-  way returns to the tester. While armed they show no underline and a press
-  on them is the throttle pad's or the throttle bar's: the pole count lies in
+  way returns to the tester. While armed they show no underline, `KV EST`
+  stands in the pole count's place ([Telemetry and
+  logging](#telemetry-and-logging)), and a press on them is the throttle
+  pad's or the throttle bar's: the pole count lies in
   the pad, `MAX` reaches into the bar's grab area. While another screen
   holds the signal pins (DShot restarting) they show no underline and a tap
   does nothing, as MENU's SETTINGS row is refused. While the 3D note takes
@@ -987,6 +993,52 @@ refused and a write of 3D MODE off that is not verified leave it. It describes
 the last ESC those two tools reached, not the one on the pin now: a swapped ESC
 is not detected.
 
+**RPM/V and the kV estimate.** kV is a motor's speed constant, RPM per volt with
+no load. While armed, the `ERPM` line, y 102, carries `RPM/V` after two spaces,
+`ERPM 156800  RPM/V 1400`, and the bottom row's pole count gives its place to
+`KV EST`, `C_TEXT` at x 10, y 114, until the disarm (decisions 6 and 7 of
+`docs/design/esc-commands.md`, slice 3). With RPM the eRPM from the display
+filter over half of MOTOR POLES, before the readout's clamp at 99999, V the
+voltage the `VOLTAGE` tile shows, KISS where fresh, EDT otherwise, and t the
+throttle sent, 0 to 2000, `src/kv_est.h` computes, in 64-bit integers, rounded
+half up and clamped to 99999:
+
+- RPM/V = RPM / V;
+- the kV estimate = RPM × 2000 / (V × t).
+
+The estimate assumes the ESC's duty is t / 2000 and a motor with no
+propeller. Neither is checked. On AM32 2.22 the design note works out from
+AM32's source that the estimate at 75 % throttle is × 0.92 to × 1.08 of the
+rated kV for the SINE STARTUP and MIN DUTY settings it covers, with RUNNING
+LEVEL 10 and on a target built without `USE_STARTUP_BOOST`; the duty maps of
+Bluejay, BLHeli_S and BLHeli_32 are not verified. Load, losses, the drops in
+the ESC and the wiring, and a wrong pole count are inside the figure. An ESC
+in 3D mode that the 3D note does not know of, set by another tool or in an
+earlier power-up of the bench, gives a wrong figure with no warning: on AM32
+at t 1500 the motor runs in the set direction at a duty of about 0.50, and
+the estimate reads about × 0.67 of the rated kV. So it is labelled `KV EST`,
+never `KV`.
+
+| Field | Shown when | Otherwise |
+|---|---|---|
+| `RPM/V 1400` | armed; eRPM within `ESC_LINK_STALE_MS` (500 ms); RPM above 0 with MOTOR POLES 2 or more; a voltage from KISS within `KISS_STALE_MS` (500 ms) or EDT within `EDT_STALE_MS` (1000 ms), above 0.5 V | `RPM/V --`; disarmed, no `RPM/V` |
+| `KV EST 1758` | the same, and t from `KV_EST_MIN_THROTTLE` (1500, 75 %) to 2000, within `KV_EST_SETTLE_BAND` (20) of one value for `KV_EST_SETTLE_MS` (1000 ms), the filtered eRPM within `KV_EST_ERPM_SETTLE_PERMILLE` (0.5 %) of the last reply, and the 3D note not standing | `KV EST 75%+` below 1500 when the inputs are there; else `KV EST --` |
+
+The settle counts from the UI frame on which the throttle sent left the band of
+±20 around the value the settle started at (`kvSettleStep()`, stepped in
+`uiTick()` after `escSetThrottle()`): a finger resting on the bar at `MAX 100%`
+moves the throttle by about 11 a pixel, and a settle that restarted on every
+change would never end. 1000 ms leaves 0.48 % of a step in the display filter.
+The eRPM check covers a motor still spinning up; one eRPM step is 0.20 % to 0.39
+% of the value, inside the 0.5 %. The motor's own spin-up time is not measured.
+At the default `MAX 20%` the estimate never shows. The widest texts fit, held by
+`static_assert`s in `src/ui.cpp`: `ERPM 60000000  RPM/V 99999`, 26 characters at
+the decoder's largest eRPM, 155 px, ends 27 px before the `RPM` label at x 192;
+`KV EST 99999`, 71 px, ends 50 px before `SWIPE = THROTTLE`. While the 3D note
+stands it takes the row; `RPM/V` stays on the line above. The blackbox log
+records nothing new: `motor[0]`, `eRPM[0]`, `vbatLatest` and `vbatEdt` give both
+figures.
+
 An expired **ESC STATUS** reads `--`, never `OK`.
 
 Bidirectional DShot and EDT work on hardware. No defect is known as of
@@ -1293,24 +1345,29 @@ not stored. The tester shows no note for the direction.
 ## AM32 ESC configuration
 
 **MENU → ESC CONFIG → ESC SETTINGS** reads and edits an AM32 ESC's
-settings over the signal wire. It does not flash ESC firmware. The transport
-is `src/am32_bl.h`.
+settings and reads a Bluejay or BLHeli_S ESC's over the signal wire. It does
+not flash ESC firmware and does not write a Bluejay or BLHeli_S ESC. The
+transports are `src/am32_bl.h` for the greeting and AM32, and rcbench's
+escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 
 MENU's second row, **ESC CONFIG**, opens a chooser
 (`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
 scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
-`BLUEJAY, BLHELI_S: NAMED, NOT READ.`, and `USB BRIDGE` drawn disabled with
+`BLUEJAY, BLHELI_S: READ, NOT WRITTEN.`, and `USB BRIDGE` drawn disabled with
 `A DESKTOP ESC TOOL OVER USB.` and `NOT BUILT` under it
 (`docs/design/usb-bridge.md`). The strip reads `SIG GP0`. The chooser claims
 nothing; the tap on ESC SETTINGS claims SIG. Its BACK, and ESC SETTINGS'
 BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
-the pin claim is not free. ESC SETTINGS serves AM32 until the Bluejay and
-BLHeli_S slices of `docs/design/bluejay-blheli-s.md` are built. Its titles
+the pin claim is not free. ESC SETTINGS writes AM32 only: writing a Bluejay
+or BLHeli_S ESC is slice 4 of `docs/design/bluejay-blheli-s.md`, not built.
+Its titles
 are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
 and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
 
-![ESC CONFIG and a Bluejay answer](docs/esc-preview.png)
+![ESC CONFIG and a Bluejay ESC](docs/esc-preview.png)
+
+![A Bluejay or BLHeli_S page](docs/efm8-preview.png)
 
 ![AM32 config](docs/am32-preview.png)
 
@@ -1320,16 +1377,20 @@ stops the DShot driver and hands the pin to the bootloader transport; the
 strip reads `RELEASING SIG GP0` meanwhile. Leaving hands it back, at once
 or, after a Bluejay or BLHeli_S answer, from the leave page.
 
-Leaving sends the bootloader no `RUN` command. The transport has one,
-`am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An ESC that answered
-is in its bootloader when the screen closes, and DShot frames follow on the
-signal wire. What the ESC does after the screen is left, its firmware
+Leaving an AM32 sends the bootloader no `RUN` command. The transport has
+one, `am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An AM32 ESC that
+answered is in its bootloader when the screen closes, and DShot frames follow
+on the signal wire. What the ESC does after the screen is left, its firmware
 started on its own, on those frames or not at all, is not recorded.
-Power-cycle the ESC after leaving, before driving a motor. After a session
-whose handshake succeeded, MENU's strip shows `POWER-CYCLE THE ESC TO RUN IT`
-in amber on a second line under its caption (`uiAm32RunCue()`), until an eRPM
-frame stamped after that handshake arrives, RESTART DSHOT on the leave page
-below, or the board restarts.
+Power-cycle the ESC after leaving, before driving a motor. A Bluejay or
+BLHeli_S ESC whose page was read is left with LEAVE, below. After a session
+whose handshake succeeded, or in which an EFM8 bootloader answered, MENU's
+strip shows `POWER-CYCLE THE ESC TO RUN IT` in amber on a second line under
+its caption (`uiAm32RunCue()`), until an eRPM frame stamped after that answer
+arrives, RESTART DSHOT on the leave page below is tapped, or the board
+restarts. LEAVE from a Bluejay or BLHeli_S list leaves it: LEAVE has no
+answer, so only an eRPM frame shows that the firmware started. A reply that
+holds a piece of an EFM8 answer sets it too, below.
 
 ### Connecting
 
@@ -1339,8 +1400,22 @@ the bootloader decides about 46 ms after power-up and then waits while the
 line rests high; a greeting's low bits in those 46 ms start the ESC's
 firmware, which resets itself about 2 s later with no DShot, and after that
 reset only a low in the bootloader's last 5 ms starts the firmware again
-(`docs/design/bluejay-blheli-s.md`). Not measured. The firmware repeats the
-21-byte init string, waiting 30 ms (`AM32_GREET_TMO_MS`) for each reply.
+(`docs/design/bluejay-blheli-s.md`). Not measured.
+
+The page runs a connect cycle (`src/greet_cycle.h`, that note's decision
+2): 1000 ms (`ESC_GREET_QUIET_MS`) with the line on its pull-up and nothing
+sent, `LINE HIGH, NOTHING SENT` on the status line, then a burst of 3
+(`ESC_GREET_BURST`) 21-byte greetings, one a frame, each waiting 30 ms
+(`AM32_GREET_TMO_MS`) for its reply, `WAITING... (TRY n)`, then quiet again.
+A greeting holds the line low for at least 6 ms; repeated without a pause it
+would keep a Bluejay's bootloader check, a high line for about 150 ms, from
+ever passing. By the sources a Bluejay running on DShot enters its
+bootloader within the first quiet second, about 320 ms plus 150 ms after
+the last frame, and BLHeli_S after its timeout plus 15 ms; an AM32
+powered up within a burst or the 46 ms before it, about 15 % of the time,
+starts its firmware and returns about 2 s later by its firmware's own
+reset. None of it is measured. The tries count greetings only. An answer's
+status stays through the quiet phase until the next answer.
 
 `AM32_FORCE_LOW_JUMP` (default 0) instead holds the signal low for
 `AM32_BOOT_LOW_MS` (200 ms) once before the first attempt. The reference
@@ -1351,9 +1426,10 @@ The screen shows which half failed:
 
 | Message | Meaning | What to change |
 |---|---|---|
+| `LINE HIGH, NOTHING SENT` | The quiet phase of the connect cycle | Nothing: a burst of 3 greetings follows |
 | `WAITING... (TRY n)` | No reply yet | Power-cycle the ESC while the screen is open |
 | `nB: xx xx xx @19200`, then `REPLY NOT UNDERSTOOD:` and `IS THE ESC RUNNING AM32?` | The ESC sent bytes that did not parse | Baud rate or framing, or firmware other than AM32. The first three bytes are shown |
-| `EFM8 E8B2 ANSWERED: NOT READ YET.` | A Bluejay or BLHeli_S bootloader answered; the signature is shown | Nothing is read here; leave through the leave page, below |
+| `EFM8 E8B2 ANSWERED: READING.` | A Bluejay or BLHeli_S bootloader answered; the signature is shown | Nothing: the escwire session reads the page, below |
 | `READ FAILED (...)` | Handshake succeeded, settings read failed | Retry; check the wire |
 | `NO VALID SETTINGS`, with `NOT AN AM32 ESC, OR BLANK SETTINGS.` and `NOTHING WILL BE WRITTEN.` | The settings block is implausible (`am32Plausible()`): among others a layout revision of 0 or above 8 | Nothing to do: the screen stays on the connect page, which has no `WRITE...` |
 
@@ -1361,20 +1437,103 @@ The screen shows which half failed:
 
 The greeting is a valid greeting for the EFM8 bootloader of Bluejay and
 BLHeli_S, so such an ESC can answer it. `blAnswerClassify()`
-(`src/bl_answer.h`) reads the answer from its end: a fifth byte from the end
-that is an AM32 family, 0x1F, 0x2B or 0x35, is AM32; `471`, a byte, 0xE8,
-then 0xB1, 0xB2 or 0xB5, two bytes and 0x30 is an EFM8 bootloader with the
-signature E8B1, E8B2 or E8B5 (EFM8BB1, EFM8BB2, EFM8BB51); anything else is
-not understood. From the bootloaders' sources; not seen on an ESC.
+(`src/bl_answer.h`) reads the answer: 5 bytes or more ending in 0x30 whose
+fifth byte from the end is an AM32 family, 0x1F, 0x2B or 0x35, are AM32;
+`471` with 0xE8 four bytes after its `4`, anywhere in the reply, is an EFM8
+bootloader, its signature 0xE8 and the byte after it, E8B1, E8B2 or E8B5 on
+EFM8BB1, EFM8BB2 and EFM8BB51; anything else is not understood. The EFM8
+rule does not check the bytes after the 0xE8, so a trailing glitch byte or
+a garbled byte still counts as an EFM8 answer and keeps DShot off its
+bootloader; escwire's own first contact then checks the answer in full.
+From the bootloaders' sources; not seen on an ESC.
 
-An EFM8 answer reads `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters,
-197 px) in amber at y 176 and on the strip. Nothing is read or written.
-Later greetings that go unanswered keep the line: the bootloader waits for
-commands with no timeout. The answer sets MENU's run cue and gives the pin
-claim a leave page (`pinClaimWantLeavePage()`), so DShot frames, which the
-bootloader could read as a command, do not follow at once. BACK from then
-on opens the leave page of `docs/design/bluejay-blheli-s.md` decision 8,
-the leave page of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
+A reply not understood that holds a piece of an EFM8 answer, `471`, or `71`,
+a byte and 0xE8, or 0xE8 followed by 0xB1, 0xB2 or 0xB5
+(`blAnswerEfm8Fragment()`), as an answer with its `d` or its leading `4`
+lost does, gives the claim the leave page and MENU the run cue too: its
+bootloader may wait on the line. The connect page names the bytes, as for
+any reply not understood, and the cycle greets on; BACK opens the leave
+page, whose strip reads `EFM8  SIG GP0`. Bytes with none of these pieces
+leave the leave page off. A false hit costs a leave page.
+
+An EFM8 answer gives the pin claim a leave page
+(`pinClaimWantLeavePage()`) and sets MENU's run cue. Then the AM32
+transport lets go of SIG, leaving it floating, and the claim starts its
+core1 job, `Core1Job::EscWire` (`src/escwire_job.h`), on core1's next pass.
+A bind the driver refuses puts the pull-up back on SIG and names the
+resource on the connect page, `SIG GP0 COULD NOT BE TAKEN (DMA)` and the
+like, or `(PIN)` for a pin the driver does not take; BACK opens the leave
+page.
+The job opens rcbench's line driver, `ew_line` on one PIO state machine of
+25 words and 2 DMA channels, and drives the line high in the same call. It
+holds it high 500 ms more, makes its own first contact, 3 tries of 100 ms,
+and identifies the page from its first 112 bytes at 0x1A00, or 0x3000 on
+EFM8BB51; then it reads the whole page, 112 bytes for BLHeli_S and 255 for
+Bluejay. Nothing is erased or programmed. The connect page reads
+`EFM8 E8B2 ANSWERED: READING.` (28 characters, 167 px) meanwhile, and in
+place of `POWER-CYCLE THE ESC` and its three lines, which do not apply to a
+bootloader that waits, `EFM8 BOOTLOADER` over `THE ESC WAITS IN ITS
+BOOTLOADER` / `FOR COMMANDS. ITS FIRMWARE DOES` / `NOT RUN UNTIL IT LEAVES.`
+A second first contact to a bootloader that already answered the greeting
+reads to it as a restart, by its source; not verified on an ESC.
+
+The page decides what opens, by rcbench's `ew_id_efm8()`
+(`src/efm8_view.h`):
+
+| Page | Screen | Strip |
+|---|---|---|
+| Bluejay layout 208, BLHeli_S layout 33, marker 0x55 0xAA | the list | `BLUEJAY 0.21  LAYOUT 208  E8B2` (30 characters, 179 px), grey |
+| Bluejay layouts 33 to 207, BLHeli_S layout 32 | the list | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.`, amber |
+| Name tag 0xFF with BLHeli_S layout 33 or Bluejay layout 208: the ESC lost its tags | the list | `ESC LOST ITS TAGS: READ-ONLY.` over `REFLASH ON A COMPUTER. NO BACKUP.` |
+| Settings marker not 0x55 0xAA | the list | `SETTINGS MARKER WRONG: READ-ONLY.` over `SHOWN ONLY. NO BACKUP SAVED.` |
+| The first 112 bytes 0xFF | the connect page | status `EFM8 E8B2: SETTINGS PAGE EMPTY`; `PAGE EMPTY, AS AFTER A CUT WRITE.` / `KEEP THE ESC POWERED: SEE MANUAL.` |
+| Any other page rcbench does not take | the connect page | status `EFM8 E8B2: PAGE NOT KNOWN`, `BLUEJAY ON EFM8BB1: NOT TAKEN`, `BLUEJAY LAYOUT 205: NOT TAKEN`, `BLHELI_S 16.9: NOT TAKEN` or `EFM8 E8B3: PART NOT KNOWN`; `NOT BLUEJAY OR BLHELI_S AS KNOWN:` / `NOTHING IS WRITTEN.` |
+
+The list shows rcbench's fields for the page's firmware and layout
+(`ew_map_s.c`, `ew_map_bj.c`), every row read-only in grey: its group above
+its label, MOTOR, STARTUP, BRAKE, LIMITS, SOUND, INPUT and OTHER, and the
+value as rcbench writes it, in capitals; DIRECTION's 3 and 4 read `3D` and
+`3D REVERSED`, and a value none of the field's reads `RAW 17` in amber. The
+revision bytes 0x00 to 0x02 are on the strip. A tap selects a row, for its
+note; nothing edits. `WRITE...` and `REVERT` are drawn disabled, and the
+bar under the list reads, in grey, `SHOWN ONLY: WRITING IS NOT BUILT.` /
+`BACK SENDS LEAVE: THE ESC STARTS.` HEX opens `ESC HEX`: the 112 or 255
+bytes, 8 to a line, in a list that scrolls; its BACK returns to the list.
+
+The strip's two amber lines, in this order: the selected row's note, why a
+list is read-only, then the 3D note, else the caption.
+
+| When | Lines |
+|---|---|
+| DIRECTION at 3D or 3D REVERSED, selected | `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` |
+| TEMPERATURE or LOW-SPEED PROTECTION selected at OFF | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
+| POWER RATING selected | `SETS HOW THE ESC READS ITS TEMP:` / `A WRONG VALUE MISREADS THE LIMIT.` |
+| DIRECTION at 3D or 3D REVERSED | the 3D lines |
+
+A read that opens a list with DIRECTION at 3D or 3D REVERSED sets the
+tester's 3D note, `3D MODE ESC: 0-50% REVERSED AT 2X`, and one at NORMAL
+or REVERSED clears it; a page whose marker is wrong leaves it, since its
+firmware loads its defaults at its next start.
+
+**BACK from the list sends LEAVE** (that note's decision 3): the frame
+`00 01`, which starts the ESC's firmware, 500 µs of idle line, 300 ms of low
+line, then the line parked. The page reads `LEAVING` over `THE ESC STARTS
+ITS FIRMWARE ON` / `LEAVE, THEN DSHOT RETURNS.` and, in amber,
+`KEEP THE PROPELLER OFF.`; BACK is drawn disabled. Once LEAVE went out the
+job lets SIG go and DShot returns, with no leave page, and the screen
+returns to MENU. LEAVE has no answer: whether the firmware started is not
+seen, and not verified on an ESC, so MENU's run cue stays until an eRPM
+frame after it. A LEAVE that did not go out opens the leave page below.
+
+An entry or a read that ends without the page, the ESC silent, another
+answer or a stop, closes the job; the claim keeps its leave page, the AM32
+transport takes SIG again, and the connect cycle greets again under
+`THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` in amber.
+
+Every other BACK after an EFM8 answer, from the connect page while the job
+reads, after a page not taken, or after the cycle greets again, opens the
+leave page of `docs/design/bluejay-blheli-s.md` decision 8, the leave page
+of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
 
 | Step | Text | Width |
 |---|---|---|
@@ -1382,15 +1541,19 @@ the leave page of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
 | 2, current after LEAVE | `PLUG IT IN AFTER RESTART DSHOT.` | 31, 185 px |
 
 The strip reads `EFM8 E8B2  SIG GP0`, and BACK is drawn disabled.
-**STAY** returns to the page BACK left, the claim kept. **LEAVE** lets the
-transport go of SIG; DShot stays stopped, and **RESTART DSHOT** takes the
-wide button, live 1000 ms later. Its tap restarts DShot, clears MENU's run
-cue, since the steps power-cycled the ESC, and returns to MENU. There is no
-left button after LEAVE. An AM32 session in which no EFM8 bootloader
-answered has no leave page: BACK gives DShot the pin at once.
+**STAY** returns to the page BACK left, the claim and the job kept: a read
+under way goes on. **LEAVE** cuts the job's entry or read, sends nothing and
+lets SIG go, or lets the AM32 transport go of it; DShot stays stopped, and
+**RESTART DSHOT** takes the wide button, live 1000 ms later. Its tap
+restarts DShot, clears MENU's run cue, since the steps power-cycled the ESC,
+and returns to MENU. There is no left button after LEAVE. An AM32 session in
+which no EFM8 bootloader answered has no leave page: BACK gives DShot the
+pin at once.
 
-A board restart while an EFM8 bootloader waits sends DShot into it: the
-bench cannot know.
+The job (`src/escwire_job.h`) stops a running entry or read with
+`ew_session_stop()` when core0's heartbeat lapses for 250 ms, and lets a
+running LEAVE finish. A board restart while an EFM8 bootloader waits sends
+DShot into it: the bench cannot know.
 
 ### Layouts outside 2 to 4
 
@@ -2787,6 +2950,7 @@ src/
   servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
+  kv_est.h              the tester's RPM/V and kV estimate, their settle and texts (pure)
   am32_bl.{h,cpp}       one-wire bootloader transport
   bl_answer.{h,cpp}     the greeting's answer classified: AM32, EFM8 or neither (pure)
   am32_eeprom.{h,cpp}   AM32 settings layout, decoding and presentation
@@ -2885,16 +3049,16 @@ virtual and counted in microseconds — `millis()` advances only when a test say
 so — which makes hold-to-arm, hold-to-write and gesture repeat deterministic
 rather than dependent on machine speed. The fake ESC serves a real settings blob
 recovered from the reference configurator, so the UI tests operate on values a
-real ESC would report. The suite renders 125 screens to PPM (portable pixmap)
+real ESC would report. The suite renders 139 screens to PPM (portable pixmap)
 images as it runs, one file per `fakeDumpFrame()` name, so a layout change is
 visible in the frames:
 
 - five of the splash: as it boots, with no answer from the touch
   controller, after an update reset the settings, the same with no touch
   answer, after an update carried the settings over;
-- eleven of the tester: disarmed, armed, live, stale, no ESC, an ESC
-  answering at rest, with KISS values, the 3D mode note, `SDERR` while
-  armed, the card held by a USB host, high contrast;
+- twelve of the tester: disarmed, armed, live, stale, no ESC, an ESC
+  answering at rest, with KISS values, the kV estimate at 79 %, the 3D mode
+  note, `SDERR` while armed, the card held by a USB host, high contrast;
 - eight of MENU: on arrival, the EDT chip on, off and reading NO ESC,
   SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING, AM32's power-cycle
   cue;
@@ -2918,10 +3082,11 @@ visible in the frames:
   an older firmware, the 3D mode note, a protection off, the BACK guard,
   ESC WRITE before its hold, written, written with a backup, a write not
   verified, a write refused on a red BOARD voltage;
-- fifteen of SERVO TESTER: SAFE, running, sweeping, two servos, stalled, an
+- eighteen of SERVO TESTER: SAFE, running, sweeping, two servos, stalled, an
   ESC answering, a refused bind, one GPIO for both pins, the switched
-  supply's line, the current sensor's readout, SERVO SET, SET with a
-  warning, SET while running, SET past the travel, the leave page;
+  supply's line, the current sensor's readout, a declared sensor not found,
+  SERVO SET, SET with a warning, SET while running, SET with the supply's
+  start-up time, SET past the travel, the supply not off, the leave page;
 - twenty of KST SERVO: the search, the switched search, the field list, an
   edit, KST WRITE, KST WRITE with five changes, KST WRITE without a card,
   the result, a failed flush, a write refused on a red BOARD voltage, a
@@ -2954,7 +3119,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 11,956 of 12,145 lines in 77 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.5%**: 12,501 of 12,697 lines in 81 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

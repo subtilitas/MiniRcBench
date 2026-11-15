@@ -3,8 +3,9 @@
 # AM32 Configuration
 
 This screen reads, changes and writes the settings of an AM32 ESC (electronic
-speed controller) over the signal wire. It needs no laptop or configurator. It
-does not update ESC firmware.
+speed controller) over the signal wire, and reads and shows those of a
+Bluejay or BLHeli_S ESC. It needs no laptop or configurator. It does not
+update ESC firmware.
 
 <img src="img/am32-list.png" width="240" alt="The AM32 settings list">
 
@@ -23,8 +24,8 @@ Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
 `ESC CONFIG` is a chooser. It takes nothing from the signal pin: DShot keeps
 running until you tap `ESC SETTINGS`. `USB BRIDGE` is drawn grey with
 `NOT BUILT` under it and does nothing. `BACK` returns to MENU. The screen is
-titled `ESC SETTINGS` for every ESC firmware; today it reads and writes
-AM32 only. Bluejay and BLHeli_S ESCs are recognised, not read: see
+titled `ESC SETTINGS` for every ESC firmware; it reads and writes AM32, and
+reads Bluejay and BLHeli_S without writing them: see
 [EFM8 ESCs](#efm8-escs).
 
 The screen hands the signal pin from the DShot driver to the bootloader link
@@ -38,14 +39,21 @@ decides about 46 ms after power-up and then waits while the line rests high;
 if the handshake's bytes fall into those 46 ms, the ESC firmware starts
 instead, and it restarts itself 2 s later with no DShot, so the bootloader
 gets another chance, in which only a low in its last 5 ms starts the
-firmware. Not measured. The firmware repeats its handshake, waiting 30 ms for
-each reply.
+firmware. Not measured.
 
-The screen shows `POWER-CYCLE THE ESC` in amber, the step to take now, and
-`SEARCHING...`, then `WAITING... (TRY n)` with an attempt counter, and a
-spinner. On success the list appears, and the strip under the
-title shows the ESC name, MCU (microcontroller) family and firmware with its
-revision, for example `NEOESC f051  F051  AM32 2.16`.
+The screen searches in a cycle: for one second it sends nothing and the
+line rests high, `LINE HIGH, NOTHING SENT`; then it sends its handshake 3
+times, waiting 30 ms for each reply, `WAITING... (TRY n)` with an attempt
+counter; then quiet again. The quiet second lets a Bluejay or BLHeli_S ESC
+that was running enter its bootloader by itself, and keeps an AM32 that is
+powered up meanwhile in its bootloader. Not measured.
+
+<img src="img/am32-quiet.png" width="240" alt="The connect page in its quiet second: LINE HIGH, NOTHING SENT">
+
+The screen shows `POWER-CYCLE THE ESC` in amber, the step to take now, the
+search's status and a spinner. On success the list appears, and the strip
+under the title shows the ESC name, MCU (microcontroller) family and firmware
+with its revision, for example `NEOESC f051  F051  AM32 2.16`.
 
 <img src="img/am32-connect.png" width="240" alt="The connect page: POWER-CYCLE THE ESC, WAITING... (TRY 3) and the spinner">
 
@@ -94,16 +102,95 @@ runs.
 
 The handshake is also a valid greeting for the bootloader of Bluejay and
 BLHeli_S ESCs, so such an ESC can answer it. The screen tells the answer
-apart from an AM32 one by its signature and shows
-`EFM8 E8B2 ANSWERED: NOT READ YET.` in amber (`E8B1`, `E8B2` or `E8B5`,
-the ESC's EFM8 chip). Nothing is read or written. From the bootloaders'
-source; not seen on an ESC.
+apart from an AM32 one: `471` with 0xE8 four bytes later names the EFM8
+chip of a Bluejay or BLHeli_S ESC (`E8B1`, `E8B2` or `E8B5`). The tester
+then reads that ESC's settings and shows them; it does not change them.
+From the bootloaders' source; not seen on an ESC.
 
-<img src="img/am32-efm8.png" width="240" alt="The connect page after a Bluejay or BLHeli_S answer: EFM8 E8B2 ANSWERED: NOT READ YET.">
+The page reads `EFM8 E8B2 ANSWERED: READING.` and, in place of
+`POWER-CYCLE THE ESC`, `EFM8 BOOTLOADER`: the ESC waits in its bootloader
+for commands, and its firmware does not run until it leaves. The tester
+holds the signal line high for half a second, greets the bootloader again
+and reads its settings page, 112 bytes for BLHeli_S and 255 for Bluejay.
+Nothing is erased or written. With rcbench's simulated ESC this takes
+under one second; not measured on an ESC.
 
-That ESC's bootloader now waits for commands and does not time out, and
-DShot frames could pass as one. So `BACK` opens a leave page instead of
-returning to MENU at once:
+<img src="img/am32-efm8.png" width="240" alt="The connect page while a Bluejay ESC is read: EFM8 BOOTLOADER, EFM8 E8B2 ANSWERED: READING.">
+
+Then the list opens. The strip names the firmware, its version, the
+settings layout and the chip, for example `BLUEJAY 0.21  LAYOUT 208  E8B2`.
+Every row is grey: shown, not editable. The names and values are those of
+rcbench's tables, in capitals; DIRECTION's bidirectional settings read `3D`
+and `3D REVERSED`. A value that is none of the setting's own reads, for
+example, `RAW 17` in amber. `WRITE...` and `REVERT` are grey, and under the
+list: `SHOWN ONLY: WRITING IS NOT BUILT.` / `BACK SENDS LEAVE: THE ESC
+STARTS.`
+
+<img src="img/efm8-list.png" width="240" alt="A Bluejay 0.21 ESC's settings, every row grey, WRITE... and REVERT grey">
+
+Tap a row to select it. Some rows have a note, two amber lines on the
+strip:
+
+| Row | Note |
+|---|---|
+| DIRECTION at `3D` or `3D REVERSED` | `3D MODE: 50% THROTTLE IS FULL POWER,` / `ABOVE 50% THE OTHER WAY. PROP OFF.` |
+| TEMPERATURE or LOW-SPEED PROTECTION at `OFF` | `PROTECTION OFF: THE ESC DOES NOT` / `CUT POWER ON THIS LIMIT.` |
+| POWER RATING | `SETS HOW THE ESC READS ITS TEMP:` / `A WRONG VALUE MISREADS THE LIMIT.` |
+
+<img src="img/efm8-note.png" width="240" alt="POWER RATING selected: SETS HOW THE ESC READS ITS TEMP: in amber on the strip">
+
+DIRECTION at `3D` or `3D REVERSED` also shows the 3D note on the strip when
+no row is selected, and sets the tester's
+`3D MODE ESC: 0-50% REVERSED AT 2X`. `HEX` shows the bytes as read, 8 to
+a line; drag to scroll the 255 bytes of a Bluejay page.
+
+<img src="img/efm8-3d.png" width="240" alt="A BLHeli_S ESC with DIRECTION at 3D: the 3D note in amber on the strip, the row reading 3D">
+
+<img src="img/efm8-hex.png" width="240" alt="ESC HEX: the Bluejay page's bytes, 8 to a line">
+
+An older version, and a page the firmware rewrote, read the same way with
+two amber lines on the strip:
+
+| Page | Strip |
+|---|---|
+| Bluejay before 0.21, BLHeli_S before 16.3 | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
+| The ESC lost its tags, the 48 bytes that name its hardware | `ESC LOST ITS TAGS: READ-ONLY.` / `REFLASH ON A COMPUTER. NO BACKUP.` |
+| The settings marker is wrong | `SETTINGS MARKER WRONG: READ-ONLY.` / `SHOWN ONLY. NO BACKUP SAVED.` |
+
+<img src="img/efm8-readonly.png" width="240" alt="Bluejay 0.19: BLUEJAY 0.19, LAYOUT 206: READ-ONLY. in amber">
+
+A page the tester does not take stays on the connect page, with what it
+is: `EFM8 E8B2: SETTINGS PAGE EMPTY` with `PAGE EMPTY, AS AFTER A CUT
+WRITE.` / `KEEP THE ESC POWERED: SEE MANUAL.`, or `EFM8 E8B2: PAGE NOT
+KNOWN`, `BLUEJAY ON EFM8BB1: NOT TAKEN` and the like with `NOT BLUEJAY OR
+BLHELI_S AS KNOWN:` / `NOTHING IS WRITTEN.` An empty page has lost its
+tags already; keeping the ESC powered keeps it in its bootloader.
+
+<img src="img/efm8-empty.png" width="240" alt="An empty settings page: EFM8 E8B2: SETTINGS PAGE EMPTY and its two lines"> <img src="img/efm8-refused.png" width="240" alt="A page not known: EFM8 E8B5: PAGE NOT KNOWN, NOT BLUEJAY OR BLHELI_S AS KNOWN: and NOTHING IS WRITTEN.">
+
+A reply the tester does not understand that holds a piece of such an
+answer, for example the answer with one byte lost, gets the same leave page
+from `BACK`: that ESC's bootloader may wait too. Its strip reads
+`EFM8  SIG GP0`. A reply with no such piece does not.
+
+**Leaving the list.** `BACK` from the list sends the bootloader LEAVE,
+which starts the ESC's firmware: the page reads `LEAVING` and
+`KEEP THE PROPELLER OFF.` in amber. About a third of a second later DShot
+returns on the signal pin and the screen returns to MENU. LEAVE has no
+answer: whether the ESC started is not seen, and not verified on an ESC.
+MENU's `POWER-CYCLE THE ESC TO RUN IT` stays until the ESC sends eRPM.
+
+<img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE, THEN DSHOT RETURNS. KEEP THE PROPELLER OFF.">
+
+If the ESC stops answering before its page is read, the page shows
+`THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` and greets again.
+
+<img src="img/efm8-stopped.png" width="240" alt="THE ESC ANSWERED, THEN STOPPED. and SEARCHING AGAIN. under the connect page's quiet status">
+
+Everywhere else after such an answer, on the connect page while reading,
+after a page that is not taken, or after the search started again, the
+bootloader may still wait for commands, and DShot frames could pass as one.
+So `BACK` opens a leave page instead of returning to MENU at once:
 
 1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR
    COMMANDS` / `AND MAY READ DSHOT AS ONE.`
@@ -111,13 +198,16 @@ returning to MENU at once:
 
 <img src="img/am32-leave.png" width="240" alt="The leave page: step 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
 
-`STAY` returns to the screen. Unplug the ESC battery, then tap `LEAVE`.
+`STAY` returns to the screen. While the leave page is open the tester's
+greeting and its first look at the page run on, and the read of the whole
+page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
 `RESTART DSHOT` takes LEAVE's place and acts 1 s later; it starts DShot on
 the signal pin and returns to MENU. Plug the battery back in after that.
-`BACK` is grey on this page. MENU's `POWER-CYCLE THE ESC TO RUN IT` is
-cleared by RESTART DSHOT, since the steps power-cycled the ESC. The tester
-cannot see the battery: RESTART DSHOT with the ESC still powered, or a
-restart of the tester while the ESC waits, sends DShot into its bootloader.
+`BACK` is grey on this page. RESTART DSHOT clears MENU's
+`POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the ESC. The
+tester cannot see
+the battery: RESTART DSHOT with the ESC still powered, or a restart of the
+tester while the ESC waits, sends DShot into its bootloader.
 
 ---
 
@@ -411,16 +501,18 @@ list.
 to `MENU`; with changes not written it asks first, as under
 [Editing](#editing). The tester is disarmed.
 
-The firmware sends the bootloader no command to start the ESC firmware when
-the screen closes. What the ESC does after the screen is left is not
+The firmware sends an AM32 bootloader no command to start the ESC firmware
+when the screen closes. What the ESC does after the screen is left is not
 recorded. **Power-cycle the ESC after leaving**, before driving a motor.
-After a Bluejay or BLHeli_S answer, `BACK` opens the leave page instead
+After a Bluejay or BLHeli_S answer, `BACK` from its list sends LEAVE, and
+`BACK` from anywhere else opens the leave page instead
 ([EFM8 ESCs](#efm8-escs)).
 
 After a session in which the bootloader answered, MENU shows
 `POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. It goes
 when an eRPM frame arrives, which only the ESC's firmware sends, on RESTART
-DSHOT of the leave page, or when the board restarts.
+DSHOT of the leave page, or when the board restarts. LEAVE from a Bluejay
+or BLHeli_S list leaves it, as LEAVE has no answer.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU with POWER-CYCLE THE ESC TO RUN IT in amber under the strip's caption">
 
@@ -428,16 +520,19 @@ DSHOT of the leave page, or when the board restarts.
 
 ## When it will not connect
 
-- **`SEARCHING...` or `WAITING...` with no end.** Unplug and replug the ESC
-  battery *while the screen is open*. Whether an ESC powered before the
-  screen opened is reached without a power cycle is not measured.
+- **`LINE HIGH, NOTHING SENT` and `WAITING...` with no end.** Unplug and
+  replug the ESC battery *while the screen is open*. Whether an ESC powered
+  before the screen opened is reached without a power cycle is not
+  measured.
 - **`REPLY NOT UNDERSTOOD`.** The link works; the framing does not. Possible
   causes: the ESC does not run AM32, or its bootloader uses a protocol this
   transport does not implement.
-- **`EFM8 E8B2 ANSWERED: NOT READ YET.`** A Bluejay or BLHeli_S ESC
-  answered. This screen does not read its settings yet. Leave through the
-  leave page, as under
+- **`EFM8 E8B2 ANSWERED: READING.` that stays.** A Bluejay or BLHeli_S ESC
+  answered and its page is being read; it takes about one second. See
   [EFM8 ESCs](#efm8-escs).
+- **`THE ESC ANSWERED, THEN STOPPED.`** The ESC answered the handshake and
+  then not the tester's own greeting or read. The search runs again. Check
+  the signal wire and keep the ESC powered.
 - **`NO VALID SETTINGS`.** The ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
 - **`LAYOUT n NOT KNOWN: READ-ONLY.`** The ESC stores a settings layout the

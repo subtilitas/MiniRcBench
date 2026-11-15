@@ -161,7 +161,7 @@ static_assert(rxEntriesFit(), "an RX SIGNALS line is too wide, or runs into the 
  *        draws it disabled under `NOT BUILT`.
  */
 constexpr UiEscCfgEntry UI_ESC_CFG_ENTRIES[] = {
-	{ AM32_UI_TITLE, { "AM32 SETTINGS, READ AND WRITTEN.", "BLUEJAY, BLHELI_S: NAMED, NOT READ." }, &UI_AM32 },
+	{ AM32_UI_TITLE, { "AM32 SETTINGS, READ AND WRITTEN.", "BLUEJAY, BLHELI_S: READ, NOT WRITTEN." }, &UI_AM32 },
 	{ "USB BRIDGE", { "A DESKTOP ESC TOOL OVER USB.", UI_ESC_CFG_NOT_BUILT }, nullptr },
 };
 constexpr uint8_t UI_ESC_CFG_ENTRIES_COUNT =

@@ -63,6 +63,49 @@ protocol.
   settings as last saved. The screen states no accuracy: none is measured.
   The preview `docs/angle-preview.png`, and the wiki pages Angle-Meter and
   Winkelmesser. Not tested on hardware.
+- After v0.1.0-rc1: RPM/V and the kV estimate on the tester, slice 3 of
+  [esc-commands.md](docs/design/esc-commands.md#slice-3-as-built)
+  (`src/kv_est.h`, decisions 6 and 7). While armed the ERPM line reads
+  `ERPM 156800  RPM/V 1400`, the RPM over the ESC's voltage, KISS where
+  fresh, EDT otherwise, and `KV EST` takes the pole count's place:
+  RPM × 2000 / (V × t), t the throttle sent, 0 to 2000, rounded and clamped
+  to 99999. A figure needs eRPM within 500 ms, an RPM above 0 and a fresh
+  voltage above 0.5 V, else `RPM/V --` and `KV EST --`; the estimate also
+  needs t from 1500 (75 %) to 2000, within 20 of one value for 1000 ms
+  (`KV_EST_MIN_THROTTLE`, `KV_EST_SETTLE_BAND`, `KV_EST_SETTLE_MS`), so that
+  a finger resting on the bar does not hold it off, the filtered eRPM
+  within 0.5 % of the last reply (`KV_EST_ERPM_SETTLE_PERMILLE`), and no 3D
+  note, and reads `KV EST 75%+` below 1500. Nothing is kept after the
+  disarm. An ESC in 3D mode the tester does not know of gives a wrong figure
+  with no warning, about × 0.67 on AM32 at 75 %. Host tests in
+  `test/test_kv_est.cpp` and `test/test_ui.cpp`; the wiki's `tester-kv.png`
+  and `docs/ui-preview.png`. Not measured on a motor.
+- After v0.1.0-rc1: a Bluejay or BLHeli_S ESC's settings are read, slice 3
+  of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-3-as-built).
+  ESC SETTINGS' connect page greets in bursts of 3 between seconds of quiet
+  line, `LINE HIGH, NOTHING SENT` (`src/greet_cycle.*`). An EFM8 answer, now
+  `471` with 0xE8 four bytes on anywhere in the reply, ends the AM32
+  transport and starts the claim's core1 job, `Core1Job::EscWire`
+  (`src/escwire_job.*`, `src/escwire_port.*`), which runs rcbench's escwire
+  session on `ew_line`: its own first contact, the identification and the
+  read of the page, `EFM8 E8B2 ANSWERED: READING.` meanwhile. A Bluejay or
+  BLHeli_S page opens as a list, every row read-only, with its group, its
+  value in capitals and DIRECTION's `3D` and `3D REVERSED`
+  (`src/efm8_view.*`), WRITE... and REVERT drawn disabled, ESC HEX of 112 or
+  255 bytes, the strip's caption, read-only lines and row notes, and the
+  tester's 3D note. A page rcbench does not take is named on the connect
+  page, `EFM8 E8B2: SETTINGS PAGE EMPTY` or `EFM8 E8B2: PAGE NOT KNOWN` and
+  the like. BACK from the list sends LEAVE, `00 01`, and gives SIG back to
+  DShot; MENU's run cue stays until an eRPM frame, as LEAVE has no answer.
+  Every other BACK after an EFM8 answer opens the leave page, as before, and
+  so does BACK after a reply that holds a piece of an EFM8 answer, `471`,
+  `71` and 0xE8 two bytes on, or 0xE8 with 0xB1, 0xB2 or 0xB5. A refused
+  bind puts the pull-up back on SIG. A session that ends without the page greets
+  again. The job stops an entry or read on a heartbeat lapse and lets a
+  LEAVE finish. Nothing writes a Bluejay or BLHeli_S ESC. Host tests in
+  `test/test_escwire_job.cpp`, `test/test_efm8_view.cpp`,
+  `test/test_am32.cpp` and `test/test_ui.cpp` against rcbench's simulated
+  ESC; CI checks the job's stack on core1. Not tested on hardware.
 - After v0.1.0-rc1: the angle meter's model, slice 3 of
   [angle-meter.md](docs/design/angle-meter.md#slice-3-as-built)
   (`src/angle_model.*`), pure. It averages the samples of the QMI8658 IMU

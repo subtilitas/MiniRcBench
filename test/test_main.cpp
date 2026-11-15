@@ -31,6 +31,7 @@ void runDshotFrameTests();
 void runDshotTelemTests();
 void runDshotEdtTests();
 void runEscCmdTests();
+void runKvEstTests();
 void runSdioTests();
 void runClaimTests();
 void runServoTests();
@@ -46,6 +47,8 @@ void runBackupTests();
 void runSdCacheTests();
 void runDiagTests();
 void runRunSummaryTests();
+void runEscwireJobTests();
+void runEfm8ViewTests();
 void runClockTests();
 void runBridgeTests();
 void core1JobInit();
@@ -75,6 +78,7 @@ int main() {
 	runDshotTelemTests();
 	runDshotEdtTests();
 	runEscCmdTests();
+	runKvEstTests();
 	runSdioTests();
 	runClaimTests();
 	runServoTests();
@@ -91,6 +95,8 @@ int main() {
 	runAngleUiTests();
 	runDiagTests();
 	runRunSummaryTests();
+	runEscwireJobTests();
+	runEfm8ViewTests();
 	runClockTests();
 	runBridgeTests();
 

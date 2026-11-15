@@ -15,7 +15,8 @@ und die Obergrenze des Testers; `BACK` führt dann zum Tester zurück.
 Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
    ▲                    ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
    │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> MENU
-   │                    │    │   (nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
+   │                    │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> MENU)
+   │                    │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> MENU)
    │                    │    └── USB BRIDGE   (als Umriss gezeichnet: NOT BUILT)
    │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
    │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
@@ -132,7 +133,60 @@ Beispiel `14 POLES`, stehen darunter. Grüne Ziffern: eRPM ist in den letzten
 500 ms eingetroffen.
 Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
 
+**RPM/V und die kV-Schätzung.** Scharf zeigt die `ERPM`-Zeile zusätzlich
+`RPM/V`, die Drehzahl geteilt durch die Versorgungsspannung des ESC, den Wert
+der Kachel `VOLTAGE`: `ERPM 156800  RPM/V 1400`. Die Zeile darunter zeigt an
+Stelle der Polzahl `KV EST`: eine Schätzung des kV des Motors, seiner
+Drehzahlkonstante in Umdrehungen pro Minute und Volt ohne Last, berechnet als
+RPM × 2000 / (Spannung × Gas), mit dem gesendeten Gas, 0 bis 2000. Sie ist
+eine Schätzung unter zwei Annahmen: Das Tastverhältnis (Duty) des ESC
+entspricht dem Gas, und der Motor läuft ohne Propeller.
+
+- `KV EST 1758`: die Schätzung, auf eine ganze Zahl gerundet.
+- `KV EST 75%+`: Das Gas liegt unter 75 %, dort erscheint keine Schätzung.
+  Bei der voreingestellten Obergrenze `MAX 20%` erscheint sie nie; für die
+  Messung `MAX` in SETTINGS anheben, Propeller ab.
+- `KV EST --`: kein Wert. Eine Eingabe fehlt, das Gas hat sich in der
+  letzten Sekunde um mehr als 1 % bewegt, oder der Motor wird noch
+  schneller.
+
+Beide Werte brauchen eRPM aus den letzten 500 ms, eine Drehzahl über 0 und eine
+Spannung über 0,5 V von KISS (aus den letzten 500 ms) oder EDT (aus den letzten
+1000 ms); sonst zeigt die Zeile `RPM/V --` und die Zeile darunter `KV EST --`.
+Die Schätzung braucht außerdem mindestens 75 % Gas, 1 s lang innerhalb von 1 %
+(20 von 2000) um einen Wert, damit ein auf dem Balken ruhender Finger sie nicht
+aufhält, einen Motor, der seine Drehzahl erreicht hat (die geglättete eRPM
+innerhalb von 0,5 % der letzten Antwort), und keinen 3D-Hinweis; der 3D-Hinweis
+nimmt die Zeile ein wie bisher. Beide Werte enden bei 99999. Keiner bleibt nach
+dem Entschärfen stehen: Entschärft zeigt die Zeile nur `ERPM` und die Zeile
+darunter `14 POLES`.
+
+Was die Schätzung nicht wissen kann:
+
+- **Einen Propeller.** Mit Propeller liest sie um den Anteil der Last zu
+  niedrig.
+- **Das Tastverhältnis des ESC.** Bei 75 % unter AM32 2.22 ergibt die
+  Entwurfsnotiz × 0,92 bis × 1,08 des Nenn-kV für die Einstellungen von SINE
+  STARTUP und MIN DUTY, die sie durchrechnet, mit RUNNING LEVEL 10 und auf
+  einem Target ohne Startup-Boost, aus dem Quelltext von AM32; nicht
+  gemessen. Wie Bluejay, BLHeli_S und BLHeli_32 das Gas auf das
+  Tastverhältnis abbilden, ist nicht geprüft.
+- **Einen 3D-Modus, von dem der Tester nichts weiß.** Ein ESC, den ein
+  anderes Werkzeug oder ein früheres Einschalten des Testers auf 3D gestellt
+  hat, zeigt keinen 3D-Hinweis und gibt ohne Warnung einen falschen Wert:
+  Unter AM32 läuft der Motor bei 75 % mit einem Tastverhältnis von etwa 50 %,
+  und die Schätzung liest etwa × 0,67 des Nenn-kV.
+- **Verluste.** Spannungsabfall im ESC und in den Leitungen, Reibung und
+  Eisenverluste senken die Drehzahl; um wie viel, ist nicht bekannt.
+- **Die Polzahl.** Ein falsches `MOTOR POLES` skaliert beide Werte: 12
+  eingestellt bei einem Motor mit 14 Polen liest 16,7 % zu hoch.
+
+Keiner der beiden Werte ist an einem Motor mit diesem Board gemessen.
+
+<img src="img/tester-kv.png" width="240" alt="Der Tester scharf bei 79 %: ERPM 156800  RPM/V 1400 und KV EST 1758 unter der Drehzahl">
+
 Hat ESC SETTINGS seit dem Einschalten einen ESC mit 3D MODE an gelesen, oder
+einen Bluejay- oder BLHeli_S-ESC mit DIRECTION auf 3D oder 3D REVERSED, oder
 3D MODE an geschrieben (vom ESC angenommen, bestätigt oder nicht), oder kam
 `3D ON` auf [ESC COMMANDS](#esc-commands), zeigt die Zeile unter der
 `ERPM`-Zeile in Bernstein `3D MODE ESC: 0-50% REVERSED AT 2X` (3D-ESC: 0 bis
@@ -146,8 +200,10 @@ rückwärts; über 50 % dreht er in der eingestellten Richtung, von unten
 beginnend. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
 verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen anderen
 getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen, das die Liste
-öffnet, mit 3D MODE aus oder ein Neustart nimmt ihn weg; `3D OFF` auf ESC
-COMMANDS und die Nur-Lese-Ansicht eines unbekannten Layouts lassen ihn.
+öffnet, mit 3D MODE aus oder DIRECTION auf NORMAL oder REVERSED, oder ein
+Neustart nimmt ihn weg; `3D OFF` auf ESC COMMANDS, die Nur-Lese-Ansicht eines
+unbekannten Layouts und eine Bluejay- oder BLHeli_S-Seite mit falscher
+Einstellungsmarke lassen ihn.
 Siehe [AM32-Konfiguration](AM32-Konfiguration#felder-mit-hinweis).
 
 <img src="img/tester-3d.png" width="240" alt="Der Tester scharf, mit 3D MODE ESC: 0-50% REVERSED AT 2X in Bernstein unter der Drehzahl">
@@ -163,14 +219,14 @@ dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
-öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS
-führt zum Tester zurück. Scharf verschwindet die Unterstreichung, und ein
-Tippen darauf tut nichts: Die Polzahl liegt in der Gasfläche und `MAX` reicht
-in den Greifbereich des Balkens, also steuert der Druck dort das Gas. Während
-DShot nach einem Servo-Werkzeug neu startet, verschwindet die Unterstreichung
-ebenfalls und ein Tippen tut nichts, so wie `MENU` SETTINGS dann gesperrt
-zeichnet. Solange der 3D-Hinweis die Zeile einnimmt, öffnet nur `MAX`
-SETTINGS.
+öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS führt
+zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST` nimmt den
+Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl liegt in
+der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also steuert der
+Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu startet,
+verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts, so wie
+`MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
+einnimmt, öffnet nur `MAX` SETTINGS.
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der
 Finger es loslässt; blau, solange an), `MENU`.
@@ -212,8 +268,8 @@ nur eine Anzeige, eckig und 12 px hoch:
 
 Nach einer Sitzung in ESC SETTINGS, in der der Bootloader des ESC geantwortet
 hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in
-Bernstein, bis ein eRPM-Frame eintrifft, RESTART DSHOT auf der Verlassenseite
-von ESC SETTINGS getippt wird oder die Platine neu startet
+Bernstein, bis ein eRPM-Frame eintrifft, RESTART DSHOT auf der
+Verlassenseite von ESC SETTINGS getippt wird oder die Platine neu startet
 ([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
 
 <img src="img/menu-no-esc.png" width="240" alt="MENU ohne angeschlossenen ESC: das Feld zeigt NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU mit einem ESC, der eRPM und kein EDT sendet: das Feld zeigt EDT OFF in Rot">
@@ -360,8 +416,9 @@ Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt.
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS mit seinen zwei Zeilen, USB BRIDGE als Umriss mit A DESKTOP ESC TOOL OVER USB. und NOT BUILT">
 
 `MENU → ESC CONFIG` öffnet eine Wahl aus zwei, wie PROGRAMMER:
-**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, heute
-für AM32, und **USB BRIDGE**, als Umriss gezeichnet mit `NOT BUILT`
+**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32
+gelesen und geschrieben, Bluejay und BLHeli_S gelesen, und **USB BRIDGE**,
+als Umriss gezeichnet mit `NOT BUILT`
 darunter: Es tut nichts. Die Leiste nennt den Signalpin, `SIG GP0`.
 ESC CONFIG belegt keinen Pin; das Tippen auf ESC SETTINGS belegt SIG.
 `BACK` führt zu `MENU` zurück, ebenso `BACK` auf ESC SETTINGS. Siehe

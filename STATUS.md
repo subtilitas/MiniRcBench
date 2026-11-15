@@ -77,20 +77,26 @@ rate and the error counts, and the leave page. RX SIGNALS
 (`src/ui_rx_signals.h`) is the chooser behind the MENU row; its OUTPUT, the
 S.BUS output, is drawn disabled, `NOT BUILT` (open item 31).
 
-Slice 2 of
-[bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built)
-is built, host tests only, not on hardware. `src/bl_answer.h` classifies the
+Slices 2 and 3 of
+[bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-3-as-built)
+are built, host tests only, not on hardware. `src/bl_answer.h` classifies the
 greeting's answer: an AM32 family, an EFM8 bootloader of Bluejay or BLHeli_S
-by its signature E8B1, E8B2 or E8B5, or neither. MENU's second row is
+by `471` with 0xE8 four bytes on, or neither. MENU's second row is
 `ESC CONFIG` (`src/ui_esc_config.h`), a chooser holding `ESC SETTINGS`, the
 AM32 editor retitled, and `USB BRIDGE`, drawn disabled, `NOT BUILT`; the
-editor's views are titled `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`. An
-EFM8 answer reads `EFM8 E8B2 ANSWERED: NOT READ YET.` on the connect page;
-nothing is read. It sets MENU's run cue and gives the claim a leave page
-(`pinClaimWantLeavePage()`), so BACK opens the leave page of that note's
-decision 8 and DShot restarts only from its RESTART DSHOT, which clears the
-cue. `ESC SETTINGS` serves AM32 only until the Bluejay and BLHeli_S slices 3
-and 4 land.
+editor's views are titled `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`. The
+connect page greets in bursts of 3 between seconds of quiet line
+(`src/greet_cycle.h`). An EFM8 answer sets MENU's run cue and gives the
+claim a leave page (`pinClaimWantLeavePage()`); the AM32 transport lets go
+of SIG and the claim's core1 job, rcbench's escwire session
+(`src/escwire_job.h`), makes its own first contact and reads the page. A
+Bluejay or BLHeli_S page opens as a read-only list with its strip notes and
+ESC HEX (`src/efm8_view.h`); a page rcbench does not take is named on the
+connect page. BACK from the list sends LEAVE, `00 01`, and DShot returns;
+the cue stays until an eRPM frame, as LEAVE has no answer. Every other BACK
+after an EFM8 answer, or after a reply holding a piece of one, opens the
+leave page of that note's decision 8, whose RESTART DSHOT alone restarts
+DShot and clears the cue. Nothing writes a Bluejay or BLHeli_S ESC: that is slice 4.
 
 Slice 1 of
 [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built) is built, host
@@ -266,8 +272,8 @@ commit 2b4f934a, and the control-surface arithmetic `servo_rudder`, the IMU
 (inertial measurement unit) model `imu` and the WitMotion decoder are
 rcbench files at commit e98345aa, all copied unchanged into `lib/rcbench/`
 ([lib/rcbench/README.md](lib/rcbench/README.md)). The firmware builds the S.BUS
-decoder for the S.BUS job, and the escwire core and its line driver, which
-nothing calls yet; the host suite alone builds `servo_rudder`, `imu` and
+decoder for the S.BUS job, and the escwire core and its line driver for the
+ESC settings job; the host suite alone builds `servo_rudder`, `imu` and
 `witmotion`, which nothing in `src/` calls yet. The SDIO driver in `src/sdio/`
 is part of the tree, MIT, written from the SD Association's Physical Layer
 Simplified Specification v9.10 and the RP2350 datasheet
@@ -345,6 +351,7 @@ record either way.
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | ESC command slot on core1 (`src/esc_task.h`, slice 1 of [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built)): beacons 1 to 5, 12, and 7 to 10 with 12 after them | the frames of a sequence and their telemetry bit, the reply check of frames 1 to 6 of each block, the guards (armed, no answer, eRPM, the 1500 ms settle, the 2000 ms wait), the EDT enable's order, the gaps, the `millis()` wrap, a request dropped by a teardown, a cut sequence keeping its outcome, against AM32, Bluejay and BLHeli_S models read from source | not tested on hardware: no command of the slot has gone to an ESC from this board |
 | ESC COMMANDS (`src/ui_esc_cmd.*`, slice 2 of [esc-commands.md](docs/design/esc-commands.md#slice-2-as-built)), MENU's first row, and the tester's 3D note (`src/esc_3d.*`) | through MENU against the fake slot: the row refused while a claim holds, the disarm, the layout and each text's width, every control at each readiness, BEEP 1 to 5, the holds at 999 and 1000 ms with the save, each outcome's lines, the 3D note set by 3D ON at Sent and SaveLost and kept by 3D OFF, BACK disabled while a request waits, BACK and the BEEP taps acting only on a press that landed live, the cancel on leaving | not tested on hardware: no command of the page has gone to an ESC |
+| RPM/V and the kV estimate on the armed tester (`src/kv_est.h`, slice 3 of [esc-commands.md](docs/design/esc-commands.md#slice-3-as-built)) | both formulas at the rounding and the 99999 clamp, 64-bit at the decoder's largest eRPM; the 0.5 V floor, the pole count, RPM above 0, the 75 % minimum and 2000 maximum, the 1000 ms settle at 999 and 1000 ms, within a band of ±20 under touch jitter and restarted at 21, and across the `millis()` wrap, the filtered eRPM within 0.5 % of the reply, the 3D note; on the tester: the texts, their colours and widths, a figure only 1000 ms after the throttle stood, KISS over EDT, stale voltage and link, nothing kept after the disarm | not measured on a motor: no figure has been compared with a rated kV or a tachometer |
 | KISS telemetry: request, PIO receiver, decode, merge, KISS/EDT tags | CRC, decode, resynchronisation, request payload, merge; the PIO receiver is typechecked only | hardware-tested (owner report) with `pico-bidir-dshot`; see below |
 | DShot bitrate label in the status bar, `DSHOT600`, `DSERR` | label at each bitrate, colour, `DSERR` | not recorded |
 | SDIO card driver in `src/sdio/`: protocol, PIO and DMA bus, library callbacks | CRC7 and CRC16 against the specification's examples, command framing, response parsing, CSD (card-specific data register), four-bit packing, CRC status token; initialisation, reads and writes against a simulated card (standard capacity SDSC v1 and v2, high capacity SDHC, no card, voltage mismatch, timeouts, removal); the two PIO programs run in a cycle-level model against a card model (`test/pio_sdio_emu.py`: CMD0, R1, R2, single and multiple block reads, CMD12, a write and its CRC status token, at 400 kHz, 10 MHz and 25 MHz), a model and not proof of hardware timing; the bus code in `sd_pio.c` is compiled only, and the model's host side follows it by hand | not tested on hardware; open item 6 lists the bench tests |
@@ -370,6 +377,7 @@ record either way.
 | S.BUS monitor's core1 job (`src/sbus_job.*`, slice 2 of [rx-signals.md](docs/design/rx-signals.md)), its pin user `PinUser::Sbus` and `CORE1_JOB_NO_GP1`; rcbench's decoder (`lib/rcbench/protocols/sbus/`) | the core on a line model of a receiver: nothing counted before 2000 µs of quiet line after the bind, clean streams at 7 ms and 14 ms, the mean of the last 16 intervals and its restart after 100 ms, the flag byte and its counts, parity, framing and break bytes counted and not fed, overrun counted and fed, footers, a cut frame, the 2000 µs gap, the micros() wrap; the job through the claim on a UART0 fake: GP1 on the UART function with its input inverted and the pull-down, GP0 untouched, 100,000 baud from 150 MHz, 8 data bits, even parity and 2 stop bits, drains every 1000 µs, a pass 2000 µs late splitting a frame, the FIFO's overrun, the heartbeat ignored, each wiring, the NO GP1 and CLOCK refusals and RETRY, KISS live, an ESC on SIG, the claim held, the release in one pass leaving GP1 a plain input and the status cleared, a bind 1 ms into a live frame with the 8N1 window counting nothing, counts at 0 on a new visit | not tested on hardware: the inversion on the pin, a receiver's level and frames, the UART's error flags on a real line |
 | S.BUS MONITOR and RX SIGNALS, slice 3 of [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built) (`src/ui_sbus.*`, `src/sbus_view.*`, `src/ui_rx_signals.*`, the RX SIGNALS row in `src/ui_registry.cpp`, `uiChip()`'s label on amber in `src/ui_widgets.cpp`) | the view's link state, hold, ink, bar and texts at their boundaries; the chooser through MENU, OUTPUT disabled; the monitor on the UART0 fake through the claim: frames at 14 ms and 7 ms, every bar and value, the chip in each state, failsafe, a receiver gone, a refused footer, error counts, the leave page and BACK TO MONITOR, RESTART DSHOT; GP1 as SIG with the screen's ESC check; KISS on GP1; no GP1; the clock and RETRY; the row refused while the claim is not Free; 33 mutations of the view, all failing the suite, and 48 of the screen, the chooser, the registry and the chip, 44 failing, one equivalent, three on code later removed as redundant, listed in the note | not tested on hardware: a receiver's frames on GP1, the screen's reading of them on the panel, the pass time with the job |
 | Bluejay and BLHeli_S, slice 2 of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built): the greeting's answer classified (`src/bl_answer.*`, `am32BlAnswer()`), an EFM8 answer named on ESC SETTINGS' connect page, the run cue it sets, the leave page per claim (`pinClaimWantLeavePage()`, `pinClaimLeavePage()` in `src/pin_claim.*`) and ESC SETTINGS' leave page of the note's decision 8 (`src/ui_am32.*`), the ESC CONFIG chooser (`src/ui_esc_config.*`, `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`), the titles ESC SETTINGS, ESC HEX and ESC WRITE | the classification of AM32 answers of three families and of EFM8 answers with each signature, with an echo, and of answers not understood; the leave page per claim through `pinClaimEnd()` and RESTART DSHOT; the EFM8 answer through the screen: its line, nothing read, the cue, the leave page's steps, STAY, LEAVE, RESTART DSHOT at 1000 ms, the cue cleared; the leave page from every BACK that would leave after an EFM8 answer, the connect page, the list's guard and the read-only view, STAY back to each, BACK on ESC HEX to the list; an AM32 claim with no EFM8 answer giving DShot back within BACK; the chooser through MENU, USB BRIDGE disabled, the claim on ESC SETTINGS' tap; 39 mutations, 38 failing the suite and one equivalent, listed in the note | not tested on hardware: no Bluejay or BLHeli_S ESC has answered the greeting on this board, the classification of a real answer and the leave page's steps are not verified on an ESC |
+| Bluejay and BLHeli_S, slice 3 of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-3-as-built): the connect cycle (`src/greet_cycle.*`), the loose EFM8 rule (`src/bl_answer.*`), the ESC settings job on core1 (`src/escwire_job.*`, `src/escwire_port.*`, `Core1Job::EscWire`), the page's rows and texts (`src/efm8_view.*`), the read-only list, ESC HEX, the strip notes, the tester's 3D note, the refusals on the connect page and LEAVE's `00 01` in `src/ui_am32.*` | the cycle's phases and counts, alone and through the screen; the job against rcbench's simulated ESC: bind, entry, read, leave, refusals, heartbeat and release; the rows, values and texts and their fits; Bluejay 208, BLHeli_S 33 and the read-only lists through the screen, BACK sending `00 01` before DShot returns with the run cue kept until eRPM, a piece of an EFM8 answer bringing the leave page and noise not, a refused bind putting the pull-up on SIG, the refusals, a stopped session greeted again, the leave page from each BACK that needs it; 70 mutations, 65 failing the suite, 4 equivalent and one on a check the code does not have, listed in the note; the job's deepest stack chain, 408 bytes of 1,792 with the line driver's 112 bytes behind `ew_driver_t`'s pointers added, from the firmware build; `loop1()` and `core1JobPoll()` are not in it, and SDK calls count 0 bytes | not tested on hardware: no frame of the escwire job has reached an ESC; the entry, the read, LEAVE's effect, the gap between the AM32 transport and the job's bind and the connect cycle's entry times are not verified on an ESC |
 | USB bridge, slice 1 of [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built): `PinUser::Bridge` and `Core1Job::Bridge` (`src/pin_claim.*`, `src/core1_job.*`), the job, frame slot and ring (`src/bridge_wire.*`), the PIO line (`src/bridge_line.pio`, `src/bridge_line_port.*`), a claim without the leave page restoring DShot only once its job is idle | `test/pio_bridge_emu.py`, the transmitter and `pio_uart_rx` in a model of two state machines on one pad, 42 runs: each byte's bits, the pad driven through a frame and let go after it, the echo in the FIFO before the transmitter idles, an ESC's reply at 8 phases and 2 % and 3 % off the rate, a collision, a full FIFO, and a control run that fails; `runBridgeTests`, 162 checks on a line fake: the divider, the slot, the frame whole with passes 1 ms and 5 ms apart, the echo kept, dropped, differing and lost, overruns, the ring's wrap, the release, the claim from Stopping to Free with DShot never bound while the line is open, Free with only `pinClaimState()` called after BACK, the leave page given and kept, RETRY; 42 mutations, 38 failing, one showing a redundant line, removed, three equivalent on the host, listed in the note | not tested on hardware: no byte has been on SIG from this line; `bridge_line_port.cpp` is compiled only; the pad reading itself while driven and the receiver's rate tolerance on a real ESC are not measured |
 | INA219 current sensor on J3, the shared I2C1 bus (`src/sense.*`, slice 1 of [current-sense.md](docs/design/current-sense.md)): the codec, the probe, the reading on core0 after the touch read, the read-back, the recovery, the `SenseSample` published for core1, which the servo job reads (slice 3); rcbench's `sense_bus.c` (5ef42efd) in `lib/rcbench/shared/sense/`; the touch driver's transfers noted; SETTINGS → CURRENT SENSE; the readout on SERVO TESTER, KST SERVO and HITEC SERVO | against an I2C fake with an INA219 and a CST328 model (`test/fake_i2c.*`, `runSenseTests`): 19EFh written at the probe, the shunt code to µA on 0.1 Ω at ±1, ±31999, ±32000 and beyond, the bus code to mV, the clip, a negative current; 399Fh and 19EFh accepted as an INA219, 4127h, 7127h and any other value as another part read every second, nothing but the register pointer written to it over 3000 ms, an INA219 put in its place found, FFFFh as none, a refused set-up; absent and probed again 1000 ms on, not 999 ms; three NACKs to offline, two timeouts to stuck, a held SDA, a recovery at once and every 100 ms, a part freed by its clocks, touch transfers noted, a touch abort with SDA held as a line low and the recovery run, a short count through the wire; the read-back once a second, a power-on reset found within two, the reset flag; 220 clocks for the probe, 96 for a reading, 84 for touch; the worst bus time of a frame in each failure mode and with one timeout after each count of transfers that answer, with timeouts moving the clock: the sensor at most 1480 µs, the probe's last data read timing out (1335 µs with the 19EFh write timing out, 1290 µs in a frame with the read-back, 1170 µs in a reading), touch at most 2073 µs, its data read timing out; a read's abort with SDA low for the block's own STOP a NACK, not a line held low; the recovery's START and STOP; the sample's 250 ms age, not at 249 ms, across a `millis()` wrap; the readout's texts and widths; touch read every frame with the sensor present, absent and failing; the SETTINGS row by id, saved, reset, nothing sent to 0x40 with NONE; the readout on the three screens | not tested on hardware: no INA219 has been on the board's bus; open item 16 |
 | Angle meter's rcbench files, slice 1 of [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built): `servo_rudder`, the IMU model `imu` with `imu_feed_angles()` and the WitMotion decoder (`lib/rcbench/`, rcbench e98345aa), called by the angle model (slice 3) and built by the firmware with it | rcbench's tests copied unchanged: `test_servo_rudder.c` (4 cases), `test_imu_angles.c` (7) and `test_witmotion.c` (14); 12 mutations of the copies, each failing a test or the build; the `imu.h`-only cases of rcbench's `test_imu.c` (9 of 9) and `test_imu_filter.c` (10 of 11), adapted in slice 3, and 8 mutations of `imu.c`, each failing one of them | host only; nothing of it has run with the board's QMI8658 |
@@ -956,13 +964,16 @@ not run on hardware (item 18).
     built](docs/design/esc-commands.md#slice-1-as-built)) and the ESC
     COMMANDS page as MENU's first row, with the 3D note in `src/esc_3d.h`
     and its new text ([slice 2 as
-    built](docs/design/esc-commands.md#slice-2-as-built)). The estimate is
-    not built. The page's controls stay live while the slot is busy, the
-    EDT enable's retry every 1000 ms among it, about 11 ms with an ESC that
-    sends no EDT; a request made then waits in the slot until it is free,
-    or expires after 2000 ms. They are drawn disabled only with no ESC
-    answering, the motor turning, the ESC starting, or the page's own
-    request waiting or going out (slice 2 as built, last choice).
+    built](docs/design/esc-commands.md#slice-2-as-built)). Slice 3 is built,
+    host tests only: `RPM/V` on the armed tester's ERPM line and `KV EST` in the
+    pole count's place, from 75 % throttle held 1 s, in `src/kv_est.h` ([slice 3
+    as built](docs/design/esc-commands.md#slice-3-as-built)); no figure has been
+    compared with a motor. The page's controls stay live while the slot is busy,
+    the EDT enable's retry every 1000 ms among it, about 11 ms with an ESC that
+    sends no EDT; a request made then waits in the slot until it is free, or
+    expires after 2000 ms. They are drawn disabled only with no ESC answering,
+    the motor turning, the ESC starting, or the page's own request waiting or
+    going out (slice 2 as built, last choice).
     The owner answered the note's ten questions on 2026-11-15: `ESC COMMANDS` in
     place of `BEEP THE ESC` as MENU's first row; a save after each change; the
     hold on the page; the 3D note stays until a restart or an AM32 read;
@@ -996,7 +1007,7 @@ not run on hardware (item 18).
     16 words, compared with escwire's `ew_line`, which gives no echo; nothing
     opens it yet. Slices 2 to 4 wait on being built. BLHeliSuite is closed
     source and not verified; nothing has run on an ESC.
-30. **Bluejay and BLHeli_S settings, slices 1 and 2 of 6 built.** Item (6) of the
+30. **Bluejay and BLHeli_S settings, slices 1 to 3 of 6 built.** Item (6) of the
     owner's feature choice of 2026-11-14 (item 28).
     [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md) grows the AM32 editor
     into the `ESC SETTINGS` screen: its greeting is already a valid greeting for
@@ -1023,9 +1034,13 @@ not run on hardware (item 18).
     ([slice 2 as built](docs/design/bluejay-blheli-s.md#slice-2-as-built)):
     the classification of the answer, an EFM8 answer named with nothing read,
     the run cue and the leave page it brings, and the `ESC CONFIG` chooser
-    with `USB BRIDGE` drawn disabled. Slices 3 to 6 wait on being built.
-    `ESC SETTINGS` serves AM32 only until the Bluejay slices land. Nothing of
-    it has run on an ESC.
+    with `USB BRIDGE` drawn disabled. Slice 3 is built, host tests only
+    ([slice 3 as built](docs/design/bluejay-blheli-s.md#slice-3-as-built)):
+    the connect cycle, the escwire job on core1, the page read into a
+    read-only list with its strip notes, ESC HEX and the tester's 3D note,
+    the refusals on the connect page, and LEAVE's `00 01` from the list.
+    Slices 4 to 6 wait on being built; `ESC SETTINGS` writes AM32 only until
+    slice 4 lands. Nothing of it has run on an ESC.
 31. **S.BUS output, designed, not built; waits on a bootloader probe.**
     The owner's decisions 1, 4, 5 and 6 of
     [rx-signals.md](docs/design/rx-signals.md#decisions) (item 19).
@@ -1064,14 +1079,18 @@ not run on hardware (item 18).
 ## Known limitations
 
 - **A Bluejay or BLHeli_S ESC that answered waits in its bootloader.**
-  ESC SETTINGS names it, reads nothing, and gives SIG back to DShot only
-  from the leave page, whose steps say to unplug the ESC's battery first
+  ESC SETTINGS reads its page; BACK from the list sends LEAVE, `00 01`, and
+  every other BACK gives SIG back to DShot only from the leave page, whose
+  steps say to unplug the ESC's battery first
   ([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#the-firmware-as-it-is-today)).
   The bench cannot see whether the battery was unplugged: RESTART DSHOT
   with the ESC still powered sends DShot into its bootloader, and so does a
-  board restart while it waits. By the bootloader's source a garbled frame
-  passes its CRC check about 1 time in 256 for arbitrary bytes; what DShot
-  frames read as is that note's bench item B12. Not seen on an ESC.
+  board restart while it waits. LEAVE has no answer: DShot returns once it
+  went out, and an ESC that did not take it still waits (bench item B11);
+  MENU's run cue stays until an eRPM frame after LEAVE.
+  By the bootloader's source a garbled frame passes its CRC check about 1
+  time in 256 for arbitrary bytes; what DShot frames read as is that note's
+  bench item B12. Not seen on an ESC.
 - **`tools/sdtest` is built by no CI job**, by the owner's decision of
   2026-10-28: it is a bench bring-up tool and never released, so a red job
   for it is not worth its cost. A change that breaks it shows only in a local
@@ -1142,12 +1161,12 @@ not run on hardware (item 18).
 **Host suite.** `make -C test run` compiles the firmware sources with a C++17
 compiler against the stubs in `test/stubs/`, and the DShot core in
 `src/dshot/` and the SDIO protocol layers in `src/sdio/` as C11, and runs one
-binary, `dshot_tests`. `test/test_main.cpp` runs thirty-two suites:
+binary, `dshot_tests`. `test/test_main.cpp` runs thirty-four suites:
 
 | Suite | File | Covers |
 | --- | --- | --- |
-| `runAm32Tests` | `test_am32.cpp` | AM32 init string, its trailer the CRC of `BLHeli` alone, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance, the backup's text and its CRC-32, the result texts and the longest of them; the greeting's answer classified (`blAnswerClassify()`): the three AM32 families, the EFM8 signatures E8B1, E8B2 and E8B5 with and without the echo before them, E8B3, E9B2, a short answer, no 0x30 and another start not understood |
-| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | the AM32 backup through the screen, screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, MENU's strip, its EDT chip in its three states and ESC COMMANDS' row, SETTINGS' wiring, contrast and save and its VERSION row, SD LOG with its RETRY MOUNT label and its two mount hints and the last run in its rows 2 to 8, USB DRIVE, the text probes of `fakes.h` in high contrast, the splash's version and ESC pin line, the tester's `BOARD` caption, the board voltage's text rounded to 0.01 V and clamped to five characters, HOLD TO ARM drawn disabled while a USB host holds the card, the header's BACK drawn as the control table reports it on every screen the suite checks, the AM32 write page (`WRITE...` on a tap, its changes, count, backup line and HOLD TO WRITE), its result inside the panel with its power-cycle line, ESC SETTINGS' BACK guard and ESC HEX, ESC SETTINGS' strip notes, next-step lines and connect lines and MENU's run cue, an EFM8 bootloader's answer named with nothing read, its line kept through silence, the run cue it sets, BACK then opening the leave page with DShot down, from the connect page, the list's guard and the read-only view, STAY back to each, its steps, STAY, LEAVE letting the transport go, RESTART DSHOT live 1000 ms later, restarting DShot and clearing the cue, an AM32 claim with no EFM8 answer giving DShot back within BACK, the tester's 3D note, ESC SETTINGS' read-only view of a layout outside 2 to 4 and its write refused while the BOARD voltage is red, screenshots |
+| `runAm32Tests` | `test_am32.cpp` | AM32 init string, its trailer the CRC of `BLHeli` alone, CRC-16/ARC, settings address per MCU (microcontroller) family, field codec, timing advance, the backup's text and its CRC-32, the result texts and the longest of them; the greeting's answer classified (`blAnswerClassify()`): the three AM32 families, the EFM8 signatures E8B1, E8B2 and E8B5 with and without the echo before them; slice 3's loose rule: E8B3, a C1 in place of 0x30, an answer cut after the 0xE8, a glitch byte after it and garbled bytes still EFM8, the last of two answers counting, E9B2, 0xE8 five bytes on, a short answer and another start not understood, an AM32 answer with a glitch byte not understood; the pieces of an EFM8 answer (`blAnswerEfm8Fragment()`): `471`, `71` with 0xE8 two bytes on, 0xE8 with B1, B2 or B5, the answer with its `d` or its `4` lost, noise and an AM32 answer none, an AM32 answer with a glitch byte one; the connect cycle (`greet_cycle.h`): quiet at 999 ms, greeting at 1000 ms, 3 greetings, quiet again from the third, across a `millis()` wrap |
+| `runUiTests` | `test_ui.cpp` (includes `ui_am32.cpp`) | the AM32 backup through the screen, screens, throttle modes, safety interlocks, core1 frame decision, EDT enable, EDT enable at pump start against a simulated ESC, touch, MENU's strip, its EDT chip in its three states and ESC COMMANDS' row, SETTINGS' wiring, contrast and save and its VERSION row, SD LOG with its RETRY MOUNT label and its two mount hints and the last run in its rows 2 to 8, USB DRIVE, the text probes of `fakes.h` in high contrast, the splash's version and ESC pin line, the tester's `BOARD` caption, the board voltage's text rounded to 0.01 V and clamped to five characters, HOLD TO ARM drawn disabled while a USB host holds the card, the header's BACK drawn as the control table reports it on every screen the suite checks, the AM32 write page (`WRITE...` on a tap, its changes, count, backup line and HOLD TO WRITE), its result inside the panel with its power-cycle line, ESC SETTINGS' BACK guard and ESC HEX, ESC SETTINGS' strip notes, next-step lines and connect lines and MENU's run cue, the connect cycle through the screen: no greeting before 1000 ms, `LINE HIGH, NOTHING SENT`, 3 greetings, the tries counted in bursts only, an AM32 answer in a burst opening the list; a Bluejay and a BLHeli_S ESC read through the escwire job against rcbench's simulated ESC: the transport letting go, the job binding, `EFM8 BOOTLOADER` in place of the power-cycle lines, the read-only list, its strip, rows, disabled WRITE... and REVERT, its notes, ESC HEX scrolled to its last line, the tester's 3D note set and cleared, the read-only lists of an older layout, lost tags and a wrong marker, a page empty and a page not known named on the connect page, BACK from the list sending `00 01` and DShot returning once the job is idle with the run cue kept until an eRPM frame after it, an answer with its `d` lost bringing the leave page and its strip `EFM8  SIG GP0`, a refused bind leaving SIG on its pull-up, a LEAVE that does not go out opening the leave page, an ESC that stops answering greeted again, an answer with a glitch byte taken as an EFM8's; the run cue an EFM8 answer sets, BACK then opening the leave page with DShot down, from the connect page while reading, after a page not taken, the AM32 list's guard and the read-only view after the cycle greets again, STAY back to each, its steps, STAY, LEAVE cutting the job or letting the transport go, RESTART DSHOT live 1000 ms later, restarting DShot and clearing the cue, an AM32 claim with no EFM8 answer giving DShot back within BACK, the tester's 3D note, ESC SETTINGS' read-only view of a layout outside 2 to 4 and its write refused while the BOARD voltage is red, screenshots |
 | `runKissTests` | `test_kiss.cpp` | KISS CRC-8, decode, resynchronisation, request payload, KISS/EDT merge, expiry, EDT enable rule |
 | `runGfxTests` | `test_gfx.cpp` | dirty bands, glyph rendering, clip rectangle, lines at any angle and thickness, arcs of dots |
 | `runBlackboxTests` | `test_blackbox.cpp` | variable-byte and zig-zag encodings, header, frames, time prediction |
@@ -1176,7 +1195,9 @@ binary, `dshot_tests`. `test/test_main.cpp` runs thirty-two suites:
 | `runBackupTests` | `test_backup_ring.cpp` | the ring of `BACKUP/`: its rules, saves of two devices and a rename under another device's number, a rename FatFs reports failed that took effect, two files under one number, the list of one device from the latest, a gap, no marker and an unreadable one, a directory under a ring name, names outside the ring, a marker or a read-only oldest file the card refuses, a change of directory that fails, load, no card and a USB-held card with no FatFs call |
 | `runSdCacheTests` | `test_sd_cache.cpp` | the SD write cache over a fake card: the queue's order, a read of a queued sector, one swap check per batch, no command while busy, read cache hits and the oldest pushed out, a miss that waits for the block in flight, a full queue, retries, a failed block, a changed serial number, refusals with the cache off |
 | `runDiagTests` | `test_diag.cpp` | the restart reason's decoding from CHIP_RESET, the watchdog's REASON, the enable query and the boot type, its order, its texts' widths, the capture through the fakes, the uptime's text |
-| `runRunSummaryTests` | `test_run_summary.cpp` | the run summary of [run-summary.md](docs/design/run-summary.md#slice-1-as-built) through escMerge() at 500 Hz: held maxima with one and two outliers not counted and three counted, the raw extreme, a value without a new arrival counted once, stale eRPM, KISS and EDT at their windows, a KISS gap filled by EDT tagged `MIXED` with the held value's own source, KISS at 0 giving EDT's figure, the minimum voltage while armed with 0.00 V ignored and a disarm restarting the run, maxima over the whole log, KISS eRPM only without DShot eRPM, the counter across an ESC restart, a gap and a stale frame from before the start, the charge from current against hand sums with 600 ms and 1200 ms stalls, armed time with edges, 75 minutes past the `micros()` and `millis()` wraps, the ends and the file states, the `.TXT` name, the note's example text byte for byte, the clock lines not set, set and set during the log, the longest text under 1000 bytes, SD LOG's row texts and their fits |
+| `runEscwireJobTests` | `test_escwire_job.cpp` | the ESC settings job of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-3-as-built) from the job table against rcbench's simulated ESC (`test/fake_escwire_port.h`): the bind driving the line high in the same call, refused opens by resource with SIG put on its pull-up and a pin the driver lacks left alone and named PIN, a command held at the bind, Bluejay 208 entered no sooner than 500 ms after, read and left, `00 01` and 300 ms of low line, BLHeli_S on E8B1, commands out of turn, a Stop not yet taken kept, Stop in mode, a silent ESC, the heartbeat stopping a read and an entry, refusing commands and letting a leave finish, the release cutting a read and waiting out a leave |
+| `runEfm8ViewTests` | `test_efm8_view.cpp` | the rows of BLHeli_S 32 and 33 and Bluejay 33, 200 and 208 by group and offset, every layout listed whole, the values in capitals, DIRECTION's 3D words and `RAW`, the narrowest gap between a label and its value over every value of every row, 23 px, the strip's caption and read-only lines, a version too long left out, the refusals' statuses and lines with their widths, the selected rows' notes |
+| `runRunSummaryTests` | `test_run_summary.cpp` | the run summary of [run-summary.md](docs/design/run-summary.md#slice-1-as-built) through escMerge() at 500 Hz: held maxima with one and two outliers not counted and three counted, the raw extreme, a value without a new arrival counted once, stale eRPM, KISS and EDT at their windows, a KISS gap filled by EDT tagged `MIXED` with the held value's own source, KISS at 0 giving EDT's figure, the minimum voltage while armed with 0.00 V ignored and a disarm restarting the run, maxima over the whole log, KISS eRPM only without DShot eRPM, the counter across an ESC restart, a gap and a stale frame from before the start, the charge from current against hand sums with 600 ms and 1200 ms stalls, armed time with edges, 75 minutes past the `micros()` and `millis()` wraps, the ends and the file states, the `.TXT` name, the note's example text byte for byte, the longest text under 1000 bytes, SD LOG's row texts and their fits |
 | `runClockTests` | `test_clock.cpp`, `fake_i2c.cpp` | the clock of [run-summary.md](docs/design/run-summary.md#slice-4-as-built) on the I2C fake's PCF85063A model: BCD, the calendar from 2000 to 2099, the decode and its causes' order, the text, the FAT packing at its year limits, the boot read and the kept time, OS's software reset, the other causes left alone, the bus errors at boot and a stuck bus, the INA219 and the CST328 beside it |
 | `runMenuTests` | `test_menu.cpp` | MENU, SETTINGS and the navigation through the real UI: SD LOG's BACK to MENU, every registry entry opened and left, MENU's disarm, ESC COMMANDS as its first row, ESC CONFIG, SERVO, SERVO PROGRAMMER and SETTINGS drawn disabled while the claim restores, MENU's scroll over registries of six and seven rows and its return at 0 px, the eight rows by device with TOOLS whole at 0 px and SD LOG and SETTINGS reached with a drag, TOOLS drawn disabled while the claim restores, RX SIGNALS acting with no status while the claim is Free and drawn disabled while it is Stopping or Held, its chooser opened and left, ESC CONFIG as MENU's second row, drawn disabled while a claim holds, its chooser claiming nothing, its title, strip, entries and lines, USB BRIDGE disabled and unpressed under `NOT BUILT`, the claim on ESC SETTINGS' tap and its BACK to MENU, PROGRAMMER's entries, lines and BACK with SERVO SUPPLY at OWN, GP28 and GP29, every MENU status and SETTINGS value within its widest, the SETTINGS scroll range, each row by id, DIAGNOSTICS' LAST RESTART and UPTIME, a cut control under 40 px, HOLD TO SAVE and the UNSAVED note at every scroll position, HOLD DEFAULTS' 1 s hold, its `DEFAULTS LOADED - RESTART TO UNDO` note and what ends it, ESC SETTINGS' own wait beside another claim, SERVO SUPPLY as a core section, the strip following AUX and the claim |
 | `runEscCmdUiTests` | `test_esc_cmd_ui.cpp` | ESC COMMANDS through MENU against the fake command slot: its row and its refusal while a claim holds, the layout and every text's width, each control at each readiness, BEEP 1 to 5, the four holds at 999 and 1000 ms with the save, each outcome's lines, the readiness line beside an outcome, the 3D note set and kept, BACK while a request waits |
@@ -1306,7 +1327,7 @@ model.
 | `src/am32_eeprom.h` | 11 | 11 | 100.0% |
 | `src/angle_model.cpp` | 255 | 255 | 100.0% |
 | `src/backup_ring.cpp` | 154 | 152 | 98.7% |
-| `src/bl_answer.cpp` | 21 | 21 | 100.0% |
+| `src/bl_answer.cpp` | 30 | 30 | 100.0% |
 | `src/blackbox_encode.cpp` | 113 | 113 | 100.0% |
 | `src/bridge_wire.cpp` | 125 | 125 | 100.0% |
 | `src/card_dir.cpp` | 96 | 96 | 100.0% |
@@ -1318,10 +1339,13 @@ model.
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
 | `src/dshot/dshot_telem.c` | 143 | 143 | 100.0% |
+| `src/efm8_view.cpp` | 111 | 110 | 99.1% |
 | `src/esc_3d.cpp` | 2 | 2 | 100.0% |
 | `src/esc_merge.cpp` | 44 | 44 | 100.0% |
 | `src/esc_task.h` | 262 | 262 | 100.0% |
+| `src/escwire_job.cpp` | 133 | 129 | 97.0% |
 | `src/gfx.cpp` | 213 | 211 | 99.1% |
+| `src/greet_cycle.cpp` | 9 | 9 | 100.0% |
 | `src/hitec_files.cpp` | 248 | 237 | 95.6% |
 | `src/hitec_job.cpp` | 382 | 372 | 97.4% |
 | `src/hitec_view.cpp` | 265 | 261 | 98.5% |
@@ -1330,6 +1354,7 @@ model.
 | `src/kst_job.cpp` | 380 | 364 | 95.8% |
 | `src/kst_seek.cpp` | 126 | 126 | 100.0% |
 | `src/kst_view.cpp` | 160 | 154 | 96.3% |
+| `src/kv_est.h` | 53 | 53 | 100.0% |
 | `src/log_ring.cpp` | 43 | 39 | 90.7% |
 | `src/pin_claim.cpp` | 132 | 132 | 100.0% |
 | `src/pin_claim.h` | 15 | 14 | 93.3% |
@@ -1355,9 +1380,9 @@ model.
 | `src/settings.cpp` | 179 | 178 | 99.4% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
-| `src/ui.cpp` | 513 | 512 | 99.8% |
+| `src/ui.cpp` | 535 | 534 | 99.8% |
 | `src/ui.h` | 1 | 1 | 100.0% |
-| `src/ui_am32.cpp` | 607 | 602 | 99.2% |
+| `src/ui_am32.cpp` | 822 | 815 | 99.1% |
 | `src/ui_esc_cmd.cpp` | 196 | 191 | 97.4% |
 | `src/ui_esc_config.cpp` | 48 | 48 | 100.0% |
 | `src/ui_hitec.cpp` | 1129 | 1071 | 94.9% |
@@ -1377,7 +1402,7 @@ model.
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
 | `src/ui_widgets.cpp` | 76 | 76 | 100.0% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **12145** | **11956** | **98.4%** |
+| **Total** | **12697** | **12501** | **98.5%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->
