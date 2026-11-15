@@ -303,6 +303,10 @@ def check_licences():
     for root, dirs, files in os.walk("."):
         dirs[:] = sorted(x for x in dirs if x not in SKIP_DIRS or root != ".")
         rel_root = os.path.relpath(root, ".").replace(os.sep, "/")
+        if rel_root.startswith("docs/html"):
+            # Doxygen's output, not committed: it copies the drawing.
+            dirs[:] = []
+            continue
         if rel_root.startswith(CC_EXEMPT):
             dirs[:] = []
             continue
