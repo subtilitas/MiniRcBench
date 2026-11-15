@@ -39,7 +39,8 @@ only.
   before the board. The pin takes up to 5.5 V while the board is on, only
   3.63 V while it is off. S.BUS outputs are commonly 3.3 V logic; no
   receiver's level has been measured here, and the board does not check it.
-- Leave the receiver's servo and ESC outputs unplugged. A receiver bound to
+- Leave the receiver's servo and ESC (electronic speed controller) outputs
+  unplugged. A receiver bound to
   a transmitter drives them whatever this screen does.
 
 See also [Wiring](Wiring).
@@ -73,8 +74,8 @@ reads `RELEASING AUX GP1`, then `TAKING AUX GP1`, then the channels appear.
 | Chip | the link: `NO SIGNAL`, `NO FRAMES`, `FAILSAFE`, `FRAME LOST` or `OK` (below) |
 | 16 rows | the channel number, a bar over the whole raw range with marks at 1000, 1500 and 2000 µs, and the value in µs |
 | Line 1 | `CH17` and `CH18`, the two digital channels, `ON` or `OFF`; the time between frames and the frame rate, for example `14.0 MS  71.4 HZ` |
-| Line 2 | `FRAMES`: frames received since the screen opened; `LOST` and `FS`: frames that carried the receiver's frame-lost and failsafe flags |
-| Line 3 | `PAR`, `FRM`, `BRK`, `OVR`: bytes with a parity, framing or break error, and bytes lost because the board read too late. A byte with an error is not used |
+| Line 2 | `FRAMES`: frames received since the screen took the pin, or since BACK TO MONITOR; `LOST` and `FS`: frames that carried the receiver's frame-lost and failsafe flags |
+| Line 3 | `PAR`, `FRM`, `BRK`, `OVR`: bytes with a parity, framing or break error, and overruns: bytes were lost because the board read too late. A byte with an error is not used |
 | Line 4 | `RESYNC`: bytes thrown away while looking for the start of a frame; `FOOTER`: frames of the right length with an end byte the decoder refuses |
 
 | Chip | Colour | Means |
@@ -116,14 +117,14 @@ same either way.
 
 | Text | Why | What to do |
 |---|---|---|
-| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` | SIG is GP1, and an ESC answers there. The receiver would drive the ESC's signal input | Unplug the ESC. The screen takes the pin 500 ms after the ESC goes quiet |
+| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT: THE RECEIVER GOES THERE.` | SIG is GP1, and an ESC answers there. The receiver would drive the ESC's signal input | Unplug the ESC. The screen takes the pin 500 ms after the ESC goes quiet; plug the receiver in once the link chip shows |
 | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT: THE RECEIVER GOES THERE.` | KISS telemetry arrives on GP1 | Unplug the telemetry wire |
 | `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | neither SIG nor AUX is GP1 | Set SIG PIN or AUX PIN to GP1. SETTINGS swaps the two, so this does not happen on this board |
 | `AUX GP1 COULD NOT BE TAKEN (CLOCK)` | the board's serial receiver could not reach 100,000 baud | `RETRY` |
 
 The ESC check misses an ESC that does not answer in bidirectional DShot.
 
-<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR waiting: AN ESC ANSWERS ON SIG GP1. and UNPLUG IT: THE RECEIVER GOES THERE. in amber">
+<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR waiting: AN ESC ANSWERS ON SIG GP1. and UNPLUG IT: THE RECEIVER GOES THERE. in amber"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR with no role on GP1: S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETTINGS. in amber">
 
 ---
 
@@ -142,7 +143,7 @@ DShot's output and the receiver's would drive one wire against each other.
 
 `BACK` on the page is an outline and does nothing.
 
-<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., DSHOT RESTARTS ON SIG GP0., BACK TO MONITOR, RESTART DSHOT still grey">
+<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., DSHOT RESTARTS ON SIG GP0., BACK TO MONITOR, RESTART DSHOT still grey"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: DSHOT RESTARTS ON SIG GP1, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 

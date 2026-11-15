@@ -228,7 +228,8 @@ static void drawTop(bool running, SbusLink link) {
 	uiHeader(SBUS_UI_TITLE, s_t, k.backOk);
 	uiStripClear();
 	char cap[40];
-	snprintf(cap, sizeof(cap), SBUS_UI_CAPTION_FMT, gp1Role());
+	if (s_roles) snprintf(cap, sizeof(cap), SBUS_UI_CAPTION_FMT, gp1Role());
+	else snprintf(cap, sizeof(cap), "%s", SBUS_UI_CAPTION_TAIL);
 	uiStripText(cap, C_DIM);
 	if (running) uiChip(sbusLinkText(link), sbusLinkFill(link));
 }
@@ -417,6 +418,8 @@ bool uiSbusTick(const TouchState *t) {
 		if (!s_claimed) return false;
 		pinClaimEnd(PinUser::Sbus);
 		ClaimState cs = pinClaimState();
+		// Restoring: core1 suspended the pump between pinClaimPoll() and
+		// pinClaimEnd().
 		if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
 		s_view = View::Leave;
 		s_full = true;

@@ -74,7 +74,9 @@ struct UiScreen;
  *        `AUX GP1  100 KBAUD  8E2`, 23 characters, 137 px, x 8 to 144, 16 px
  *        or more before the widest chip, `FRAME LOST`, at x 161.
  */
-#define SBUS_UI_CAPTION_FMT "%s GP1  100 KBAUD  8E2"
+#define SBUS_UI_CAPTION_FMT "%s " SBUS_UI_CAPTION_TAIL
+/** @brief The caption with no role on GP1: `GP1  100 KBAUD  8E2`. */
+#define SBUS_UI_CAPTION_TAIL "GP1  100 KBAUD  8E2"
 /** @brief No role on GP1, line 1, amber. */
 #define SBUS_UI_NO_GP1_1    "S.BUS NEEDS GP1."
 /** @brief ...line 2. */

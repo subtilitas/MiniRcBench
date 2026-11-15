@@ -349,7 +349,7 @@ y   0 +------------------------------------------+
 
 | Element | Rectangle (x, y, w, h) | Content |
 |---|---|---|
-| Strip caption | 8, 44, 137, 7 | `AUX GP1  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `SIG GP1  100 KBAUD  8E2` when SIG is GP1 |
+| Strip caption | 8, 44, 137, 7 | `AUX GP1  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `SIG GP1  100 KBAUD  8E2` when SIG is GP1; `GP1  100 KBAUD  8E2` with no role on GP1 |
 | Strip chip | 161, 42, 71, 12 at its widest | `uiChip()`: the text's width plus 6 px each side, right edge x 231. Widest `FRAME LOST`, 10 characters, 59 px. The caption ends at x 144, 16 px clear. Drawn only while the job runs |
 | Channel row i, i = 0 to 15 | 0, 62 + 12i, 240, 11 | number, bar, value; 1 px between rows |
 | Number | right-aligned to x 18, y + 2 | `1` to `16`, `C_DIM`, at most 11 px from x 8 |
@@ -1096,6 +1096,14 @@ tester tests where they named the row. Choices the note left open:
   SERVO TESTER's, with `UNPLUG THE RECEIVER.` and its detail lines as step
   1, `RESTART DSHOT.` as step 2, and BACK TO MONITOR in the left button, in
   place of the note's `UNPLUG RECEIVER.` headline at scale 2.
+- **When to plug the receiver in** is not on the screen. With GP1 as SIG,
+  bidirectional DShot keeps driving GP1 until the claim holds: 500 ms after
+  the ESC goes quiet, then the drain of at least 250 ms. The screen's
+  `UNPLUG IT: THE RECEIVER GOES THERE.` does not say to wait for the link
+  chip; README.md and the wiki pages do. The screen text is the note's, as
+  drawn; whether it names the wait is a point for the owner.
+- **The caption with no role on GP1** reads `GP1  100 KBAUD  8E2`, with no
+  role to name.
 - **The chip's label on amber** is `C_PAPER`, the rule `theme.h` gives for
   the fills that are bright in one theme and dark in the other. No chip used
   amber before.

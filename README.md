@@ -2062,6 +2062,8 @@ checks:
   claims by itself 500 ms after the ESC goes quiet. Like the other screens'
   check, it misses an ESC that does not answer in bidirectional DShot. With
   GP1 as AUX an ESC on SIG only loses its frames, and there is no such wait.
+  Plug the receiver in only once the link chip shows: until then DShot
+  frames go out on GP1.
 - **KISS frames on GP1**, GP1 as AUX: `KISS WIRE ON AUX GP1 IS LIVE.` and
   the same second line; the claim follows 500 ms after the last frame.
 - **No role on GP1**: `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` On

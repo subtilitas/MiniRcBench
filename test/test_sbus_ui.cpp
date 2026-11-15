@@ -493,8 +493,8 @@ static void testMonitor() {
 	// Before the first frame.
 	checkTrue("the chip: NO SIGNAL, amber, its label C_PAPER",
 	          chipIs(SBUS_VIEW_NO_SIGNAL, C_AMBER, C_PAPER));
-	checkTrue("the caption 13 px or more before the widest chip",
-	          UI_MARGIN + gfxTextW("AUX GP1  100 KBAUD  8E2", 1) + 13 <= uiChipX(SBUS_VIEW_FRAME_LOST) &&
+	checkTrue("the caption ends 16 px before the widest chip",
+	          uiChipX(SBUS_VIEW_FRAME_LOST) - (UI_MARGIN + gfxTextW("AUX GP1  100 KBAUD  8E2", 1)) == 16 &&
 	          gfxTextW("AUX GP1  100 KBAUD  8E2", 1) == 137);
 	bool empty = true;
 	for (int i = 0; i < (int)SBUS_CHANNELS; i++) empty = empty && rowShows(i, 0, "----", C_BG, C_DIM);
@@ -585,6 +585,9 @@ static void testMonitor() {
 	checkTrue("FAILSAFE, red", chipIs(SBUS_VIEW_FAILSAFE, C_RED, C_ONACCENT));
 	checkTrue("the failsafe values in red", rowShows(0, 992, "1500", C_RED, C_RED) &&
 	          rowShows(2, 172, "1000", C_RED, C_RED));
+	checkTrue("line 1 stays C_TEXT: the failsafe frame is current",
+	          leftIs(SBUS_UI_LINE1_Y, "CH17 OFF  CH18 OFF", C_TEXT) &&
+	          rightIs(SBUS_UI_LINE1_Y, "14.0 MS  71.4 HZ", C_TEXT));
 	st = jobStatus();
 	{
 		char lost[32];
@@ -609,7 +612,7 @@ static void testMonitor() {
 	st = jobStatus();
 	checkTrue("bytes and no frame: NO FRAMES", chipIs(SBUS_VIEW_NO_FRAMES, C_AMBER, C_PAPER));
 	{
-		char dec[32];
+		char dec[48];
 		snprintf(dec, sizeof(dec), "RESYNC %lu FOOTER %lu", (unsigned long)st.resyncs,
 		         (unsigned long)st.badFooter);
 		checkTrue("the footer count says why", st.badFooter > 0 && leftIs(SBUS_UI_LINE4_Y, dec, C_TEXT));
@@ -787,6 +790,8 @@ static void testRefusals() {
 	sbFrames(4);
 	checkTrue("no role on GP1: no claim", pinClaimState() == ClaimState::Free &&
 	          uiCurrentScreen() == UiScreenId::Sbus);
+	checkTrue("the caption with no role on GP1: GP1  100 KBAUD  8E2",
+	          leftIs(UI_STRIP_Y + 4, "GP1  100 KBAUD  8E2", C_DIM));
 	checkTrue("S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETTINGS., amber",
 	          leftIs(SBUS_UI_MSG_Y, SBUS_UI_NO_GP1_1, C_AMBER) &&
 	          leftIs(SBUS_UI_MSG_Y + SBUS_UI_MSG_H, SBUS_UI_NO_GP1_2, C_AMBER));
@@ -872,7 +877,7 @@ static void testRefusals() {
 	tapId(UI_FIX(RxCtl::Monitor));
 	framesNoPump(1);
 	checkTrue("Stopping", pinClaimState() == ClaimState::Stopping);
-	UiControl b;
+	UiControl b = {};
 	ctlFind(UI_FIX(UI_BACK), &b);
 	fakePress(b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2);
 	framesNoPump(2);
