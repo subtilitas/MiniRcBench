@@ -24,7 +24,7 @@ and so on. Each new file takes the number after the highest `LOGnnnnn.BFL` in
 `LOG00006.BFL`. An empty or new `LOGS` starts at `LOG00001.BFL`. Names count
 in any letter case (`log00007.bfl` is `LOG00007.BFL` to the card); other
 names, such as `LOG0007.BFL`, `LOG00007.TXT` or a renamed log, are ignored.
-Existing files are not overwritten. Logs an earlier firmware wrote to the
+Existing logs are not overwritten. Logs an earlier firmware wrote to the
 card's root stay there and are not counted. The board sets no clock; what
 date the files carry is not verified.
 
@@ -63,10 +63,10 @@ needs the card for its backup. SD LOG then reads
 `START` for a new log after the tool.
 
 **Stop the recording before cutting the board's power or pulling the card:**
-disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`.
-A stop writes the end of the log, gives back the unused space and closes the
-file. A log cut by a power loss or a pulled card is not closed. What it
-holds depends on when it was cut:
+disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`. A
+stop writes the end of the log, gives back the unused space, closes the file
+and writes its run summary beside it. A log cut by a power loss or a pulled
+card is not closed. What it holds depends on when it was cut:
 
 - **Within its first 2 s:** it reads 0 bytes. The file's size on the card
   is written every 2 s while recording, the first time 2 s after the start.
@@ -85,6 +85,71 @@ holds depends on when it was cut:
 
 These are facts of the firmware's code and of the FatFs library it uses,
 not measured on a card. How a viewer handles such a file is not tested.
+
+---
+
+## The run summary
+
+Each log that stops clean gets a text file beside it with the same number:
+`LOG00012.TXT` beside `LOG00012.BFL`. Any text editor opens it. The stop
+writes it once the log is closed: `STOP`, the disarm that ends a log arming
+started, and a tool taking the card. A log that a card error ended gets
+none.
+
+It holds one value a line:
+
+| Line | Content |
+|---|---|
+| `Log`, `Firmware` | The log's file name and the firmware version |
+| `Clock at start`, `Clock at stop` | `not set`: the board's clock is not used |
+| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` |
+| `Duration`, `Armed` | The log's length and the time armed within it, in seconds |
+| `Max RPM` | The highest RPM: DShot eRPM (electrical RPM), or KISS eRPM in a log without DShot eRPM, divided by half the `MOTOR POLES` value at the stop |
+| `Max current`, `Max temperature` | The highest current and ESC (electronic speed controller) temperature: KISS while KISS is live, EDT (Extended DShot Telemetry) in its gaps; EDT alone when KISS sent 0 in every frame, an ESC without that sensor |
+| `Min voltage` | The lowest voltage while armed, from the same sources; a reading of 0.00 V does not count |
+| `Used, ESC counter` | How far the KISS counter of milliampere hours (mAh) rose during the log |
+| `Used, from current` | The current added up over time, with the time it was known |
+| `Frames` to `Worst flush` | The counters SD LOG shows while recording |
+
+A maximum or minimum counts a value only when three new readings in a row
+reach it, so one damaged reply sets none. The `raw` figure in brackets
+counts every reading, as a viewer finds it in the `.BFL`. Each line names
+its source, `DShot`, `KISS`, `EDT`, or `KISS and EDT` when EDT filled gaps
+in KISS, and its step. A value with no reading reads `unknown`, with the
+reason. `C` stands for degrees Celsius. An example:
+
+```text
+MiniRcBench run summary, format 1
+Log: LOG00012.BFL
+Firmware: 0.1.0
+Clock at start: not set
+Clock at stop: not set
+Ended by: STOP
+Duration: 144.2 s
+Armed: 102.5 s
+Max RPM: 18450 RPM (DShot, eRPM 129150, 14 poles; raw 18460 RPM)
+Max current: 23.41 A (KISS, 0.01 A steps; raw 23.55 A)
+Max temperature: 51 C (KISS, 1 C steps; raw 51 C)
+Min voltage: 14.82 V (KISS, 0.01 V steps, while armed; raw 14.79 V)
+Used, ESC counter: 312 mAh (KISS, 1 mAh steps)
+Used, from current: 305 mAh (KISS, current known for 144.0 s of 144.2 s)
+Frames: 72100
+Dropped frames: 0 (0 bytes)
+Written: 1043 kB
+Buffer peak: 2048 of 8192 bytes
+Worst flush: 12 ms
+```
+
+The `.TXT` files do not change the log numbers: only `.BFL` names count. A
+`.TXT` with the new log's number, left on the card after its log was
+deleted on a computer, is replaced.
+
+When the summary cannot be written, on a full card or after a failed write,
+the log stays whole on the card and `STATUS` stays `READY`. No `.TXT` is
+left, or, after a write that failed at the very end, an empty one. The
+SD LOG screen does not show the summary, nor whether it was saved. The
+summary is tested with the firmware's host tests, over the FatFs library on
+a simulated card; on a card it is not tested.
 
 ---
 
@@ -170,10 +235,10 @@ mounted.
 <img src="img/log-usb-serving.png" width="240" alt="The card served as a USB drive">
 
 `USB DRIVE` on the SD LOG screen presents the card to the computer on the USB
-(Universal Serial Bus) cable as a removable drive. Copy the `.BFL` files off,
-eject the drive on the computer, and the tester takes the card back. The
-screen shows the amount read so far, for example `3.0 MB READ`, in lime: a
-live reading.
+(Universal Serial Bus) cable as a removable drive. Copy the `.BFL` files and
+their `.TXT` summaries off, eject the drive on the computer, and the tester
+takes the card back. The screen shows the amount read so far, for example
+`3.0 MB READ`, in lime: a live reading.
 
 The board is a USB device already, for power and the serial port. The drive is
 a second USB interface on the same cable.
@@ -239,11 +304,11 @@ Fields per frame:
 |---|---|
 | `loopIteration`, `time` | Frame counter and time |
 | `motor[0]` | Commanded throttle |
-| `eRPM[0]` | eRPM (electrical RPM) from bidirectional DShot |
+| `eRPM[0]` | eRPM from bidirectional DShot |
 | `eRPMkiss[0]` | eRPM from KISS |
 | `vbatLatest`, `amperageLatest` | Voltage and current from KISS; 0 while KISS is not live |
-| `vbatEdt`, `amperageEdt` | Voltage and current from EDT (Extended DShot Telemetry) |
-| `escTemperature[0]` | ESC (electronic speed controller) temperature |
+| `vbatEdt`, `amperageEdt` | Voltage and current from EDT |
+| `escTemperature[0]` | ESC temperature |
 | `escConsumption` | Consumed mAh (KISS only) |
 | `escStress` | EDT stress value |
 

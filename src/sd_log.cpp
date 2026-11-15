@@ -9,14 +9,16 @@
 #include "log_ring.h"
 #include "esc_task.h"
 #include "esc_merge.h"
+#include "run_summary.h"
+#include "settings.h"
 
 #include "plat.h"
 #include "ff.h"
-#include "f_util.h"
 #include "hw_config.h"
 #include "sd_card.h"
 #include "sdio/sd_card_cache.h"
 #include "sd_log_next.h"
+#include "sd_log_summary.h"
 
 #include <stdio.h>
 
@@ -64,8 +66,36 @@ static SdLogEnd   s_end = SdLogEnd::None;
  */
 static SdLogNextCache s_next = {};
 
-/** @brief A start or a write failed: the error state, its cause, the number forgotten. */
+/**
+ * @brief The run summary of the open log, or of the last one.
+ *        @see run_summary.h, docs/design/run-summary.md
+ */
+static RunSum   s_sum;
+/** @brief A start has begun @ref s_sum since the last mount or release. */
+static bool     s_sumKept = false;
+/** @brief MOTOR POLES when @ref s_sum ended. */
+static uint8_t  s_sumPoles = 0;
+
+/** @brief End the run summary now, @p how, and keep the pole count for its RPM. */
+static void endSummary(RunSumEnd how) {
+	runSumEnd(&s_sum, time_us_64(), how);
+	s_sumPoles = settings()->poles;
+}
+
+/**
+ * @brief A start or a write failed: the error state, its cause, the number
+ *        forgotten.
+ *
+ * A failed write of a running log ends its summary there, not saved; within
+ * sdLogStop(), which has ended the summary already, it marks the file not
+ * saved. A failed start keeps the last log's summary.
+ */
 static void enterError(SdLogEnd why) {
+	if (s_state == SdLogState::Logging) {
+		bool full = why == SdLogEnd::CardFull;
+		endSummary(full ? RunSumEnd::CardFull : RunSumEnd::WriteFailed);
+		runSumFileResult(&s_sum, full ? RunSumFile::CardFull : RunSumFile::WriteFailed);
+	}
 	s_state = SdLogState::Error;
 	s_end = why;
 	sdLogNextForget(&s_next);
@@ -79,6 +109,9 @@ static uint8_t         s_ringBuf[SD_LOG_BUFFER_BYTES];
 // of one chunk and is never written.
 static_assert(SD_LOG_BUFFER_BYTES % SD_LOG_CHUNK_BYTES == 0,
               "SD_LOG_BUFFER_BYTES must be a multiple of SD_LOG_CHUNK_BYTES");
+// The stop builds the run summary's text in the drained ring: the longest
+// text is under 1000 bytes (run_summary.h).
+static_assert(SD_LOG_BUFFER_BYTES >= 1000, "the ring must hold a run summary's text");
 
 static uint32_t s_nextFrameUs = 0;
 static uint32_t s_worstFlushMs = 0;
@@ -145,6 +178,7 @@ bool sdLogBegin() {
 	s_cardBytes = 0;
 	s_worstFlushMs = 0;
 	s_ring.dropped = s_ring.drops = s_ring.peakUsed = 0;
+	s_sumKept = false;
 
 	// Whatever the mount did, the driver has by now tried to talk to the card,
 	// so its type and size say whether anything answered at all. That separates
@@ -206,6 +240,8 @@ bool sdLogRelease() {
 	s_state = SdLogState::NoCard;
 	s_released = true;
 	sdLogNextForget(&s_next);
+	// The state reads no card, and no summary shows with no card.
+	s_sumKept = false;
 	return true;
 }
 
@@ -262,13 +298,40 @@ bool sdLogStart() {
 	s_nextFrameUs = micros();
 	s_lastSyncMs = millis();
 	s_draining = false;
+	runSumBegin(&s_sum, time_us_64(), s_armed);
+	s_sumKept = true;
 	s_state = SdLogState::Logging;
 	return true;
 }
 
-void sdLogStop() {
+/**
+ * @brief Write the ended run summary beside its log: the text built in the
+ *        drained ring, then sdLogWriteSummary() over the closed `.BFL`'s file
+ *        object. Records what became of the file.
+ */
+static void writeSummary() {
+	RunSumFile f = RunSumFile::WriteFailed;
+	// The drain empties the ring: 8192 bytes need at most 17 flushes of the
+	// 64. A byte left in it would be overwritten by the text.
+	if (logRingUsed(&s_ring) == 0) {
+		SdLogStatus st;
+		sdLogStatus(&st);
+		char *text = (char *)s_ringBuf;
+		size_t len = runSumText(&s_sum, &st, s_sumPoles, text, sizeof(s_ringBuf));
+		// runSumText() returns the length the whole text needs. The ring's
+		// size or more means a cut text, and f_write() would read past the
+		// ring: WRITE FAILED, nothing written.
+		if (len < sizeof(s_ringBuf))
+			f = sdLogWriteSummary(&s_file, SD_LOG_DIR_PATH, s_fileNo, text, (uint32_t)len);
+	}
+	runSumFileResult(&s_sum, f);
+}
+
+/** @brief sdLogStop(), the summary recording @p how the log ended. */
+static void stopLog(RunSumEnd how) {
 	if (s_state != SdLogState::Logging) return;
 
+	endSummary(how);
 	bbEnd(&s_enc);
 
 	// Drain what is left. Bounded so a failing card cannot hang the UI here;
@@ -291,15 +354,28 @@ void sdLogStop() {
 	FRESULT sync = f_sync(&s_file);
 	FRESULT close = f_close(&s_file);
 	(void)trunc;
-	if (sync != FR_OK || close != FR_OK) enterError(SdLogEnd::WriteFailed);
-	else s_state = SdLogState::Idle;
+	if (sync != FR_OK || close != FR_OK) {
+		enterError(SdLogEnd::WriteFailed);
+	} else {
+		// The log is whole on the card. Its summary's file is written only
+		// now, and its result does not change the state: a summary not
+		// saved leaves the logger ready.
+		writeSummary();
+		s_state = SdLogState::Idle;
+	}
 	// The file's number stays, for SD LOG's FILE row, until the next start.
 	if (s_state == SdLogState::Idle) s_autoStarted = false;
 }
 
+void sdLogStop() { stopLog(RunSumEnd::Stop); }
+
 void sdLogStopFor(SdLogEnd tool) {
 	if (s_state != SdLogState::Logging) return;
-	sdLogStop();
+	RunSumEnd how = tool == SdLogEnd::ByKst   ? RunSumEnd::ByKst
+	              : tool == SdLogEnd::ByHitec ? RunSumEnd::ByHitec
+	              : tool == SdLogEnd::ByAm32  ? RunSumEnd::ByAm32
+	              :                             RunSumEnd::Stop;
+	stopLog(how);
 	if (s_state == SdLogState::Idle) s_end = tool;
 }
 
@@ -322,6 +398,10 @@ void sdLogTick(uint32_t nowUs, uint16_t throttle) {
 	EscReading r;
 	uint32_t nowMs = millis();
 	escMerge(&t, nowMs, KISS_STALE_MS, EDT_STALE_MS, &r);
+
+	// The summary counts every frame, one the ring then drops included.
+	RunSumSample sample = { &t, &r, nowMs, time_us_64(), s_armed };
+	runSumAdd(&s_sum, &sample);
 
 	int32_t v[BB_FIELD_COUNT] = {0};
 	// Every field but temperature is declared unsigned in the log header, and a
@@ -425,6 +505,8 @@ void sdLogStatus(SdLogStatus *out) {
 	out->worstFlushMs = s_worstFlushMs;
 	out->fileNumber   = s_fileNo;
 	out->end          = s_end;
+	out->summary      = s_sumKept && s_state != SdLogState::Logging ? &s_sum : nullptr;
+	out->summaryPoles = s_sumPoles;
 }
 
 void sdLogSetArmed(bool armed) {
@@ -434,7 +516,7 @@ void sdLogSetArmed(bool armed) {
 
 	switch (act) {
 		case SdLogArmAction::Start: s_autoStarted = sdLogStart(); break;
-		case SdLogArmAction::Stop:  sdLogStop();                  break;
+		case SdLogArmAction::Stop:  stopLog(RunSumEnd::Disarm);   break;
 		case SdLogArmAction::None:                                break;
 	}
 }
