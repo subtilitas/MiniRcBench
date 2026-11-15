@@ -36,17 +36,19 @@ die Wurzel und hat keinen Kopfbereich. Auf der Verlassenseite von SERVO
 TESTER, KST SERVO, HITEC SERVO und S.BUS MONITOR ist `BACK` deaktiviert
 gezeichnet, als Umriss mit grauer Beschriftung, und ein Tippen darauf
 bewirkt nichts: Jeder Weg weiter ist eine beschriftete Taste, `STAY`,
-`NEXT SERVO`, `BACK TO SERVO`, `BACK TO MONITOR` oder `RESTART DSHOT`. Dasselbe gilt auf `AM32 WRITE`,
-`KST WRITE` und `HITEC WRITE`, solange ein Schreiben läuft oder auf die
-SD-Karte wartet: Kein `BACK` lässt ein Gerät halb geschrieben zurück.
+`NEXT SERVO`, `BACK TO SERVO`, `BACK TO MONITOR` oder `RESTART DSHOT`.
+Dasselbe gilt auf `AM32 WRITE`, `KST WRITE` und `HITEC WRITE`, solange ein
+Schreiben läuft oder auf die SD-Karte wartet: Kein `BACK` lässt ein Gerät
+halb geschrieben zurück.
 
 **Die Verlassenseite** ist eine Seite vom letzten Schritt an einem Servo
-oder einem Empfänger bis DShot wieder an SIG. Sie nummeriert ihre Schritte; der aktuelle ist
-bernsteinfarben, mit einem Balken am linken Rand. Vor `LEAVE` heißen die
-Tasten `STAY`, das zum Werkzeug zurückführt, und `LEAVE`. Nach `LEAVE` ist
-der nächste Schritt aktuell, und die breite Taste heißt an der Stelle von
-`LEAVE` `RESTART DSHOT`. Sie und die linke Taste, `NEXT SERVO` oder
-`BACK TO SERVO`, sind deaktiviert gezeichnet, bis der Pin freigegeben ist;
+oder einem Empfänger bis DShot wieder an SIG. Sie nummeriert ihre
+Schritte; der aktuelle ist bernsteinfarben, mit einem Balken am linken
+Rand. Vor `LEAVE` heißen die Tasten `STAY`, das zum Werkzeug zurückführt,
+und `LEAVE`. Nach `LEAVE` ist der nächste Schritt aktuell, und die breite
+Taste heißt an der Stelle von `LEAVE` `RESTART DSHOT`. Sie und die linke
+Taste, `NEXT SERVO`, `BACK TO SERVO` oder `BACK TO MONITOR`, sind
+deaktiviert gezeichnet, bis der Pin freigegeben ist;
 `RESTART DSHOT` wartet danach noch 1 s, damit ein Doppeltippen auf `LEAVE`
 DShot nie in ein Servo startet, das noch an der Leitung hängt. Ein Druck,
 der während der Wartezeit begann, bewirkt beim Loslassen nichts.

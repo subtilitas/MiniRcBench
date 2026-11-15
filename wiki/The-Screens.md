@@ -5,8 +5,9 @@
 The firmware has eleven screens. The tester is the root. `MENU` opens the
 list of tools, and every tool is left with `BACK`, which returns to `MENU`.
 SERVO PROGRAMMER opens PROGRAMMER, the choice of the KST and Hitec
-programmers. RX SIGNALS opens the choice of the receiver signal tools. SETTINGS also opens from the tester's pole count and ceiling;
-`BACK` then returns to the tester.
+programmers. RX SIGNALS opens the choice of the receiver signal tools.
+SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
+returns to the tester.
 
 ```
 Tester ──MENU──> MENU ──┬── AM32 CONFIG  ──BACK──> MENU
@@ -39,13 +40,14 @@ grey label, and a tap on it does nothing: each way on is a labelled button,
 the SD card: no `BACK` leaves a device half written.
 
 **The leave page** is one page from the last step on a servo, or on a
-receiver, to DShot on SIG again. It numbers its steps; the current one is amber with a bar at the
-left edge. Before `LEAVE` the buttons read `STAY`, which returns to the
-tool, and `LEAVE`. After `LEAVE` the next step is current, and the wide
-button reads `RESTART DSHOT` in `LEAVE`'s place. It and the left button,
-`NEXT SERVO` or `BACK TO SERVO`, are drawn disabled until the pin is let go;
-`RESTART DSHOT` then waits 1 s more, so a double tap on `LEAVE` never
-restarts DShot into a servo still on the lead. A press that landed during
+receiver, to DShot on SIG again. It numbers its steps; the current one is
+amber with a bar at the left edge. Before `LEAVE` the buttons read `STAY`,
+which returns to the tool, and `LEAVE`. After `LEAVE` the next step is
+current, and the wide button reads `RESTART DSHOT` in `LEAVE`'s place. It
+and the left button, `NEXT SERVO`, `BACK TO SERVO` or `BACK TO MONITOR`,
+are drawn disabled until the pin is let go; `RESTART DSHOT` then waits
+1 s more, so a double tap on `LEAVE` never restarts DShot into a servo
+still on the lead. A press that landed during
 the wait does nothing when it lifts.
 
 <img src="img/leave-kst.png" width="240" alt="The KST leave page before LEAVE: step 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="The KST leave page after LEAVE: step 2 current, NEXT SERVO live, RESTART DSHOT still grey">

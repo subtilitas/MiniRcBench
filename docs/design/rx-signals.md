@@ -806,8 +806,9 @@ S.BUS output's row is to be designed ([S.BUS output](#sbus-output)).
   screen makes the check itself before each `pinClaimBegin()`, with
   `escFieldFresh()` on the snapshot's `lastRpmMs`, the rule
   `pinClaimCheck()` uses, after that function's Armed and Busy rules, and
-  asks again every frame; the claim's table stays as it is. Like the claim's check, it misses an ESC that does not
-  answer in bidirectional DShot.
+  asks again every frame; the claim's table stays as it is. Like the
+  claim's check, it misses an ESC that does not answer in bidirectional
+  DShot.
 - **KissLive** refuses the monitor while a KISS frame arrived on GP1 within
   500 ms in the default wiring: a telemetry wire is where the receiver
   goes. PPM does not ask for AUX.
@@ -1064,8 +1065,8 @@ tester tests where they named the row. Choices the note left open:
   `SIG GP1`, by menu-b.md decision 10. `AUX GP1  100 KBAUD  8E2  INV`
   would end at x 174, past the widest chip at x 161, so `INV` is dropped,
   by menu-b.md decision 14's rule for a strip too long: items go from the
-  right, never the spaces. S.BUS is inverted by definition; a later
-  non-inverted mode would name itself.
+  right, never the spaces. Every S.BUS line is inverted ([S.BUS
+  frame](#sbus-frame)).
 - **The bar's colour.** `UI_COL_LIVE` (`C_LIME`) for a live frame, in place
   of the note's `C_INK`, by menu-b.md decision 11: the fill is a live
   reading, as the throttle fill is. Values are `C_TEXT`; the ticks

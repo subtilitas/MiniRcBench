@@ -71,7 +71,7 @@ struct UiScreen;
  */
 /**
  * @brief The strip's caption, with GP1's role (`AUX`, or `SIG`) for `%s`:
- *        `AUX GP1  100 KBAUD  8E2`, 23 characters, 137 px, x 8 to 144, 13 px
+ *        `AUX GP1  100 KBAUD  8E2`, 23 characters, 137 px, x 8 to 144, 16 px
  *        or more before the widest chip, `FRAME LOST`, at x 161.
  */
 #define SBUS_UI_CAPTION_FMT "%s GP1  100 KBAUD  8E2"
@@ -85,7 +85,7 @@ struct UiScreen;
 #define SBUS_UI_KISS_1      "KISS WIRE ON AUX GP1 IS LIVE."
 /** @brief The second line of both, amber: 35 characters, 209 px. */
 #define SBUS_UI_UNPLUG_2    "UNPLUG IT: THE RECEIVER GOES THERE."
-/** @brief The leave page's step that unplugs the receiver: 21 characters. */
+/** @brief The leave page's step that unplugs the receiver: 20 characters. */
 #define SBUS_UI_UNPLUG      "UNPLUG THE RECEIVER."
 /** @brief Its detail line, SIG's GPIO for `%u`, when GP1 is AUX: 26 characters. */
 #define SBUS_UI_RESTART_FMT "DSHOT RESTARTS ON SIG GP%u."

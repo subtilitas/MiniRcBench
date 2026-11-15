@@ -38,7 +38,7 @@ struct TouchState;
 /**
  * @defgroup ui_rx_layout RX SIGNALS' layout
  * @brief PROGRAMMER's: @ref UI_PROG_ENTRY_Y, @ref UI_PROG_ENTRY_PITCH,
- *        @ref UI_PROG_ENTRY_W, @ref UI_PROG_ENTRY_H, its lines from
+ *        @ref UI_PROG_ENTRY_W, `UI_PROG_ENTRY_H`, its lines from
  *        @ref UI_PROG_LINE_DY at @ref UI_PROG_LINE_H.
  * @{
  */

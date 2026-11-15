@@ -70,7 +70,7 @@ enum class SbusInk : uint8_t {
 	Empty,     /**< No frame since the bind: outlines and `----`. */
 	Live,      /**< The last frame is current: `UI_COL_LIVE` bars, `C_TEXT` values. */
 	Failsafe,  /**< The receiver's failsafe values: `C_RED`. */
-	Stale,     /**< No frame for @ref SBUS_LOST_MS: the last frame in `C_DIM`. */
+	Stale,     /**< No frame for @ref SBUS_LOST_MS, 100 ms; the last frame in `C_DIM`. */
 };
 
 /**
