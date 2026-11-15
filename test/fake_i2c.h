@@ -21,6 +21,18 @@
  * registers change only at the end of each conversion cycle the
  * configuration sets.
  *
+ * The QMI8658 model: a register file of 128 bytes with the power-on values
+ * the design note gives (CTRL1 20h, big-endian), WHO_AM_I and REVISION_ID as
+ * a test sets them, the pointer, address auto-increment by CTRL1 bit 6 and
+ * the byte order of the data registers by CTRL1 bit 5, one byte taken from a
+ * write of several, the soft reset by B0h in RESET (60h) with dQY_L (4Dh) set
+ * after it and cleared by CTRL7 turning a sensor on, no answer for a boot
+ * time after a reset, and with the accelerometer on a sample every 32 ms
+ * (31.25 Hz) whatever CTRL2 says, each with a time stamp one higher. A test
+ * can latch a sample in the middle of the next burst. The latched sample's
+ * latch time is kept. Every register read and every write of data is logged
+ * with its time.
+ *
  * Time: a transfer that times out moves the fake clock on by its timeout, in
  * whole milliseconds as the clock counts them, and adds it to
  * FakeI2cStats::timeoutUs, so fakeI2cBusyUs() bounds how long core0 blocks.
@@ -66,6 +78,43 @@ struct FakeIna219 {
 	uint32_t configWrites;  /**< Writes of 00h. */
 };
 
+/** @brief One register access to the QMI8658 model. */
+struct FakeQmiOp {
+	bool     write;  /**< A write of data; false for a read. */
+	uint8_t  reg;    /**< The register pointer at its start. */
+	uint8_t  len;    /**< Data bytes written or read. */
+	uint8_t  val;    /**< The first byte written. */
+	uint32_t ms;     /**< millis() at the access. */
+};
+
+/** @brief Accesses the QMI8658 model logs. */
+#define FAKE_QMI_LOG 256
+
+/** @brief One QMI8658 on the bus. Fields a test may set are marked. */
+struct FakeQmi8658 {
+	uint8_t   addr;
+	uint8_t   reg[128];      /**< The register file. */
+	uint8_t   ptr;           /**< The register pointer. */
+	uint8_t   whoAmI;        /**< WHO_AM_I. Test; 05h by default. */
+	uint8_t   revision;      /**< REVISION_ID. Test; 7Ch by default. */
+	uint8_t   dqyAfterReset; /**< dQY_L after a reset. Test; 80h, the A part, by default. */
+	uint32_t  bootMs;        /**< No answer for this long after a reset. Test; 15 by default. */
+	uint8_t   refuseReg;     /**< Writes to this register are ignored; 0 for none. Test. */
+	int16_t   acc[3];        /**< X, Y and Z the next sample latches, counts. Test. */
+	int16_t   temp;          /**< Temperature the next sample latches, 256 a °C. Test. */
+	bool      tearNext;      /**< The next read of 4 bytes or more latches a sample after its 3rd byte. Test. */
+	uint64_t  resetUs;       /**< When the last reset was written; 0 for none. */
+	bool      everReset;     /**< A reset was written. */
+	uint64_t  enUs;          /**< When CTRL7 turned the accelerometer on. */
+	uint32_t  timed;         /**< Samples latched by time since then. */
+	uint32_t  stamp;         /**< The time stamp of the latched sample. */
+	uint64_t  latchUs;       /**< When the latched sample was latched. */
+	uint32_t  resets;        /**< Resets written. */
+	uint32_t  burstWrites;   /**< Writes of more than one data byte. */
+	FakeQmiOp log[FAKE_QMI_LOG];  /**< The accesses, oldest first. */
+	uint32_t  logN;          /**< Accesses logged; the log stops at FAKE_QMI_LOG. */
+};
+
 /** @brief What the bus has carried since fakeI2cReset(). */
 struct FakeI2cStats {
 	uint32_t clocks;        /**< SCL clocks of every transaction. */
@@ -98,6 +147,25 @@ void fakeIna219Por(FakeIna219 *p);
 /** @brief Conversion cycle of @p p's configuration, µs: the shunt's time plus the bus's. */
 uint32_t fakeIna219CycleUs(const FakeIna219 *p);
 
+/**
+ * @brief Put a QMI8658 at @p addr in its power-on state: WHO_AM_I 05h, the A
+ *        part's dQY_L and boot time, at rest flat, 0, 0 and +1 g.
+ * @param addr Its address.
+ * @return The model, valid until fakeI2cReset().
+ */
+FakeQmi8658 *fakeI2cAddQmi8658(uint8_t addr);
+
+/**
+ * @brief The accesses to @p q logged from @p from on that match: a read or a
+ *        write of register @p reg.
+ * @param q     The model.
+ * @param write Writes, or reads.
+ * @param reg   The register.
+ * @param from  The first log entry looked at.
+ * @return Their count.
+ */
+uint32_t fakeQmiCount(const FakeQmi8658 *q, bool write, uint8_t reg, uint32_t from = 0);
+
 /** @brief Put a CST328 touch controller at @p addr, no finger down. */
 void fakeI2cAddCst328(uint8_t addr);
 
@@ -116,8 +184,10 @@ void fakeI2cRemove(uint8_t addr);
 /**
  * @brief After @p skip more transfers, the next @p n fail with @p code,
  *        PICO_ERROR_GENERIC or PICO_ERROR_TIMEOUT, whatever their address.
+ *        With @p reach each reaches a part that answers before it fails: a
+ *        write lands, a read moves the pointer.
  */
-void fakeI2cFailNext(int n, int code, int skip = 0);
+void fakeI2cFailNext(int n, int code, int skip = 0, bool reach = false);
 
 /** @brief SDA held low by a part: every transfer times out, gpio_get() reads it low. */
 void fakeI2cHoldSda(bool low);

@@ -1,15 +1,17 @@
 # Angle meter on the board's IMU
 
-Status: designed, not built. The owner chose the angle meter on 2026-11-14
-from the feature survey, as item 3 of 6: incidence, decalage, dihedral and
-control-surface throw, in degrees and in mm, from the QMI8658 IMU on the
-board, at 0x6B on I2C1. The owner answered its questions on 2026-11-15,
-see [decisions](#decisions), first among them the entry: an eighth MENU
-row, `TOOLS`, opening a chooser. Slice 1, the copies from rcbench, is built
-([slice 1 as built](#slice-1-as-built)); nothing in `src/` calls them yet,
-and nothing of the meter has run on a board. The cases of rcbench's
-`test_imu.c` and `test_imu_filter.c` that need `imu.h` alone are not
-adapted yet; slice 3 takes them. The sensor facts come from QST's datasheets and Waveshare's schematic and demo code;
+Status: designed; slices 1 and 2 built, host tests only. Slice 1, the
+copies from rcbench ([slice 1 as built](#slice-1-as-built)): nothing in `src/`
+calls them yet. The cases of rcbench's `test_imu.c` and `test_imu_filter.c` that
+need `imu.h` alone are not adapted yet; slice 3 takes them. Slice 2, the
+driver ([slice 2 as built](#slice-2-as-built)): nothing opens it yet. Slices 3
+to 6 wait on being built. The owner chose the angle meter on 2026-11-14 from the
+feature survey, as item 3 of 6: incidence, decalage, dihedral and
+control-surface throw, in degrees and in mm, from the QMI8658 IMU on the board,
+at 0x6B on I2C1. The owner answered its questions on 2026-11-15, see
+[decisions](#decisions), first among them the entry: an eighth MENU row,
+`TOOLS`, opening a chooser. Nothing of the meter has run on a board. The sensor
+facts come from QST's datasheets and Waveshare's schematic and demo code;
 the ones this project has not seen on the bus are marked as such and listed
 under [to confirm](#to-confirm). The real accuracy is unknown until the
 bench measures it.
@@ -232,7 +234,9 @@ On opening the meter:
 3. Write CTRL1, CTRL2, CTRL5, then CTRL7, one byte each, and read each
    back. A mismatch is `NO IMU` and a new start after 1000 ms.
 4. Drop the samples of the first 100 ms, the accelerometer's turn-on of
-   3 ms + 3/ODR.
+   3 ms + 3/ODR, 99 ms: read nothing for 100 ms, then take the time stamp
+   of the first whole burst as the baseline, neither counted nor taken. The
+   first sample taken is the next time stamp, latched after the 100 ms.
 
 The meter is open while its main view, SETUP or FLIP CAL shows: the two
 pages are the meter's own, and going to them and back neither stops nor
@@ -246,22 +250,20 @@ The driver makes its own SDK calls: `sense_bus.h` has a 16-bit register
 write only, a burst the QMI8658A does not take on its configuration
 registers (section 16.1), and its wire and record are static in
 `sense.cpp`. Each transfer has a timeout of 1000 µs (`SENSE_TIMEOUT_US`),
-and its SDK result goes to `senseNoteTouch()`, which maps it to
-`sense_err_t` through `errAfter()`, the sensor's own mapping with its check
-of the lines ([current-sense.md](current-sense.md#errors)), and notes it to
-the shared bus record. Slice 2 renames it `senseNote()`, since it no longer
-serves touch alone, and has it return the mapped value to the caller. So a
-bus that fails any client is seen by all. The driver keeps its own count:
-three failed transactions in a row take the IMU offline, and it is probed
-every 1000 ms. While the record shows the bus stuck the driver sends
-nothing; after a recovery the touch read, sent every frame, is the trial
-transfer that clears the stuck mark.
+and its SDK result goes to `senseNote()`, which maps it to `sense_err_t`
+through `errAfter()`, the sensor's own mapping with its check of the lines
+([current-sense.md](current-sense.md#errors)), notes it to the shared bus
+record and returns the mapped value to the caller. Touch and the IMU
+driver both use it, so a bus that fails any client is seen by all. The
+driver keeps its own count: three failed transactions in a row take the
+IMU offline, and it is probed every 1000 ms. While the record shows the bus
+stuck the driver sends nothing; after a recovery the touch read, sent every
+frame, is the trial transfer that clears the stuck mark.
 
-The recovery needs one change. `senseTick()` returns at once unless
-CURRENT SENSE is `INA219` (`src/sense.cpp`), so with the sensor off no
-recovery ever runs. Slice 2 moves the check, `sense_bus_recovery_due()`,
-then the recovery and `sense_bus_recovered()`, before the mode test, so
-the bus is recovered whatever the setting, with a host test at `NONE`.
+`senseTick()` (`src/sense.cpp`) runs the recovery ahead of its mode test:
+`sense_bus_recovery_due()`, then the recovery and `sense_bus_recovered()`,
+and only then the return unless CURRENT SENSE is `INA219`. So the bus is
+recovered whatever the setting; a host test runs it at `NONE`.
 
 A frame whose first IMU transfer times out holds the bus 1000 µs longer;
 the touch read before it is unchanged.
@@ -785,7 +787,9 @@ Only the board settles these:
   recorded, which tells the part.
 - **B2. Byte order and burst.** Flat on a table, `a_z` reads ±1 g within
   0.1 g, and a known tilt reads on the expected axis; the time stamp
-  changes once a sample.
+  changes once a sample. Record when the first sample arrives after CTRL7:
+  the host model latches one every 32 ms from the CTRL7 write, which is an
+  assumption, not a measurement.
 - **B3. Axes.** Each edge up in turn: which chip axis reads +1 g, for
   `BOARD_IMU_AXES`.
 - **B4. Noise and settle.** 60 s still on a table: the standard deviation
@@ -859,6 +863,110 @@ value, MAX cleared by a zero, and one that left a function unused and failed
 the build), 4 in `imu_feed_angles()` (a NaN dropped, the wrap to ±180°, the
 tick after the angle, the angle itself) and 1 in `witmotion.c` (the range
 of the acceleration): every one fails a test.
+
+### Slice 2 as built
+
+Slice 2 depends on nothing but the tree.
+
+`src/qmi8658.*`, the driver: the probe, the reset and its two waits, the
+configuration, the burst and its time stamp check, start and stop, its
+failure count. `src/angle.cmake` lists it for the firmware and
+`test/angle.mk` for the host suite. `src/board_rp2350_touch_lcd_2_8.h`
+gains `BOARD_IMU_AXES` and loses "unused by this firmware". `uiTick()`
+ticks the driver after `senseTick()`. In `src/sense.*`, `senseNote()`
+replaces `senseNoteTouch()`, returns the mapped value and serves the touch
+driver and the IMU driver alike; `senseTick()` runs the recovery before its
+mode test. The register model of the part is in `test/fake_i2c.*`, the bus
+the INA219 and CST328 models already sit on, and its tests in
+`test/test_qmi8658.cpp`; the recovery at `NONE` is tested in
+`test/test_sense.cpp`. Choices the note left open:
+
+- **Nothing opens the driver yet.** `qmi8658Start()` and `qmi8658Stop()` are
+  the meter's calls; slice 4 makes them from the screen. Until then the tick
+  in `uiTick()` returns at once and nothing is sent to 0x6B.
+- **The probe of another part** reads WHO_AM_I again every 1000 ms
+  (`QMI8658_RETRY_MS`), as the INA219's probe reads another part at 0x40
+  every second. Nothing is written to it.
+- **REVISION_ID** is a read of its own after WHO_AM_I, one byte each:
+  address auto-increment is off until CTRL1 is written.
+- **A new start** waits 1000 ms after the step that failed, or until 2000 ms
+  after the last reset when that is later (`QMI8658_RESET_GAP_MS`). The
+  reset counts from its attempt, since a write that failed may have reached
+  the part. The rule holds across BACK and a new opening too. The time since
+  the last reset is an unsigned difference, so a meter opened 30 days after
+  it probes at once.
+- **The waits run on the UI frame.** dQY_L is read on the first frame at
+  least 15 ms after the reset, 25 ms later at the UI's rate, and the
+  configuration follows in the same frame on 0x80. WHO_AM_I after the C
+  part's turn-on is read on the first frame at least 1750 ms after the reset,
+  and the configuration follows in the same frame.
+- **A failure while starting** is `NO IMU` (`ImuState::Absent`) and a new
+  start, whether a transfer failed or a value did not read back. The count
+  of three applies to the part once it is configured.
+- **The warm-up reads nothing.** For 100 ms after CTRL7 no burst is read, in
+  place of reading samples and dropping them. The first whole burst after it
+  is the baseline: its sample may have been latched inside the turn-on, up to
+  32 ms before the read, so its time stamp is kept and the sample neither
+  counted nor taken. The first sample taken has a new time stamp and so was
+  latched after the 100 ms; in the register model, 128 ms after CTRL7, taken
+  on the frame at 150 ms. The state reads `Online` from the first frame whose
+  burst and time stamp read both answer, the baseline's included.
+- **One failure a frame.** A failed transaction ends the IMU's frame, so a
+  frame counts at most one. The count goes back to 0 only when the burst and
+  the time stamp read both answer, so a time stamp read that fails every
+  frame takes the part offline as a failed burst does.
+- **The stuck bus.** While the record shows it stuck the driver sends
+  nothing, not even as the trial after a recovery: the touch read is the
+  trial. A stuck bus does not count as a failure of the IMU. The driver does
+  not test the lines before a transfer, as the INA219's wire does; its
+  results are mapped after each transfer by `errAfter()`, as touch's are.
+- **The stop** writes CTRL7 0x00 when CTRL7 was written since the last reset,
+  also after the write or its read-back failed, since a write that failed may
+  have reached the part, and not when the reset was the last write:
+  a reset leaves CTRL7 at its power-on value, 00h in this design's model of
+  the part. Nothing is sent while the bus is stuck; the next opening's reset
+  then turns the accelerometer off. A second `qmi8658Start()` while open
+  changes nothing.
+- **`BOARD_IMU_AXES`** is a placeholder, `1, 2, 3`: chip X along the long
+  edge, Y along the short edge, Z along the normal, no sign turned. The
+  chip's orientation is unknown until bench test B3. A `static_assert` checks
+  that each axis appears once (`qmi8658AxesValid()`). Slice 3 uses it.
+- **The register model** answers as the note describes the part: power-on
+  CTRL1 20h (big-endian, auto-increment off), auto-increment and the data
+  byte order by CTRL1, one byte taken from a write of several, the reset by
+  B0h, dQY_L 80h after it and 00h once CTRL7 turns a sensor on, no answer for
+  a boot time after a reset (15 ms by default, 1750 ms for the C part's
+  test), a sample every 32 ms with a time stamp one higher whatever CTRL2
+  says, and on request a sample latched after the third byte of a burst or a
+  failed transfer that reaches the part before it fails. It is the note's
+  reading of the datasheets, not a measured part.
+- **No change to the `-I` lists of `ci.yml`.** The driver includes `sense.h`,
+  whose rcbench include directory the lists already hold, and nothing of
+  rcbench of its own.
+
+Bus time, measured by `testFrameTime` in `test/test_qmi8658.cpp` at 400 kHz:
+a reading frame is 129 and 57 clocks, 465 µs, as computed under
+[the third client](#the-third-client). A healthy probe frame is 107 clocks,
+267.5 µs; the configuration's frame, dQY_L and the four registers written and
+read back, 311 clocks, 777.5 µs. The worst frame in any failure mode is that
+frame with CTRL7's read-back timing out: 292 clocks and 1000 µs, 1730 µs.
+The longest reading frame that fails is the time stamp's data read timing
+out, 1373 µs.
+
+Mutation check: 96 mutants of `src/qmi8658.cpp`, `senseNote()`,
+`senseTick()`'s order and the tick in `uiTick()`, each built and run against
+the host suite. 94 fail it, among them CTRL7's flag set only after its write
+answered, each change to the baseline, the reset gap as a signed difference,
+and the reset gap without its "a reset was written" flag, which the first
+IMU test catches by opening the meter at millis() 0 before any reset. Two
+survive. `<=` in place of `<` in the reset gap is equivalent: at exactly
+2000 ms both give the same time. The sample count's skip of 0 when it wraps
+comes after 2^32 samples, 4.4 years at 31.25 Hz.
+
+Not verified on the board: everything under [to confirm](#to-confirm) that
+concerns the part, the address, the byte order, the burst's auto-increment,
+the reset's value and time, dQY_L, the time stamp, and bench tests B1, B2
+and B9.
 
 ## Decisions
 

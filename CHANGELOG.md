@@ -44,6 +44,22 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the QMI8658 IMU (inertial measurement unit) driver, slice 2
+  of [angle-meter.md](docs/design/angle-meter.md#slice-2-as-built)
+  (`src/qmi8658.*`, `src/angle.cmake`). While the angle meter is open it reads
+  WHO_AM_I at 0x6B on I2C1, writes a soft reset, waits for dQY_L 80h after 15 ms
+  or for 1750 ms, writes CTRL1 40h, CTRL2 08h, CTRL5 07h and CTRL7 01h one byte
+  each and reads each back, and from 100 ms later reads one 11-byte burst and
+  the time stamp again every UI frame, after touch and the current sensor; the
+  first whole burst is a baseline, so the first sample taken was latched after
+  the 100 ms; a burst whose time stamp changed is dropped, a repeated time stamp
+  is not counted. Its transfers go to the shared bus record; three failed frames
+  take it offline, probed again every 1000 ms, and no reset follows another
+  within 2000 ms. Closing it writes CTRL7 00h. No screen opens it yet, so
+  nothing is sent to 0x6B. The board header gains `BOARD_IMU_AXES`, a
+  placeholder until bench test B3. Host tests in `test/test_qmi8658.cpp` against
+  a register model of the part in `test/fake_i2c.*`; `test/angle.mk` lists them.
+  Not tested on hardware.
 - After v0.1.0-rc1: rcbench's files for the angle meter, slice 1 of
   [angle-meter.md](docs/design/angle-meter.md#slice-1-as-built), copied
   unchanged from rcbench e98345aa into `lib/rcbench/`: `servo_rudder.*`, the
@@ -736,6 +752,12 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: the shared I2C1 bus is recovered with CURRENT SENSE at
+  `NONE` too: `senseTick()` runs the recovery before its mode test, since
+  touch and the IMU share the bus. `senseNote()` replaces `senseNoteTouch()`,
+  takes the transfers of the touch driver and the IMU driver alike and
+  returns the mapped result. A host test in `test/test_sense.cpp` runs the
+  recovery at `NONE`.
 - After v0.1.0-rc1 (a93e1c1): the wiring sheet draws the current sensor and
   the bench converter, slice 2 of
   [current-sense.md](docs/design/current-sense.md#slice-2-as-built). The
