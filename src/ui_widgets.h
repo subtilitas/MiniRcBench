@@ -361,6 +361,16 @@ void uiChip(const char *text, uint16_t fill);
 static_assert(sizeof(UI_NO_CARD_RAM_LOST) - 1 <= 37, "the RAM line is wider than a scale-1 line");
 
 /**
+ * @brief The KST and Hitec main views after the hard cut of supply_guard.h,
+ *        amber, wrapped at 37 characters over two lines.
+ */
+#define UI_CUT_HARD_TEXT "THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF."
+/** @brief ...after the collapse cut. */
+#define UI_CUT_LOW_TEXT "THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF."
+/** @brief ...the line under either, amber: 38 characters, 227 px from x 8. */
+#define UI_CUT_RETRY "RETRY POWERS IT UP AND READS IT AGAIN."
+
+/**
  * @brief One change on a write page at scale 1: `old -> new`, the old value
  *        and the arrow in `C_DIM`, the new value in @ref UI_COL_CHANGED
  *        (docs/design/menu-b.md, decision 8). It is as wide as the string

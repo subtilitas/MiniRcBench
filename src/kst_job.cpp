@@ -8,6 +8,8 @@
 #include "kst_line_port.h"
 #include "servo_supply.h"
 #include "esc_task.h"
+#include "sense.h"
+#include "supply_guard.h"
 
 #include "plat.h"
 #include <pico/critical_section.h>
@@ -56,6 +58,11 @@ static bool          s_stallLocked;  /**< The session was in doubt when the last
 static bool          s_stallWrote;   /**< It had written a register then. */
 static bool          s_cardPhase;    /**< A card phase is open. */
 static uint32_t      s_cardPhaseMs;  /**< Clock when it was acknowledged. */
+static SupplyGuard   s_guard;        /**< The hard and the collapse cut, armed while the supply is on. */
+/** @brief The last cut; the supply stays off until a new search. */
+static GuardCut      s_cut;
+/** @brief The search or operation that ran at the cut still finishes its frame. */
+static bool          s_cutDrain;
 /** @} */
 
 /** @brief Core0 writes it, core1 reads it: millis() of the last card stamp. */
@@ -90,15 +97,24 @@ static const kst_driver_t COUNTING_DRIVER = { nullptr, lineStart, linePoll, line
 // the switched supply
 // ---------------------------------------------------------------------------
 
-/** @brief Drive the supply @p on; a switch-off records its time. Nothing without a switch. */
+/**
+ * @brief Drive the supply @p on; a switch-off records its time. Nothing
+ *        without a switch, and no switch-on while a cut is latched. The
+ *        switch-on arms the guard, the switch-off disarms it.
+ */
 static void supplySet(bool on, uint32_t nowMs) {
 	if (!s_switched || on == servoSupplyIsOn()) return;
 	if (on) {
+		if (s_cut != GuardCut::None) return;
 		servoSupplyOn();
 		s_supplyUsed = true;
+		SenseSample smp;
+		senseSample(&smp);
+		supplyGuardArm(&s_guard, &smp, nowMs);
 	} else {
 		servoSupplyOff();
 		s_offMs = nowMs;
+		supplyGuardDisarm(&s_guard);
 		// The lapse latch guards a supply left on: a switch-off, by any
 		// path, ends it.
 		s_lapsed = false;
@@ -127,6 +143,75 @@ static void stall(uint32_t nowMs) {
 	kstSeekStalled(&s_seek, &s_ses, nowMs);
 	s_reboot = KstReboot::None;
 	s_stalled = true;
+	s_state = KstJobState::SearchEnded;
+}
+
+/**
+ * @brief A cut of the guard: the supply off in this pass, and the session
+ *        power-cycled as a lapse does it. A search or an operation running
+ *        finishes the frame on the wire (kst_session_abort() never cuts
+ *        one), then the job is SearchEnded; idle in the mode it is at once.
+ */
+static void cutSupply(GuardCut why, uint32_t nowMs) {
+	s_cut = why;
+	// The power cycle drops the lock and the written registers; the screen
+	// still has to say whether the servo is in doubt.
+	keepStallFlags();
+	supplySet(false, nowMs);
+	switch (s_state) {
+		case KstJobState::Searching:
+			kstSeekStop(&s_seek, &s_ses);
+			kst_session_power_cycled(&s_ses);
+			s_cutDrain = true;
+			break;
+		case KstJobState::Busy:
+			kst_session_power_cycled(&s_ses);
+			s_cutDrain = true;
+			break;
+		case KstJobState::Rebooting:
+			// The entry or the read after the reboot finishes its frame; in
+			// the on wait nothing runs.
+			s_cutDrain = s_reboot == KstReboot::Enter || s_reboot == KstReboot::Read;
+			if (s_cutDrain) kst_session_power_cycled(&s_ses);
+			else            s_state = KstJobState::SearchEnded;
+			s_reboot = KstReboot::None;
+			break;
+		case KstJobState::InMode:
+			kst_session_power_cycled(&s_ses);
+			s_state = KstJobState::SearchEnded;
+			break;
+		default:
+			// Leaving: the supply off is all; the close waits from now.
+			break;
+	}
+}
+
+/**
+ * @brief The guard's pass, while the supply is on with a sensor declared:
+ *        the hard cut and the collapse cut, during an operation too.
+ */
+static void guardPass(uint32_t nowMs) {
+	if (!s_guard.armed) return;
+	SenseSample smp;
+	senseSample(&smp);
+	if (smp.state == (uint8_t)SenseState::None) return;
+	static const GuardRules RULES = { false, true, false };
+	GuardCut c = supplyGuardStep(&s_guard, &smp, &RULES, nowMs);
+	if (c != GuardCut::None) cutSupply(c, nowMs);
+}
+
+/** @brief One pass after a cut: what ran finishes its frame. */
+static void cutDrainStep(uint32_t nowMs, bool uiAlive) {
+	if (s_state == KstJobState::Searching) {
+		KstSeek k = kstSeekStep(&s_seek, &s_ses, uiAlive, nowMs);
+		if (k == KstSeek::Searching) return;
+		s_result = s_seek.result;
+	} else {
+		kst_ses_t r = kst_session_step(&s_ses);
+		if (r == KST_SES_BUSY) return;
+		s_result = (uint8_t)r;
+	}
+	s_cutDrain = false;
 	s_state = KstJobState::SearchEnded;
 }
 
@@ -191,6 +276,7 @@ static void publish(uint32_t nowMs) {
 	st.stallLocked   = s_stallLocked;
 	st.stallWrote    = s_stallWrote;
 	st.cardPhase     = s_cardPhase;
+	st.cut           = s_cut;
 	st.image         = s_ses.image;
 	st.backup        = s_ses.backup;
 	st.stats         = s_ses.stats;
@@ -222,7 +308,10 @@ static void beginLeave() {
 	s_cardPhase = false;
 	bool rebootOp = s_state == KstJobState::Rebooting &&
 	                (s_reboot == KstReboot::Enter || s_reboot == KstReboot::Read);
-	s_drain = s_state == KstJobState::Searching || s_state == KstJobState::Busy || rebootOp;
+	// What a cut left running finishes in the leave instead.
+	s_drain = s_cutDrain || s_state == KstJobState::Searching || s_state == KstJobState::Busy ||
+	          rebootOp;
+	s_cutDrain = false;
 	if (s_state == KstJobState::Searching) kstSeekStop(&s_seek, &s_ses);
 	else if (s_state == KstJobState::Busy || rebootOp) kst_session_abort(&s_ses);
 	s_reboot = KstReboot::None;
@@ -316,6 +405,8 @@ static void take(const KstCmd *cmd, uint32_t nowMs, bool uiAlive) {
 		case KstOp::Search:
 			s_frames = 0;
 			s_stalled = false;
+			// RETRY after a cut: the supply may come on again.
+			s_cut = GuardCut::None;
 			// A new search: what an earlier stall said no longer holds.
 			s_stallLocked = false;
 			s_stallWrote = false;
@@ -427,6 +518,10 @@ static void rebootStep(uint32_t nowMs, bool uiAlive) {
 }
 
 static void advance(uint32_t nowMs, bool uiAlive) {
+	if (s_cutDrain) {
+		cutDrainStep(nowMs, uiAlive);
+		return;
+	}
 	switch (s_state) {
 		case KstJobState::Searching: {
 			KstSeek k = kstSeekStep(&s_seek, &s_ses, uiAlive, nowMs);
@@ -512,6 +607,9 @@ static uint8_t kstJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_stallLocked = false;
 	s_stallWrote = false;
 	s_cardPhase = false;
+	s_cut = GuardCut::None;
+	s_cutDrain = false;
+	supplyGuardDisarm(&s_guard);
 	s_lineError = kstLineOpen(sigGpio);
 	if (s_lineError == KST_LINE_OK) {
 		// Only a bound job is released: a failed bind leaves the enable pin undriven.
@@ -540,12 +638,15 @@ static void kstJobStep(uint32_t nowMs, bool uiAlive) {
 	}
 	// A lapse with the supply on is latched until what runs has ended.
 	if (!uiAlive && servoSupplyIsOn()) s_lapsed = true;
+	// A cut first: the supply goes off in this pass, before any command.
+	guardPass(nowMs);
 	if (cmd.seq != s_ackSeq) take(&cmd, nowMs, uiAlive);
 	advance(nowMs, uiAlive);
 	publish(nowMs);
 }
 
 static bool kstJobRelease(uint32_t nowMs) {
+	guardPass(nowMs);
 	if (s_state != KstJobState::Leaving && s_state != KstJobState::Closed) beginLeave();
 	bool done = leaveStep(nowMs);
 	// The enable pin an input again before the pins return to DShot.

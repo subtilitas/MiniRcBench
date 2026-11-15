@@ -137,8 +137,10 @@ void servoPowerReset(ServoPower *p, bool switched, bool fresh) {
 	p->switched = switched;
 	p->phase = ServoPowerPhase::Off;
 	p->offCheck = ServoOffCheck::None;
-	p->fault = switched ? fault : ServoPowerFault::None;
+	// A cut's fault is kept with OWN too, as the trip it latched is.
+	p->fault = fault;
 	p->upMs = switched ? up : (uint16_t)SUPPLY_UP_NONE;
+	supplyGuardDisarm(&p->guard);
 }
 
 /** @brief Whether @p in declares a sensor: CURRENT SENSE at INA219. */
@@ -146,14 +148,9 @@ static bool sensed(const ServoPowerIn *in) {
 	return in->sample.state != (uint8_t)SenseState::None;
 }
 
-/**
- * @brief A fresh reading of @p in taken more than @ref SUPPLY_READ_LAG_MS
- *        after @p sinceMs, across a wrap: one that cannot carry the voltage
- *        from before the switch command.
- */
+/** @brief supplyReadingAfter() of @p in's sample. */
 static bool readingAfter(const ServoPowerIn *in, uint32_t sinceMs, uint32_t nowMs) {
-	return senseFresh(&in->sample, nowMs) &&
-	       (int32_t)(in->sample.takenMs - sinceMs) > (int32_t)SUPPLY_READ_LAG_MS;
+	return supplyReadingAfter(&in->sample, sinceMs, nowMs);
 }
 
 ServoStartBlock servoPowerStartBlock(const ServoPower *p, const ServoPowerIn *in) {
@@ -179,20 +176,62 @@ static void stopPulses(ServoCore *c, bool trip) {
 	if (trip) c->tripped = true;
 }
 
+/** @brief The fault a cut of the guard records. */
+static ServoPowerFault faultOf(GuardCut cut) {
+	switch (cut) {
+		case GuardCut::Hard:     return ServoPowerFault::Overcurrent;
+		case GuardCut::Stall:    return ServoPowerFault::Stall;
+		case GuardCut::Collapse: return ServoPowerFault::LowSupply;
+		case GuardCut::Lost:     return ServoPowerFault::NoSensor;
+		default:                 return ServoPowerFault::None;
+	}
+}
+
+/**
+ * @brief The guard's pass: armed at the first pass RUNNING with a sensor,
+ *        disarmed at the first pass not. @return The fault of its cut.
+ */
+static ServoPowerFault guardPass(ServoPower *p, const ServoCore *c, const ServoPowerIn *in,
+                                 uint32_t nowMs) {
+	if (!c->running || !sensed(in)) {
+		supplyGuardDisarm(&p->guard);
+		return ServoPowerFault::None;
+	}
+	if (!p->guard.armed) supplyGuardArm(&p->guard, &in->sample, nowMs);
+	// With OWN the bench knows neither the supply's voltage nor whether it
+	// runs through the sensor: hard and stall only.
+	GuardRules rules = { true, p->switched, p->switched };
+	return faultOf(supplyGuardStep(&p->guard, &in->sample, &rules, nowMs));
+}
+
 void servoPowerStep(ServoPower *p, ServoCore *c, const ServoPowerIn *in, uint32_t nowMs) {
-	if (!p->switched) return;
 	bool withSensor = sensed(in);
 
-	// 1. The cuts: with touch silent or the bus stuck, STOP is out of reach.
+	if (!p->switched) {
+		// OWN: nothing to switch; a cut ends the pulses in this pass.
+		if (c->running) p->fault = ServoPowerFault::None;
+		ServoPowerFault f = guardPass(p, c, in, nowMs);
+		if (f != ServoPowerFault::None) {
+			stopPulses(c, true);
+			p->fault = f;
+			c->outUs[0] = c->outUs[1] = 0;
+		}
+		return;
+	}
+
+	// 1. The cuts: with touch silent or the bus stuck, STOP is out of reach;
+	//    then the guard's.
 	if (c->running) {
 		ServoPowerFault f = ServoPowerFault::None;
 		if (!in->touchOk)                                         f = ServoPowerFault::TouchSilent;
 		else if (in->sample.state == (uint8_t)SenseState::Stuck) f = ServoPowerFault::BusStuck;
+		else                                                      f = guardPass(p, c, in, nowMs);
 		if (f != ServoPowerFault::None) {
 			stopPulses(c, true);
 			p->fault = f;
 		}
 	}
+	if (!c->running) supplyGuardDisarm(&p->guard);
 
 	// 2. Off whenever not RUNNING; on at START.
 	if (!c->running) {

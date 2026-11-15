@@ -80,6 +80,26 @@ struct TouchState;
 #define SERVO_UI_TOUCH_SILENT "STOPPED: TOUCH DID NOT ANSWER"
 /** @brief The supply cut because the shared bus was stuck. */
 #define SERVO_UI_BUS_STUCK "STOPPED: TOUCH BUS STUCK"
+/**
+ * @brief The chips of the cuts of supply_guard.h, `C_MAGENTA`, latched as
+ *        STALLED is: the hard cut. Wider than RUNNING: while one shows, the
+ *        caption ends 4 px before it.
+ */
+#define SERVO_UI_CHIP_HARD "OVERCURRENT"
+/** @brief ...the stall cut. */
+#define SERVO_UI_CHIP_STALL "STALL"
+/** @brief ...the collapse cut. */
+#define SERVO_UI_CHIP_LOW "LOW SUPPLY"
+/** @brief ...the sensor-lost cut. */
+#define SERVO_UI_CHIP_LOST "NO SENSOR"
+/** @brief The hard cut's note, magenta, over `HOLD TO START AGAIN.` */
+#define SERVO_UI_CUT_HARD "STOPPED: CURRENT 3.0 A OR MORE"
+/** @brief The stall cut's note. */
+#define SERVO_UI_CUT_STALL "STOPPED: OVER 1.0 A FOR 400 MS"
+/** @brief The collapse cut's note. */
+#define SERVO_UI_CUT_LOW "STOPPED: UNDER 4.0 V FOR 1000 MS"
+/** @brief The sensor-lost cut's note, the design note's text. */
+#define SERVO_UI_CUT_LOST "CURRENT SENSOR LOST: SUPPLY OFF."
 /** @brief SET's note with the last start-up time measured, `%u` in ms. */
 #define SERVO_UI_UP_FMT "SUPPLY UP IN %u MS"
 /** @brief The leave page's note while the job lets SIG and AUX go: 18 characters. */

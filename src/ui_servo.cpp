@@ -388,22 +388,41 @@ static void line(int y, const char *text, uint16_t c) { gfxTextCenter(y, text, c
 #define SV_CAP_END (GFX_W - UI_MARGIN - (6 * 7 - 1 + 12) - 4)
 
 /**
+ * @brief The strip's chip while not RUNNING and tripped: STALLED, or the
+ *        cut's own chip.
+ */
+static const char *trippedChip() {
+	switch (s_st.powerFault) {
+		case ServoPowerFault::Overcurrent: return SERVO_UI_CHIP_HARD;
+		case ServoPowerFault::Stall:       return SERVO_UI_CHIP_STALL;
+		case ServoPowerFault::LowSupply:   return SERVO_UI_CHIP_LOW;
+		case ServoPowerFault::NoSensor:    return SERVO_UI_CHIP_LOST;
+		default:                           return "STALLED";
+	}
+}
+
+/**
  * @brief The strip's caption: the pin by role and number, the frame rate
  *        and the travel, `SIG GP0  50 HZ  1000-2000 US`; `SIG+AUX` with two
- *        servos. Where that runs past @ref SV_CAP_END the pin goes by its
- *        role alone, `SIG`, and with two servos the travel goes.
+ *        servos. Where that runs past @p end the pin goes by its role alone,
+ *        `SIG`, and with two servos the travel goes; then, beside a cut's
+ *        wider chip, the travel goes with one servo too.
  * @param buf  At least 40 bytes.
  * @param n    Room in @p buf.
  * @param two  Two servos.
  * @param sig  SIG's GPIO.
+ * @param end  Where the caption must end: @ref SV_CAP_END, or 4 px before a
+ *             wider chip.
  */
-static void servoCaption(char *buf, size_t n, bool two, unsigned sig) {
+static void servoCaption(char *buf, size_t n, bool two, unsigned sig, int end = SV_CAP_END) {
 	const ServoProfile &p = s_profile;
 	if (two) snprintf(buf, n, "SIG+AUX  %u HZ  %u-%u US", p.rateHz, p.minUs, p.maxUs);
 	else     snprintf(buf, n, "SIG GP%u  %u HZ  %u-%u US", sig, p.rateHz, p.minUs, p.maxUs);
-	if (UI_MARGIN + gfxTextW(buf, 1) <= SV_CAP_END) return;
+	if (UI_MARGIN + gfxTextW(buf, 1) <= end) return;
 	if (two) snprintf(buf, n, "SIG+AUX  %u HZ", p.rateHz);
 	else     snprintf(buf, n, "SIG  %u HZ  %u-%u US", p.rateHz, p.minUs, p.maxUs);
+	if (UI_MARGIN + gfxTextW(buf, 1) <= end) return;
+	snprintf(buf, n, "SIG  %u HZ", p.rateHz);
 }
 
 // ---------------------------------------------------------------------------
@@ -428,7 +447,8 @@ static void drawTop(const char *title, bool caption) {
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.backOk = backActs();
-	k.chip = s_st.running ? 1 : (s_st.tripped ? 2 : 0);
+	// A cut's chip is part of the key: each has its own text.
+	k.chip = s_st.running ? 1 : (s_st.tripped ? (uint8_t)(2 + (uint8_t)s_st.powerFault) : 0);
 	k.p = s_profile;
 	k.sig = gpioOf(PIN_SIG);
 	k.aux = gpioOf(PIN_AUX);
@@ -440,7 +460,11 @@ static void drawTop(const char *title, bool caption) {
 	uiStripClear();
 	if (!caption) return;
 	char buf[40];
-	servoCaption(buf, sizeof(buf), twoServos(), k.sig);
+	const char *chip = s_st.running ? "RUNNING" : (s_st.tripped ? trippedChip() : "SAFE");
+	// The caption keeps its place whatever the chip reads, except beside a
+	// cut's chip wider than RUNNING.
+	int end = uiChipX(chip) - 4 < SV_CAP_END ? uiChipX(chip) - 4 : SV_CAP_END;
+	servoCaption(buf, sizeof(buf), twoServos(), k.sig, end);
 	if (k.supply) {
 		uiStripTwoLines(buf, C_DIM, sup, C_AMBER);
 	} else {
@@ -449,9 +473,7 @@ static void drawTop(const char *title, bool caption) {
 		gfxRect(0, UI_STRIP_Y, GFX_W, UI_BODY_Y - UI_STRIP_Y, C_BG);
 		uiStripText(buf, C_DIM);
 	}
-	if (s_st.running)      uiChip("RUNNING", C_RED);
-	else if (s_st.tripped) uiChip("STALLED", C_MAGENTA);
-	else                   uiChip("SAFE", C_GREEN);
+	uiChip(chip, s_st.running ? C_RED : (s_st.tripped ? C_MAGENTA : C_GREEN));
 }
 
 /**
@@ -499,7 +521,8 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
  *        a refused START, or what START does.
  *
  * First wins: a trip, by its cause (the heartbeat, a silent touch
- * controller, a stuck bus); with the switch, a supply that did not come
+ * controller, a stuck bus, a cut of supply_guard.h); with the switch, a
+ * supply that did not come
  * up, then why START is refused (a current sensor not found, a stuck bus,
  * a silent touch controller), then the ESC warning; without it, CENTRE at
  * START and the throttle warning.
@@ -509,10 +532,20 @@ static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	*ca = *cb = C_DIM;
 	if (s_st.tripped) {
 		const char *why = "STOPPED: SCREEN STALLED";
-		if (s_st.powerFault == ServoPowerFault::TouchSilent)   why = SERVO_UI_TOUCH_SILENT;
-		else if (s_st.powerFault == ServoPowerFault::BusStuck) why = SERVO_UI_BUS_STUCK;
+		switch (s_st.powerFault) {
+			case ServoPowerFault::TouchSilent: why = SERVO_UI_TOUCH_SILENT; break;
+			case ServoPowerFault::BusStuck:    why = SERVO_UI_BUS_STUCK; break;
+			case ServoPowerFault::Overcurrent: why = SERVO_UI_CUT_HARD; break;
+			case ServoPowerFault::Stall:       why = SERVO_UI_CUT_STALL; break;
+			case ServoPowerFault::LowSupply:   why = SERVO_UI_CUT_LOW; break;
+			case ServoPowerFault::NoSensor:    why = SERVO_UI_CUT_LOST; break;
+			default:                           break;
+		}
 		snprintf(a, n, "%s", why);
-		snprintf(b, n, "HOLD TO START AGAIN.");
+		// A sensor still lost refuses START: the second line says so.
+		snprintf(b, n, "%s", s_st.powerFault == ServoPowerFault::NoSensor &&
+		                     s_st.startBlock == ServoStartBlock::NoSensor
+		                     ? SERVO_UI_NO_SENSOR_1 : "HOLD TO START AGAIN.");
 		*ca = C_MAGENTA;
 		return;
 	}

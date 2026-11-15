@@ -8,6 +8,7 @@
 # settings.cpp include sense.h.
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/sense.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/supply_guard.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/shared/sense/sense_bus.c
 )
 target_include_directories(MiniRcBench PRIVATE

@@ -872,8 +872,8 @@ static void testPowerOwn() {
 	p.fault = ServoPowerFault::NoStart;
 	p.upMs = 40;
 	servoPowerReset(&p, false, false);
-	checkTrue("a reset with no switch drops a fault and a time",
-	          p.fault == ServoPowerFault::None && p.upMs == SUPPLY_UP_NONE);
+	checkTrue("a reset with no switch keeps a fault, as the trip, and drops the time",
+	          p.fault == ServoPowerFault::NoStart && p.upMs == SUPPLY_UP_NONE);
 }
 
 /** @brief START and the wait for the supply, without a sensor and with one. */
@@ -921,10 +921,12 @@ static void testPowerStart() {
 	ServoPowerIn low = powerInOf(SenseState::Online, 4499, t0 + 40, true);
 	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), low, t0 + 41);
 	checkTrue("4499 mV: still Starting", p.phase == ServoPowerPhase::Starting && c.outUs[0] == 0);
-	ServoPowerIn old = powerInOf(SenseState::Online, 5000, t0 + 1, true);
-	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), old, t0 + 1 + SENSE_STALE_MS);
+	// Taken before the switch-on, so the sensor-lost rule counts from the
+	// switch-on: 240 ms, no cut.
+	ServoPowerIn old = powerInOf(SenseState::Online, 5000, t0 - 10, true);
+	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), old, t0 - 10 + SENSE_STALE_MS);
 	checkTrue("a 5 V reading 250 ms old: stale, still Starting",
-	          p.phase == ServoPowerPhase::Starting);
+	          p.phase == ServoPowerPhase::Starting && c.running);
 	ServoPowerIn up = powerInOf(SenseState::Online, 4500, t0 + 300, true);
 	powerPass(&c, &p, cmdOf(1, ServoCmdKind::Start), up, t0 + 301);
 	checkTrue("4500 mV taken 300 ms after, across the wrap: On, CENTRE",
@@ -1065,12 +1067,15 @@ static void testPowerStartBlock() {
 	checkTrue("absent: START refused, the supply off", !c.running &&
 	          p.phase == ServoPowerPhase::Off);
 	checkInt("and acknowledged", c.ackSeq, 1);
-	// Online at START, then gone before 4.5 V: its last reading still counts.
+	// Online at START, then gone before 4.5 V: the sensor-lost cut, before
+	// its last reading could count.
 	ServoPowerIn on = powerInOf(SenseState::Online, 0, 1999, true);
 	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start), on, 2000);
 	ServoPowerIn off = powerInOf(SenseState::Offline, 5000, 2100, true);
 	powerPass(&c, &p, cmdOf(2, ServoCmdKind::Start), off, 2100);
-	checkTrue("a fresh 5 V reading from a part now offline: On", p.phase == ServoPowerPhase::On);
+	checkTrue("a part offline while Starting: the sensor-lost cut, off, NoSensor",
+	          p.phase == ServoPowerPhase::Off && !c.running && c.tripped &&
+	          p.fault == ServoPowerFault::NoSensor && c.outUs[0] == 0);
 }
 
 /** @brief The read-back after the switch-off: Off and Not off. */

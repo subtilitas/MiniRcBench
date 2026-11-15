@@ -15,7 +15,7 @@
 # it through the INA219 driver. src/cst328.cpp stays in the device sources;
 # test_sense.cpp includes it, in a namespace of its own, to run touch and the
 # sensor on one bus beside the scripted touch of fakes.cpp.
-SENSE_SRCS     := ../src/sense.cpp
+SENSE_SRCS     := ../src/sense.cpp ../src/supply_guard.cpp
 SENSE_CSRCS    := ../lib/rcbench/shared/sense/sense_bus.c
 SENSE_INCLUDES := -I../lib/rcbench/shared/sense/include
 SENSE_TESTS    := test_sense.cpp fake_i2c.cpp
