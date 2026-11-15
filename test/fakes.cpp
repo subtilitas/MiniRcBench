@@ -533,10 +533,15 @@ fake_uart_dr &fake_uart_dr::operator=(uint32_t v) {
 	FakeTxByte b{};
 	b.value = (uint8_t)v;
 	b.writeUs = now;
-	b.startUs = g_txEndUs > now ? g_txEndUs : now;
 	b.bits = 1u + g_uart.dataBits + (g_uart.parity != UART_PARITY_NONE ? 1u : 0u) + g_uart.stopBits;
-	b.endUs = b.startUs + (uint64_t)b.bits * 1000000u / g_uart.baud;
-	g_txEndUs = b.endUs;
+	if (g_txStuck) {
+		// A stuck transmitter never starts the character: it stays in the FIFO.
+		b.startUs = b.endUs = UINT64_MAX;
+	} else {
+		b.startUs = g_txEndUs > now ? g_txEndUs : now;
+		b.endUs = b.startUs + (uint64_t)b.bits * 1000000u / g_uart.baud;
+		g_txEndUs = b.endUs;
+	}
 	g_tx.push_back(b);
 	return *this;
 }

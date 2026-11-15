@@ -84,7 +84,7 @@ bool sbusOutCoreTake(SbusOutCore *c, const SbusOutCmd *cmd, uint32_t nowUs,
 }
 
 bool sbusOutCoreStep(SbusOutCore *c, uint32_t nowUs, bool uiAlive, bool txEmpty,
-                     uint8_t out[SBUS_FRAME_BYTES]) {
+                     uint8_t *out) {
 	if (c->running && !uiAlive) {
 		c->running = false;
 		c->tripped = true;

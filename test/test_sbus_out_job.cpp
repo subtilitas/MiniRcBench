@@ -105,6 +105,10 @@ static void testCoreStart() {
 	checkTrue("a Frame while SAFE is taken", sbusOutCoreTake(&c, &fr, 100000, true));
 	checkTrue("and moves nothing", !c.running && c.ackSeq == 8 &&
 	                               !sbusOutCoreStep(&c, 100000, true, true, out));
+	sbus_frame_t start;
+	sbusOutStartFrame(&start, SBUS_OUT_THR_DEFAULT);
+	checkTrue("the frame core1 holds is still the START frame",
+	          memcmp(&c.frame, &start, sizeof(start)) == 0);
 
 	for (uint8_t thr = 0; thr < 4; thr++) {
 		sbusOutCoreReset(&c, 0);
@@ -465,6 +469,8 @@ static void testJobBind() {
 	fakeUartReset();
 	freshPump(0, 1);
 	teardownState(0);
+	// The pad isolated with its output disabled, as at reset.
+	pads_bank0_hw->io[0].value |= PADS_BANK0_GPIO0_OD_BITS | PADS_BANK0_GPIO0_ISO_BITS;
 	FakePin gp1 = fakePin(1);
 	int ctrl0 = fakeGpioCtrlWrites(0);
 	checkTrue("the claim runs the shipped job",
@@ -620,6 +626,16 @@ static void testJobLine() {
 	checkInt("no frame after it", fakeUartTxCount(), n);
 	checkInt("and the one on the wire completed", fakeUart().txCut, 0);
 	checkTrue("GP0 still bound and inverted: idle low", fakePin(0).ctrl == CTRL_UART_INV);
+
+	// A STOP not yet taken is never replaced by a later command.
+	send(SbusOutCmdKind::Start);
+	checkTrue("START again: frames", runToFrame(0, 500));
+	uint16_t stop = send(SbusOutCmdKind::Safe);
+	checkInt("a START sent before core1 took the STOP: dropped", send(SbusOutCmdKind::Start), stop);
+	n = fakeUartTxCount();
+	runTo(time_us_64() + 50000, 500);
+	sbusOutJobStatus(&st);
+	checkTrue("SAFE, no frame after it", !st.running && st.ackSeq == stop && fakeUartTxCount() == n);
 	checkTrue("back to free", claimEnd());
 }
 
@@ -631,6 +647,10 @@ static void testJobRelease() {
 	fakeUartReset();
 	freshPump(0, 1);
 	teardownState(0);
+	// SIO left driving GP0 high by an earlier owner: the release must not
+	// hand the pad back to it driving.
+	gpio_set_dir(0, GPIO_OUT);
+	gpio_put(0, 1);
 	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
 	g_beat = true;
 	escHeartbeat();
@@ -680,6 +700,19 @@ static void testJobRelease() {
 	fakePumpPoll();
 	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
 	checkTrue("the job was idle before DShot resumed", fakeResumeJobIdle());
+
+	// A transmitter that never sends: the next frame waits for TXFE.
+	freshPump(0, 1);
+	checkTrue("running", claimToBind(PIN_SIG) == ClaimState::Running);
+	fakeUartTxStuck(true);
+	FakeUart su = fakeUart();
+	escHeartbeat();
+	send(SbusOutCmdKind::Start);
+	runTo(time_us_64() + 50000, 500);
+	checkTrue("one frame loaded, none after it while the FIFO holds it",
+	          fakeUart().txWrites == su.txWrites + 25 && fakeUart().txLost == su.txLost);
+	fakeUartTxStuck(false);
+	checkTrue("back to free", claimEnd());
 
 	// While SAFE nothing is on the wire: one pass.
 	freshPump(0, 1);
@@ -809,6 +842,10 @@ static void testJobWirings() {
 	pinClaimRestart(PinUser::SbusOut);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
+	gp0 = fakePin(0);
+	checkInt("the bind itself: SIG GP1, AUX GP1", SBUS_OUT_JOB_OPS.bind(1, 1), CORE1_JOB_NO_GP0);
+	checkInt("SIG GP1, AUX not asked", SBUS_OUT_JOB_OPS.bind(1, 0xFF), CORE1_JOB_NO_GP0);
+	checkTrue("nothing touched", samePin(fakePin(0), gp0) && fakeUart().inits == 0);
 	// The default wiring with AUX alone would be no claim; SIG GP0 with GP1
 	// as AUX asked too still binds GP0 only.
 	fakePwmReset();
@@ -824,6 +861,8 @@ static void testJobWirings() {
 	fakeUartReset();
 	freshPump(0, 1);
 	teardownState(0);
+	gpio_set_dir(0, GPIO_OUT);
+	gpio_put(0, 1);
 	fakeClockSet(clk_peri, 1000000u);
 	checkTrue("clk_peri 1 MHz: held, not running", claimToBind(PIN_SIG) == ClaimState::Held);
 	checkInt("CLOCK", pinClaimJobError(), CORE1_JOB_CLOCK);

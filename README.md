@@ -44,9 +44,10 @@ with rcbench's decoder. It is tested on the host only; the inversion on the
 pin is not measured. An S.BUS output to a flight controller, OUTPUT on the same
 chooser, sending a frame every 14 ms on GP0 through UART0 with the pad's output
 inverted, the throttle channel under MAX THROTTLE, is designed in
-`docs/design/sbus-output.md` and not built: it waits on a check for an ESC
-bootloader on GP0 before START, which needs the Bluejay and BLHeli_S reading of
-ESC SETTINGS first. The chooser draws it disabled, `NOT BUILT`. A PPM
+`docs/design/sbus-output.md`. Its core1 job (`src/sbus_out_job.h`) is built and
+tested on the host only, and nothing opens it: the screen waits on a check for
+an ESC bootloader on GP0 before START. The chooser draws OUTPUT disabled,
+`NOT BUILT`. A PPM
 (pulse-position modulation) output is not built, by the owner's decision. An
 angle meter on the board's QMI8658 IMU (inertial measurement unit), MENU →
 TOOLS → ANGLE METER, reads incidence, decalage, dihedral and control-surface
@@ -187,7 +188,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0), which the firmware does not use: the S.BUS job uses UART0's receiver only, and the USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) sends on GP0 with the pad's output inverted, and nothing opens it yet. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
 | KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
 | Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
 
@@ -2628,9 +2629,8 @@ with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT**, an S.BUS output to a flight controller, is drawn
 disabled with `NOT BUILT` under it and opens nothing: it is designed in
-`docs/design/sbus-output.md` and not built; it waits on a check for an ESC
-bootloader on GP0, which needs ESC SETTINGS' Bluejay and BLHeli_S reading
-first.
+`docs/design/sbus-output.md`, its core1 job is built without a screen, and the
+screen waits on a check for an ESC bootloader on GP0 before START.
 The row is drawn disabled while the pin claim is not free, as the other rows
 that lead to a claim.
 
@@ -3054,6 +3054,7 @@ src/
   sbus_job.{h,cpp}      the S.BUS monitor's core1 job: UART0 on GP1 inverted, rcbench's decoder, the status
   ui_sbus.{h,cpp}       S.BUS MONITOR: the claim of GP1, the channels and counts, the leave page
   sbus_view.{h,cpp}     what S.BUS MONITOR shows: the link state, the bars' ink, the texts (pure)
+  sbus_out_job.{h,cpp}  the S.BUS output's core1 job: UART0's TX on GP0 inverted, a frame every 14 ms; nothing opens it
   bridge_wire.{h,cpp}   the USB bridge's core1 job: the frame slot, the ring, the echo, the counts
   bridge_line_port.{h,cpp} the bridge's line: two PIO state machines on SIG
   bridge_line.pio       ...its transmitter, seven instructions; the receiver is pio_uart_rx.pio
@@ -3266,6 +3267,14 @@ as a framing error. `test/sbus_line.h` puts a receiver's frames on that line,
 120 µs a byte, with parity, framing and break faults, cut frames and any
 footer. `test_sbus_ui.cpp` runs S.BUS MONITOR on it through MENU and RX
 SIGNALS, with core1's job passes every 500 µs between UI frames.
+The S.BUS output's job runs against the same fake's transmitter: each UARTDR
+write enters a 32-entry TX FIFO and goes out at the format and rate set, 120 µs
+a character at 8E2, with TXFE, TXFF and BUSY from it, and a character still on
+its way is cut when the UART stops or GP0 leaves the UART function with its
+output inverted. The GPIO fake records every write of a control register with
+FUNCSEL and the overrides as one value, and the pad register's IE, OD and ISO.
+`test_sbus_out_job.cpp` checks the bind and the release write by write and
+feeds the characters sent, with their times, to rcbench's decoder.
 
 `esc_task.cpp` cannot be linked either, so core0's side of the command slot is
 a copy in `fakes.cpp` on the shipped `escCmdAccept()`. A test sets the

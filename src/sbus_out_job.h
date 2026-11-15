@@ -203,11 +203,12 @@ bool sbusOutCoreTake(SbusOutCore *c, const SbusOutCmd *cmd, uint32_t nowUs,
  * @param nowUs     micros() of the pass. The clock may wrap.
  * @param uiAlive   core1UiAlive().
  * @param txEmpty   UARTFR.TXFE: the TX FIFO is empty.
- * @param[out] out  The frame's bytes, written only when the result is true.
+ * @param[out] out  25 bytes, `SBUS_FRAME_BYTES` of sbus.h: the frame,
+ *                  written only when the result is true.
  * @return True when @p out holds a frame to load now.
  */
 bool sbusOutCoreStep(SbusOutCore *c, uint32_t nowUs, bool uiAlive, bool txEmpty,
-                     uint8_t out[SBUS_FRAME_BYTES]);
+                     uint8_t *out);
 
 /**
  * @brief The throttle channel's ceiling for MAX THROTTLE, raw:

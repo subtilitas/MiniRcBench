@@ -25,4 +25,11 @@ target_sources(MiniRcBench PRIVATE
 target_include_directories(MiniRcBench PRIVATE
     ${RX_LIB}/protocols/sbus/include
 )
+# The output's job runs on core1, whose stack is 2 KB: CI measures the
+# deepest chain from its entry points in these call graphs, as it does for
+# the Hitec and ESC settings jobs.
+set_source_files_properties(
+    ${CMAKE_CURRENT_LIST_DIR}/sbus_out_job.cpp
+    ${RX_LIB}/protocols/sbus/sbus.c
+    PROPERTIES COMPILE_OPTIONS -fcallgraph-info=su)
 target_link_libraries(MiniRcBench hardware_uart hardware_gpio)

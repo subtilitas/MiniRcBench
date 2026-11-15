@@ -585,5 +585,9 @@ int fakeUartTxCount();
 /** @brief One transmitted character, in order. @param i 0 for the first. @return It; all zero past the last. */
 FakeTxByte fakeUartTxByte(int i);
 
-/** @brief Keep UARTFR.BUSY set whatever the FIFO holds, as a UART that never finishes would. */
+/**
+ * @brief A transmitter that never finishes: UARTFR.BUSY stays set, and a
+ *        character written while it is on never leaves the TX FIFO, so TXFE
+ *        stays clear behind it.
+ */
 void fakeUartTxStuck(bool on);

@@ -1,18 +1,22 @@
 # S.BUS output
 
-Status: designed, not built. By the owner's decision of 2026-11-15
-([decision 1](#decisions)) S.BUS OUTPUT is built only together with a
-bootloader probe on GP0, which needs the connect cycle and the EFM8 answer
-of ESC SETTINGS: the slices wait on the probe, and the probe waits on
-slices 2 and 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown);
-its slice 1 is built ([work breakdown](#work-breakdown)). The owner chose an
-S.BUS output on 2026-11-14 ([rx-signals.md](rx-signals.md#decisions),
+Status: slices 1 and 2 built, host tests only, not tested on hardware
+([slice 1 as built](#slice-1-as-built), [slice 2 as built](#slice-2-as-built)):
+rcbench's encoder is copied from b88593d3, and the core1 job
+`src/sbus_out_job.*` with its pin user `PinUser::SbusOut` sends frames on the
+host suite's UART0 fake. Nothing opens the job: by the owner's decision of
+2026-11-15 ([decision 1](#decisions)) S.BUS OUTPUT is built only together
+with a bootloader probe on GP0, slice 3, and no screen offers START before
+it. The probe's prerequisites, slices 1 to 3 of
+[bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown), are built
+([work breakdown](#work-breakdown)). Slices 3 to 5 are not built. The owner
+chose an S.BUS output on 2026-11-14 ([rx-signals.md](rx-signals.md#decisions),
 decisions 1, 4, 5 and 6): inverted 8E2 at 100,000 baud on GP0, UART0's TX
 pin; the encoder from rcbench, copied unchanged; the throttle channel under
 MAX THROTTLE of SETTINGS; the entry OUTPUT on the RX SIGNALS chooser, drawn
 `NOT BUILT` today. rcbench's encoder, `sbus_encode()` and `sbus_from_us()`,
-is on rcbench's `main` since pull request 847 and is host-tested there; it
-has not been copied here yet. Nothing of this design has driven a pin. The
+is on rcbench's `main` since pull request 847 and is host-tested there and
+here. Nothing of this design has driven a pin on hardware. The
 firmware facts below are read from the sources under [sources](#sources),
 with file and line; the ones no readable source settles are marked "not
 verified" and listed again under [not verified](#not-verified). No question
@@ -907,18 +911,118 @@ Each slice builds, passes the host suite and merges alone.
 
 | Slice | Content | Files | Lines, rough |
 |---|---|---|---|
-| 0. Prerequisites | slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown): the escwire copies (slice 1, built), the detection of an EFM8 answer with the run cue and the per-claim leave page (slice 2, pull request 83, under review), the connect cycle and its job (slice 3) | there | there |
-| 1. Encoder copy | `sbus.c`, `sbus.h`, `test_sbus.c` from rcbench b88593d3; `lib/rcbench/README.md`, STATUS, CHANGELOG | 3 replaced, 3 edited | 300 changed in copies, 30 of documentation |
-| 2. Job | `sbus_out_job.*`, the user and job rows, `CORE1_JOB_NO_GP0`, the TX side of the UART0 fake, the control-register record, `test/test_sbus_out_job.cpp`, STATUS, CHANGELOG | 2 new in `src/`, 1 new in `test/`, 8 edited | 350 in `src/`, 700 in `test/` |
+| 0. Prerequisites, met | slices 1 to 3 of [bluejay-blheli-s.md](bluejay-blheli-s.md#work-breakdown), built: the escwire copies (slice 1), the detection of an EFM8 answer with the run cue and the per-claim leave page (slice 2), the connect cycle and its job (slice 3) | there | there |
+| 1. Encoder copy, built | `sbus.c`, `sbus.h`, `test_sbus.c` from rcbench b88593d3; `lib/rcbench/README.md`, STATUS, CHANGELOG | 3 replaced, 3 edited | 300 changed in copies, 30 of documentation |
+| 2. Job, built | `sbus_out_job.*`, the user and job rows, `CORE1_JOB_NO_GP0`, the TX side of the UART0 fake, the control-register record, `test/test_sbus_out_job.cpp`, STATUS, CHANGELOG | 2 new in `src/`, 1 new in `test/`, 8 edited | 350 in `src/`, 700 in `test/` |
 | 3. Probe | the connect cycle on GP0 as a phase of the `SbusOut` claim before the UART bind, the refusal while a bootloader answers, the repeat until a cycle with no answer, MENU's run cue at an answer, `pinClaimWantLeavePage()` and decision 8's leave page after an EFM8 answer, its host tests on the bootloader models of slice 0 | 3 edited in `src/`, 1 new in `test/` | 200 in `src/`, 350 in `test/` |
 | 4. Screen | `sbus_out_view.*`, `ui_sbus_out.*`, OUTPUT's entry, `test/test_sbus_out_ui.cpp`, `test_ids.cpp`, the preview, `tools/make_previews.py`, `tools/check_wiki.py`, README and wiki pages RX-Signals and RX-Signale with the [warnings](#warnings), STATUS, CHANGELOG, this note's status | 4 new in `src/`, 1 new in `test/`, 10 edited | 750 in `src/`, 700 in `test/`, 200 of documentation |
 | 5. Bring-up | the bench tests above | none | none |
 
-By decision 1, slices 1 to 5 wait on slice 0, the probe's prerequisites,
-of which slices 2 and 3 of ESC SETTINGS remain.
+By decision 1, slices 1 to 5 need slice 0, the probe's prerequisites,
+which are built.
 Slice 2 depends on slice 1, slice 3 on slices 0 and 2, slice 4 on slice 3,
 slice 5 on all of them. No build offers START without the probe: slice 2
 has no screen, and slice 4 comes after slice 3.
+
+### Slice 1 as built
+
+`lib/rcbench/protocols/sbus/sbus.c`, `include/sbus.h` and
+`test/rcbench/test_sbus.c` are rcbench's at b88593d3, unchanged: each
+compares equal with `git show b88593d3:<path>` in rcbench. `test_sbus.c`
+runs 19 cases, 12 of them the decoder's. The S.BUS monitor's suites,
+`runSbusJobTests` and `runSbusUiTests`, pass unchanged on the new copy, as
+the note expected: the decoder's code is the same. `lib/rcbench/README.md`
+names b88593d3 for the S.BUS files and keeps 5ef42efd for the sensor bus.
+
+The copy adds no code of this repository, so its mutation check is
+rcbench's own test: 10 mutations of `sbus_encode()`, `pack()` and
+`sbus_from_us()` in a scratch copy of `sbus.c` (the shift of a channel's
+window, its third byte, the refusal at 2047, the buffer clear, the header,
+CH17, the failsafe bit, the footer, the rounding and the clamp at 2047)
+each fail `test_sbus.c`. None survives.
+
+### Slice 2 as built
+
+`src/sbus_out_job.h` and `.cpp`; the `SbusOut` rows of `PinUser` and
+`Core1Job` and the job table, `CORE1_JOB_NO_GP0`, each on lines of their
+own; `src/rx.cmake` and `test/rx.mk`. In the host suite: the transmitter
+and UARTCR of the UART0 fake, the record of every control-register write
+and the pad register in the GPIO fake (`fakes.*`, the stubs
+`hardware/structs/io_bank0.h` and `pads_bank0.h`), and
+`test/test_sbus_out_job.cpp`, `runSbusOutJobTests`. CI's firmware job
+measures the job's deepest stack chain, 224 bytes against 1,792. Choices
+the note left open, or made more exact:
+
+- **Frames never closer than 7 ms.** The note re-anchors the schedule after
+  a pass more than one period late. A pass late by less than a period
+  keeps the 14,000 µs grid, which brings the next frame closer: at 13 ms
+  late the next is due 1 ms later, while the frame is still on the wire,
+  and would follow it with no gap, which a decoder that frames on a
+  2000 µs gap reads as one frame. `SBUS_OUT_MIN_US`,
+  7,000 µs, the other period rcbench names, keeps every gap at 4,000 µs or
+  more, and also spaces the first frame of a START soon after a STOP. A
+  pass a period or more late, not only more than one, re-anchors, so
+  exactly one period late does not send two frames in a row.
+- **The FIFO wait is in the core.** `sbusOutCoreStep()` takes UARTFR.TXFE
+  as `txEmpty`, so a due frame that waits for the FIFO is a host case of
+  the pure core.
+- **The throttle channel and the ceiling are Start's.** A `Frame` carries
+  them as the note's struct has it, and the core ignores them: the channel
+  the FC throttles on is the one START fixed. A Start with an index above 3
+  is refused; a ceiling outside raw 172 to 1811 is clamped into it.
+- **A backstop for the release.** The release lets GP0 go
+  `SBUS_OUT_RELEASE_MAX_MS`, 10 ms, after its first pass even while BUSY
+  stays set, so a UART that never finishes cannot hold the claim in
+  Leaving. The last frame needs at most 3,000 µs.
+- **A clock refusal never routes the UART to the pad.** The bind has set
+  only the pull-down by then; it turns UART0 off and leaves GP0 as the
+  release does, a low SIO input with the pull-down.
+- **Each bind starts SAFE with no trip**, the note's "visit", and takes no
+  command sent before it: the bind takes the command block's seq as
+  acknowledged.
+- **RXE is cleared by a read-modify-write of UARTCR** after
+  `uart_set_format()`, which on the chip restores UARTCR after its wait.
+- **The status is published on every pass**, as the servo job's is.
+- **Nothing reaches it.** No source in `src/` but the job, the job table and
+  the claim's row names `PinUser::SbusOut`, `Core1Job::SbusOut`,
+  `sbusOutJobCommand()`, `sbusOutClaimRoles()` or `SBUS_OUT_JOB_OPS`; a
+  host test reads the sources and fails otherwise, so no screen can claim
+  or command the output before slice 3's probe.
+
+The TX fake sends each UARTDR write from a 32-entry FIFO at the format and
+rate set, back to back, 12 bits of 10 µs at 100,000 baud 8E2; TXFE, TXFF
+and BUSY follow it, and a character still on its way is cut when the UART
+stops or GP0 leaves the UART function with OUTOVER inverted. It does not
+model the bits' levels: a character counts as on the pad while GP0's
+control register held FUNCSEL UART and OUTOVER inverted from its start bit
+to its last stop bit. The pad register holds IE, OD and ISO; the pulls are
+kept apart, as before. What the PL011 drives while disabled and the level
+on the pin are not modelled.
+
+Mutation check: 92 mutations of `src/sbus_out_job.cpp`, each built into the
+host suite and run. 90 fail it: the clamps, the START frame and its
+channels, the seq rule, each kind's rule in Take, the trip, the 7,000 µs
+bound and the grid, the TXFE wait, the refusal, the ceiling and the roles,
+the NO GP0 refusal, the pull-down and its order, the baud check and the
+clock refusal's release of GP0, 8E2 and RXE, OUTOVER and the single
+control-register write, IE, OD and ISO and their order, the stale-command
+rule at the bind, the status fields, BUSY and the backstop, each step of
+the release and its order, the critical section's initialisation, and the
+kept STOP. Five of them failed only after the tests were made stricter:
+a `Frame` while SAFE writing the held frame, the bind's own NO GP0 check
+called with SIG GP1 and AUX GP1, GP0 left an SIO output high before a
+refused bind and before a release, the pad's OD set before the bind, and
+a transmitter that never sends, which holds the next frame on TXFE. Two
+survive:
+
+- `SbusOutStatus::refused` published as false. No command reaches an
+  encoder refusal through the job, since the core clamps every channel to
+  11 bits; the core's own flag is tested with a channel set past the
+  clamp.
+- An extra clear of the pad's isolation before the control-register write,
+  the later one kept. GP0 is then an SIO input with the pull-down, which
+  nothing drives; judged equivalent, not verified on the chip. Moving the
+  clear before the write, with none after, fails the suite.
 
 ## Choices
 

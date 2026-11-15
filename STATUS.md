@@ -76,7 +76,12 @@ Its screen, S.BUS MONITOR (`src/ui_sbus.h`, with the pure formatter
 16 channel bars in raw units with the value in µs, CH17 and CH18, the frame
 rate and the error counts, and the leave page. RX SIGNALS
 (`src/ui_rx_signals.h`) is the chooser behind the MENU row; its OUTPUT, the
-S.BUS output, is drawn disabled, `NOT BUILT` (open item 31).
+S.BUS output, is drawn disabled, `NOT BUILT` (open item 31). The output's
+core1 job (`src/sbus_out_job.h`, slices 1 and 2 of
+[sbus-output.md](docs/design/sbus-output.md#slice-2-as-built)) is built,
+host tests only: UART0's TX sends rcbench's encoded frames on GP0, the pad's
+output inverted, one every 14 ms. Nothing opens it: no screen claims
+`PinUser::SbusOut` until the bootloader probe of slice 3 is built.
 
 Slices 2 and 3 of
 [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-3-as-built)
@@ -195,8 +200,9 @@ SETTINGS pin change drains the same way. `loop1()` runs `escTaskPoll()` and then
 (`src/core1_job.h`): the servo job (`src/servo_job.h`) for SERVO, the KST
 job (`src/kst_job.h`) for KST, the Hitec job (`src/hitec_job.h`) for
 HITEC and the S.BUS job (`src/sbus_job.h`) for the S.BUS monitor, and the
-USB bridge's job (`src/bridge_wire.h`), which nothing opens yet; the AM32
-transport runs on core0.
+USB bridge's job (`src/bridge_wire.h`) and the S.BUS output's job
+(`src/sbus_out_job.h`), which nothing opens yet; the AM32 transport runs on
+core0.
 Leaving rebuilds the pump from the wiring it had, disarmed. For SERVO, KST,
 HITEC and the S.BUS monitor, and for AM32 once an EFM8 bootloader answered,
 the claim restarts DShot only from the leave page, whose RESTART DSHOT acts
@@ -274,7 +280,8 @@ commit 2b4f934a, and the control-surface arithmetic `servo_rudder`, the IMU
 (inertial measurement unit) model `imu` and the WitMotion decoder are
 rcbench files at commit e98345aa, all copied unchanged into `lib/rcbench/`
 ([lib/rcbench/README.md](lib/rcbench/README.md)). The firmware builds the S.BUS
-decoder for the S.BUS job, and the escwire core and its line driver for the
+decoder for the S.BUS job, the S.BUS encoder for the S.BUS output's job,
+which nothing opens yet, and the escwire core and its line driver for the
 ESC settings job; the host suite alone builds `servo_rudder`, `imu` and
 `witmotion`, which nothing in `src/` calls yet. The SDIO driver in `src/sdio/`
 is part of the tree, MIT, written from the SD Association's Physical Layer
@@ -295,7 +302,7 @@ means general-purpose input/output.
 | Current sensor | optional INA219 at 0x40 on J3, on the same I2C1 bus; SETTINGS → CURRENT SENSE, `NONE` by default |
 | IMU | QMI8658 at 0x6B on the same I2C1 bus; `src/qmi8658.*`, read while the angle meter is open (MENU → TOOLS → ANGLE METER) |
 | SD card | PIO SDIO on pio1, 4 bits, 10 MHz, GP19 to GP24 |
-| GPIOs free for the two wires | 2: GP0, GP1 (`BOARD_FREE_GPIO_MASK` `0x00000003`), the pins of UART0 (universal asynchronous receiver-transmitter 0), which only the S.BUS job uses, receiving on GP1 |
+| GPIOs free for the two wires | 2: GP0, GP1 (`BOARD_FREE_GPIO_MASK` `0x00000003`), the pins of UART0 (universal asynchronous receiver-transmitter 0), which only the S.BUS jobs use: the monitor's receiving on GP1, the output's sending on GP0, which nothing opens yet |
 | ESC signal default | GP0, J4 pin 9 and J5 pin 2 |
 | KISS default | GP1, J4 pin 10 and J5 pin 1, off |
 | Switched servo supply enable | GP28, J4 pin 11, or GP29, J4 pin 12, under SETTINGS → SERVO SUPPLY; none by default |
@@ -379,6 +386,7 @@ record either way.
 | Hitec programming: rcbench's Hitec session, register model and line driver (`lib/rcbench/`), the core1 job (`src/hitec_job.*`) and its line (`src/hitec_line_port.*`), the files on the card (`src/hitec_files.*`), the HITEC SERVO screen (`src/ui_hitec.*`, `src/hitec_view.*`) | rcbench's 115 cases; the job against a simulated servo (`runHitecTests`); the deepest stack chain of the job on the Cortex-M33 checked in CI against 1,792 bytes; the files against an in-memory volume and the card phases' block counts over FatFs R0.15 (`make -C test kstcount`); the screen through MENU and PROGRAMMER by control id, the claim on SIG on the entry's tap with the job started at once for CLASSIC and the switched supply and deferred to READ for a D series servo on its own supply (`testDeferredJob()`, `testEntry()`) | not tested on hardware; CLASSIC needs SERVO SUPPLY at GP28 or GP29; the classic line voltage not measured |
 | S.BUS monitor's core1 job (`src/sbus_job.*`, slice 2 of [rx-signals.md](docs/design/rx-signals.md)), its pin user `PinUser::Sbus` and `CORE1_JOB_NO_GP1`; rcbench's decoder (`lib/rcbench/protocols/sbus/`) | the core on a line model of a receiver: nothing counted before 2000 µs of quiet line after the bind, clean streams at 7 ms and 14 ms, the mean of the last 16 intervals and its restart after 100 ms, the flag byte and its counts, parity, framing and break bytes counted and not fed, overrun counted and fed, footers, a cut frame, the 2000 µs gap, the micros() wrap; the job through the claim on a UART0 fake: GP1 on the UART function with its input inverted and the pull-down, GP0 untouched, 100,000 baud from 150 MHz, 8 data bits, even parity and 2 stop bits, drains every 1000 µs, a pass 2000 µs late splitting a frame, the FIFO's overrun, the heartbeat ignored, each wiring, the NO GP1 and CLOCK refusals and RETRY, KISS live, an ESC on SIG, the claim held, the release in one pass leaving GP1 a plain input and the status cleared, a bind 1 ms into a live frame with the 8N1 window counting nothing, counts at 0 on a new visit | not tested on hardware: the inversion on the pin, a receiver's level and frames, the UART's error flags on a real line |
 | S.BUS MONITOR and RX SIGNALS, slice 3 of [rx-signals.md](docs/design/rx-signals.md#slice-3-as-built) (`src/ui_sbus.*`, `src/sbus_view.*`, `src/ui_rx_signals.*`, the RX SIGNALS row in `src/ui_registry.cpp`, `uiChip()`'s label on amber in `src/ui_widgets.cpp`) | the view's link state, hold, ink, bar and texts at their boundaries; the chooser through MENU, OUTPUT disabled; the monitor on the UART0 fake through the claim: frames at 14 ms and 7 ms, every bar and value, the chip in each state, failsafe, a receiver gone, a refused footer, error counts, the leave page and BACK TO MONITOR, RESTART DSHOT; GP1 as SIG with the screen's ESC check; KISS on GP1; no GP1; the clock and RETRY; the row refused while the claim is not Free; 33 mutations of the view, all failing the suite, and 48 of the screen, the chooser, the registry and the chip, 44 failing, one equivalent, three on code later removed as redundant, listed in the note | not tested on hardware: a receiver's frames on GP1, the screen's reading of them on the panel, the pass time with the job |
+| S.BUS output, slices 1 and 2 of [sbus-output.md](docs/design/sbus-output.md#slice-2-as-built): rcbench's encoder at b88593d3 (`lib/rcbench/protocols/sbus/`), the core1 job (`src/sbus_out_job.*`), `PinUser::SbusOut`, `Core1Job::SbusOut` and `CORE1_JOB_NO_GP0`; nothing opens it | `test_sbus.c`, 19 cases; `runSbusOutJobTests` on the UART0 fake's transmitter and the GPIO fake's control and pad registers: the ceiling at 100, 400, 1000 and 2000, the roles of each wiring, the START frame byte for byte for each throttle channel whatever was sent before, every channel clamped to raw 172 to 1811 and the throttle to its ceiling, frames at 14,000 µs with passes every 333 µs, a pass 30 ms, one period and 13 ms late, never two under 7,000 µs apart, the FIFO's wait, the micros() wrap, the trip at 250 ms and not 249 ms, START refused while lapsed, STOP on the next pass and a STOP never replaced, a refused frame; the bind: the pull-down before `uart_init()`, 8E2, RXE off, one control-register write with FUNCSEL UART and OUTOVER inverted after the pad's IE and before its ISO clear, GP1 untouched; the line read back by rcbench's decoder, back to back inside a frame and 11,000 µs between; the release after the last stop bit, SIO's output enable off and low before the pad leaves the UART, the pad on SIO before `uart_deinit()`, the pull-down, the 10 ms backstop; each wiring, NO GP0, CLOCK and RETRY, the ESC check in both wirings at 499 and 500 ms, KISS on AUX GP0, a new visit SAFE; no source outside the job, its table and the claim names it; 92 mutations of the job, 90 failing the suite, two surviving and listed in the note, and 10 of the copied encoder, all failing `test_sbus.c` | not tested on hardware: the inversion and the level on GP0, the bind's and the release's edges, the frames on a scope or an FC, core1's pass time with the job |
 | Bluejay and BLHeli_S, slice 2 of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-2-as-built): the greeting's answer classified (`src/bl_answer.*`, `am32BlAnswer()`), an EFM8 answer named on ESC SETTINGS' connect page, the run cue it sets, the leave page per claim (`pinClaimWantLeavePage()`, `pinClaimLeavePage()` in `src/pin_claim.*`) and ESC SETTINGS' leave page of the note's decision 8 (`src/ui_am32.*`), the ESC CONFIG chooser (`src/ui_esc_config.*`, `UI_ESC_CFG_ENTRIES` in `src/ui_registry.cpp`), the titles ESC SETTINGS, ESC HEX and ESC WRITE | the classification of AM32 answers of three families and of EFM8 answers with each signature, with an echo, and of answers not understood; the leave page per claim through `pinClaimEnd()` and RESTART DSHOT; the EFM8 answer through the screen: its line, nothing read, the cue, the leave page's steps, STAY, LEAVE, RESTART DSHOT at 1000 ms, the cue cleared; the leave page from every BACK that would leave after an EFM8 answer, the connect page, the list's guard and the read-only view, STAY back to each, BACK on ESC HEX to the list; an AM32 claim with no EFM8 answer giving DShot back within BACK; the chooser through MENU, USB BRIDGE disabled, the claim on ESC SETTINGS' tap; 39 mutations, 38 failing the suite and one equivalent, listed in the note | not tested on hardware: no Bluejay or BLHeli_S ESC has answered the greeting on this board, the classification of a real answer and the leave page's steps are not verified on an ESC |
 | Bluejay and BLHeli_S, slice 3 of [bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#slice-3-as-built): the connect cycle (`src/greet_cycle.*`), the loose EFM8 rule (`src/bl_answer.*`), the ESC settings job on core1 (`src/escwire_job.*`, `src/escwire_port.*`, `Core1Job::EscWire`), the page's rows and texts (`src/efm8_view.*`), the read-only list, ESC HEX, the strip notes, the tester's 3D note, the refusals on the connect page and LEAVE's `00 01` in `src/ui_am32.*` | the cycle's phases and counts, alone and through the screen; the job against rcbench's simulated ESC: bind, entry, read, leave, refusals, heartbeat and release; the rows, values and texts and their fits; Bluejay 208, BLHeli_S 33 and the read-only lists through the screen, BACK sending `00 01` before DShot returns with the run cue kept until eRPM, a piece of an EFM8 answer bringing the leave page and noise not, a refused bind putting the pull-up on SIG, the refusals, a stopped session greeted again, the leave page from each BACK that needs it; 70 mutations, 65 failing the suite, 4 equivalent and one on a check the code does not have, listed in the note; the job's deepest stack chain, 408 bytes of 1,792 with the line driver's 112 bytes behind `ew_driver_t`'s pointers added, from the firmware build; `loop1()` and `core1JobPoll()` are not in it, and SDK calls count 0 bytes | not tested on hardware: no frame of the escwire job has reached an ESC; the entry, the read, LEAVE's effect, the gap between the AM32 transport and the job's bind and the connect cycle's entry times are not verified on an ESC |
 | USB bridge, slice 1 of [usb-bridge.md](docs/design/usb-bridge.md#slice-1-as-built): `PinUser::Bridge` and `Core1Job::Bridge` (`src/pin_claim.*`, `src/core1_job.*`), the job, frame slot and ring (`src/bridge_wire.*`), the PIO line (`src/bridge_line.pio`, `src/bridge_line_port.*`), a claim without the leave page restoring DShot only once its job is idle | `test/pio_bridge_emu.py`, the transmitter and `pio_uart_rx` in a model of two state machines on one pad, 42 runs: each byte's bits, the pad driven through a frame and let go after it, the echo in the FIFO before the transmitter idles, an ESC's reply at 8 phases and 2 % and 3 % off the rate, a collision, a full FIFO, and a control run that fails; `runBridgeTests`, 162 checks on a line fake: the divider, the slot, the frame whole with passes 1 ms and 5 ms apart, the echo kept, dropped, differing and lost, overruns, the ring's wrap, the release, the claim from Stopping to Free with DShot never bound while the line is open, Free with only `pinClaimState()` called after BACK, the leave page given and kept, RETRY; 42 mutations, 38 failing, one showing a redundant line, removed, three equivalent on the host, listed in the note | not tested on hardware: no byte has been on SIG from this line; `bridge_line_port.cpp` is compiled only; the pad reading itself while driven and the receiver's rate tolerance on a real ESC are not measured |
@@ -1055,7 +1063,8 @@ not run on hardware (item 18).
     the refusals on the connect page, and LEAVE's `00 01` from the list.
     Slices 4 to 6 wait on being built; `ESC SETTINGS` writes AM32 only until
     slice 4 lands. Nothing of it has run on an ESC.
-31. **S.BUS output, designed, not built; waits on a bootloader probe.**
+31. **S.BUS output: the encoder and the core1 job built, host tests only;
+    the bootloader probe and the screen not built.**
     The owner's decisions 1, 4, 5 and 6 of
     [rx-signals.md](docs/design/rx-signals.md#decisions) (item 19).
     [sbus-output.md](docs/design/sbus-output.md) designs S.BUS OUTPUT,
@@ -1063,9 +1072,13 @@ not run on hardware (item 18).
     UART0's TX, the pad's output inverted by OUTOVER in the same register
     write as the UART function, rcbench's `sbus_encode()` and
     `sbus_from_us()` copied unchanged from rcbench b88593d3 (on rcbench's
-    `main` since pull request 847, 19 host cases), in place of the copy of
-    5ef42efd, whose decoder code is the same. A new pin user, `SbusOut`,
-    with the claim's ESC check in every wiring; 16 sliders on two pages;
+    `main` since pull request 847, 19 host cases); the decoder's code is
+    the same as at 5ef42efd. Slices 1 and 2 are built
+    ([slice 2 as built](docs/design/sbus-output.md#slice-2-as-built)): the
+    copy, and the job `src/sbus_out_job.*` with `PinUser::SbusOut`,
+    `Core1Job::SbusOut` and `CORE1_JOB_NO_GP0`, which nothing opens. The
+    design: the pin user `SbusOut` with the claim's ESC check in every
+    wiring; 16 sliders on two pages;
     the throttle channel, 1 to 4, starting at raw 172 and held under
     172 + 1639 × MAX THROTTLE / 2000, raw 499 (1200 µs) at the default;
     CH17, CH18 and the failsafe and frame-lost bits on SET; frames stop on
@@ -1086,9 +1099,9 @@ not run on hardware (item 18).
     cue, and after an EFM8 answer the leave page is ESC SETTINGS' decision
     8 page, which asks for the ESC's battery to come off before DShot
     returns. The probe costs about 1.1 s per visit and misses an unpowered
-    ESC. No question is open. The slices wait on the probe and on slices 2
-    and 3 of ESC SETTINGS (item 30; slice 2 is pull request 83, under
-    review); its slice 1 is built.
+    ESC. No question is open. Slice 3, the probe, is next: its
+    prerequisites, slices 1 to 3 of ESC SETTINGS (item 30), are built.
+    Nothing of the output has run on hardware.
 
 ## Known limitations
 
@@ -1205,6 +1218,7 @@ binary, `dshot_tests`. `test/test_main.cpp` runs thirty-four suites:
 | `runSbusJobTests` | `test_sbus_job.cpp`, `sbus_line.h` | the S.BUS job's core on a line model of a receiver: nothing counted before 2000 µs of quiet line and counted from 2000 µs, frames at 7 ms and 14 ms, the mean interval over 16 and its restart after 100 ms, the flags, each UART error flag and its rank, overrun, footers, a cut frame, the gap at 2000 µs and not 1999 µs, the micros() wrap; the job from the job table through the claim on the UART0 fake: the pad and the UART set up, GP0 untouched, streams with a pass every 1000 µs, a late pass, the FIFO's overrun, the heartbeat lapsed, each wiring, NO GP1, CLOCK and RETRY, KISS live, an ESC on SIG, busy while held, the release and the cleared status, the unplug page, a bind 1 ms into a live frame, quick and slow, a new visit |
 | `runBridgeTests` | `test_bridge.cpp`, `fake_bridge_line.cpp` | the USB bridge's job on a line fake with the PIO model's cycle counts and a model ESC: the clock divider and its lower bound, the frame slot's refusals and handover, a frame whole on the wire with passes 1 ms and 5 ms apart, the echo kept and dropped, a differing and a lost echo counted once per frame, the receive FIFO and the ring full, the ring's wrap and nothing read while closed, the release finishing the frame under way, dropping one not started and closing at 250 ms and not 249 ms; `PinUser::Bridge`'s row and claim rules; the claim through the job table from Stopping to Free, DShot asked back only once the job is idle and never bound while the line is open, Free with only `pinClaimState()` after BACK, BACK while Stopping, SIG on GP1, the leave page given and kept, RETRY after a refused bind |
 | `runSbusUiTests` | `test_sbus_ui.cpp`, `sbus_line.h` | the S.BUS view at its boundaries: `NO SIGNAL` at 100 ms and not at 99 ms, `NO FRAMES`, `FAILSAFE` above `FRAME LOST`, the 250 ms hold from the rise and not from a fall, across a `millis()` wrap, the chips' texts and fills, the ink of the channels, the bar's fill in raw units, values by `sbus_to_us()`, the four lines and their caps; RX SIGNALS through MENU: title, strip, MONITOR and OUTPUT with their lines, OUTPUT disabled and unpressed, the claim on MONITOR's tap; S.BUS MONITOR on the UART0 fake with core1 passes every 500 µs: Stopping and the caption, the empty bars, frames at 14 ms and 7 ms with every bar and value, CH17, FRAME LOST held and gone, failsafe in red, the receiver gone in grey, NO FRAMES on a refused footer, parity, framing and break counts, the leave page releasing and released, BACK TO MONITOR with the counts and the hold cleared, RESTART DSHOT at 1000 ms and not at 975 ms with GP1 left plain; GP1 as SIG with the ESC check and its end at 500 ms, the leave page's GP1 lines; KISS on GP1; no role on GP1; the job's NO GP1; the clock refused and RETRY; the Busy refusal before the ESC check; BACK while Stopping; every frame's control table |
+| `runSbusOutJobTests` | `test_sbus_out_job.cpp` | the S.BUS output's ceiling and roles; its core: SAFE, the START frame for each throttle channel, the clamps, the 14,000 µs schedule with late passes, the 7,000 µs bound, the FIFO's wait and the micros() wrap, the heartbeat trip, a refused frame; the job from the job table through the claim on the UART0 fake's transmitter and the GPIO fake's control and pad registers: the bind write by write, the frames read back by rcbench's decoder, STOP, the release after the last frame and its order, the backstop, the heartbeat at 249 and 250 ms, each wiring, NO GP0, CLOCK and RETRY, the ESC check in both wirings, KISS; no other source names the output |
 | `runWidgetTests` | `test_widgets.cpp` | the list (`ui_list`) and the hold (`ui_hold`) driven with touch snapshots, each rule at its boundary; the header's BACK drawn disabled as `uiButton()` draws a disabled control; slice 1 of menu structure B: the leave page (`ui_leave`), the BACK guard, the two strip lines, the field row, the colour role names and the layout constants |
 | `runIdTests` | `test_ids.cpp` | the control tables of `ui_screen.h` on the tester, MENU, ESC COMMANDS at Ready and at NoAnswer, PROGRAMMER, RX SIGNALS with MONITOR acting and OUTPUT not, ESC CONFIG with ESC SETTINGS acting and USB BRIDGE not, TOOLS, ANGLE METER's main view, SETUP and FLIP CAL, SETTINGS, SD LOG in three card states, ESC SETTINGS in its handover and its list, and SERVO's three views: ids unique, rectangles inside the panel and apart, BACK at its rectangle and drawn live or disabled as the table says, the enabled flags against the state they follow; the id helpers of `ui_ids.h`, and that they report an absent or misgated control; the layout table of menu structure B on SETTINGS, SD LOG and SERVO SET: each footer, edge and editor rectangle by id and each label inside its button |
 | `runBackupTests` | `test_backup_ring.cpp` | the ring of `BACKUP/`: its rules, saves of two devices and a rename under another device's number, a rename FatFs reports failed that took effect, two files under one number, the list of one device from the latest, a gap, no marker and an unreadable one, a directory under a ring name, names outside the ring, a marker or a read-only oldest file the card refuses, a change of directory that fails, load, no card and a USB-held card with no FatFs call |
@@ -1224,9 +1238,9 @@ or `critical_section_exit()` on an unmarked one. `main()` calls
 starts, and ends the run with the check `uses before critical_section_init()`,
 which fails unless the count is 0. Removing the `critical_section_init()` call
 of `core1_job.cpp`, `servo_job.cpp`, `kst_job.cpp`, `hitec_job.cpp`,
-`sbus_job.cpp` or `sense.cpp` fails that check. `esc_task.cpp` is not linked
-into the host suite (PIO and UART), so its `critical_section_init()` is not
-covered by it.
+`sbus_job.cpp`, `sbus_out_job.cpp` or `sense.cpp` fails that check.
+`esc_task.cpp` is not linked into the host suite (PIO and UART), so its
+`critical_section_init()` is not covered by it.
 
 `make run` also builds and runs `test/test_usb_msc_cb.cpp`, a program of
 its own that links the real `src/usb_msc.cpp` against stubs of the logger,
@@ -1299,7 +1313,7 @@ requests, by hand):
 
 | Job | What it does |
 | --- | --- |
-| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO models' assembler with the SDK's `pioasm`, for the USB bridge's line too; holds the KST, Hitec and escwire line fixtures to `pioasm`'s words; checks the Hitec job's deepest stack chain against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
+| Firmware (`touch-lcd-2.8`) | builds with arm-none-eabi-gcc 13.3 and `STRICT=ON`; flash under 1 MiB and RAM (random-access memory) under 400,000 bytes; checks from the DWARF compile units that no file of the SD library's SDIO, ZuluSCSI-firmware or SdFat directories is in the image; writes `THIRD_PARTY_NOTICES.txt` with `tools/notices.py` and checks it against the image; compares the PIO models' assembler with the SDK's `pioasm`, for the USB bridge's line too; holds the KST, Hitec and escwire line fixtures to `pioasm`'s words; checks the deepest stack chains of the Hitec, ESC settings and S.BUS output jobs against 1,792 bytes (`tools/stack_depth.py`); checks the two pin overrides reach CMake and that `-DDSHOT_PIN`, `-DKISS_PIN`, `-DDSHOT_PIN_LCD_2`, and `-DKISS_PIN_LCD_2` are refused; validates the UF2 |
 | Host tests | `make`, which runs the SDIO, backlight and USB bridge PIO models and `test/test_set_clock.py` too; the suite again with both pin macros overridden; `make kstcount` against the KST and Hitec design notes' card-phase tables; `make lognum`, the next log's file and the logger with its run summary over FatFs; wiki screenshots and `check_wiki.py` |
 | Blackbox round-trip | builds `blackbox_decode` from source, runs `make bbcheck` |
 | Config permutations | typechecks all of `src/` with `-Werror` for 32 combinations, with the headers in `lib/rcbench/` on the include path: AM32 transmit mode × AM32 low-jump × rotation 0 or 2 × KISS on or off × SD logging on or off; checks the landscape guard fires |
