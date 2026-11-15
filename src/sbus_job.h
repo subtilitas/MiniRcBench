@@ -129,8 +129,8 @@ struct SbusCore {
  * receives at 8N1 until uart_set_format() takes 8E2. So nothing is counted
  * or fed until the line has been seen quiet for `SBUS_GAP_US` (sbus.h),
  * 2000 us: the time from the last pass with a word, or from the reset, to a
- * pass with none. The first word after that starts a frame. A line that is never
- * quiet for 2000 us is never counted.
+ * pass with none. The first word after that starts a frame. A line that is
+ * never quiet for 2000 us is never counted.
  *
  * @param[out] c The state.
  * @param nowUs  micros() at the reset.
