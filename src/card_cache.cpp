@@ -47,6 +47,10 @@ void cardCachePoll() {
 
 CardCache cardCacheState(uint16_t *left) { return stateOf(sd_sdio_cache_state(left)); }
 
+void cardCacheRecheck() {
+	if (card()) sd_sdio_cache_recheck(card());
+}
+
 CardCache cardCacheFlush() {
 	return card() ? stateOf(sd_sdio_cache_flush(card())) : CardCache::Off;
 }

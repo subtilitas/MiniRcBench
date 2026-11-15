@@ -1,19 +1,22 @@
 # SD write cache for the backup claims
 
 Built, host tests only, not tested on hardware. While the pin claim of KST
-SERVO, AM32 CONFIG or HITEC SERVO holds, the tools that save device backups
-([backups.md](backups.md)), block writes to the SD (Secure Digital) card go
-into a queue in SRAM (static random-access memory) and return at once. A
-flush step on core0 sends them to the card in the order FatFs wrote them, one
-block per loop pass, without waiting on the card's busy line. Block reads come
-from the queue, from a read cache, or from the card. Core0 keeps drawing,
+SERVO, ESC SETTINGS or HITEC SERVO holds, the tools that save device backups
+([backups.md](backups.md)), and while SERVO TESTER's log runs, block writes to
+the SD (Secure Digital) card go into a queue in SRAM (static random-access
+memory) and return at once. A flush step on core0 sends them to the card in the
+order FatFs wrote them, one block per loop pass, without waiting on the card's
+busy line or on the swap check's read ([card swap](#card-swap)). Block reads
+come from the queue, from a read cache, or from the card. Core0 keeps drawing,
 reading touch and sending the heartbeat while the card programs.
 
 The HITEC SERVO claim runs it too
 ([hitec-programming.md](hitec-programming.md#decisions-of-the-owner),
-decision 11). Outside those claims nothing changes:
-SERVO, the blackbox logger, SD LOG and USB (Universal Serial Bus) DRIVE use the synchronous path
-of [sdio-driver.md](sdio-driver.md).
+decision 11), and SERVO TESTER while its servo log runs, from HOLD TO START
+to the run's end ([current-sense.md](current-sense.md#slice-6-as-built)).
+Outside those nothing changes: SERVO TESTER without a log, the blackbox
+logger, SD LOG and USB (Universal Serial Bus) DRIVE use the synchronous
+path of [sdio-driver.md](sdio-driver.md).
 
 ## What it solves
 
@@ -36,7 +39,9 @@ ends clean:
 The block writes are the counting tool's
 ([kst-programming.md](kst-programming.md#card-calls-and-the-heartbeat)). Each
 batch adds one uncached read of the boot sector, 105 ms at the specification's
-times ([card swap](#card-swap)). Reads still block core0; with the read cache
+times ([card swap](#card-swap)), which the flush step starts and collects over
+several calls without waiting. FatFs's own reads that miss the cache still
+block core0; with the read cache
 filled, the counting tool, with a 16-block cache modelled and no log in the
 root, counts 0 to 2 reads for every phase but the FILES page right after a
 full first write. The table of kst-programming.md counts the phases without
@@ -50,13 +55,15 @@ the cache.
  library glue.c -> sd_card_t         read_blocks, write_blocks, sync
  src/sdio/sd_card_glue.c             sdioRead, sdioWrite: the cache while it is on
  src/sdio/sd_cache.c                 read cache, write queue, flush step
- src/sdio/sd_host.c                  sdh_write_start(), sdh_write_poll()
- src/sdio/sd_pio.c                   unchanged
+ src/sdio/sd_host.c                  sdh_write_start(), sdh_write_poll(),
+                                     sdh_read_start(), sdh_read_poll()
+ src/sdio/sd_pio.c                   busRxReady(), the receiver's one look
 ```
 
 - `src/sdio/sd_cache.*`: the queue and the read cache over a card given as
-  three functions (`sdc_dev_t`: read, write start, write poll), so the host
-  suite runs it against a fake. MIT, part of the driver.
+  five functions (`sdc_dev_t`: read, write start, write poll, read start,
+  read poll), so the host suite runs it against a fake. MIT, part of the
+  driver.
 - `src/sdio/sd_card_glue.c`: `sdioRead()` and `sdioWrite()` go through the
   cache while it is on; `sd_sdio_cache_*()` (`src/sdio/sd_card_cache.h`) turn
   it on and off, step, flush and drop it, each under the card's lock.
@@ -85,14 +92,24 @@ the cache.
 
 `sdc_poll()` does at most one of these and returns:
 
-1. No block in flight and the queue not empty: at the first block of a batch,
-   the swap check ([card swap](#card-swap)); then `sdh_write_start()`: CMD24,
-   the block and its CRC (cyclic redundancy check) status token. At 10 MHz
-   on 4 data lines a block's transfer takes about 0.1 ms.
-2. A block in flight: `sdh_write_poll()` reads DAT0 once. Low is busy, and
+1. No block in flight, the queue not empty, at the first block of a batch:
+   the swap check ([card swap](#card-swap)), one step a call. No read under
+   way: `sdh_read_start()`, CMD17 with the receiver armed, and return. A
+   read under way: `sdh_read_poll()` asks the receiver once (`rx_ready()`);
+   not in, return; in, compare the 4 bytes, and return.
+2. No block in flight, the batch checked: `sdh_write_start()`: CMD24, the
+   block and its CRC (cyclic redundancy check) status token. At 10 MHz on 4
+   data lines a block's transfer takes about 0.1 ms.
+3. A block in flight: `sdh_write_poll()` reads DAT0 once. Low is busy, and
    the step returns. High: CMD13 for the status, as `writeChunk()` does, then
    the entry is dropped.
-3. A block busy for `SDH_BUSY_TIMEOUT_US`, 1,000,000 µs: a timeout.
+4. A block busy for `SDH_BUSY_TIMEOUT_US`, 1,000,000 µs: a timeout.
+
+So no step waits for the card: the longest is a block's transfer, about
+0.1 ms, or a command and its response, CMD17, CMD24, CMD13 or the CMD12
+after a check read whose block did not come, each bounded by
+`SDH_CMD_TIMEOUT_US`, 5 ms, when the card does not answer: a removed card
+costs that step 5 ms.
 
 `sdh_write_start()` and `sdh_write_poll()` are `writeChunk()` split at its
 busy wait, for one block. The SD clock runs from the block's send until
@@ -111,32 +128,42 @@ block that still fails ends the batch ([errors](#errors)).
 `cardCacheState()` reads `Off` (no cache), `Idle`, `Flushing` with the blocks
 still to go, or `Failed`.
 
-- **KST SERVO.** `kstFilesFirstWrite()` runs as before; its files are then
+- **KST SERVO.** `kstFilesFirstWrite()` runs; its files are then
   queued. The write page reads `SAVING THE BACKUP TO THE CARD.` and
   `BLOCKS LEFT: n`, offers no hold, and sends `Edit` or `Restore` to the job
   only at `Idle`. At `Failed` it mounts the card again
   (`cardCacheRecover()`), forgets the first write, so the next write saves
   the backup again, and reads
-  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-  BACK during the flush leaves the page; the write is not sent, and the flush
-  goes on.
+  `THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
+  BACK is drawn disabled while the page waits for the flush
+  ([menu-b.md](menu-b.md), decision 5). The wait ends when the flush ends:
+  the write goes out, and a servo unplugged meanwhile fails that operation,
+  after which KST searches again; the jobs notice a lost servo only when an
+  operation ends. It ends when the flush fails, with the note above under
+  OK. With the switched supply a stall of the screen also ends it: the
+  screen goes to Main, the write is not sent, the flush goes on, and the
+  next write opens on a tap and waits for its own hold. A block busy for
+  1 s (`SDH_BUSY_TIMEOUT_US`) ends the batch, so the wait lasts at most
+  about 1 s per block for up to 32 blocks (`SDC_QUEUE_BLOCKS`); Hitec may
+  wait for two batches, an earlier one and its own.
 - **Any failed batch on KST.** `Idle` after a recovery says only that the
-  queue is empty. A batch that fails off the write page, after BACK during
-  the flush, in SAVE AS or in a removal of the record, may have held the
-  backup, so every recovery forgets the first write. A write, a SAVE AS, a
+  queue is empty. A batch that fails off the write page, after a stall
+  during the flush, in SAVE AS or in a removal of the record, may have held
+  the backup, so every recovery forgets the first write. A write, a SAVE AS, a
   LOAD or the FILES page that finds the cache at `Failed` recovers first.
   The card mounted again may be another one, so LOAD then reads the list
   again, loads nothing and reads `CARD MOUNTED AGAIN: CHOOSE AGAIN`.
-- **AM32 CONFIG** recovers after any failed batch of its backup, the save's
-  own included, so the next WRITE saves the backup again.
+- **ESC SETTINGS** recovers after any failed batch of its backup, the save's
+  own included, so the next WRITE saves the backup again. `backupFirst()`
+  (`src/ui_am32.cpp`) flushes on the spot after the backup, before `doWrite()`
+  writes an AM32 ESC, whose transport blocks core0 anyway, and before
+  `ewStartWrite()` starts the escwire write of a Bluejay or BLHeli_S ESC on
+  core1. A failed flush reads `NO BACKUP ON THE CARD: NOT WRITTEN`.
 - **KST SAVE AS** flushes on the spot (`cardCacheFlush()`) and reports what
   the card holds: a failed flush is `THE CARD TOOK NO FILE`, and the next
   write saves the backup again.
 - **The record's removal** after a verify, or at LEAVE, stays queued and goes
   to the card in the flush that follows, at the claim's end at the latest.
-- **AM32 CONFIG.** Its transport blocks core0 anyway, so after the backup
-  `doWrite()` flushes on the spot and writes the ESC only at `Idle`. A failed
-  flush reads `NO BACKUP ON THE CARD: NOT WRITTEN`.
 
 `kstFilesWriteAllowed()` lets the write run when the card took either file.
 With the queue, a failed batch does not say which file reached the card, so
@@ -162,18 +189,57 @@ card the rule is unchanged: the write runs, and the backup stays in memory.
 
 ## Card swap
 
-The board has no card-detect line. A card swapped during the claim answers
-the first command after the swap, and a block written from the queue would
-then land on the new card, built from the old card's directory and FAT: the
-new card's volume would be corrupted.
+The board has no card-detect line. The check below guards against a swapped
+card that answers: a block written from the queue would land on the new card,
+built from the old card's directory and FAT, and corrupt its volume. A newly
+inserted card is uninitialised and most likely refuses the writes; how a real
+card behaves is not verified.
 
 `cardCacheBegin()` reads the volume's serial number from its boot sector
 (`sdLogVolumeId()`: `BS_VolID`, offset 67, on FAT32; `VolumeSerialNumber`,
-offset 100, on exFAT; offset 39 on FAT12 and FAT16). Before the first block
-of every batch the flush step reads those 4 bytes again, past the cache. A
-different number, or a read that fails, drops the queue and the read cache
-and sets `Failed`. A card swapped for a byte-for-byte copy with the same
-serial number is not detected.
+offset 100, on exFAT; offset 39 on FAT12 and FAT16). Before the first block of
+every batch the flush step reads those 4 bytes again, past the cache. The read
+does not wait for the card: `sdh_read_start()` sends CMD17 with the receiver
+armed for one block, and the flush step's later calls look at the receiver once
+each through `sdh_read_poll()`, which reads the bus's `rx_ready()`: on the
+board, the receive DMA's control channel at the end of its table and both
+channels idle (`busRxReady()` in `src/sdio/sd_pio.c`, the test `busRxWait()`
+makes). Once the block is in, `rx_wait()` returns at once and puts its CRC words
+in order, and the CRC is checked as for any read; the block is sent in the call
+after. A read that fails with a CRC (cyclic redundancy check), frame, timeout or
+no-response error, a timeout being no block within `SDH_READ_TIMEOUT_US`, 250
+ms, of CMD17, is tried again in a later call, up to `SDC_ATTEMPTS`, 3 reads in
+all, as `sdh_read()` tries a block. After a read whose block did not come in
+time CMD12 goes out, as `sdh_read()` sends it, but without the wait for its
+busy, so a card that stalled is pulled back to the transfer state before the
+next try. After a whole block with a CRC or frame error none goes out: the card
+is back in the transfer state already, where CMD12 is illegal and gets no
+answer, so it would cost the step `SDH_CMD_TIMEOUT_US`, 5 ms. The third failure,
+any other error, or a different number drops the queue and the read cache and
+sets `Failed`; the recovery's mount initialises the card again. A miss of
+`sdc_read()`, `sdc_settle()`, `sdc_drop()`, `sdc_end()`, `sdc_begin()` and
+`sd_sdio_read_past()` collect a check's read under way first, core0 blocking,
+since the card takes no other command while it sends. A card swapped for a
+byte-for-byte copy with the same serial number is not detected.
+
+A batch is checked once, before its first block, and stays checked until the
+queue empties. `sdc_recheck()` (`cardCacheRecheck()`) clears that mark with
+blocks queued, after ending a block in flight, so the next block waits for a
+fresh check. The servo log's run end after an open given up calls it before
+its flush (`endGiveUp()` in `src/servo_log.cpp`); nothing calls it during a
+run. A card swapped between a batch's first block and its last therefore
+takes that batch's remaining blocks: a current limitation of every claim
+that queues blocks, the servo log's drain, KST, HITEC and ESC SETTINGS among
+them.
+
+Every loop in which core0 waits on the card calls the driver's wait hook
+(`sdh_wait_hook`), as the driver's own waits do: `sdc_flush()`,
+`sdc_settle()`, a write that waits for room in the queue, and the
+collection of a check's read, at each look; `sdh_read_poll()` too, at each
+look that finds the block not in. KST SERVO and HITEC SERVO set the hook
+to their card stamp during a card phase, so a check's read that times out
+three times, 750 ms and more, keeps the stamp fresh and their jobs see no
+lapse of the heartbeat.
 
 The check at a batch's start does not cover a card swapped after the
 session's backup reached the card, with nothing queued. So when a tool
@@ -188,10 +254,10 @@ backup, mounts the card in the slot again (`cardCacheRecover()`):
   write runs under the no-card rule, the backup in memory
   ([backups.md](backups.md#am32-backup)).
 
-With a batch still queued, the first write's after BACK during its flush or
-a removal of the record, KST's write page waits for it as it waits for the
-backup, `SAVING THE BACKUP TO THE CARD.`, and runs the check as the flush
-ends, so a read that fails on the right card drops no half-written batch.
+With a batch still queued, the first write's after a stall during its
+flush, or a removal of the record, KST's write page waits for it as it waits
+for the backup, `SAVING THE BACKUP TO THE CARD.`, and runs the check as the
+flush ends, so a read that fails on the right card drops no half-written batch.
 The check after a flush runs only for such an earlier batch, not after the
 write's own backup, whose card was read as it was saved. The check costs one
 block read per write, plus the end of the block in flight (`sdc_settle()`),
@@ -224,19 +290,25 @@ A batch that fails:
 
 ## Turning on and off
 
-- `cardCacheBegin()` runs when the KST SERVO, AM32 CONFIG or HITEC SERVO screen's claim
-  is taken. A blackbox log that runs then stops first: during a claim the
-  DShot pump stops, so the log has nothing to record, and its writes, 7.3
-  kB/s or 14.3 blocks a second, would fill the queue behind the backup in
-  under 3 s at 511 ms a block (the owner's decision of 2026-10-27). The stop
-  is recorded with the tool's name (`sdLogStopFor()`), and SD LOG reads
-  `RECORDING STOPPED BY KST SERVO`, `HITEC SERVO` or `AM32 CONFIG` until the
-  next start; a mount keeps it. Without a mounted card the cache stays off
-  for the claim.
+- `cardCacheBegin()` runs when the KST SERVO, ESC SETTINGS or HITEC SERVO
+  screen's claim is taken. A blackbox log that runs then stops first: during
+  a claim the DShot pump stops, so the log has nothing to record, and its
+  writes, 7.3 kB/s or 14.3 blocks a second, would fill the queue behind the
+  backup in under 3 s at 511 ms a block (the owner's decision of 2026-10-27).
+  The stop is recorded with the tool's name (`sdLogStopFor()`), and SD LOG
+  reads `RECORDING STOPPED BY KST SERVO`, `RECORDING STOPPED BY HITEC SERVO`
+  or `RECORDING STOPPED BY ESC SETTINGS` until the next start; a mount keeps
+  it. Without a mounted card the cache stays off for the claim.
+- SERVO TESTER's servo log calls `cardCacheBegin()` at HOLD TO START, with
+  a current sensor declared and a card mounted, and `cardCacheEnd()` once
+  the run is over, after its close; it stops a running blackbox log as
+  `SERVO TESTER`. During the run it writes only while the cache reads Idle,
+  one FatFs call a pass, so its writes never fill the queue
+  ([current-sense.md](current-sense.md#slice-6-as-built)).
 - `cardCacheEnd()` runs when the claim ends: KST's LEAVE, BACK and the loss
   rule, AM32's BACK. It flushes, core0 blocking, recovers a failed flush, and
-  turns the cache off. BACK on KST's unplug page keeps the claim and turns
-  the cache on again.
+  turns the cache off. NEXT SERVO on KST's leave page keeps the claim and
+  turns the cache on again.
 - KST's RETRY MOUNT keeps the cache on with the serial number taken at the
   claim's start. A card swapped before it fails the next batch at the swap
   check, with nothing written, and the recovery that follows takes the new
@@ -259,6 +331,14 @@ recorded in this note.
 
 ## Tests
 
+- `test_sdio.cpp`: `sdh_read_start()` and `sdh_read_poll()` against the
+  simulated card with a data latency: CMD17 out and the receiver armed, one look
+  a poll without time spent, the block in and the receiver disarmed, its CRC
+  checked from the words the simulated DMA leaves swapped, a CRC error with no
+  CMD12 after it and no time spent, no data 1 µs short of `SDH_READ_TIMEOUT_US`
+  and at it, the wait hook at each look, CMD12, the card left ready and the next
+  attempt reading, CMD17 unanswered, an unaligned or out-of-range buffer, a
+  receiver that does not arm, a card not ready.
 - `test_sdio.cpp`: `sdh_write_start()` and `sdh_write_poll()` against the
   simulated card: one block, busy until the card's time, CMD13 after it, a
   CRC token, busy 1 µs short of the limit and at it, the card then marked
@@ -268,24 +348,33 @@ recorded in this note.
 - `test_sd_cache.cpp` (`runSdCacheTests`): the cache over a fake card with a
   busy time per block. The order kept for a sector written twice; a read of a
   queued sector; one swap check per batch; no command while busy; read cache
-  hits, the oldest pushed out, a written sector's entry; a miss that waits
-  for the block in flight; a full queue that flushes until the write fits;
-  two retries that land, three that fail; reads refused while failed, and a
-  miss whose wait ends the batch; `sdc_settle()` ending the block in flight;
-  a write error token; a changed serial number and a check that does not
-  read; refusals with the cache off.
-- `test_kst_ui.cpp`: the claim turns the cache on and stops a running log;
-  no write frame while the flush runs; the page's count; the write after the
-  flush; a failed flush with no write frame and the card mounted again; the
-  next write saving the backup again; the claim's end turning the cache off;
-  BACK during the flush and a SAVE AS whose flush fails, then the backup
-  saved again; a batch failed before a write, recovered; BACK on the unplug
-  page turning the cache on again; another card's serial number before a
-  write, mounted again and the backup saved to it; a batch still queued,
-  the saving page and no write frame until it ends, then the same card with
-  no remount, or another card swapped in meanwhile and the backup saved to
-  it; LOAD after a failed batch, the list read again and nothing loaded
-  until a row is chosen.
+  hits, the oldest pushed out, a written sector's entry; a miss that waits for
+  the block in flight; a full queue that flushes until the write fits; the swap
+  check's read started in one poll and collected in a later one, nothing sent
+  meanwhile, a hit while it reads touching no card, a miss, a settle, a drop, an
+  end and a begin collecting it first; a start the card does not answer, a read
+  that times out and a CRC error each tried 3 times, then failing the batch, two
+  of them and then a read going on, the count new with each batch; a start
+  refused as not ready, an error bit in the status and another serial number
+  failing it at once; the wait hook at every look of a flush, a settle, a drop,
+  an end and a full queue, and KST's card stamp never more than a look old
+  across three timed-out reads; two retries that land, three that fail; reads
+  refused while failed, and a miss whose wait ends the batch; `sdc_settle()`
+  ending the block in flight; a write error token; a changed serial number and a
+  check that does not read; refusals with the cache off.
+- `test_kst_ui.cpp`: the claim turns the cache on and stops a running log; no
+  write frame while the flush runs; the page's count; the write after the flush;
+  a failed flush with no write frame and the card mounted again; the next write
+  saving the backup again; the claim's end turning the cache off; BACK drawn
+  disabled during the flush, the write after it, and a SAVE AS whose flush
+  fails, then the backup saved again; a stall during the flush wait, then a
+  write that sends nothing until its own hold (also in `test_hitec_ui.cpp`); a
+  batch failed before a write, recovered; NEXT SERVO on the leave page turning
+  the cache on again; another card's serial number before a write, mounted again
+  and the backup saved to it; a batch still queued, the saving page and no write
+  frame until it ends, then the same card with no remount, or another card
+  swapped in meanwhile and the backup saved to it; LOAD after a failed batch,
+  the list read again and nothing loaded until a row is chosen.
 - `test_ui.cpp`: the AM32 write refused after a failed flush; another card,
   and a card that does not answer its serial read, before a later write: the
   backup saved again; a serial number unread after the backup, then the

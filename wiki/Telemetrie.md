@@ -23,8 +23,11 @@ eRPM-Frames. Es braucht Unterstützung in der ESC-Firmware (BLHeli_32,
 Bluejay, AM32), und der ESC muss einen Freigabebefehl erhalten. Den sendet die
 Firmware; siehe unten.
 
-Bidirektionales DShot und EDT funktionieren auf der Hardware. Ein Fehler ist
-mit Stand DshotDisplay v2.3 nicht bekannt.
+Bidirektionales DShot und EDT funktionieren auf der Hardware mit dem
+DShot-Treiber von DshotDisplay v2.3 (laut Projektinhaber; kein Fehler bekannt).
+Der DShot-Treiber dieser Firmware stammt aus rcbench und ist in MiniRcBench
+noch nicht auf Hardware gelaufen; rcbench betrieb ihn mit DShot600 an einem
+AM32-ESC.
 
 **KISS-Telemetrie** ist ein optionales drittes Kabel vom Telemetrie-Pad des
 ESC. Ihre Schritte sind 0,01 V und 0,01 A, gegenüber 0,25 V und 1 A bei EDT,
@@ -57,11 +60,11 @@ nennt die Bedingungen.
 ### Die kleine Marke `KISS` / `EDT`
 
 Die Kacheln für Spannung und Strom tragen in ihrer Beschriftungszeile eine
-Marke: cyan `KISS` oder gedämpft `EDT`. `12,25 V` aus EDT heißt: ein Wert
-irgendwo in einem 0,25-V-Schritt. Derselbe Wert aus KISS liegt innerhalb von
-0,01 V. Wechselt eine Marke von `KISS` auf `EDT`, ist das Telemetriekabel
-verstummt und der Wert 25-mal gröber, auch wenn sich die Ziffern nicht
-sichtbar ändern.
+Marke: `KISS` in der Textfarbe oder gedämpft `EDT`. `12,25 V` aus EDT heißt: ein
+Wert irgendwo in einem 0,25-V-Schritt. Derselbe Wert aus KISS liegt innerhalb
+von 0,01 V. Wechselt eine Marke von `KISS` auf `EDT`, ist das Telemetriekabel
+verstummt und der Wert 25-mal gröber, auch wenn sich die Ziffern nicht sichtbar
+ändern.
 
 ---
 
@@ -89,8 +92,8 @@ Eine **verfallene Statuskachel zeigt `--`, nie `OK`**.
 Das macht die Firmware, ohne Schaltfläche.
 
 Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe:
-nach dem Einschalten, nach einer Änderung des ESC-Pins, der DShot-Bitrate,
-von KISS oder des KISS-Pins unter SETTINGS und wenn der AM32-Bildschirm das
+nach dem Einschalten, nach einer Änderung von SIG PIN, DSHOT, KISS TELEM
+oder AUX PIN unter SETTINGS und wenn der AM32-Bildschirm das
 Signalkabel zurückgibt. Sie dauern 10 ms. Jede Antwort wird von der ersten an
 mit EDT-Decodierung gelesen. Ein ESC, der EDT über einen dieser Neustarts
 hinweg eingeschaltet behalten hat, zeigt Spannung und Temperatur sofort und
@@ -109,7 +112,8 @@ gesendet, wenn alles davon zutrifft:
 
 - die Verbindung steht seit 300 ms, der ESC ist also fertig gestartet;
 - der Tester ist entschärft und der Motor steht (eRPM ist null);
-- kein anderer Befehl, etwa BEEP, wird gerade gesendet.
+- kein anderer Befehl, etwa ein Beacon von ESC COMMANDS, wird gerade
+  gesendet, auch nicht das Nullgas danach.
 
 Ein ESC führt einen DShot-Befehl erst nach einer Folge gleicher Frames aus.
 Eine Freigabe zu einem anderen Zeitpunkt ginge verloren.
@@ -132,7 +136,10 @@ Ein ESC mit KISS-Telemetrie sendet auf Anforderung ein 10-Byte-Frame mit
 DShot-Frame eines an, also mit 50 Hz. Das Kabel bringt feinere Spannung und
 Strom sowie die verbrauchten mAh.
 
-**Stand:** funktioniert auf der Hardware (laut Projektinhaber).
+**Stand:** funktioniert auf der Hardware mit dem DShot-Treiber von
+DshotDisplay v2.3 (laut Projektinhaber); ob dieser Bericht das
+RP2350-Touch-LCD-2.8 betrifft, ist nicht festgehalten. Mit dieser Firmware
+nicht auf Hardware getestet.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|
@@ -142,13 +149,13 @@ Die Platine empfängt auf dieser Leitung nur. Der Empfänger ist ein UART
 (Universal Asynchronous Receiver-Transmitter) aus einer PIO-Zustandsmaschine
 (PIO: programmierbare Ein-/Ausgabe), daher **funktionieren beide freien
 GPIOs**. GPIO steht für General Purpose Input/Output, frei
-verwendbarer Pin. Einschalten unter **MENU → SETTINGS → KISS TELEM**, den Pin in
-der Zeile darunter setzen. Der Pin-Schrittschalter überspringt den Pin des
-ESC-Signals.
+verwendbarer Pin. Einschalten unter **MENU → SETTINGS → KISS TELEM**. KISS
+empfängt auf AUX, gesetzt in der Zeile darunter, **AUX PIN**, mit seinem
+J5-Pin unter dem Wert. Ein Schritt von AUX PIN oder SIG PIN tauscht die
+beiden, sodass das KISS-Kabel nie den Pin des ESC-Signals teilt.
 
-**Voreinstellung: aus.** Die Platine hat zwei freie Pins, GP0 und GP1, und
-der ESC belegt einen davon. Beim Einschalten von KISS
-wird der KISS-Pin vom ESC-Pin weg verschoben, falls beide zusammenfallen.
+**Voreinstellung: aus.** Die Platine hat zwei freie Pins, GP0 und GP1: SIG,
+den des ESC, und AUX. Das Einschalten von KISS verschiebt keinen Pin.
 
 > **Spannung.** Die KISS-Spezifikation legt diese Leitung auf 3,6 V. GP0 und
 > GP1 vertragen 5,5 V, solange die Platine eingeschaltet ist, und 3,63 V,
@@ -167,6 +174,6 @@ letzten KISS-Wert nicht.
 oberhalb von 5 % bernsteinfarben.
 
 Eine schlechte Verbindung kommt meist vom Signalkabel: zu lang, ungeschirmt
-oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT KBAUD** unter
+oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT** unter
 **MENU → SETTINGS** auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm
 SETTINGS ist live.

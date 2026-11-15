@@ -10,10 +10,21 @@
 
 #include "ui.h"
 #include "sense.h"
+#include "qmi8658.h"
 #include "ui_am32.h"
+#include "esc_3d.h"
+#include "ui_esc_cmd.h"
+#include "ui_esc_config.h"
+#include "ui_bridge.h"
+#include "ui_tools.h"
+#include "ui_angle.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
+#include "ui_servo_prog.h"
+#include "ui_rx_signals.h"
+#include "ui_sbus.h"
+#include "ui_sbus_out.h"
 #include "ui_menu.h"
 #include "ui_sdlog.h"
 #include "ui_settings.h"
@@ -27,6 +38,7 @@
 #include "esc_task.h"
 #include "esc_merge.h"
 #include "rpm_filter.h"
+#include "kv_est.h"
 #include "sd_log.h"
 #include "usb_msc.h"
 #include "board_desc.h"
@@ -128,10 +140,10 @@ static_assert(Z_BTN_Y1  == GFX_H - 1,       "regions must reach the bottom");
  * that report was short by.
  */
 #define THR_EDGE_SAT  16
-/** @brief How far the HOLD-mode grab handle stands above the track. */
+/** @brief How far the LATCH grab handle stands above the track. */
 #define THR_HANDLE_OVER 3
 static_assert(THR_TRACK_Y - THR_HANDLE_OVER >= Z_THR_Y0,
-              "the HOLD handle is drawn above the throttle band");
+              "the LATCH handle is drawn above the throttle band");
 /**
  * @brief The part of the track that is a position rather than a rail.
  *
@@ -161,8 +173,47 @@ static_assert(THR_EDGE_SAT * 2 < THR_TRACK_W / 2,
 #define BTN_ROW_Y     283   /**< Top of the three main-screen buttons. */
 #define BTN_ROW_H      33   /**< ...and their height. */
 static const UiRect BTN_ARM  = { 6, BTN_ROW_Y, 104, BTN_ROW_H };
-static const UiRect BTN_HOLD = { 116, BTN_ROW_Y, 54, BTN_ROW_H };
+static const UiRect BTN_LATCH = { 116, BTN_ROW_Y, 54, BTN_ROW_H };
 static const UiRect BTN_MENU = { 176, BTN_ROW_Y, 58, BTN_ROW_H };
+
+/**
+ * @defgroup ui_readouts The readouts that open SETTINGS
+ * @brief The pole count and the ceiling, with their tap targets and
+ *        underlines: slice 7 of docs/design/menu-b.md, "The tester", owner
+ *        decision 4 and decisions 11 (the MAX row), 15 a to c, 17, 19 and
+ *        20. A tap on either opens SETTINGS through uiOpenTool(), while
+ *        disarmed and while the pin claim is Free; otherwise they are inert
+ *        and drawn without the underline. The pole
+ *        target lies in the throttle pad and the MAX target over the pad's
+ *        bottom rows and the track's grab band: both act only while those do
+ *        not.
+ * @{
+ */
+#define POLES_TEXT_X  10    /**< `14 POLES`, scale 1, C_TEXT. */
+#define POLES_TEXT_Y  114
+#define POLES_LINE_Y  122   /**< The underline, 1 px, the text's width. */
+#define MAX_TEXT_X    (THR_TRACK_X + 80)
+#define MAX_TEXT_Y    236
+#define MAX_LINE_Y    244
+static constexpr UiRect TGT_POLES = { 4, 106, 72, 22 };
+static constexpr UiRect TGT_MAX   = { 82, 230, 60, 22 };
+/** @brief The widest pole count, MAX_MOTOR_POLES: `28 POLES`. */
+#define POLES_WIDEST  8
+/** @brief The widest ceiling: `MAX 100%`. */
+#define MAX_WIDEST    8
+static_assert(MAX_MOTOR_POLES < 100, "the pole count readout is wider than 8 characters");
+static_assert(POLES_TEXT_X + 6 * POLES_WIDEST - 1 <= TGT_POLES.x + TGT_POLES.w,
+              "the pole count runs out of its target");
+static_assert(POLES_TEXT_X + 6 * POLES_WIDEST - 1 + 4 <= 226 - (6 * 16 - 1),
+              "the pole count runs into SWIPE = THROTTLE");
+static_assert(POLES_LINE_Y >= POLES_TEXT_Y + 8 && POLES_LINE_Y <= Z_RPM_Y1,
+              "the pole count's underline touches its text or leaves the RPM area");
+static_assert(MAX_TEXT_X + 6 * MAX_WIDEST - 1 <= TGT_MAX.x + TGT_MAX.w,
+              "MAX 100% runs out of its target");
+static_assert(MAX_LINE_Y >= MAX_TEXT_Y + 8 && MAX_LINE_Y < THR_TRACK_Y - THR_HANDLE_OVER,
+              "the ceiling's underline touches its text or the track");
+static_assert(TGT_MAX.y + TGT_MAX.h <= BTN_ROW_Y, "the MAX target reaches the buttons");
+/** @} */
 
 // The grab area may not reach the buttons. Written where both numbers are in
 // scope rather than as a comment on either one, because it is a relationship
@@ -177,15 +228,29 @@ static_assert(BTN_ROW_Y + BTN_ROW_H - 1 <= Z_BTN_Y1,
 // state
 // ---------------------------------------------------------------------------
 static bool     s_armed = false;
-static bool     s_hold = false;
+/** @brief LATCH is on: the throttle stays where the finger leaves it. */
+static bool     s_latch = false;
 /** @brief Which level of the navigation owns the panel. */
 enum class Level : uint8_t {
 	Tester,  /**< The tester, the root. */
 	Menu,    /**< MENU. */
-	Tool,    /**< A tool opened from MENU: `s_tool`. */
+	Tool,    /**< A tool, `s_tool`, opened from MENU or a readout: `s_toolFrom`. */
 };
 static Level           s_level = Level::Tester;
 static const UiScreen *s_tool = nullptr;  /**< The open tool at Level::Tool. */
+/**
+ * @brief Where the open tool was opened from, and where its BACK returns:
+ *        Level::Menu, or Level::Tester for SETTINGS opened from a readout
+ *        (docs/design/menu-b.md, decision 17).
+ */
+static Level           s_toolFrom = Level::Menu;
+/**
+ * @brief A tool the open tool chose on this frame (uiChooseTool()), opened
+ *        after its tick; null for none.
+ */
+static const UiScreen *s_chosen = nullptr;
+/** @brief The entry point the chosen tool opens with; null: its own `enter`. */
+static void          (*s_chosenEnter)() = nullptr;
 static uint16_t s_throttle = 0;
 
 // Pole count and throttle ceiling live in the persisted settings rather than in
@@ -206,7 +271,7 @@ static bool     s_armLive = false;
 static uint32_t s_zeroSince = 0;
 static uint32_t s_lastTouchMs = 0;
 static bool     s_dragging = false;
-// anchor for HOLD-mode relative dragging on the gauge
+// anchor for LATCH's relative dragging on the gauge
 static int16_t  s_dragAnchorX = 0;
 static uint16_t s_dragAnchorThrottle = 0;
 
@@ -267,7 +332,7 @@ static bool s_touchLost = false;
 static bool touchLostNow() {
 	if (!touchAnswered()) return true;
 	return touchFailedReads() >= TOUCH_LOST_READS &&
-	       (uint32_t)(millis() - touchLastAnswerMs()) >= TOUCH_LOST_MS;
+	       (uint32_t)(millis() - touchAnsweredMs()) >= TOUCH_LOST_MS;
 }
 /** @brief The splash shows TOUCH CONTROLLER NOT FOUND. */
 static bool s_splashNoTouch = false;
@@ -275,6 +340,12 @@ static bool s_splashNoTouch = false;
 static BoardCell s_boardCell = BoardCell::Ok;
 /** @brief Filtered eRPM, stepped once per uiTick() and read by drawRpm(). */
 static uint32_t  s_erpmShown = 0;
+/**
+ * @brief How long the throttle has stood still, for the kV estimate.
+ *        Stepped once per tester frame with the throttle sent. @see kv_est.h
+ */
+static KvSettle  s_kvSettle;
+static bool      s_kvErpmHeld;   ///< kvEstView()'s eRPM check, held
 static float s_batteryV = 0.0f;
 
 /**
@@ -285,15 +356,17 @@ static float s_batteryV = 0.0f;
  * would otherwise consume the change and leave the others stale.
  */
 static struct {
-	int  armed, btnArmed, holdOn, armProgress;
+	int  armed, btnArmed, latchOn, armProgress;
 	int  battKey, touchLost;
 	uint32_t rpm, erpm;
 	int  linkAlive, rpmArmed;
+	uint32_t rpvKey, kvKey;
 	int  volts100, amps100, tempC, stress, status, rate, errPct, edt;
 	int  kbaud, pumpErr;
 	int  voltsSrc, ampsSrc, mah;
-	int  throttleRaw, maxPct, thrArmed, thrHold;
+	int  throttleRaw, maxPct, thrArmed, thrLatch;
 	int  config, poles;
+	int  rpmReadout, thrReadout;
 	int  cmdFlash, edtActive, dirty, btnPress, idleLeft, padLive;
 	int  thrCard, btnCard;
 	int  logState, logFile, logDrops;
@@ -333,9 +406,11 @@ static void drawLabelled(int x, int y, int w, int h, const char *label,
 /**
  * @brief Right-aligned "KISS" / "EDT" tag on a tile's label row.
  *
- * Cyan for KISS, dim for EDT: the point is to make the *fine* source obvious at
- * a glance, so that a readout quietly dropping back to 0.25 V steps is visible
- * rather than something you notice later in a log.
+ * Text colour for KISS, dim for EDT: the point is to make the *fine* source
+ * obvious at a glance, so that a readout quietly dropping back to 0.25 V steps
+ * is visible rather than something you notice later in a log. A source tag is
+ * neutral (docs/design/menu-b.md, decision 11), so the two differ in
+ * brightness, not in hue.
  *
  * @param xRight Right edge of the tile.
  * @param y      Tile top.
@@ -345,7 +420,7 @@ static void drawSourceTag(int xRight, int y, EscSource src) {
 	if (src == EscSource::None) return;
 	const char *s = escSourceLabel(src);
 	gfxText(xRight - 6 - gfxTextW(s, 1), y + 4, s,
-	        src == EscSource::Kiss ? C_CYAN : C_DIM, 1);
+	        src == EscSource::Kiss ? C_TEXT : C_DIM, 1);
 }
 
 /**
@@ -384,6 +459,20 @@ static void relativeThrottle(int nowPos, int16_t *anchorPos,
 /** @brief True if an eRPM frame has arrived recently. @see ESC_LINK_STALE_MS */
 static bool telemetryAlive() {
 	return escFieldFresh(s_tel.lastRpmMs, millis(), ESC_LINK_STALE_MS);
+}
+
+/**
+ * @brief The readouts open SETTINGS: disarmed, and SETTINGS not refused for
+ *        the pin claim. Drawn underlined exactly then. @see ui_readouts
+ */
+static bool readoutsAct() { return !s_armed && !uiPinsRefuse(&UI_SETTINGS); }
+
+/** @brief The pole count is drawn: the 3D note does not take its row. */
+static bool polesShown() { return !esc3dNote(); }
+
+/** @brief A 1 px underline in the text colour under @p text at (x, y). */
+static void underline(int x, int y, const char *text) {
+	gfxRect(x, y, gfxTextW(text, 1), 1, C_TEXT);
 }
 
 /**
@@ -449,10 +538,32 @@ BoardCell uiBoardCell(float volts, BoardCell prev) {
 	return now;
 }
 
+BoardCell uiBoardCellNow() { return s_boardCell; }
+
 void uiBoardVoltText(float volts, char *buf, size_t n) {
 	int cv = boardCentivolts(volts);
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
 }
+
+/** @brief The DShot rate's widest text, scale 1 at x 104, y 3. */
+#define STATUS_RATE_WIDEST "DSHOT1200"
+#define STATUS_RATE_Y      3
+static_assert(104 + (6 * (int)(sizeof(STATUS_RATE_WIDEST) - 1) - 1) + 4 <=
+                  240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
+              "the DShot rate runs into the voltage");
+/**
+ * @brief The top of `IDLE ns`, scale 2, right-aligned to x 236. `IDLE 5s`
+ *        starts at x 154, left of where `DSHOT1200` ends, x 156, so it sits
+ *        below the rate. The rate's rows are y 3 to 9, and y 10 in high
+ *        contrast, whose glyphs are one row taller: IDLE starts at y 11, the
+ *        first row below the rate in either theme, so the two share no
+ *        pixel, and ends inside the status bar, at y 25 in high contrast.
+ */
+#define STATUS_IDLE_Y      11
+static_assert(STATUS_IDLE_Y >= STATUS_RATE_Y + 7 + 1,
+              "IDLE starts on a row of the DShot rate");
+static_assert(STATUS_IDLE_Y + 7 * 2 + 1 <= Z_STATUS_Y1 + 1,
+              "IDLE leaves the status bar");
 
 /**
  * @brief The amber chip behind `SDERR`: the text at x 104, y 14 like the
@@ -533,10 +644,12 @@ static void drawStatusBar() {
 	// nothing is on the wire at any rate. @see EscTelemetry::initError
 	char buf[24];
 	if (pumpErr) {
-		gfxText(104, 3, "DSERR", C_AMBER, 1);
+		gfxText(104, STATUS_RATE_Y, "DSERR", C_AMBER, 1);
 	} else {
-		snprintf(buf, sizeof(buf), "DS%d", kbaud);
-		gfxText(104, 3, buf, escEdtRequested() ? C_CYAN : C_DIM, 1);
+		// The rate as the protocol names it, DSHOT600; DSHOT1200 at its
+		// widest, 9 characters, x 104 to 156.
+		snprintf(buf, sizeof(buf), "DSHOT%d", kbaud);
+		gfxText(104, STATUS_RATE_Y, buf, escEdtRequested() ? C_TEXT : C_DIM, 1);
 	}
 
 	// Recording state, under the DShot rate. Only worth a glance -- the detail
@@ -565,7 +678,7 @@ static void drawStatusBar() {
 		// five seconds this is up it is the more urgent of the two, and there is
 		// not room for both at a legible size.
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
-		gfxText(GFX_W - 4 - gfxTextW(buf, 2), 7, buf, C_AMBER, 2);
+		gfxText(GFX_W - 4 - gfxTextW(buf, 2), STATUS_IDLE_Y, buf, C_AMBER, 2);
 	} else {
 		uint16_t vcol = s_boardCell == BoardCell::Critical ? C_RED
 		              : s_boardCell == BoardCell::Low      ? C_AMBER : C_TEXT;
@@ -574,6 +687,35 @@ static void drawStatusBar() {
 		gfxText(STATUS_BOARD_X, STATUS_BOARD_Y, STATUS_BOARD_TEXT, C_DIM, 1);
 	}
 }
+
+/** @brief The RPM area's bottom row: pole count and swipe hint, or the 3D note. */
+#define TESTER_NOTE_Y 114
+/** @brief Where the 3D note starts: the pole count's x. */
+#define TESTER_NOTE_X 10
+static_assert(TESTER_NOTE_X + 6 * (int)(sizeof(ESC_3D_TESTER_NOTE) - 1) - 1 <= 226,
+              "the 3D note runs past the RPM label's right edge, x 226");
+static_assert(TESTER_NOTE_Y + 8 <= Z_RPM_Y1, "the 3D note leaves the RPM area");
+static_assert(TESTER_NOTE_X == POLES_TEXT_X && TESTER_NOTE_Y == POLES_TEXT_Y,
+              "the 3D note takes the pole count's place");
+
+/**
+ * @defgroup ui_kv_est RPM/V and the kV estimate on the tester
+ * @brief Decision 6 of docs/design/esc-commands.md: `RPM/V` on the ERPM line
+ *        and `KV EST` in place of the pole count while armed. @see kv_est.h
+ * @{
+ */
+/** @brief The ERPM line's x and y; `NO TELEMETRY` takes it alone. */
+#define ERPM_LINE_X   10
+#define ERPM_LINE_Y   102
+/** @brief Where the big readout's `RPM` label starts, scale 2: x 192. */
+#define RPM_LABEL_X   (226 - (6 * 3 - 1) * 2)
+static_assert(ERPM_LINE_X + 6 * KV_EST_ERPM_LINE_WIDEST - 1 + 4 <= RPM_LABEL_X,
+              "ERPM 60000000  RPM/V 99999 runs into the RPM label");
+static_assert(POLES_TEXT_X + 6 * KV_EST_TEXT_WIDEST - 1 + 4 <= 226 - (6 * 16 - 1),
+              "KV EST 99999 runs into SWIPE = THROTTLE");
+static_assert(sizeof(KV_EST_TEXT_UNKNOWN) - 1 <= KV_EST_TEXT_WIDEST,
+              "KV EST -- is wider than the widest estimate");
+/** @} */
 
 /** @brief Big seven-segment RPM readout, eRPM line and the pad affordance. */
 static void drawRpm() {
@@ -584,11 +726,44 @@ static void drawRpm() {
 	uint32_t erpm = alive ? s_erpmShown : 0;
 	uint32_t rpm  = (alive && s_poles >= 2) ? erpm / (s_poles / 2) : 0;
 	if (rpm > 99999) rpm = 99999;
+	// ESC SETTINGS or ESC COMMANDS in this power-up left the ESC in 3D mode.
+	// It changes only on those two tools, and the tester repaints whole when
+	// it opens, so it is not part of the key below. @see esc3dNote()
+	bool esc3d = esc3dNote();
+
+	int readout = readoutsAct() ? 1 : 0;
+
+	// RPM/V and the kV estimate, from the same filtered eRPM and the voltage
+	// the VOLTAGE tile shows: KISS where fresh, EDT otherwise. @see kv_est.h
+	EscReading r;
+	escMerge(&s_tel, millis(), KISS_STALE_MS, EDT_STALE_MS, &r);
+	KvEstIn kin;
+	kin.armed = s_armed;
+	kin.alive = alive;
+	kin.erpm = erpm;
+	kin.erpmRaw = s_tel.erpm;
+	kin.poles = s_poles;
+	kin.voltsFresh = r.voltsFrom != EscSource::None;
+	kin.volts100 = (int32_t)(r.volts * 100.0f + 0.5f);
+	kin.t = s_throttle;
+	kin.settled = s_kvSettle.settled;   // stepped with s_throttle this frame
+	kin.esc3d = esc3d;
+	kin.erpmHeld = s_kvErpmHeld;
+	const KvEstView kv = kvEstView(&kin);
+	s_kvErpmHeld = kv.erpmHeld;
+	// One key per field: the figure, or past KV_EST_MAX the state that has none.
+	const uint32_t rpvKey = kv.rpv == KvEstShow::Value ? kv.rpvValue : KV_EST_MAX + 1 + (uint32_t)kv.rpv;
+	const uint32_t kvKey = kv.kv == KvEstShow::Value ? kv.kvValue : KV_EST_MAX + 1 + (uint32_t)kv.kv;
 
 	if (s_shown.rpm == rpm && s_shown.erpm == erpm &&
 	    s_shown.linkAlive == (int)alive && s_shown.rpmArmed == (int)s_armed &&
-	    s_shown.padLive == (int)s_padEngaged && s_shown.touchLost == (int)s_touchLost)
+	    s_shown.padLive == (int)s_padEngaged && s_shown.rpmReadout == readout &&
+	    s_shown.rpvKey == rpvKey && s_shown.kvKey == kvKey &&
+	    s_shown.touchLost == (int)s_touchLost)
 		return;
+	s_shown.rpvKey = rpvKey;
+	s_shown.kvKey = kvKey;
+	s_shown.rpmReadout = readout;
 	s_shown.padLive = s_padEngaged;
 	s_shown.touchLost = s_touchLost;
 	s_shown.rpm = rpm;
@@ -603,13 +778,35 @@ static void drawRpm() {
 
 	gfxText(226 - gfxTextW("RPM", 2), 100, "RPM", C_DIM, 2);
 
+	// The ERPM line, with RPM/V on it while armed (decision 6).
 	char buf[32];
-	if (alive) snprintf(buf, sizeof(buf), "ERPM %lu", (unsigned long)erpm);
+	if (alive) kvEstErpmLine(buf, sizeof(buf), erpm, s_armed, &kv);
 	else       snprintf(buf, sizeof(buf), "NO TELEMETRY");
-	gfxText(10, 102, buf, alive ? C_DIM : C_AMBER, 1);
+	gfxText(ERPM_LINE_X, ERPM_LINE_Y, buf, alive ? C_DIM : C_AMBER, 1);
 
-	snprintf(buf, sizeof(buf), "%dP", s_poles);
-	gfxText(10, 114, buf, C_DIM, 1);
+	// The bottom row. A 3D-mode ESC's note takes all of it, armed or not,
+	// while the pad is not engaged: the pole count and the swipe hint give
+	// way, the ERPM line above, and NO TELEMETRY on it, stay. While a drag is
+	// engaged SWIPE ACTIVE takes the row alone, since it is the only sign the
+	// drag took hold (below); the note returns on release. A touch that does
+	// not answer takes the row from the note too, since nothing on the tester
+	// works until it answers; the note returns with the touch.
+	if (esc3d && !s_padEngaged && !s_touchLost) {
+		gfxText(TESTER_NOTE_X, TESTER_NOTE_Y, ESC_3D_TESTER_NOTE, C_AMBER, 1);
+		return;
+	}
+
+	// The pole count, a readout that opens SETTINGS: underlined while a tap
+	// on it acts. @see ui_readouts. While armed the kV estimate takes its
+	// place until the disarm (decision 6); the pole count is inert then.
+	if (!esc3d && s_armed) {
+		kvEstText(buf, sizeof(buf), &kv);
+		gfxText(POLES_TEXT_X, POLES_TEXT_Y, buf, C_TEXT, 1);
+	} else if (!esc3d) {
+		snprintf(buf, sizeof(buf), UI_TESTER_POLES_FMT, s_poles);
+		gfxText(POLES_TEXT_X, POLES_TEXT_Y, buf, C_TEXT, 1);
+		if (readout) underline(POLES_TEXT_X, POLES_LINE_Y, buf);
+	}
 
 	// Tell the user this whole region is a throttle pad -- a relative control
 	// with no visible handle is invisible otherwise.
@@ -621,8 +818,8 @@ static void drawRpm() {
 	// a touch, and NO TELEMETRY on the line above keeps its own place.
 	const char *hint = s_touchLost  ? UI_TOUCH_LOST_TEXT
 	                 : s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
-	gfxText(226 - gfxTextW(hint, 1), 114, hint,
-	        s_touchLost ? C_AMBER : s_padEngaged ? C_LIME : s_armed ? C_CYAN : C_GRID, 1);
+	gfxText(226 - gfxTextW(hint, 1), TESTER_NOTE_Y, hint,
+	        s_touchLost ? C_AMBER : s_padEngaged ? C_LIME : s_armed ? C_TEXT : C_GRID, 1);
 }
 
 /** @brief Six EDT tiles: voltage, current, temperature, stress, status, link. */
@@ -716,28 +913,33 @@ static void drawTelemetry() {
 	        s_tel.errPercent > 5 ? C_AMBER : C_DIM, 1);
 }
 
-/** @brief Throttle gauge, ceiling caption and the HOLD-mode grab handle. */
+/** @brief Throttle gauge, ceiling readout and LATCH's grab handle. */
 static void drawThrottle() {
 	int pct = (int)((uint32_t)s_throttle * 100 / 2000);
 	int maxPct = (int)((uint32_t)s_maxThrottle * 100 / 2000);
 	int card = mscHoldsCard(mscGetState()) ? 1 : 0;
+	int readout = readoutsAct() ? 1 : 0;
 
 	if (s_shown.throttleRaw == (int)s_throttle && s_shown.maxPct == maxPct &&
-	    s_shown.thrArmed == (int)s_armed && s_shown.thrHold == (int)s_hold &&
-	    s_shown.thrCard == card)
+	    s_shown.thrArmed == (int)s_armed && s_shown.thrLatch == (int)s_latch &&
+	    s_shown.thrCard == card && s_shown.thrReadout == readout)
 		return;
+	s_shown.thrReadout = readout;
 	s_shown.thrCard = card;
 	s_shown.throttleRaw = s_throttle;
 	s_shown.maxPct = maxPct;
 	s_shown.thrArmed = s_armed;
-	s_shown.thrHold = s_hold;
+	s_shown.thrLatch = s_latch;
 
 	gfxRect(0, Z_THR_Y0, GFX_W, Z_THR_Y1 - Z_THR_Y0 + 1, C_BG);
 
 	char buf[24];
-	gfxText(THR_TRACK_X, 236, s_hold ? "THROTTLE REL" : "THROTTLE", C_DIM, 1);
+	gfxText(THR_TRACK_X, MAX_TEXT_Y, s_latch ? UI_TESTER_LATCHED_TEXT : "THROTTLE", C_DIM, 1);
+	// The ceiling, a readout that opens SETTINGS: underlined while a tap on
+	// it acts. @see ui_readouts
 	snprintf(buf, sizeof(buf), "MAX %d%%", maxPct);
-	gfxText(THR_TRACK_X + 80, 236, buf, C_AMBER, 1);
+	gfxText(MAX_TEXT_X, MAX_TEXT_Y, buf, C_TEXT, 1);
+	if (readout) underline(MAX_TEXT_X, MAX_LINE_Y, buf);
 
 	// The full width of the track *is* the ceiling, so where you put your
 	// finger is where the bar ends. The percentage is still of the real
@@ -755,9 +957,9 @@ static void drawThrottle() {
 		gfxRoundRect(THR_TRACK_X, THR_TRACK_Y, fillW, THR_TRACK_H, 5,
 		             s_armed ? C_LIME : C_GRID);
 	}
-	// In HOLD mode the bar is a relative control, so give it a grab handle to
+	// With LATCH on the bar is a relative control, so give it a grab handle to
 	// say so -- it is a thing you push, not a place you tap.
-	if (s_armed && s_hold) {
+	if (s_armed && s_latch) {
 		int hx = THR_TRACK_X + fillW - 3;
 		if (hx < THR_TRACK_X) hx = THR_TRACK_X;
 		if (hx > THR_TRACK_X + THR_TRACK_W - 6) hx = THR_TRACK_X + THR_TRACK_W - 6;
@@ -782,23 +984,23 @@ static void drawThrottle() {
 static_assert(8 + (6 * (int)(sizeof(UI_TESTER_CARD_TEXT) - 1) - 1) + 8 <= THR_TRACK_W,
               "the card text runs off the throttle track");
 
-/** @brief ARM/DISARM, HOLD and MENU buttons. */
+/** @brief ARM/DISARM, LATCH and MENU buttons. */
 static void drawButtons() {
 	// The pressed state is part of the key, or a button would light up under a
 	// finger and stay lit until something else happened to invalidate the row.
 	int pressKey = (pressing(BTN_ARM, s_touch) ? 1 : 0) |
-	               (pressing(BTN_HOLD, s_touch) ? 2 : 0) |
+	               (pressing(BTN_LATCH, s_touch) ? 2 : 0) |
 	               (pressing(BTN_MENU, s_touch) ? 4 : 0);
 	// ARM is gated on the card in handleMainTouch() and in the control table;
 	// it is drawn on the same expression. @see ui_widgets.h
 	// Drawn disabled, too, while a touch that does not answer refuses arming.
 	int cardFree = mscHoldsCard(mscGetState()) || s_touchLost ? 0 : 1;
-	if (s_shown.holdOn == (int)s_hold && s_shown.btnArmed == (int)s_armed &&
+	if (s_shown.latchOn == (int)s_latch && s_shown.btnArmed == (int)s_armed &&
 	    s_shown.config == 0 && s_shown.btnPress == pressKey && s_shown.btnCard == cardFree)
 		return;
 	s_shown.btnCard = cardFree;
 	s_shown.btnPress = pressKey;
-	s_shown.holdOn = s_hold;
+	s_shown.latchOn = s_latch;
 	s_shown.btnArmed = s_armed;
 	s_shown.config = 0;
 
@@ -809,48 +1011,77 @@ static void drawButtons() {
 	uiButton(BTN_ARM, s_armed ? "DISARM" : "HOLD TO ARM",
 	        s_armed ? C_RED : C_PANEL, s_armed ? C_ONACCENT : C_TEXT,
 	        s_armed ? 2 : 1, cardFree && pressing(BTN_ARM, s_touch), cardFree != 0);
-	uiButton(BTN_HOLD, "HOLD", s_hold ? C_BLUE : C_PANEL,
-	        s_hold ? C_ONACCENT : C_DIM, 1, pressing(BTN_HOLD, s_touch));
+	uiButton(BTN_LATCH, "LATCH", s_latch ? C_BLUE : C_PANEL,
+	        s_latch ? C_ONACCENT : C_DIM, 1, pressing(BTN_LATCH, s_touch));
 	uiButton(BTN_MENU, "MENU", C_PANEL, C_DIM, 1, pressing(BTN_MENU, s_touch));
 }
 
 /** @} */
 
 /**
- * @brief Disarm the tester: throttle 0, HOLD off, the ESC told, the panel
- *        dipped. The path of DISARM, the idle interlock and a touch that
- *        does not answer.
+ * @brief The disarm every way off the tester runs first: disarmed, the
+ *        throttle zero, LATCH off.
  */
 static void testerDisarm() {
-	s_armed = false;
-	s_throttle = 0;
-	s_hold = false;
-	escSetArmed(false);
-	backlightDip();
-	invalidateAll();
-}
-
-/**
- * @brief The one route from the tester to MENU, and so to every tool: it
- *        disarms, zeroes the throttle and turns HOLD off.
- */
-static void uiOpenMenu() {
 	bool wasArmed = s_armed;
 	s_armed = false;
 	s_throttle = 0;
-	s_hold = false;
+	s_latch = false;
 	escSetArmed(false);
 	if (wasArmed) backlightDip();
+}
+
+/**
+ * @brief The disarm that stays on the tester: testerDisarm() and the frame
+ *        redrawn. The path of DISARM, the idle interlock and a touch that
+ *        does not answer.
+ */
+static void testerStop() {
+	testerDisarm();
+	invalidateAll();
+}
+
+/** @brief The route from the tester to MENU: it disarms first. */
+static void uiOpenMenu() {
+	testerDisarm();
 	s_level = Level::Menu;
 	uiMenuEnter();
 	gfxFill(C_BG);
 }
 
 /**
+ * @brief The one route from a screen to a tool (docs/design/menu-b.md,
+ *        decision 19): from MENU's rows, from the tester's readouts and from
+ *        PROGRAMMER's entries. It runs uiOpenMenu()'s disarm, then opens the
+ *        tool, whose BACK returns to @p from. The caller refuses a tool the
+ *        pin claim refuses first: MENU for its rows, readoutsAct() for the
+ *        readouts; PROGRAMMER opens only while the claim is Free, and claims
+ *        nothing.
+ * @param s     The tool.
+ * @param from  Level::Menu or Level::Tester.
+ * @param enter The entry point to run in place of `s->enter`, for
+ *              PROGRAMMER's Hitec entries, which set the family; null runs
+ *              `s->enter`.
+ */
+static void uiOpenTool(const UiScreen *s, Level from, void (*enter)() = nullptr) {
+	testerDisarm();
+	s_level = Level::Tool;
+	s_tool = s;
+	s_toolFrom = from;
+	gfxFill(C_BG);
+	(enter ? enter : s->enter)();
+}
+
+void uiChooseTool(const UiScreen *s, void (*enter)()) {
+	s_chosen = s;
+	s_chosenEnter = enter;
+}
+
+/**
  * @brief Main-screen input: throttle gauge, throttle pad and the buttons.
  *
  * Two throttle surfaces feed the same value. The gauge is absolute in spring
- * mode and relative in HOLD mode; the pad is always relative, because a large
+ * mode and relative with LATCH on; the pad is always relative, because a large
  * region with no positional meaning must not move the motor on a bare tap.
  */
 static void handleMainTouch() {
@@ -881,8 +1112,8 @@ static void handleMainTouch() {
 	}
 
 	if (s_dragging && s_armed) {
-		if (s_hold) {
-			// RELATIVE. The throttle is latched in HOLD mode, so an absolute
+		if (s_latch) {
+			// RELATIVE. The throttle is latched with LATCH on, so an absolute
 			// slider would make the motor jump to wherever the finger landed.
 			relativeThrottle(x, &s_dragAnchorX, &s_dragAnchorThrottle,
 			                 THR_TRACK_W, HOLD_DRAG_SENSITIVITY_PCT);
@@ -913,7 +1144,7 @@ static void handleMainTouch() {
 			relativeThrottle(-y, &s_padAnchorPos, &s_padAnchorThrottle,
 			                 PAD_H, PAD_DRAG_SENSITIVITY_PCT);
 		}
-	} else if (!s_hold) {
+	} else if (!s_latch) {
 		s_throttle = 0;
 	}
 	// Unconditional backstop. Also unreachable today: every drag surface above
@@ -945,7 +1176,7 @@ static void handleMainTouch() {
 			// does not wait for release: everything else here can afford the
 			// cancel gesture, and the button whose job is "stop the motor now"
 			// cannot.
-			if (s_touch.pressed) testerDisarm();
+			if (s_touch.pressed) testerStop();
 		} else if (!s_armLive || s_touchLost) {
 			// A touch that does not answer refuses arming. The driver reports
 			// the finger up after two failed reads, before it counts as lost;
@@ -983,11 +1214,17 @@ static void handleMainTouch() {
 		s_armPressing = false;
 	}
 
-	if (tapped(BTN_HOLD, s_touch)) {
-		s_hold = !s_hold;
-		if (!s_hold) s_throttle = 0;
+	if (tapped(BTN_LATCH, s_touch)) {
+		s_latch = !s_latch;
+		if (!s_latch) s_throttle = 0;
 	} else if (tapped(BTN_MENU, s_touch)) {
 		uiOpenMenu();
+	} else if (readoutsAct() &&
+	           ((polesShown() && tapped(TGT_POLES, s_touch)) || tapped(TGT_MAX, s_touch))) {
+		// A readout: SETTINGS, and BACK there returns here. Inert while
+		// armed, where the pad and the track take the press, and while the
+		// claim refuses SETTINGS. @see ui_readouts
+		uiOpenTool(&UI_SETTINGS, Level::Tester);
 	}
 }
 
@@ -1004,12 +1241,16 @@ static uint8_t testerControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	bool armOk = !mscHoldsCard(mscGetState()) && !s_touchLost;
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, armOk);
-	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Hold), BTN_HOLD, true);
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Latch), BTN_LATCH, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Throttle),
 	             UiRect{ THR_TRACK_X, THR_TRACK_Y, THR_TRACK_W, THR_TRACK_H }, s_armed);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Pad),
 	             UiRect{ 0, PAD_Y0, GFX_W, PAD_H }, s_armed);
+	// Over the pad and the track's grab band, acting only while those do not.
+	bool live = readoutsAct();
+	if (polesShown()) uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Poles), TGT_POLES, live);
+	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Max), TGT_MAX, live);
 	return n;
 }
 
@@ -1028,7 +1269,15 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::Servo,    &UI_SERVO },
 	{ UiScreenId::Kst,      &UI_KST },
 	{ UiScreenId::Hitec,    &UI_HITEC },
-	{ UiScreenId::Beep,     &UI_BEEP },
+	{ UiScreenId::EscCmd,   &UI_ESC_CMD },
+	{ UiScreenId::ServoProg, &UI_SERVO_PROG },
+	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
+	{ UiScreenId::Sbus,      &UI_SBUS },
+	{ UiScreenId::SbusOut,   &UI_SBUS_OUT },
+	{ UiScreenId::EscConfig, &UI_ESC_CONFIG },
+	{ UiScreenId::Bridge,    &UI_BRIDGE },
+	{ UiScreenId::Tools,     &UI_TOOLS },
+	{ UiScreenId::Angle,     &UI_ANGLE },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */
 static constexpr bool screensComplete() {
@@ -1071,10 +1320,14 @@ void uiDrawSplash() {
 	char pin[40];
 	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
 	gfxTextCenter(288, pin, C_AMBER, 1);
-	// Settings a firmware of another layout version wrote: discarded whole at
-	// load, every setting at its default (settings.h). Two lines at y 40 and
-	// 52, above the name; y 64 to 96 stays free for another note.
-	if (settingsResetByUpdate()) {
+	// Settings a firmware of another layout version wrote: carried over from
+	// versions 2 to 5, else discarded whole at load, every setting at its
+	// default (settings.h). Two lines at y 40 and 52, above the name; y 64 to
+	// 96 stays free for another note.
+	if (settingsCarriedOver()) {
+		gfxTextCenter(UI_SPLASH_RESET_Y, UI_SPLASH_CARRIED_TEXT, C_AMBER, 1);
+		gfxTextCenter(UI_SPLASH_RESET_Y + 12, UI_SPLASH_CARRIED_TEXT2, C_AMBER, 1);
+	} else if (settingsResetByUpdate()) {
 		gfxTextCenter(UI_SPLASH_RESET_Y, "SETTINGS RESET BY UPDATE", C_AMBER, 1);
 		gfxTextCenter(UI_SPLASH_RESET_Y + 12, "CHECK MENU > SETTINGS", C_AMBER, 1);
 	}
@@ -1120,8 +1373,11 @@ void uiInit() {
 	// on a screen the test did not think it was looking at.
 	s_level = Level::Tester;
 	s_tool = nullptr;
+	s_toolFrom = Level::Menu;
+	s_chosen = nullptr;
+	s_chosenEnter = nullptr;
 	s_armed = false;
-	s_hold = false;
+	s_latch = false;
 	s_throttle = 0;
 	s_armPressing = false;
 	s_armLive = false;
@@ -1136,6 +1392,8 @@ void uiInit() {
 	s_touchLost = false;
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
+	memset(&s_kvSettle, 0, sizeof(s_kvSettle));
+	s_kvErpmHeld = false;
 
 	invalidateAll();
 
@@ -1165,6 +1423,9 @@ void uiTick() {
 	// The current sensor shares the touch controller's bus, on this core:
 	// after the touch read, so the touch read is never delayed by it.
 	senseTick(millis());
+	// The IMU is the bus's third client, after the sensor; it sends nothing
+	// until the angle meter opens it.
+	qmi8658Tick(millis());
 
 	// battery, lightly smoothed
 	adc_select_input(g_board->batAdcChan);
@@ -1195,14 +1456,22 @@ void uiTick() {
 	// SETTINGS can change the pin the pump drives and the palette everything
 	// is rendered in, so leaving any tool invalidates every cached region: a
 	// theme swap is invisible to caches that only remember values. A tool
-	// returns false once it has left, and BACK takes every tool to MENU.
+	// returns false once it has left, and BACK takes it to where it was
+	// opened from: MENU, or the tester for SETTINGS opened from a readout.
+	// A tool chosen on PROGRAMMER opens after the chooser's tick, with
+	// MENU as its origin, so its BACK and RESTART DSHOT return to MENU.
 	if (s_level == Level::Tool) {
 		if (!s_tool->tick(&s_touch)) {
-			s_level = Level::Menu;
+			s_chosen = nullptr;
+			s_level = s_toolFrom == Level::Tester ? Level::Tester : Level::Menu;
 			s_tool = nullptr;
-			uiMenuEnter();
+			if (s_level == Level::Menu) uiMenuEnter();
 			invalidateAll();
 			gfxFill(C_BG);
+		} else if (s_chosen) {
+			const UiScreen *c = s_chosen;
+			s_chosen = nullptr;
+			uiOpenTool(c, Level::Menu, s_chosenEnter);
 		}
 		st7789FlushDirty();
 		return;
@@ -1231,10 +1500,7 @@ void uiTick() {
 			invalidateAll();
 			gfxFill(C_BG);
 		} else if (r == UiMenuResult::Open) {
-			s_level = Level::Tool;
-			s_tool = open;
-			gfxFill(C_BG);
-			open->enter();
+			uiOpenTool(open, Level::Menu);
 		}
 	} else {
 		handleMainTouch();
@@ -1242,19 +1508,26 @@ void uiTick() {
 		// idle auto-disarm
 #if IDLE_DISARM_MS > 0
 		if (s_armed && (uint32_t)(millis() - s_lastTouchMs) > IDLE_DISARM_MS)
-			testerDisarm();
+			testerStop();
 #endif
-		// A touch that does not answer cannot press DISARM: with HOLD on the
+		// A touch that does not answer cannot press DISARM: with LATCH on the
 		// throttle would stand until the idle interlock, 30 s on.
-		if (s_armed && s_touchLost) testerDisarm();
+		if (s_armed && s_touchLost) testerStop();
 
 		escSetThrottle(s_throttle);
+		// The throttle as sent on this frame, after every handler and the
+		// idle disarm changed it: the kV estimate's settle counts from here.
+		kvSettleStep(&s_kvSettle, s_throttle, millis());
 
-		drawStatusBar();
-		drawRpm();
-		drawTelemetry();
-		drawThrottle();
-		drawButtons();
+		// MENU and a readout leave the tester from handleMainTouch(), over a
+		// cleared frame: the tester is not painted back over it.
+		if (s_level == Level::Tester) {
+			drawStatusBar();
+			drawRpm();
+			drawTelemetry();
+			drawThrottle();
+			drawButtons();
+		}
 	}
 
 	st7789FlushDirty();

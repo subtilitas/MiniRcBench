@@ -35,3 +35,14 @@ uint8_t fakeKstLinePin();
 
 /** @brief time_us_32() at the last close of an open line. */
 uint32_t fakeKstLineClosedUs();
+
+/**
+ * @brief Each transaction started from now on stays on the wire @p us
+ *        longer than the simulator's frame and window, so a test can land a
+ *        cut while one is out; 0, the default after fakeKstLineReset(), for
+ *        none.
+ */
+void fakeKstFrameHold(uint32_t us);
+
+/** @brief A transaction is on the wire: started and not yet polled back. */
+bool fakeKstLineBusy();

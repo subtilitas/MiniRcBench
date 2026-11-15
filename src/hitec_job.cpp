@@ -12,6 +12,8 @@
 #include "kst_seek.h"
 #include "servo_supply.h"
 #include "esc_task.h"
+#include "sense.h"
+#include "supply_guard.h"
 
 #include "plat.h"
 #include <pico/critical_section.h>
@@ -65,6 +67,11 @@ static bool            s_lapsed;
 static bool            s_cardPhase;    /**< A card phase is open. */
 static uint32_t        s_cardPhaseMs;  /**< Clock when it was acknowledged. */
 static HitecStatus     s_published;    /**< The status last copied to s_status. */
+static SupplyGuard     s_guard;        /**< The hard and the collapse cut, armed while the supply is on. */
+/** @brief The last cut; the supply stays off until a new entry. */
+static GuardCut        s_cut;
+/** @brief The transaction the cut aborted has not been polled back yet. */
+static bool            s_cutDrain;
 /** @} */
 
 /** @brief Core0 writes it, core1 reads it: millis() of the last card stamp. */
@@ -76,15 +83,24 @@ void hitecCardStamp() { s_cardStampMs = millis(); }
 // the switched supply
 // ---------------------------------------------------------------------------
 
-/** @brief Drive the supply @p on; a switch-off records its time. Nothing without a switch. */
+/**
+ * @brief Drive the supply @p on; a switch-off records its time. Nothing
+ *        without a switch, and no switch-on while a cut is latched. The
+ *        switch-on arms the guard, the switch-off disarms it.
+ */
 static void supplySet(bool on, uint32_t nowMs) {
 	if (!s_switched || on == servoSupplyIsOn()) return;
 	if (on) {
+		if (s_cut != GuardCut::None) return;
 		servoSupplyOn();
 		s_supplyUsed = true;
+		SenseSample smp;
+		senseSample(&smp);
+		supplyGuardArm(&s_guard, &smp, nowMs);
 	} else {
 		servoSupplyOff();
 		s_offMs = nowMs;
+		supplyGuardDisarm(&s_guard);
 		// The lapse latch guards a supply left on: a switch-off ends it.
 		s_lapsed = false;
 	}
@@ -261,6 +277,7 @@ static void publish(uint32_t nowMs) {
 	st.stalled      = s_stalled;
 	st.stallWrote   = s_stallWrote;
 	st.cardPhase    = s_cardPhase;
+	st.cut          = s_cut;
 	memcpy(st.diff, s_ses.diff, sizeof(st.diff));
 	st.image        = s_ses.image;
 	if (s_hasBackup) st.backup = s_backup;
@@ -291,6 +308,59 @@ static void stall(uint32_t nowMs) {
 	freshSession();
 	s_stalled = true;
 	s_state = HitecJobState::EntryEnded;
+}
+
+/** @brief After a cut, once nothing is on the line: the session gone, EntryEnded. */
+static void cutEnd() {
+	s_cutDrain = false;
+	freshSession();
+	if (s_state != HitecJobState::Leaving) s_state = HitecJobState::EntryEnded;
+}
+
+/**
+ * @brief Whether the transaction a cut aborted has come back: the line
+ *        driver is free again. @return True once nothing is on the line.
+ */
+static bool cutDrained() {
+	hitec_capture_t cap;
+	if (!hitecLinePoll(&cap)) return false;
+	cutEnd();
+	return true;
+}
+
+/**
+ * @brief A cut of the guard: the supply off and the transaction on the line
+ *        cut, both in this pass, a write's too; then the session goes, as a
+ *        lapse ends it, and the job is EntryEnded with HitecStatus::cut set.
+ */
+static void cutSupply(GuardCut why, uint32_t nowMs) {
+	s_cut = why;
+	s_stallWrote = s_wrote;
+	supplySet(false, nowMs);
+	// A leave's drain, a write that finishes, is cut as an operation is:
+	// leaveStep() polls the cut transaction back before it steps the
+	// session, which is a new one by then.
+	if (s_out) {
+		// Polled back by advance() or leaveStep() later in this pass.
+		hitecLineAbort();
+		s_cutDrain = true;
+	} else {
+		cutEnd();
+	}
+}
+
+/**
+ * @brief The guard's pass, while the supply is on: the hard cut and the
+ *        collapse cut, during an operation too. With CURRENT SENSE at NONE
+ *        no new reading comes, so nothing is cut.
+ */
+static void guardPass(uint32_t nowMs) {
+	if (!s_guard.armed) return;
+	SenseSample smp;
+	senseSample(&smp);
+	static const GuardRules RULES = { false, true, false };
+	GuardCut c = supplyGuardStep(&s_guard, &smp, &RULES, nowMs);
+	if (c != GuardCut::None) cutSupply(c, nowMs);
 }
 
 /** @brief An entry that ended without the mode: the supply off, RETRY. */
@@ -326,6 +396,7 @@ static void beginLeave(uint32_t nowMs) {
 /** @brief One pass of a leave. @return True once the line is closed. */
 static bool leaveStep(uint32_t nowMs) {
 	if (s_state == HitecJobState::Closed) return true;
+	if (s_cutDrain && !cutDrained()) return false;
 	if (s_drain) {
 		if (!runSession(nowMs, true)) return false;
 		s_result = (uint8_t)hitec_session_result(&s_ses);
@@ -402,6 +473,8 @@ static void take(const HitecCmd *cmd, uint32_t nowMs, bool uiAlive) {
 	switch (cmd->op) {
 		case HitecOp::Enter: {
 			s_stalled = false;
+			// RETRY after a cut: the supply may come on again.
+			s_cut = GuardCut::None;
 			s_stallWrote = false;
 			s_lastWrite = false;
 			freshSession();
@@ -445,6 +518,10 @@ static void take(const HitecCmd *cmd, uint32_t nowMs, bool uiAlive) {
 }
 
 static void advance(uint32_t nowMs, bool uiAlive) {
+	if (s_cutDrain) {
+		cutDrained();
+		return;
+	}
 	switch (s_state) {
 		case HitecJobState::Entering: {
 			// A lapse cuts the entry: an off phase never switches on.
@@ -531,6 +608,9 @@ static uint8_t hitecJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_offMs = millis();
 	s_lapsed = false;
 	s_cardPhase = false;
+	s_cut = GuardCut::None;
+	s_cutDrain = false;
+	supplyGuardDisarm(&s_guard);
 	freshSession();
 	s_lineError = hitecLineOpen(sigGpio, s_bound);
 	if (s_lineError == HITEC_LINE_OK) {
@@ -556,12 +636,15 @@ static void hitecJobStep(uint32_t nowMs, bool uiAlive) {
 	}
 	// A lapse with the supply on is latched until what runs has ended.
 	if (!uiAlive && servoSupplyIsOn()) s_lapsed = true;
+	// A cut first: the supply goes off in this pass, before any command.
+	guardPass(nowMs);
 	if (cmd.seq != s_ackSeq) take(&cmd, nowMs, uiAlive);
 	advance(nowMs, uiAlive);
 	publish(nowMs);
 }
 
 static bool hitecJobRelease(uint32_t nowMs) {
+	guardPass(nowMs);
 	if (s_state != HitecJobState::Leaving && s_state != HitecJobState::Closed) beginLeave(nowMs);
 	bool done = leaveStep(nowMs);
 	// The enable pin an input again before the pins return to DShot.

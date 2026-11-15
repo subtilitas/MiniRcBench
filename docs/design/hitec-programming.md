@@ -2,7 +2,12 @@
 
 Status: work breakdown steps 1 to 5 built, host tests only: the rcbench
 files and their tests, the core1 job on them, the files on the card, the
-HITEC SERVO screen on MENU, and its README section and wiki pages. Step 6,
+HITEC SERVO screen, opened from PROGRAMMER behind MENU's SERVO PROGRAMMER
+row (slice 9 of [menu-b.md](menu-b.md)), and its README section and wiki
+pages. SERVO
+SUPPLY's no-switch value reads `OWN`, the stored 0, and the main view's
+strips name SIG by role and number, `SIG GP0  SUPPLY ON`, by
+[menu-b.md](menu-b.md) decisions 10 and 15 e, built in its slice 3. Step 6,
 the bring-up on hardware, is open: no classic entry, read or write has run
 on a servo on this board. The decisions of the owner of
 2026-10-23, 2026-10-28 and 2026-10-29 set its questions and its scope
@@ -20,7 +25,9 @@ depends on the switched servo supply, step 5 of
 design is a user of the pin claim of [pin-claim.md](pin-claim.md), and is
 written for the system the KST work of
 [kst-programming.md](kst-programming.md) leaves after its step 5: MENU with a
-KST SERVO row, the switched servo supply with its enable on GP28 or GP29,
+KST SERVO row, which menu structure B's SERVO PROGRAMMER row and its chooser
+replace ([menu-b.md](menu-b.md)), the switched servo supply with its enable
+on GP28 or GP29,
 the card phase, the shared
 list `ui_list`, the shared hold `ui_hold`, the 36 px header, the ring of
 [backups.md](backups.md) and the write cache of
@@ -242,8 +249,9 @@ converter, the grounds joined once at the board, the board powered before
 the servo supply. The converter, its pull-down and its ground are those of
 [kst-programming.md](kst-programming.md#hardware).
 
-**After the claim.** The claim's unplug page applies as for every servo
-screen: DShot restarts only on RESTART DSHOT. A D series line closes with
+**After the claim.** The claim's leave page applies as for every servo
+screen: DShot restarts only on RESTART DSHOT, 1000 ms after the pin is let
+go. A D series line closes with
 the pad's pull-up on, not the pull-down the other jobs leave
 ([pin-claim.md](pin-claim.md#restoring-dshot)). The DShot pump puts its own
 pull-up on SIG when it binds again, so the difference lasts only until
@@ -301,7 +309,7 @@ Core1 has nothing else to do during the claim.
 ### The job
 
 `src/hitec_job.{h,cpp}`: `PinUser::Hitec`, a row of `PIN_USERS` with
-`Core1Job::Hitec`, the unplug page and the ESC check on, and a row of
+`Core1Job::Hitec`, the leave page and the ESC check on, and a row of
 `s_ops[]` in `src/core1_job.cpp`.
 
 ```c
@@ -322,7 +330,7 @@ struct HitecStatus {
     uint16_t      ackSeq;
     HitecJobState job;
     HitecRefusal  refused;          // of the last command taken
-    uint8_t       family;           // hitec_family_t, set before the claim
+    uint8_t       family;           // hitec_family_t, set before the job starts
     uint8_t       lineError;        // hitec_line_err_t of the open
     uint8_t       result;           // hitec_ses_t of the last operation
     uint8_t       lastRx;           // hitec_rx_t of the last decoded step
@@ -348,14 +356,24 @@ session forget it (`hitec_image_forget()`), and `hitec_plan()` refuses with
 job's status carries as built ([kst-programming.md](kst-programming.md#work-breakdown),
 step 5).
 
-The family is chosen before the claim. `hitecJobSetFamily(family)` writes it
-under the job's critical section, on core0, only while no core1 job runs;
-the screen calls it, then begins the claim, and the bind reads it and opens
-the line for that family. RETRY after a bind error (`pinClaimRetry()`) and
-BACK on the unplug page (`pinClaimKeep()`) bind again with the family it
-holds. An open failure is a bind error, reported by `pinClaimJobError()` as
-`GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
-other servo screens. Another family means leaving through the unplug page
+The family is chosen before the claim, on PROGRAMMER ([menu-b.md](menu-b.md),
+slice 9). Its entry point, `uiHitecEnterD()` or `uiHitecEnterClassic()`,
+calls `hitecJobSetFamily(family)`, which writes it under the job's critical
+section, on core0, only while no core1 job runs, and then claims SIG on the
+tap's frame. The claim's user row defers the job
+(`PinUserInfo::deferJob`), so the claim stays Held, the pad an input with
+the pull-up `esc_task.cpp` leaves on it, until the screen calls
+`pinClaimStartJob()`: at once for CLASSIC and for D SERIES with a switch,
+so the job starts at Held, and on READ for D SERIES with `OWN`, whose entry
+reads the model at once ([menu-b.md](menu-b.md), decision 34). The bind
+reads the family and opens the line for it. RETRY after a bind error
+(`pinClaimRetry()`) and NEXT SERVO on the leave page (`pinClaimKeep()`)
+bind again with the family it holds. `pinClaimKeep()` returns HITEC to
+Held with no job, so NEXT SERVO asks for the job as for the first servo:
+at once, or on READ. An open
+failure is a bind error, reported by `pinClaimJobError()` as
+`SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` with RETRY, as on the
+other servo screens. Another family means leaving through the leave page
 and choosing again.
 
 `src/hitec_line_port.{h,cpp}` opens and closes the line on the claimed GPIO:
@@ -384,7 +402,7 @@ drives the session:
      trusted, `servoSupplyOn()` and `hitec_line_start()` with the step's
      LISTEN in the same pass; with the heartbeat lapsed, the result is
      FAILED and the supply stays off ([heartbeat](#heartbeat-and-lapses)).
-     With `SERVO SUPPLY` at `NONE` no POWER step comes
+     With `SERVO SUPPLY` at `OWN` no POWER step comes
      ([entry](#entry)); one that did would be fed FAILED.
    - **WAIT.** Nothing.
    - **DONE.** The operation has ended; its result is
@@ -461,7 +479,7 @@ drops KST's.
 | OPEN: the port out of PWM, 50 ms with no pulse, the line released | the claim's drain: DShot stops, then silence; `hitec_line_open()`, a released input with the family's pull. With `GP28` or `GP29`, `servoSupplyBind()` drives the enable pin low at the bind |
 | The page holds the SUPPLY page from OPEN to CLOSE | the job owns the enable pin from the bind to the release; SETTINGS is unreachable during the claim |
 | POWER: off, wait for off up to 3,000 ms, off 0 ms to 10,000 ms, on at 4.8 V to 6.0 V, the LISTEN | off, `off_ms` from the switch-off command (no read-back), on at the converter's 5 V, the LISTEN in the same pass |
-| CLOSE | the leave and the claim end below; `hitec_line_close()`, `servoSupplyRelease()`, the unplug page |
+| CLOSE | the leave and the claim end below; `hitec_line_close()`, `servoSupplyRelease()`, the leave page's RESTART DSHOT |
 
 ## Switched servo supply
 
@@ -469,17 +487,18 @@ The supply is the converter of
 [kst-programming.md](kst-programming.md#switched-servo-supply), its enable
 on GP28 or GP29, driven through `servo_supply.h` under the rules KST's job
 follows there. "With a switch" below means `SERVO SUPPLY` at `GP28` or
-`GP29`, and "the enable pin" the pin chosen. With `SERVO SUPPLY` at `NONE`
+`GP29`, and "the enable pin" the pin chosen. With `SERVO SUPPLY` at `OWN`
 the job touches neither pin.
 
 - **Classic needs it.** A classic servo enters serial mode at a power-up
   ([decision 2](#decisions-of-the-owner)). CLASSIC is drawn disabled, with
   `NEEDS THE CONVERTER OF WIRING PART C` and
-  `AND SETTINGS > SERVO SUPPLY GP28/29.` under it, while `SERVO SUPPLY` is
-  `NONE`; D SERIES then reads `POWER THE SERVO UP BEFORE THE TAP.`
+  `AND SETTINGS > SERVO SUPPLY GP28/29.` under it on PROGRAMMER, while
+  `SERVO SUPPLY` is `OWN`; HITEC D SERIES then reads
+  `POWER THE SERVO UP AFTER THE TAP.`, and HITEC SERVO waits for READ.
 - **D series uses it when it is set.** With a switch the converter is the
   servo's only supply, so every D series entry runs a POWER step. With
-  `NONE` the entry runs on the user's supply as it is.
+  `OWN` the entry runs on the user's supply as it is.
 - **Bind.** `servoSupplyBind()` after the claim's ESC check, as for KST: the
   enable pin driven low, the supply off. The pin is not driven before the
   bind.
@@ -501,7 +520,7 @@ KST search switches the same converter off
   on, a LISTEN of 1 ms that waits for nothing, then 1,000 ms
   (`HITEC_SES_D_ENTRY_WAIT_MS`), then a read of register 0x00, the model,
   3 tries.
-- **D series with `NONE`**, `power` false: the read of 0x00 on the supply
+- **D series with `OWN`**, `power` false: the read of 0x00 on the supply
   as it is.
 
 The converter's start-up time is unknown until bring-up. The classic
@@ -512,19 +531,19 @@ after its power-up is not recorded upstream; rcbench's test rig answers at
 
 An entry that fails switches the supply off: no `+`, a `+` followed by
 something else, no valid answer to `67`, no answer to the read of 0x00. The
-view shows the result and RETRY ([family and entry](#family-and-entry)).
+view shows the result and RETRY ([claim and entry](#claim-and-entry)).
 
 ### Leave and claim end
 
 - **With a switch, both families.** LEAVE switches the supply off at once; the
   line stays released. After `KST_SUPPLY_OFF_MS`, 2,000 ms from the last
   switch-off command, the job closes the line and releases the enable pin, and the
-  unplug page follows, reading `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` while it
+  leave page is released; it reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` while it
   waits, as KST's close does ([kst-programming.md](kst-programming.md#close-with-the-switch),
   KST decision 18). The session's own leave does not run: for a classic
   servo it would switch the supply on again, and a D series reboot is
   redundant once the supply goes off ([choice 4](#choices-made-in-this-design)).
-- **D series with `NONE`.** LEAVE runs `hitec_session_leave()`: the reboot,
+- **D series with `OWN`.** LEAVE runs `hitec_session_leave()`: the reboot,
   `0x46 = 1`, a write with no answer. Then the line closes and the unplug
   page follows. The servo restarts on the user's supply from its saved
   values.
@@ -555,7 +574,7 @@ job does it.
   session had written. No operation starts until the heartbeat returns.
   The view shows the stall and RETRY, which enters again and reads the servo
   again.
-- **With `NONE`** a lapse lets the running operation end and starts no new
+- **With `OWN`** a lapse lets the running operation end and starts no new
   one. The session stays in mode, and commands are taken again once the
   heartbeat returns.
 
@@ -666,14 +685,12 @@ memory; the card call goes on to its end on core0.
 
 ## Screens
 
-Entry: MENU → HITEC SERVO, one line in `ui_registry.cpp`
-([menu.md](menu.md#code)); BACK returns to MENU through the unplug page.
-`HITEC SERVO` is 11 characters, 130 px at scale 2, and ends at x 145, before
-`PINS BUSY` at x 169. The row follows KST SERVO
-([decision 6](#decisions-of-the-owner)). As the fifth row it makes MENU seven
-rows, which scroll 0 px to 36 px, as [menu.md](menu.md#menu) designs, so
-SD LOG, the last row, shows 6 px at scroll 0 and takes no tap until MENU
-is scrolled.
+Entry: MENU → SERVO PROGRAMMER → HITEC D SERIES or HITEC CLASSIC, two
+lines of `UI_PROGRAMMERS` in `ui_registry.cpp` ([menu-b.md](menu-b.md),
+"PROGRAMMER, the chooser"); the tap claims SIG on its frame. BACK returns
+to MENU through the leave page once SIG is held, else at once. PROGRAMMER's
+entries take the place of the MENU row of
+[decision 6](#decisions-of-the-owner).
 
 The KST screen is the model: lists on `ui_list` with 40 px rows at a 42 px
 pitch, holds on `ui_hold`, `UI_HOLD_MS`, 1,000 ms, and the 36 px header with
@@ -681,18 +698,25 @@ the strip at y 40 and the body from y 62. The screen is `src/ui_hitec.cpp`,
 its rows, values, stepper and texts in `src/hitec_view.*`, as
 `src/kst_view.*`.
 
-### Family and entry
+### Claim and entry
+
+PROGRAMMER's HITEC CLASSIC is drawn disabled with
+`NEEDS THE CONVERTER OF WIRING PART C` and
+`AND SETTINGS > SERVO SUPPLY GP28/29.` under `OWN`, enabled with `GP28` or
+`GP29` ([decision 13](#decisions-of-the-owner)).
 
 | View | What it shows | Controls |
 |---|---|---|
-| Family | CLASSIC (HS-5XXX, HS-7XXX) and D SERIES, with the wiring note of each; no pin is claimed yet. CLASSIC disabled with `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` under `NONE`, enabled with `GP28` or `GP29` ([decision 13](#decisions-of-the-owner)); under `NONE`, D SERIES with `POWER THE SERVO UP BEFORE THE TAP.` | CLASSIC, D SERIES, BACK |
-| Claim | the KST screen's: `CHECKING GP0 FOR AN ESC`, `RELEASING GP0`, the refusals and bind errors | BACK |
+| Claim refused | while an ESC answers: the strip `CHECKING SIG GP0 FOR AN ESC`, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber; asked again every frame | BACK: MENU |
+| Claim | `RELEASING SIG GP0 FROM DSHOT` while DShot drains and stops | BACK: MENU, DShot resumed |
+| READ wait, D series with `OWN` | Held with no job: `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `POWER THE SERVO UP, THEN TAP READ.` in amber; no frame goes to SIG until READ | READ, BACK: the leave page at `1 UNPLUG THE SERVO.` |
+| Bind | after the claim, or READ, `TAKING SIG GP0` while the job binds; a bind error, `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
 | Entry, D series | with a switch, `SUPPLY OFF 0.5 S`, then `SERVO STARTING 1.0 S` and the amber ESC line; then `READING THE MODEL` | STOP, BACK |
 | Entry failed | `NO SERVO IN SERIAL MODE` or `NO SERVO ANSWERS`, the decoder's word (`SILENT`, `LATE`, `SUM` and the rest of rcbench's 14 codes); `THE SUPPLY IS OFF.` with a switch; with a switch and the classic family, `CHECK THE CONVERTER ON GP28, THE SIGNAL AND GROUND.`, naming the enable pin | RETRY, BACK |
 | Reading | `READING 100 CELLS` or `READING 21 REGISTERS`, `37 OF 100` | STOP, BACK |
 | Read failed | `READ FAILED AT 0x32`, the decoder's word | READ AGAIN, BACK |
-| Stalled, with a switch | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` | RETRY, BACK |
+| Stalled, with a switch | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN RAM IS LOST.` | RETRY, BACK |
 
 The amber ESC line, in every entry view with a switch:
 `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.` The
@@ -703,13 +727,13 @@ claim's ESC check misses an ESC without bidirectional DShot
 
 ```
 y   0 | HITEC SERVO                      [ BACK ]|
-   40 | D485HW  GP0  BACKUP HT004          (MODE)|  strip, chip C_GREEN
+   40 | D485HW  BACKUP HT004  GP0     [PROG MODE]|  strip, square chip C_BLUE
    62 | MOTION   SPEED            60 % (12)      |  40 px rows, 42 px pitch,
   104 | MOTION   DEAD BAND         STEP 2 (4)    |  viewport 62..215,
   146 | MOTION   SOFT START       20 % (1)       |  on ui_list
   188 | TRAVEL   NEUTRAL          8192           |  cut: 28 px, takes no press
   218 | [ - ]    SPEED 60 % -> 30 %         [ + ]|  editor bar 44 px
-  268 | [ HOLD TO WRITE ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
+  268 | [   WRITE...    ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
   320 +------------------------------------------+
 ```
 
@@ -730,11 +754,16 @@ y   0 | HITEC SERVO                      [ BACK ]|
 - Read-only rows (`HITEC_RO`) are drawn in `C_GRID` and are not
   selectable, except CHECKSUM when it reads `BAD`
   ([classic checksum](#classic-checksum)).
-- A value the draft holds other than the servo's is marked `*` before the
-  name.
-- The strip names the model (`hitec_identify()`, `hitec_model_name()`), the
-  pin, and the backup file once the first write has saved it,
-  `BACKUP IN MEMORY` before. A classic strip adds the version, `V16`.
+- A value the draft holds other than the servo's is `C_CYAN`, with a 3 px
+  `C_CYAN` bar at the row's left edge, `C_AMBER` when it breaks a soft rule;
+  the name carries no mark. Each row is drawn by `uiListDrawField()`
+  ([menu-b.md](menu-b.md), decision 8); selection fills the row and lights
+  the label, never the value. The editor bar's value follows the same
+  colours.
+- The strip names, two spaces apart, the model (`hitec_identify()`,
+  `hitec_model_name()`), the backup file once the first write has saved it,
+  `BACKUP IN RAM` before, and the pin. A classic strip adds the version,
+  `V16`, last.
 - A model rcbench has not measured is read and written in its series'
   layout (`hitec_reg.h`), as rcbench's panel does
   ([decision 12](#decisions-of-the-owner)). The write page adds, in amber,
@@ -742,7 +771,7 @@ y   0 | HITEC SERVO                      [ BACK ]|
   above the hold. The measured models are the D485HW, the HS-5645MG and the
   HS-7955TG.
 - After a failed write the write button reads `READ AGAIN`; a tap runs
-  ReadAll, and HOLD TO WRITE returns once the read has filled the image
+  ReadAll, and `WRITE...` returns once the read has filled the image
   ([write](#write)).
 
 ### Editing
@@ -768,7 +797,7 @@ by a table value on its first edit; REVERT brings it back.
   RIGHT END.
 - Soft rules, rcbench's seven with its texts in upper case, compared with
   the last full read: a value
-  that breaks one is taken; the row gets an amber mark and the editor bar
+  that breaks one is taken; the row's bar is `C_AMBER` and the editor bar
   shows the rule's text. The write page lists them, and its hold confirms
   them.
 
@@ -804,11 +833,14 @@ through the write page. Not tested on a servo upstream.
 
 ### Write
 
-HOLD TO WRITE opens the write page rather than writing at once.
+A tap on `WRITE...` opens the write page; only the page holds
+([menu-b.md](menu-b.md), decision 6). The list's button takes a tap on
+release, and the page's hold starts fresh, so the press that opened the page
+is never timed.
 
 ```
 y   0 | HITEC WRITE                      [ BACK ]|
-   40 | 2 VALUES                                 |
+   40 | 2 CHANGES                                |
    62 | SPEED            60 %  ->  30 %          |
    82 | DIRECTION          CW  ->  CCW           |
    94 | KEEP THE SERVO HORN CLEAR.               |  always its line
@@ -821,10 +853,12 @@ y   0 | HITEC WRITE                      [ BACK ]|
 ```
 
 - The page lists the changed parameters from where the servo stood when the
-  page opened, a changed ID first, then in the field list's order, 6 at most
-  and `AND n MORE`. A row is 12 px, or 22 px when its value goes under its
-  label. A value whose stored value changes and whose text does not carries
-  its stored value, `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
+  page opened, a changed ID first, then in the field list's order, 4 at most
+  and `AND n MORE`, as KST's page ([menu-b.md](menu-b.md#decisions) decision
+  14). The strip counts them, `1 CHANGE`, `2 CHANGES`. A row is 12 px, or
+  22 px when its value goes under its label. A value whose stored value
+  changes and whose text does not carries its stored value,
+  `60 % (12) -> 60 % (13)`, as KST's `kstValuePair()`.
 - `KEEP THE SERVO HORN CLEAR.` shows on the session's first write and on
   every write that changes DIRECTION, NEUTRAL, CENTRE or an end point, as
   rcbench's panel does.
@@ -866,7 +900,7 @@ y   0 | HITEC WRITE                      [ BACK ]|
 - The card steps run in a card phase with a switch
   ([card calls](#card-calls-and-the-heartbeat)). A mounted card that takes
   neither the backup nor the record stops the write:
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
   No card, or a
   card held by USB, writes with the backup and the record in memory.
 - Results, one text per `hitec_ses_t` a write can end with, from a table in
@@ -890,9 +924,11 @@ y   0 | HITEC WRITE                      [ BACK ]|
 - A write that ends in error after a plan step went out leaves the session
   with the addresses the servo may have changed forgotten, so the next write
   needs a read. The result's OK returns to the list with READ AGAIN in
-  place of HOLD TO WRITE ([field list](#field-list)). The record stays on the card.
-- BACK during a write is queued: the page shows
-  `LEAVING AFTER THE WRITE ENDS.` and the leave follows the result. The write
+  place of `WRITE...` ([field list](#field-list)). The record stays on the card.
+- While the write runs, or waits for the card's flush, header BACK is drawn
+  disabled and does nothing: no leave is queued, and the result stays on the
+  page ([menu-b.md](menu-b.md), decisions 5 and 6, built in its slice 5).
+  BACK before the hold, or under the result, returns to the list. The write
   is never aborted from the screen.
 
 ### Files
@@ -905,7 +941,7 @@ y   0 | HITEC FILES                      [ BACK ]|
   146 | FACTORY VALUES                (SERVO)    |  classic only
   188 | HT011                                    |  on ui_list
   234 | [          SAVE AS HT013           ]     |  228 x 40 px
-  278 | [  LOAD  ]       [ HOLD TO RESTORE ]     |  40 px tall
+  278 | [  LOAD  ]       [    RESTORE...   ]     |  40 px tall
   320 +------------------------------------------+
 ```
 
@@ -924,34 +960,55 @@ y   0 | HITEC FILES                      [ BACK ]|
   of another model of the same layout loads, and the write page names it. A
   record loads its `before` image. FACTORY VALUES loads the servo's own
   factory block through `hitec_c_factory()`: cells 0x30 to 0x53 copied to
-  0x00 to 0x23 and rebalanced. The write then goes through HOLD TO WRITE as
-  any edit.
-- HOLD TO RESTORE writes the session's backup back through the write page,
-  while the servo differs from it.
+  0x00 to 0x23 and rebalanced. The write then goes through `WRITE...` and the
+  write page as any edit.
+- A tap on `RESTORE...` opens the restore page, `HITEC RESTORE`, the write
+  page titled for the restore, while the servo differs from the backup; its
+  HOLD TO RESTORE writes the session's backup back.
 - With no card mounted, or the card held by a USB host, the page shows
   `NO CARD` or `CARD IN USE BY USB` and RETRY MOUNT (`sdLogRemount()`);
   reading, editing and writing still work.
 
 ### Leave
 
-BACK from the field list opens the leave page.
+BACK from the field list, or during a read, opens the leave page of
+[menu-b.md](menu-b.md#the-leave-page), `ui_leave` filled by `leaveText()` in
+`ui_hitec.cpp`. With a switch, before LEAVE:
 
 ```
-y   0 | HITEC SERVO                      [ BACK ]|
-   40 | D485HW  GP0  SUPPLY ON                   |
-   66 | LEAVE SWITCHES THE SERVO'S SUPPLY OFF.   |  with a switch
-   86 | 2 CHANGES NOT WRITTEN.                   |  only with pending edits
-  100 | A WRITE DID NOT END VERIFIED.            |  C_AMBER, only then
-  214 | [            READ AGAIN             ]    |  228 x 46 px
-  268 | [               LEAVE               ]    |  228 x 46 px, a tap
-  320 +------------------------------------------+
+y   0 | HITEC SERVO                     [  BACK  ]|  BACK drawn disabled
+   40 | D485HW  SIG GP0  SUPPLY ON                |  strip, C_DIM
+   66 |#1 LEAVE SWITCHES THE SUPPLY OFF.          |  step 1, current, C_AMBER
+   80 | 2 UNPLUG THE SERVO.                       |  step 2, C_DIM
+   92 |   DSHOT RESTARTS ON SIG GP0 AND READS     |
+  104 |   AS A 970 US PULSE AT 1000 HZ.           |
+  118 | 3 RESTART DSHOT.                          |  step 3, C_DIM
+  158 | 2 CHANGES NOT WRITTEN.                    |  only with pending edits, C_AMBER
+  170 | A WRITE DID NOT END VERIFIED.             |  C_AMBER, only then
+  214 | [   STAY   ] [  READ AGAIN  ]             |  6,214,110x46; 122,214,112x46
+  268 | [              LEAVE               ]      |  6,268,228x46, a tap
+  320 +-------------------------------------------+
 ```
 
-- With `NONE` the first line reads `LEAVE RESTARTS THE SERVO.`
-- LEAVE is a tap and runs the leave of
-  [leave and claim end](#leave-and-claim-end); the unplug page follows.
+- With `OWN` step 1 reads `LEAVE RESTARTS THE SERVO.`
+- STAY returns to the field list, or to the main view.
 - READ AGAIN runs ReadAll and returns to the field list.
-- BACK on the page returns to the field list.
+- LEAVE is a tap and runs the leave of
+  [leave and claim end](#leave-and-claim-end). From the tap on, step 2 is
+  current, READ AGAIN is hidden, and NEXT SERVO and RESTART DSHOT are drawn
+  disabled; the note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` with a switch
+  and `RELEASING THE PIN` without.
+- Released, NEXT SERVO keeps the claim and starts the next session in the
+  family chosen, its job asked for as the first's: at once with a switch or
+  for CLASSIC, else on READ, so a D series servo on `OWN` returns to the
+  READ wait ([menu-b.md](menu-b.md), decision 34); with `OWN` the note
+  reads `NEXT SERVO: POWER IT AFTER THE TAP.` RESTART DSHOT
+  takes a press that lands 1000 ms or more after the release.
+- BACK on the READ wait, BACK during the entry and BACK after a failed
+  entry open the page releasing, at
+  `1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
+  `pinClaimUnplugDue()` is true.
+- BACK on the page is drawn disabled in every phase.
 
 ## Storage
 
@@ -1159,9 +1216,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   - the classic entry: off 2,000 ms from the switch-off command, on, the `+`
     answered with `+`, the second `+`, `67`, the version; no `+` in
     2,000 ms, then the supply off and EntryEnded; a byte other than `+`;
-  - the D series entry with a switch: off 2,000 ms, on, 1,000 ms, the model; with
-    `NONE`: no POWER, the read of 0x00 at once, the enable pin untouched through a
-    whole claim;
+  - the D series entry with a switch: off 2,000 ms, on, 1,000 ms, the model;
+    with `OWN`: no POWER, the read of 0x00 at once, the enable pin untouched
+    through a whole claim;
   - the full read after the entry, its progress, the backup set once and
     dropped at a re-entry;
   - a write of one value of each family, with read-back, the image holding
@@ -1174,15 +1231,15 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
     series wait each switching the supply off at once; a lapse during a
     write letting it finish, then the supply off, the session not in mode,
     `stallWrote` set; the supply switched on only while the heartbeat is
-    trusted; with `NONE`, a lapse leaving the session in mode;
+    trusted; with `OWN`, a lapse leaving the session in mode;
   - the leave: with a switch off at once and closed 2,000 ms after the
-    switch-off command, BACK doing nothing in the wait; with `NONE` the
+    switch-off command, BACK doing nothing in the wait; with `OWN` the
     D series reboot frame, then the close; every claim end after the supply
     was on waiting 2,000 ms off before the line closes and the enable pin is released;
   - the card phase: `CardBegin` taken and refused in each state; stamps
     for 900 ms keep the supply on and the backup; stamps stopped switch it
     off at 250 ms; stamps for 14,900 ms keep it on and for 15,100 ms switch
-    it off; with `NONE` the hook stays null.
+    it off; with `OWN` the hook stays null.
 - `test_hitec_files.cpp`: the servo file and the record over the in-memory
   volume (`test/fake_fatfs.cpp`): SAVE AS up to 50 files, the backup into
   the ring as `HTnnn.TXT`, an old record moved into the ring, a ring entry
@@ -1195,16 +1252,16 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   step, each soft rule and its text, a text for every `hitec_ses_t` and
   `hitec_rx_t`.
 - `test_hitec_ui.cpp`, by control id ([menu.md](menu.md#tests-by-control-id)):
-  MENU opens the screen; the family choice, CLASSIC disabled under `NONE`;
-  the claim; the entry and the read; an edit
-  and REVERT; HOLD TO WRITE not at 750 ms and not on a slide off; the write
-  page, the backup and the record before the first write frame, the flush
-  barrier, the result; a write in error and READ AGAIN; FILES with SAVE AS,
-  LOAD, a refused file, FACTORY VALUES, HOLD TO RESTORE; REPAIR on a bad
-  classic checksum; a model not measured written with the amber layout
-  line; BACK in every view and during a write; LEAVE and RESTART DSHOT; a stall and RETRY; no card, a
-  card held by USB, a card that takes no file; a record found at entry;
-  `checkControlTable()` in each view; a preview, `docs/hitec-preview.png`.
+  MENU opens the screen; the family choice, CLASSIC disabled under `OWN`; the
+  claim; the entry and the read; an edit and REVERT; `WRITE...` opening nothing
+  while pressed or on a slide off; the write page, the backup and the record
+  before the first write frame, the flush barrier, the result; a write in error
+  and READ AGAIN; FILES with SAVE AS, LOAD, a refused file, FACTORY VALUES,
+  `RESTORE...` and HOLD TO RESTORE; REPAIR on a bad classic checksum; a model
+  not measured written with the amber layout line; BACK in every view and during
+  a write; LEAVE and RESTART DSHOT; a stall and RETRY; no card, a card held by
+  USB, a card that takes no file; a record found at entry; `checkControlTable()`
+  in each view; a preview, `docs/hitec-preview.png`.
 - The changed MENU tests: the row count in `test_menu.cpp` and
   `test_ui.cpp`, `openSettings()`, which scrolls MENU before it taps
   SETTINGS, and `docs/menu-preview.png`.
@@ -1252,35 +1309,33 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      session's WAIT step, reported as `power` None.
    - The first full read that completes before a write is the backup, also
      after a first read that failed or was aborted.
-   - With `NONE` a lapse during an entry ends it with RETRY and does not set
+   - With `OWN` a lapse during an entry ends it with RETRY and does not set
      `stalled`; the servo's supply is the user's.
    - `inMode` reads false once a leave with a switch has switched the supply
      off: the servo leaves the mode with its supply.
    - `HitecStatus` carries `lastWrite`, so the screen can tell a write's
      result from a read's.
-   - Tested in `test_hitec_job.cpp`, 93 checks, against a servo that is
-     powered a start-up time after the enable pin goes high and, for the D series,
-     answers 800 ms after power-up: the bind with each family
-     and its three refusals, a command held at the bind not taken; the
-     D series entry with `NONE` and with a switch, the classic entry with a switch
-     and refused without it, a classic entry with no `+` and RETRY; the full
-     read, the backup and READ AGAIN, the backup after an aborted first
-     read; the classic LISTEN starting at the switch-on with a 300 ms
-     converter start-up, the D series read of 0x00 1,000 ms after it; a write
-     of each family, a read-back
-     that differs, a write cut by a lost servo, `Unknown` until a read;
-     Abort in the off phase, in a LISTEN and in a read, refused in a write;
-     the heartbeat in the off phase, in a LISTEN, in the D series wait and
-     its read of 0x00, in a write of each family, in the mode, and with
-     `NONE`; a 300 ms lapse that ends before a read does, then the supply
-     off once it ends; LEAVE with a switch and with `NONE`, LEAVE in the off
-     phase, in a LISTEN, in a read with `NONE`, from Opening and from the
-     stalled view, LEAVE and the release during a write, each close
-     2,000 ms after the switch-off; the command block's held Abort; the
-     card phase in four states, 900 ms of stamps, the 15,000 ms cap. Not
-     tested: an entry answered by a byte other than `+`; a lapse during a
-     D series entry with `NONE`, which ends within about 150 ms, before the
-     250 ms timeout can pass.
+   - Tested in `test_hitec_job.cpp`, 93 checks, against a servo that is powered
+     a start-up time after the enable pin goes high and, for the D series,
+     answers 800 ms after power-up: the bind with each family and its three
+     refusals, a command held at the bind not taken; the D series entry with
+     `OWN` and with a switch, the classic entry with a switch and refused
+     without it, a classic entry with no `+` and RETRY; the full read, the
+     backup and READ AGAIN, the backup after an aborted first read; the classic
+     LISTEN starting at the switch-on with a 300 ms converter start-up, the D
+     series read of 0x00 1,000 ms after it; a write of each family, a read-back
+     that differs, a write cut by a lost servo, `Unknown` until a read; Abort in
+     the off phase, in a LISTEN and in a read, refused in a write; the heartbeat
+     in the off phase, in a LISTEN, in the D series wait and its read of 0x00,
+     in a write of each family, in the mode, and with `OWN`; a 300 ms lapse that
+     ends before a read does, then the supply off once it ends; LEAVE with a
+     switch and with `OWN`, LEAVE in the off phase, in a LISTEN, in a read with
+     `OWN`, from Opening and from the stalled view, LEAVE and the release during
+     a write, each close 2,000 ms after the switch-off; the command block's held
+     Abort; the card phase in four states, 900 ms of stamps, the 15,000 ms cap.
+     Not tested: an entry answered by a byte other than `+`; a lapse during a D
+     series entry with `OWN`, which ends within about 150 ms, before the 250 ms
+     timeout can pass.
 
 3. `src/hitec_files.*` on `card_dir` and `backup_ring`, `test_hitec_files.cpp`;
    the Hitec card phases added to `test/kst_card_count.cpp` and their table
@@ -1336,9 +1391,13 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      (`hitecWritten()`), so a REPAIR alone opens the write page; the write
      page lists the parameters that go to the servo and not the cell 0x1C
      balance of other edits.
-   - The strip drops the pin, then the backup, when the line would reach
-     the MODE chip at x 197: a classic strip reads
-     `HS-5645MG V16 BACKUP IN MEMORY`.
+   - The strip drops items from the right, the version, then the pin, then
+     the backup, when the line would come within 4 px of the PROG MODE chip
+     at x 167 (`uiChipX()`): a D series strip reads
+     `D485HW  BACKUP IN RAM  GP0`, 155 px, a classic strip
+     `HS-5645MG  BACKUP IN RAM`, and `HS-5645MG  BACKUP HT001` once the
+     backup is on the card ([menu-b.md](menu-b.md#decisions) decisions 11
+     and 14).
    - The write page shows the ID note in amber when the write changes the
      D series ID to another value than 0, as a LOAD can.
    - A read keeps the pending edits: the writable addresses they changed
@@ -1349,8 +1408,9 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      again.
    - BACK during a read, the entry's own or READ AGAIN, sends Abort; the
      leave page follows.
-   - A stall drops a leave queued by BACK during a write; the main view
-     with RETRY follows.
+   - A stall during a write ends on the main view with RETRY. BACK during
+     a write queues no leave: it is drawn disabled ([menu-b.md](menu-b.md),
+     slice 5).
    - A later write whose record the card does not take still runs on the
      backup of the first write, as `hitec_files.h` states; the write page
      does not say so.
@@ -1364,15 +1424,15 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
      filter and its text; a text for every `hitec_ses_t` and `hitec_rx_t`;
      the model texts, layouts and the measured models. In
      `test_hitec_ui.cpp`: MENU opens the screen; the family, CLASSIC
-     disabled under `NONE`; the claim, the entry and the
-     read; an edit and REVERT; HOLD TO WRITE not at 750 ms and not on a
-     slide off; the write page, the record on the card before the first
+     disabled under `OWN`; the claim, the entry and the
+     read; an edit and REVERT; `WRITE...` opening nothing while pressed or
+     on a slide off; the write page, the record on the card before the first
      write frame, the backup, the result, a second write without a second
      backup; the flush barrier, a flush that fails, a later write while an
      earlier batch flushes with its record on the card before its first
      frame; BACK during a write; a stall during a write; the ID note;
-     STOP and BACK in the entry, BACK in the entry's read, BACK on the
-     unplug page; an edit kept through READ AGAIN with FILES opened during
+     STOP and BACK in the entry, BACK in the entry's read, NEXT SERVO on the
+     leave page; an edit kept through READ AGAIN with FILES opened during
      the read, and a DIRECTION reversal written after it with its ends
      mirrored; a sideways swipe on NEUTRAL; a write in error and READ AGAIN; FILES
      with SAVE AS, LOAD, a file of the other family refused, HOLD TO
@@ -1453,6 +1513,11 @@ rcbench's recorded behaviour contradicts them; the others stand as decided.
 6. **MENU row.** HITEC SERVO follows KST SERVO; SETTINGS becomes the
    seventh row, which takes a tap after a scroll. (SD LOG is the seventh row
    as built; SETTINGS is the sixth.)
+   Revised by [menu-b.md](menu-b.md#decisions) owner decision 2 and
+   decisions 32 and 33: MENU has no HITEC SERVO row; PROGRAMMER's HITEC D
+   SERIES and HITEC CLASSIC entries open the screen. MENU's seven rows end
+   with SD LOG, the sixth, and SETTINGS, the seventh, reached after a 36 px
+   drag.
 7. **Origin wording.** The legal notice states rcbench's origin claim for
    the Hitec code: wire captures of the project's own hardware and Hitec's
    published D series manual; no vendor code and no vendor document is
@@ -1524,8 +1589,9 @@ Decisions of the owner, 2026-10-29:
    counts.
 6. **A write is never aborted from the screen.** A plan cut part way leaves
    a classic checksum unbalanced or a D series value unsaved. BACK during a
-   write is queued; a lapse lets it finish. Reads and the entry take an
-   abort.
+   write is drawn disabled and does nothing (revised by decision 5 of
+   [menu-b.md](menu-b.md), built in its slice 5); a lapse lets the write
+   finish. Reads and the entry take an abort.
 7. **Models not measured are marked, not refused.** The parameters'
    encodings are measured on the D485HW, the HS-5645MG and the HS-7955TG.
    Another model takes its series' layout and is written in it

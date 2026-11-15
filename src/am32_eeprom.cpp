@@ -401,6 +401,8 @@ bool am32LayoutKnown(const uint8_t *eeprom) {
 }
 
 bool am32FieldShown(const Am32Field *f, const uint8_t *eeprom) {
+	// A layout the table is not checked against may have moved any field.
+	if (!am32LayoutKnown(eeprom)) return false;
 	if (!am32FieldApplies(f, eeprom[AM32_OFF_LAYOUT_REVISION])) return false;
 	return !f->readFw || am32Firmware(eeprom) >= f->readFw;
 }

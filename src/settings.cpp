@@ -15,6 +15,7 @@
 #include "config.h"
 #include "board_desc.h"
 #include "pin_claim.h"
+#include "angle_model.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -38,6 +39,8 @@ static Settings s_saved;
 static bool     s_stored = false;
 /** @brief The last load discarded a whole block of another version. @see settingsResetByUpdate() */
 static bool     s_resetByUpdate = false;
+/** @brief The last load carried an older block over. @see settingsCarriedOver() */
+static bool     s_carriedOver = false;
 /** @brief The ESC pin at the last load. @see settingsBootDshotPin() */
 static uint8_t  s_bootPin = 0;
 static bool     s_seeded = false;
@@ -92,6 +95,55 @@ void settingsDefaults(Settings *out) {
 	out->highContrast = 0;
 	out->servoSupply  = 0;
 	out->currentSense = (uint8_t)SenseMode::None;
+	// The angle meter's: LONG, NORMAL, OFF, no calibration.
+	out->angleAlong    = (uint8_t)AngleAlong::Long;
+	out->angleInvert   = 0;
+	out->angleLengthMm = ANGLE_LEN_OFF;
+	out->angleCalValid = 0;
+	for (int i = 0; i < 3; i++) {
+		out->angleCalOffG[i] = 0.0f;
+		out->angleCalGain[i] = 1.0f;
+	}
+}
+
+/**
+ * @brief The angle meter's fields, repaired: ALONG AXIS and SIGN 0 or 1,
+ *        LENGTH `OFF` or within servo_rudder.h's range, the spare byte 0,
+ *        and a calibration the model would not apply, or a flag other than
+ *        0 or 1, dropped, its values back to none's.
+ * @return true if nothing needed changing.
+ */
+static bool validateAngle(Settings *s) {
+	bool ok = true;
+	if (s->angleAlong > (uint8_t)AngleAlong::Short) { s->angleAlong = 0; ok = false; }
+	if (s->angleInvert > 1) { s->angleInvert = 0; ok = false; }
+	if (s->angleLengthMm != ANGLE_LEN_OFF &&
+	    (s->angleLengthMm < (uint16_t)SERVO_RUDDER_LEN_MIN_MM ||
+	     s->angleLengthMm > (uint16_t)SERVO_RUDDER_LEN_MAX_MM)) {
+		s->angleLengthMm = ANGLE_LEN_OFF;
+		ok = false;
+	}
+	if (s->angleSpare != 0) { s->angleSpare = 0; ok = false; }
+	AngleCal cal;
+	cal.valid = s->angleCalValid == 1;
+	memcpy(cal.offG, s->angleCalOffG, sizeof(cal.offG));
+	memcpy(cal.gain, s->angleCalGain, sizeof(cal.gain));
+	if (!angleCalValid(&cal)) {
+		// None: the flag 0 and the values none's, so two blocks without a
+		// calibration compare equal whatever a damaged one held.
+		bool none = s->angleCalValid == 0;
+		for (int i = 0; i < 3; i++)
+			none = none && s->angleCalOffG[i] == 0.0f && s->angleCalGain[i] == 1.0f;
+		if (!none) {
+			s->angleCalValid = 0;
+			for (int i = 0; i < 3; i++) {
+				s->angleCalOffG[i] = 0.0f;
+				s->angleCalGain[i] = 1.0f;
+			}
+			ok = false;
+		}
+	}
+	return ok;
 }
 
 /** @brief The bitrates the DShot driver is built and tested for. */
@@ -142,23 +194,27 @@ bool settingsValidate(Settings *s) {
 		ok = false;
 	}
 
-	// --- KISS ---
-	// Two rules left, now that the receiver is a PIO state machine and any free
-	// GPIO can take it: the pin must be free on this board, and it must not be
-	// the ESC's. The third — "and it must be one of the eight the hardware
-	// UARTs can receive on" — is gone with the hardware UART. @see pio_uart_rx.h
+	// --- AUX, the KISS pin ---
+	// AUX must be a free pin on this board and never SIG's, whatever KISS
+	// is: the servo tester drives servo B on AUX with KISS off.
 	//
-	// Switched off rather than moved, still. Moving it would silently start
-	// listening on a pin the user never connected anything to, and a telemetry
-	// wire that reads "ON" against the wrong pin is worse than one reading
-	// "OFF". SETTINGS does move it, because there the pin change is the
-	// thing being asked for. @see uiSettingsTick()
-	if (s->kissEnable) {
-		if (!settingsPinFree(s->kissPin) ||
-		    s->kissPin == s->dshotPin) {
-			s->kissEnable = 0;
-			ok = false;
-		}
+	// A pin this board does not free takes the board's default AUX pin, and
+	// KISS is switched off: no wire the user connected can be on that pin,
+	// and a telemetry row reading ON against a pin nobody wired is worse than
+	// one reading OFF.
+	if (!settingsPinFree(s->kissPin)) {
+		s->kissPin = b->defaultKissPin;
+		s->kissEnable = 0;
+		ok = false;
+	}
+	// AUX on SIG's GPIO moves to the next free pin after SIG, the other of
+	// this board's two; KISS keeps its switch and listens there. Only a
+	// board that frees no second pin switches KISS off, since AUX has
+	// nowhere to go. @see docs/design/menu-b.md, decision 10
+	if (s->kissPin == s->dshotPin) {
+		s->kissPin = settingsNextPin(s->dshotPin, +1);
+		if (s->kissPin == s->dshotPin) s->kissEnable = 0;
+		ok = false;
 	}
 	if (s->kissEnable != 0 && s->kissEnable != 1) { s->kissEnable = 1; ok = false; }
 	if (s->highContrast != 0 && s->highContrast != 1) { s->highContrast = 1; ok = false; }
@@ -170,6 +226,9 @@ bool settingsValidate(Settings *s) {
 
 	// --- backlight: never so dim the panel looks dead ---
 	if (s->backlight < BACKLIGHT_MIN) { s->backlight = BACKLIGHT_MIN; ok = false; }
+
+	// --- the angle meter's ---
+	if (!validateAngle(s)) ok = false;
 
 	return ok;
 }
@@ -196,6 +255,160 @@ static uint32_t crcSpan() {
 }
 
 // ---------------------------------------------------------------------------
+// older layouts
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Byte offsets of the fields in a block of version 2, 3, 4 or 5,
+ *        from the start of the block, and their widths.
+ *
+ * Recovered from git: `struct Settings` and `struct SettingsBlock` of
+ * src/settings.h at 8a5eebb (version 2), 5af4ddf (3), 3cc8798 (4) and
+ * aafc31b (5). Every version has the same 8-byte header, magic (4 bytes),
+ * version (2) and payload size (2), and the same first twelve payload bytes;
+ * the compiler aligned the 16-bit fields to 2 bytes and the CRC to 4.
+ * Little-endian, as the RP2350 and the host suite store them.
+ *
+ * | Block byte | Width | Field                     | Versions   |
+ * |-----------:|------:|---------------------------|------------|
+ * |  8         | 1     | boardId                   | 2 to 5     |
+ * |  9         | 1     | dshotPin                  | 2 to 5     |
+ * | 10         | 2     | dshotKbaud                | 2 to 5     |
+ * | 12         | 1     | kissEnable                | 2 to 5     |
+ * | 13         | 1     | kissPin                   | 2 to 5     |
+ * | 14         | 1     | poles                     | 2 to 5     |
+ * | 15         | 1     | padding                   | 2 to 5     |
+ * | 16         | 2     | maxThrottle               | 2 to 5     |
+ * | 18         | 1     | backlight                 | 2 to 5     |
+ * | 19         | 1     | highContrast              | 2 to 5     |
+ * | 20         | 1     | servoSupply               | 3, 4, 5    |
+ * | 21         | 1     | padding; currentSense     | 3, 4; 5    |
+ * | 20 or 24   | 4     | CRC-32 of the bytes before it | 2; 3, 4, 5 |
+ */
+namespace old_layout {
+constexpr uint32_t HEADER        = 8;
+constexpr uint32_t BOARD_ID      = HEADER + 0;
+constexpr uint32_t DSHOT_PIN     = HEADER + 1;
+constexpr uint32_t DSHOT_KBAUD   = HEADER + 2;   // 16 bits
+constexpr uint32_t KISS_ENABLE   = HEADER + 4;
+constexpr uint32_t KISS_PIN      = HEADER + 5;
+constexpr uint32_t POLES         = HEADER + 6;
+constexpr uint32_t MAX_THROTTLE  = HEADER + 8;   // 16 bits
+constexpr uint32_t BACKLIGHT     = HEADER + 10;
+constexpr uint32_t HIGH_CONTRAST = HEADER + 11;
+constexpr uint32_t SERVO_SUPPLY  = HEADER + 12;  // versions 3, 4 and 5
+constexpr uint32_t CURRENT_SENSE = HEADER + 13;  // version 5
+}  // namespace old_layout
+
+/** @brief What tells one older layout from another. */
+struct OldLayout {
+	uint16_t version;      /**< SettingsBlock::version. */
+	uint16_t payload;      /**< SettingsBlock::size: the payload's bytes. */
+	uint16_t crcAt;        /**< The block byte the CRC-32 starts at. */
+	bool     servoSupply;  /**< Has servoSupply, at old_layout::SERVO_SUPPLY. */
+	/**
+	 * @brief Its servoSupply values mean what version 6's do: 1 an enable on
+	 *        GP28, 2 on GP29. Version 3's 1 named GP0.
+	 */
+	bool     supplyAsNow;
+	bool     currentSense;  /**< Has currentSense, at old_layout::CURRENT_SENSE. */
+};
+
+/** @brief The layouts settingsLoad() carries over. */
+static constexpr OldLayout OLD_LAYOUTS[] = {
+	{ 2, 12, 20, false, false, false },
+	{ 3, 14, 24, true,  false, false },
+	{ 4, 14, 24, true,  true,  false },
+	{ 5, 14, 24, true,  true,  true  },
+};
+
+/** @brief The CRC sits at the first 4-byte boundary after the payload. */
+static constexpr bool crcAfterPayload(const OldLayout &l) {
+	return l.crcAt == ((old_layout::HEADER + l.payload + 3u) & ~3u);
+}
+static_assert(crcAfterPayload(OLD_LAYOUTS[0]) && OLD_LAYOUTS[0].crcAt == 20,
+              "version 2: 12 bytes of payload, the CRC at byte 20");
+static_assert(crcAfterPayload(OLD_LAYOUTS[1]) && OLD_LAYOUTS[1].crcAt == 24,
+              "version 3: 14 bytes of payload, the CRC at byte 24");
+static_assert(crcAfterPayload(OLD_LAYOUTS[2]) && OLD_LAYOUTS[2].crcAt == 24,
+              "version 4: 14 bytes of payload, the CRC at byte 24");
+static_assert(crcAfterPayload(OLD_LAYOUTS[3]) && OLD_LAYOUTS[3].crcAt == 24,
+              "version 5: 14 bytes of payload, the CRC at byte 24");
+static_assert(old_layout::CURRENT_SENSE + 1 == old_layout::HEADER + OLD_LAYOUTS[3].payload,
+              "currentSense the last byte of the version 5 payload");
+static_assert(old_layout::SERVO_SUPPLY + 1 <= old_layout::HEADER + OLD_LAYOUTS[1].payload,
+              "servoSupply inside the version 3 payload");
+static_assert(old_layout::HIGH_CONTRAST + 1 == old_layout::HEADER + OLD_LAYOUTS[0].payload,
+              "highContrast the last byte of the version 2 payload");
+static_assert(OLD_LAYOUTS[sizeof(OLD_LAYOUTS) / sizeof(OLD_LAYOUTS[0]) - 1].version ==
+                  SETTINGS_VERSION - 1,
+              "a version bump describes the layout it replaces here");
+// Version 6 keeps version 5's offsets and adds the angle meter's fields
+// after them: today's struct is the check that the table matches the last
+// of them.
+static_assert(offsetof(SettingsBlock, s) == old_layout::HEADER, "the header is 8 bytes");
+static_assert(sizeof(Settings) == 44 && offsetof(SettingsBlock, crc32) == 52,
+              "version 6 is 44 bytes, its CRC at byte 52");
+static_assert(offsetof(Settings, angleAlong) == OLD_LAYOUTS[3].payload,
+              "the angle meter's fields start where version 5's payload ends");
+static_assert(offsetof(Settings, boardId)      + old_layout::HEADER == old_layout::BOARD_ID &&
+              offsetof(Settings, dshotPin)     + old_layout::HEADER == old_layout::DSHOT_PIN &&
+              offsetof(Settings, dshotKbaud)   + old_layout::HEADER == old_layout::DSHOT_KBAUD &&
+              offsetof(Settings, kissEnable)   + old_layout::HEADER == old_layout::KISS_ENABLE &&
+              offsetof(Settings, kissPin)      + old_layout::HEADER == old_layout::KISS_PIN &&
+              offsetof(Settings, poles)        + old_layout::HEADER == old_layout::POLES &&
+              offsetof(Settings, maxThrottle)  + old_layout::HEADER == old_layout::MAX_THROTTLE &&
+              offsetof(Settings, backlight)    + old_layout::HEADER == old_layout::BACKLIGHT &&
+              offsetof(Settings, highContrast) + old_layout::HEADER == old_layout::HIGH_CONTRAST &&
+              offsetof(Settings, servoSupply)  + old_layout::HEADER == old_layout::SERVO_SUPPLY &&
+              offsetof(Settings, currentSense) + old_layout::HEADER == old_layout::CURRENT_SENSE,
+              "version 6's first offsets are version 5's");
+
+static uint16_t le16(const uint8_t *p) { return (uint16_t)(p[0] | (p[1] << 8)); }
+static uint32_t le32(const uint8_t *p) {
+	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+/**
+ * @brief Carry a whole block of an older layout over into @p out.
+ *
+ * Whole: @ref SETTINGS_MAGIC, a version in `OLD_LAYOUTS`, that layout's
+ * payload size and the CRC-32 at its offset right over every byte before
+ * it. Then @p out takes the compiled defaults and every field the layout
+ * has, unvalidated: settingsLoad() validates.
+ *
+ * @param raw The block's bytes, at least 28.
+ * @param[out] out The carried settings; untouched on false.
+ * @return False for anything but such a block.
+ */
+static bool carryOver(const uint8_t *raw, Settings *out) {
+	if (le32(raw) != SETTINGS_MAGIC) return false;
+	const uint16_t version = le16(raw + 4);
+	const OldLayout *l = nullptr;
+	for (const OldLayout &c : OLD_LAYOUTS)
+		if (c.version == version) l = &c;
+	if (!l || le16(raw + 6) != l->payload) return false;
+	if (le32(raw + l->crcAt) != settingsCrc32(raw, l->crcAt)) return false;
+
+	using namespace old_layout;
+	settingsDefaults(out);
+	out->boardId      = raw[BOARD_ID];
+	out->dshotPin     = raw[DSHOT_PIN];
+	out->dshotKbaud   = le16(raw + DSHOT_KBAUD);
+	out->kissEnable   = raw[KISS_ENABLE];
+	out->kissPin      = raw[KISS_PIN];
+	out->poles        = raw[POLES];
+	out->maxThrottle  = le16(raw + MAX_THROTTLE);
+	out->backlight    = raw[BACKLIGHT];
+	out->highContrast = raw[HIGH_CONTRAST];
+	// Version 3's 1 was an enable on GP0, the ESC's signal pin since
+	// version 4. No version 6 value names it: none, so no pin is driven.
+	if (l->servoSupply && l->supplyAsNow) out->servoSupply = raw[SERVO_SUPPLY];
+	if (l->currentSense) out->currentSense = raw[CURRENT_SENSE];
+	return true;
+}
+
+// ---------------------------------------------------------------------------
 // load / save
 // ---------------------------------------------------------------------------
 
@@ -211,7 +424,7 @@ static void freshDefaults() {
  * @brief Whether @p raw holds a whole block of another version: the magic, a
  *        version other than this one, a payload of at most
  *        @ref SETTINGS_OTHER_MAX bytes and the CRC-32 after it right. In
- *        every version, 2 to 5, the header is 8 bytes and the CRC is the
+ *        every version, 2 to 6, the header is 8 bytes and the CRC is the
  *        next 4-byte-aligned word after the payload, over every byte before
  *        it (the compiler pads `SettingsBlock` to that alignment).
  */
@@ -233,6 +446,7 @@ void settingsLoad() {
 	freshDefaults();
 	s_stored = false;
 	s_resetByUpdate = false;
+	s_carriedOver = false;
 
 	// The header, the largest payload a block of another version may have,
 	// and its CRC: enough to tell a discarded block from blank flash.
@@ -243,17 +457,32 @@ void settingsLoad() {
 	if (!settingsStorageRead(raw, sizeof(raw))) {
 		return;
 	}
+	static_assert(sizeof(raw) >= 28, "a version 3, 4 or 5 block is larger than the read");
+
+	// An older layout the table knows, whole: carried over, then judged by
+	// the same validation as a block of this version. AUX, the KISS pin, is
+	// judged whatever KISS is: one this board does not free, the old GP28 or
+	// GP29, takes the default.
+	Settings carried;
+	if (carryOver(raw, &carried)) {
+		s_live = carried;
+		settingsValidate(&s_live);
+		s_saved = s_live;
+		s_stored = true;
+		s_carriedOver = true;
+		s_bootPin = s_live.dshotPin;
+		return;
+	}
 	s_resetByUpdate = otherVersionBlock(raw);
 	SettingsBlock blk;
 	memcpy(&blk, raw, sizeof(blk));
 
 	// Four independent reasons to distrust the block, all fatal, none partial.
 	//
-	// Rejecting a version mismatch outright rather than migrating is the whole
-	// point: the field this file most wants to get right is the throttle
-	// ceiling, and a migration that guesses at an old layout can hand back a
-	// plausible-looking 2000 as easily as a 400. Losing a pole count is
-	// recoverable in two taps; the other direction is a motor at full throttle.
+	// A version this firmware has no layout for is rejected outright: a guess
+	// at a layout can hand back a plausible-looking 2000 as easily as a 400.
+	// The older layouts above are not guesses; each is recovered from the
+	// commit that wrote it and pinned by the host suite.
 	if (blk.magic != SETTINGS_MAGIC ||
 	    blk.version != SETTINGS_VERSION ||
 	    blk.size != (uint16_t)sizeof(Settings) ||
@@ -276,29 +505,20 @@ Settings *settings() {
 	return &s_live;
 }
 
-bool settingsSave() {
-	// Never during a pin claim. Erasing flash parks core1 for tens of
-	// milliseconds, past a KST transaction's 5 ms driver slack. SETTINGS, the
-	// one caller, opens from MENU only while the claim is Free, so this is
-	// the assertion under that, and it refuses rather than writes.
-	if (pinClaimHolder() != PinUser::None) return false;
-
-	ensureSeeded();
-	settingsValidate(&s_live);
-
-	// A save of exactly what is already stored is a no-op, reported as
-	// success. Every real erase parks core1 and opens a torn-write window in
-	// the only copy of the block — there is no A/B sector — so the write has
-	// to buy something.
-	if (s_stored && memcmp(&s_live, &s_saved, sizeof(Settings)) == 0)
-		return true;
-
+/**
+ * @brief Write @p s as this version's block, read it back, and on success
+ *        make it the saved copy: stored, with no notice of a reset or a
+ *        carry-over left.
+ * @param s Validated settings.
+ * @return true if the block landed.
+ */
+static bool writeBlock(const Settings &s) {
 	SettingsBlock blk;
 	memset(&blk, 0, sizeof(blk));
 	blk.magic   = SETTINGS_MAGIC;
 	blk.version = SETTINGS_VERSION;
 	blk.size    = (uint16_t)sizeof(Settings);
-	blk.s       = s_live;
+	blk.s       = s;
 	blk.crc32   = settingsCrc32(&blk, crcSpan());
 
 	if (!settingsStorageWrite(&blk, sizeof(blk))) return false;
@@ -312,15 +532,77 @@ bool settingsSave() {
 	if (!settingsStorageRead(&check, sizeof(check))) return false;
 	if (memcmp(&check, &blk, sizeof(blk)) != 0) return false;
 
-	s_saved  = s_live;
+	s_saved  = s;
 	s_stored = true;
 	s_resetByUpdate = false;
+	s_carriedOver = false;
 	return true;
+}
+
+bool settingsSave() {
+	// Never during a pin claim. Erasing flash parks core1 for tens of
+	// milliseconds, past a KST transaction's 5 ms driver slack. SETTINGS and
+	// the angle meter open only while the claim is Free, so this is the
+	// assertion under that, and it refuses rather than writes.
+	if (pinClaimHolder() != PinUser::None) return false;
+
+	ensureSeeded();
+	settingsValidate(&s_live);
+
+	// A save of exactly what is already stored is a no-op, reported as
+	// success. Every real erase parks core1 and opens a torn-write window in
+	// the only copy of the block — there is no A/B sector — so the write has
+	// to buy something.
+	// After a carry-over flash holds the older block, so the first save writes
+	// even with nothing changed.
+	if (s_stored && !s_carriedOver && memcmp(&s_live, &s_saved, sizeof(Settings)) == 0)
+		return true;
+
+	return writeBlock(s_live);
+}
+
+bool settingsSaveAngle() {
+	// The same refusal as settingsSave()'s.
+	if (pinClaimHolder() != PinUser::None) return false;
+
+	ensureSeeded();
+	// The saved settings with the live angle fields: a change on SETTINGS
+	// that was not saved is not saved by the meter either.
+	Settings out = s_saved;
+	settingsCopyAngle(&out, &s_live);
+	settingsValidate(&out);
+	// The live fields take what the block will hold.
+	settingsCopyAngle(&s_live, &out);
+
+	if (s_stored && !s_carriedOver && memcmp(&out, &s_saved, sizeof(Settings)) == 0)
+		return true;
+	return writeBlock(out);
+}
+
+void settingsCopyAngle(Settings *dst, const Settings *src) {
+	dst->angleAlong    = src->angleAlong;
+	dst->angleInvert   = src->angleInvert;
+	dst->angleLengthMm = src->angleLengthMm;
+	dst->angleCalValid = src->angleCalValid;
+	dst->angleSpare    = src->angleSpare;
+	memcpy(dst->angleCalOffG, src->angleCalOffG, sizeof(dst->angleCalOffG));
+	memcpy(dst->angleCalGain, src->angleCalGain, sizeof(dst->angleCalGain));
+}
+
+bool settingsAngleDirty() {
+	ensureSeeded();
+	// The live settings with the saved angle fields: equal byte for byte
+	// exactly when the angle fields are.
+	Settings a = s_live;
+	settingsCopyAngle(&a, &s_saved);
+	return memcmp(&a, &s_live, sizeof(Settings)) != 0;
 }
 
 bool settingsStored() { return s_stored; }
 
 bool settingsResetByUpdate() { return s_resetByUpdate; }
+
+bool settingsCarriedOver() { return s_carriedOver; }
 
 uint8_t settingsBootDshotPin() {
 	ensureSeeded();

@@ -20,6 +20,8 @@
 #include "hardware/i2c.h"
 #include "hardware/spi.h"
 #include "hardware/uart.h"
+#include "hardware/structs/io_bank0.h"
+#include "hardware/structs/pads_bank0.h"
 #include "hardware/structs/powman.h"
 #include "hardware/structs/watchdog.h"
 #include "pico/bootrom.h"
@@ -39,10 +41,14 @@
 #include "fakes.h"
 #include "fake_i2c.h"
 #include "card_cache.h"
+#include "servo_log.h"
 #include "plat.h"
 
 #include <stdio.h>
 #include <string.h>
+
+#include <deque>
+#include <vector>
 
 // ---------------------------------------------------------------------------
 // virtual clock and the Pico SDK surface the firmware uses
@@ -50,14 +56,29 @@
 
 // Time is virtual: it advances only when a test says so. plat.h's millis() and
 // micros() are inline wrappers over these, so faking the SDK timebase fakes
-// both without the firmware knowing.
-static uint32_t g_ms = 0;
+// both without the firmware knowing. The count is in microseconds, so bytes
+// 120 us apart can be stamped; millis() is it divided by 1000.
+static uint64_t g_us = 0;
 
-void fakeAdvance(uint32_t ms) { g_ms += ms; }
-uint64_t time_us_64() { return (uint64_t)g_ms * 1000u; }
-uint32_t time_us_32() { return g_ms * 1000u; }
-void sleep_ms(uint32_t d) { g_ms += d; }
-void sleep_us(uint64_t us) { g_ms += (uint32_t)(us / 1000u); }
+void fakeAdvance(uint32_t ms) { g_us += (uint64_t)ms * 1000u; }
+void fakeAdvanceUs(uint32_t us) { g_us += us; }
+void fakeClockAlign(uint32_t periodMs) {
+	if (periodMs == 0) return;
+	uint64_t ms = (g_us + 999u) / 1000u;   // never back: round a part ms up
+	while ((uint32_t)ms % periodMs) ms++;
+	g_us = ms * 1000u;
+}
+bool fakeClockSetMs(uint64_t ms) {
+	if (ms * 1000u < g_us) return false;
+	g_us = ms * 1000u;
+	return true;
+}
+uint64_t time_us_64() { return g_us; }
+uint32_t time_us_32() { return (uint32_t)g_us; }
+void sleep_ms(uint32_t d) { g_us += (uint64_t)d * 1000u; }
+// Whole milliseconds only: the sensor's recovery waits of a few
+// microseconds move no time, so the tests' millisecond steps stay exact.
+void sleep_us(uint64_t us) { g_us += us / 1000u * 1000u; }
 
 // --- ADC: a steady ~3.92 V pack through the board's 200k/100k divider ---
 void adc_init() {}
@@ -75,6 +96,8 @@ uint16_t fakeAdcDefault() { return (uint16_t)(3.92f / 3.0f / 3.3f * 4095.0f); }
 //     Nothing here models a counter or an edge: a level is what the compare
 //     register was last set to ---
 static FakePin   g_pins[FAKE_GPIOS];
+/** @brief Counts every pin write the order stamps of FakePin record; never reset. */
+static uint32_t  g_pinSeq = 0;
 static FakeSlice g_slices[FAKE_SLICES];
 static bool      g_sliceMapBroken = false;
 
@@ -132,14 +155,113 @@ static void cutCheck(unsigned gpio) {
 	}
 }
 
+// --- Control and pad registers. Every write of a GPIO's control register,
+//     by gpio_set_function(), gpio_set_inover() or io_bank0_hw directly, is
+//     one record with FUNCSEL and the overrides as one value, so a test sees
+//     the two fields of a single write together. The pad register holds IE,
+//     OD, ISO and the pulls, PUE and PDE: gpio_pull_down() and its kin write
+//     them there, and FakePin::pull is read from them, so a whole-register
+//     write that changes a pull is seen ---
+io_bank0_hw_t g_fakeIoBank0;
+pads_bank0_hw_t g_fakePadsBank0;
+/** @brief One control-register write and its GPIO. */
+struct FakeCtrlRec { unsigned gpio; FakeCtrlWrite w; };
+static std::vector<FakeCtrlRec> g_ctrlLog;
+/**
+ * @brief A pad at reset: PADS_BANK0_GPIO0_RESET of SDK 2.1.1, 0x116:
+ *        isolated, the pull-down on, 4 mA drive, Schmitt trigger; IE and OD
+ *        clear.
+ */
+static const uint32_t PAD_RESET = 0x116u;
+static_assert((PAD_RESET & PADS_BANK0_GPIO0_ISO_BITS) && (PAD_RESET & PADS_BANK0_GPIO0_PDE_BITS) &&
+              !(PAD_RESET & (PADS_BANK0_GPIO0_OD_BITS | PADS_BANK0_GPIO0_IE_BITS |
+                             PADS_BANK0_GPIO0_PUE_BITS)),
+              "the pad's reset value");
+/** @brief The pulls of the pad register. */
+static const uint32_t PAD_PULLS = PADS_BANK0_GPIO0_PUE_BITS | PADS_BANK0_GPIO0_PDE_BITS;
+/** @brief A pull was written since fakePwmReset(): FakePin::pull reads the pad, else Untouched. */
+static bool g_pullTouched[FAKE_GPIOS];
+
+static void uartTxPadChange();
+
+/**
+ * @brief Write a control register: the pin's function and overrides follow
+ *        the value, and the write is recorded.
+ * @param asFunction The write selects the function (gpio_set_function() or
+ *        a direct write), so it stamps FakePin::functionAt.
+ */
+static void ctrlWrite(unsigned gpio, uint32_t v, bool asFunction) {
+	if (gpio >= FAKE_GPIOS) return;
+	uint32_t seq = ++g_pinSeq;
+	FakePin &p = g_pins[gpio];
+	if (asFunction) p.functionAt = seq;
+	p.ctrl = v;
+	p.function = (int)(v & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS);
+	p.outover = (uint8_t)((v & IO_BANK0_GPIO0_CTRL_OUTOVER_BITS) >> IO_BANK0_GPIO0_CTRL_OUTOVER_LSB);
+	p.inover = (uint8_t)((v & IO_BANK0_GPIO0_CTRL_INOVER_BITS) >> IO_BANK0_GPIO0_CTRL_INOVER_LSB);
+	g_ctrlLog.push_back(FakeCtrlRec{gpio, FakeCtrlWrite{v, seq, time_us_64()}});
+	if (gpio == 0) uartTxPadChange();
+}
+
+fake_gpio_ctrl::operator uint32_t() const {
+	unsigned gpio = (unsigned)(((const char *)this - (const char *)&g_fakeIoBank0.io[0].ctrl) /
+	                           sizeof(io_bank0_status_ctrl_hw_t));
+	return gpio < FAKE_GPIOS ? g_pins[gpio].ctrl : 0u;
+}
+fake_gpio_ctrl &fake_gpio_ctrl::operator=(uint32_t v) {
+	unsigned gpio = (unsigned)(((const char *)this - (const char *)&g_fakeIoBank0.io[0].ctrl) /
+	                           sizeof(io_bank0_status_ctrl_hw_t));
+	if (gpio < FAKE_GPIOS && (v & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS) != GPIO_FUNC_PWM) cutCheck(gpio);
+	ctrlWrite(gpio, v, true);
+	return *this;
+}
+void hw_write_masked(fake_pad_reg *r, uint32_t values, uint32_t mask) {
+	r->value = (r->value & ~mask) | (values & mask);
+	unsigned gpio = (unsigned)(r - g_fakePadsBank0.io);
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].padMaskAt = ++g_pinSeq;
+	if (mask & PAD_PULLS) g_pullTouched[gpio] = true;
+}
+void hw_clear_bits(fake_pad_reg *r, uint32_t mask) {
+	r->value &= ~mask;
+	unsigned gpio = (unsigned)(r - g_fakePadsBank0.io);
+	if (gpio >= FAKE_GPIOS) return;
+	if (mask & PADS_BANK0_GPIO0_ISO_BITS) g_pins[gpio].padIsoAt = ++g_pinSeq;
+	if (mask & PAD_PULLS) g_pullTouched[gpio] = true;
+}
+int fakeGpioCtrlWrites(unsigned gpio) {
+	int n = 0;
+	for (const FakeCtrlRec &r : g_ctrlLog) n += r.gpio == gpio;
+	return n;
+}
+FakeCtrlWrite fakeGpioCtrlWrite(unsigned gpio, int i) {
+	for (const FakeCtrlRec &r : g_ctrlLog)
+		if (r.gpio == gpio && i-- == 0) return r.w;
+	return FakeCtrlWrite{};
+}
+uint32_t fakePad(unsigned gpio) { return gpio < FAKE_GPIOS ? g_fakePadsBank0.io[gpio].value : 0u; }
+
 void fakePwmReset() {
 	for (FakePin &p : g_pins) p = FakePin{};
 	for (FakeSlice &s : g_slices) s = FakeSlice{};
 	memset(g_writeCount, 0, sizeof(g_writeCount));
 	g_sliceMapBroken = false;
+	g_ctrlLog.clear();
+	for (fake_pad_reg &r : g_fakePadsBank0.io) r.value = PAD_RESET;
+	memset(g_pullTouched, 0, sizeof(g_pullTouched));
 }
 void fakePwmBreakSliceMap(bool on) { g_sliceMapBroken = on; }
-FakePin fakePin(unsigned gpio) { return gpio < FAKE_GPIOS ? g_pins[gpio] : FakePin{}; }
+FakePin fakePin(unsigned gpio) {
+	if (gpio >= FAKE_GPIOS) return FakePin{};
+	FakePin p = g_pins[gpio];
+	uint32_t pulls = g_fakePadsBank0.io[gpio].value & PAD_PULLS;
+	if (!g_pullTouched[gpio])                  p.pull = FakePull::Untouched;
+	else if (pulls == PAD_PULLS)               p.pull = FakePull::Keep;
+	else if (pulls & PADS_BANK0_GPIO0_PUE_BITS) p.pull = FakePull::Up;
+	else if (pulls & PADS_BANK0_GPIO0_PDE_BITS) p.pull = FakePull::Down;
+	else                                       p.pull = FakePull::None;
+	return p;
+}
 FakeSlice fakeSlice(unsigned slice) { return slice < FAKE_SLICES ? g_slices[slice] : FakeSlice{}; }
 
 unsigned pwm_gpio_to_slice_num(unsigned gpio) {
@@ -177,6 +299,7 @@ void pwm_set_enabled(unsigned slice, bool on) {
 }
 void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].levelAt = ++g_pinSeq;
 	g_pins[gpio].level = level;
 	g_pins[gpio].levelWrites++;
 	logWrite(gpio, time_us_64(), level);
@@ -184,40 +307,71 @@ void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
-	g_pins[gpio].function = (int)fn;
-	// As the SDK does: selecting a function turns the pad's input on.
+	// As the SDK does: selecting a function turns the pad's input on and its
+	// output disable off, writes the whole control register, which zeroes
+	// the overrides, and clears the pad's isolation.
 	g_pins[gpio].inputOff = false;
+	uint32_t &pad = g_fakePadsBank0.io[gpio].value;
+	pad = (pad | PADS_BANK0_GPIO0_IE_BITS) & ~PADS_BANK0_GPIO0_OD_BITS;
+	ctrlWrite(gpio, (uint32_t)fn << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB, true);
+	pad &= ~PADS_BANK0_GPIO0_ISO_BITS;
+}
+extern "C" void gpio_set_inover(unsigned gpio, unsigned value) {
+	if (gpio >= FAKE_GPIOS) return;
+	uint32_t v = (g_pins[gpio].ctrl & ~IO_BANK0_GPIO0_CTRL_INOVER_BITS) |
+	             ((uint32_t)value << IO_BANK0_GPIO0_CTRL_INOVER_LSB);
+	ctrlWrite(gpio, v, false);
+	g_pins[gpio].inoverWrites++;
 }
 extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (out && !g_pins[gpio].output && g_pins[gpio].high) g_pins[gpio].highEnables++;
+	g_pins[gpio].dirAt = ++g_pinSeq;
 	g_pins[gpio].output = out != 0;
 	fakeI2cPinDir(gpio, out != 0);
 }
-extern "C" void gpio_disable_pulls(uint32_t gpio) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::None;
+/** @brief Set a pin's pulls in its pad register, as gpio_set_pulls() does, and stamp the write. */
+static void setPull(uint32_t gpio, FakePull pull) {
+	if (gpio >= FAKE_GPIOS) return;
+	uint32_t &pad = g_fakePadsBank0.io[gpio].value;
+	pad &= ~PAD_PULLS;
+	if (pull == FakePull::Up)   pad |= PADS_BANK0_GPIO0_PUE_BITS;
+	if (pull == FakePull::Down) pad |= PADS_BANK0_GPIO0_PDE_BITS;
+	g_pullTouched[gpio] = true;
+	g_pins[gpio].pullAt = ++g_pinSeq;
 }
-extern "C" void gpio_pull_down(uint32_t gpio) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Down;
-}
-extern "C" void gpio_pull_up(uint32_t gpio) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].pull = FakePull::Up;
-}
+extern "C" void gpio_disable_pulls(uint32_t gpio) { setPull(gpio, FakePull::None); }
+extern "C" void gpio_pull_down(uint32_t gpio) { setPull(gpio, FakePull::Down); }
+extern "C" void gpio_pull_up(uint32_t gpio) { setPull(gpio, FakePull::Up); }
 extern "C" void gpio_put(uint32_t gpio, int value) {
 	if (gpio >= FAKE_GPIOS) return;
 	g_pins[gpio].high = value != 0;
 	g_pins[gpio].puts++;
+	g_pins[gpio].putAt = ++g_pinSeq;
 }
 extern "C" void gpio_set_input_enabled(uint32_t gpio, bool on) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].inputOff = !on;
 }
 
-uint32_t clock_get_hz(enum clock_index) { return 150000000u; }
+/** @brief clk_sys and clk_peri: 150 MHz, as SDK 2.1.1 sets them. */
+static uint32_t g_clockHz[2] = { 150000000u, 150000000u };
+uint32_t clock_get_hz(enum clock_index i) { return g_clockHz[i == clk_peri]; }
+void fakeClockSet(enum clock_index i, uint32_t hz) { g_clockHz[i == clk_peri] = hz; }
 
-// --- Critical sections: one thread, so there is nothing to exclude ---
-extern "C" void critical_section_init(critical_section_t *) {}
-extern "C" void critical_section_enter_blocking(critical_section_t *) {}
-extern "C" void critical_section_exit(critical_section_t *) {}
+// --- Critical sections: one thread, so there is nothing to exclude. The
+//     fake records initialisation: init stores a magic value in the section,
+//     and enter or exit on a section without it is counted. test_main.cpp
+//     fails the run when the count is not 0 ---
+static const int CS_MAGIC = 0x43530001;
+static unsigned g_csMisuse = 0;
+extern "C" void critical_section_init(critical_section_t *cs) { cs->lock = CS_MAGIC; }
+extern "C" void critical_section_enter_blocking(critical_section_t *cs) {
+	if (cs->lock != CS_MAGIC) g_csMisuse++;
+}
+extern "C" void critical_section_exit(critical_section_t *cs) {
+	if (cs->lock != CS_MAGIC) g_csMisuse++;
+}
+unsigned fakeCriticalSectionMisuse() { return g_csMisuse; }
 
 // --- I2C: fake_i2c.cpp is the bus. The scripted touchPoll() below drives
 //     the UI tests; the real driver runs on that bus in test_sense.cpp ---
@@ -228,14 +382,297 @@ extern "C" void critical_section_exit(critical_section_t *) {}
 spi_inst_t *spi0 = nullptr;
 spi_inst_t *spi1 = nullptr;
 
-// --- UART: never readable. No ESC here to answer a telemetry request ---
-uart_inst_t *uart0 = nullptr;
-uart_inst_t *uart1 = nullptr;
-unsigned uart_init(uart_inst_t *, unsigned baud) { return baud; }
-void uart_deinit(uart_inst_t *) {}
-bool uart_is_readable(uart_inst_t *) { return false; }
-uint8_t uart_getc(uart_inst_t *) { return 0; }
-void uart_set_format(uart_inst_t *, unsigned, unsigned, enum uart_parity_t) {}
+// --- UART0: a PL011 receiver as the S.BUS job sees it. The line is a queue
+//     of UARTDR words as an 8E2 receiver would load them, each due when its
+//     character, 11 bit times from its start bit, is in. A word due while
+//     the UART is on and GP1 is on the UART function with its input inverted
+//     enters the 32-entry receive FIFO, and is dropped otherwise. A word due
+//     while the FIFO is full is lost, and the next word that enters carries
+//     OE. The receiver reads the word in its own format: at 8N1 the parity
+//     bit is taken as the stop bit, so a parity bit of 0 is FE; at odd parity
+//     PE is the other way round. A character whose start bit came before the
+//     receiver was on is caught in its middle: it loads as FE with its data
+//     shifted. uart_set_format() on a running UART takes the SDK's 15 bit
+//     times with the receiver off, as uart_disable_before_lcr_write() waits,
+//     and only the character in progress at its start completes, in the old
+//     format. Not modelled: the bits on the wire, what a line that is not
+//     inverted would read. The transmitter: each UARTDR write enters a
+//     32-entry TX FIFO and goes out at the format and rate set, back to back;
+//     TXFE, TXFF and BUSY follow it. A character still in the FIFO or on the
+//     wire when the UART stops, or when GP0 leaves the UART function with its
+//     output inverted, is cut ---
+
+/** @brief The two UART instances; only their addresses are used. */
+struct uart_inst { int id; };
+static uart_inst g_uartInst[2] = { {0}, {1} };
+uart_inst_t *uart0 = &g_uartInst[0];
+uart_inst_t *uart1 = &g_uartInst[1];
+
+/** @brief A word on the line and when its last bit is in. */
+struct FakeLineWord { uint64_t dueUs; uint16_t word; };
+static std::deque<FakeLineWord> g_line;
+static uint16_t g_rxFifo[FAKE_UART_FIFO];
+static unsigned g_rxHead, g_rxCount;
+static bool     g_rxOverrunPending;
+static uint64_t g_rxOnUs;         /**< When the receiver last came on. */
+static uint32_t g_initTakesUs;    /**< Time uart_init() leaves the receiver on before it returns. */
+static FakeUart g_uart;
+static uart_hw_t g_uartHw;
+static std::vector<FakeTxByte> g_tx;  /**< Every character written, in order. */
+/**
+ * @brief No character before this index of g_tx waits in the TX FIFO: each
+ *        is cut or has started, which no later time undoes. A long run of
+ *        frames would otherwise make every UARTFR read scan them all.
+ */
+static size_t   g_txPendingFrom;
+static uint64_t g_txEndUs;            /**< When the last character's stop bits end. */
+static bool     g_txStuck;            /**< BUSY held set. */
+
+/** @brief One character's time, us, from its start bit to its load: 11 bits. */
+static uint64_t uartCharUs() { return g_uart.baud ? 11000000u / g_uart.baud : 0; }
+
+/** @brief The even parity bit of @p b. */
+static uint16_t uartEvenParity(uint8_t b) {
+	uint16_t p = 0;
+	for (; b; b &= (uint8_t)(b - 1u)) p ^= 1u;
+	return p;
+}
+
+/** @brief Load one word from the line, if the receiver hears it, as its format reads it. */
+static void uartTake(const FakeLineWord &lw) {
+	uint16_t w = lw.word;
+	if (!g_uart.enabled || !g_uart.rxe || g_pins[1].function != GPIO_FUNC_UART ||
+	    g_pins[1].inover != GPIO_OVERRIDE_INVERT || g_uart.dataBits != 8) {
+		g_uart.dropped++;
+		return;
+	}
+	if (lw.dueUs < g_rxOnUs + uartCharUs()) {
+		// Started before the receiver was on: a 0 bit inside it is taken
+		// for the start bit.
+		w = (uint16_t)(((w & 0xFFu) >> 1) | UART_UARTDR_FE_BITS);
+		g_uart.caughtMid++;
+	} else if (!(w & UART_UARTDR_BE_BITS)) {
+		uint16_t pbit = uartEvenParity((uint8_t)w) ^ ((w & UART_UARTDR_PE_BITS) ? 1u : 0u);
+		if (g_uart.parity == UART_PARITY_NONE)
+			w = (uint16_t)((w & 0xFFu) | (pbit ? 0u : UART_UARTDR_FE_BITS));
+		else if (g_uart.parity == UART_PARITY_ODD)
+			w ^= UART_UARTDR_PE_BITS;
+	}
+	if (g_rxCount == FAKE_UART_FIFO) {
+		g_rxOverrunPending = true;
+		g_uart.lost++;
+		return;
+	}
+	if (g_rxOverrunPending) w |= UART_UARTDR_OE_BITS;
+	g_rxOverrunPending = false;
+	g_rxFifo[(g_rxHead + g_rxCount++) % FAKE_UART_FIFO] = w;
+}
+
+/** @brief Move every word due by now off the line, into the FIFO or away. */
+static void uartLine() {
+	uint64_t now = time_us_64();
+	while (!g_line.empty() && g_line.front().dueUs <= now) {
+		FakeLineWord lw = g_line.front();
+		g_line.pop_front();
+		uartTake(lw);
+	}
+}
+
+/** @brief Cut every character not yet fully out: the UART stopped, or the pad left it. */
+static void uartTxCutPending() {
+	uint64_t now = time_us_64();
+	for (FakeTxByte &b : g_tx) {
+		if (b.cut || b.endUs <= now) continue;
+		b.cut = true;
+		g_uart.txCut++;
+	}
+	if (g_txEndUs > now) g_txEndUs = now;
+}
+
+/** @brief GP0 is on UART0's TX with its output inverted. */
+static bool uartTxOnPad() {
+	return g_pins[0].function == GPIO_FUNC_UART && g_pins[0].outover == GPIO_OVERRIDE_INVERT;
+}
+
+/** @brief GP0's control register changed: a character on its way through a pad that left the UART is cut. */
+static void uartTxPadChange() {
+	if (!uartTxOnPad()) uartTxCutPending();
+}
+
+/** @brief Characters written and not yet started: those in the TX FIFO. */
+static unsigned uartTxQueued() {
+	uint64_t now = time_us_64();
+	while (g_txPendingFrom < g_tx.size() &&
+	       (g_tx[g_txPendingFrom].cut || g_tx[g_txPendingFrom].startUs <= now))
+		g_txPendingFrom++;
+	unsigned n = 0;
+	for (size_t i = g_txPendingFrom; i < g_tx.size(); i++) n += !g_tx[i].cut && g_tx[i].startUs > now;
+	return n;
+}
+
+/** @brief The PL011 after a reset: off, FIFOs empty, no overrun owed. */
+static void uartClear() {
+	g_rxHead = g_rxCount = 0;
+	g_rxOverrunPending = false;
+	g_uart.enabled = false;
+	uartTxCutPending();
+}
+
+void fakeUartReset() {
+	g_line.clear();
+	g_uart = FakeUart{};
+	uartClear();
+	g_tx.clear();
+	g_txPendingFrom = 0;
+	g_txEndUs = 0;
+	g_txStuck = false;
+	g_initTakesUs = 0;
+	g_clockHz[1] = 150000000u;
+}
+int fakeUartTxCount() { return (int)g_tx.size(); }
+FakeTxByte fakeUartTxByte(int i) {
+	if (i < 0 || i >= (int)g_tx.size()) return FakeTxByte{};
+	FakeTxByte b = g_tx[(size_t)i];
+	// On the pad: GP0 on the inverted UART function by its start bit, and no
+	// write moving it off before its last bit.
+	bool on = false;
+	for (const FakeCtrlRec &r : g_ctrlLog) {
+		if (r.gpio != 0) continue;
+		bool ok = (r.w.value & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS) == GPIO_FUNC_UART &&
+		          ((r.w.value & IO_BANK0_GPIO0_CTRL_OUTOVER_BITS) >> IO_BANK0_GPIO0_CTRL_OUTOVER_LSB) ==
+		              GPIO_OVERRIDE_INVERT;
+		if (r.w.us <= b.startUs) on = ok;
+		else if (r.w.us < b.endUs && !ok) on = false;
+	}
+	b.onPad = on && !b.cut;
+	return b;
+}
+void fakeUartTxStuck(bool on) { g_txStuck = on; }
+void fakeUartLine(uint64_t dueUs, uint16_t word) { g_line.push_back(FakeLineWord{dueUs, word}); }
+void fakeUartInitTakes(uint32_t us) { g_initTakesUs = us; }
+FakeUart fakeUart() {
+	uartLine();
+	FakeUart u = g_uart;
+	u.fifo = g_rxCount;
+	u.queued = (unsigned)g_line.size();
+	return u;
+}
+
+fake_uart_fr::operator uint32_t() const {
+	uartLine();
+	unsigned queued = uartTxQueued();
+	uint32_t fr = g_rxCount ? 0u : UART_UARTFR_RXFE_BITS;
+	if (queued == 0) fr |= UART_UARTFR_TXFE_BITS;
+	if (queued >= FAKE_UART_FIFO) fr |= UART_UARTFR_TXFF_BITS;
+	if (g_txStuck || time_us_64() < g_txEndUs) fr |= UART_UARTFR_BUSY_BITS;
+	return fr;
+}
+fake_uart_dr &fake_uart_dr::operator=(uint32_t v) {
+	g_uart.txWrites++;
+	if (!g_uart.enabled || !g_uart.txe || uartTxQueued() >= FAKE_UART_FIFO || !g_uart.baud) {
+		g_uart.txLost++;
+		return *this;
+	}
+	uint64_t now = time_us_64();
+	FakeTxByte b{};
+	b.value = (uint8_t)v;
+	b.writeUs = now;
+	b.bits = 1u + g_uart.dataBits + (g_uart.parity != UART_PARITY_NONE ? 1u : 0u) + g_uart.stopBits;
+	if (g_txStuck) {
+		// A stuck transmitter never starts the character: it stays in the FIFO.
+		b.startUs = b.endUs = UINT64_MAX;
+	} else {
+		b.startUs = g_txEndUs > now ? g_txEndUs : now;
+		b.endUs = b.startUs + (uint64_t)b.bits * 1000000u / g_uart.baud;
+		g_txEndUs = b.endUs;
+	}
+	g_tx.push_back(b);
+	return *this;
+}
+fake_uart_cr::operator uint32_t() const {
+	return (g_uart.enabled ? UART_UARTCR_UARTEN_BITS : 0u) |
+	       (g_uart.txe ? UART_UARTCR_TXE_BITS : 0u) | (g_uart.rxe ? UART_UARTCR_RXE_BITS : 0u);
+}
+fake_uart_cr &fake_uart_cr::operator=(uint32_t v) {
+	uartLine();
+	g_uart.crAt = ++g_pinSeq;
+	bool on = (v & UART_UARTCR_UARTEN_BITS) != 0;
+	if (g_uart.enabled && !on) uartTxCutPending();
+	g_uart.enabled = on;
+	g_uart.txe = (v & UART_UARTCR_TXE_BITS) != 0;
+	g_uart.rxe = (v & UART_UARTCR_RXE_BITS) != 0;
+	return *this;
+}
+fake_uart_dr::operator uint32_t() const {
+	uartLine();
+	g_uart.drReads++;
+	if (!g_rxCount) return 0;
+	uint16_t w = g_rxFifo[g_rxHead];
+	g_rxHead = (g_rxHead + 1u) % FAKE_UART_FIFO;
+	g_rxCount--;
+	return w;
+}
+uart_hw_t *uart_get_hw(uart_inst_t *) { return &g_uartHw; }
+
+unsigned uart_init(uart_inst_t *, unsigned baud) {
+	// Words due before the UART was on were never received.
+	uartLine();
+	uartClear();
+	g_uart.inits++;
+	g_uart.initAt = ++g_pinSeq;
+	uint32_t hz = g_clockHz[1];
+	if (hz == 0) return 0;
+	// uart_set_baudrate() of SDK 2.1.1, hardware_uart/uart.c.
+	uint32_t div = 8u * hz / baud + 1u;
+	uint32_t ibrd = div >> 7, fbrd;
+	if (ibrd == 0)           { ibrd = 1; fbrd = 0; }
+	else if (ibrd >= 65535u) { ibrd = 65535; fbrd = 0; }
+	else                     fbrd = (div & 0x7Fu) >> 1;
+	g_uart.ibrd = ibrd;
+	g_uart.fbrd = fbrd;
+	g_uart.baud = (unsigned)((4ull * hz) / (64u * ibrd + fbrd));
+	// uart_init() sets 8N1 and turns the UART on.
+	g_uart.dataBits = 8;
+	g_uart.stopBits = 1;
+	g_uart.parity = UART_PARITY_NONE;
+	g_uart.enabled = true;
+	g_uart.txe = g_uart.rxe = true;
+	g_rxOnUs = time_us_64();
+	// The receiver runs at 8N1 until the caller's next call.
+	g_us += g_initTakesUs;
+	return g_uart.baud;
+}
+void uart_deinit(uart_inst_t *) {
+	uartLine();
+	uartClear();
+	g_uart.deinits++;
+	g_uart.deinitAt = ++g_pinSeq;
+}
+bool uart_is_readable(uart_inst_t *) { return !(g_uartHw.fr & UART_UARTFR_RXFE_BITS); }
+uint8_t uart_getc(uart_inst_t *) { return (uint8_t)g_uartHw.dr; }
+void uart_set_format(uart_inst_t *, unsigned bits, unsigned stop, enum uart_parity_t p) {
+	uartLine();
+	g_uart.formatAt = ++g_pinSeq;
+	if (g_uart.enabled) {
+		// uart_disable_before_lcr_write(), SDK 2.1.1: UARTEN off, then a
+		// wait of about 15 bit times. The character under way completes.
+		uint64_t now = time_us_64();
+		uint32_t scaled = g_clockHz[1] / 3662u;
+		uint64_t wait = scaled ? (((uint64_t)64u * g_uart.ibrd + g_uart.fbrd) << 10) / scaled : 0;
+		while (!g_line.empty() && g_line.front().dueUs <= now + wait) {
+			FakeLineWord lw = g_line.front();
+			g_line.pop_front();
+			if (lw.dueUs < now + uartCharUs()) uartTake(lw);
+			else g_uart.dropped++;
+		}
+		g_us = now + wait;
+		g_uart.formatWaitUs = (uint32_t)wait;
+		g_rxOnUs = g_us;
+	}
+	g_uart.dataBits = bits;
+	g_uart.stopBits = stop;
+	g_uart.parity = (int)p;
+}
 void uart_set_fifo_enabled(uart_inst_t *, bool) {}
 
 // ---------------------------------------------------------------------------
@@ -265,18 +702,20 @@ void st7789SetBacklight(uint8_t level) {
 static TouchState g_touch;
 static bool     s_touchAnswers = true;   /**< Reads complete. */
 static bool     s_touchAnswered = true;  /**< A read has completed since touchInit(). */
-static uint32_t s_touchAnswerMs = 0;     /**< millis() at the last completed read. */
+static uint32_t s_touchAnsweredMs = 0;   /**< millis() of the last read that completed. */
 static uint8_t  s_touchFails = 0;        /**< Failed reads in a row. */
 
 bool touchInit() {
 	s_touchFails = 0;
 	s_touchAnswered = s_touchAnswers;
-	s_touchAnswerMs = millis();
+	if (s_touchAnswers) s_touchAnsweredMs = millis();
 	return s_touchAnswers;
 }
 
 bool touchAnswered() { return s_touchAnswered; }
-uint32_t touchLastAnswerMs() { return s_touchAnswerMs; }
+uint32_t touchAnsweredMs() { return s_touchAnsweredMs; }
+
+void fakeTouchStamp() { s_touchAnsweredMs = millis(); }
 
 void fakeTouchAnswers(bool on) { s_touchAnswers = on; }
 
@@ -285,7 +724,7 @@ uint8_t touchFailedReads() { return s_touchFails; }
 void touchPoll(TouchState *t) {
 	if (s_touchAnswers) {
 		s_touchAnswered = true;
-		s_touchAnswerMs = millis();
+		s_touchAnsweredMs = millis();
 		s_touchFails = 0;
 	} else if (s_touchFails < 255) {
 		s_touchFails++;
@@ -357,8 +796,10 @@ uint32_t am32BlBaud() { return 19200; }
 static int     g_am32WriteFails = 0;   /**< am32BlWrite() calls that fail, storing nothing. */
 static int     g_am32ReadFails = 0;    /**< am32BlRead() calls that fail. */
 static int     g_am32WriteSkews = 0;   /**< am32BlWrite() calls that store byte 0x1B wrong. */
-static uint8_t g_am32Garble[3];        /**< A handshake reply that is not one. */
+static uint8_t g_am32Garble[16];       /**< A handshake reply other than an AM32 bootloader's. */
 static uint8_t g_am32GarbleLen = 0;    /**< Its length; 0: the handshake succeeds. */
+/** @brief The last handshake's answer, classified by the real blAnswerClassify(). */
+static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0, false };
 static bool    g_am32Blank = false;    /**< Reads return an erased page. */
 static bool    g_am32Silent = false;   /**< Handshakes time out with no reply. */
 void fakeAm32FailWrites(int n) { g_am32WriteFails = n; }
@@ -370,17 +811,34 @@ void fakeAm32Garble(const uint8_t *b, uint8_t n) {
 }
 void fakeAm32Blank(bool on) { g_am32Blank = on; }
 void fakeAm32Silent(bool on) { g_am32Silent = on; }
+static int g_am32Handshakes = 0;  /**< am32BlHandshake() calls: greetings sent. */
+int fakeAm32Handshakes() { return g_am32Handshakes; }
 Am32Result am32BlHandshake(uint8_t *) {
-	if (g_am32Silent) return AM32_ERR_TIMEOUT;
-	return g_am32GarbleLen ? AM32_ERR_NAK : AM32_OK;
+	g_am32Handshakes++;
+	// Nine bytes with F051's family byte fifth from the end and the ACK
+	// last, or the bytes a test set, through the classification the
+	// transport uses. The other bytes of an AM32 answer are not modelled.
+	static const uint8_t F051[9] = { '4', '7', '1', 0, AM32_ESC_F051_1KB, 0, 0, 0, 0x30 };
+	if (g_am32Silent) g_am32Answer = blAnswerClassify(nullptr, 0);
+	else if (g_am32GarbleLen) g_am32Answer = blAnswerClassify(g_am32Garble, g_am32GarbleLen);
+	else g_am32Answer = blAnswerClassify(F051, sizeof(F051));
+	switch (g_am32Answer.kind) {
+		case BlAnswerKind::Silent: return AM32_ERR_TIMEOUT;
+		case BlAnswerKind::Am32:   return AM32_OK;
+		default:                   return AM32_ERR_NAK;
+	}
 }
+BlAnswer am32BlAnswer() { return g_am32Answer; }
 Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) {
 	if (g_am32ReadFails > 0) { g_am32ReadFails--; return AM32_ERR_TIMEOUT; }
 	if (g_am32Blank) memset(b, 0xFF, n);
 	else memcpy(b, g_esc, n);
 	return AM32_OK;
 }
+static int g_am32Writes = 0;  /**< am32BlWrite() calls. */
+int fakeAm32Writes() { return g_am32Writes; }
 Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) {
+	g_am32Writes++;
 	if (g_am32WriteFails > 0) { g_am32WriteFails--; return AM32_ERR_NAK; }
 	memcpy(g_esc, b, n);
 	if (g_am32WriteSkews > 0) { g_am32WriteSkews--; g_esc[0x1B] ^= 0x40; }
@@ -421,19 +879,52 @@ void escSetPoles(uint8_t p) { g_poles = p < 2 ? 2 : p; }
 static uint32_t g_heartbeatMs = 0;
 void escHeartbeat() { g_heartbeatMs = millis(); }
 uint32_t escHeartbeatMs() { return g_heartbeatMs; }
-// Mirrors the two-line rule in esc_task.cpp: the command is refused while
-// armed. esc_task.cpp cannot be linked here (PIO, UART), so this is a copy --
-// but the thing under test is what the UI does with the answer, and that is
-// the shipped code.
-// The counter now increments only when the command is actually queued, as
-// production does. Counting refused requests too meant a test asserting "the
-// button sent the command" passed for a request the ESC never saw.
-static int g_beepRequests = 0;
+// Core0's side of the command slot. esc_task.cpp cannot be linked here (PIO,
+// UART), so the request side is a copy -- but its rule is the shipped
+// escCmdAccept(). The readiness core1 would publish is set by the test (fakeSetCmdReady()); the
+// default, Ready, is an ESC that has answered for 1500 ms with the motor
+// stopped. The counter increments only when the request is taken, as
+// production queues it only then. Counting refused requests too meant a test
+// asserting "the button sent the command" passed for a request the ESC never
+// saw.
+static int         g_beepRequests = 0;
+static uint8_t     g_lastCmd = 0;
+static bool        g_lastSave = false;
+static int         g_cmdCancels = 0;
+static EscCmdReady g_cmdReady = EscCmdReady::Ready;
+// The state as production reports it: Waiting while a taken request is not
+// yet read, else what core1 published, which the test sets.
+static bool        g_cmdWaiting = false;
+static EscCmdState g_cmdState = EscCmdState::Idle;
+static uint8_t     g_cmdStateCmd = 0;
 int  fakeBeepRequests() { return g_beepRequests; }
-bool escRequestBeep(uint8_t) {
-	if (g_armed) return false;
+uint8_t fakeLastCommand(bool *save) {
+	if (save) *save = g_lastSave;
+	return g_lastCmd;
+}
+int  fakeCommandCancels() { return g_cmdCancels; }
+void fakeSetCmdReady(EscCmdReady r) { g_cmdReady = r; }
+bool escRequestCommand(uint8_t cmd, bool save) {
+	if (!escCmdAccept(cmd, save, g_armed, g_cmdReady)) return false;
 	g_beepRequests++;
+	g_lastCmd = cmd;
+	g_lastSave = save;
+	g_cmdWaiting = true;
 	return true;
+}
+void fakeSetCmdState(EscCmdState st, uint8_t cmd) {
+	g_cmdWaiting = false;
+	g_cmdState = st;
+	g_cmdStateCmd = cmd;
+}
+void escCancelCommand() {
+	g_cmdCancels++;
+	g_cmdWaiting = false;
+}
+EscCmdReady escCommandReady() { return g_cmdReady; }
+EscCmdState escCommandState(uint8_t *cmd) {
+	if (cmd) *cmd = g_cmdWaiting ? g_lastCmd : g_cmdStateCmd;
+	return g_cmdWaiting ? EscCmdState::Waiting : g_cmdState;
 }
 // Settable, because production only reports true once an ESC has answered and
 // been sent an enable -- so a hardcoded true made the DS600 chip's two states
@@ -453,7 +944,7 @@ void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 // rest of escTaskPoll() is not modelled: no PIO, no reply is read or folded
 // into the telemetry, there is no 1 ms frame timing (one pass sends one frame,
 // however much time has passed), and escPumpSlot() is given uiAlive true, no
-// beacon request and no KISS receiver. Core1 is not a thread here:
+// command request, no reply and no KISS receiver. Core1 is not a thread here:
 // fakePumpPoll() is one pass, and the tests call it between UI frames, so a
 // suspend, a drain and a rebuild each take as many passes as a test gives them.
 static EscPump    g_pump;
@@ -465,6 +956,7 @@ static bool       g_resumeJobIdle = true;
 
 void fakePumpPoll() {
 	uint32_t ms = millis();
+	const EscCmdRequest noRequest = {0, false, 0};
 	EscHandover h = escHandoverStep(g_suspendReq, g_rebuildReq, g_pumpUp,
 	                                g_pump.lastThrottleMs, ms);
 	if (h == EscHandover::Teardown) {
@@ -484,8 +976,8 @@ void fakePumpPoll() {
 	}
 	EscSlot slot = h == EscHandover::Drain
 	             ? escDrainSlot()
-	             : escPumpSlot(&g_pump, &g_tel, g_armed, true, g_throttle, 0,
-	                           false, ms);
+	             : escPumpSlot(&g_pump, &g_tel, g_armed, true, g_throttle,
+	                           &noRequest, DSHOT_REPLY_NONE, false, ms);
 	escPumpFrameSent(&g_pump, &slot.frame, ms);
 }
 
@@ -498,7 +990,12 @@ void escTaskSuspend() {
 // The transport must let go of the pin before DShot is asked to take it back.
 static bool g_am32EndBeforeResume = false;
 bool fakeAm32EndBeforeResume() { return g_am32EndBeforeResume; }
-void am32BlEnd() { g_am32EndBeforeResume = g_suspendReq; }
+static int g_am32Ends = 0;  /**< am32BlEnd() calls. */
+int fakeAm32Ends() { return g_am32Ends; }
+void am32BlEnd() {
+	g_am32Ends++;
+	g_am32EndBeforeResume = g_suspendReq;
+}
 bool escTaskSuspended() { return g_suspended; }
 // Only the request, as in esc_task.cpp: the rebuild is the next
 // fakePumpPoll().
@@ -663,6 +1160,15 @@ bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int s
 	return fakeTextIs(x, y, text, col, bg, scale);
 }
 
+bool fakeChangeIs(int y, const char *old, const char *now, uint16_t bg) {
+	char head[64], pair[128];
+	snprintf(head, sizeof(head), "%s -> ", old);
+	snprintf(pair, sizeof(pair), "%s%s", head, now);
+	int x = GFX_W - 8 - gfxTextW(pair, 1);
+	return fakeTextIs(x, y, head, C_DIM, bg, 1) &&
+	       fakeTextIs(x + 6 * (int)strlen(head), y, now, C_CYAN, bg, 1);
+}
+
 bool fakeInkExtent(int y, int h, uint16_t bg, int *x0, int *x1) {
 	const uint16_t *fb = gfxBuffer();
 	int lo = GFX_W, hi = -1;
@@ -714,12 +1220,21 @@ void fakeDumpFrame(const char *name) {
 // renders it.
 
 static SdLogStatus g_log = {};
+/** @brief The summary a start begins and its stop leaves, and the poles kept at the stop. */
+static const RunSum *g_logSum = nullptr;
+static uint8_t g_logSumPoles = 0;
 
 void fakeSdLogSet(const SdLogStatus *st) { g_log = *st; }
+
+void fakeSdLogSetSummary(const RunSum *s, uint8_t poles) {
+	g_logSum = s;
+	g_logSumPoles = poles;
+}
 
 /** @brief A mount, as sd_log.cpp's sdLogBegin() does it to the status. */
 static void fakeMountForget() {
 	sdLogMountForget(&g_log.end);
+	g_log.summary = nullptr;
 	g_log.fileNumber = 0;
 	g_log.framesLogged = 0;
 	g_log.bytesWritten = 0;
@@ -736,13 +1251,31 @@ bool sdLogBegin() {
 }
 
 static bool g_autoStarted = false;
+/** @brief The highest `LOGnnnnn.BFL` on the fake card, 0 for none. */
+static uint32_t g_logHighest = 0;
 
+void fakeSdLogSetHighest(uint32_t n) { g_logHighest = n; }
+
+// As sd_log.cpp: the highest number on the card plus 1, through the shipped
+// rule; after LOG99999.BFL the start is refused with its cause.
 bool sdLogStart() {
 	if (g_log.state == SdLogState::NoCard) return false;
-	g_log.state = SdLogState::Logging;
+	if (g_log.state == SdLogState::Logging) return true;
 	g_log.end = SdLogEnd::None;
+	uint32_t n = sdLogNextNumber(g_logHighest);
+	if (n == 0) {
+		g_log.state = SdLogState::Error;
+		g_log.end = SdLogEnd::NoFreeNumber;
+		return false;
+	}
+	g_log.state = SdLogState::Logging;
 	g_autoStarted = false;
-	if (!g_log.fileNumber) g_log.fileNumber = 1;
+	// As sd_log.cpp: a start that opens its log begins the summary, which
+	// the status shows only once no log runs; a failed start keeps the last.
+	g_log.summary = g_logSum;
+	g_log.summaryPoles = g_logSumPoles;
+	g_log.fileNumber = n;
+	g_logHighest = n;
 	return true;
 }
 
@@ -793,7 +1326,11 @@ void sdLogSetArmed(bool armed) {
 		case SdLogArmAction::None:                                break;
 	}
 }
-void sdLogStatus(SdLogStatus *out) { *out = g_log; }
+void sdLogStatus(SdLogStatus *out) {
+	*out = g_log;
+	// As sd_log.cpp: no summary while a log runs.
+	if (out->state == SdLogState::Logging) out->summary = nullptr;
+}
 
 // ---------------------------------------------------------------------------
 // the SD write cache (card_cache.h)
@@ -810,6 +1347,55 @@ static FakeCacheCalls g_cacheCalls = {};
 static uint32_t  g_volumeSerial = 1;
 static bool      g_volumeAnswers = true;
 static unsigned  g_volumeFailNext = 0;
+
+// ---------------------------------------------------------------------------
+// the servo tester's log (servo_log.h)
+// ---------------------------------------------------------------------------
+// servo_log.cpp writes through FatFs and the card cache, and runs over FatFs
+// itself in `make lognum`. This fake reports a set status and counts the
+// calls SERVO TESTER makes.
+
+static ServoLogStatus    g_servoLog = {};
+static FakeServoLogCalls g_servoLogCalls = {};
+static bool              g_servoLogWanted = false;
+static uint32_t          g_servoLogOpenMs = 0;
+
+void fakeServoLogOpen(bool wanted, uint32_t openMs) {
+	g_servoLogWanted = wanted;
+	g_servoLogOpenMs = openMs;
+}
+
+bool servoLogWanted() { return g_servoLogWanted; }
+
+void fakeServoLogSet(const ServoLogStatus *st) {
+	g_servoLog = *st;
+	g_servoLogCalls = FakeServoLogCalls{};
+}
+
+FakeServoLogCalls fakeServoLogCalls() { return g_servoLogCalls; }
+
+bool servoLogStart(uint32_t) {
+	g_servoLogCalls.starts++;
+	ServoStatus st;
+	servoJobStatus(&st);
+	g_servoLogCalls.ranAtStart = st.running;
+	g_servoLogCalls.ackAtStart = st.ackSeq;
+	// The open's time on the card: core0 blocked, the clock running on.
+	fakeAdvance(g_servoLogOpenMs);
+	return g_servoLog.active;
+}
+
+void servoLogFollow(uint16_t seq) {
+	g_servoLogCalls.follows++;
+	g_servoLogCalls.seq = seq;
+	g_servoLogCalls.startsAtFollow = g_servoLogCalls.starts;
+}
+
+void servoLogBack() { g_servoLogCalls.backs++; }
+
+void servoLogPoll() {}
+
+void servoLogStatus(ServoLogStatus *out) { *out = g_servoLog; }
 
 // ---------------------------------------------------------------------------
 // the KST card phase's wait (kst_job.h)
@@ -882,6 +1468,8 @@ CardCache cardCacheState(uint16_t *left) {
 	return g_cacheOn ? g_cacheState : CardCache::Off;
 }
 
+void cardCacheRecheck() {}
+
 CardCache cardCacheFlush() {
 	g_cacheCalls.flushes++;
 	if (!g_cacheOn) return CardCache::Off;
@@ -938,6 +1526,8 @@ MscRefusal mscRequest() {
 	// mscTick() to get here; the tests that care about that ordering assert it
 	// on mscNext() itself, where there is no card to unmount.
 	g_msc = MscState::Serving;
+	// As sdLogRelease(): the card handed over, no summary shows.
+	g_log.summary = nullptr;
 	return MscRefusal::None;
 }
 

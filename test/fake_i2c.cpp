@@ -20,13 +20,15 @@ i2c_inst_t *i2c1 = nullptr;
 
 namespace {
 
-enum class Kind : uint8_t { None, Ina219, Cst328 };
+enum class Kind : uint8_t { None, Ina219, Cst328, Qmi8658, Pcf85063 };
 
 struct Part {
-	Kind       kind;
-	uint8_t    addr;
-	FakeIna219 ina;
-	uint16_t   ptr16;   /**< CST328: the 16-bit register pointer. */
+	Kind         kind;
+	uint8_t      addr;
+	FakeIna219   ina;
+	FakeQmi8658  qmi;
+	FakePcf85063 rtc;
+	uint16_t     ptr16;   /**< CST328: the 16-bit register pointer. */
 };
 
 #define PARTS 4
@@ -36,7 +38,9 @@ bool         g_open = false;        /**< A transfer with nostop left the transac
 int          g_failN = 0;
 int          g_failSkip = 0;
 int          g_failCode = 0;
+bool         g_failReach = false;   /**< A failed transfer reaches the part before it fails. */
 bool         g_holdSda = false, g_holdScl = false;
+int          g_holdSdaAfter = 0;    /**< Transfers left before SDA is held; 0 for none. */
 int          g_heldCode = PICO_ERROR_TIMEOUT;  /**< What a transfer returns while SDA alone is held. */
 int          g_shortN = 0;          /**< Transfers left that return one byte short. */
 int          g_stopReads = 0;       /**< SDA reads left in the block's STOP. */
@@ -82,15 +86,15 @@ uint32_t adcUs(unsigned v) {
 	return (v & 8u) ? avg[v & 7u] : bits[v & 3u];
 }
 
-/** @brief The shunt and bus conversions of @p p from its inputs now. */
-void convert(FakeIna219 *p) {
+/** @brief The shunt and bus conversions of @p p from a current of @p amps and its output now. */
+void convert(FakeIna219 *p, double amps) {
 	unsigned pg = (p->reg[0] >> 11) & 3u;
 	long limit = 4000L << pg;
-	long code = lround(p->currentA * p->shuntOhm / 10e-6);
+	long code = lround(amps * p->shuntOhm / 10e-6);
 	if (code > limit) code = limit;
 	if (code < -limit) code = -limit;
 	p->shuntCode = (int16_t)code;
-	long bus = lround((p->voutV - p->currentA * p->shuntOhm) / 0.004);
+	long bus = lround((p->voutV - amps * p->shuntOhm) / 0.004);
 	long busMax = (p->reg[0] & 0x2000u) ? 8000 : 4000;
 	if (bus < 0) bus = 0;
 	if (bus > busMax) bus = busMax;
@@ -100,14 +104,24 @@ void convert(FakeIna219 *p) {
 /** @brief Bring @p p's conversions up to now. */
 void catchUp(FakeIna219 *p) {
 	if (!p->timed) {
-		convert(p);
+		convert(p, p->currentA);
 		return;
 	}
 	uint64_t now = time_us_64();
 	uint64_t cycle = fakeIna219CycleUs(p);
 	if (now - p->cycleUs >= cycle) {
-		convert(p);
 		p->cycleUs += (now - p->cycleUs) / cycle * cycle;
+		double amps = p->currentA;
+		if (p->currentAt) {
+			// The newest completed cycle's shunt conversion: its first part.
+			uint64_t from = p->cycleUs - cycle;
+			uint32_t shunt = adcUs((p->reg[0] >> 3) & 15u);
+			double sum = 0;
+			unsigned n = 0;
+			for (uint64_t t = from; t < from + shunt; t += 10, n++) sum += p->currentAt(t, p->currentCtx);
+			amps = sum / n;
+		}
+		convert(p, amps);
 	}
 }
 
@@ -155,6 +169,206 @@ void cstRead(Part *p, uint8_t *dst, size_t len) {
 	}
 }
 
+// --- the QMI8658 ----------------------------------------------------------
+
+/** @brief A sample period at 31.25 Hz, µs. */
+#define QMI_PERIOD_US 32000u
+
+/** @brief The test's values into the data registers, in CTRL1's byte order, latched at @p us. */
+void qmiLatch(FakeQmi8658 *q, uint64_t us) {
+	q->latchUs = us;
+	q->stamp = (q->stamp + 1u) & 0xFFFFFFu;
+	q->reg[0x30] = (uint8_t)q->stamp;
+	q->reg[0x31] = (uint8_t)(q->stamp >> 8);
+	q->reg[0x32] = (uint8_t)(q->stamp >> 16);
+	bool be = (q->reg[0x02] & 0x20u) != 0;
+	int16_t v[4] = { q->temp, q->acc[0], q->acc[1], q->acc[2] };
+	for (int i = 0; i < 4; i++) {
+		uint8_t lo = (uint8_t)(uint16_t)v[i], hi = (uint8_t)((uint16_t)v[i] >> 8);
+		q->reg[0x33 + 2 * i] = be ? hi : lo;
+		q->reg[0x34 + 2 * i] = be ? lo : hi;
+	}
+}
+
+/** @brief The samples due by now latched, the last one's values in the registers. */
+void qmiCatchUp(FakeQmi8658 *q) {
+	if (!(q->reg[0x08] & 0x01u)) return;
+	uint64_t due = (time_us_64() - q->enUs) / QMI_PERIOD_US;
+	while (q->timed < due) {
+		q->timed++;
+		qmiLatch(q, q->enUs + (uint64_t)q->timed * QMI_PERIOD_US);
+	}
+}
+
+/** @brief Every register to its power-on value. */
+void qmiDefaults(FakeQmi8658 *q) {
+	memset(q->reg, 0, sizeof(q->reg));
+	q->reg[0x00] = q->whoAmI;
+	q->reg[0x01] = q->revision;
+	q->reg[0x02] = 0x20;   // big-endian, auto-increment off
+	q->ptr = 0;
+	q->timed = 0;
+}
+
+/** @brief Whether @p q is booting after a reset and answers nothing. */
+bool qmiBooting(const FakeQmi8658 *q) {
+	return q->everReset && time_us_64() - q->resetUs < (uint64_t)q->bootMs * 1000u;
+}
+
+void qmiLog(FakeQmi8658 *q, bool write, uint8_t reg, size_t len, uint8_t val) {
+	if (q->logN >= FAKE_QMI_LOG) return;
+	q->log[q->logN++] = { write, reg, (uint8_t)len, val, (uint32_t)(time_us_64() / 1000u) };
+}
+
+void qmiWrite(FakeQmi8658 *q, const uint8_t *src, size_t len) {
+	if (len < 1) return;
+	q->ptr = src[0] & 0x7Fu;
+	if (len < 2) return;
+	qmiLog(q, true, q->ptr, len - 1, src[1]);
+	// The QMI8658A takes no burst write to its configuration registers: the
+	// first byte lands, the rest are dropped.
+	if (len > 2) q->burstWrites++;
+	uint8_t r = q->ptr, v = src[1];
+	if (r == 0x60) {
+		if (v != 0xB0) return;
+		q->resets++;
+		q->everReset = true;
+		q->resetUs = time_us_64();
+		qmiDefaults(q);
+		q->reg[0x4D] = q->dqyAfterReset;
+		return;
+	}
+	if (r == 0x00 || r == 0x01 || (r >= 0x30 && r <= 0x3A)) return;   // read-only
+	if (q->refuseReg != 0 && r == q->refuseReg) return;
+	if (r == 0x08) {
+		bool was = q->reg[0x08] & 0x01u;
+		if ((v & 0x01u) && !was) {
+			q->enUs = time_us_64();
+			q->timed = 0;
+		}
+		// Turning a sensor on overwrites dQY_L (A datasheet, 7.4).
+		if (v & 0x03u) q->reg[0x4D] = 0;
+	}
+	q->reg[r] = v;
+}
+
+void qmiRead(FakeQmi8658 *q, uint8_t *dst, size_t len) {
+	qmiCatchUp(q);
+	qmiLog(q, false, q->ptr, len, 0);
+	bool ai = (q->reg[0x02] & 0x40u) != 0;
+	for (size_t i = 0; i < len; i++) {
+		if (i == 3 && q->tearNext) {
+			q->tearNext = false;
+			qmiLatch(q, time_us_64());
+		}
+		uint8_t r = (uint8_t)((ai ? q->ptr + i : q->ptr) & 0x7Fu);
+		dst[i] = q->reg[r];
+	}
+}
+
+// --- the PCF85063A -----------------------------------------------------------
+
+/** @brief Two BCD digits as a number; -1 for a digit above 9. */
+int rtcBcd(uint8_t b) {
+	return (b >> 4) > 9 || (b & 15) > 9 ? -1 : (b >> 4) * 10 + (b & 15);
+}
+
+uint8_t rtcToBcd(int v) { return (uint8_t)(((v / 10) << 4) | (v % 10)); }
+
+int rtcDays(int year, int month) {
+	static const int days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+	return month == 2 && year % 4 == 0 ? 29 : days[month - 1];
+}
+
+/**
+ * @brief One second on @p p's time registers, with its carries; false, and
+ *        nothing changed, when they hold no valid date.
+ */
+bool rtcSecond(FakePcf85063 *p) {
+	uint8_t *r = p->reg;
+	int s = rtcBcd(r[4] & 0x7F), mi = rtcBcd(r[5] & 0x7F), h = rtcBcd(r[6] & 0x3F);
+	int d = rtcBcd(r[7] & 0x3F), mo = rtcBcd(r[9] & 0x1F), y = rtcBcd(r[10]);
+	if (s < 0 || s > 59 || mi < 0 || mi > 59 || h < 0 || h > 23 || mo < 1 || mo > 12 || y < 0 ||
+	    d < 1 || d > rtcDays(y, mo))
+		return false;
+	if (++s == 60) {
+		s = 0;
+		if (++mi == 60) {
+			mi = 0;
+			if (++h == 24) {
+				h = 0;
+				if (++d > rtcDays(y, mo)) {
+					d = 1;
+					if (++mo == 13) {
+						mo = 1;
+						y = (y + 1) % 100;
+					}
+				}
+			}
+		}
+	}
+	r[4] = (uint8_t)((r[4] & 0x80) | rtcToBcd(s));
+	r[5] = rtcToBcd(mi);
+	r[6] = rtcToBcd(h);
+	r[7] = rtcToBcd(d);
+	r[9] = rtcToBcd(mo);
+	r[10] = rtcToBcd(y);
+	return true;
+}
+
+/** @brief Bring @p p's time up to now: a second for each whole second since countUs, unless STOP is set. */
+void rtcCatchUp(FakePcf85063 *p) {
+	uint64_t now = time_us_64();
+	if (p->reg[0] & 0x20) {
+		p->countUs = now;
+		return;
+	}
+	while (now - p->countUs >= 1000000u) {
+		p->countUs += 1000000u;
+		if (!rtcSecond(p)) {
+			p->countUs = now;
+			return;
+		}
+	}
+}
+
+void rtcWrite(FakePcf85063 *p, const uint8_t *src, size_t len) {
+	if (len < 1) return;
+	if (p->logN < FAKE_RTC_LOG) {
+		FakeRtcWrite *w = &p->log[p->logN++];
+		w->len = (uint8_t)len;
+		memcpy(w->b, src, len < sizeof(w->b) ? len : sizeof(w->b));
+	}
+	rtcCatchUp(p);
+	p->ptr = src[0] < 0x12 ? src[0] : 0;
+	if (len < 2) return;
+	p->writes++;
+	for (size_t i = 1; i < len; i++) {
+		uint8_t r = p->ptr, v = src[i];
+		p->ptr = (uint8_t)((p->ptr + 1) % 0x12);
+		if (p->refuse && r == p->refuseReg) continue;
+		if (r == 0 && v == 0x58) {
+			fakePcf85063Reset(p);
+			p->resets++;
+			return;
+		}
+		if (r == 0 && (p->reg[0] & 0x20) && !(v & 0x20)) {
+			// STOP released: the first second 0.507813 s on.
+			p->countUs = time_us_64() + 507813u - 1000000u;
+		}
+		p->reg[r] = v;
+	}
+}
+
+void rtcRead(FakePcf85063 *p, uint8_t *dst, size_t len) {
+	rtcCatchUp(p);
+	p->reads++;
+	for (size_t i = 0; i < len; i++) {
+		dst[i] = p->reg[p->ptr];
+		p->ptr = (uint8_t)((p->ptr + 1) % 0x12);
+	}
+}
+
 /** @brief A transfer that waits out its whole timeout: counted, and the clock moved by it. */
 int timedOut(unsigned timeoutUs) {
 	g_open = false;
@@ -164,8 +378,21 @@ int timedOut(unsigned timeoutUs) {
 	return PICO_ERROR_TIMEOUT;
 }
 
+/** @brief A transfer's bytes to or from part @p p. */
+void deliver(Part *p, uint8_t *dst, const uint8_t *src, size_t len) {
+	if (p->kind == Kind::Ina219) {
+		if (dst) inaRead(&p->ina, dst, len); else inaWrite(&p->ina, src, len);
+	} else if (p->kind == Kind::Qmi8658) {
+		if (dst) qmiRead(&p->qmi, dst, len); else qmiWrite(&p->qmi, src, len);
+	} else if (p->kind == Kind::Pcf85063) {
+		if (dst) rtcRead(&p->rtc, dst, len); else rtcWrite(&p->rtc, src, len);
+	} else {
+		if (dst) cstRead(p, dst, len); else cstWrite(p, src, len);
+	}
+}
+
 /** @brief A transfer: the fault, the held line or the NACK first, then the part. */
-int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
+int transferOnce(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
              unsigned timeoutUs) {
 	g_stats.transfers++;
 	g_stopReads = 0;
@@ -173,6 +400,10 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 		g_failSkip--;
 	} else if (g_failN > 0) {
 		g_failN--;
+		if (g_failReach) {
+			Part *p = find(addr);
+			if (p && !(p->kind == Kind::Qmi8658 && qmiBooting(&p->qmi))) deliver(p, dst, src, len);
+		}
 		if (g_failCode == PICO_ERROR_TIMEOUT) return timedOut(timeoutUs);
 		countClocks(0, false);
 		if (dst) g_stopReads = FAKE_I2C_STOP_READS;
@@ -190,6 +421,7 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 		return g_heldCode;
 	}
 	Part *p = find(addr);
+	if (p && p->kind == Kind::Qmi8658 && qmiBooting(&p->qmi)) p = nullptr;
 	if (!p) {
 		countClocks(0, false);
 		if (dst) g_stopReads = FAKE_I2C_STOP_READS;
@@ -205,12 +437,16 @@ int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool no
 		return (int)len - 1;
 	}
 	countClocks(len, nostop);
-	if (p->kind == Kind::Ina219) {
-		if (dst) inaRead(&p->ina, dst, len); else inaWrite(&p->ina, src, len);
-	} else {
-		if (dst) cstRead(p, dst, len); else cstWrite(p, src, len);
-	}
+	deliver(p, dst, src, len);
 	return (int)len;
+}
+
+/** @brief A transfer, then SDA held when fakeI2cHoldSdaAfter()'s count runs out. */
+int transfer(uint8_t addr, uint8_t *dst, const uint8_t *src, size_t len, bool nostop,
+             unsigned timeoutUs) {
+	int rc = transferOnce(addr, dst, src, len, nostop, timeoutUs);
+	if (g_holdSdaAfter > 0 && --g_holdSdaAfter == 0) g_holdSda = true;
+	return rc;
 }
 
 }  // namespace
@@ -285,7 +521,9 @@ void fakeI2cReset() {
 	g_open = false;
 	g_failN = 0;
 	g_failSkip = 0;
+	g_failReach = false;
 	g_holdSda = g_holdScl = false;
+	g_holdSdaAfter = 0;
 	g_heldCode = PICO_ERROR_TIMEOUT;
 	g_shortN = 0;
 	g_stopReads = 0;
@@ -324,6 +562,63 @@ uint32_t fakeIna219CycleUs(const FakeIna219 *p) {
 	return adcUs(badc) + adcUs(sadc);
 }
 
+FakeQmi8658 *fakeI2cAddQmi8658(uint8_t addr) {
+	Part *p = slot();
+	if (!p) return nullptr;
+	memset(p, 0, sizeof(*p));
+	p->kind = Kind::Qmi8658;
+	p->addr = addr;
+	FakeQmi8658 *q = &p->qmi;
+	q->addr = addr;
+	q->whoAmI = 0x05;
+	q->revision = 0x7C;
+	q->dqyAfterReset = 0x80;
+	q->bootMs = 15;
+	q->acc[2] = 16384;
+	qmiDefaults(q);
+	return q;
+}
+
+uint32_t fakeQmiCount(const FakeQmi8658 *q, bool write, uint8_t reg, uint32_t from) {
+	uint32_t n = 0;
+	for (uint32_t i = from; i < q->logN; i++)
+		if (q->log[i].write == write && q->log[i].reg == reg) n++;
+	return n;
+}
+
+FakePcf85063 *fakeI2cAddPcf85063(uint8_t addr) {
+	Part *p = slot();
+	if (!p) return nullptr;
+	memset(p, 0, sizeof(*p));
+	p->kind = Kind::Pcf85063;
+	p->addr = addr;
+	p->rtc.addr = addr;
+	fakePcf85063Reset(&p->rtc);
+	return &p->rtc;
+}
+
+void fakePcf85063Reset(FakePcf85063 *p) {
+	memset(p->reg, 0, sizeof(p->reg));
+	p->reg[0x04] = 0x80;   // OS
+	p->reg[0x07] = 0x01;   // day 1
+	p->reg[0x08] = 0x06;   // Saturday, 1 January 2000; not read by the firmware
+	p->reg[0x09] = 0x01;   // January
+	p->ptr = 0;
+	p->countUs = time_us_64();
+}
+
+void fakePcf85063Set(FakePcf85063 *p, int year, int month, int day, int hour, int minute,
+                     int second) {
+	p->reg[0x00] = 0x00;
+	p->reg[0x04] = rtcToBcd(second);
+	p->reg[0x05] = rtcToBcd(minute);
+	p->reg[0x06] = rtcToBcd(hour);
+	p->reg[0x07] = rtcToBcd(day);
+	p->reg[0x09] = rtcToBcd(month);
+	p->reg[0x0A] = rtcToBcd(year - 2000);
+	p->countUs = time_us_64();
+}
+
 void fakeI2cAddCst328(uint8_t addr) {
 	Part *p = slot();
 	if (!p) return;
@@ -347,13 +642,15 @@ void fakeI2cRemove(uint8_t addr) {
 	if (p) p->kind = Kind::None;
 }
 
-void fakeI2cFailNext(int n, int code, int skip) {
+void fakeI2cFailNext(int n, int code, int skip, bool reach) {
 	g_failN = n;
 	g_failSkip = skip;
 	g_failCode = code;
+	g_failReach = reach;
 }
 
 void fakeI2cHoldSda(bool low) { g_holdSda = low; }
+void fakeI2cHoldSdaAfter(int n) { g_holdSdaAfter = n; }
 void fakeI2cHoldScl(bool low) { g_holdScl = low; }
 void fakeI2cHeldSdaCode(int code) { g_heldCode = code; }
 void fakeI2cShortNext(int n) { g_shortN = n; }

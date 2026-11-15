@@ -43,8 +43,10 @@ sheet.
 The board has JST-SH 1.0 mm connectors and no 2.54 mm headers, so the ESC
 lead needs a pigtail with a JST-SH plug.
 
-GP means GPIO (general-purpose input/output pin). The ESC pin can be changed
-later under **MENU → SETTINGS**, and the setting is stored in flash.
+GP means GPIO (general-purpose input/output pin). The ESC pin is SIG; the
+KISS telemetry wire, if you fit one, goes on AUX, GP1. Both can be changed
+later under **MENU → SETTINGS → SIG PIN** and **AUX PIN**, where a step
+swaps the two, and the setting is stored in flash.
 
 > **Cut or de-pin the middle wire of the ESC lead first.**
 > The middle conductor of a 3-wire servo plug is the ESC's **+5 V BEC
@@ -60,7 +62,7 @@ later under **MENU → SETTINGS**, and the setting is stored in flash.
 > that can destroy the board. Leave J5 pin 3 unconnected.
 
 Keep the signal wire short. The maximum working length is not measured. If the
-`LINK` error rate rises, set **DSHOT KBAUD** to 300 under **MENU → SETTINGS**.
+`LINK` error rate rises, set **DSHOT** to 300 under **MENU → SETTINGS**.
 
 ---
 
@@ -80,14 +82,21 @@ one end of its travel.
 
 <img src="img/splash.png" width="240" alt="Splash screen">
 
-After a firmware update that changed the layout of the stored settings, the
-saved settings are discarded and every setting starts at its compiled
-default. The splash then shows two amber lines above the name:
+After a firmware update that changed the layout of the stored settings from
+version 2, 3, 4 or 5, the saved settings are carried over: the splash shows
+`SETTINGS CARRIED OVER FROM AN UPDATE` and
+`CHECK MENU > SETTINGS, THEN SAVE` in amber above the name. Check them in
+SETTINGS and hold `HOLD TO SAVE`
+([Troubleshooting](Troubleshooting#my-settings-reset-themselves)).
+
+After an update from a layout the firmware does not know, the saved
+settings are discarded and every setting starts at its compiled default.
+The splash then shows two amber lines above the name:
 `SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`. Check at least the
-pole count, `MAX THROTTLE`, `ESC PIN`, KISS, `SERVO SUPPLY` and
+pole count, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` and
 `CURRENT SENSE`, then hold `HOLD TO SAVE`. Until a save lands, MENU's
-SETTINGS row reads `UPDATED`. A board that never had saved settings shows
-neither.
+SETTINGS row reads `UPDATED`, after a carry-over as after a reset. A board
+that never had saved settings shows none of this.
 
 <img src="img/splash-reset.png" width="240" alt="Splash screen after an update discarded the saved settings">
 
@@ -141,12 +150,13 @@ every tap.
 
 A finger already on the glass when the tester appears does not arm and
 does not move the throttle. Lifting it still acts as a tap where it rests
-on a button that acts on release, such as `HOLD` or `MENU`. If you touched
-the screen at power-up, lift the finger before `HOLD TO ARM`.
+on a button that acts on release, such as `LATCH` or `MENU`; on `14 POLES`
+or `MAX 20%` its lift opens SETTINGS. If you touched the screen at power-up,
+lift the finger before `HOLD TO ARM`.
 
 If the touch controller stops answering while the tester is armed, the
 tester disarms once four reads in a row have failed over 100 ms or more,
-sets the throttle to zero, turns `HOLD` off and shows
+sets the throttle to zero, turns `LATCH` off and shows
 `TOUCH NOT ANSWERING`.
 
 ---
@@ -155,7 +165,7 @@ sets the throttle to zero, turns `HOLD` off and shows
 
 Two surfaces set the same throttle value.
 
-**The bar at the bottom.** With `HOLD` off, the finger position along the
+**The bar at the bottom.** With `LATCH` off, the finger position along the
 track is the throttle, and the throttle returns to zero on release. The full
 track width is the *ceiling*: at the default 20 % ceiling, the right end
 commands 20 %.
@@ -164,17 +174,23 @@ commands 20 %.
 more, **down** for less. A tap does nothing, and swipes add up, so the
 throttle can be raised over several short swipes without looking. After 6 px
 of travel the hint under the RPM readout changes to `SWIPE ACTIVE` and the
-swipe moves the throttle.
+swipe moves the throttle. While the tester shows the 3D note of
+[The Screens](The-Screens) in the hint's place, `SWIPE ACTIVE` still replaces
+it while a swipe is engaged, and the note returns on release.
 
-`HOLD` makes the bar relative and latching: the throttle stays where you leave
-it. The bar shows a grab handle. Turning `HOLD` off sets the throttle to zero.
+`LATCH` makes the bar relative and latching: the throttle stays where you leave
+it. The bar shows a grab handle and its caption reads `LATCHED`. Turning
+`LATCH` off sets the throttle to zero.
 
 ---
 
 ## Raising the ceiling
 
-`MENU` on the tester opens the list of tools. Opening it always disarms. Tap
-the `SETTINGS` row.
+`MENU` on the tester opens the list of tools. Opening it always disarms.
+`SETTINGS` is the last row: drag `MENU` up 76 px and tap it. Or, while
+disarmed, tap `MAX 20%` or `14 POLES` on the
+tester, underlined while a tap on them works: the tap disarms the same way
+and opens SETTINGS, and `BACK` there returns to the tester.
 
 <img src="img/settings.png" width="240" alt="SETTINGS after a change: MOTOR POLES at 16 and UNSAVED - HOLD SAVE TO KEEP">
 
@@ -190,12 +206,12 @@ with `HOLD TO SAVE` under the list. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` until then, and `MENU` shows `UNSAVED` on its
 `SETTINGS` row.
 
-`ESC PIN`, further down, moves DShot to the other pin at once. While it is
+`SIG PIN`, further down, moves DShot to the other pin at once. While it is
 not the pin the splash named, a line of its own above `LINK` repeats the
 splash's warning for the new pin in amber, `UNPLUG ANY SERVO FROM GP1 NOW`;
 the note line under it still says whether the settings are saved.
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS after ESC PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
+<img src="img/settings-pin.png" width="240" alt="SETTINGS after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 ---
 

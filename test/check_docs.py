@@ -17,9 +17,27 @@ Enforces what actually goes wrong, and nothing else:
   7. a @ref is not immediately followed by a colon -- Doxygen's reference
      grammar includes ':' so that Class::member resolves, so "@ref foo.h: and
      then some prose" is read as a reference to "foo.h:" and does not
-  8. every relative link in the running record (STATUS.md, CHANGELOG.md) and
-     the design notes (docs/design/*.md) names a file that exists, and an
-     anchor into a Markdown file names a heading that exists
+  8. every relative link in the running record (STATUS.md, CHANGELOG.md),
+     the bench plan (docs/*.md) and the design notes (docs/design/*.md)
+     names a file that exists, and an anchor into a Markdown file names a
+     heading that exists
+  9. README.md and the wiki pages, which describe the screens as built, name
+     no screen text, view or MENU path that menu structure B and the
+     decisions that revise it removed (docs/design/menu-b.md,
+     docs/design/bluejay-blheli-s.md) or a later design note replaced, and
+     no image of a removed screen; nor does a fakeDumpFrame() call or
+     tools/make_previews.py. CHANGELOG.md, STATUS.md and the design notes
+     keep those names as records and are not checked
+  10. the hardware models, CAD files and drawings are CC BY-NC-SA 4.0 and
+     the software is MIT. Every tracked file under hardware/ except
+     hardware/LICENSE-CAD.txt, the README.md files and
+     hardware/mechanical/check_photo.py has only CC-BY-NC-SA-4.0 in its SPDX
+     lines, and so have docs/wiring.svg, tools/make_wiring.py and the wiki's
+     copy of the drawing; each of these .py files and drawings has one.
+     Under lib/rcbench/hardware/ a file has no SPDX line or only the CC one.
+     Every other SPDX line names MIT. All lines of a file are read, each to
+     its end. hardware/LICENSE-CAD.txt holds the legal code unchanged
+     (SHA-256), names the covered paths and the trademark paragraph
 
 Deliberately narrower than Doxygen's WARN_IF_UNDOCUMENTED, which also fires on
 file-static internals. A comment on `s_scroll` saying "scroll position" is
@@ -36,9 +54,11 @@ from.
 """
 
 import glob
+import hashlib
 import functools
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,7 +67,85 @@ os.chdir(ROOT)
 HEADERS = sorted(glob.glob("src/*.h"))
 SOURCES = sorted(glob.glob("src/*.cpp") + glob.glob("*.ino") + HEADERS)
 LINKED_DOCS = sorted(glob.glob("STATUS.md") + glob.glob("CHANGELOG.md") +
-                     glob.glob("docs/design/*.md"))
+                     glob.glob("docs/*.md") + glob.glob("docs/design/*.md"))
+MANUAL_DOCS = sorted(glob.glob("README.md") + glob.glob("wiki/*.md"))
+
+# Rule 10: the licence of the hardware models, CAD files and drawings.
+CC_ID = "CC-BY-NC-SA-4.0"
+CC_FILE = "hardware/LICENSE-CAD.txt"
+CC_ROOT = "hardware/"
+# In hardware/ but software, not a model or a generator: it overlays a
+# photo to verify the model. It stays MIT.
+CC_MIT_FILES = ("hardware/mechanical/check_photo.py",)
+# The drawing and the script that draws it. The wiki's copy of the drawing is
+# made by tools/make_previews.py and is not committed.
+CC_DRAWINGS = ("docs/wiring.svg", "tools/make_wiring.py")
+CC_WIKI_COPY = "wiki/img/wiring.svg"
+# Unchanged copies of rcbench's model generators.
+CC_COPIES = "lib/rcbench/hardware/"
+CC_MARK = "Legal code\n----------\n\n"
+# SHA-256 of the legal code as creativecommons.org publishes it
+# (legalcode.txt of by-nc-sa 4.0).
+CC_SHA256 = "e66c269d4819aaab34b49ef5220c4ddab6756f21bb5180761a4eb8561f2b7bbd"
+# What the header of CC_FILE names.
+CC_NAMED = ("hardware/cad/", "hardware/mechanical/", "docs/wiring.svg",
+            "tools/make_wiring.py", "lib/rcbench/hardware/", "trademarks")
+# A tag opens its line after a comment marker, or sits bare in a docstring;
+# its expression runs to the end of the line.
+SPDX_RE = re.compile(
+    r"^[\s#/*;<!-]*SPDX-License-Identifier:[ \t]*(.*?)[ \t]*"
+    r"(?:\*/|-->|\"\"\"|\'\'\')?[ \t]*$",
+    re.M)
+
+# Rule 9: what menu structure B and the decisions that revise it removed,
+# each with the decision that removed it, of docs/design/menu-b.md unless
+# named, and what a later design note replaced, with its decision.
+# Case-sensitive regular expressions,
+# matched line by line in README.md and wiki/*.md, code spans included.
+REMOVED_TEXTS = [
+    (r"PINS BUSY", "MENU's busy status (decision 15 f)"),
+    (r"HOLD RESET|`RESET`", "SETTINGS' RESET, now HOLD DEFAULTS (decision 14)"),
+    (r"\*\*HOLD\*\*", "the tester's HOLD, now LATCH (decision 15 a)"),
+    (r"`MODE`", "the MODE chip, now PROG MODE (decision 15 g)"),
+    (r"(\*\*|`)(ESC|KISS) PIN(\*\*|`)", "SIG PIN and AUX PIN (decision 10)"),
+    (r"DS600|KBIT/S|DSHOT KBAUD", "the DShot rate, now DSHOT600 (decision 15 j)"),
+    (r"COMPILED DEFAULTS IN USE", "NOTHING SAVED: DEFAULTS IN USE (decision 15 k)"),
+    (r"ALLOW UNCONT|UNCONTROLLED (POS|TIME)|`REVERSION`",
+     "the KST labels, now FAILSAFE and REVERSED (decision 15 h)"),
+    (r"BACKUP IN MEMORY", "a backup not on the card, now BACKUP IN RAM (slice 2)"),
+    (r"CHOOSE THE SERVO'S FAMILY|[Ff]amily view|Familien(ansicht|auswahl)",
+     "HITEC SERVO's family view, now PROGRAMMER's entries (decision 19)"),
+    (r"MUST BE POWERED NOW|POWER (THE SERVO UP|IT) BEFORE THE TAP",
+     "the D series powered before the tap (decision 34)"),
+    (r"[Uu]nplug page|Abzieh-?[Ss]eite", "the unplug page, now the leave page (owner decision 3)"),
+    (r"LEAVING AFTER THE WRITE ENDS", "BACK's leave queue (decision 5)"),
+    (r"MENU\s*(→|>|->|&gt;)\s*(KST|HITEC) SERVO|^\|\s*\*\*(KST|HITEC) SERVO\*\*\s*\|",
+     "the KST SERVO and HITEC SERVO rows, now SERVO PROGRAMMER (owner decision 2)"),
+    (r"titled `SERVO`", "SERVO's title, now SERVO TESTER (decision 13)"),
+    (r"`NONE`, (the default, )?`GP2[89]`|SERVO SUPPLY[^|`]{0,12}`NONE`",
+     "SERVO SUPPLY's NONE, now OWN (decisions 15 e and 22)"),
+    (r"THROTTLE REL\b", "the latch's caption, now LATCHED (decision 15 a)"),
+    (r"RELEASING DSHOT PIN|\b(RELEASING|TAKING|CHECKING) GP\d|"
+     r"ESC AND KISS PIN|MOVE THE ESC PIN",
+     "pin names without SIG (decision 10)"),
+    (r"DSHOT RESTARTS ON GP\d+ AND READS AS|POWER THE SERVO OFF\.",
+     "the unplug page's texts (owner decision 3)"),
+    (r"SUPPLY SWITCHED ON GP", "the family view's supply line (decision 34)"),
+    (r"BEEP THE ESC|BEEP-Zeile|BEEP flash",
+     "MENU's BEEP THE ESC, now ESC COMMANDS (esc-commands.md, decision 1)"),
+    (r"THROTTLE SCALE DIFFERS",
+     "the tester's 3D note, now 0-50% REVERSED AT 2X (esc-commands.md, decision 9)"),
+    (r"AM32 (CONFIG|WRITE|HEX)\b|\bFW \d+\.\d+",
+     "AM32's titles and the strip's FW, now ESC CONFIG, ESC SETTINGS, ESC WRITE, "
+     "ESC HEX and AM32 n.n (bluejay-blheli-s.md, call A)"),
+    (r"ANSWERED: NOT READ YET",
+     "slice 2's EFM8 status, now ANSWERED: READING. (bluejay-blheli-s.md, slice 3)"),
+]
+# Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
+# that starts with one of these is refused, so kst-leave covers
+# kst-leave-pending.
+REMOVED_IMAGES = ["hitec-family", "hitec-unplug", "kst-leave", "servo-unplug",
+                  "menu-pins-busy", "menu-beep"]
 
 
 def collect_symbols():
@@ -156,6 +254,125 @@ def check_links(path):
     return problems
 
 
+def removed_image(name):
+    """The removed image @p name starts with, hyphenated, or None."""
+    stem = name.replace("_", "-")
+    for gone in REMOVED_IMAGES:
+        if stem == gone or stem.startswith(gone + "-") or stem.startswith(gone + "."):
+            return gone
+    return None
+
+
+def check_removed():
+    """Rule 9: no removed screen text, view, MENU path or image comes back."""
+    problems = []
+    for path in MANUAL_DOCS:
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            for pattern, why in REMOVED_TEXTS:
+                m = re.search(pattern, line)
+                if m:
+                    problems.append(f"{path}:{n}: '{m.group(0)}' names {why}")
+            for name in re.findall(r"img/([\w.-]+)", line):
+                gone = removed_image(name)
+                if gone:
+                    problems.append(f"{path}:{n}: img/{name} shows a removed screen ({gone})")
+    shots = [(p, r'fakeDumpFrame\(\s*"shot_([\w.-]+)"') for p in sorted(glob.glob("test/*.cpp"))]
+    shots.append(("tools/make_previews.py", r'"shot_([\w-]+)"'))
+    for path, pattern in shots:
+        if not os.path.exists(path):
+            continue
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            for name in re.findall(pattern, line):
+                gone = removed_image(name)
+                if gone:
+                    problems.append(f"{path}:{n}: shot_{name} renders a removed screen ({gone})")
+    return problems
+
+
+def spdx_ids(path):
+    """The SPDX expressions, one per tag, in all of the file @p path."""
+    with open(path, "rb") as f:
+        text = f.read().decode("utf-8", "replace")
+    return SPDX_RE.findall(text)
+
+
+# Outside git, the walk skips what .gitignore keeps out of the tree: build
+# output carries the SDK's and the libraries' own SPDX lines.
+WALK_SKIP = {".git", "build", ".pio", "wiki"}
+
+
+def tracked_files():
+    """The repository's tracked files, or every file outside git.
+
+    The wiki's copy of the drawing is checked on its own (rule 10)."""
+    try:
+        out = subprocess.run(["git", "ls-files", "-z"], check=True,
+                             capture_output=True).stdout.decode()
+        return sorted(x for x in out.split("\0") if x and os.path.isfile(x))
+    except (OSError, subprocess.CalledProcessError):
+        print("check_docs: git ls-files failed; walking the tree",
+              file=sys.stderr)
+        found = []
+        for root, dirs, files in os.walk("."):
+            top = root == "."
+            dirs[:] = [d for d in dirs if d != ".git"
+                       and not (top and d in WALK_SKIP)
+                       and not (top and d.startswith("build"))
+                       and os.path.join(root, d) not in
+                       ("./docs/html", "./docs/latex")]
+            found += [os.path.relpath(os.path.join(root, f), ".")
+                      .replace(os.sep, "/") for f in files]
+        return sorted(found)
+
+
+def check_licences():
+    """Rule 10: CC BY-NC-SA 4.0 on the models, CAD and drawings, MIT elsewhere."""
+    problems = []
+    try:
+        text = open(CC_FILE, encoding="utf-8").read()
+    except OSError:
+        return [f"{CC_FILE}: missing"]
+    if spdx_ids(CC_FILE) != [CC_ID]:
+        problems.append(f"{CC_FILE}: no SPDX-License-Identifier: {CC_ID}")
+    head, mark, legal = text.partition(CC_MARK)
+    if not mark or hashlib.sha256(legal.encode()).hexdigest() != CC_SHA256:
+        problems.append(f"{CC_FILE}: the legal code differs from CC BY-NC-SA 4.0")
+    for name in CC_NAMED:
+        if name not in head:
+            problems.append(f"{CC_FILE}: the header does not name {name}")
+    seen = set()
+    files = tracked_files()
+    if os.path.exists(CC_WIKI_COPY) and CC_WIKI_COPY not in files:
+        files.append(CC_WIKI_COPY)
+    for path in files:
+        if path == CC_FILE:
+            continue
+        ids = spdx_ids(path)
+        if path.startswith(CC_ROOT):
+            if path.endswith("README.md") or path in CC_MIT_FILES:
+                want, need = "MIT", False
+            else:
+                want, need = CC_ID, path.endswith(".py")
+        elif path in CC_DRAWINGS or path == CC_WIKI_COPY:
+            want, need = CC_ID, True
+        elif path.startswith(CC_COPIES):
+            want, need = CC_ID, False
+        else:
+            want, need = "MIT", False
+        seen.add(path)
+        if need and not ids:
+            problems.append(f"{path}: SPDX-License-Identifier missing, "
+                            f"expected {want}")
+        for found in ids:
+            if found != want:
+                problems.append(f"{path}: SPDX-License-Identifier '{found}', "
+                                f"expected {want}")
+    for path in CC_DRAWINGS + CC_MIT_FILES:
+        if path not in seen:
+            problems.append(f"{path}: missing")
+    return problems
+
+
 def main():
     problems = []
     documented = 0
@@ -254,12 +471,20 @@ def main():
             if not before.endswith("*/"):
                 problems.append(f"{path}: {m.group(2)}() has no doc comment")
 
-    # --- 8. relative links in the running record and design notes ---
+    # --- 8. relative links in the running record, the bench plan and the
+    #        design notes ---
     for path in LINKED_DOCS:
         problems.extend(check_links(path))
 
+    # --- 9. removed screens stay out of the manual ---
+    problems.extend(check_removed())
+
+    # --- 10. licences of the hardware files ---
+    problems.extend(check_licences())
+
     print(f"checked {len(SOURCES)} files, {documented} documented signatures, "
-          f"links in {len(LINKED_DOCS)} documents")
+          f"links in {len(LINKED_DOCS)} documents, removed names in "
+          f"{len(MANUAL_DOCS)} manual pages")
     if problems:
         print(f"\n{len(problems)} problem(s):")
         for p in problems:

@@ -57,14 +57,14 @@ static const uint16_t THEME_HIGH_CONTRAST[TC_COUNT] = {
 	rgb(  0,   0,   0), /* TC_INK                                  */
 	rgb(255, 255, 255), /* TC_PAPER    == TC_BG                    */
 	rgb(255, 255, 255), /* TC_ONACCENT                             */
-	rgb(  0, 110,  52), /* TC_GREEN    SAFE badge, takes white     */
-	rgb(  0, 122,  40), /* TC_LIME     live values, throttle fill  */
+	rgb(  0, 110,  52), /* TC_GREEN    safe, done, takes white     */
+	rgb(  0, 122,  40), /* TC_LIME     live readings, fills        */
 	rgb(174,  88,   0), /* TC_AMBER    warning, takes white        */
-	rgb(190,   0,  24), /* TC_RED      ARMED, takes white          */
+	rgb(190,   0,  24), /* TC_RED      output on, takes white      */
 	rgb(244, 190, 190), /* TC_REDDARK  dead digits: pale, not dark */
 	rgb(238, 241, 245), /* TC_GHOST    unlit ghost 8s: barely there  */
-	rgb(  0,  58, 168), /* TC_BLUE     HOLD active, takes white    */
-	rgb(  0,  88, 122), /* TC_CYAN     informational               */
+	rgb(  0,  58, 168), /* TC_BLUE     latched, takes white        */
+	rgb(  0,  88, 122), /* TC_CYAN     changed, not written        */
 	rgb(150,   0, 140), /* TC_MAGENTA  alert                       */
 };
 

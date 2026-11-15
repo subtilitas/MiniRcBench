@@ -2,14 +2,20 @@
 #
 #   make          syntax-check, build and run
 #   make build    build only
+#   make run      run the suite, the C test programs and test_set_clock.py,
+#                 the host tests of tools/set_clock.py
 #   make syntax   typecheck the device-only sources
-#   make pioemu   run the SDIO and backlight PIO programs in cycle-level models
+#   make pioemu   run the SDIO, backlight and USB bridge PIO programs in
+#                 cycle-level models
 #   make bbcheck  round-trip a log through the upstream blackbox_decode
 #   make previews rebuild the screenshots in docs/ from this run's frames
 #   make wiki     rebuild the wiki's screenshots and check its links
 #   make coverage line coverage of src/ from an instrumented build in cov/
 #   make kstcount the KST card phases over FatFs, checked against the design note
 #   make kstcount-write  rewrite that table
+#   make lognum   the next blackbox log's file, the logger with its run
+#                 summary, and the servo log through the write cache, over
+#                 FatFs R0.15 itself
 #   make clean
 #
 # Needs nothing but a C++17 compiler and the C compiler beside it: the firmware
@@ -35,34 +41,44 @@ INCLUDES := -Istubs -I../src -I.
 #   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0" run
 DEFINES := $(EXTRA_DEFINES)
 
-# The servo tester, the KST and Hitec programmers, the S.BUS monitor and the
-# current sensor list their own sources, so none of them edits this file for
-# that. @see servo.mk, kst.mk, hitec.mk, rx.mk, sense.mk
-include servo.mk kst.mk hitec.mk rx.mk sense.mk
+# The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
+# current sensor, the ESC settings and the angle meter list their own sources,
+# so none of them edits this file for that. @see servo.mk, kst.mk, hitec.mk,
+# rx.mk, sense.mk, escwire.mk, angle.mk
+include servo.mk kst.mk hitec.mk rx.mk sense.mk escwire.mk angle.mk
+# The USB bridge, the same way. @see bridge.mk
+include bridge.mk
 
 # Each feature's C sources, their include directories and their C test
 # programs. A feature with none leaves its variables undefined, and they
 # expand to nothing.
-FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS) $(RX_CSRCS) $(SENSE_CSRCS)
-FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS)
-FEATURE_CXXTESTS := $(HITEC_CXXTESTS)
-FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES)
-FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES) $(RX_INCLUDES) $(SENSE_INCLUDES)
+FEATURE_CSRCS := $(SERVO_CSRCS) $(KST_CSRCS) $(HITEC_CSRCS) $(RX_CSRCS) $(SENSE_CSRCS) \
+                 $(ESCWIRE_CSRCS) $(ANGLE_CSRCS)
+FEATURE_CTESTS := $(SERVO_CTESTS) $(KST_CTESTS) $(HITEC_CTESTS) $(RX_CTESTS) $(ESCWIRE_CTESTS) \
+                  $(ANGLE_CTESTS)
+FEATURE_CXXTESTS := $(HITEC_CXXTESTS) $(ESCWIRE_CXXTESTS)
+FEATURE_CTEST_DEFINES := $(SERVO_CTEST_DEFINES) $(KST_CTEST_DEFINES) $(HITEC_CTEST_DEFINES) \
+                         $(ESCWIRE_CTEST_DEFINES)
+FEATURE_INCLUDES := $(SERVO_INCLUDES) $(KST_INCLUDES) $(HITEC_INCLUDES) $(RX_INCLUDES) $(SENSE_INCLUDES) \
+                    $(ESCWIRE_INCLUDES) $(ANGLE_INCLUDES)
 INCLUDES += $(FEATURE_INCLUDES)
 
 SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp test_servo_supply.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
-        test_dshot_edt.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp \
+        test_dshot_edt.cpp test_esc_cmd.cpp test_kv_est.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_esc_cmd_ui.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp test_run_summary.cpp test_clock.cpp \
         fakes.cpp \
-        ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_registry.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
+        ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_esc_cmd.cpp ../src/esc_3d.cpp ../src/ui_registry.cpp ../src/ui_servo_prog.cpp ../src/ui_esc_config.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/ui_leave.cpp ../src/board_desc.cpp \
-        ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
-        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
+        ../src/settings.cpp ../src/diag.cpp ../src/servo_supply.cpp ../src/am32_eeprom.cpp ../src/bl_answer.cpp ../src/greet_cycle.cpp ../src/card_dir.cpp ../src/backup_ring.cpp ../src/am32_backup.cpp \
+        ../src/kiss_telem.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp ../src/run_summary.cpp ../src/clock.cpp ../src/clock_line.cpp \
         ../src/log_ring.cpp ../src/pin_claim.cpp \
         $(SERVO_TESTS) $(SERVO_SRCS) $(KST_TESTS) $(KST_SRCS) \
-        $(HITEC_TESTS) $(HITEC_SRCS) $(SENSE_TESTS) $(SENSE_SRCS)
+        $(HITEC_TESTS) $(HITEC_SRCS) $(RX_TESTS) $(RX_SRCS) \
+        $(SENSE_TESTS) $(SENSE_SRCS) $(ANGLE_TESTS) $(ANGLE_SRCS) \
+        $(ESCWIRE_TESTS) $(ESCWIRE_SRCS) \
+        $(BRIDGE_TESTS) $(BRIDGE_SRCS)
 
 # Sources the tests cannot link -- they drive real hardware -- but which still
 # have to compile. CI's "Config permutations" job already builds all of src/
@@ -73,10 +89,12 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
 # touchInit/touchPoll outright so that tests can drive presses.
 DEVICE_SRCS := ../src/esc_task.cpp ../src/st7789.cpp \
                ../src/usb_dev.cpp ../src/usb_msc.cpp ../src/usb_descriptors.c \
-               ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp \
+               ../src/cst328.cpp ../src/am32_bl.cpp ../src/sd_log.cpp ../src/sd_log_next.cpp ../src/sd_log_summary.cpp \
                ../src/pio_uart_rx.cpp \
                ../src/settings_flash.cpp ../src/main.cpp ../src/card_cache.cpp \
-               $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS)
+               $(SERVO_DEVICE_SRCS) $(KST_DEVICE_SRCS) $(HITEC_DEVICE_SRCS) \
+               $(ESCWIRE_DEVICE_SRCS) \
+               $(BRIDGE_DEVICE_SRCS)
 
 # The DShot core in src/dshot/ and the SD card protocol layers in src/sdio/
 # are C11, and are compiled here as C, by $(CC), into objects the suite links.
@@ -109,7 +127,12 @@ BIN := dshot_tests
 # file against stubs of the logger, the card and TinyUSB.
 MSC_CB_BIN := $(OBJ_DIR)/test_usb_msc_cb
 
-.PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write clean
+# The USB bridge's traffic log with its build option on, the firmware's
+# other setting: bridge_log.cpp and usb_bridge.cpp against the CDC fake.
+# @see bridge.mk
+BRIDGE_LOG_BIN := $(OBJ_DIR)/test_bridge_log
+
+.PHONY: all build run syntax pioemu bbcheck previews wiki coverage kstcount kstcount-write lognum clean
 
 all: syntax run pioemu bbcheck
 
@@ -158,9 +181,16 @@ $(MSC_CB_BIN): test_usb_msc_cb.cpp ../src/usb_msc.cpp $(wildcard ../src/*.h) \
 	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -o $@ \
 		test_usb_msc_cb.cpp ../src/usb_msc.cpp
 
-run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN)
+$(BRIDGE_LOG_BIN): $(BRIDGE_LOG_SRCS) $(BRIDGE_LOG_OBJS) $(wildcard ../src/*.h) $(wildcard *.h) \
+		$(wildcard stubs/*.h stubs/*/*.h stubs/*/*/*.h)
+	@mkdir -p $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -DUSB_BRIDGE_LOG=1 -o $@ \
+		$(BRIDGE_LOG_SRCS) $(BRIDGE_LOG_OBJS)
+
+run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN) $(BRIDGE_LOG_BIN)
 	./$(BIN)
 	@out=$$(./$(MSC_CB_BIN)) || { echo "$$out"; exit 1; }; echo "$$out" | tail -1
+	@out=$$(./$(BRIDGE_LOG_BIN)) || { echo "$$out"; exit 1; }; echo "$$out" | tail -1
 	@for t in $(CTEST_BINS); do \
 		out=$$(./$$t) || { echo "$$out"; exit 1; }; \
 		echo "$$out" | tail -1; \
@@ -169,9 +199,12 @@ run: $(BIN) $(CTEST_BINS) $(CXXTEST_BINS) $(MSC_CB_BIN)
 		./$$t || { echo "FAIL $$t"; exit 1; }; \
 		echo "$$(basename $$t): passed"; \
 	done
+	@out=$$(python3 test_set_clock.py 2>&1) || { echo "$$out"; exit 1; }; \
+		echo "test_set_clock.py: $$(echo "$$out" | grep '^Ran ')"
 
-# Every device source, plus both settings of the two feature switches so the
-# disabled paths cannot rot unnoticed.
+# Every device source, plus both settings of the two feature switches and the
+# USB bridge's log on, so the paths the default leaves out cannot rot
+# unnoticed.
 # -Werror, matching the firmware build. Without it this target was strictly
 # weaker than CI: usb_dev.cpp typechecked here and failed the real build twice
 # over -- once on a struct the stub defined too loosely, and once on a partial
@@ -187,6 +220,10 @@ syntax:
 		-fsyntax-only ../src/esc_task.cpp || exit 1
 	@$(CXX) $(CXXFLAGS) $(WARN) $(INCLUDES) $(DEFINES) -DSD_LOG_ENABLE=0 \
 		-fsyntax-only ../src/sd_log.cpp || exit 1
+	@for f in ../src/bridge_log.cpp ../src/usb_bridge.cpp; do \
+		$(CXX) $(CXXFLAGS) $(WARN) -Werror $(INCLUDES) $(DEFINES) -DUSB_BRIDGE_LOG=1 \
+			-fsyntax-only $$f || exit 1; \
+	done
 	@echo "device sources typecheck"
 
 # The two SDIO PIO programs in src/sdio/sd_pio.pio, assembled from that file
@@ -198,6 +235,7 @@ syntax:
 pioemu:
 	python3 pio_sdio_emu.py --cc "$(CC)"
 	python3 pio_backlight_emu.py
+	python3 pio_bridge_emu.py
 
 # Round-trip a generated log through the upstream decoder.
 #
@@ -291,6 +329,49 @@ $(OBJ_DIR)/kst_card_count: kst_card_count.cpp $(KST_COUNT_SRCS) ../src/kst_files
 	done
 	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src -I. \
 		$(KST_INCLUDES) $(HITEC_INCLUDES) -o $@ kst_card_count.cpp $(KST_COUNT_SRCS) $(OBJ_DIR)/kstcount/*.o
+
+# The next blackbox log's file, src/sd_log_next.cpp, over the same FatFs on a
+# RAM disk that can be swapped for another card image: the scan, the number
+# kept between starts and FatFs mounting again. Fails on any failed check.
+$(OBJ_DIR)/log_next_fatfs: log_next_fatfs.cpp ram_disk.cpp ram_disk.h check.h ../src/sd_log_next.cpp ../src/sd_log_next.h ../src/sd_log.h $(FATFS_SRC)/ff.c
+	mkdir -p $(OBJ_DIR)/lognum
+	for f in $(FATFS_SRC)/ff.c $(FATFS_SRC)/ffunicode.c $(FATFS_SRC)/ffsystem.c; do \
+		$(CC) $(CFLAGS) -w -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include \
+			-c -o $(OBJ_DIR)/lognum/$$(basename $$f .c).o $$f || exit 1; \
+	done
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -I$(FATFS_DIR)/src/include -I../src -I. \
+		-o $@ log_next_fatfs.cpp ram_disk.cpp ../src/sd_log_next.cpp $(OBJ_DIR)/lognum/*.o
+
+# The logger itself, src/sd_log.cpp, with its run summary over the same
+# FatFs: the .TXT beside each .BFL, full cards and failed writes. The timer,
+# escSnapshot(), the settings and the card driver's lookups are faked in the
+# test; the rest of its sources are the firmware's.
+LOG_FATFS_SRCS := ../src/sd_log.cpp ../src/sd_log_next.cpp ../src/sd_log_summary.cpp \
+                  ../src/run_summary.cpp ../src/esc_merge.cpp ../src/blackbox_encode.cpp \
+                  ../src/log_ring.cpp
+
+$(OBJ_DIR)/sd_log_fatfs: sd_log_fatfs.cpp ram_disk.cpp ram_disk.h check.h $(LOG_FATFS_SRCS) $(wildcard ../src/*.h) $(OBJ_DIR)/log_next_fatfs
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -Istubs -I$(FATFS_DIR)/src/include -I../src -I. \
+		-o $@ sd_log_fatfs.cpp ram_disk.cpp $(LOG_FATFS_SRCS) $(OBJ_DIR)/lognum/*.o
+
+# The servo log, src/servo_log.cpp, over the same FatFs and through the
+# write cache as on the board: the logger, card_cache.cpp and sd_cache.c run
+# as they ship, over a card model with a read time and a busy time per block.
+# The supply guard judges the readings the modelled core0 loop takes.
+SERVO_LOG_FATFS_SRCS := ../src/servo_log.cpp ../src/card_cache.cpp ../src/card_dir.cpp \
+                        ../src/supply_guard.cpp $(LOG_FATFS_SRCS)
+
+$(OBJ_DIR)/servo_log_fatfs: servo_log_fatfs.cpp ram_disk.cpp ram_disk.h check.h $(SERVO_LOG_FATFS_SRCS) ../src/sdio/sd_cache.c $(wildcard ../src/*.h) $(wildcard ../src/sdio/*.h) $(OBJ_DIR)/log_next_fatfs
+	$(CC) $(CFLAGS) $(WARN) -c -o $(OBJ_DIR)/lognum-sd_cache.o ../src/sdio/sd_cache.c
+	$(CXX) $(CXXFLAGS) $(WARN) -I$(FATFS_SRC) -Istubs -I$(FATFS_DIR)/src/include -I../src -I. \
+		$(SERVO_INCLUDES) $(SENSE_INCLUDES) \
+		-o $@ servo_log_fatfs.cpp ram_disk.cpp $(SERVO_LOG_FATFS_SRCS) $(OBJ_DIR)/lognum/*.o \
+		$(OBJ_DIR)/lognum-sd_cache.o
+
+lognum: $(OBJ_DIR)/log_next_fatfs $(OBJ_DIR)/sd_log_fatfs $(OBJ_DIR)/servo_log_fatfs
+	./$(OBJ_DIR)/log_next_fatfs
+	./$(OBJ_DIR)/sd_log_fatfs
+	./$(OBJ_DIR)/servo_log_fatfs
 
 kstcount: $(OBJ_DIR)/kst_card_count
 	./$(OBJ_DIR)/kst_card_count --check $(KST_NOTE)

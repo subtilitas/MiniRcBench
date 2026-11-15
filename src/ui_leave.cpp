@@ -4,8 +4,11 @@
  */
 
 #include "ui_leave.h"
+#include "board_pins.h"
 #include "gfx.h"
 #include "touch.h"
+
+#include <stdio.h>
 
 void uiLeaveOpen(UiLeave *l, UiLeavePhase phase, uint32_t waitMs) {
 	l->before = phase == UiLeavePhase::Before;
@@ -52,6 +55,25 @@ UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs) {
 	if (uiTapped(UI_LEAVE_LEFT, t)) return UiLeaveEv::Next;
 	if (l->restartPress && uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::Restart;
 	return UiLeaveEv::None;
+}
+
+// UI_LEAVE_DSHOT_FMT fits with a one-digit GPIO: SIG is one of GP0 to GP9.
+static_assert(BOARD_FREE_GPIO_MASK <= 0x3FFu, "SIG's GPIO has two digits: the DShot step runs past x 232");
+
+void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, char *buf, size_t n) {
+	snprintf(buf, n, UI_LEAVE_DSHOT_FMT, sig);
+	text->step[first][0] = UI_LEAVE_UNPLUG;
+	text->step[first][1] = buf;
+	text->step[first][2] = UI_LEAVE_PULSE;
+	text->step[first + 1][0] = UI_LEAVE_RESTART;
+	text->step[first + 1][1] = nullptr;
+	text->step[first + 1][2] = nullptr;
+}
+
+void uiLeaveSupplyNote(char *buf, size_t n, uint32_t offMs, unsigned leftDs) {
+	unsigned offDs = (unsigned)(offMs / 100u);
+	if (leftDs > offDs) leftDs = offDs;
+	snprintf(buf, n, UI_LEAVE_SUPPLY_FMT, offDs / 10u, offDs % 10u, leftDs / 10u, leftDs % 10u);
 }
 
 /** @brief Draw step @p i from @p y. @return The next step's top. */

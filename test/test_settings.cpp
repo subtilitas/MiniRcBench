@@ -16,6 +16,8 @@
 #include "config.h"
 #include "board_desc.h"
 
+#include <math.h>
+#include <stdio.h>
 #include <string.h>
 #include <stddef.h>
 
@@ -263,23 +265,47 @@ static void testPinRules() {
 }
 
 static void testKissNeedsItsOwnPin() {
-	section("Settings: KISS is switched off, never quietly moved");
+	section("Settings: AUX moves off SIG; KISS on a pin the board uses is switched off");
 
 	Settings s;
 	settingsDefaults(&s);
 	s.kissEnable = 1;
 	s.kissPin = s.dshotPin;
-	checkTrue("sharing a pin with the ESC is repaired", !settingsValidate(&s));
-	// Moving it would start listening on a pin the user never connected, and a
-	// telemetry row reading ON against the wrong pin is worse than one reading
-	// OFF.
-	checkInt("KISS switched off rather than relocated", s.kissEnable, 0);
+	checkTrue("AUX sharing SIG's pin is repaired", !settingsValidate(&s));
+	checkTrue("AUX moves to a free pin that is not SIG's",
+	          s.kissPin != s.dshotPin && settingsPinFree(s.kissPin));
+	checkInt("and KISS stays on, listening there", s.kissEnable, 1);
+
+	settingsDefaults(&s);
+	s.kissEnable = 0;
+	s.kissPin = s.dshotPin;
+	checkTrue("with KISS off too: the servo tester's servo B is on AUX", !settingsValidate(&s));
+	checkTrue("AUX moves off SIG", s.kissPin != s.dshotPin && settingsPinFree(s.kissPin));
+	checkInt("and KISS stays off", s.kissEnable, 0);
+
+	// SIG on the board's default AUX pin: AUX takes the next free pin after
+	// SIG.
+	settingsDefaults(&s);
+	s.dshotPin = g_board->defaultKissPin;
+	s.kissPin = g_board->defaultKissPin;
+	s.kissEnable = 1;
+	settingsValidate(&s);
+	checkInt("SIG on the default AUX pin: AUX the next free pin after SIG",
+	         s.kissPin, settingsNextPin(s.dshotPin, +1));
+	checkTrue("which is not SIG's", s.kissPin != s.dshotPin && s.kissEnable == 1);
 
 	settingsDefaults(&s);
 	s.kissEnable = 1;
 	s.kissPin = 18;              // the LCD's CTS/peripheral territory on both
 	settingsValidate(&s);
 	checkInt("a pin the board is using turns KISS off", s.kissEnable, 0);
+	checkInt("and AUX takes the board's default", s.kissPin, g_board->defaultKissPin);
+
+	settingsDefaults(&s);
+	s.kissEnable = 0;
+	s.kissPin = 28;
+	checkTrue("with KISS off, AUX on a pin the board uses is repaired too", !settingsValidate(&s));
+	checkInt("to the board's default", s.kissPin, g_board->defaultKissPin);
 
 	// The rule that used to sit between those two is gone: a KISS pin no longer
 	// has to be one of the eight a hardware UART can receive on. That rule is
@@ -406,11 +432,11 @@ static void testBlankNamesTheBoard() {
  * DshotDisplay block then stops loading on purpose rather than by accident.
  */
 static void testLayout() {
-	section("Settings: the version 5 block layout");
+	section("Settings: the version 6 block layout");
 
 	checkTrue("magic \"DSHT\"", SETTINGS_MAGIC == 0x44534854u);
-	checkInt("version", SETTINGS_VERSION, 5);
-	checkInt("payload size", (long)sizeof(Settings), 14);
+	checkInt("version", SETTINGS_VERSION, 6);
+	checkInt("payload size", (long)sizeof(Settings), 44);
 	checkInt("boardId at 0", (long)offsetof(Settings, boardId), 0);
 	checkInt("dshotPin at 1", (long)offsetof(Settings, dshotPin), 1);
 	checkInt("dshotKbaud at 2", (long)offsetof(Settings, dshotKbaud), 2);
@@ -423,12 +449,40 @@ static void testLayout() {
 	checkInt("servoSupply at 12", (long)offsetof(Settings, servoSupply), 12);
 	checkInt("currentSense at 13, the byte that was padding",
 	         (long)offsetof(Settings, currentSense), 13);
-	checkInt("block size", (long)sizeof(SettingsBlock), 28);
+	checkInt("angleAlong at 14", (long)offsetof(Settings, angleAlong), 14);
+	checkInt("angleInvert at 15", (long)offsetof(Settings, angleInvert), 15);
+	checkInt("angleLengthMm at 16", (long)offsetof(Settings, angleLengthMm), 16);
+	checkInt("angleCalValid at 18", (long)offsetof(Settings, angleCalValid), 18);
+	checkInt("angleSpare at 19", (long)offsetof(Settings, angleSpare), 19);
+	checkInt("angleCalOffG at 20, three floats", (long)offsetof(Settings, angleCalOffG), 20);
+	checkInt("angleCalGain at 32, three floats", (long)offsetof(Settings, angleCalGain), 32);
+	checkInt("a float is 4 bytes", (long)sizeof(float), 4);
+	checkInt("block size", (long)sizeof(SettingsBlock), 56);
+	checkInt("the CRC at byte 52", (long)offsetof(SettingsBlock, crc32), 52);
+	{
+		// The angle fields' defaults: LONG, NORMAL, OFF, no calibration.
+		Settings d;
+		settingsDefaults(&d);
+		checkTrue("defaults: ALONG AXIS LONG, SIGN NORMAL, LENGTH OFF, no calibration",
+		          d.angleAlong == 0 && d.angleInvert == 0 && d.angleLengthMm == 0 &&
+		          d.angleCalValid == 0 && d.angleSpare == 0 && d.angleCalOffG[0] == 0.0f &&
+		          d.angleCalOffG[1] == 0.0f && d.angleCalOffG[2] == 0.0f &&
+		          d.angleCalGain[0] == 1.0f && d.angleCalGain[1] == 1.0f && d.angleCalGain[2] == 1.0f);
+	}
 
-	// A block with every field off its default, the switch fitted on GP29 and
-	// the sensor declared, loads as it was stored.
+	// A block with every field off its default, the switch fitted on GP29,
+	// the sensor declared and the angle meter set up and calibrated, loads as
+	// it was stored.
 	Settings v4;
 	settingsDefaults(&v4);
+	v4.angleAlong    = 1;
+	v4.angleInvert   = 1;
+	v4.angleLengthMm = 40;
+	v4.angleCalValid = 1;
+	v4.angleCalOffG[0] = 0.031f;
+	v4.angleCalOffG[1] = -0.012f;
+	v4.angleCalOffG[2] = 0.05f;
+	v4.angleCalGain[2] = 1.02f;
 	v4.currentSense = 1;
 	v4.dshotPin     = 1;
 	v4.kissEnable   = 1;
@@ -446,75 +500,59 @@ static void testLayout() {
 	checkTrue("every field as stored", memcmp(settings(), &v4, sizeof(v4)) == 0);
 	checkTrue("with nothing to save", !settingsDirty());
 
-	// A version 4 block: the same size, the sensor's byte its padding, a
-	// valid CRC. Discarded whole for its version, every setting included.
-	{
-		SettingsBlock b4;
-		memset(&b4, 0, sizeof(b4));
-		b4.magic = SETTINGS_MAGIC;
-		b4.version = 4;
-		b4.size = sizeof(Settings);
-		b4.s = v4;
-		b4.s.currentSense = 0;
-		b4.crc32 = settingsCrc32(&b4, offsetof(SettingsBlock, crc32));
-		fakeFlashClear();
-		memcpy(fakeFlashBytes(), &b4, sizeof(b4));
-		settingsLoad();
-		Settings def;
-		settingsDefaults(&def);
-		checkTrue("a version 4 block is discarded", !settingsStored());
-		checkTrue("as reset by an update", settingsResetByUpdate());
-		checkTrue("and the compiled defaults load, every setting: no sensor, no switch",
-		          memcmp(settings(), &def, sizeof(def)) == 0 && settings()->currentSense == 0 &&
-		          settings()->servoSupply == 0 && settings()->poles == DEFAULT_MOTOR_POLES);
-	}
-
-	// A version 3 block, its ESC pin on GP29 and its switch on GP0: the same
-	// layout and a valid CRC, discarded whole for its version.
+	// A block of version 7, which this firmware has no layout for: the same
+	// size and a valid CRC, discarded whole for its version.
 	SettingsBlock old;
 	memset(&old, 0, sizeof(old));
 	old.magic = SETTINGS_MAGIC;
-	old.version = 3;
+	old.version = SETTINGS_VERSION + 1;
 	old.size = sizeof(Settings);
 	old.s = v4;
-	old.s.dshotPin = 29;
-	old.s.kissPin = 28;
-	old.s.servoSupply = 1;
 	old.crc32 = settingsCrc32(&old, offsetof(SettingsBlock, crc32));
 	fakeFlashClear();
 	memcpy(fakeFlashBytes(), &old, sizeof(old));
 	settingsLoad();
 	Settings fresh;
 	settingsDefaults(&fresh);
-	checkTrue("a version 3 block is discarded", !settingsStored());
+	checkTrue("a version 7 block is discarded", !settingsStored() && !settingsCarriedOver());
 	checkTrue("as reset by an update", settingsResetByUpdate());
-	checkTrue("and the defaults load: the ESC on the board's default, no switch",
-	          memcmp(settings(), &fresh, sizeof(fresh)) == 0 &&
-	          settings()->dshotPin == g_board->defaultDshotPin && settings()->servoSupply == 0);
+	checkTrue("and the defaults load, every setting",
+	          memcmp(settings(), &fresh, sizeof(fresh)) == 0);
+	// Version 1, before the board id: no layout here either.
+	old.version = 1;
+	old.crc32 = settingsCrc32(&old, offsetof(SettingsBlock, crc32));
+	fakeFlashClear();
+	memcpy(fakeFlashBytes(), &old, sizeof(old));
+	settingsLoad();
+	checkTrue("a version 1 block: reset by an update, not carried over",
+	          !settingsStored() && settingsResetByUpdate() && !settingsCarriedOver() &&
+	          memcmp(settings(), &fresh, sizeof(fresh)) == 0);
+	old.version = SETTINGS_VERSION + 1;
+	old.crc32 = settingsCrc32(&old, offsetof(SettingsBlock, crc32));
 
-	// A version 2 block, as DshotDisplay 2.x and the builds before the
-	// switch wrote it: 12 bytes of payload, its CRC right. Discarded whole.
-	uint8_t v2[24];
+	// A block of version 2 with 13 bytes of payload, which no version 2
+	// firmware wrote, its CRC right at byte 24: not carried over, a reset.
+	uint8_t v2[28];
 	memset(v2, 0, sizeof(v2));
 	const uint32_t magic = SETTINGS_MAGIC;
-	const uint16_t version = 2, size = 12;
+	const uint16_t version = 2, size = 13;
 	memcpy(v2, &magic, 4);
 	memcpy(v2 + 4, &version, 2);
 	memcpy(v2 + 6, &size, 2);
-	memcpy(v2 + 8, &v4, 12);
-	const uint32_t crc = settingsCrc32(v2, 20);
-	memcpy(v2 + 20, &crc, 4);
+	memcpy(v2 + 8, &v4, 13);
+	const uint32_t crc = settingsCrc32(v2, 24);
+	memcpy(v2 + 24, &crc, 4);
 	fakeFlashClear();
 	memcpy(fakeFlashBytes(), v2, sizeof(v2));
 	settingsLoad();
 	Settings d;
 	settingsDefaults(&d);
-	checkTrue("a version 2 block is discarded", !settingsStored());
-	checkTrue("as reset by an update: its CRC over its 12 bytes", settingsResetByUpdate());
+	checkTrue("version 2, 13 bytes: not carried over", !settingsStored() && !settingsCarriedOver());
+	checkTrue("a reset by an update: its CRC over its 13 bytes", settingsResetByUpdate());
 	// The same block with one payload byte flipped: damaged, not a reset.
 	fakeFlashBytes()[9] ^= 0x01;
 	settingsLoad();
-	checkTrue("a version 2 block with a bad CRC: not reset by an update",
+	checkTrue("with a bad CRC: not reset by an update",
 	          !settingsStored() && !settingsResetByUpdate());
 	// A size past SETTINGS_OTHER_MAX is not judged at all.
 	{
@@ -543,12 +581,13 @@ static void testLayout() {
 		memcpy(fakeFlashBytes(), big, maxAt + 4);
 		settingsLoad();
 		checkTrue("one of SETTINGS_OTHER_MAX bytes: a reset", settingsResetByUpdate());
-		// A version 5 block of an odd payload size, its CRC 2 bytes after it.
+		// A block of a later version, 14 bytes of payload: its CRC at the
+		// 4-byte boundary after them.
 		uint8_t odd[8 + 14 + 2 + 4];
 		memset(odd, 0, sizeof(odd));
-		const uint16_t v6 = SETTINGS_VERSION + 1, oddSize = 14;
+		const uint16_t v7 = SETTINGS_VERSION + 1, oddSize = 14;
 		memcpy(odd, &magic, 4);
-		memcpy(odd + 4, &v6, 2);
+		memcpy(odd + 4, &v7, 2);
 		memcpy(odd + 6, &oddSize, 2);
 		const uint32_t oddCrc = settingsCrc32(odd, 24);
 		memcpy(odd + 24, &oddCrc, 4);
@@ -569,7 +608,7 @@ static void testLayout() {
 	fakeFlashClear();
 	memcpy(fakeFlashBytes(), &old, sizeof(old));
 	settingsLoad();
-	checkTrue("version 3 again: reset by an update", settingsResetByUpdate());
+	checkTrue("version 7 again: reset by an update", settingsResetByUpdate());
 	fakeFlashSetWritable(false);
 	checkTrue("a save the flash refuses fails", !settingsSave());
 	checkTrue("and the reset still shows", settingsResetByUpdate());
@@ -581,6 +620,368 @@ static void testLayout() {
 	checkTrue("and the compiled defaults load, the ESC pin among them",
 	          memcmp(settings(), &d, sizeof(d)) == 0);
 	checkInt("the switch: none", settings()->servoSupply, 0);
+}
+
+/**
+ * @brief The fields of a version 2, 3, 4 or 5 block, written byte by byte at
+ *        the offsets those firmwares used. Recovered from git, not from
+ *        settings.cpp's table: `struct Settings` in src/settings.h at
+ *        8a5eebb (version 2, 12 bytes), 5af4ddf (3, 14 bytes), 3cc8798
+ *        (4, 14 bytes) and aafc31b (5, 14 bytes), each with the 8-byte
+ *        header before it and the CRC-32 at the next 4-byte boundary after
+ *        it: byte 20, 24, 24 and 24.
+ */
+struct OldBlock {
+	uint16_t version;
+	uint8_t  boardId, dshotPin;
+	uint16_t dshotKbaud;
+	uint8_t  kissEnable, kissPin, poles;
+	uint16_t maxThrottle;
+	uint8_t  backlight, highContrast;
+	uint8_t  servoSupply;  /**< Versions 3, 4 and 5. */
+	uint8_t  pad;          /**< Every padding byte: byte 15, 22 and 23, and 21 in versions 3 and 4. */
+	uint8_t  currentSense; /**< Version 5, at byte 21. */
+};
+
+/** @brief @p b as its firmware wrote it, into the fake flash. @return Its length. */
+static uint32_t putOld(const OldBlock &b) {
+	uint8_t raw[28];
+	memset(raw, 0xEE, sizeof(raw));
+	const uint32_t payload = b.version == 2 ? 12 : 14, crcAt = b.version == 2 ? 20 : 24;
+	raw[0] = 0x54; raw[1] = 0x48; raw[2] = 0x53; raw[3] = 0x44;   // "DSHT", little-endian
+	raw[4] = (uint8_t)b.version; raw[5] = (uint8_t)(b.version >> 8);
+	raw[6] = (uint8_t)payload;   raw[7] = 0;
+	raw[8]  = b.boardId;
+	raw[9]  = b.dshotPin;
+	raw[10] = (uint8_t)b.dshotKbaud; raw[11] = (uint8_t)(b.dshotKbaud >> 8);
+	raw[12] = b.kissEnable;
+	raw[13] = b.kissPin;
+	raw[14] = b.poles;
+	raw[15] = b.pad;
+	raw[16] = (uint8_t)b.maxThrottle; raw[17] = (uint8_t)(b.maxThrottle >> 8);
+	raw[18] = b.backlight;
+	raw[19] = b.highContrast;
+	if (b.version != 2) {
+		raw[20] = b.servoSupply;
+		raw[21] = b.version == 5 ? b.currentSense : b.pad;
+		raw[22] = b.pad; raw[23] = b.pad;
+	}
+	const uint32_t crc = settingsCrc32(raw, crcAt);
+	raw[crcAt] = (uint8_t)crc; raw[crcAt + 1] = (uint8_t)(crc >> 8);
+	raw[crcAt + 2] = (uint8_t)(crc >> 16); raw[crcAt + 3] = (uint8_t)(crc >> 24);
+	fakeFlashClear();
+	memcpy(fakeFlashBytes(), raw, crcAt + 4);
+	return crcAt + 4;
+}
+
+/** @brief Whether a load carried a block over: stored, the notice set, no reset. */
+static bool carried() {
+	return settingsStored() && settingsCarriedOver() && !settingsResetByUpdate() && !settingsDirty();
+}
+
+/** @brief Whether the angle meter's fields are at their defaults: LONG, NORMAL, OFF, no calibration. */
+static bool angleDefault() {
+	Settings d;
+	settingsDefaults(&d);
+	const Settings *s = settings();
+	return s->angleAlong == d.angleAlong && s->angleInvert == d.angleInvert &&
+	       s->angleLengthMm == d.angleLengthMm && s->angleCalValid == 0 && s->angleSpare == 0 &&
+	       memcmp(s->angleCalOffG, d.angleCalOffG, sizeof(d.angleCalOffG)) == 0 &&
+	       memcmp(s->angleCalGain, d.angleCalGain, sizeof(d.angleCalGain)) == 0;
+}
+
+/**
+ * @brief Blocks of versions 2, 3, 4 and 5 carry over: every field they have,
+ *        validated; every newer field, the angle meter's among them, at its
+ *        default.
+ */
+static void testCarryOver() {
+	section("Settings: a version 2, 3, 4 or 5 block carries over");
+	Settings def;
+	settingsDefaults(&def);
+
+	// --- version 5: every field off its default, CURRENT SENSE among them,
+	//     the angle meter's at theirs ---
+	OldBlock b5 = { 5, BOARD_ID_LCD_2_8, 1, 300, 1, 0, 16, 1400, 180, 1, 2, 0x5A, 1 };
+	checkInt("a version 5 block is 28 bytes", (long)putOld(b5), 28);
+	settingsLoad();
+	checkTrue("version 5: carried over, stored, no reset, nothing to save", carried());
+	checkInt("ESC pin", settings()->dshotPin, 1);
+	checkInt("DShot kbaud", settings()->dshotKbaud, 300);
+	checkInt("KISS on", settings()->kissEnable, 1);
+	checkInt("KISS pin", settings()->kissPin, 0);
+	checkInt("poles", settings()->poles, 16);
+	checkInt("ceiling", settings()->maxThrottle, 1400);
+	checkInt("backlight", settings()->backlight, 180);
+	checkInt("high contrast", settings()->highContrast, 1);
+	checkInt("servo supply GP29", settings()->servoSupply, 2);
+	checkInt("current sensor: the INA219, byte 21", settings()->currentSense, 1);
+	checkTrue("the angle meter's: their defaults", angleDefault());
+	{
+		OldBlock c = b5;
+		c.currentSense = 0;
+		putOld(c);
+		settingsLoad();
+		checkTrue("version 5's current sensor 0: none", carried() && settings()->currentSense == 0);
+		c.currentSense = 7;
+		putOld(c);
+		settingsLoad();
+		checkTrue("version 5's current sensor 7: validated to none",
+		          carried() && settings()->currentSense == 0 && settings()->poles == 16);
+	}
+
+	// --- version 4: every field off its default, the padding byte where
+	//     version 5 keeps CURRENT SENSE set ---
+	OldBlock b4 = { 4, BOARD_ID_LCD_2_8, 1, 1200, 1, 0, 14, 1200, 200, 1, 2, 0x01 };
+	checkInt("a version 4 block is 28 bytes", (long)putOld(b4), 28);
+	settingsLoad();
+	checkTrue("version 4: carried over, stored, no reset, nothing to save", carried());
+	checkInt("ESC pin", settings()->dshotPin, 1);
+	checkInt("DShot kbaud", settings()->dshotKbaud, 1200);
+	checkInt("KISS on", settings()->kissEnable, 1);
+	checkInt("KISS pin", settings()->kissPin, 0);
+	checkInt("poles", settings()->poles, 14);
+	checkInt("ceiling", settings()->maxThrottle, 1200);
+	checkInt("backlight", settings()->backlight, 200);
+	checkInt("high contrast", settings()->highContrast, 1);
+	checkInt("servo supply GP29", settings()->servoSupply, 2);
+	checkInt("board", settings()->boardId, BOARD_ID_LCD_2_8);
+	checkInt("current sensor: its default, not the padding byte", settings()->currentSense, 0);
+	checkTrue("the angle meter's: their defaults", angleDefault());
+	checkInt("the boot pin is the carried one", settingsBootDshotPin(), 1);
+	{
+		OldBlock g = b4;
+		g.servoSupply = 1;
+		putOld(g);
+		settingsLoad();
+		checkTrue("version 4's servo supply 1, GP28, carries as 1", carried() && settings()->servoSupply == 1);
+	}
+
+	// --- version 3: the pins of its wiring, which this board does not free ---
+	OldBlock b3 = { 3, BOARD_ID_LCD_2_8, 29, 300, 1, 28, 10, 600, 64, 1, 1, 0xA5 };
+	checkInt("a version 3 block is 28 bytes", (long)putOld(b3), 28);
+	settingsLoad();
+	checkTrue("version 3: carried over", carried());
+	checkInt("kbaud", settings()->dshotKbaud, 300);
+	checkInt("poles", settings()->poles, 10);
+	checkInt("ceiling", settings()->maxThrottle, 600);
+	checkInt("backlight", settings()->backlight, 64);
+	checkInt("contrast", settings()->highContrast, 1);
+	checkInt("ESC pin GP29: not free here, the default", settings()->dshotPin, def.dshotPin);
+	checkInt("KISS on GP28: off (KISS OFF)", settings()->kissEnable, 0);
+	checkInt("and its pin the board's default, a free one", settings()->kissPin, def.kissPin);
+	checkInt("servo supply 1, an enable on GP0: none", settings()->servoSupply, 0);
+	checkInt("current sensor: the default", settings()->currentSense, 0);
+	checkTrue("the angle meter's: their defaults", angleDefault());
+	{
+		OldBlock n = b3;
+		n.servoSupply = 0;
+		n.kissEnable = 0;
+		putOld(n);
+		settingsLoad();
+		checkTrue("version 3, no supply and KISS off: none, off, the default KISS pin",
+		          carried() && settings()->servoSupply == 0 && settings()->kissEnable == 0 &&
+		          settings()->kissPin == def.kissPin);
+	}
+
+	// --- version 2: 12 bytes, no servo supply ---
+	OldBlock b2 = { 2, BOARD_ID_LCD_2_8, 1, 600, 0, 0, 12, 800, 96, 1, 0x77, 0x5A };
+	checkInt("a version 2 block is 24 bytes", (long)putOld(b2), 24);
+	settingsLoad();
+	checkTrue("version 2: carried over", carried());
+	checkInt("ESC pin", settings()->dshotPin, 1);
+	checkInt("kbaud", settings()->dshotKbaud, 600);
+	checkInt("KISS off", settings()->kissEnable, 0);
+	checkInt("KISS pin GP0, free: kept", settings()->kissPin, 0);
+	checkInt("poles", settings()->poles, 12);
+	checkInt("ceiling", settings()->maxThrottle, 800);
+	checkInt("backlight", settings()->backlight, 96);
+	checkInt("contrast", settings()->highContrast, 1);
+	checkInt("servo supply: the default, none", settings()->servoSupply, def.servoSupply);
+	checkInt("current sensor: the default", settings()->currentSense, def.currentSense);
+	checkTrue("the angle meter's: their defaults", angleDefault());
+	// Byte 20, where versions 3 and 4 keep the servo supply, is the low byte
+	// of version 2's CRC. With it 1 or 2, a legal supply, the supply still
+	// loads as none: version 2 has no such field.
+	for (uint8_t want = 1; want <= 2; want++) {
+		OldBlock o = b2;
+		bool found = false;
+		// The padding byte and the backlight vary the CRC.
+		for (int i = 0; i < 256 * 64 && !found; i++) {
+			o.pad = (uint8_t)i;
+			o.backlight = (uint8_t)(96 + i / 256);
+			putOld(o);
+			found = fakeFlashBytes()[20] == want;
+		}
+		char what[80];
+		snprintf(what, sizeof(what), "version 2, its CRC's low byte %u: found", (unsigned)want);
+		checkTrue(what, found);
+		settingsLoad();
+		snprintf(what, sizeof(what), "byte 20 = %u: carried over, servo supply none", (unsigned)want);
+		checkTrue(what, carried() && settings()->servoSupply == 0 && settings()->poles == 12);
+	}
+	{
+		// The board of version 2's two-board image, 2 for the LCD-2: the
+		// board-id rule, as for a version 5 block.
+		OldBlock o = b2;
+		o.boardId = 2;
+		putOld(o);
+		settingsLoad();
+		checkTrue("version 2 naming another board: carried, the id this board's",
+		          carried() && settings()->boardId == BOARD_ID_LCD_2_8 && settings()->poles == 12);
+	}
+
+	// --- validation, as for a version 5 block ---
+	{
+		// KISS on the board's KISS pin, free and never the ESC's default
+		// (the build refuses both on one pin), whatever the pin macros say.
+		OldBlock v = { 4, 99, 18, 999, 1, def.kissPin, 13, 60000, 3, 5, 7, 0 };
+		putOld(v);
+		settingsLoad();
+		checkTrue("out of range: carried over", carried());
+		checkInt("a ceiling of 60000: the compiled ceiling", settings()->maxThrottle, MAX_THROTTLE_CEILING);
+		checkInt("13 poles: 12", settings()->poles, 12);
+		checkInt("999 kbaud: the default", settings()->dshotKbaud, DSHOT_SPEED_KBAUD);
+		checkInt("backlight 3: the floor", settings()->backlight, BACKLIGHT_MIN);
+		checkInt("contrast 5: 1", settings()->highContrast, 1);
+		checkInt("servo supply 7: none", settings()->servoSupply, 0);
+		checkInt("board 99: this board", settings()->boardId, BOARD_ID_LCD_2_8);
+		checkInt("ESC pin 18, the panel's: the default", settings()->dshotPin, def.dshotPin);
+		checkInt("KISS on its default pin, free and not the ESC's: on", settings()->kissEnable, 1);
+		v.maxThrottle = 455;
+		v.poles = 0;
+		putOld(v);
+		settingsLoad();
+		checkInt("455: a whole step, 400", settings()->maxThrottle, 400);
+		checkInt("0 poles: the minimum", settings()->poles, MIN_MOTOR_POLES);
+		OldBlock k = b4;
+		k.dshotPin = 0;
+		k.kissPin = 0;
+		putOld(k);
+		settingsLoad();
+		checkTrue("KISS on the ESC's pin GP0: AUX moves to GP1, KISS on, the ESC on GP0",
+		          carried() && settings()->kissEnable == 1 && settings()->dshotPin == 0 &&
+		          settings()->kissPin == 1);
+	}
+
+	// --- a damaged block: discarded as before, no notice either way ---
+	static const OldBlock ALL[] = { b2, b3, b4, b5 };
+	for (const OldBlock &o : ALL) {
+		char what[80];
+		const uint32_t len = putOld(o);
+		fakeFlashBytes()[len - 1] ^= 0x01;
+		settingsLoad();
+		snprintf(what, sizeof(what), "version %u, its CRC damaged: discarded, the defaults, no notice",
+		         (unsigned)o.version);
+		checkTrue(what, !settingsStored() && !settingsCarriedOver() && !settingsResetByUpdate() &&
+		                memcmp(settings(), &def, sizeof(def)) == 0);
+		putOld(o);
+		fakeFlashBytes()[16] ^= 0x04;
+		settingsLoad();
+		snprintf(what, sizeof(what), "version %u, a payload byte damaged: discarded", (unsigned)o.version);
+		checkTrue(what, !settingsStored() && !settingsCarriedOver() && !settingsResetByUpdate());
+		putOld(o);
+		fakeFlashBytes()[0] ^= 0xFF;
+		settingsLoad();
+		snprintf(what, sizeof(what), "version %u, its magic damaged: discarded", (unsigned)o.version);
+		checkTrue(what, !settingsStored() && !settingsCarriedOver() && !settingsResetByUpdate());
+	}
+	// A version 3 block that says 12 bytes, its CRC right at byte 20: not
+	// version 3's layout. Whole, of another version: the reset path.
+	{
+		putOld(b2);
+		fakeFlashBytes()[4] = 3;
+		const uint32_t crc = settingsCrc32(fakeFlashBytes(), 20);
+		memcpy(fakeFlashBytes() + 20, &crc, 4);
+		settingsLoad();
+		checkTrue("version 3 with 12 bytes: not carried over, reset by an update",
+		          !settingsStored() && !settingsCarriedOver() && settingsResetByUpdate());
+		putOld(b3);
+		fakeFlashBytes()[4] = 2;
+		const uint32_t crc2 = settingsCrc32(fakeFlashBytes(), 24);
+		memcpy(fakeFlashBytes() + 24, &crc2, 4);
+		settingsLoad();
+		checkTrue("version 2 with 14 bytes: not carried over, reset by an update",
+		          !settingsStored() && !settingsCarriedOver() && settingsResetByUpdate());
+		// The size field alone wrong, the CRC right where the version's own
+		// layout has it: only the size check tells these from the real ones.
+		putOld(b4);
+		fakeFlashBytes()[6] = 13;
+		const uint32_t crc3 = settingsCrc32(fakeFlashBytes(), 24);
+		memcpy(fakeFlashBytes() + 24, &crc3, 4);
+		settingsLoad();
+		checkTrue("version 4 saying 13 bytes, its CRC right at byte 24: not carried over, a reset",
+		          !settingsStored() && !settingsCarriedOver() && settingsResetByUpdate());
+		putOld(b2);
+		fakeFlashBytes()[6] = 14;
+		const uint32_t crc4 = settingsCrc32(fakeFlashBytes(), 20);
+		memcpy(fakeFlashBytes() + 20, &crc4, 4);
+		settingsLoad();
+		checkTrue("version 2 saying 14 bytes, its CRC right at byte 20: not carried over",
+		          !settingsStored() && !settingsCarriedOver());
+		// Another magic, the CRC right over it: not a settings block at all.
+		putOld(b4);
+		fakeFlashBytes()[3] = 0x45;
+		const uint32_t crc5 = settingsCrc32(fakeFlashBytes(), 24);
+		memcpy(fakeFlashBytes() + 24, &crc5, 4);
+		settingsLoad();
+		checkTrue("version 4 under another magic, its CRC right: discarded, no notice",
+		          !settingsStored() && !settingsCarriedOver() && !settingsResetByUpdate());
+	}
+
+	// --- flash is not rewritten; every boot carries the block over again ---
+	putOld(b4);
+	uint8_t before[28];
+	memcpy(before, fakeFlashBytes(), sizeof(before));
+	int writes = fakeFlashWrites();
+	settingsLoad();
+	settingsLoad();
+	checkTrue("two boots: carried over each time, the same settings",
+	          carried() && settings()->poles == 14 && settings()->servoSupply == 2);
+	checkTrue("and flash untouched", fakeFlashWrites() == writes &&
+	                                 memcmp(before, fakeFlashBytes(), sizeof(before)) == 0);
+
+	// --- a change marks it dirty; stepping back clears it ---
+	settings()->poles = 16;
+	checkTrue("a change: dirty, still carried over", settingsDirty() && settingsCarriedOver());
+	settings()->poles = 14;
+	checkTrue("stepped back: clean", !settingsDirty());
+
+	// --- a refused save keeps the notice ---
+	fakeFlashSetWritable(false);
+	checkTrue("a save the flash refuses fails", !settingsSave());
+	checkTrue("and the carry-over still shows", settingsCarriedOver());
+	fakeFlashSetWritable(true);
+
+	// --- a save with nothing changed writes a version 6 block ---
+	writes = fakeFlashWrites();
+	checkTrue("a save with nothing changed lands", settingsSave());
+	checkInt("with one write", fakeFlashWrites() - writes, 1);
+	checkTrue("and ends the notice", !settingsCarriedOver() && settingsStored() && !settingsDirty());
+	SettingsBlock nb = stored();
+	checkTrue("flash: a version 6 block of 44 bytes, its CRC right",
+	          nb.magic == SETTINGS_MAGIC && nb.version == SETTINGS_VERSION && nb.size == sizeof(Settings) &&
+	          nb.crc32 == settingsCrc32(&nb, offsetof(SettingsBlock, crc32)));
+	checkTrue("holding the carried settings", nb.s.poles == 14 && nb.s.maxThrottle == 1200 &&
+	          nb.s.servoSupply == 2 && nb.s.currentSense == 0 && nb.s.dshotPin == 1 &&
+	          nb.s.angleLengthMm == 0 && nb.s.angleCalValid == 0 && nb.s.angleCalGain[2] == 1.0f);
+	Settings live = *settings();
+	writes = fakeFlashWrites();
+	checkTrue("a second save writes nothing", settingsSave() && fakeFlashWrites() == writes);
+	settingsLoad();
+	checkTrue("the next boot: its own block, no notice",
+	          settingsStored() && !settingsCarriedOver() && !settingsResetByUpdate() &&
+	          memcmp(settings(), &live, sizeof(live)) == 0);
+
+	// --- version 3 saved: the supply stays none, the pins this board's ---
+	putOld(b3);
+	settingsLoad();
+	checkTrue("version 3 saved", settingsSave());
+	settingsLoad();
+	checkTrue("loads as saved: ESC and KISS pins free, no supply, no notice",
+	          !settingsCarriedOver() && settingsPinFree(settings()->dshotPin) &&
+	          settingsPinFree(settings()->kissPin) && settings()->servoSupply == 0 &&
+	          settings()->poles == 10);
 }
 
 /** @brief The servo supply: 0 to 2 pass; anything else reads as none. */
@@ -617,6 +1018,165 @@ static void testCurrentSenseClamp() {
 	checkInt("255 to none", s.currentSense, 0);
 }
 
+/**
+ * @brief The angle meter's fields: each value settingsValidate() keeps and
+ *        each it repairs, at its boundaries.
+ */
+static void testAngleClamp() {
+	section("Settings: the angle meter's fields, validated");
+	Settings s;
+	settingsDefaults(&s);
+	checkTrue("the defaults pass", settingsValidate(&s));
+	s.angleAlong = 1;
+	s.angleInvert = 1;
+	checkTrue("SHORT and INVERT pass", settingsValidate(&s) && s.angleAlong == 1 && s.angleInvert == 1);
+	s.angleAlong = 2;
+	checkTrue("ALONG AXIS 2: repaired to LONG", !settingsValidate(&s) && s.angleAlong == 0);
+	s.angleInvert = 2;
+	checkTrue("SIGN 2: repaired to NORMAL", !settingsValidate(&s) && s.angleInvert == 0);
+	static const struct { uint16_t mm; uint16_t want; } LEN[] = {
+		{ 0, 0 }, { 9, 0 }, { 10, 10 }, { 500, 500 }, { 501, 0 }, { 65535, 0 },
+	};
+	for (const auto &l : LEN) {
+		char what[64];
+		s.angleLengthMm = l.mm;
+		bool ok = settingsValidate(&s);
+		snprintf(what, sizeof(what), "LENGTH %u: %u, %s", (unsigned)l.mm, (unsigned)l.want,
+		         l.mm == l.want ? "kept" : "repaired");
+		checkTrue(what, s.angleLengthMm == l.want && ok == (l.mm == l.want));
+	}
+	s.angleSpare = 3;
+	checkTrue("the spare byte 3: repaired to 0", !settingsValidate(&s) && s.angleSpare == 0);
+
+	// A calibration within the limits is kept; one past them, or not
+	// finite, is dropped whole, its values back to none's.
+	auto calibrated = [](Settings *c) {
+		settingsDefaults(c);
+		c->angleCalValid = 1;
+		c->angleCalOffG[0] = 0.2f;
+		c->angleCalOffG[1] = -0.2f;
+		c->angleCalOffG[2] = 0.05f;
+		c->angleCalGain[2] = 1.12f;
+	};
+	auto none = [](const Settings &c) {
+		return c.angleCalValid == 0 && c.angleCalOffG[0] == 0.0f && c.angleCalOffG[1] == 0.0f &&
+		       c.angleCalOffG[2] == 0.0f && c.angleCalGain[0] == 1.0f && c.angleCalGain[1] == 1.0f &&
+		       c.angleCalGain[2] == 1.0f;
+	};
+	calibrated(&s);
+	checkTrue("a calibration at the limits, 0.2 g and 1.12: kept",
+	          settingsValidate(&s) && s.angleCalValid == 1 && s.angleCalGain[2] == 1.12f);
+	calibrated(&s);
+	s.angleCalOffG[1] = -0.201f;
+	checkTrue("an offset of -0.201 g: dropped", !settingsValidate(&s) && none(s));
+	calibrated(&s);
+	s.angleCalGain[2] = 1.121f;
+	checkTrue("a gain of 1.121: dropped", !settingsValidate(&s) && none(s));
+	calibrated(&s);
+	s.angleCalGain[0] = 0.879f;
+	checkTrue("a gain of 0.879: dropped", !settingsValidate(&s) && none(s));
+	calibrated(&s);
+	s.angleCalGain[1] = NAN;
+	checkTrue("a gain that is NaN: dropped", !settingsValidate(&s) && none(s));
+	calibrated(&s);
+	s.angleCalValid = 2;
+	checkTrue("the flag 2: dropped", !settingsValidate(&s) && none(s));
+	settingsDefaults(&s);
+	s.angleCalOffG[2] = 0.05f;
+	checkTrue("no calibration and an offset left: the offset back to 0",
+	          !settingsValidate(&s) && none(s));
+	settingsDefaults(&s);
+	s.angleCalGain[1] = 0.5f;
+	checkTrue("no calibration and a gain left: the gain back to 1", !settingsValidate(&s) && none(s));
+	settingsDefaults(&s);
+	s.angleCalValid = 1;
+	checkTrue("the flag 1 with none's values, offsets 0 and gains 1: kept",
+	          settingsValidate(&s) && s.angleCalValid == 1);
+}
+
+/**
+ * @brief settingsSaveAngle(): the angle fields of the live settings over the
+ *        saved ones, so a SETTINGS change that was not saved stays unsaved.
+ */
+static void testSaveAngle() {
+	section("Settings: the angle meter's save writes its fields alone");
+	fakeFlashClear();
+	settingsLoad();
+	checkTrue("blank flash: a save of the angle fields lands", settingsSaveAngle());
+	checkTrue("and stores a version 6 block of the defaults",
+	          settingsStored() && stored().version == SETTINGS_VERSION && !settingsDirty());
+
+	Settings saved = *settings();
+	settings()->poles = 22;               // SETTINGS, not saved
+	settings()->angleLengthMm = 40;       // SETUP
+	settings()->angleAlong = 1;
+	settings()->angleInvert = 1;
+	settings()->angleCalValid = 1;
+	settings()->angleCalOffG[0] = 0.03f;
+	settings()->angleCalGain[2] = 1.01f;
+	checkTrue("the meter's fields changed: settingsAngleDirty()", settingsAngleDirty());
+	int writes = fakeFlashWrites();
+	checkTrue("a save of the angle fields lands", settingsSaveAngle());
+	checkInt("with one write", fakeFlashWrites() - writes, 1);
+	SettingsBlock b = stored();
+	checkTrue("flash holds the angle fields", b.s.angleLengthMm == 40 && b.s.angleAlong == 1 &&
+	          b.s.angleInvert == 1 && b.s.angleCalValid == 1 && b.s.angleCalOffG[0] == 0.03f &&
+	          b.s.angleCalGain[2] == 1.01f);
+	checkInt("and the pole count as saved, not the live one", b.s.poles, saved.poles);
+	checkTrue("so SETTINGS still has a change to save", settingsDirty() && settings()->poles == 22);
+	checkTrue("and the meter none: settingsAngleDirty() false", !settingsAngleDirty());
+	writes = fakeFlashWrites();
+	checkTrue("the same angle fields again: nothing written",
+	          settingsSaveAngle() && fakeFlashWrites() == writes);
+	settingsLoad();
+	checkTrue("the next boot: the angle fields kept, the pole count as saved",
+	          settings()->angleLengthMm == 40 && settings()->angleCalValid == 1 &&
+	          settings()->poles == saved.poles && !settingsDirty());
+
+	// A value validation repairs is written repaired, and the live field
+	// takes it.
+	settings()->angleLengthMm = 7;
+	checkTrue("LENGTH 7 saved", settingsSaveAngle());
+	checkTrue("as OFF, live and in flash", settings()->angleLengthMm == 0 && stored().s.angleLengthMm == 0);
+
+	// A save the flash refuses: false, the saved copy as it was.
+	settings()->angleLengthMm = 120;
+	fakeFlashSetWritable(false);
+	checkTrue("a save the flash refuses fails", !settingsSaveAngle());
+	checkTrue("and the change is still to save", settingsDirty() && settingsAngleDirty());
+	fakeFlashSetWritable(true);
+	checkTrue("it lands once the flash takes it", settingsSaveAngle() && !settingsDirty() &&
+	          !settingsAngleDirty() &&
+	          stored().s.angleLengthMm == 120);
+
+	// After a carry-over flash holds the older block: the first save writes
+	// a version 6 block, the carried settings with the angle fields.
+	OldBlock b4 = { 4, BOARD_ID_LCD_2_8, 1, 1200, 1, 0, 14, 1200, 200, 1, 2, 0x01 };
+	putOld(b4);
+	settingsLoad();
+	checkTrue("a version 4 block carried over", carried());
+	writes = fakeFlashWrites();
+	checkTrue("the angle meter's save with nothing changed lands", settingsSaveAngle());
+	checkInt("with one write", fakeFlashWrites() - writes, 1);
+	b = stored();
+	checkTrue("a version 6 block of the carried settings, the notice gone",
+	          b.version == SETTINGS_VERSION && b.s.poles == 14 && b.s.servoSupply == 2 &&
+	          !settingsCarriedOver() && settingsStored());
+
+	// After a reset by an update: the save of the angle fields ends it.
+	SettingsBlock other = b;
+	other.version = SETTINGS_VERSION + 1;
+	other.crc32 = settingsCrc32(&other, offsetof(SettingsBlock, crc32));
+	fakeFlashClear();
+	memcpy(fakeFlashBytes(), &other, sizeof(other));
+	settingsLoad();
+	checkTrue("a block of version 7: reset by an update", settingsResetByUpdate());
+	checkTrue("the angle meter's save lands and ends it", settingsSaveAngle() && !settingsResetByUpdate() &&
+	          stored().version == SETTINGS_VERSION);
+	fakeFlashClear();
+	settingsLoad();
+}
+
 void runSettingsTests() {
 	testBlankFlash();
 	testRoundTrip();
@@ -632,8 +1192,11 @@ void runSettingsTests() {
 	testNoOpSaveWritesNothing();
 	testBlankNamesTheBoard();
 	testLayout();
+	testCarryOver();
 	testServoSupplyClamp();
 	testCurrentSenseClamp();
+	testAngleClamp();
+	testSaveAngle();
 
 	// Leave the module in a known state: test_ui.cpp runs after this and reads
 	// settings() for the pole count and throttle ceiling.

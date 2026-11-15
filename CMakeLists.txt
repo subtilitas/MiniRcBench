@@ -182,7 +182,9 @@ target_sources(sd_fatfs INTERFACE
     ${SD_FATFS_DIR}/src/file_stream.c
     ${SD_FATFS_DIR}/src/glue.c
     ${SD_FATFS_DIR}/src/my_debug.c
-    ${SD_FATFS_DIR}/src/my_rtc.c
+    # my_rtc.c is left out: src/clock.cpp defines get_fattime(), which FatFs
+    # calls for its time stamps, and the epochtime that crash.c reads. sdtest,
+    # which has no clock driver, compiles my_rtc.c itself.
     ${SD_FATFS_DIR}/src/util.c
     # The SDIO driver: protocol, PIO and DMA bus, library callbacks.
     ${CMAKE_CURRENT_LIST_DIR}/src/sdio/sd_proto.c
@@ -216,9 +218,13 @@ add_executable(MiniRcBench
     src/main.cpp
     src/ui.cpp
     src/ui_am32.cpp
+    src/esc_3d.cpp
     src/ui_settings.cpp
     src/ui_menu.cpp
+    src/ui_esc_cmd.cpp
     src/ui_registry.cpp
+    src/ui_servo_prog.cpp
+    src/ui_esc_config.cpp
     src/ui_sdlog.cpp
     src/ui_input.cpp
     src/ui_widgets.cpp
@@ -245,13 +251,20 @@ add_executable(MiniRcBench
     src/pin_claim.cpp
     src/core1_job.cpp
     src/am32_bl.cpp
+    src/bl_answer.cpp
+    src/greet_cycle.cpp
     src/am32_eeprom.cpp
     src/kiss_telem.cpp
     src/pio_uart_rx.cpp
     src/esc_merge.cpp
     src/blackbox_encode.cpp
+    src/run_summary.cpp
+    src/clock.cpp
+    src/clock_line.cpp
     src/log_ring.cpp
     src/sd_log.cpp
+    src/sd_log_next.cpp
+    src/sd_log_summary.cpp
     src/sd_hw_config.c
     # Bidirectional DShot: the portable core and the RP2350 pin driver, from
     # rcbench. See the header comment of each file for the commit.
@@ -261,13 +274,19 @@ add_executable(MiniRcBench
     src/dshot/out_dshot.c
 )
 
-# The servo tester, the KST and Hitec programmers and the current sensor list
-# their own sources, so none of them edits this file for that. Each adds to
-# MiniRcBench with target_sources().
+# The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
+# current sensor, the ESC settings and the angle meter list their own sources,
+# so none of them edits this file for that. Each adds to MiniRcBench with
+# target_sources().
 include(src/servo.cmake)
 include(src/kst.cmake)
 include(src/hitec.cmake)
+include(src/rx.cmake)
 include(src/sense.cmake)
+include(src/escwire.cmake)
+include(src/angle.cmake)
+# The USB bridge, the same way.
+include(src/bridge.cmake)
 
 # The KISS receiver is a PIO program (see pio_uart_rx.h for why it is not one
 # of the two hardware UARTs). pioasm assembles it into the build tree, and this
@@ -357,7 +376,9 @@ target_compile_options(MiniRcBench PRIVATE
 #
 # It covers the rcbench files in lib/rcbench/ as well. They are copied
 # unchanged, so a warning a new toolchain finds in them is fixed in rcbench and
-# the files copied again, not edited here.
+# the files copied again, not edited here. One exception until rcbench fixes it:
+# src/angle.cmake turns -Wtype-limits off for imu.c, whose (int)axis < 0 is
+# always false where arm-none-eabi makes imu_axis_t one unsigned byte.
 option(STRICT "Treat warnings as errors in this project's own sources" OFF)
 if(STRICT)
     target_compile_options(MiniRcBench PRIVATE -Werror)
@@ -372,6 +393,9 @@ add_executable(sdtest
     tools/sdtest/main.c
     tools/sdtest/msc_stubs.c
     src/sd_hw_config.c
+    # The library's get_fattime() and epochtime, which the firmware takes from
+    # src/clock.cpp instead: 0 while the always-on timer is not running.
+    ${SD_FATFS_DIR}/src/my_rtc.c
 )
 target_include_directories(sdtest PRIVATE src)
 target_link_libraries(sdtest

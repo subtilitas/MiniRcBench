@@ -23,6 +23,9 @@ horn on the screen is drawn where the pulse puts it, not where the servo is.
 ## Wiring
 
 The servo needs its own supply. The board supplies the signal and ground only.
+With SERVO SUPPLY at `GP28` or `GP29` that supply is the bench's switched
+converter, part C of the [wiring sheet](Wiring), which the screen switches
+itself ([The switched supply](#the-switched-supply)).
 
 ```
   servo supply, 4.8 V to 6.0 V (8.4 V for an HV (high-voltage) servo)
@@ -30,10 +33,10 @@ The servo needs its own supply. The board supplies the signal and ground only.
      -  ----------------+-----------------------------  servo -   (brown or black)
                         |
   board GND  -----------+
-  board GP0  ------------------------------------------  servo A signal (orange or white)
-  board GP1  ------------------------------------------  servo B signal, two servos only
+  board SIG  ------------------------------------------  servo A signal (orange or white)
+  board AUX  ------------------------------------------  servo B signal, two servos only
 
-  GP0 = J4 pin 9 or J5 pin 2, GP1 = J4 pin 10 or J5 pin 1,
+  SIG GP0 = J4 pin 9 or J5 pin 2, AUX GP1 = J4 pin 10 or J5 pin 1,
   GND = J4 pin 1 or 5, or J5 pin 4
 ```
 
@@ -46,19 +49,22 @@ The servo needs its own supply. The board supplies the signal and ground only.
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
 - Join the two grounds once, at the board.
-- Servo A is on the ESC pin and servo B on the KISS pin, as set under
-  **MENU → SETTINGS**. GP0 and GP1 are the defaults.
-- Unplug any ESC from the ESC pin. The screen waits while an ESC answers on
+- Servo A is on SIG, the ESC pin, and servo B on AUX, the KISS pin, as set
+  under **MENU → SETTINGS → SIG PIN** and **AUX PIN**, which show the J5 pin
+  under the value. GP0 and GP1 are the defaults. AUX PIN acts whether KISS is
+  on or off, and a step of either row swaps the two.
+- Unplug any ESC from SIG. The screen waits while an ESC answers on
   it, but it cannot see every ESC.
 
 ---
 
 ## Opening it
 
-Open **MENU → SERVO TESTER**.
+Open **MENU → SERVO TESTER**. The screen is titled `SERVO TESTER`, as its
+MENU row.
 
 The screen takes the two signal pins from the ESC driver. If an ESC answers on
-the ESC pin, it waits and says `AN ESC ANSWERS ON GP0.` Unplug the ESC; the
+SIG, it waits and says `AN ESC ANSWERS ON SIG GP0.` Unplug the ESC; the
 screen takes the pins by itself 500 ms later. Servo pulses of 1000 µs to
 2000 µs are a valid throttle signal for many ESCs.
 
@@ -70,21 +76,52 @@ its own failsafe position.
 
 <img src="img/servo-safe.png" width="240" alt="The servo screen, SAFE">
 
-The line under the title shows the pin, the frame rate and the pulse range,
-and a chip: `SAFE` (green), `RUNNING` (red) or `STALLED` (magenta).
+The line under the title shows the pin by role and number, the frame rate
+and the pulse range, `SIG GP0  50 HZ  1000-2000 US`, or
+`SIG+AUX  50 HZ  1000-2000 US` with two servos, and a chip: `SAFE` (green),
+`RUNNING` (red), `STALLED` (magenta), or after a cut of the current sensor
+`OVERCURRENT`, `STALL`, `LOW SUPPLY` or `NO SENSOR` (magenta, see
+[The cuts](#the-cuts)). At 333 Hz with a MIN of 1000 µs or
+more the line has no room for the number and reads
+`SIG  333 HZ  1000-2000 US`, or `SIG+AUX  333 HZ` with two servos.
 
 While SAFE with one servo, the right of the readout row reads `TWO SERVOS:`
 and `SET > SERVOS`: the SERVOS row of the SET screen switches servo B on (see
-[Two servos](#two-servos)). The hint is not shown while the KISS pin is
-refused.
+[Two servos](#two-servos)). The hint is not shown while AUX is refused.
 
-With **SERVO SUPPLY** at `GP28` or `GP29` under SETTINGS, a second line under
-the title reads `GP28 SUPPLY STAYS OFF HERE.` in amber. The servo tester never
-switches the converter of the KST and Hitec programmers on, so a servo that
-only has that converter as its supply gets no power on this screen. Give it a
-supply of its own, as in [Wiring](#wiring).
+### The switched supply
 
-<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28: GP28 SUPPLY STAYS OFF HERE. under the title">
+With **SERVO SUPPLY** at `GP28` or `GP29` under SETTINGS, the servo tester
+switches the converter the KST and Hitec programmers use, part C of the
+wiring sheet. Not tested on hardware.
+
+- **SAFE:** the converter is off. The line under the title reads
+  `GP28 SUPPLY ON AT START` in amber, and the dial warns
+  `PULSES ON GP0 ARE THROTTLE TO AN ESC,` / `AND ITS BEC WIRE GETS THE SUPPLY.`
+- **`HOLD TO START`:** the converter goes on at once, the line reads
+  `GP28 SUPPLY COMING UP`, and the servo gets no pulse yet. The buttons and
+  the dial wait; `STOP` works.
+- **Supply up:** with the current sensor (SETTINGS > CURRENT SENSE `INA219`)
+  at the first reading of 4.5 V or more, without it after 500 ms. The servo
+  goes to CENTRE and the line reads `GP28 SUPPLY ON`. The SET screen shows
+  how long it took, `SUPPLY UP IN 25 MS`, until the first timed move
+  ([Move timing](#move-timing)) takes its place.
+- **Off again:** at `STOP`, when the screen stalls for 250 ms, when the touch
+  panel does not answer for 250 ms (`STOPPED: TOUCH DID NOT ANSWER`), when
+  the I2C bus is stuck (`STOPPED: TOUCH BUS STUCK`), at a cut of the
+  current sensor ([The cuts](#the-cuts)), and at `BACK`.
+- **Did not come up:** with the sensor and no 4.5 V within 500 ms, the
+  converter goes off and the dial reads `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
+- **Sensor not found:** with CURRENT SENSE at `INA219` and no sensor,
+  `HOLD TO START` is greyed and the dial reads
+  `START WAITS FOR THE CURRENT SENSOR.` Set CURRENT SENSE to `NONE` to start
+  without it. A stuck I2C bus or a silent touch panel also holds the start:
+  `START WAITS: THE I2C BUS IS STUCK.` or `START WAITS: TOUCH DOES NOT ANSWER.`
+- **Not off:** if the sensor still reads more than 2.5 V 2 s after the
+  switch-off, the line reads `GP28 SUPPLY NOT OFF`. The converter does not
+  disconnect its output, or EN is held high: check the wiring.
+
+<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28 while SAFE: GP28 SUPPLY ON AT START under the title and the ESC warning on the dial"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. with HOLD TO START greyed"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF under the title, 4.90 V in the readout"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET with SUPPLY UP IN 25 MS under STOP TO CHANGE THE PROFILE">
 
 ---
 
@@ -104,12 +141,12 @@ restarts until you hold `HOLD TO START` again.
 
 <img src="img/servo-stalled.png" width="240" alt="Stopped after a stall">
 
-If four reads of the touch controller in a row have failed, over 100 ms or
-more, a running servo stops as on `STOP`, sweeping or holding a position, on the main screen and on SET.
-A touch that does not answer cannot reach `STOP`, and the servo tester has
-no idle stop. The dial reads `TOUCH NOT ANSWERING` in amber and
-`THE SERVO IS STOPPED.` until the controller answers; `HOLD TO START` is
-drawn disabled meanwhile.
+If four reads of the touch controller in a row have failed, over 100 ms or more,
+a running servo stops as on `STOP`, sweeping or holding a position, on the main
+screen and on SET. A touch that does not answer cannot reach `STOP`, and the
+servo tester has no idle stop. The dial reads `TOUCH NOT ANSWERING` in amber and
+`THE SERVO IS STOPPED.` until the controller answers; `HOLD TO START` is drawn
+disabled meanwhile.
 
 ---
 
@@ -121,7 +158,7 @@ drawn disabled meanwhile.
 | Release | The servo stays where it is |
 | `MIN` `CENTRE` `MAX` | On release, to that end or the centre |
 | `SWEEP` | A sweep about the centre; the button becomes `STOP SWEEP` |
-| `SPEED` | How fast the servo is moved, 10 % to 100 % |
+| `SPEED` | How fast the servo is moved, 10 % to 100 %. Its fill is grey |
 
 - The dial and the buttons work only while `RUNNING`; while `SAFE` they are
   drawn as outlines and do nothing.
@@ -132,7 +169,8 @@ drawn disabled meanwhile.
   MIN to MAX takes 5 s.
 - A sweep starts at the centre and runs its curve on the board's second core,
   so the screen does not slow it down. While it runs, the readout shows
-  `SWEEP 3` or `SWEEP 3/10`: the ends reached, and the count you set.
+  `SWEEP 3` or `SWEEP 3/10` in lime, a live reading: the ends reached, and
+  the count you set.
   `STOP SWEEP` leaves the servo where the curve was. A drag, `MIN`, `CENTRE`,
   `MAX` and `STOP` end a sweep too.
 
@@ -142,22 +180,27 @@ drawn disabled meanwhile.
 
 ## Two servos
 
-Set `SERVOS` to `TWO` on the SET screen. Servo B is on the KISS pin. Both
+Set `SERVOS` to `TWO` on the SET screen. Servo B is on AUX. Both
 share one profile and one frame rate.
 
 <img src="img/servo-two.png" width="240" alt="Two servos">
 
 `A`, `B` and `AB` choose what the dial and the buttons move: one servo, or
-both to the same angle. The chosen horn is drawn wide. With `REVERSE B` on, B
+both to the same angle. The chosen horn is drawn wide. Servo A's horn and
+letter are lime, servo B's blue, and `B` fills blue while it is chosen. With
+`REVERSE B` on, B
 moves the opposite way when both follow, for a pair mounted face to face.
 
-Two servos need the KISS pin free. If KISS frames arrive on it, or the ESC pin
-and the KISS pin are the same pin under SETTINGS, the screen offers one servo
-only, and the SET screen says why. While the screen waits for the pins, for
-example while an ESC answers, it cannot know whether the KISS pin is free,
-and `TWO` can be chosen. If the screen then finds the KISS pin taken, it takes
-the ESC pin alone and goes back to one servo, and `TWO` stays off until you
-open the screen again.
+Two servos need AUX free. If KISS frames arrive on it, the screen offers one
+servo only, and the SET screen says why: `KISS WIRE ON AUX GP1 IS LIVE.`
+SETTINGS never puts SIG and AUX on one pin; pins set that way some other
+route read `SIG AND AUX ARE THE SAME GPIO.` While the screen waits for the
+pins, for example while an ESC answers, it cannot know whether AUX is free,
+and `TWO` can be chosen. If the screen then finds AUX taken, it takes SIG
+alone and goes back to one servo, and `TWO` stays off until you
+open the screen again. This holds for a `TWO` still waiting for
+`HOLD TO APPLY` too: it goes back to one servo, and a wait that held only for
+`TWO` ends.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO not offered: both pins are one GPIO">
 
@@ -183,6 +226,144 @@ module's screw terminal only.
 - While a sweep runs, its count moves to the top of the dial.
 
 The current is read 40 times a second, each reading the mean over 17 ms.
+
+### The cuts
+
+With the current sensor the servo tester stops by itself on its readings.
+Not tested on hardware: no INA219 and no converter has been on the board.
+
+| Chip | Dial | When |
+|---|---|---|
+| `OVERCURRENT` | `STOPPED: CURRENT 3.0 A OR MORE` | one reading of 3.0 A or more, either direction, or a reading at the end of the range |
+| `STALL` | `STOPPED: OVER 1.0 A FOR 400 MS` | readings above 1.0 A for 400 ms, none at or below it between |
+| `LOW SUPPLY` | `STOPPED: UNDER 4.0 V FOR 1000 MS` | with SERVO SUPPLY at `GP28` or `GP29`: readings under 4.0 V for 1000 ms after the supply came up |
+| `NO SENSOR` | `CURRENT SENSOR LOST: SUPPLY OFF.` | with SERVO SUPPLY at `GP28` or `GP29`: the sensor stops answering, or 250 ms pass with no reading |
+
+- The pulses end at once, and with `GP28` or `GP29` the converter goes off
+  in the same step of the board's second core. The chip stays until the
+  next `HOLD TO START`; the dial's second line reads `HOLD TO START AGAIN.`
+- While the sensor is not online after a cut, the dial's second line reads
+  `START WAITS FOR THE CURRENT SENSOR.` and `HOLD TO START` is greyed; once
+  it answers again, `HOLD TO START AGAIN.`
+- With `OWN` only `OVERCURRENT` and `STALL` apply: the bench knows neither
+  the voltage of your supply nor whether its current runs through the
+  sensor. What the servo does without pulses is the servo's own. If the
+  sensor stops answering while RUNNING with `OWN`, nothing is cut, and the
+  dial reads `NO SENSOR READING: NO CURRENT CUTS.` in grey.
+- The stall cut also trips on many servos held at MIN or MAX against their
+  own end stop, where they draw stall current. Not measured; the design
+  note's bench test B8 checks it.
+- A cut takes up to about 60 ms after a step of current. The cuts protect
+  the servo and the sensor's shunt; they are no fuse.
+- Beside `OVERCURRENT`, `LOW SUPPLY` and `NO SENSOR` the line under the
+  title reads by role alone, `SIG  50 HZ  1000-2000 US`, and at 333 Hz with
+  one servo `SIG  333 HZ`.
+
+<img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in magenta, STOPPED: CURRENT 3.0 A OR MORE on the dial"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in magenta, CURRENT SENSOR LOST: SUPPLY OFF. over START WAITS FOR THE CURRENT SENSOR.">
+
+### Move timing
+
+With the current sensor the servo tester times how long the servo takes to
+reach the position you tap, from its current: a moving servo draws more than
+a resting one. The SET screen shows the last move on the second line under
+its title, in grey:
+
+`MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`
+
+| Figure | Meaning |
+|---|---|
+| `MOVE 0.42 S` | from the tap to the first reading that shows the servo back at rest |
+| `MOVE LATE` | the servo moved, but its current did not settle within 3 s |
+| `MOVE UNSEEN` | the current did not change within 3 s: the servo did not move, or it moved too lightly to see |
+| `PEAK 1.21 A` | the highest reading from the tap to the arrival |
+| `HOLD 0.12 A` | the mean current in the half second after the arrival |
+| `--` | that figure is not known: see below |
+
+How to get a timed move:
+
+1. Start the servo with the sensor (SETTINGS > CURRENT SENSE `INA219`).
+2. Set `SPEED` to 100 %.
+3. Wait 4 s after `HOLD TO START`, after a drag, a sweep or a move at a lower
+   `SPEED`; after a timed move, half a second is enough.
+4. Tap `MIN`, `CENTRE` or `MAX`, wait for the servo, then open `SET`.
+
+- A tap too soon, a tap at a lower `SPEED`, or a move ended by `STOP`, a
+  cut, another tap or drag, or a lost sensor shows
+  `MOVE -- S  PEAK -- A  HOLD -- A`. `HOLD` shows `--` for the first half
+  second after the arrival.
+- The first time the servo goes to an end where it pushes against its stop,
+  it reads `LATE`: the bench does not yet know how much it draws there. The
+  next move to that end is timed.
+- The time is an upper bound on when the current shows the arrival. The
+  sensor shows it up to 61 ms late (computed: one reading and two of the
+  sensor's averaging periods), and the pulse leaves up to 20 ms after the
+  tap at 50 Hz. A servo that eases off near the target can fall to its
+  holding current while the horn still creeps, so the current can show the
+  arrival before the horn stops. How close the time comes to the horn's
+  real arrival is not measured.
+- With CURRENT SENSE at `NONE` nothing is timed, and the line stays as it
+  is.
+- The line goes at the next `HOLD TO START`, and it does not show while the
+  screen has a two-line warning there.
+
+<img src="img/servo-set-move.png" width="240" alt="SERVO SET with a timed move, MOVE, PEAK and HOLD, under STOP TO CHANGE THE PROFILE">
+
+### The log on the card
+
+With the sensor (SETTINGS > CURRENT SENSE `INA219`) and a card in the slot,
+every run from `HOLD TO START` to its end is written to the card as
+`LOGS/SRVnnnnn.CSV`: one line for each reading of the sensor, 40 a second,
+in columns a spreadsheet opens.
+
+```text
+ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
+12345,1500,0,420,5020,0
+```
+
+| Column | Meaning |
+|---|---|
+| `ms` | time of the reading since `HOLD TO START`, in milliseconds |
+| `pulse_a_us`, `pulse_b_us` | the pulse on SIG and on AUX in µs; 0 for no pulse or no second servo |
+| `current_ma` | the current in mA, signed |
+| `bus_mv` | the supply voltage at the sensor in mV |
+| `flags` | 1: the current was beyond the sensor's range; 2: the first reading after the sensor restarted |
+
+The last line says how the run ended, how many readings were taken and
+how many were dropped, and how long the supply took to come up:
+`# end=STOP rows=2400 dropped=0 up_ms=40`. `end=` is `STOP`, `BACK`,
+`OVERCURRENT`, `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`,
+`TOUCH_SILENT`, `BUS_STUCK` or `NO_START`; `up_ms=-` when the bench does not
+switch the supply.
+
+- The numbers count on from the highest `SRVnnnnn.CSV` in `LOGS`, apart from the
+  blackbox logs' `LOGnnnnn.BFL`.
+- After `HOLD TO START` the dial reads `PREPARING THE LOG...` and `THE SERVO
+  STARTS AFTER IT.` while the bench opens the file; the servo starts right
+  after. A card that takes longer than 2 s for that gets no log: `NO LOG: CARD
+  TOO SLOW`, and the servo starts without one.
+- While the servo runs, the dial's second line reads `LOGGING TO SRV00012.CSV`
+  in grey. In amber: `SRV00012.CSV: 12 ROWS DROPPED` (the card was slower than
+  the readings), `LOG STOPPED AT 4 MIB` (the file's limit, about an hour), `LOG
+  STOPPED: NO ROOM IN ONE PIECE` (the card had less than 4 MiB free in one
+  piece, and the 64 KiB it gave are used), `LOG STOPPED: CARD WRITE FAILED` (the
+  card was pulled, or failed), `NO LOG: NO 64 KIB IN ONE PIECE`, `NO LOG: CARD
+  TOO SLOW`, `NO LOG: THE CARD DID NOT ANSWER`, `NO LOG: THE FILE DID NOT OPEN`
+  or `NO LOG: SRV99999.CSV EXISTS`. The servo runs on in every case.
+- A blackbox recording that was running stops at `HOLD TO START`; SD LOG then
+  reads `RECORDING STOPPED BY SERVO TESTER`. The last run that SD LOG shows
+  stays the blackbox recording's.
+- Stop the servo before cutting the power or pulling the card. A run cut by a
+  power loss leaves a file of 4 MiB, or 64 KiB: the readings that reached the
+  card, then whatever the card held there before. The last readings, up to about
+  16 KiB, are lost. A card swapped in during a run that got `NO LOG` keeps its
+  own files; the file the bench had begun may then stay on the first card.
+- Writing the log never makes the bench wait for the card: the sensor is read
+  and the cuts act as without the log, within 0.1 ms in the host model. How long
+  a real card takes is not measured on the board.
+
+
+<img src="img/servo-log.png" width="240" alt="SERVO TESTER running, LOGGING TO SRV00012.CSV above the dial">
+<img src="img/servo-log-prep.png" width="240" alt="SERVO TESTER after HOLD TO START: PREPARING THE LOG... while the file opens">
 
 ---
 
@@ -219,23 +400,40 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
 
 - A heli type, or a frame rate above 60 Hz, can destroy a servo not made for
   it: above 60 Hz an analogue servo overheats. Such a change waits, the screen
-  names the risk, and `HOLD TO APPLY` (1 s) applies it. `BACK` drops it.
-- A pulse past a servo's travel drives it against its end stop, where it
-  stalls and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs
-  the screen says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX
-  HORN-FREE.` in amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs.
-  NARROW 760 and HELI TAIL 760 are measured against their own ranges: the
-  note shows when MIN lies more than 100 µs below the type's MIN, or MAX more
-  than 100 µs above the type's MAX. The change applies at once. The note
-  shows while TYPE, MIN or MAX is selected, and on other rows when no other
-  note does.
+  names the risk, and `HOLD TO APPLY` (1 s) applies it. `BACK` drops it,
+  after a warning: the first `BACK` stays on SET and puts
+  `1 CHANGE NOT APPLIED.` and `BACK AGAIN DISCARDS IT.` in amber on the
+  strip, or `n CHANGES NOT APPLIED.` and `BACK AGAIN DISCARDS THEM.`,
+  counting the cyan rows; the second `BACK` returns to the servo screen and
+  drops the change. Any other touch takes the warning away, and the change
+  keeps waiting. With nothing waiting, `BACK` returns at once.
+  While it waits, the row's value is cyan with a 3 px cyan bar at its left
+  edge; a value that applied is in the text colour, selected or not.
+- A pulse past a servo's travel drives it against its end stop, where it stalls
+  and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs the screen
+  says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` in
+  amber. HELI CYCLIC shows it at its own 820 µs to 2220 µs. NARROW 760 and HELI
+  TAIL 760 are measured against their own ranges: the note shows when MIN lies
+  more than 100 µs below the type's MIN, or MAX more than 100 µs above the
+  type's MAX. A TYPE, MIN or MAX change that leaves the profile past its travel
+  waits when it changes TYPE or takes MIN or MAX further out than the applied
+  profile: the note is its warning, on every row, and `HOLD TO APPLY` (1 s)
+  applies it. Stepping further while it waits keeps it waiting; stepping back
+  inside the margin, or back to the applied value, applies at once when nothing
+  else waits. A step toward the centre applies at once. `BACK` drops a waiting
+  change, after the same warning. A heli or 60 Hz change shows its own warning
+  first, and HELI CYCLIC's one hold covers both. With TWO servos the hold covers
+  both. Changing SERVOS from ONE to TWO on a profile past its travel waits for
+  the hold too, since it drives a second servo there; on a profile within its
+  travel, and from TWO to ONE, it applies at once. Once applied, the note shows
+  while TYPE, MIN or MAX is selected, and on other rows when no other note does.
   The travel of a servo is in its data sheet; the bench does not measure it.
 - The SWEEP rows change at any time and apply to the next `SWEEP`. When
   `SPEED` is slower than the curve, the screen says `SPEED LIMITS THE SWEEP`.
 - `DEFAULTS`, offered only while `SAFE`, returns to STANDARD PWM at 50 Hz,
   one servo, and a sine at 0.50 Hz.
 
-<img src="img/servo-set-warning.png" width="240" alt="A heli profile waiting for HOLD TO APPLY">
+<img src="img/servo-set-warning.png" width="240" alt="A heli profile waiting for HOLD TO APPLY"> <img src="img/servo-set-travel.png" width="240" alt="TYPE WIDE waiting for HOLD TO APPLY behind the end-stop note">
 
 Nothing on this screen is stored. Every time you open the servo screen it
 starts at STANDARD PWM, 50 Hz, one servo.
@@ -244,35 +442,42 @@ starts at STANDARD PWM, 50 Hz, one servo.
 
 ## Leaving
 
-`BACK` ends the pulses and asks you to unplug the servo. The last pulse
-completes first, which takes up to 41 ms at 50 Hz. A weak pull-down then
-holds the ESC pin low until DShot runs again. With two servos it also holds
-the KISS pin low until the KISS receiver takes it, or for good with KISS off.
+`BACK` ends the pulses and opens the leave page, whose first step asks you
+to unplug the servo: `1 UNPLUG THE SERVO.`, with
+`DSHOT RESTARTS ON SIG GP0 AND READS` and `AS A 970 US PULSE AT 1000 HZ.`,
+then `2 RESTART DSHOT.` The last pulse completes first, which takes up to
+41 ms at 50 Hz. A weak pull-down then holds SIG low until DShot runs again.
+With two servos it also holds AUX low until the KISS receiver takes it, or
+for good with KISS off. The strip names the pins the screen holds,
+`SIG GP0  AUX GP1`, or `SIG GP0` when it holds SIG alone.
 
-<img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
+<img src="img/leave-servo.png" width="240" alt="The leave page: 1 UNPLUG THE SERVO., BACK TO SERVO and RESTART DSHOT">
 
-Unplug the servo, then tap `RESTART DSHOT`. The ESC driver takes the pins back
-and `MENU` returns. `BACK` on this page returns to the servo
-screen instead, SAFE, and keeps the pins. Until the last pulse has completed
-the page reads `RELEASING THE PINS`, and `BACK` is drawn disabled, an outline
-with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
+Until the last pulse has completed the page reads `RELEASING THE PINS`, or
+`RELEASING THE PIN` with SIG alone, and both buttons are grey. Then
+`BACK TO SERVO` acts: it returns to the servo screen, SAFE, and keeps the
+pins. Unplug the servo, then tap `RESTART DSHOT`: it acts 1 s after the
+pins are let go, so a quick second tap after `BACK` restarts nothing. The
+ESC driver takes the pins back and `MENU` returns. `BACK` on the page is
+grey and does nothing.
 
 ---
 
 ## When it does not work
 
-- **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
-- **`GP0 COULD NOT BE TAKEN (PWM)`.** The board could not set up its pulse
-  output. Tap `RETRY`.
+- **`AN ESC ANSWERS ON SIG GP0.`** An ESC is on SIG, the ESC pin. Unplug it.
+- **`SIG GP0 COULD NOT BE TAKEN (PWM)`.** The board could not set up its
+  pulse output. Tap `RETRY`.
 
-  <img src="img/servo-bind.png" width="240" alt="GP0 COULD NOT BE TAKEN (PWM), with RETRY">
+  <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM), with RETRY">
 
-- **`TWO` cannot be chosen.** The KISS wire is live, or both pins are the same
-  pin under SETTINGS. The SET screen names the cause when `SERVOS` is selected.
+- **`TWO` cannot be chosen.** The KISS wire on AUX is live, or both pins were
+  set to one pin some other way than SETTINGS. The SET screen names the cause
+  when `SERVOS` is selected.
 - **The servo does not move.** Check that the chip reads `RUNNING`, that the
   servo has its own supply, and that its ground is joined to the board's.
-  With `GP28 SUPPLY STAYS OFF HERE.` under the title, the switched converter
-  is off on this screen.
+  With the switched supply, check that the line under the title reads
+  `GP28 SUPPLY ON`.
   Whether a servo accepts the board's 3.3 V pulses is not recorded per servo.
 
 Nothing of the servo tester has been tested on hardware yet.

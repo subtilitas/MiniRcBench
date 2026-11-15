@@ -273,6 +273,54 @@ sd_err_t sdh_write_poll(const sdh_bus_t *b, sdh_card_t *c, sdh_wr_t *w, bool *do
 	return finish(b, e);
 }
 
+sd_err_t sdh_read_start(const sdh_bus_t *b, sdh_card_t *c, uint32_t lba, uint8_t *buf,
+                        sdh_rd_t *r) {
+	r->active = false;
+	if (!c->ready) return SDE_NOT_READY;
+	if (!buf || ((uintptr_t)buf & 3u) || lba >= c->sectors) return SDE_PARAM;
+	sd_err_t e = b->rx_arm(b->ctx, buf, SDP_BLOCK_BYTES, 1, s_crc);
+	if (e != SDE_OK) return e;
+	e = cmdR1(b, 17, address(c, lba), SDP_RESP_R1, 0);
+	if (e != SDE_OK) {
+		b->rx_stop(b->ctx);
+		return finish(b, e);
+	}
+	r->buf = buf;
+	r->t0_us = b->now_us(b->ctx);
+	r->active = true;
+	return SDE_OK;
+}
+
+sd_err_t sdh_read_poll(const sdh_bus_t *b, sdh_card_t *c, sdh_rd_t *r, bool *done) {
+	*done = false;
+	if (!r->active) {
+		*done = true;
+		return SDE_PARAM;
+	}
+	sd_err_t e;
+	if (b->rx_ready(b->ctx)) {
+		e = b->rx_wait(b->ctx, SDH_READ_TIMEOUT_US);   /* in: returns at once */
+	} else {
+		/* Each look stamps the wait hook, as each loop of rx_wait() does. */
+		if (sdh_wait_hook) sdh_wait_hook();
+		if ((uint32_t)(b->now_us(b->ctx) - r->t0_us) < SDH_READ_TIMEOUT_US) return SDE_OK;
+		e = SDE_TIMEOUT;
+	}
+	*done = true;
+	r->active = false;
+	b->rx_stop(b->ctx);
+	if (e == SDE_OK && !sdp_rx_check(r->buf, SDP_BLOCK_BYTES, s_crc)) e = SDE_CRC;
+	/* A block that did not come: CMD12 pulls a card that stalled back to
+	 * the transfer state, as sdh_read() sends it, but without the wait for
+	 * its busy: the caller's next attempt comes in a later call. A whole
+	 * block with a CRC error leaves the card in the transfer state already,
+	 * where CMD12 is illegal and unanswered: it would cost the command's
+	 * timeout, SDH_CMD_TIMEOUT_US, in this call, so none is sent. */
+	if (e == SDE_TIMEOUT) cmd(b, 12, 0, SDP_RESP_R1, NULL, NULL);
+	b->stop_clock(b->ctx);
+	return e;
+}
+
 /** @brief Common argument checks of read and write. */
 static sd_err_t checkRange(const sdh_card_t *c, uint32_t lba, uint32_t count, const void *buf) {
 	if (!c->ready) return SDE_NOT_READY;

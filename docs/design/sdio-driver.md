@@ -309,10 +309,12 @@ pio1 holds nothing else; DShot and KISS are on pio2
   pointers (command, clock, receive, transmit, busy, time). Initialisation,
   reads, writes, status, retries, every timeout; `sdh_write_start()` and
   `sdh_write_poll()` send one block and look at its busy time without
-  waiting on it. No hardware access.
+  waiting on it; `sdh_read_start()` and `sdh_read_poll()` send CMD17 and
+  look at the receiver once a call (the bus's `rx_ready()`), for the write
+  cache's swap check. No hardware access.
 - `src/sdio/sd_cache.c`: the write-back queue and the read cache of the
   backup claims ([sd-write-cache.md](sd-write-cache.md)), over a card given as
-  three functions. No hardware access.
+  five functions. No hardware access.
 - `src/sdio/sd_pio.c`: the bus interface on PIO and DMA. Thin: it moves words
   and waits, and it decides nothing about the protocol.
 - `src/sdio/sd_card_glue.c`: `sd_sdio_ctor()`, the seven callbacks,
@@ -365,7 +367,8 @@ driver. Nothing is recorded for this driver.
 - USB DRIVE: a host reads files, multi-block reads.
 - Card pulled out while logging, while idle and while a host reads; then
   reinserted.
-- 10 MHz and 25 MHz, with `tools/sdtest` and in the firmware.
+- 10 MHz in the firmware (`SD_LOG_SDIO_HZ`), and 25 MHz, 10 MHz, 4 MHz and
+  1 MHz in `tools/sdtest`, which stops at the first rate that mounts.
 
 ## Provenance
 

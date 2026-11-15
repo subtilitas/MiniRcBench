@@ -14,10 +14,11 @@ continuous integration. AM32 is an open-source ESC firmware.
 
 Status: implemented on the Waveshare RP2350-Touch-LCD-2.8: decoder, PIO receiver, request and drain on
 core1, merge with EDT, source tags on the main screen, both eRPM sources in the
-log. Working on hardware (owner report). Issue #1 separately reports correct
-values with a receiver driving the ESC and the display only listening. Whether
-each report covers the RP2350-Touch-LCD-2.8, and the line voltage, have no
-record.
+log. Working on hardware with `pico-bidir-dshot`, the DShot driver before
+`src/dshot/` (owner report); not tested on hardware in MiniRcBench. Issue #1
+separately reports correct values with a receiver driving the ESC and the
+display only listening. Whether each report covers the RP2350-Touch-LCD-2.8, and
+the line voltage, have no record.
 
 ## Why
 
@@ -196,15 +197,19 @@ run time, because the DShot driver is always resident and the SDIO card
 driver holds pio1. When no state machine is free the effect is that of an
 unplugged wire.
 
-Any free GPIO that is not the ESC's can receive. The default is GP1, J4
-pin 10 and J5 pin 1, switched off: the board brings out exactly two pins and most users
-have not soldered the second wire; one tap on MENU → SETTINGS turns it on. The
-SETTINGS stepper skips the ESC's pin, so it has no third pin to step to. The
-board descriptor fails the build if a pin override leaves the free set or
-puts both wires on one pin.
+Any free GPIO that is not the ESC's can receive. KISS listens on AUX, the
+pin [pin-claim.md](pin-claim.md#the-two-pins) names, which SETTINGS sets in
+its AUX PIN row; the ESC's pin is SIG, set in SIG PIN. The default is GP1, J4
+pin 10 and J5 pin 1, switched off: the board brings out exactly two pins and
+most users have not soldered the second wire; one tap on MENU → SETTINGS →
+KISS TELEM turns it on. A step of SIG PIN or AUX PIN onto the other's GPIO
+swaps the two, so the wires never share a pin, and `settingsValidate()`
+moves AUX off SIG in a stored block ([menu-b.md](menu-b.md) decision 10).
+The board descriptor fails the build if a pin override leaves the free set
+or puts both wires on one pin.
 
-The firmware enables the internal pull-up on the KISS pin, so an unconnected
-wire reads idle instead of decoding noise.
+The firmware enables the internal pull-up on the KISS pin, AUX, so an
+unconnected wire reads idle instead of decoding noise.
 
 > **Voltage.** The KISS specification says the line idles at 3.6 V. GP0 and
 > GP1 are "Digital IO (FT)" pins, fault tolerant (RP2350 datasheet,
@@ -314,11 +319,12 @@ host.
 
 ## Hardware record
 
-The owner reports KISS telemetry working on hardware, the display's own
-telemetry request included. Issue #1 separately reports correct values with a
-receiver driving the ESC and the display only listening. Whether each report
-covers the RP2350-Touch-LCD-2.8 is not recorded. The line level is not
-measured.
+The owner reports KISS telemetry working on hardware with `pico-bidir-dshot`,
+the DShot driver before `src/dshot/`, the display's own telemetry request
+included. It is not tested on hardware in MiniRcBench. Issue #1 separately
+reports correct values with a receiver driving the ESC and the display only
+listening. Whether each report covers the RP2350-Touch-LCD-2.8 is not recorded.
+The line level is not measured.
 [STATUS.md](../../STATUS.md) holds the full verification record.
 
 ## Open questions

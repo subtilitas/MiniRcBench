@@ -2,7 +2,7 @@
 """Structural checks for the wiki in wiki/.
 
 A GitHub wiki has no build step, so nothing tells you a link is broken until a
-reader clicks it. These are the four ways this particular wiki can break, and
+reader clicks it. These are the ways this particular wiki can break, and
 nothing else:
 
   1. a link points at a page that does not exist -- usually a rename, since page
@@ -11,7 +11,9 @@ nothing else:
   3. an image is referenced that the test suite does not capture, which is what
      happens when a screenshot is dropped or renamed upstream;
   4. the two languages drift apart -- a page added in one and not the other, or
-     a page missing the switcher that gets you to its counterpart.
+     a page missing the switcher that gets you to its counterpart;
+  5. a safety warning a screen shows goes missing from the page, in either
+     language, that describes the screen (REQUIRED_TEXTS).
 
 Run it after `python3 tools/make_previews.py --wiki`, or the image check has
 nothing to check against. Exit status is the number of problems, so CI fails
@@ -42,8 +44,23 @@ PAIRS = [
     ("Servo-Tester", "Servotester"),
     ("KST-Programming", "KST-Programmierung"),
     ("Hitec-Programming", "Hitec-Programmierung"),
+    ("RX-Signals", "RX-Signale"),
+    ("USB-Bridge", "USB-Bruecke"),
+    ("Angle-Meter", "Winkelmesser"),
     ("Troubleshooting", "Fehlersuche"),
 ]
+
+# Screen texts each page of a pair must quote, word for word: the S.BUS
+# output's warnings (docs/design/sbus-output.md, "Warnings"). The screen
+# texts are English on both pages.
+REQUIRED_TEXTS = {
+    ("RX-Signals", "RX-Signale"): [
+        "`GP0 GOES TO A FLIGHT CONTROLLER.`",
+        "`NEVER TO AN ESC. PROPS OFF.`",
+        "`S.BUS TO A FLIGHT CONTROLLER.`",
+        "`ON GP0, NEVER TO AN ESC.`",
+    ],
+}
 
 # Pages that are not part of the language pairing: the shared landing page and
 # GitHub's two special includes.
@@ -115,6 +132,16 @@ def main():
                     "%s.md: first line is not the language switcher pointing at %s"
                     % (page, other)
                 )
+
+    # --- 5. the warnings a screen shows, on its pages ---------------------
+    for pair, texts in sorted(REQUIRED_TEXTS.items()):
+        for page in pair:
+            body = pages.get(page)
+            if body is None:
+                continue
+            for text in texts:
+                if text not in body:
+                    problems.append("%s.md: the screen's warning %s is missing" % (page, text))
 
     # --- 1 and 2. internal links --------------------------------------------
     for page, body in sorted(pages.items()):

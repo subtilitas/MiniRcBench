@@ -5,7 +5,8 @@
  *
  * A tool that writes settings into a device saves the device's settings, as
  * read before the session's first write, here first. A backup is
- * `BACKUP/<prefix><nnn>.TXT`: the device's prefix (`KST`, `AM`, `HT`) and a
+ * `BACKUP/<prefix><nnn>.TXT`: the device's prefix (`KST`, `AM`, `HT`, `BJ`,
+ * `BH`) and a
  * ring number from 001 to 050 (`BACKUP_RING_NAMES`). The numbers are one
  * sequence for all devices. `BACKUP/LAST` holds the latest number as 3 digits
  * and a line feed.
@@ -60,7 +61,9 @@ enum class BackupDevice : uint8_t {
 	Kst = 0,    /**< KST and Chaservo servos: `KSTnnn.TXT`. */
 	Am32 = 1,   /**< AM32 ESCs (electronic speed controllers): `AMnnn.TXT`. */
 	Hitec = 2,  /**< Hitec servos: `HTnnn.TXT`, rcbench's servo file text (hitec_files.h). */
-	Count = 3,
+	Bluejay = 3, /**< Bluejay ESCs: `BJnnn.TXT`, rcbench's ESC settings text (efm8_backup.h). */
+	BlheliS = 4, /**< BLHeli_S ESCs: `BHnnn.TXT`, the same text. */
+	Count = 5,
 };
 
 /** @brief The result of a backup call. The numbers are stable. */
@@ -85,7 +88,7 @@ struct BackupNames {
 	unsigned latest;   /**< `marked`, or without it backupGuess(); 0 for none. */
 };
 
-/** @brief The prefix of @p d's names: `KST`, `AM` or `HT`. */
+/** @brief The prefix of @p d's names: `KST`, `AM`, `HT`, `BJ` or `BH`. */
 const char *backupPrefix(BackupDevice d);
 
 /** @brief The number after @p n in the ring, 1 to 50: 1 after 50 and after 0. Pure. */

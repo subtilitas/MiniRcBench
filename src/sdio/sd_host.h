@@ -73,6 +73,11 @@ typedef struct {
 	                   uint32_t blocks, uint32_t *crc);
 	/** Wait for every armed block; SDE_TIMEOUT after @p block_timeout_us without one. */
 	sd_err_t (*rx_wait)(void *ctx, uint32_t block_timeout_us);
+	/**
+	 * One look, no wait: true once every armed block is in. rx_wait() then
+	 * returns at once.
+	 */
+	bool (*rx_ready)(void *ctx);
 	/** Disarm the receiver, whatever state it is in. */
 	void (*rx_stop)(void *ctx);
 	/**
@@ -190,6 +195,51 @@ sd_err_t sdh_write_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba,
  *         @ref SDH_BUSY_TIMEOUT_US of busy, which marks the card not ready.
  */
 sd_err_t sdh_write_poll(const sdh_bus_t *bus, sdh_card_t *card, sdh_wr_t *w, bool *done);
+
+/** @brief A one-block read started and not yet in: sdh_read_start() to sdh_read_poll(). */
+typedef struct {
+	bool     active;  /**< A read is under way. */
+	uint8_t *buf;     /**< Where the block lands, 4-byte aligned. */
+	uint32_t t0_us;   /**< now_us() when CMD17 was taken. */
+} sdh_rd_t;
+
+/**
+ * @brief Start a read of one block, CMD17, and return without waiting for
+ *        the data: the receiver is armed, and the clock keeps running while
+ *        the caller polls with sdh_read_poll(), as after sdh_write_start().
+ * @param bus  The bus.
+ * @param card An initialised card.
+ * @param lba  The sector.
+ * @param buf  512 bytes, 4-byte aligned.
+ * @param r    Filled in; active once CMD17 was taken.
+ * @return SDE_OK once CMD17 was taken. Otherwise its error, or SDE_PARAM or
+ *         SDE_NOT_READY, with nothing under way, the receiver disarmed and
+ *         the clock stopped; the card stays ready for the caller's next
+ *         attempt, as within sdh_read()'s.
+ */
+sd_err_t sdh_read_start(const sdh_bus_t *bus, sdh_card_t *card, uint32_t lba, uint8_t *buf,
+                        sdh_rd_t *r);
+
+/**
+ * @brief One look at the read under way: the receiver asked once, no wait.
+ * @param bus  The bus.
+ * @param card The card.
+ * @param r    From sdh_read_start().
+ * @param done Set true once the block is in, has failed or has timed out;
+ *             then the receiver is disarmed, the clock stopped and @p r no
+ *             longer active.
+ * Each look that finds the block not in calls @ref sdh_wait_hook, as each
+ * loop of the receiver's wait does in sdh_read().
+ *
+ * @return While not done, SDE_OK. When done: SDE_OK with the block in
+ *         buf, SDE_CRC for a block whose CRC (cyclic redundancy check) does
+ *         not match, or SDE_TIMEOUT once @ref SDH_READ_TIMEOUT_US has passed
+ *         since CMD17 without the block. After a failure CMD12 goes out, as
+ *         sdh_read() sends it, without the wait for its busy; the card stays
+ *         ready, and the caller tries again in a later call, up to
+ *         @ref SDH_ATTEMPTS times as sdh_read() does.
+ */
+sd_err_t sdh_read_poll(const sdh_bus_t *bus, sdh_card_t *card, sdh_rd_t *r, bool *done);
 
 /**
  * @brief CMD13: the card status.

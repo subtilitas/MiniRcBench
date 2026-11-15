@@ -1,6 +1,6 @@
 /**
  * @file ui_menu.cpp
- * @brief MENU and the BEEP action. @see ui_menu.h
+ * @brief MENU. @see ui_menu.h
  */
 
 #include "ui_menu.h"
@@ -8,7 +8,9 @@
 #include "ui_list.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
+#include "usb_bridge.h"
 #include "ui_am32.h"
+#include "sbus_out_job.h"
 #include "esc_task.h"
 #include "esc_merge.h"
 #include "settings.h"
@@ -23,7 +25,7 @@
 
 /**
  * @defgroup menu_layout MENU layout
- * @brief Six 40 px rows fit under the strip; a seventh scrolls 36 px.
+ * @brief Six 40 px rows fit under the strip; eight rows scroll 78 px.
  * @{
  */
 #define MENU_VIEW_Y0   UI_BODY_Y              /**< First row of the list, y 62. */
@@ -43,9 +45,6 @@ static_assert(MENU_ROW_H >= UI_LIST_TAP_MIN && MENU_ROW_PITCH > MENU_ROW_H,
               "a MENU row is lower than the list floor, or has no gap");
 static_assert(MENU_ROW_X + MENU_ROW_W < MENU_BAR_X, "MENU's rows run into the scroll bar");
 
-/** @brief How long BEEP's row shows SENT or REFUSED, ms. */
-#define BEEP_FLASH_MS 350
-
 static const UiMenuEntry *s_entries = UI_MENU;
 static uint8_t            s_count = UI_MENU_COUNT;
 static const UiMenuEntry *s_wantEntries = UI_MENU;
@@ -56,70 +55,32 @@ static const TouchState  *s_t = nullptr;
 /** @brief Hash of what the last frame drew; 0 forces a repaint. */
 static uint32_t           s_drawnKey = 0;
 
-static bool     s_beepOk = false;
-static uint32_t s_beepUntil = 0;
-
-// ---------------------------------------------------------------------------
-// BEEP
-// ---------------------------------------------------------------------------
-
-/** @brief A flash is up: the deadline alone reads true again 2^31 ms on. */
-static bool     s_beepShown = false;
-
-static bool beepFlashing() {
-	if (s_beepShown && (int32_t)(millis() - s_beepUntil) >= 0) s_beepShown = false;
-	return s_beepShown;
-}
-
-static void beepAction() {
-	s_beepOk = escRequestBeep(1);
-	s_beepShown = true;
-	s_beepUntil = millis() + BEEP_FLASH_MS;
-}
-
-static void beepStatus(char *buf, size_t n, uint16_t *col, uint16_t *fill) {
-	// The refusal is unreachable through MENU, which disarms on open; the
-	// flash stays as the backstop. @see escRequestBeep()
-	if (beepFlashing()) {
-		snprintf(buf, n, "%s", s_beepOk ? "SENT" : "REFUSED");
-		*col = C_PAPER;
-		*fill = s_beepOk ? C_INK : C_AMBER;
-		return;
-	}
-	snprintf(buf, n, "DISARMED");
-	*col = C_DIM;
-}
-
-const UiScreen UI_BEEP = {
-	UiScreenId::Beep, "BEEP THE ESC", PinUser::None, beepStatus,
-	nullptr, nullptr, beepAction, nullptr, nullptr, false,
-};
-
 // ---------------------------------------------------------------------------
 // the list
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief Whether the claim is not Free: the strip says DShot restarts, and
+ *        every row that claims or changes the wiring is drawn disabled.
+ */
+static bool claimBusy() { return pinClaimState() != ClaimState::Free; }
 
 /**
  * @brief A tool that claims pins, or changes the wiring a claim latched, is
  *        refused while the claim is not Free: Restoring outlasts RESTART
  *        DSHOT's return to MENU.
  */
-static bool pinsBusy(const UiScreen *s) {
-	return (s->pinUser != PinUser::None || s->freePins) &&
-	       pinClaimState() != ClaimState::Free;
-}
+static bool pinsBusy(const UiScreen *s) { return uiPinsRefuse(s); }
 
-/** @brief A row's status, its colours and whether a tap opens nothing. */
+/**
+ * @brief A row's status and its colours: the screen's own, whether or not
+ *        the row is refused (rowActs()).
+ */
 static void rowStatus(int i, char *buf, size_t n, uint16_t *col, uint16_t *fill) {
 	const UiScreen *s = s_entries[i].screen;
 	buf[0] = '\0';
 	*col = C_DIM;
 	*fill = C_PANEL;
-	if (pinsBusy(s)) {
-		snprintf(buf, n, "%s", UI_MENU_BUSY_TEXT);
-		*col = C_AMBER;
-		return;
-	}
 	if (s->status) s->status(buf, n, col, fill);
 }
 
@@ -128,10 +89,14 @@ static UiRect rowRect(int y) {
 	return UiRect{ MENU_ROW_X, (int16_t)y, MENU_ROW_W, MENU_ROW_H };
 }
 
-/** @brief Whether a tap on row @p i acts: an action, or a tool whose pins are free. */
+/**
+ * @brief Whether a tap on row @p i acts: an action, or a tool whose pins are
+ *        free. A row with neither an action nor a screen never acts.
+ */
 static bool rowActs(int i) {
 	const UiScreen *s = s_entries[i].screen;
-	return s->action || !pinsBusy(s);
+	if (s->action) return true;
+	return s->enter && s->tick && !pinsBusy(s);
 }
 
 /** @brief Whether the press on row @p i still counts as a tap of it. */
@@ -172,7 +137,9 @@ static uint32_t frameKey(MenuEdt edt, bool runCue) {
 	h = mix(h, (uint32_t)edt);
 	h = mix(h, runCue);
 	h = mix(h, settings()->dshotPin);
+	h = mix(h, settings()->kissPin);
 	h = mix(h, settings()->dshotKbaud);
+	h = mix(h, claimBusy());
 	for (int i = 0; i < s_count; i++) {
 		char st[24];
 		uint16_t col, fill;
@@ -180,6 +147,7 @@ static uint32_t frameKey(MenuEdt edt, bool runCue) {
 		for (const char *c = st; *c; c++) h = mix(h, (uint8_t)*c);
 		h = mix(h, ((uint32_t)col << 16) | fill);
 		h = mix(h, rowPressed(i));
+		h = mix(h, rowActs(i));
 	}
 	h = mix(h, uiPressing(uiBackRect(), s_t));
 	return h | 1u;
@@ -197,17 +165,36 @@ static_assert(UI_MARGIN + 6 * (int)(sizeof(AM32_UI_RUN_CUE) - 1) - 1 <
               GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_NO_ESC) - 1) - 1 + 12),
               "MENU's run cue runs under the NO ESC chip");
 
+/**
+ * @brief The caption at its widest on this board, whose signal pins are GP0
+ *        and GP1, and the restarting caption, each end 4 px before the
+ *        widest chip, EDT OFF, which starts at x 179.
+ */
+static_assert(UI_MARGIN + 6 * (int)(sizeof("SIG GP1  AUX GP0  DSHOT1200") - 1) - 1 + 4 <=
+                  GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_EDT_OFF) - 1) - 1 + 12) &&
+              UI_MARGIN + 6 * (int)(sizeof("DSHOT RESTARTING ON SIG GP1") - 1) - 1 + 4 <=
+                  GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_EDT_OFF) - 1) - 1 + 12),
+              "MENU's caption runs under the EDT chip");
+
 static void drawMenu(MenuEdt edt, bool runCue) {
 	gfxFill(C_BG);
 	uiHeader("MENU", s_t);
 	uiStripClear();
-	char cap[32];
-	snprintf(cap, sizeof(cap), "GP%u  %u KBIT/S", (unsigned)settings()->dshotPin,
-	         (unsigned)settings()->dshotKbaud);
-	// After an AM32 session that reached the bootloader, a second line says
-	// what starts the ESC again: leaving sends it no command. @see uiAm32RunCue()
-	if (runCue) uiStripTwoLines(cap, C_DIM, AM32_UI_RUN_CUE, UI_COL_WARN);
-	else uiStripText(cap, C_DIM);
+	char cap[40];
+	uint16_t capCol = C_DIM;
+	if (claimBusy()) {
+		// Why the rows that claim or change the wiring are drawn disabled.
+		snprintf(cap, sizeof(cap), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+		capCol = UI_COL_WARN;
+	} else {
+		snprintf(cap, sizeof(cap), UI_MENU_CAPTION_FMT, (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
+	}
+	// After a session that reached a bootloader, a second line says what
+	// starts the ESC again: leaving sends it no command. @see uiAm32RunCue(),
+	// usbBridgeRunCue(), sbusOutRunCue()
+	if (runCue) uiStripTwoLines(cap, capCol, AM32_UI_RUN_CUE, UI_COL_WARN);
+	else uiStripText(cap, capCol);
 	// Read-only: the firmware enables EDT for each ESC as it appears, and
 	// arriving frames are the only evidence that it is delivering. Red is for
 	// an ESC that answers without EDT; with no ESC on the pin there is nothing
@@ -226,8 +213,6 @@ static void drawMenu(MenuEdt edt, bool runCue) {
 // ---------------------------------------------------------------------------
 
 void uiMenuEnter() {
-	// A flash cut short by leaving MENU does not come back.
-	s_beepShown = false;
 	s_entries = s_wantEntries;
 	s_count = s_wantCount;
 	uiListInit(&s_list, UiRect{ MENU_ROW_X, MENU_VIEW_Y0, MENU_ROW_W, MENU_VIEW_H },
@@ -248,7 +233,7 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		const UiScreen *s = s_entries[e.row].screen;
 		if (s->action) {
 			s->action();
-		} else if (!pinsBusy(s) && s->enter && s->tick) {
+		} else if (rowActs(e.row)) {
 			*open = s;
 			r = UiMenuResult::Open;
 		}
@@ -261,7 +246,11 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		MenuEdt edt = rd.edtFresh ? MenuEdt::On
 		            : escFieldFresh(tel.lastRpmMs, millis(), ESC_LINK_STALE_MS) ? MenuEdt::Off
 		                                                                        : MenuEdt::NoEsc;
-		bool runCue = uiAm32RunCue(tel.lastRpmMs);
+		// ESC SETTINGS' cue, the USB bridge's (usb_bridge.h) or the S.BUS
+		// output's probe's (sbus_out_job.h): each is a bootloader that
+		// answered and was not told to run.
+		bool runCue = uiAm32RunCue(tel.lastRpmMs) | usbBridgeRunCue(tel.lastRpmMs) |
+		              sbusOutRunCue(tel.lastRpmMs);
 		uint32_t key = frameKey(edt, runCue);
 		if (key != s_drawnKey) {
 			s_drawnKey = key;

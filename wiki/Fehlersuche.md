@@ -42,7 +42,7 @@ Einstellungen.
 <img src="img/splash-reset-no-touch.png" width="240" alt="Der Startbildschirm mit SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS und TOUCH CONTROLLER NOT FOUND über dem Namen">
 
 Ohne Berührung lässt sich die Platine nicht bedienen: Scharfschalten,
-`DISARM`, `HOLD` und `MENU` brauchen sie alle. Die Leerlaufsperre
+`DISARM`, `LATCH` und `MENU` brauchen sie alle. Die Leerlaufsperre
 entschärft 30 s nach der letzten Berührung, die der Controller meldet. Ein
 nasser Bildschirm oder etwas, das auf dem Glas liegt, zählt als Berührung
 und hält einen scharfen Tester scharf. Um einen Motor anzuhalten, trenne
@@ -71,21 +71,21 @@ geprüft. Bleibt die Zeile nach einem Neustart, melde es wie unter
 Auf dem Signalkabel antwortet nichts, und das Feld unter dem Titel des
 Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
 
-1. **Der ESC ist seit AM32 CONFIG nicht neu gestartet.** Beim Verlassen
+1. **Der ESC ist seit ESC SETTINGS nicht neu gestartet.** Beim Verlassen
    dieses Bildschirms schickt die Firmware dem Bootloader keinen Befehl, die
    ESC-Firmware zu starten, und was der ESC dann tut, ist nicht
    aufgezeichnet. Starte den ESC neu, bevor du ihn testest:
    [AM32-Konfiguration](AM32-Konfiguration#verlassen).
-2. **Falscher Pin.** Vergleiche **MENU → SETTINGS → ESC PIN** damit, wo das Kabel
-   steckt. Die `LINK`-Zeile auf diesem Bildschirm ist live. Eine Paketrate
-   über null heißt, der Pin stimmt.
+2. **Falscher Pin.** Vergleiche **MENU → SETTINGS → SIG PIN** damit, wo das
+   Kabel steckt; der J5-Pin steht unter dem Wert. Die `LINK`-Zeile auf diesem
+   Bildschirm ist live. Eine Paketrate über null heißt, der Pin stimmt.
 3. **Keine gemeinsame Masse.** Die Masse des ESC und die der Platine müssen
    verbunden sein.
 4. **Der ESC hat keinen Strom.** Er läuft an seinem eigenen Akku, nicht an der
    Platine.
 5. **Der ESC beherrscht kein bidirektionales DShot**, oder es ist in seinen
    Einstellungen abgeschaltet. Unidirektionales DShot sendet nichts zurück.
-6. **Das Kabel ist zu lang oder fängt Störungen ein.** Stelle **DSHOT KBAUD**
+6. **Das Kabel ist zu lang oder fängt Störungen ein.** Stelle **DSHOT**
    auf 300 und beobachte `LINK`.
 
 ---
@@ -138,8 +138,8 @@ bei Gas null fehlt. Die Ursache ist unbekannt. Ein Behelf ist nicht bekannt.
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
 
 Der Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`: Ein Computer hält die SD-Karte
-über USB (**MENU → SD LOG → USB DRIVE**; ziehe `MENU` um 36 px nach oben, um SD
-LOG zu erreichen), und Scharfschalten ist gesperrt, bis er sie freigibt. Wirf
+über USB (**MENU → SD LOG → USB DRIVE**), und Scharfschalten ist gesperrt,
+bis er sie freigibt. Wirf
 das Laufwerk am Computer aus oder drücke `EJECT` in SD LOG. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung).
 
@@ -163,9 +163,9 @@ Vier Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
 - **`MENU` öffnen.** Das Öffnen entschärft immer.
 - **Touch antwortet nicht.** Vier fehlgeschlagene Lesungen des
   Touch-Controllers in Folge, über 100 ms oder länger, entschärfen den
-  scharfen Tester. `TOUCH NOT ANSWERING` steht in
-  Bernstein unter der Drehzahl, bis er wieder antwortet. Ein lockeres
-  Flachbandkabel der Anzeige oder ein hängender I2C-Bus
+  scharfen Tester. `TOUCH NOT ANSWERING` steht in Bernstein unter der
+  Drehzahl, bis er wieder antwortet. Ein lockeres Flachbandkabel der
+  Anzeige oder ein hängender I2C-Bus
   (Inter-Integrated Circuit) kann die Ursache sein; welche, wird nicht
   unterschieden.
 - **Herzschlag-Sicherung.** Hält die Anzeige-Firmware an, setzt der zweite
@@ -206,7 +206,7 @@ ESC-Firmware fest.
 
 Die Fehlerrate ist oberhalb von 5 % bernsteinfarben. Die übliche Ursache ist
 das Signalkabel: Länge, Verlegung oder eine fehlende Masse. Kürzen, von den
-Motorphasen fernhalten, dann **DSHOT KBAUD** herunterstellen.
+Motorphasen fernhalten, dann **DSHOT** herunterstellen.
 
 Fehlgeschlagene Pakete sind Frames, auf die der ESC nicht reagiert hat, auch
 wenn die Drehzahlanzeige funktioniert.
@@ -251,11 +251,37 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 - **`REPLY NOT UNDERSTOOD`**: Die Verbindung funktioniert, die Rahmenbildung
   nicht. Mögliche Ursache: Der ESC läuft nicht mit AM32.
+- **`EFM8 E8B2 ANSWERED: READING.`**: Ein Bluejay- oder BLHeli_S-ESC hat
+  geantwortet, und der Bildschirm liest seine Einstellungen; Bluejay 0.21
+  und BLHeli_S 16.3 bis 16.7 lassen sich schreiben. `BACK` aus seiner Liste
+  sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine
+  Verlassenseite: ESC-Akku abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder
+  anstecken ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
+- **`HALF WRITTEN: KEEP THE ESC POWERED.`** oder
+  **`NO ANSWER IN THE WRITE: KEEP POWER.`**: Ein Schreiben auf Bluejay oder
+  BLHeli_S wurde abgebrochen, nachdem die Seite des ESC gelöscht war. Den
+  ESC-Akku nicht abziehen: Signalkabel prüfen, `READ AGAIN`, dann schreiben,
+  oder `REVERT` und die Seite wie gelesen schreiben. Ein Aus- und
+  Einschalten vorher verliert die Tags des ESC
+  ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)). Steht darunter
+  `SESSION ENDED: RESTORE ON A COMPUTER.`, ist die Sitzung beendet
+  (Leitungstreiber, Herzschlag), und keine spätere Sitzung schreibt die
+  Seite: ESC eingeschaltet lassen und am Computer wiederherstellen. Die
+  alte Seite steht in der Sicherung auf der Karte und, bis du ESC SETTINGS
+  verlässt, unter `OLD PAGE` auf der Verbindungsseite.
+- **`ESC LOST ITS TAGS: READ-ONLY.`**: Die Seite des ESC wurde gelöscht und
+  der ESC neu gestartet; er läuft mit seinen Standardwerten. Nur ein
+  Firmware-Flash für diesen ESC am Computer bringt die Tags zurück; die
+  Sicherung auf der Karte nennt sie.
+- **`THE ESC ANSWERED, THEN STOPPED.`**: Der ESC hat geantwortet und dann
+  nicht mehr, bevor seine Seite gelesen war; die Suche läuft erneut. Prüfe
+  das Signalkabel und lass den ESC eingeschaltet.
 - **`NO VALID SETTINGS`**: Der ESC hat geantwortet, und der Einstellungsblock
   hat die Plausibilitätsprüfung nicht bestanden. Schreibe nichts.
-- **`LAYOUT n NOT KNOWN`**: Der ESC speichert ein Einstellungslayout, das der
-  Tester nicht kennt; er zeigt `THE TESTER KNOWS LAYOUTS 2 TO 4.` und
-  schreibt nichts. Nimm für diesen ESC den AM32-Konfigurator.
+- **`LAYOUT n NOT KNOWN: READ-ONLY.`**: Der Bildschirm hat verbunden, und
+  der ESC speichert ein Einstellungslayout, das der Tester nicht kennt. Der
+  Bildschirm zeigt die Bytes, sichert sie und schreibt nichts. Nimm zum
+  Ändern dieses ESC den AM32-Konfigurator.
 - **`READ FAILED (...)`**: Der Verbindungsaufbau hat geklappt, das Lesen der
   Einstellungen nicht. Prüfe Signal- und Masseader.
 
@@ -263,29 +289,56 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 ## Meine Einstellungen setzen sich zurück
 
-Sie wurden nicht gespeichert, oder eine neue Firmware hat das Format der
-Einstellungen geändert. Polzahl und Gasobergrenze werden unter
+Sie wurden nicht gespeichert, oder eine neue Firmware konnte das Format der
+Einstellungen im Flash nicht lesen. Polzahl und Gasobergrenze werden unter
 **MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
-ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`.
+ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`, der
+letzten: Ziehe `MENU` um 76 px nach oben, um sie zu sehen.
 
-Eine Firmware, deren Einstellungsformat von dem im Flash abweicht, startet mit
-ihren Voreinstellungen. Wer von einer früheren Firmware auf eine mit
-Einstellungsformat Version 4 aktualisiert, findet alle gespeicherten
-Einstellungen einmal auf der Voreinstellung, auch den ESC-Pin: Der ESC-Pin ist dann GP0,
-KISS ist aus und SERVO SUPPLY steht auf `NONE`. Version 5 bringt CURRENT
-SENSE, daher geschieht dasselbe beim Wechsel von Version 4 auf Version 5
-noch einmal: Alle gespeicherten Einstellungen stehen wieder auf der
-Voreinstellung, CURRENT SENSE auf `NONE`. Stelle sie neu ein und speichere
-mit `HOLD TO SAVE`.
+Die Firmware speichert ihre Einstellungen im Format Version 6. Einstellungen,
+die eine frühere Firmware im Format Version 2, 3, 4 oder 5 gespeichert hat,
+darunter die von DshotDisplay 2.x, werden übernommen: Jede Einstellung, die
+das alte Format kennt, behält ihren Wert, geprüft nach denselben Regeln wie
+gespeicherte Einstellungen, und jede neuere Einstellung beginnt mit ihrer
+Voreinstellung. Also:
 
-Ein solches Zurücksetzen wird angezeigt: Der Startbildschirm zeigt
-`SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`, die Zeile `SETTINGS`
-in MENU zeigt `UPDATED`, und die Hinweiszeile in SETTINGS zeigt
-`RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt. Ein
-beschädigter Block, statt eines von einer anderen Version geschriebenen, wird
-ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
-`COMPILED DEFAULTS IN USE`.
+- Polzahl, `MAX THROTTLE`, `DSHOT`, KISS, Helligkeit und Kontrast
+  behalten ihre Werte; ein Wert außerhalb des Bereichs wird angepasst, wie
+  beim Speichern;
+- ein ESC-Pin, den diese Platine nicht frei hat, etwa GP28 oder GP29 aus
+  einer Firmware vor Version 4, kehrt zur Voreinstellung (GP0) zurück, und
+  KISS auf einem solchen Pin wird ausgeschaltet, sein Pin wieder die
+  Voreinstellung (GP1);
+- ein KISS-Pin auf dem ESC-Pin wechselt auf den anderen freien Pin, ob KISS
+  an oder aus ist, und KISS behält seine Einstellung: SIG und AUX teilen nie
+  einen Pin;
+- CURRENT SENSE steht nach Version 2, 3 oder 4 auf `NONE`; nach Version 5
+  behält es seinen Wert. SERVO SUPPLY steht nach Version 2 oder 3 auf
+  `OWN`, denn der Schalter auf GP0 aus Version 3 liegt auf dem Pin
+  des ESC-Kabels; nach Version 4 oder 5 behält es `GP28` oder `GP29`;
+- ALONG AXIS, LENGTH, SIGN und die Kalibrierung des Winkelmessers stehen
+  auf ihrer Voreinstellung: `LONG`, `OFF`, `NORMAL` und keine.
+
+Eine Übernahme wird angezeigt: Der Startbildschirm zeigt
+`SETTINGS CARRIED OVER FROM AN UPDATE` und `CHECK MENU > SETTINGS, THEN SAVE`,
+die Zeile `SETTINGS` in MENU zeigt `UPDATED`, und die Hinweiszeile in
+SETTINGS zeigt `CARRIED OVER BY UPDATE - CHECK, SAVE`. Prüfe die Werte und
+speichere mit `HOLD TO SAVE`; das Speichern schreibt auch ohne Änderung. Bis
+dahin behält das Flash den alten Block, und jeder Start übernimmt ihn erneut.
+
+<img src="img/splash-carried.png" width="240" alt="Der Startbildschirm mit SETTINGS CARRIED OVER FROM AN UPDATE und CHECK MENU > SETTINGS, THEN SAVE über dem Namen">
+
+Einstellungen eines Formats, das die Firmware nicht kennt, Version 1 oder das
+einer späteren Firmware, werden verworfen: Alle Einstellungen stehen wieder
+auf der Voreinstellung, auch der ESC-Pin. Stelle sie neu ein und speichere
+mit `HOLD TO SAVE`. Ein solches Zurücksetzen wird angezeigt: Der
+Startbildschirm zeigt `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`,
+die Zeile `SETTINGS` in MENU zeigt `UPDATED`, und die Hinweiszeile in
+SETTINGS zeigt `RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt.
+Ein beschädigter Block, statt eines von einer anderen Version geschriebenen,
+wird ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
+`NOTHING SAVED: DEFAULTS IN USE`.
 
 ---
 
@@ -299,6 +352,16 @@ CONFIG), das die Karte nahm. Siehe
 
 ---
 
+## Ein Schreiben meldet `BOARD VOLTAGE IS RED: NOT WRITTEN.`
+
+KST SERVO, HITEC SERVO und ESC SETTINGS schreiben nichts und stellen nichts
+wieder her, solange die BOARD-Spannung auf dem Tester rot ist: unter 3,30 V,
+bis sie wieder 3,35 V erreicht. Lade die Zelle der Platine, dann halte
+erneut. Die Änderungen bleiben. Mit USB-Versorgung ohne Zelle ist der Wert
+nicht gemessen; zeigt er dort Rot, setze eine geladene Zelle ein.
+
+---
+
 ## KISS-Telemetrie ist aus
 
 Das ist die Voreinstellung. Einschalten unter **MENU → SETTINGS → KISS TELEM**.
@@ -308,14 +371,25 @@ verwendbare Pins), GP0 und GP1, und das ESC-Signal liegt anfangs auf GP0.
 KISS ist voreingestellt aus, damit der übrige Pin nicht für ein Kabel belegt
 ist, das vielleicht nicht angeschlossen ist.
 
-Beim Einschalten von KISS wird der KISS-Pin auf den anderen freien Pin
-verschoben, falls er mit dem ESC-Pin zusammenfällt. Der Pin-Schrittschalter
-überspringt den ESC-Pin. Der Empfänger ist eine PIO-Zustandsmaschine (PIO:
-programmierbare Ein-/Ausgabe) und funktioniert auf beiden Pins.
+KISS empfängt auf AUX, das nie der Pin des ESC, SIG, ist: Ein Schritt von
+**SIG PIN** oder **AUX PIN** tauscht die beiden, und das Einschalten von KISS
+verschiebt keinen Pin. Der Empfänger ist eine PIO-Zustandsmaschine (PIO:
+programmierbare Ein-/Ausgabe) und funktioniert auf beiden Pins. Prüfe, ob
+das KISS-Kabel an dem Pin steckt, den **AUX PIN** nennt, mit seinem J5-Pin
+unter dem Wert.
 
-Schaltet sich KISS mit `KISS OFF: NEEDS A PIN OF ITS OWN` selbst ab, war der
-gespeicherte KISS-Pin nicht frei oder gleich dem ESC-Pin. Verschiebe zuerst
-das ESC-Signal auf den anderen Pin und schalte dann KISS ein.
+---
+
+## Der Servotester hält bei MIN oder MAX mit `STALL` an
+
+Mit dem Stromsensor hält der Servotester an, wenn er 400 ms lang mehr als
+1,0 A misst. Viele Servos, die gegen ihren eigenen Endanschlag fahren,
+ziehen dort Blockierstrom, also löst `MIN` oder `MAX` jenseits des
+Servowegs ihn aus. Verenge MIN und MAX auf dem SET-Bildschirm, bis das
+Servo vor seinem Endanschlag stehen bleibt. `OVERCURRENT` ist ein Messwert
+von 3,0 A oder mehr: Prüfe Servo und Verkabelung auf einen Kurzschluss vor
+dem nächsten Start. Siehe [Servotester](Servotester#die-abschaltungen).
+Nicht auf Hardware getestet.
 
 ---
 

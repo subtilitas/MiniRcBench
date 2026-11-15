@@ -51,15 +51,118 @@ enum class SdLogEnd : uint8_t {
 	None = 0,     /**< Nothing to report: no log yet, a STOP, or a start or mount since. */
 	CardFull,     /**< A write found no free cluster: FatFs wrote fewer bytes than asked. */
 	WriteFailed,  /**< A write, sync or close failed: the card removed, or a card fault. */
-	OpenFailed,   /**< START found no file to open: the directory, the number or the open failed. */
+	OpenFailed,   /**< START found no file to open: the directory, its scan or the open failed. */
 	ByKst,        /**< KST SERVO took the card for its backup and stopped the log. */
 	ByHitec,      /**< HITEC SERVO did. */
-	ByAm32,       /**< AM32 CONFIG did. */
+	ByAm32,       /**< ESC SETTINGS did. */
+	NoFreeNumber, /**< START found `LOG99999.BFL` in `LOGS/`: no number follows it. */
+	ByServo,      /**< SERVO TESTER did, for its servo log (servo_log.h). */
 };
+
+/** @brief The highest N in `LOGS/LOGnnnnn.BFL` and `LOGS/SRVnnnnn.CSV`: five digits. */
+#define SD_LOG_NUMBER_MAX 99999u
+
+/**
+ * @brief One numbered kind of log file: three letters, five decimal digits
+ *        and an extension of four characters, the dot included.
+ *
+ * Each kind numbers its files on its own: a blackbox log's number counts
+ * only `LOGnnnnn.BFL`, a servo log's only `SRVnnnnn.CSV`.
+ */
+struct SdLogKind {
+	const char *head;  /**< The three letters, upper case: `LOG`, `SRV`. */
+	const char *tail;  /**< The extension, upper case: `.BFL`, `.CSV`. */
+};
+
+/** @brief The blackbox log, `LOGnnnnn.BFL`. */
+static const SdLogKind SD_LOG_KIND_BFL = { "LOG", ".BFL" };
+/** @brief The servo tester's log, `SRVnnnnn.CSV` (servo_log.h). */
+static const SdLogKind SD_LOG_KIND_SRV = { "SRV", ".CSV" };
+
+/**
+ * @brief The number in a log's file name, for one kind of log. Pure;
+ *        host-testable.
+ *
+ * A log's name is the kind's three letters, five decimal digits and its
+ * extension, nothing before or after: `LOG00000.BFL` to `LOG99999.BFL`.
+ * Letter case is ignored, because FAT compares names without it:
+ * `log00007.bfl` is the file `LOG00007.BFL` opens, so it counts. Four or six
+ * digits, another extension, a sign, a space or any longer name is not a
+ * log's name.
+ *
+ * @param name A directory entry's name, NUL-terminated; nullptr reads as none.
+ * @param kind The kind of log.
+ * @param[out] n The number, set only on a match.
+ * @return True if @p name is a log's name of @p kind.
+ */
+static inline bool sdLogNameNumberOf(const char *name, const SdLogKind *kind, uint32_t *n) {
+	if (!name) return false;
+	for (int i = 0; i < 3; i++) {
+		char c = name[i];
+		if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+		if (c != kind->head[i]) return false;
+	}
+	uint32_t v = 0;
+	for (int i = 3; i < 8; i++) {
+		char c = name[i];
+		if (c < '0' || c > '9') return false;
+		v = v * 10u + (uint32_t)(c - '0');
+	}
+	for (int i = 0; i < 4; i++) {
+		char c = name[8 + i];
+		if (c >= 'a' && c <= 'z') c = (char)(c - 'a' + 'A');
+		if (c != kind->tail[i]) return false;
+	}
+	if (name[12] != '\0') return false;
+	*n = v;
+	return true;
+}
+
+/**
+ * @brief The number in a blackbox log's file name, `LOGnnnnn.BFL`
+ *        (sdLogNameNumberOf()). Pure; host-testable.
+ * @param name A directory entry's name, NUL-terminated; nullptr reads as none.
+ * @param[out] n The number, set only on a match.
+ * @return True if @p name is a blackbox log's name.
+ */
+static inline bool sdLogNameNumber(const char *name, uint32_t *n) {
+	return sdLogNameNumberOf(name, &SD_LOG_KIND_BFL, n);
+}
+
+/**
+ * @brief Fold one directory entry's name into the highest log number seen.
+ *        Pure; host-testable.
+ * @param[in,out] highest The highest number so far, 0 before any; a name
+ *        that is not a log's of @p kind leaves it.
+ * @param name The entry's name.
+ * @param kind The kind of log; the blackbox log's when not given.
+ */
+static inline void sdLogNoteName(uint32_t *highest, const char *name,
+                                 const SdLogKind *kind = &SD_LOG_KIND_BFL) {
+	uint32_t n;
+	if (sdLogNameNumberOf(name, kind, &n) && n > *highest) *highest = n;
+}
+
+/**
+ * @brief The number a new log takes: the highest existing one plus 1.
+ *        Pure; host-testable.
+ *
+ * An empty or new `LOGS/`, or one holding only `LOG00000.BFL`, gives 1.
+ * After `LOG99999.BFL` there is none: the start is refused
+ * (@ref SdLogEnd::NoFreeNumber) rather than wrapped onto a number a file
+ * may still hold.
+ *
+ * @param highest The highest number in `LOGS/`, 0 for none.
+ * @return 1 to @ref SD_LOG_NUMBER_MAX, or 0 for no free number.
+ */
+static inline uint32_t sdLogNextNumber(uint32_t highest) {
+	return highest >= SD_LOG_NUMBER_MAX ? 0u : highest + 1u;
+}
 
 /** @brief True for an end a tool's claim caused. Pure. */
 static inline bool sdLogEndByTool(SdLogEnd e) {
-	return e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+	return e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32 ||
+	       e == SdLogEnd::ByServo;
 }
 
 /**
@@ -89,6 +192,8 @@ static inline void sdLogMountForget(SdLogEnd *e) {
 static inline SdLogEnd sdLogWriteEnd(int fr, uint32_t wrote, uint32_t asked) {
 	return (fr == 0 && wrote < asked) ? SdLogEnd::CardFull : SdLogEnd::WriteFailed;
 }
+
+struct RunSum;
 
 /** @brief Counters for the UI. Copied out by sdLogStatus(). */
 struct SdLogStatus {
@@ -124,8 +229,18 @@ struct SdLogStatus {
 	 *        last log's, kept until the next start or mount. 0 before the
 	 *        first, and after a mount; the counters reset with it.
 	 */
-	uint16_t   fileNumber;
+	uint32_t   fileNumber;
 	SdLogEnd   end;           /**< Why the last log ended, @ref SdLogEnd. */
+	/**
+	 * @brief The last log's run summary (run_summary.h), ended, with what
+	 *        became of its `.TXT`; nullptr while a log runs, before the first
+	 *        log, after a mount and after a release (sdLogRelease()).
+	 *
+	 * Points into the logger's state on core0. A failed start keeps it, as
+	 * it keeps @ref fileNumber; the next start that opens a log reuses it.
+	 */
+	const RunSum *summary;
+	uint8_t    summaryPoles;  /**< MOTOR POLES when the summary ended, for its RPM. */
 };
 
 /**
@@ -137,12 +252,34 @@ struct SdLogStatus {
 bool sdLogBegin();
 
 /**
- * @brief Open the next free `LOGS/LOGnnnnn.BFL` and start encoding.
- * @return True if the file opened.
+ * @brief Open `LOGS/LOGnnnnn.BFL`, N the highest number in `LOGS/` plus 1
+ *        (sdLogNextNumber()), and start encoding.
+ *
+ * The first start on a FatFs mount reads `LOGS/` once, every directory
+ * entry in turn (f_readdir()); later starts take the number after the last
+ * log's from memory (sdLogOpenNext() in sd_log_next.h). A mount (RETRY
+ * MOUNT, the end of USB DRIVE, a tool's remount), FatFs mounting again on
+ * its own after a card fault, and every error forget it: the board has no
+ * card-detect line, so the card may have been swapped, or edited in a card
+ * reader, in between. USB DRIVE itself is read-only. The file is created
+ * new, never over an existing one.
+ *
+ * @return True if the file opened. False with @ref SdLogEnd::OpenFailed for
+ *         a directory that cannot be made or read or a file that does not
+ *         open, @ref SdLogEnd::NoFreeNumber after `LOG99999.BFL`.
  */
 bool sdLogStart();
 
-/** @brief Finish the current log: end event, flush, close. No-op when idle. */
+/**
+ * @brief Finish the current log: end event, flush, close, then its run
+ *        summary as `LOGS/LOGnnnnn.TXT`. No-op when idle.
+ *
+ * The summary ends as the stop begins, ended by STOP. Its file is written
+ * only after the `.BFL` has closed clean, into the same directory, over any
+ * `.TXT` of that number. A summary that is not saved leaves the logger
+ * ready: the log itself ended clean, and @ref SdLogStatus::summary says why
+ * (@ref RunSumFile).
+ */
 void sdLogStop();
 
 /**
@@ -150,10 +287,14 @@ void sdLogStop();
  *        one: SD LOG then reads `RECORDING STOPPED BY` and the tool's name
  *        until the next start; a mount keeps it (sdLogMountForget()).
  *        No-op when no log runs.
- * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
- *        @ref SdLogEnd::ByAm32. A stop that fails keeps the cause it
- *        recorded: CardFull or WriteFailed from the last flush, WriteFailed
- *        from the sync or close.
+ *
+ * The run summary records the tool as how the log ended, as sdLogStop()
+ * records STOP.
+ *
+ * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec,
+ *        @ref SdLogEnd::ByAm32 or @ref SdLogEnd::ByServo. A stop that
+ *        fails keeps the cause it recorded: CardFull or WriteFailed from
+ *        the last flush, WriteFailed from the sync or close.
  */
 void sdLogStopFor(SdLogEnd tool);
 
@@ -203,6 +344,8 @@ bool sdLogActive();
  *
  * Call from the core0 loop as often as convenient; it rate-limits internally to
  * @ref SD_LOG_RATE_HZ. Cheap and non-blocking — it only fills the ring.
+ * Each frame's snapshot, merged reading and arm state also go to the run
+ * summary (runSumAdd()), before the frame is encoded.
  *
  * @param nowUs    Current micros().
  * @param throttle Commanded throttle, 0..2000. Passed in rather than read back
@@ -250,9 +393,9 @@ enum class SdLogArmAction : uint8_t {
  * @brief Decide what an arm-state change should do. Pure; host-testable.
  *
  * Split out from sdLogSetArmed() so the host tests exercise the shipped rule
- * rather than a copy of it — sd_log.cpp pulls in FatFs and cannot be linked
- * into the test binary, and a fake that reimplements the policy proves only
- * that the fake agrees with itself.
+ * rather than a copy of it — sd_log.cpp pulls in FatFs and is not linked
+ * into the suite's binary (only into `make lognum`'s), and a fake that
+ * reimplements the policy proves only that the fake agrees with itself.
  *
  * The rule that matters: auto-stop undoes only what auto-start did. Entering
  * MENU force-disarms, and the logging screen is reached through it, so without that distinction walking over to check on a hand-started log
@@ -280,7 +423,8 @@ static inline SdLogArmAction sdLogArmAction(bool nowArmed, bool wasArmed,
  * @brief Tell the logger the tester armed or disarmed.
  *
  * Starts and stops a log when @ref SD_LOG_AUTO_ON_ARM is set; records an
- * explicit start otherwise. Idempotent.
+ * explicit start otherwise. Idempotent. The state goes into each frame of
+ * the run summary; a stop made here is recorded as DISARM.
  *
  * @param armed New arm state.
  */

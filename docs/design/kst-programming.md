@@ -7,17 +7,26 @@ tests of them run in `make` and CI. The search (`src/kst_seek.*`) and the
 core1 job (`src/kst_job.*`) run the session on the line, and the host suite
 runs both against rcbench's simulated servo. `src/kst_files.*` puts the file
 store and the record of a write on the card through FatFs, tested against an
-in-memory volume. `src/ui_kst.cpp` is the screen, MENU's KST SERVO row, and
-`src/kst_view.*` the rows, values, stepper and texts it draws; the host suite
-runs the screen through MENU against the simulated servo and the in-memory
-volume. The switched supply, step 5, is built: with `SERVO SUPPLY` at
-`GP28` or `GP29` the bench switches the servo's supply, and with `NONE`
-LEAVE asks the user to power the servo off. It depends on the pin claim in
+in-memory volume. `src/ui_kst.cpp` is the screen, KST / CHASERVO on
+PROGRAMMER behind MENU's SERVO PROGRAMMER row (slice 9 of
+[menu-b.md](menu-b.md)), and `src/kst_view.*` the rows, values, stepper and
+texts it draws; the host suite runs the screen through MENU and PROGRAMMER
+against the simulated servo and the in-memory volume. The switched supply,
+step 5, is built: with `SERVO SUPPLY` at `GP28` or `GP29` the bench
+switches the servo's supply, and with `OWN`
+LEAVE asks the user to power the servo off. Menu structure B's slice 3
+([menu-b.md](menu-b.md), decisions 9, 10 and 15) is built: SERVO SUPPLY is
+a core section of SETTINGS, its no-switch value reads `OWN`, the strips name
+SIG by role and number, and four field labels read REVERSED, FAILSAFE MOVE,
+FAILSAFE POSITION and FAILSAFE TIME. It depends on the pin claim in
 [pin-claim.md](pin-claim.md), slice 1 there, which is built. This
 document is slice 3. It comes after slices A to C of [menu.md](menu.md), the
 menu restructure, which are built, and is written for the system they leave:
-MENU, to which slice 3 adds the KST SERVO row, the SETTINGS list, the shared
-list `ui_list`, the shared hold `ui_hold` and the 36 px header. The
+MENU, to which slice 3 added the KST SERVO row, the SETTINGS list, the shared
+list `ui_list`, the shared hold `ui_hold` and the 36 px header. In menu
+structure B, built, MENU's SERVO PROGRAMMER row opens PROGRAMMER, whose
+KST / CHASERVO entry opens KST SERVO and claims SIG on the tap, in place of
+that row ([menu-b.md](menu-b.md), owner decision 2 and decision 19). The
 rcbench code it ports has not sent a frame to a servo either: rcbench's
 `protocols/kst/README.md` says "no frame of this code has been sent to a
 servo, and the pin driver has not run on a chip".
@@ -115,13 +124,14 @@ in while the search repeats. rcbench switches the servo's supply through its
 PD mini, a USB PD (Power Delivery) supply module that it sets and reads back.
 MiniRcBench has an on and off switch and no read-back.
 
-The switch is optional. `SERVO SUPPLY` in SETTINGS says whether one is
-fitted and where its enable is: `NONE`, the default, `GP28` or `GP29`
-(decision 8 and its [revision](#decisions)). Every rule in this section
-holds with `GP28` or `GP29` only; "the enable pin" below is the pin chosen.
-With `NONE` the bench drives neither pin, the search is
-the one in [entering programming mode](#entering-programming-mode), and
-every screen text that names the supply has its form without a switch.
+The switch is optional. `SERVO SUPPLY` in SETTINGS says whether one is fitted
+and where its enable is: `OWN`, the default, the servo on a supply of its own,
+`GP28` or `GP29` (decision 8 and its [revision](#decisions);
+[menu-b.md](menu-b.md) decisions 15 e and 22 name the first value `OWN`). Every
+rule in this section holds with `GP28` or `GP29` only; "the enable pin" below is
+the pin chosen. With `OWN` the bench drives neither pin, the search is the one
+in [entering programming mode](#entering-programming-mode), and every screen
+text that names the supply has its form without a switch.
 
 The Hitec job of [hitec-programming.md](hitec-programming.md#switched-servo-supply)
 is the second user of the same switch, through the same `servo_supply.h`,
@@ -146,10 +156,12 @@ converter. VIN and VOUT are the converter's input and output.
 | Converter input | the user's supply. J4 pin 2 is USB VBUS and does not feed a servo |
 | Ground | servo minus to the supply's minus; one tap from the supply's minus to board GND |
 
-GP28 and GP29 are on J4 only. SETTINGS does not offer them for the ESC
-wires: those are GP0 and GP1, UART0's pins, which are fault tolerant, and
-the firmware leaves UART0 unused (`pico_enable_stdio_uart(MiniRcBench 0)`;
-USB serial is `usb_dev.cpp`). The enable is a plain GPIO output at 3.3 V:
+GP28 and GP29 are on J4 only. SETTINGS does not offer them for the ESC wires:
+those are GP0 and GP1, UART0's pins, which are fault tolerant. The firmware's
+console is not on UART0 (`pico_enable_stdio_uart(MiniRcBench 0)`; USB serial is
+`usb_dev.cpp`); only the S.BUS jobs use UART0, the monitor its receiver on GP1
+([rx-signals.md](rx-signals.md)) and the output its transmitter on GP0
+([sbus-output.md](sbus-output.md)). The enable is a plain GPIO output at 3.3 V:
 it switches the converter on or off and is never a PWM channel.
 
 **Off state.** The external pull-down holds EN low whenever nothing drives
@@ -253,16 +265,15 @@ matters there too.
 |---|---|---|
 | `servoSupplyInit()` | core0, in `setup()` directly after `settingsLoad()`, before core1 starts | with `GP28` or `GP29`: SIO function, output disabled, both pulls off, input disabled. Selecting SIO with `gpio_set_function()` clears the pad's isolation and its output disable and turns its input on (Pico SDK 2.1.1, `src/rp2_common/hardware_gpio/gpio.c`), so the input is disabled after it. The SIO output enable stays off, so the pin is not driven. With `NONE`: nothing; GP28 and GP29 keep their reset state |
 | `servoSupplyConfigure()` | core0, from SETTINGS' `applyLive()`, outside every claim | as `servoSupplyInit()`, for the new value. The pin of the value before stays an input with both pulls off and its input disabled, after a change to `NONE` or to the other pin |
-| `servoSupplyBind()` | core1, from the KST or Hitec job's bind, with `GP28` or `GP29` | drives the pin low: off |
-| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST or Hitec job, between bind and release | drives the pin high or low |
-| `servoSupplyRelease()` | core1, from the KST or Hitec job's release, at every claim end | drives the pin low, then makes it an input with both pulls off and its input disabled |
+| `servoSupplyBind()` | core1, from the KST, Hitec or servo job's bind, with `GP28` or `GP29` | drives the pin low: off |
+| `servoSupplyOn()`, `servoSupplyOff()` | core1, the KST, Hitec or servo job, between bind and release | drives the pin high or low |
+| `servoSupplyRelease()` | core1, from the KST, Hitec or servo job's release, at every claim end | drives the pin low, then makes it an input with both pulls off and its input disabled |
 | `servoSupplyIsOn()` | core1 | the level the bench drives; there is no read-back |
 
 The enable pin is driven only while a claim that uses the supply holds: the
-KST and Hitec claims, and the servo tester's once decision 10 is built. Two
-cores write the pin's pad,
-never at once: core0 at boot and at a SETTINGS change, core1 only inside a
-KST claim, and SETTINGS is unreachable while a claim holds. The level is a fact
+KST, Hitec and servo tester claims (decision 10). Two cores write the pin's
+pad, never at once: core0 at boot and at a SETTINGS change, core1 only inside
+a claim, and SETTINGS is unreachable while a claim holds. The level is a fact
 core1 writes and core0 reads, as `KstStatus.supply`, under the KST job's
 status lock. The bench knows the level it drives, not the voltage on the
 servo.
@@ -339,15 +350,16 @@ which all 10 enter are the window, and the constant takes a value inside it.
 
 - **Leave.** LEAVE switches the supply off at once; the line stays low. After
   `KST_SUPPLY_OFF_MS`, 2000 ms from the switch-off command, the job closes the
-  line and releases the enable pin, and the unplug page follows. A servo
-  without power is in no mode (rcbench `shared/outputs/include/kst_port.h`), so the leave page
-  does not ask the user to power it off. How long a KST servo needs without
-  power to leave programming mode is not measured; 2000 ms is the owner's
-  value. Before the tap the page reads
-  `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`; during the wait,
-  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` A locked session leaves the same way.
-  BACK during the wait does nothing: the supply is off, and the wait ends at
-  the unplug page. HOLD TO REBOOT is hidden during the wait, and the job
+  line and releases the enable pin, and the leave page's released phase
+  follows. A servo without power is in no mode (rcbench
+  `shared/outputs/include/kst_port.h`), so the leave page does not ask the
+  user to power it off. How long a KST servo needs without power to leave
+  programming mode is not measured; 2000 ms is the owner's value. Before the
+  tap the page's step 1 reads `LEAVE SWITCHES THE SUPPLY OFF.`; during the
+  wait its note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` A locked session
+  leaves the same way. BACK on the leave page is drawn disabled and does
+  nothing, and NEXT SERVO and RESTART DSHOT are drawn disabled until the
+  wait ends. HOLD TO REBOOT is hidden from the tap on LEAVE on, and the job
   refuses `Reboot` while Leaving.
 - **REBOOT.** A 1000 ms hold on the leave page ([leave](#leave)), offered with
   `SERVO SUPPLY` at `GP28` or `GP29` only. The line stays low throughout.
@@ -364,13 +376,14 @@ which all 10 enter are the window, and the constant takes a value inside it.
     only in memory, so REBOOT loses it; the hold is the confirmation, and
     the leave page says so above it.
   - In a locked session REBOOT is how the servo is read as it is; the
-    restore then goes through FILES, LOAD and HOLD TO WRITE.
+    restore then goes through FILES, LOAD, `WRITE...` and HOLD TO WRITE.
   - Refused while an operation runs or plans, and while Leaving: the job
     refuses `Reboot`, and the button is drawn disabled and gated per
     `ui_widgets.h`, or hidden during LEAVE's wait.
   - BACK during REBOOT switches the supply off if it is on and closes as
-    LEAVE does ([close](#close-with-the-switch)): the unplug page follows
-    2000 ms after the switch-off command.
+    LEAVE does ([close](#close-with-the-switch)): the leave page opens at
+    `1 UNPLUG THE SERVO.` and is released 2000 ms after the switch-off
+    command.
   - An entry with no answer starts the switched search, as RETRY does.
     Whether the owner's servo still enters about 1100 ms after power-on is
     unknown; if it does not, that search is what finds it.
@@ -415,9 +428,10 @@ the line and releases the enable pin only once `KST_SUPPLY_OFF_MS`,
 stalled screen and BACK during a switched search alike (decision 18). BACK
 switches the supply off first if it is on; time spent off before BACK counts.
 Until the close the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, BACK
-does nothing, and the unplug page follows. Without the wait, a servo that
-entered programming mode in an on phase could reach the unplug page and
-DShot after less than the 2000 ms without power that LEAVE gives it.
+does nothing, and the leave page's released phase follows. Without the wait,
+a servo that entered programming mode in an on phase could reach RESTART
+DSHOT and DShot after less than the 2000 ms without power that LEAVE gives
+it.
 
 ### Card calls and the heartbeat
 
@@ -462,7 +476,7 @@ refuses it (step 1):
    phase. Every other command the job takes closes it too, so the `Edit` or
    `Restore` after the first write's card calls starts outside it. When the
    card took neither file the write stops with
-   `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+   `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 In the card phase the KST job counts the heartbeat as trusted while
 `core1UiAlive()` holds, or while `escUiAlive()` finds the stamp within 250 ms
@@ -597,24 +611,25 @@ What remains:
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Searching, supply switched | `GP0  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
-| Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP28, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.` | RETRY, BACK |
-| Stalled, supply switched | `GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN MEMORY IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES AND HOLD TO WRITE.` | RETRY, BACK |
-| REBOOT | `GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
+| Searching, supply switched | `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`, or `SUPPLY ON`; TRY is the attempt under way, `KstStatus.attempts` + 1 in an off phase | `SWITCHED SUPPLY`, then `THE BENCH SWITCHES THE SERVO OFF FOR 2 S, THEN ON, BEFORE EACH TRY.`, the failsafe line, and in amber `AN ESC ON THIS LEAD GETS THE CONVERTER'S OUTPUT ON ITS BEC WIRE.`; a spinner | STOP SEARCH, BACK |
+| Timed out, supply switched | `NO ANSWER IN 14 POWER-UPS`, the number from `KstStatus.attempts` | `CHECK THE CONVERTER ON GP28, ITS WIRING AND THE SIGNAL. A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT OWN.` | RETRY, BACK |
+| Stalled, supply switched | `SIG GP0  SUPPLY OFF` | `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF. RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, in amber, `NO CARD: THE BACKUP IN RAM IS LOST.` and nothing more. With a card, for a locked session, in amber, `THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD KST005 IN FILES, TAP WRITE... AND HOLD.` | RETRY, BACK |
+| REBOOT | `SIG GP0  SUPPLY OFF 1.4 S`, then `SUPPLY ON 0.6 S` | `REBOOT: DO NOT UNPLUG THE SERVO.`, then `READING 32 REGISTERS` | BACK |
 
 The converter text names the enable pin SETTINGS chose, `GP28` or `GP29`.
-BACK on the stalled screen goes to the unplug page once the supply has been
-off for 2000 ms; the session is not in the mode. BACK during REBOOT switches
-the supply off if it is on, waits as LEAVE does, 2000 ms from the switch-off
-command, and then shows the unplug page ([close](#close-with-the-switch)).
+BACK on the stalled screen opens the leave page before LEAVE, as after any
+servo found in the claim; LEAVE there closes once the supply has been off for
+2000 ms. BACK during REBOOT switches the supply off if it is on and opens the
+leave page the same way, released 2000 ms after the switch-off command
+([close](#close-with-the-switch)).
 
 The layout of the switched search, where the lines are longer than without a
 switch:
 
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
-   40 | GP0  TRY 3  SUPPLY OFF 1.4 S             |
-   70 |           SWITCHED SUPPLY                |  scale 2, C_LIME, 178 px
+   40 | SIG GP0  TRY 3  SUPPLY OFF 1.4 S         |
+   70 |           SWITCHED SUPPLY                |  scale 2, C_AMBER, 178 px
   100 |   THE BENCH SWITCHES THE SERVO OFF FOR   |  scale 1, C_DIM
   114 |   2 S, THEN ON, BEFORE EACH TRY.         |
   132 |   A POWERED SERVO ON THIS PIN GETS NO    |
@@ -629,45 +644,49 @@ y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
 
 ### SETTINGS row
 
-Slice 3 adds the `SERVO SUPPLY` row to the SETTINGS list of
-[menu.md](menu.md#settings). It is a section of its own, SERVO SUPPLY,
-between WIRING and DISPLAY, contributed by KST's registry entry (menu.md
-decisions 8 and 13). The list's geometry, gestures, fixed footer and asserts
-are menu.md's, built in its slice C.
+The `SERVO SUPPLY` row is in the SETTINGS list of
+[menu.md](menu.md#settings), in a section of its own, SERVO SUPPLY, with
+CURRENT SENSE under it. It is a core section of `ui_settings.cpp`, after
+WIRING ([menu-b.md](menu-b.md) decision 9), so it stays in SETTINGS
+whichever tools MENU lists; KST's registry entry carries no section. The
+list's geometry, gestures, fixed footer and asserts are menu.md's, built in
+its slice C.
 
-- Values: `NONE`, 0, the default, for no switch fitted; `GP28`, 1, an
-  active-high enable on GP28, J4 pin 11; `GP29`, 2, one on GP29, J4 pin 12
-  (decision 8 and its [revision](#decisions)).
-- The row is a stepper, as KISS PIN is: - and + step `NONE`, `GP28`,
+- Values: `OWN`, 0, the default, for no switch fitted: the servo has a
+  supply of its own; `GP28`, 1, an active-high enable on GP28, J4 pin 11;
+  `GP29`, 2, one on GP29, J4 pin 12 (decision 8 and its
+  [revision](#decisions); menu-b.md decisions 15 e and 22). Under `GP28`
+  the row reads `J4 PIN 11`, under `GP29` `J4 PIN 12`, at scale 1 under the
+  value; under `OWN` nothing.
+- The row is a stepper, as SIG PIN is: - and + step `OWN`, `GP28`,
   `GP29` and stop at the ends. A change applies at once through
   `servoSupplyConfigure()`; no claim holds
   while SETTINGS is open, so nothing is driven. HOLD TO SAVE stores it with
-  every other row, and RESET sets it to `NONE` with the other compiled
+  every other row, and HOLD DEFAULTS sets it to `OWN` with the other compiled
   defaults.
 - Version: the row adds the `servoSupply` field to the settings block, at
   version 3. The layout is version 4, with the signal pins on GP0 and GP1
-  and the enable on GP28 or GP29. A block of another version, a version 3
-  block with its ESC pin on GP29 or GP28 or its switch on GP0 among them, is
-  discarded whole, and the compiled defaults load, every setting and the
-  ESC pin included. A block DshotDisplay saved does not load, and
-  DshotDisplay discards this project's blocks.
+  and the enable on GP28 or GP29; version 5 adds CURRENT SENSE in its
+  padding, version 6 the angle meter's fields, and a block of versions 2
+  to 5 carries over into version 6 (README.md, "Using it"). `OWN` is the
+  stored value 0, unchanged.
 - Validation: `settingsValidate()` sets any value above 2
   (`SERVO_SUPPLY_MODE_MAX`) to 0.
 - Fit: the label, 71 px at scale 1, ends at x 78; the value, at most four
-  characters at scale 2, ends at x 132, and - and + are 44 × 44 px at x 138
-  and x 188. The list grows by a 20 px caption and a 50 px row, from
-  530 px to 600 px, and its scroll range from 0 px to 330 px to 0 px to
-  400 px.
+  characters at scale 2, ends at x 132, at y+8 to y+21 of the row, and the
+  connector line, `J4 PIN 11`, 53 px, ends at x 132 at y+27 to y+33; - and
+  + are 44 × 44 px at x 138 and x 188.
 
-At 230 px:
+At 230 px of scroll:
 
 ```
-   40 | DSHOT KBAUD      600  [  -  ] [  +  ]     |  cut: 4 px, takes no press
-   50 | KISS TELEM          [    OFF     ]        |
-  100 | KISS PIN          --  [  -  ] [  +  ]     |  disabled while KISS is off
+   40 |                                           |  DSHOT, cut: 4 px, takes no press
+   50 | KISS TELEM              [    OFF     ]    |
+  100 | AUX PIN            GP1  [  -  ] [  +  ]   |
+      |               J5 PIN 1                    |
   150 | SERVO SUPPLY                              |  section caption
-  170 | SERVO SUPPLY    NONE  [  -  ] [  +  ]     |  stepper, scale 2
-  220 | DISPLAY                                   |  caption, ends at y 239
+  170 | SERVO SUPPLY       OWN  [  -  ] [  +  ]   |  stepper, scale 2
+  220 | CURRENT SENSE           [    NONE    ]    |  toggle; cut: 20 px visible
 ```
 
 ### Not in this section
@@ -677,12 +696,13 @@ At 230 px:
   J4). The bus carries the touch controller (0x1A), the IMU (0x6B) and the
   RTC (0x51); a new device avoids those addresses, and a fault on its lead
   takes the touch screen down with it.
-- Supply measurement: an INA226 current and voltage monitor at 0x40 to 0x4F
-  on the same bus would give the read-back rcbench has from its PD mini.
-- The servo tester's use of the supply: decided (decision 10), and built in a
-  change after KST programming. Until then the servo tester never drives
-  the enable pin, so with a converter fitted its servo is unpowered unless
-  it has a supply of its own.
+- Supply measurement: an INA219 on J3, [current-sense.md](current-sense.md),
+  reads the supply's voltage back. The KST and Hitec jobs use it for the
+  hard and the collapse cut only, slice 4 of
+  [current-sense.md](current-sense.md#slice-4-as-built); their entries and
+  waits do not read it.
+- The servo tester's use of the supply: decision 10, built as slice 3 of
+  [current-sense.md](current-sense.md#slice-3-as-built).
 
 ### Tests for the switch
 
@@ -733,7 +753,11 @@ unanswered. `test_kst_seek.cpp` and `test_kst_job.cpp` run against it:
   KST claim;
 - the supply off at every claim end, and off after BACK during an off phase;
 - settings: the version 4 layout, the `servoSupply` clamp at 2, a version 3
-  block discarded whole;
+  block discarded whole; revised by
+  [current-sense.md](current-sense.md#decisions) decision 14, which carries
+  blocks of versions 2 to 4 over into version 5, and by the angle meter's
+  [slice 4](angle-meter.md#slice-4-as-built), which carries versions 2 to 5
+  over into version 6: `runSettingsTests` checks both;
 - the mode to pin map, and a change from GP28 to GP29 that switches only
   GP29;
 - SETTINGS, by control id: `SERVO SUPPLY` scrolled into view, stepped
@@ -869,19 +893,21 @@ sees the search like this:
 
 Not known: what a servo does with a frame outside programming mode (rcbench
 measurement 3). What is known is what it does on a lost signal: whatever its
-own failsafe says. On a KST servo that is ALLOW UNCONT, UNCONTROLLED POS and
-UNCONTROLLED TIME: with ALLOW UNCONT on, the horn moves to UNCONTROLLED POS
-after UNCONTROLLED TIME, 2.0 s on the one servo rcbench read. The search
+own failsafe says. On a KST servo that is the fields the screen labels
+FAILSAFE MOVE, FAILSAFE POSITION and FAILSAFE TIME (rcbench's ALLOW UNCONT,
+UNCONTROLLED POS and UNCONTROLLED TIME): with FAILSAFE MOVE on, the horn
+moves to FAILSAFE POSITION after FAILSAFE TIME, 2.0 s on the one servo
+rcbench read. The search
 screen says so.
 
 ### What the user sees
 
 | Step | Strip | Body | Controls |
 |---|---|---|---|
-| Checking | `KST SERVO` | `CHECKING GP0 FOR AN ESC` | BACK |
+| Checking | `KST SERVO` | `CHECKING SIG GP0 FOR AN ESC` | BACK |
 | An ESC answers | | the message from [pin-claim.md](pin-claim.md#when-the-pin-is-unavailable) | BACK |
-| Releasing | `RELEASING GP0` | | BACK |
-| Searching, no switch | `GP0  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE.`, a spinner | STOP SEARCH, BACK |
+| Releasing | `RELEASING SIG GP0` | | BACK |
+| Searching, no switch | `SIG GP0  TRY 12  1.4 S` | `POWER UP` and `THE SERVO NOW` on two lines at scale 2, then `PLUG IT IN OR SWITCH ITS SUPPLY ON. IT ANSWERS ONLY RIGHT AFTER POWER-ON.` and `A POWERED SERVO ON THIS PIN GETS NO PULSES AND MAY GO TO ITS FAILSAFE.`, a spinner | STOP SEARCH, BACK |
 | Edges, no valid reply | | adds, in amber, `REPLY NOT VALID: LATE` (the `kst_rx_t` code as a word) | as above |
 | Searching, supply switched | see [screens with the switch](#screens-with-the-switch) | | |
 | Timed out, no switch | `NO SERVO IN 30 S` | `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | RETRY, BACK |
@@ -893,9 +919,9 @@ The layout of the searching state without a switch:
 
 ```
 y   0 | KST SERVO                        [ BACK ]|  header 36 px (menu.md)
-   40 | GP0  TRY 12  1.4 S                       |
-   70 |                POWER UP                  |  scale 2, C_LIME, 94 px
-   88 |             THE SERVO NOW                |  scale 2, C_LIME, 154 px
+   40 | SIG GP0  TRY 12  1.4 S                   |
+   70 |                POWER UP                  |  scale 2, C_AMBER, 94 px
+   88 |             THE SERVO NOW                |  scale 2, C_AMBER, 154 px
   112 |   PLUG IT IN OR SWITCH ITS SUPPLY ON.    |  scale 1, C_DIM
   126 |   IT ANSWERS ONLY RIGHT AFTER POWER-ON.  |
   144 |   A POWERED SERVO ON THIS PIN GETS NO    |
@@ -1014,20 +1040,25 @@ and the card is only ever touched from core0, as `sd_log.cpp` already does.
 | STOPPING, 50 ms with no pulse | the claim's drain: DShot stops, then silence |
 | LOW, 100 ms at least, and the supply set | `kst_line_open()`, which drives low. With a switched supply, `servoSupplyBind()` drives the enable pin low at the job's bind, and the search switches the supply off for 2000 ms and on before each attempt |
 | PROGRAMMING, the entry holds low 100 ms more | the search |
-| LEAVE: low for 100 ms by default, then PWM | without a switched supply: low for 100 ms, `kst_line_close()` (input, pull-down on), then the unplug page and DShot. With one: supply off and the line low for 2000 ms, `kst_line_close()`, `servoSupplyRelease()`, then the unplug page and DShot |
+| LEAVE: low for 100 ms by default, then PWM | without a switched supply: low for 100 ms, `kst_line_close()` (input, pull-down on), then the leave page's RESTART DSHOT and DShot. With one: supply off and the line low for 2000 ms, `kst_line_close()`, `servoSupplyRelease()`, then the leave page's RESTART DSHOT and DShot |
 | POWER_CYCLED, REBOOT | the loss rule above. REBOOT with a switched supply only, on the leave page; not rcbench's REBOOT, which counts from its PD mini's read-back and ends in PWM: here the times count from the switch commands, and an entry and a read follow |
 
 The servo stays in programming mode until its supply is off
 (`kst_session.h`: "The mode lasts until the servo's supply is removed").
 Whether it follows PWM before that is not measured. So, without a switched
 supply, leaving tells the user to power it off; with one, the bench switches
-the supply off itself. The shared unplug page follows before DShot restarts
-on the pin.
+the supply off itself. The shared leave page's RESTART DSHOT comes before
+DShot restarts on the pin.
 
 ## Screens
 
-Entry: MENU → KST SERVO, one line in `ui_registry.cpp`
-([menu.md](menu.md#code)); BACK returns to MENU through the unplug page. The
+Entry: MENU → SERVO PROGRAMMER → KST / CHASERVO, one line of
+`UI_PROGRAMMERS` in `ui_registry.cpp` ([menu-b.md](menu-b.md), "PROGRAMMER,
+the chooser"); the tap claims SIG on its frame, `uiKstEnter()`. The line
+under the entry reads `POWER THE SERVO UP AFTER THE TAP.` with OWN and
+`THE BENCH SWITCHES IT ON GP28.` with the switch. BACK returns to MENU
+through the leave page, or at once while the claim is refused or DShot
+drains. The
 AM32 screen is the model: a state machine that touches nothing until the
 handover completes, a list with an editor bar, and a write that needs a
 1000 ms hold. The lists are on `ui_list` and the holds on `ui_hold`, and the
@@ -1039,13 +1070,13 @@ decision 5.
 
 ```
 y   0 | KST SERVO                        [ BACK ]|
-   40 | V6  GP0  BACKUP KST004             (MODE)|  strip, chip C_GREEN
+   40 | V6  GP0  BACKUP KST004        [PROG MODE]|  strip, square chip C_BLUE
    62 | TUNE      MAX. DUTY                 96 % |  40 px rows, 42 px pitch,
   104 | TUNE      BOOST                300.0 US  |  viewport 62..215,
   146 | TUNE      DEAD BAND              2.0 US  |  on ui_list
   188 | PULSE     NEUTRAL               1500.2 US|  cut: 28 px, takes no press
   218 | [ - ]     DEAD BAND 2.0 US  ->      [ + ]|  editor bar 44 px
-  268 | [ HOLD TO WRITE ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
+  268 | [   WRITE...    ] [REVERT] [ FILES ]     |  110, 52, 54 px; 46 px tall
   320 +------------------------------------------+
 ```
 
@@ -1054,11 +1085,15 @@ y   0 | KST SERVO                        [ BACK ]|
   one coarse step per 16 px. A coarse step is an eleventh of the field's
   raw range, rounded up, at least 1 (`kstCoarse()`): 24 raw for MAX. DUTY.
   Three whole rows are visible. LOCKED rows are drawn in `C_GRID` and are
-  not selectable.
+  not selectable. Each row is drawn by `uiListDrawField()`
+  ([menu-b.md](menu-b.md), decision 8): a value that differs from the servo
+  as read is `C_CYAN` with a 3 px `C_CYAN` bar at the row's left edge;
+  selection fills the row `C_PANEL` and lights the label, never the value.
+  The editor bar's value follows the same colours.
 - Groups follow rcbench's pages: TUNE (MAX. DUTY, BOOST, STRETCH, SOFT START,
   SPEED LIMIT, SPEED, DEAD BAND), PULSE (PULSE LOWER, PULSE UPPER, NEUTRAL,
-  REVERSION, LEFT ANGLE, RIGHT ANGLE), FAILSAFE (ALLOW UNCONT, UNCONTROLLED
-  POS, UNCONTROLLED TIME), then LOCKED: every field whose access class is
+  REVERSED, LEFT ANGLE, RIGHT ANGLE), FAILSAFE (FAILSAFE MOVE, FAILSAFE
+  POSITION, FAILSAFE TIME), then LOCKED: every field whose access class is
   `KST_ACCESS_LOCKED` or `KST_ACCESS_NEVER`, read-only.
 - Values come from `kst_field_display()` with their unit. The screens write
   `US` for µs; the font has no micro sign, as in rcbench.
@@ -1067,27 +1102,31 @@ y   0 | KST SERVO                        [ BACK ]|
   goes, so + widens DEAD BAND, 0.2 µs × (65 − raw) (`kstStep()`). A value
   that breaks a hard rule (`kst_limits_edit()` against the backup) is skipped,
   so the stepper reaches legal values only. A value that breaks a soft rule is
-  taken; the row gets an amber mark and the editor bar shows the rule's text,
+  taken; the row's bar is `C_AMBER` and the editor bar shows the rule's text,
   for example `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 - An image that fails the layout fingerprint is read and shown. With no row
   selected the editor bar reads `READ ONLY: UNKNOWN LAYOUT` and
   `NOTHING IS WRITTEN TO THIS SERVO`, and the footer's write button reads
   `READ ONLY`; the session refuses its writes.
-  A locked session's write button reads `IN DOUBT`.
+  A locked session's write button reads `IN DOUBT`, and the strip's chip
+  reads `IN DOUBT` on `C_RED` in place of `PROG MODE` on `C_BLUE`.
 - The strip names the type, `V6` or `V8` (`kst_type()`), the pin and the
-  backup file once the first write has saved it, `BACKUP IN MEMORY` before.
+  backup file once the first write has saved it, `BACKUP IN RAM` before.
 - A value whose raw step does not change its text, MAX. DUTY's 245 and 244
   both reading `96 %`, carries its raw value in the editor bar and on the
   write page: `96 % (245) -> 96 % (244)` (`kstValuePair()`).
 
 ### Write
 
-HOLD TO WRITE opens the write page rather than writing at once.
+A tap on `WRITE...` opens the write page; only the page holds
+([menu-b.md](menu-b.md), decision 6). The list's button takes a tap on
+release, and the page's hold starts fresh, so the press that opened the page
+is never timed.
 
 ```
 y   0 | KST WRITE                        [ BACK ]|
-   40 | 2 FIELDS                                 |
-   62 | DEAD BAND        2.0 US  ->  3.0 US      |
+   40 | 2 CHANGES                                |
+   62 | DEAD BAND        2.0 US  ->  3.0 US      |  old and arrow C_DIM, new C_CYAN
    82 | SOFT START            1  ->  0           |
   102 | * WITHOUT SOFT START THE SERVO JUMPS     |  C_AMBER, 12 px a line,
   114 |   AT POWER-ON.                           |  6 lines, none below 192
@@ -1111,8 +1150,11 @@ a write that left nothing changed amber, a verified one green.
   opened, so the result still names what was written.
 - OK takes a press that lands while it shows. The finger that ends the
   hold lifts on the same rectangle and does not dismiss the result.
+- While the write runs, or waits for the card's flush, header BACK is drawn
+  disabled and does nothing: no BACK leaves the servo half written. BACK
+  before the hold, or under the result, returns to the list.
 - When the card takes neither the backup nor the record, the page reads
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
   and no frame
   goes out. No card, or a card held by USB, writes with the backup in
   memory.
@@ -1127,7 +1169,7 @@ y   0 | KST FILES                        [ BACK ]|
   146 | KST011                                   |  on ui_list
   188 | KST010                                   |
   234 | [          SAVE AS KST013          ]     |  228 x 40 px
-  278 | [  LOAD  ]       [ HOLD TO RESTORE ]     |  40 px tall
+  278 | [  LOAD  ]       [    RESTORE...   ]     |  40 px tall
   320 +------------------------------------------+
 ```
 
@@ -1151,9 +1193,10 @@ y   0 | KST FILES                        [ BACK ]|
   servo (`kst_file_load()`: type, access classes, hard limits) and puts the
   result into the list as pending edits. A refusal names its code and line,
   for example `LINE 14: NOT A VALUE OF DEAD BAND`. The write then goes through
-  HOLD TO WRITE as any edit.
-- HOLD TO RESTORE runs `kst_session_restore()` to the first image read this
-  session, through the write page. A plan the planner marks unchecked asks
+  `WRITE...` and the write page as any edit.
+- A tap on `RESTORE...` opens the restore page, `KST RESTORE`, the write page
+  titled for the restore; its HOLD TO RESTORE runs `kst_session_restore()` to
+  the first image read this session. A plan the planner marks unchecked asks
   for a second hold there.
 - With no card mounted, or the card held by a USB host, the page shows
   `NO CARD` or `CARD IN USE BY USB` and RETRY MOUNT (`sdLogRemount()`);
@@ -1162,55 +1205,66 @@ y   0 | KST FILES                        [ BACK ]|
 ### Leave
 
 BACK from the list, or from the search after a servo was found, opens the
-leave page. Without a switched supply:
+leave page of [menu-b.md](menu-b.md#the-leave-page), `ui_leave` filled by
+`leaveText()` in `ui_kst.cpp`. Without a switched supply, before LEAVE:
 
 ```
-  POWER THE SERVO OFF.
-  IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.
-  2 CHANGES NOT WRITTEN.                       (only with pending edits)
-  THE SERVO IS IN DOUBT: RESTORE FIRST.        (only while locked)
-  [ LEAVE ]
+y   0 | KST SERVO                       [  BACK  ]|  BACK drawn disabled
+   40 | V6  SIG GP0                               |  strip, C_DIM
+   66 |#1 POWER THE SERVO OFF, THEN LEAVE.        |  step 1, current, C_AMBER
+   78 |#  IT STAYS IN PROGRAMMING MODE UNTIL      |
+   90 |#  ITS SUPPLY IS OFF.                      |
+  104 | 2 UNPLUG THE SERVO.                       |  step 2, C_DIM
+  116 |   DSHOT RESTARTS ON SIG GP0 AND READS     |
+  128 |   AS A 970 US PULSE AT 1000 HZ.           |
+  142 | 3 RESTART DSHOT.                          |  step 3, C_DIM
+  158 | 2 CHANGES NOT WRITTEN.                    |  only with pending edits, C_AMBER
+  170 | THE SERVO IS IN DOUBT: RESTORE FIRST.     |  only while locked, C_AMBER
+  214 | [   STAY   ]                              |  6, 214, 110 x 46
+  268 | [              LEAVE               ]      |  6, 268, 228 x 46, scale 2
+  320 +-------------------------------------------+
 ```
 
-LEAVE is a tap. Without a switched supply it leaves even a locked session:
-there is nothing else the screen can do, and the record file below keeps what
-the servo was. Then the unplug page from [pin-claim.md](pin-claim.md), then
-DShot. BACK during a write is queued: the page shows
-`LEAVING AFTER THE WRITE ENDS.` and the leave follows the result. BACK during
-a search, a read or a verify aborts it.
+STAY returns to the field list, or to the search after a lost servo. LEAVE is
+a tap. Without a switched supply it leaves even a locked session: there is
+nothing else the screen can do, and the record file below keeps what the
+servo was. From the tap on, step 2 is current, the note reads
+`RELEASING THE PIN` in `C_DIM`, and the left button reads NEXT SERVO and the
+wide one RESTART DSHOT, both drawn disabled until `pinClaimUnplugDue()`.
+Then NEXT SERVO keeps the claim and starts a new search, with
+`NEXT SERVO: POWER IT AFTER THE TAP.`, and RESTART DSHOT takes a press that
+lands 1000 ms or more later ([pin-claim.md](pin-claim.md#restoring-dshot)).
+BACK during a write is drawn disabled on the write page and does nothing: no
+leave is queued, and the result stays on the page ([menu-b.md](menu-b.md),
+decision 5, built in its slice 5). BACK during a search or a read aborts it.
+BACK on a search that found no servo opens the page releasing, at
+`1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
+`pinClaimUnplugDue()` is true.
 
-With a switched supply:
+With a switched supply step 1 is one line, and HOLD TO REBOOT, scale 1,
+sits right of STAY:
 
 ```
-y   0 | KST SERVO                        [ BACK ]|
-   40 | V6  GP0  SUPPLY ON                       |  strip
-   66 | LEAVE SWITCHES THE SERVO'S SUPPLY OFF.   |  scale 1, centred, 227 px
-   86 | 2 CHANGES NOT WRITTEN.                   |  only with pending edits
-  100 | THE SERVO IS IN DOUBT: RESTORE FIRST.    |  only while locked, C_AMBER
-  136 | REBOOT: SUPPLY OFF FOR 2 S, ON,          |  scale 1, C_DIM
-  150 | THEN A NEW ENTRY AND READ. THE READ      |
-  164 | BECOMES THE BACKUP.                      |
-  182 | NO CARD: REBOOT DROPS THE BACKUP IN      |  C_AMBER, no card only
-  196 | MEMORY.                                  |
-  214 | [          HOLD TO REBOOT           ]    |  228 x 46 px, 1000 ms hold
-  268 | [              LEAVE                ]    |  228 x 46 px, a tap
-  320 +------------------------------------------+
+   66 |#1 LEAVE SWITCHES THE SUPPLY OFF.          |  step 1, current
+   80 | 2 UNPLUG THE SERVO.                       |  steps 2 and 3, C_DIM
+  118 | 3 RESTART DSHOT.                          |
+  158 | NO CARD: REBOOT LOSES THE BACKUP          |  C_AMBER, no card only, after
+  170 | IN RAM.                                   |  the notes on edits and doubt
+  214 | [   STAY   ] [ HOLD TO REBOOT ]           |  6,214,110x46; 122,214,112x46
 ```
 
-- LEAVE is a tap. The supply goes off, the page's text gives way to
-  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, and after 2000 ms the unplug page
-  follows ([leave](#leave-reboot-loss-and-heartbeat-with-the-switch)). A
-  locked session leaves the same way. HOLD TO REBOOT is hidden during the
-  wait, and the job refuses `Reboot` while Leaving.
+- LEAVE is a tap. The supply goes off, the note reads
+  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, and after 2000 ms the page is
+  released ([leave](#leave-reboot-loss-and-heartbeat-with-the-switch)). A
+  locked session leaves the same way. HOLD TO REBOOT is hidden from the tap
+  on, and the job refuses `Reboot` while Leaving. Released, no line names
+  the next servo's power: the bench switches it.
 - HOLD TO REBOOT runs REBOOT after a 1000 ms hold on `ui_hold`, as HOLD TO
   WRITE does: progress across the button, and a slide off cancels. It is
   drawn disabled and takes no press while an operation runs or plans.
-- The backup line: without a card, the amber line above. With a card, after
-  the session's first write, `THE BACKUP STAYS ON THE CARD: KST005.` With a
-  card and no write, none: the servo still holds the backup's values.
-- BACK on the page returns to the field list, or to the search after a
-  lost servo. The leave page is exempt from the loss rule, so BACK from
-  the search after a loss stays on it; that BACK also stops the search.
+- STAY returns to the field list, or to the search after a lost servo. The
+  leave page is exempt from the loss rule, so BACK from the search after a
+  loss stays on it; that BACK also stops the search.
 
 REBOOT is on this page and not on the field list, whose footer is full
 (110, 52 and 54 px). The leave page carries the locked session's warning
@@ -1290,7 +1344,7 @@ a host:
 
 | Situation | Effect |
 |---|---|
-| First write of a session, card mounted | the backup is saved first into the ring of `BACKUP/`, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.` |
+| First write of a session, card mounted | the backup is saved first into the ring of `BACKUP/`, and `KST/KST.TXT` holds the image before the write, both in a card phase ([card calls](#card-calls-and-the-heartbeat)). A card that takes neither stops the write: `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.` |
 | Write verified | `KST/KST.TXT` is removed when this session wrote it, the card stayed mounted since, and the file holds the bytes written (FNV-1a, Fowler-Noll-Vo, hash `recordSum`), in a card phase |
 | Later writes of the session | no backup is saved and no record is written |
 | LEAVE, the servo in programming mode and not in doubt | `KST/KST.TXT` is removed on the same terms: no write is open |
@@ -1419,12 +1473,13 @@ so these run against the same simulated servo:
   every `kst_ses_t` and every file error, the line breaks.
 - `test_kst_ui.cpp`, built in step 4, by control id
   ([menu.md](menu.md#tests-by-control-id)): MENU opens the screen, the claim,
-  the search, STOP SEARCH and RETRY, the read, the field list, an edit,
-  REVERT, HOLD TO WRITE not at 750 ms and not on a slide off, the write
-  page, the backup and the record before the first write frame, the verify,
-  a hard-limit value written as its limit, FILES with SAVE AS, LOAD and a
-  refused file, a write left in doubt and HOLD TO RESTORE, BACK in every
-  view and during a write, LEAVE and RESTART DSHOT, a lost servo, no card,
+  the search, STOP SEARCH and RETRY, the read, the field list, an edit, REVERT,
+  `WRITE...` opening nothing while pressed or on a slide off and the write page
+  on a tap, the tap's press not timed there, the backup and the record before
+  the first write frame, the verify, a hard-limit value written as its limit,
+  FILES with SAVE AS, LOAD and a refused file, a write left in doubt and
+  `RESTORE...` with the restore page's hold, BACK in every view, disabled during
+  a write and during its flush, LEAVE and RESTART DSHOT, a lost servo, no card,
   a card held by USB, a card that takes no file, an image that fails the
   fingerprint, a record found at entry; `checkControlTable()` in each view.
   `python3 tools/make_previews.py` adds `docs/kst-preview.png`.
@@ -1448,9 +1503,9 @@ so these run against the same simulated servo:
    `kstCardStamp()`, `sdh_wait_hook`), their screens and their tests
    against `test/kst_supply_sim.h`. As built, and differing from the
    sections above:
-   - The close's wait shows on the unplug page,
-     `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, not on the leave page; BACK there
-     is disabled until the pin is let go, as without a switch.
+   - The close's wait shows on the leave page after LEAVE,
+     `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`; BACK there is disabled, as without
+     a switch.
    - REBOOT is taken from InMode only, and drops the pending changes with
      the old image.
    - BACK on the stalled screen and during a switched search goes to the
@@ -1458,8 +1513,8 @@ so these run against the same simulated servo:
    - `KstStatus` carries `supplyFitted`, `supplyOn`, `supplyUsed`,
      `supplyLeftDs` (0.1 s) and `reboot` in place of the fields named above,
      and `stallLocked` and `stallWrote` for the stalled screen.
-   - The switched leave page reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
-     and, without a card, `NO CARD: REBOOT LOSES THE BACKUP IN MEMORY.` above
+   - The switched leave page reads `LEAVE SWITCHES THE SUPPLY OFF.` and,
+     without a card, `NO CARD: REBOOT LOSES THE BACKUP` / `IN RAM.` above
      HOLD TO REBOOT; its strip names the servo and the pin only.
    - A heartbeat lapse with the supply on is latched: the supply goes off
      once what runs has ended, even if the heartbeat returns before. A
@@ -1506,7 +1561,10 @@ so these run against the same simulated servo:
    - `test_settings.cpp`: `testDshotDisplayLayout` becomes the layout test,
      version 4 with the enable on GP28 or GP29, and a DshotDisplay 2.x block
      and a version 3 block are each discarded whole and load the compiled
-     defaults.
+     defaults. Revised by [current-sense.md](current-sense.md#decisions)
+     decision 14, versions 2 to 4 carried over into version 5, and by the
+     angle meter's [slice 4](angle-meter.md#slice-4-as-built), versions 2
+     to 5 carried over into version 6.
    - The SERVO SUPPLY section: one `SettingsRow` in KST's header, named by
      KST's line in `ui_registry.cpp` ([SETTINGS row](#settings-row));
      `test_ui.cpp`: the row by control id. The scrolling list, its asserts
@@ -1587,7 +1645,8 @@ Decisions of the owner, 2026-10-18, on the switched supply. Decision 8 is
 the owner's revision of the same day, after review round 1 of PR #6, and
 decisions 11 and 12 come from that revision:
 
-7. **Enable pin.** GP0, J5 pin 2.
+7. **Enable pin.** GP0, J5 pin 2. Revised by the pin plan of 2026-10-29
+   below: GP28, J4 pin 11, or GP29, J4 pin 12.
 8. **Configuration.** A SETUP row, `SERVO SUPPLY`, with two values: `NONE`, the
    default, for no switch fitted, and `GP0`, an active-high enable on GP0.
    There is no active-low form, and GP1 is not offered. An external pull-down
@@ -1598,17 +1657,24 @@ decisions 11 and 12 come from that revision:
    of another version is discarded whole (`settingsLoad()`), so the first boot
    after the update starts from the compiled defaults once, every setting and
    the ESC pin included. A block DshotDisplay saved does not load, and
-   DshotDisplay discards a version 3 block.
+   DshotDisplay discards a version 3 block. Revised by the revisions of
+   2026-10-29 and 2026-11-14 below (the values `OWN`, `GP28` and `GP29`, and
+   a SETTINGS section, SERVO SUPPLY, in place of the SETUP row), by
+   [current-sense.md](current-sense.md#decisions) decision 14, which
+   carries blocks of versions 2 to 4, DshotDisplay's version 2 among them,
+   over into version 5, and by the angle meter's
+   [slice 4](angle-meter.md#slice-4-as-built), which carries versions 2 to
+   5 over into version 6.
 9. **Timing.** rcbench's values: 2000 ms off before each search attempt and
    for REBOOT, 1000 ms start for REBOOT, and the entry directly after the
    switch-on in the search, `KST_SUPPLY_ENTRY_DELAY_MS` 0 ms, until
    bring-up measures the servo.
 10. **Servo tester.** It uses the switched supply in a change after KST
     programming: SAFE is supply off, HOLD TO START switches it on, STOP and
-    a heartbeat trip switch it off. Until that change the servo tester never
-    drives GP0, so with a converter fitted the servo there is unpowered
-    unless it has a supply of its own
-    ([servo-tester.md](servo-tester.md#decisions), decision 20).
+    a heartbeat trip switch it off
+    ([servo-tester.md](servo-tester.md#decisions), decision 20). Built as
+    slice 3 of [current-sense.md](current-sense.md#slice-3-as-built),
+    host-tested, not tested on hardware.
 11. **SETUP scrolls.** Superseded by [menu.md](menu.md#decisions)
     decision 13. SETUP becomes a list scrolled in pixels, as the AM32 list,
     and `SERVO SUPPLY` is its eighth row, after KISS PIN. HOLD TO
@@ -1619,7 +1685,9 @@ decisions 11 and 12 come from that revision:
     rows at a 50 px pitch, − and + 44 × 44 px, toggles 94 × 44 px, values and
     toggle labels at scale 2 and labels at scale 1; four rows visible in a
     200 px viewport, a scroll range of 0 px to 200 px; the footer buttons
-    48 px tall. [menu.md](menu.md#settings) has the layout.
+    48 px tall. [menu.md](menu.md#settings) has the layout. Revised by
+    [menu-b.md](menu-b.md#decisions) decision 14: the footer buttons are
+    46 px tall, and RESET is HOLD DEFAULTS.
 
 Choices made in this design where review round 1 of PR #6 left the choice
 open; the owner has not decided them:
@@ -1680,6 +1748,12 @@ open; the owner has not decided them:
     the safer: DShot never reaches a servo that may have entered programming
     mode in an on phase before it has been off as long as LEAVE keeps it.
     The cost is up to 2000 ms on the wait text before the unplug page.
+    Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+    decision 5: the unplug page is the leave page. BACK during REBOOT, on
+    the stalled screen and during a switched search before a servo is found
+    opens it in its releasing phase, whose note counts the wait down while
+    the supply is off, `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`; the 2000 ms off
+    before the line closes are unchanged.
 19. **A card phase around every card call.** Not only the first write's
     backup and record: SAVE AS, LOAD, the FILES listing, RETRY MOUNT and the
     record's removal after a verify each block core0 on the card too, and
@@ -1709,7 +1783,17 @@ and GP1 and the enable takes GP28 or GP29. Decision 7's enable pin is GP28,
 J4 pin 11, or GP29, J4 pin 12. Decision 8's row is a stepper with three
 values, `NONE`, `GP28` and `GP29`; GP0 and GP1 are not offered for the
 enable. The settings layout is version 4, and a block of an earlier version
-is discarded whole, as decision 8 describes for version 2. Under decision
-10 the servo tester never drives the enable pin. Decision 4's rule, no
+is discarded whole, as decision 8 describes for version 2. Decision 10 is
+built by slice 3 of [current-sense.md](current-sense.md#slice-3-as-built).
+Decision 4's rule, no
 level above 3.6 V on SIG, stands as decided. Decisions 4, 7, 8 and 10 keep
 the wording the owner decided; these changes stand here only.
+
+Revision of 2026-11-14, menu structure B ([menu-b.md](menu-b.md#decisions)),
+built: SERVO SUPPLY is a core section of SETTINGS after WIRING, whichever
+tools MENU lists (decision 9), and its no-switch value reads `OWN`, stored
+as 0 (decisions 15 e and 22); `NONE` in this note is that value.
+MENU has no KST SERVO row: PROGRAMMER's KST / CHASERVO entry opens the
+screen (owner decision 2). Decision 18's unplug page is the leave page
+(owner decision 3). Decisions 8 and 18 keep their wording; these changes
+stand here only.

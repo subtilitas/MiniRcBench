@@ -24,7 +24,10 @@ zeigt, wohin der Impuls das Servo schickt, nicht, wo das Servo steht.
 ## Verkabelung
 
 Das Servo braucht eine eigene Stromversorgung. Die Platine liefert nur Signal
-und Masse.
+und Masse. Mit SERVO SUPPLY auf `GP28` oder `GP29` ist diese Versorgung der
+geschaltete Wandler des Prüfstands, Teil C des
+[Verdrahtungsplans](Verdrahtung), den der Bildschirm selbst schaltet
+([Die geschaltete Versorgung](#die-geschaltete-versorgung)).
 
 ```
   Servoversorgung, 4,8 V bis 6,0 V (8,4 V bei einem HV-Servo, Hochvolt)
@@ -32,10 +35,10 @@ und Masse.
      -  ----------------+-----------------------------  Servo -   (braun oder schwarz)
                         |
   Platine GND  ---------+
-  Platine GP0  ----------------------------------------  Signal Servo A (orange oder weiß)
-  Platine GP1  ----------------------------------------  Signal Servo B, nur bei zwei Servos
+  Platine SIG  ----------------------------------------  Signal Servo A (orange oder weiß)
+  Platine AUX  ----------------------------------------  Signal Servo B, nur bei zwei Servos
 
-  GP0 = J4 Pin 9 oder J5 Pin 2, GP1 = J4 Pin 10 oder J5 Pin 1,
+  SIG GP0 = J4 Pin 9 oder J5 Pin 2, AUX GP1 = J4 Pin 10 oder J5 Pin 1,
   GND = J4 Pin 1 oder 5 oder J5 Pin 4
 ```
 
@@ -49,19 +52,23 @@ und Masse.
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
-- Servo A hängt am ESC-Pin, Servo B am KISS-Pin, so wie unter
-  **MENU → SETTINGS** eingestellt. Voreingestellt sind GP0 und GP1.
-- Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
+- Servo A hängt an SIG, dem ESC-Pin, Servo B an AUX, dem KISS-Pin, so wie
+  unter **MENU → SETTINGS → SIG PIN** und **AUX PIN** eingestellt, die den
+  J5-Pin unter dem Wert zeigen. Voreingestellt sind GP0 und GP1. AUX PIN
+  wirkt, ob KISS an oder aus ist, und ein Schritt einer der beiden Zeilen
+  tauscht die beiden.
+- Zieh jeden ESC von SIG ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
 
 ---
 
 ## Öffnen
 
-**MENU → SERVO TESTER** öffnen.
+**MENU → SERVO TESTER** öffnen. Der Bildschirm trägt den Titel
+`SERVO TESTER`, wie seine Zeile in MENU.
 
 Der Bildschirm übernimmt die beiden Signalpins vom ESC-Treiber. Antwortet ein
-ESC auf dem ESC-Pin, wartet er und zeigt `AN ESC ANSWERS ON GP0.` Zieh den
+ESC auf SIG, wartet er und zeigt `AN ESC ANSWERS ON SIG GP0.` Zieh den
 ESC ab; 500 ms später übernimmt der Bildschirm die Pins von selbst.
 Servoimpulse von 1000 µs bis 2000 µs sind für viele ESCs ein gültiges
 Gassignal.
@@ -74,23 +81,57 @@ Position, wird kraftlos oder fährt in seine eigene Failsafe-Stellung.
 
 <img src="img/servo-safe.png" width="240" alt="Der Servobildschirm in SAFE">
 
-Die Zeile unter dem Titel zeigt den Pin, die Framerate und den Impulsbereich,
-dazu eine Statusanzeige: `SAFE` (grün), `RUNNING` (rot) oder `STALLED`
-(magenta).
+Die Zeile unter dem Titel zeigt den Pin mit Rolle und Nummer, die Framerate
+und den Impulsbereich, `SIG GP0  50 HZ  1000-2000 US`, oder
+`SIG+AUX  50 HZ  1000-2000 US` mit zwei Servos, dazu eine Statusanzeige:
+`SAFE` (grün), `RUNNING` (rot), `STALLED` (magenta), oder nach einer
+Abschaltung durch den Stromsensor `OVERCURRENT`, `STALL`, `LOW SUPPLY` oder
+`NO SENSOR` (magenta, siehe [Die Abschaltungen](#die-abschaltungen)). Bei
+333 Hz mit einem MIN ab 1000 µs hat die Zeile keinen Platz für die Nummer und
+zeigt `SIG  333 HZ  1000-2000 US`, oder `SIG+AUX  333 HZ` mit zwei Servos.
 
 In SAFE mit einem Servo steht rechts in der Anzeigezeile `TWO SERVOS:` und
 `SET > SERVOS`: Die Zeile SERVOS des SET-Bildschirms schaltet Servo B ein
-(siehe [Zwei Servos](#zwei-servos)). Solange der KISS-Pin verweigert ist,
-fehlt der Hinweis.
+(siehe [Zwei Servos](#zwei-servos)). Solange AUX verweigert ist, fehlt der
+Hinweis.
 
-Steht **SERVO SUPPLY** unter SETTINGS auf `GP28` oder `GP29`, zeigt eine
-zweite Zeile unter dem Titel `GP28 SUPPLY STAYS OFF HERE.` in Bernstein. Der
-Servotester schaltet den Wandler des KST- und des Hitec-Programmierers nie
-ein; ein Servo, das nur diesen Wandler als Versorgung hat, bekommt auf diesem
-Bildschirm keinen Strom. Gib ihm eine eigene Versorgung wie unter
-[Verkabelung](#verkabelung).
+### Die geschaltete Versorgung
 
-<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28: GP28 SUPPLY STAYS OFF HERE. unter dem Titel">
+Steht **SERVO SUPPLY** unter SETTINGS auf `GP28` oder `GP29`, schaltet der
+Servotester den Wandler, den auch der KST- und der Hitec-Programmierer
+nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
+
+- **SAFE:** Der Wandler ist aus. Die Zeile unter dem Titel zeigt
+  `GP28 SUPPLY ON AT START` in Bernstein, und das Zifferblatt warnt
+  `PULSES ON GP0 ARE THROTTLE TO AN ESC,` / `AND ITS BEC WIRE GETS THE SUPPLY.`
+- **`HOLD TO START`:** Der Wandler geht sofort an, die Zeile zeigt
+  `GP28 SUPPLY COMING UP`, und das Servo bekommt noch keinen Impuls. Tasten
+  und Zifferblatt warten; `STOP` wirkt.
+- **Versorgung steht:** mit dem Stromsensor (SETTINGS > CURRENT SENSE
+  `INA219`) beim ersten Messwert von 4,5 V oder mehr, ohne ihn nach 500 ms.
+  Das Servo fährt in die Mitte, die Zeile zeigt `GP28 SUPPLY ON`. Der
+  SET-Bildschirm zeigt, wie lange es dauerte, `SUPPLY UP IN 25 MS`, bis
+  die erste gemessene Bewegung ([Stellzeit messen](#stellzeit-messen)) an
+  ihre Stelle tritt.
+- **Wieder aus:** bei `STOP`, wenn der Bildschirm 250 ms hängt, wenn das
+  Touchpanel 250 ms nicht antwortet (`STOPPED: TOUCH DID NOT ANSWER`), wenn
+  der I2C-Bus hängt (`STOPPED: TOUCH BUS STUCK`), bei einer Abschaltung
+  durch den Stromsensor ([Die Abschaltungen](#die-abschaltungen)), und bei
+  `BACK`.
+- **Kam nicht hoch:** Mit dem Sensor und ohne 4,5 V innerhalb von 500 ms geht
+  der Wandler aus, und das Zifferblatt zeigt
+  `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
+- **Sensor nicht gefunden:** Mit CURRENT SENSE auf `INA219` und ohne Sensor
+  ist `HOLD TO START` grau, und das Zifferblatt zeigt
+  `START WAITS FOR THE CURRENT SENSOR.` Mit CURRENT SENSE auf `NONE` startet
+  der Test ohne ihn. Ein hängender I2C-Bus oder ein stummes Touchpanel hält
+  den Start ebenfalls auf: `START WAITS: THE I2C BUS IS STUCK.` oder
+  `START WAITS: TOUCH DOES NOT ANSWER.`
+- **Nicht aus:** Misst der Sensor 2 s nach dem Ausschalten noch mehr als
+  2,5 V, zeigt die Zeile `GP28 SUPPLY NOT OFF`. Der Wandler trennt seinen
+  Ausgang nicht ab, oder EN wird hochgehalten: Prüfe die Verdrahtung.
+
+<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28 in SAFE: GP28 SUPPLY ON AT START unter dem Titel und die ESC-Warnung auf dem Zifferblatt"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. mit grauem HOLD TO START"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF unter dem Titel, 4.90 V in der Anzeige"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET mit SUPPLY UP IN 25 MS unter STOP TO CHANGE THE PROFILE">
 
 ---
 
@@ -113,12 +154,13 @@ Statusanzeige zeigt `STALLED`, und der Bildschirm meldet
 
 <img src="img/servo-stalled.png" width="240" alt="Gestoppt nach einem Hänger">
 
-Sind vier Lesungen des Touch-Controllers in Folge fehlgeschlagen, über
-100 ms oder länger, hält ein laufendes Servo an wie bei `STOP`, ob im Sweep oder auf einer Position, im
-Hauptbildschirm wie in SET. Eine Berührung, die nicht ankommt, erreicht
-`STOP` nicht, und der Servotester hat keine Leerlaufsperre. Die Skala zeigt
-`TOUCH NOT ANSWERING` in Bernstein und `THE SERVO IS STOPPED.`, bis der
-Controller antwortet; `HOLD TO START` ist so lange gesperrt gezeichnet.
+Sind vier Lesungen des Touch-Controllers in Folge fehlgeschlagen, über 100 ms
+oder länger, hält ein laufendes Servo an wie bei `STOP`, ob im Sweep oder auf
+einer Position, im Hauptbildschirm wie in SET. Ohne antwortenden
+Touch-Controller ist `STOP` nicht erreichbar, und der Servotester hat keine
+Leerlaufsperre. Die Skala zeigt `TOUCH NOT ANSWERING` in Bernstein und
+`THE SERVO IS STOPPED.`, bis der Controller antwortet; `HOLD TO START` ist so
+lange gesperrt gezeichnet.
 
 ---
 
@@ -130,7 +172,7 @@ Controller antwortet; `HOLD TO START` ist so lange gesperrt gezeichnet.
 | Loslassen | Das Servo bleibt, wo es ist |
 | `MIN` `CENTRE` `MAX` | Beim Loslassen an dieses Ende oder in die Mitte |
 | `SWEEP` | Ein Sweep um die Mitte; die Taste wird zu `STOP SWEEP` |
-| `SPEED` | Wie schnell das Servo bewegt wird, 10 % bis 100 % |
+| `SPEED` | Wie schnell das Servo bewegt wird, 10 % bis 100 %. Die Füllung ist grau |
 
 - Skala und Tasten wirken nur im Zustand `RUNNING`; in `SAFE` sind sie als
   Umriss gezeichnet und tun nichts.
@@ -141,9 +183,10 @@ Controller antwortet; `HOLD TO START` ist so lange gesperrt gezeichnet.
   allmählich: Bei 10 % dauert der ganze Weg von MIN nach MAX 5 s.
 - Ein Sweep beginnt in der Mitte und läuft auf dem zweiten Kern der Platine,
   daher bremst der Bildschirm ihn nicht. Während er läuft, zeigt die Anzeige
-  `SWEEP 3` oder `SWEEP 3/10`: die erreichten Enden und die eingestellte
-  Anzahl. `STOP SWEEP` lässt das Servo dort, wo die Kurve gerade war. Auch
-  Ziehen, `MIN`, `CENTRE`, `MAX` und `STOP` beenden einen Sweep.
+  `SWEEP 3` oder `SWEEP 3/10` in Hellgrün, ein laufender Messwert: die
+  erreichten Enden und die eingestellte Anzahl. `STOP SWEEP` lässt das Servo
+  dort, wo die Kurve gerade war. Auch Ziehen, `MIN`, `CENTRE`, `MAX` und `STOP`
+  beenden einen Sweep.
 
 <img src="img/servo-sweep.png" width="240" alt="Ein laufender Sweep">
 
@@ -151,23 +194,28 @@ Controller antwortet; `HOLD TO START` ist so lange gesperrt gezeichnet.
 
 ## Zwei Servos
 
-Stell auf dem SET-Bildschirm `SERVOS` auf `TWO`. Servo B hängt am KISS-Pin.
+Stell auf dem SET-Bildschirm `SERVOS` auf `TWO`. Servo B hängt an AUX.
 Beide teilen sich ein Profil und eine Framerate.
 
 <img src="img/servo-two.png" width="240" alt="Zwei Servos">
 
 `A`, `B` und `AB` wählen, was Skala und Tasten bewegen: ein Servo oder beide
-auf denselben Winkel. Das gewählte Horn ist breit gezeichnet. Mit
+auf denselben Winkel. Das gewählte Horn ist breit gezeichnet. Horn und
+Buchstabe von Servo A sind hellgrün, die von Servo B blau, und `B` ist blau
+gefüllt, solange es gewählt ist. Mit
 `REVERSE B` läuft B gegenläufig, wenn beide folgen, für ein Paar, das
 spiegelbildlich eingebaut ist.
 
-Zwei Servos brauchen einen freien KISS-Pin. Kommen dort KISS-Telegramme an,
-oder sind ESC-Pin und KISS-Pin unter SETTINGS derselbe Pin, bietet der
-Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund.
+Zwei Servos brauchen ein freies AUX. Kommen dort KISS-Telegramme an, bietet
+der Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund:
+`KISS WIRE ON AUX GP1 IS LIVE.` SETTINGS legt SIG und AUX nie auf einen Pin;
+auf anderem Weg so gesetzte Pins zeigen `SIG AND AUX ARE THE SAME GPIO.`
 Solange der Bildschirm auf die Pins wartet, etwa weil ein ESC antwortet, weiß
-er nicht, ob der KISS-Pin frei ist, und `TWO` lässt sich wählen. Ist der
-KISS-Pin dann belegt, übernimmt der Bildschirm nur den ESC-Pin und schaltet
+er nicht, ob AUX frei ist, und `TWO` lässt sich wählen. Ist AUX dann belegt,
+übernimmt der Bildschirm nur SIG und schaltet
 auf ein Servo zurück; `TWO` bleibt aus, bis du den Bildschirm erneut öffnest.
+Das gilt auch für ein `TWO`, das noch auf `HOLD TO APPLY` wartet: Es geht auf
+ein Servo zurück, und ein Warten, das nur für `TWO` bestand, endet.
 
 <img src="img/servo-samepin.png" width="240" alt="TWO nicht verfügbar: beide Pins sind derselbe GPIO">
 
@@ -194,6 +242,154 @@ der Strom des Servos nur über die Schraubklemme des Moduls.
 - Während ein Sweep läuft, steht sein Zähler oben auf der Skala.
 
 Der Strom wird 40-mal pro Sekunde gelesen, jeder Wert als Mittel über 17 ms.
+
+### Die Abschaltungen
+
+Mit dem Stromsensor hält der Servotester bei diesen Messwerten von selbst
+an. Nicht auf Hardware getestet: Kein INA219 und kein Wandler war an der
+Platine.
+
+| Anzeige | Zifferblatt | Wann |
+|---|---|---|
+| `OVERCURRENT` | `STOPPED: CURRENT 3.0 A OR MORE` | ein Messwert von 3,0 A oder mehr, in beiden Richtungen, oder ein Messwert am Ende des Messbereichs |
+| `STALL` | `STOPPED: OVER 1.0 A FOR 400 MS` | Messwerte über 1,0 A für 400 ms, keiner dazwischen bei 1,0 A oder darunter |
+| `LOW SUPPLY` | `STOPPED: UNDER 4.0 V FOR 1000 MS` | mit SERVO SUPPLY auf `GP28` oder `GP29`: Messwerte unter 4,0 V für 1000 ms, nachdem die Versorgung hochkam |
+| `NO SENSOR` | `CURRENT SENSOR LOST: SUPPLY OFF.` | mit SERVO SUPPLY auf `GP28` oder `GP29`: Der Sensor antwortet nicht mehr, oder 250 ms vergehen ohne Messwert |
+
+- Die Impulse enden sofort, und mit `GP28` oder `GP29` geht der Wandler im
+  selben Schritt des zweiten Prozessorkerns aus. Die Anzeige bleibt bis zum
+  nächsten `HOLD TO START`; die zweite Zeile des Zifferblatts zeigt
+  `HOLD TO START AGAIN.`
+- Solange der Sensor nach einer Abschaltung nicht antwortet, zeigt die
+  zweite Zeile des Zifferblatts `START WAITS FOR THE CURRENT SENSOR.`, und
+  `HOLD TO START` ist grau; antwortet er wieder, `HOLD TO START AGAIN.`
+- Mit `OWN` gelten nur `OVERCURRENT` und `STALL`: Die Bank kennt weder die
+  Spannung deiner Versorgung noch, ob ihr Strom durch den Sensor fließt.
+  Was das Servo ohne Impulse tut, ist Sache des Servos. Antwortet der
+  Sensor mit `OWN` im Lauf nicht mehr, wird nichts abgeschaltet, und das
+  Zifferblatt zeigt `NO SENSOR READING: NO CURRENT CUTS.` in Grau.
+- Die Stall-Abschaltung löst auch bei vielen Servos aus, die bei MIN oder
+  MAX an ihrem eigenen Endanschlag stehen und dort Blockierstrom ziehen.
+  Nicht gemessen; der Banktest B8 der Entwurfsnotiz prüft es.
+- Eine Abschaltung braucht nach einem Stromsprung bis etwa 60 ms. Die
+  Abschaltungen schützen das Servo und den Shunt des Sensors; sie sind
+  keine Sicherung.
+- Neben `OVERCURRENT`, `LOW SUPPLY` und `NO SENSOR` nennt die Zeile unter
+  dem Titel den Pin nur mit der Rolle, `SIG  50 HZ  1000-2000 US`, und bei
+  333 Hz mit einem Servo `SIG  333 HZ`.
+
+<img src="img/servo-overcurrent.png" width="240" alt="OVERCURRENT in Magenta, STOPPED: CURRENT 3.0 A OR MORE auf dem Zifferblatt"> <img src="img/servo-no-sensor-cut.png" width="240" alt="NO SENSOR in Magenta, CURRENT SENSOR LOST: SUPPLY OFF. über START WAITS FOR THE CURRENT SENSOR.">
+
+### Stellzeit messen
+
+Mit dem Stromsensor misst der Servotester, wie lange das Servo bis zur
+angetippten Position braucht, aus seinem Strom: Ein laufendes Servo zieht
+mehr als ein ruhendes. Der SET-Bildschirm zeigt die letzte Bewegung in der
+zweiten Zeile unter dem Titel, in Grau:
+
+`MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`
+
+| Angabe | Bedeutung |
+|---|---|
+| `MOVE 0.42 S` | vom Antippen bis zur ersten Messung, die das Servo wieder in Ruhe zeigt |
+| `MOVE LATE` | das Servo lief, aber sein Strom kam nicht innerhalb von 3 s zur Ruhe |
+| `MOVE UNSEEN` | der Strom änderte sich innerhalb von 3 s nicht: Das Servo lief nicht, oder zu leicht, um es zu sehen |
+| `PEAK 1.21 A` | die höchste Messung vom Antippen bis zur Ankunft |
+| `HOLD 0.12 A` | der mittlere Strom in der halben Sekunde nach der Ankunft |
+| `--` | diese Angabe ist nicht bekannt: siehe unten |
+
+So entsteht eine gemessene Bewegung:
+
+1. Das Servo mit dem Sensor starten (SETTINGS > CURRENT SENSE `INA219`).
+2. `SPEED` auf 100 % stellen.
+3. Nach `HOLD TO START`, nach einem Ziehen, einem Sweep oder einer Bewegung
+   mit kleinerer `SPEED` 4 s warten; nach einer gemessenen Bewegung genügt
+   eine halbe Sekunde.
+4. `MIN`, `CENTRE` oder `MAX` antippen, das Servo abwarten, dann `SET`
+   öffnen.
+
+- Zu frühes Antippen, Antippen mit kleinerer `SPEED` oder eine Bewegung,
+  die `STOP`, eine Abschaltung, ein weiteres Antippen oder Ziehen oder ein
+  verlorener Sensor beendet, zeigt `MOVE -- S  PEAK -- A  HOLD -- A`. `HOLD`
+  zeigt in der ersten halben Sekunde nach der Ankunft `--`.
+- Fährt das Servo zum ersten Mal an ein Ende, an dem es gegen seinen
+  Anschlag drückt, zeigt es `LATE`: Die Bank weiß noch nicht, wie viel es
+  dort zieht. Die nächste Bewegung an dieses Ende wird gemessen.
+- Die Zeit ist eine Obergrenze dafür, wann der Strom die Ankunft zeigt.
+  Der Sensor zeigt sie bis 61 ms zu spät (berechnet: eine Messung und zwei
+  Mittelungszeiten des Sensors), und der Impuls geht bei 50 Hz bis 20 ms
+  nach dem Antippen hinaus. Ein Servo, das kurz vor dem Ziel nachlässt,
+  kann schon auf seinen Haltestrom fallen, während das Servohorn noch
+  kriecht; dann zeigt der Strom die Ankunft, bevor das Horn steht. Wie nah
+  die Zeit an der wirklichen Ankunft des Servohorns liegt, ist nicht
+  gemessen.
+- Mit CURRENT SENSE auf `NONE` wird nichts gemessen, und die Zeile bleibt,
+  wie sie ist.
+- Die Zeile verschwindet beim nächsten `HOLD TO START` und erscheint nicht,
+  solange dort eine zweizeilige Warnung steht.
+
+<img src="img/servo-set-move.png" width="240" alt="SERVO SET mit einer gemessenen Bewegung, MOVE, PEAK und HOLD, unter STOP TO CHANGE THE PROFILE">
+
+### Die Aufzeichnung auf der Karte
+
+Mit dem Sensor (SETTINGS > CURRENT SENSE `INA219`) und einer Karte im
+Steckplatz wird jeder Lauf von `HOLD TO START` bis zu seinem Ende als
+`LOGS/SRVnnnnn.CSV` auf die Karte geschrieben: eine Zeile je Messung des
+Sensors, 40 pro Sekunde, in Spalten, die eine Tabellenkalkulation öffnet.
+
+```text
+ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
+12345,1500,0,420,5020,0
+```
+
+| Spalte | Bedeutung |
+|---|---|
+| `ms` | Zeit der Messung seit `HOLD TO START` in Millisekunden |
+| `pulse_a_us`, `pulse_b_us` | der Impuls auf SIG und auf AUX in µs; 0 für keinen Impuls oder kein zweites Servo |
+| `current_ma` | der Strom in mA, mit Vorzeichen |
+| `bus_mv` | die Versorgungsspannung am Sensor in mV |
+| `flags` | 1: der Strom lag außerhalb des Messbereichs; 2: die erste Messung nach einem Neustart des Sensors |
+
+Die letzte Zeile sagt, wie der Lauf endete, wie viele Messungen genommen
+und wie viele verworfen wurden und wie lange die Versorgung zum Hochlaufen
+brauchte: `# end=STOP rows=2400 dropped=0 up_ms=40`. `end=` ist `STOP`,
+`BACK`, `OVERCURRENT`, `STALL`, `LOW_SUPPLY`, `NO_SENSOR`, `STALLED`,
+`TOUCH_SILENT`, `BUS_STUCK` oder `NO_START`; `up_ms=-`, wenn die Bank die
+Versorgung nicht schaltet.
+
+- Die Nummern zählen ab der höchsten `SRVnnnnn.CSV` in `LOGS` weiter, getrennt
+  von den `LOGnnnnn.BFL` der Blackbox-Aufzeichnungen.
+- Nach `HOLD TO START` zeigt die Skala `PREPARING THE LOG...` und `THE SERVO
+  STARTS AFTER IT.`, während die Bank die Datei öffnet; danach startet das
+  Servo. Braucht die Karte dafür länger als 2 s, gibt es keine Aufzeichnung: `NO
+  LOG: CARD TOO SLOW`, und das Servo startet ohne.
+- Während das Servo läuft, zeigt die zweite Zeile über der Skala `LOGGING TO
+  SRV00012.CSV` in Grau. In Bernstein: `SRV00012.CSV: 12 ROWS DROPPED` (die
+  Karte war langsamer als die Messungen), `LOG STOPPED AT 4 MIB` (die Grenze der
+  Datei, etwa eine Stunde), `LOG STOPPED: NO ROOM IN ONE PIECE` (die Karte hatte
+  keine 4 MiB am Stück frei, und die 64 KiB, die sie gab, sind belegt), `LOG
+  STOPPED: CARD WRITE FAILED` (die Karte wurde gezogen oder versagte), `NO LOG:
+  NO 64 KIB IN ONE PIECE`, `NO LOG: CARD TOO SLOW`, `NO LOG: THE CARD DID NOT
+  ANSWER`, `NO LOG: THE FILE DID NOT OPEN` oder `NO LOG: SRV99999.CSV EXISTS`.
+  Das Servo läuft in jedem Fall weiter.
+- Eine laufende Blackbox-Aufzeichnung endet bei `HOLD TO START`; SD LOG zeigt
+  dann `RECORDING STOPPED BY SERVO TESTER`. Der letzte Lauf, den SD LOG zeigt,
+  bleibt der der Blackbox-Aufzeichnung.
+- Stoppe das Servo, bevor du den Strom abschaltest oder die Karte ziehst. Ein
+  durch Stromausfall abgebrochener Lauf hinterlässt eine Datei von 4 MiB oder 64
+  KiB: die Messungen, die die Karte erreichten, danach, was die Karte dort
+  vorher hielt. Die letzten Messungen, bis etwa 16 KiB, gehen verloren. Eine
+  Karte, die während eines Laufs mit `NO LOG` eingesteckt wird, behält ihre
+  eigenen Dateien; die Datei, die die Bank begonnen hatte, kann dann auf der
+  ersten Karte bleiben.
+- Das Schreiben der Aufzeichnung lässt die Bank nie auf die Karte warten: Der
+  Sensor wird gelesen und die Abschaltungen greifen wie ohne die Aufzeichnung,
+  im Modell der Host-Tests auf 0,1 ms genau. Wie lange eine echte Karte braucht,
+  ist auf der Platine nicht gemessen.
+
+
+<img src="img/servo-log.png" width="240" alt="SERVO TESTER läuft, LOGGING TO SRV00012.CSV über der Skala">
+<img src="img/servo-log-prep.png" width="240" alt="SERVO TESTER nach HOLD TO START: PREPARING THE LOG..., während die Datei öffnet">
 
 ---
 
@@ -232,27 +428,46 @@ sind also drei auf einmal sichtbar.
 - Ein Heli-Typ oder eine Framerate über 60 Hz kann ein Servo zerstören, das
   nicht dafür gebaut ist: Über 60 Hz überhitzt ein analoges Servo. Eine solche
   Änderung wartet, der Bildschirm nennt das Risiko, und `HOLD TO APPLY` (1 s)
-  übernimmt sie. `BACK` verwirft sie.
+  übernimmt sie. `BACK` verwirft sie, nach einer Warnung: Das erste `BACK`
+  bleibt auf SET und setzt `1 CHANGE NOT APPLIED.` und
+  `BACK AGAIN DISCARDS IT.` in Bernstein auf den Streifen, oder
+  `n CHANGES NOT APPLIED.` und `BACK AGAIN DISCARDS THEM.`, mit der Zahl der
+  cyanfarbenen Zeilen; das zweite `BACK` kehrt zum Servobildschirm zurück und
+  verwirft die Änderung. Jede andere Berührung nimmt die Warnung weg, und die
+  Änderung wartet weiter. Wartet nichts, kehrt `BACK` sofort zurück.
+  Solange sie wartet, ist der Wert der
+  Zeile cyan, mit einem 3 px breiten cyanfarbenen Balken am linken Rand; ein
+  übernommener Wert steht in der Textfarbe, ausgewählt oder nicht.
 - Ein Puls über den Stellweg eines Servos hinaus fährt es gegen seinen
   Endanschlag, wo es blockiert und heiß wird. Mit TYPE WIDE, MIN unter 900 µs
-  oder MAX über 2100 µs zeigt der Bildschirm in Bernstein
-  `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.`
-  (über den Stellweg hinaus blockiert ein Servo und wird heiß; MIN und MAX
-  zuerst ohne Ruderhorn probieren). HELI CYCLIC zeigt ihn schon mit seinen
-  eigenen 820 µs bis 2220 µs. NARROW 760 und HELI TAIL 760 werden an ihrem
-  eigenen Bereich gemessen: Der Hinweis steht, wenn MIN mehr als 100 µs unter
-  dem MIN des Typs liegt oder MAX mehr als 100 µs über seinem MAX. Die
-  Änderung gilt sofort. Der Hinweis steht, solange TYPE, MIN oder MAX
-  gewählt ist, und auf anderen Zeilen, wenn dort kein anderer Hinweis steht.
-  Den Stellweg nennt das Datenblatt des Servos; der Prüfstand misst ihn
-  nicht.
+  oder MAX über 2100 µs zeigt der Bildschirm in Bernstein `PAST ITS TRAVEL A
+  SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` (über den Stellweg hinaus
+  blockiert ein Servo und wird heiß; MIN und MAX zuerst ohne Ruderhorn
+  probieren). HELI CYCLIC zeigt ihn schon mit seinen eigenen 820 µs bis 2220 µs.
+  NARROW 760 und HELI TAIL 760 werden an ihrem eigenen Bereich gemessen: Der
+  Hinweis steht, wenn MIN mehr als 100 µs unter dem MIN des Typs liegt oder MAX
+  mehr als 100 µs über seinem MAX. Eine Änderung von TYPE, MIN oder MAX, nach
+  der das Profil über den Stellweg hinaus reicht, wartet, wenn sie TYPE wechselt
+  oder MIN oder MAX weiter hinaus legt als im übernommenen Profil: Der Hinweis
+  ist ihre Warnung, auf jeder Zeile, und `HOLD TO APPLY` (1 s) übernimmt sie.
+  Weitere Schritte hinaus lassen sie warten; ein Schritt zurück innerhalb der
+  Grenze oder auf den übernommenen Wert gilt sofort, wenn sonst nichts wartet.
+  Ein Schritt zur Mitte hin gilt sofort. `BACK` verwirft eine wartende Änderung,
+  nach derselben Warnung. Eine Heli- oder 60-Hz-Warnung steht zuerst, und bei
+  HELI CYCLIC übernimmt ein Halten beides. Mit zwei Servos gilt das Halten für
+  beide. Der Wechsel von SERVOS ONE auf TWO wartet bei einem Profil über den
+  Stellweg hinaus ebenfalls auf das Halten, denn er treibt dort ein zweites
+  Servo an; bei einem Profil innerhalb des Stellwegs und von TWO auf ONE gilt er
+  sofort. Nach dem Übernehmen steht der Hinweis, solange TYPE, MIN oder MAX
+  gewählt ist, und auf anderen Zeilen, wenn dort kein anderer Hinweis steht. Den
+  Stellweg nennt das Datenblatt des Servos; der Prüfstand misst ihn nicht.
 - Die SWEEP-Zeilen lassen sich jederzeit ändern und gelten für den nächsten
   `SWEEP`. Ist `SPEED` langsamer als die Kurve, zeigt der Bildschirm
   `SPEED LIMITS THE SWEEP`.
 - `DEFAULTS` gibt es nur in `SAFE`. Es stellt STANDARD PWM mit 50 Hz, ein
   Servo und einen Sinus mit 0,50 Hz ein.
 
-<img src="img/servo-set-warning.png" width="240" alt="Ein Heli-Profil wartet auf HOLD TO APPLY">
+<img src="img/servo-set-warning.png" width="240" alt="Ein Heli-Profil wartet auf HOLD TO APPLY"> <img src="img/servo-set-travel.png" width="240" alt="TYPE WIDE wartet hinter dem Endanschlag-Hinweis auf HOLD TO APPLY">
 
 Auf diesem Bildschirm wird nichts gespeichert. Jedes Mal, wenn du den
 Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
@@ -261,40 +476,44 @@ Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
 
 ## Verlassen
 
-`BACK` beendet die Impulse und fordert dich auf, das Servo abzuziehen. Der
-letzte Impuls läuft vorher vollständig aus; bei 50 Hz dauert das bis zu
-41 ms. Danach hält ein schwacher Pull-down den ESC-Pin auf Low, bis DShot
-wieder läuft. Mit zwei Servos hält er auch den KISS-Pin auf Low, bis der
-KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low.
+`BACK` beendet die Impulse und öffnet die Verlassenseite, deren erster
+Schritt dich auffordert, das Servo abzuziehen: `1 UNPLUG THE SERVO.`, mit
+`DSHOT RESTARTS ON SIG GP0 AND READS` und `AS A 970 US PULSE AT 1000 HZ.`,
+dann `2 RESTART DSHOT.` Der letzte Impuls läuft vorher vollständig aus; bei
+50 Hz dauert das bis zu 41 ms. Danach hält ein schwacher Pull-down SIG auf
+Low, bis DShot wieder läuft. Mit zwei Servos hält er auch AUX auf Low, bis
+der KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low. Die
+Leiste nennt die Pins, die der Bildschirm hält, `SIG GP0  AUX GP1`, oder
+`SIG GP0`, wenn er SIG allein hält.
 
-<img src="img/servo-unplug.png" width="240" alt="UNPLUG THE SERVO">
+<img src="img/leave-servo.png" width="240" alt="Die Verlassenseite: 1 UNPLUG THE SERVO., BACK TO SERVO und RESTART DSHOT">
 
-Zieh das Servo ab und tippe dann auf `RESTART DSHOT`. Der ESC-Treiber
-übernimmt die Pins wieder, und `MENU` erscheint. `BACK`
-auf dieser Seite führt stattdessen zurück zum Servobildschirm, in SAFE, und
-behält die Pins. Bis der letzte Impuls ausgelaufen ist, zeigt die Seite
-`RELEASING THE PINS`, und `BACK` ist deaktiviert gezeichnet, als Umriss mit
-grauer Beschriftung: Es wirkt ab dem Moment, in dem `UNPLUG THE SERVO.`
-erscheint.
+Bis der letzte Impuls ausgelaufen ist, zeigt die Seite `RELEASING THE PINS`,
+mit SIG allein `RELEASING THE PIN`, und beide Tasten sind grau. Dann wirkt
+`BACK TO SERVO`: Es führt zum Servobildschirm zurück, in SAFE, und behält
+die Pins. Zieh das Servo ab und tippe dann auf `RESTART DSHOT`: Es wirkt
+1 s, nachdem die Pins freigegeben sind, damit ein schnelles zweites Tippen
+nach `BACK` nichts neu startet. Der ESC-Treiber übernimmt die Pins wieder,
+und `MENU` erscheint. `BACK` auf der Seite ist grau und bewirkt nichts.
 
 ---
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
-- **`GP0 COULD NOT BE TAKEN (PWM)`.** Die Platine konnte ihren
+- **`AN ESC ANSWERS ON SIG GP0.`** Ein ESC hängt an SIG, dem ESC-Pin. Zieh
+  ihn ab.
+- **`SIG GP0 COULD NOT BE TAKEN (PWM)`.** Die Platine konnte ihren
   Impulsausgang nicht einrichten. Tippe auf `RETRY`.
 
-  <img src="img/servo-bind.png" width="240" alt="GP0 COULD NOT BE TAKEN (PWM) mit RETRY">
+  <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM) mit RETRY">
 
-- **`TWO` lässt sich nicht wählen.** Das KISS-Kabel ist aktiv, oder beide
-  Pins sind unter SETTINGS derselbe Pin. Der SET-Bildschirm nennt den Grund,
-  wenn `SERVOS` ausgewählt ist.
+- **`TWO` lässt sich nicht wählen.** Das KISS-Kabel an AUX ist aktiv, oder
+  beide Pins wurden auf anderem Weg als über SETTINGS auf einen Pin gesetzt.
+  Der SET-Bildschirm nennt den Grund, wenn `SERVOS` ausgewählt ist.
 - **Das Servo bewegt sich nicht.** Prüfe, ob die Statusanzeige `RUNNING`
   zeigt, ob das Servo eine eigene Versorgung hat und ob seine Masse mit der
   der Platine verbunden ist. Ob ein Servo die 3,3-V-Impulse der Platine
-  annimmt, ist nicht für jedes Servo erfasst. Steht
-  `GP28 SUPPLY STAYS OFF HERE.` unter dem Titel, ist der geschaltete Wandler
-  auf diesem Bildschirm aus.
+  annimmt, ist nicht für jedes Servo erfasst. Mit der geschalteten
+  Versorgung prüfe, ob die Zeile unter dem Titel `GP28 SUPPLY ON` zeigt.
 
 Der Servotester ist noch nicht auf Hardware getestet.

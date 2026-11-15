@@ -4,7 +4,9 @@ Built, host tests only, not tested on hardware. SETTINGS ends with a
 DIAGNOSTICS section of two read-only rows: LAST RESTART, why the chip last
 restarted, and UPTIME, the time since boot. The firmware version is the
 VERSION row under BOARD and on the splash. A persistent fault log is not
-built; its open questions are at the end.
+built: the owner decided on 2026-11-14 not to build one now and to revisit
+it after the board has run on the bench ([decisions](#decisions)). The
+questions to answer then are at the end.
 
 ## What is built
 
@@ -149,10 +151,19 @@ reading LAST RESTART after it:
 - a UF2 copy, then a glitch reset: `GLITCH` if the glitch reset clears
   REASON, `UPDATE` or `REBOOT` if it does not.
 
-## Open questions for a fault log
+## Decisions
 
-A fault log would keep records across restarts. Before one is built, the
-owner decides:
+Decision of the owner, 2026-11-14:
+
+1. **No fault log now.** A persistent fault log is not built now. The
+   owner revisits it after the board has run on the bench; the questions
+   below are the list to answer then.
+
+## Questions for a fault log, after the bench
+
+A fault log would keep records across restarts. It is not built now
+(decision 1). When the owner revisits it after the board has run on the
+bench, these are the questions to answer:
 
 1. **What counts as a fault.** Candidates: a restart other than POWER-ON; the
    core1 heartbeat trip (`UI_HEARTBEAT_TIMEOUT_MS`, 250 ms); a failed settings
@@ -162,8 +173,10 @@ owner decides:
 2. **What one record holds.** The reason or event code, the uptime at the
    time, the firmware version, a restart counter, and per event a value
    such as a pin or a result code. Whether the time of day is needed: the
-   board's PCF85063 RTC (real-time clock) is not used, so the uptime is the
-   only clock.
+   board's PCF85063 RTC (real-time clock) is read at start-up and set over
+   USB ([run-summary.md](run-summary.md#slice-4-as-built), slices 4 and 5),
+   and holds a time only after a set in the same power-up, since no cell is
+   fitted on J2; until then the uptime is the only clock.
 3. **Where it is stored.** Options: a flash sector of its own beside the
    settings sector; the SD card, in a file under its own directory; the
    watchdog scratch registers or the power manager's scratch registers,
@@ -180,4 +193,4 @@ owner decides:
    count on the LAST RESTART row that opens a list; whether it is also sent
    over the USB serial port.
 7. **How it is cleared.** A hold on the page, as HOLD TO SAVE works, or
-   RESET on SETTINGS, or never; whether a clear is itself recorded.
+   HOLD DEFAULTS on SETTINGS, or never; whether a clear is itself recorded.

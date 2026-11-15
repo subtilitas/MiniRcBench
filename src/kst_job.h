@@ -56,6 +56,13 @@
  * - The close rule: once the supply was on in the claim, Leave and the
  *   release close the line only @ref KST_SUPPLY_OFF_MS after the last
  *   switch-off command, which they give first if the supply is on.
+ * - The cuts (supply_guard.h), with CURRENT SENSE at INA219: while the
+ *   supply is on, a reading at or above 3.0 A or clipped, or readings under
+ *   4.0 V for 1000 ms after the start-up reading, switch it off in the same
+ *   pass, during an operation too. The session is power-cycled as a lapse
+ *   does it; a search or an operation finishes the frame on the wire, then
+ *   the job is SearchEnded with KstStatus::cut set. No switch-on follows
+ *   until a new search; the close rule waits from the cut's switch-off.
  * - The card phase: around a card call on core0, CardBegin opens a phase in
  *   which the heartbeat also counts as trusted while kstCardStamp(), called
  *   from the SDIO driver's waits, is younger than the UI's timeout, for at
@@ -72,6 +79,7 @@
 #include "core1_job.h"
 #include "kst_seek.h"
 #include "kst_session.h"
+#include "supply_guard.h"
 
 /** @brief The line stays low this long before a leave closes it, ms. */
 #define KST_LEAVE_LOW_MS 100u
@@ -164,6 +172,7 @@ struct KstStatus {
 	bool        stallLocked;    /**< The last stall power-cycled a session in doubt. */
 	bool        stallWrote;     /**< The last stall power-cycled a session that had written. */
 	bool        cardPhase;      /**< A card phase is open: the card heartbeat counts. */
+	GuardCut    cut;            /**< The last cut of the supply, Hard or Collapse; None after a new search. */
 	kst_image_t image;          /**< The servo as last read. */
 	kst_image_t backup;         /**< The first image read since the servo was found. */
 	kst_stats_t stats;          /**< Reply timing since the bind. */

@@ -8,6 +8,7 @@
  */
 
 #include "sd_cache.h"
+#include "sd_host.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -36,13 +37,17 @@ static unsigned    s_count;     /**< Blocks queued, the one in flight among them
 static bool        s_inFlight;  /**< The head block is sent and not yet programmed. */
 static unsigned    s_attempt;   /**< Tries of the head block so far. */
 static bool        s_batchChecked; /**< The swap check ran for this batch. */
+static bool        s_checking;  /**< The swap check's read is under way. */
+static unsigned    s_checkAttempt; /**< Tries of the swap check's read so far, this batch. */
 
 static sdc_entry_t s_read[SDC_READ_BLOCKS];
 static uint32_t    s_clock;
 
 static uint32_t s_checkLba, s_checkOff;
 static uint8_t  s_check[SDC_CHECK_BYTES];
-static uint8_t  s_scratch[SDP_BLOCK_BYTES];
+/** @brief The swap check's sector, 4-byte aligned for the receiver's DMA. */
+static uint32_t s_scratchWords[SDP_BLOCK_BYTES / 4u];
+#define s_scratch ((uint8_t *)s_scratchWords)
 
 static bool retryable(sd_err_t e) {
 	return e == SDE_CRC || e == SDE_FRAME || e == SDE_TIMEOUT || e == SDE_NO_RESPONSE;
@@ -53,6 +58,7 @@ static void dropAll(void) {
 	s_inFlight = false;
 	s_attempt = 0;
 	s_batchChecked = false;
+	s_checkAttempt = 0;
 	for (unsigned i = 0; i < SDC_READ_BLOCKS; i++) s_read[i].used = false;
 }
 
@@ -84,7 +90,22 @@ static void keep(uint32_t lba, const uint8_t *data) {
 	memcpy(e->data, data, SDP_BLOCK_BYTES);
 }
 
+/**
+ * @brief Collect a swap check's read under way, core0 blocking: the receiver
+ *        is disarmed, and the card is back in the transfer state or marked
+ *        not ready.
+ */
+static void collectCheck(void) {
+	while (s_checking) {
+		if (sdh_wait_hook) sdh_wait_hook();
+		bool done = false;
+		s_dev->read_poll(s_dev->ctx, &done);
+		s_checking = !done;
+	}
+}
+
 sd_err_t sdc_begin(const sdc_dev_t *dev, uint32_t check_lba, uint32_t check_off) {
+	collectCheck();
 	s_on = false;
 	if (!dev || check_off + SDC_CHECK_BYTES > SDP_BLOCK_BYTES) return SDE_PARAM;
 	sd_err_t e = dev->read(dev->ctx, check_lba, 1, s_scratch);
@@ -100,6 +121,7 @@ sd_err_t sdc_begin(const sdc_dev_t *dev, uint32_t check_lba, uint32_t check_off)
 }
 
 void sdc_end(void) {
+	collectCheck();
 	s_on = false;
 	dropAll();
 	s_state = SDC_IDLE;
@@ -107,22 +129,54 @@ void sdc_end(void) {
 
 bool sdc_on(void) { return s_on; }
 
-/** @brief Whether the card under the cache is still the one sdc_begin() saw. */
-static bool sameCard(void) {
-	if (s_dev->read(s_dev->ctx, s_checkLba, 1, s_scratch) != SDE_OK) return false;
-	return memcmp(s_scratch + s_checkOff, s_check, SDC_CHECK_BYTES) == 0;
+/**
+ * @brief One step of the swap check: start its read, or look at it once and,
+ *        when it is in, compare the serial number. A failed start, a failed
+ *        or timed-out read, or another number fails the batch.
+ */
+static void checkStep(void) {
+	if (!s_checking) {
+		sd_err_t e = s_dev->read_start(s_dev->ctx, s_checkLba, s_scratch);
+		if (e != SDE_OK) {
+			if (!(retryable(e) && ++s_checkAttempt < SDC_ATTEMPTS)) fail();
+			return;
+		}
+		s_checking = true;
+		return;
+	}
+	bool done = false;
+	sd_err_t e = s_dev->read_poll(s_dev->ctx, &done);
+	if (!done) return;
+	s_checking = false;
+	// A CRC, frame, timeout or no-response error is tried again, up to
+	// SDC_ATTEMPTS reads in all, as sdh_read() tries a block.
+	if (e != SDE_OK) {
+		if (!(retryable(e) && ++s_checkAttempt < SDC_ATTEMPTS)) fail();
+		return;
+	}
+	if (memcmp(s_scratch + s_checkOff, s_check, SDC_CHECK_BYTES) != 0) {
+		fail();
+		return;
+	}
+	s_checkAttempt = 0;
+	s_batchChecked = true;
+}
+
+/** @brief One wait of core0 on the card: the driver's hook, as its own waits call it. */
+static void waitStep(void) {
+	if (sdh_wait_hook) sdh_wait_hook();
+	sdc_poll();
 }
 
 void sdc_poll(void) {
 	if (!s_on || s_state == SDC_FAILED || s_count == 0) return;
 	sdc_block_t *b = &s_queue[s_head];
 	if (!s_inFlight) {
+		// The check's read, then the block in a later poll: one card
+		// command a poll.
 		if (!s_batchChecked) {
-			if (!sameCard()) {
-				fail();
-				return;
-			}
-			s_batchChecked = true;
+			checkStep();
+			return;
 		}
 		sd_err_t e = s_dev->write_start(s_dev->ctx, b->lba, b->data);
 		if (e != SDE_OK) {
@@ -156,15 +210,22 @@ sdc_state_t sdc_state(uint16_t *left) {
 }
 
 void sdc_settle(void) {
-	while (s_on && s_inFlight) sdc_poll();
+	while (s_on && (s_inFlight || s_checking)) waitStep();
+}
+
+void sdc_recheck(void) {
+	sdc_settle();
+	if (!s_on || s_state == SDC_FAILED || s_count == 0) return;
+	s_batchChecked = false;
 }
 
 sdc_state_t sdc_flush(void) {
-	while (s_on && s_state == SDC_FLUSHING) sdc_poll();
+	while (s_on && s_state == SDC_FLUSHING) waitStep();
 	return s_state;
 }
 
 void sdc_drop(void) {
+	collectCheck();
 	dropAll();
 	s_state = SDC_IDLE;
 }
@@ -211,7 +272,7 @@ sd_err_t sdc_write(uint32_t lba, uint32_t n, const uint8_t *buf) {
 	if (!s_on) return SDE_NOT_READY;
 	for (uint32_t i = 0; i < n; i++) {
 		if (s_state == SDC_FAILED) return SDE_WRITE;
-		while (s_count == SDC_QUEUE_BLOCKS && s_state != SDC_FAILED) sdc_poll();
+		while (s_count == SDC_QUEUE_BLOCKS && s_state != SDC_FAILED) waitStep();
 		if (s_state == SDC_FAILED) return SDE_WRITE;
 		const uint8_t *src = buf + i * SDP_BLOCK_BYTES;
 		sdc_block_t *b = &s_queue[(s_head + s_count) % SDC_QUEUE_BLOCKS];

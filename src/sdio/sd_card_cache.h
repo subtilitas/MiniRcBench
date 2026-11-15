@@ -43,6 +43,12 @@ void sd_sdio_cache_poll(sd_card_t *c);
 /** @brief SD_SDIO_CACHE_OFF or an sdc_state_t; @p left, when not NULL, the blocks to go. */
 int sd_sdio_cache_state(uint16_t *left);
 
+/**
+ * @brief sdc_recheck(): the next block waits for a fresh swap check;
+ *        blocking while a block is in flight.
+ */
+void sd_sdio_cache_recheck(sd_card_t *c);
+
 /** @brief Flush until idle or failed, blocking; the resulting state. */
 int sd_sdio_cache_flush(sd_card_t *c);
 

@@ -8,16 +8,17 @@
  *
  * @section config_defaults Values the board stores over these defaults
  *
- * The ESC pin, the DShot bitrate, the KISS wire, the pole count, the throttle
- * ceiling and the backlight are all changeable on the board itself and stored
- * in flash — see @ref settings.h and the **MENU -> SETTINGS** screen. What is
- * written here is the value a board starts with when its flash is blank, or
- * when a stored block fails to validate.
+ * SIG (the ESC pin), the DShot bitrate, AUX (the KISS wire), the pole
+ * count, the throttle ceiling and the backlight are all changeable on the
+ * board itself and stored in flash — see @ref settings.h and the
+ * **MENU -> SETTINGS** screen. What is written here is the value a board
+ * starts with when its flash is blank, or when a stored block fails to
+ * validate.
  *
  * The practical consequence: editing one of those values and reflashing will
  * appear to do nothing on a board that has saved settings, because the stored
  * value wins. SETTINGS shows one note line, `SAVED SETTINGS IN USE` or
- * `COMPILED DEFAULTS IN USE`, naming which of the two is in effect.
+ * `NOTHING SAVED: DEFAULTS IN USE`, naming which of the two is in effect.
  */
 
 #pragma once
@@ -115,6 +116,61 @@
 
 /** @brief Upper bound for the runtime pole-count adjuster. */
 #define MAX_MOTOR_POLES        28
+
+/**
+ * @brief The lowest throttle the tester's kV estimate is shown at, 0 to 2000.
+ *
+ * 1500, 75 %: the owner's decision 7 in docs/design/esc-commands.md. There
+ * AM32 2.22's duty map puts the estimate at x 0.92 to x 1.08 of the rating,
+ * with RUNNING LEVEL 10 and on a target built without USE_STARTUP_BOOST;
+ * below it, with sine start, as low as x 0.41 at 30 %. Below it the field
+ * reads `KV EST 75%+`. @see kv_est.h
+ */
+#define KV_EST_MIN_THROTTLE    1500
+
+/**
+ * @brief How long the throttle must stand still before the kV estimate shows,
+ *        in ms.
+ *
+ * The RPM readout's filter (@ref RPM_FILTER_SHIFT 3, one step per 25 ms UI
+ * frame) leaves (7/8)^40, 0.48 % of a step, after 1000 ms. The motor's own
+ * spin-up time is not measured. @see kvSettleStep()
+ */
+#define KV_EST_SETTLE_MS       1000
+
+/**
+ * @brief How far the throttle may move, either way, without restarting the
+ *        kV estimate's settle: 20 of 2000, 1 %.
+ *
+ * A finger resting on the throttle bar moves the throttle with touch jitter:
+ * at MAX 100% one pixel is about 11 units. @see kvSettleStep()
+ */
+#define KV_EST_SETTLE_BAND     20
+
+/**
+ * @brief How close the filtered eRPM must be to the last reply before the kV
+ *        estimate shows, in thousandths: 5, 0.5 %.
+ *
+ * Covers a motor still spinning up after the throttle settled, and the
+ * display filter catching up. Up to 234,375 eRPM one eRPM step is 0.20 % to
+ * 0.39 % of the value (a normalised frame's mantissa of 256 to 511); above
+ * it the period is whole microseconds and a step is 1 / period, 1 % at
+ * 600,000 eRPM. Once passed, the check holds until the settle restarts, a
+ * condition fails or the gap exceeds @ref KV_EST_ERPM_HOLD_PERMILLE.
+ * @see kvEstView()
+ */
+#define KV_EST_ERPM_SETTLE_PERMILLE 5
+
+/**
+ * @brief How far the filtered eRPM may stray from the last reply, in
+ *        thousandths, before a passed eRPM check releases: 30, 3 %.
+ *
+ * Wider than @ref KV_EST_ERPM_SETTLE_PERMILLE so that noisy replies (a test
+ * series swings 2.1 %) and the 1 % eRPM step at 600,000 eRPM keep the figure.
+ * A reply of 0 always releases. A stalled motor then shows `KV EST --` on its
+ * first frame, not after the filter has decayed. @see kvEstView()
+ */
+#define KV_EST_ERPM_HOLD_PERMILLE 30
 
 /** @} */
 
@@ -272,8 +328,54 @@
  */
 #define EDT_ENABLE_REPEATS      10
 
-/** @brief How many consecutive frames one beacon command is sent for. */
+/**
+ * @brief How many consecutive frames one beacon command is sent for.
+ *
+ * AM32, Bluejay and BLHeli_S act on a beacon at its first frame
+ * (`docs/design/esc-commands.md`, "Rules"). The other commands of the
+ * command slot go out for `DSHOT_CMD_REPEATS`, 10 frames.
+ */
 #define BEEP_REPEATS             6
+
+/**
+ * @brief Frames of value 0 after a block of command 7 to 10 or 12, in ms at
+ *        the 1 kHz frame rate.
+ *
+ * BLHeli_32's specification asks for "several hundred ms" between commands;
+ * 300 is chosen, not measured. The pump counts the gap in frames, so a frame
+ * slot core1 skips makes it longer, never shorter.
+ * @see escCmdFrameSent()
+ */
+#define ESC_CMD_GAP_MS         300
+
+/**
+ * @brief Frames of value 0 after beacon 1 to 5, in ms at the 1 kHz frame
+ *        rate: an initialiser for an array of five.
+ *
+ * BLHeli_32's beep lengths, from its specification text. Not measured.
+ */
+#define ESC_CMD_BEEP_GAP_MS    { 260, 260, 280, 280, 1020 }
+
+/**
+ * @brief How long an ESC must have been answering before a command starts,
+ *        in ms.
+ *
+ * AM32 takes a command only after more than 1 s of zero input, counted in
+ * its main loop; 500 ms of margin on that, chosen. Counted from
+ * EscEdtState::linkUpSinceMs. Whether it suffices for every AM32 build is
+ * not verified.
+ */
+#define ESC_CMD_SETTLE_MS     1500
+
+/**
+ * @brief How long a command request waits for the pump before it expires,
+ *        in ms.
+ *
+ * A request accepted while an EDT enable, a sequence or its gap goes out
+ * waits for the wire. One that cannot start in this time is dropped and
+ * reported as expired, so that it does not go out later, on another screen.
+ */
+#define ESC_CMD_WAIT_MS       2000
 
 /**
  * @brief Abandon a reply that has not completed this long after the request.
@@ -286,8 +388,7 @@
 /**
  * @brief How long a refused USB DRIVE press keeps its explanation on screen.
  *
- * Longer than the BEEP flash on MENU (`BEEP_FLASH_MS`), because this one is a
- * sentence rather than a colour: the reason has to be read, and the thing it
+ * A sentence rather than a colour: the reason has to be read, and the thing it
  * tells you to do -- disarm, or stop the recording -- takes a moment to act
  * on. Short enough that it is gone before you next look at the screen for
  * something else.
@@ -439,11 +540,11 @@
 #define ARM_HOLD_MS            1000
 
 /**
- * @brief Drag sensitivity on the throttle gauge in HOLD mode, as a percentage.
+ * @brief Drag sensitivity on the throttle gauge with LATCH on, as a percentage.
  *
- * HOLD mode moves the throttle *relatively* — by how far your finger
- * travelled, not to where it landed — so touching the bar never makes the
- * motor jump. 100 means one track width of travel covers the full ceiling.
+ * With LATCH on the gauge moves the throttle *relatively* — by how far your
+ * finger travelled, not to where it landed — so touching the bar never makes
+ * the motor jump. 100 means one track width of travel covers the full ceiling.
  * Lower values give finer control and let you build throttle up over several
  * swipes.
  *
@@ -456,7 +557,7 @@
  *
  * The whole number-display area above the gauge (RPM readout plus telemetry
  * tiles) doubles as a relative throttle pad: swipe up for more, down for less.
- * It is *always* relative regardless of HOLD, because a big blank area has no
+ * It is *always* relative regardless of LATCH, because a big blank area has no
  * positional meaning — a tap on it must never move the motor.
  *
  * 100 means one full-height swipe covers the whole ceiling. Lower is finer;
@@ -499,13 +600,14 @@
  * or three, never stops a motor.
  *
  * While it does not answer, the tester disarms by the idle interlock's path
- * and refuses to arm, and the servo tester stops by its STOP's path. A
+ * and refuses to arm, and the servo tester and S.BUS OUTPUT stop by their
+ * STOP's path and refuse HOLD TO START. A
  * touch that does not answer cannot press DISARM or STOP, and the idle
  * interlock alone would leave a latched throttle running for up to
  * @ref IDLE_DISARM_MS.
  *
  * Not measured: whether the CST328 answers with no finger on the glass for
- * minutes (STATUS.md, open item 22).
+ * minutes (STATUS.md, open item 23).
  */
 #define TOUCH_LOST_READS       4
 
@@ -547,8 +649,10 @@
  * The values are a lithium-polymer (LiPo) cell's usual low range. They are
  * not measured on this board: neither the cell's voltage under the board's
  * load nor what the divider reads with USB (Universal Serial Bus) power
- * alone. Nothing is refused on them. The band is taken from the voltage as
- * drawn, rounded to centivolts.
+ * alone. While the band is red, below @ref BOARD_CELL_CRIT_MV, KST, Hitec
+ * and AM32 writes are refused (uiBoardWriteRefused() in ui.h); amber and the
+ * text colour refuse nothing. The band is taken from the voltage as drawn,
+ * rounded to centivolts.
  * @{
  */
 /**
@@ -628,6 +732,33 @@
 /** @} */
 
 /**
+ * @defgroup cfg_bridge_log USB bridge traffic log
+ * @brief DshotDisplay's bridge log, a build option, off by default
+ *        (docs/design/usb-bridge.md, decision 8). @see bridge_log.h
+ * @{
+ */
+
+/**
+ * @brief Set to 1 to record the USB bridge's traffic and print it on the
+ *        serial port after BACK.
+ *
+ * At 0 the log costs nothing: every entry point of bridge_log.h is an empty
+ * inline and the ring is not built. At 1 every frame from the PC and every
+ * run of bytes to it is kept, with its time, in a RAM ring of
+ * @ref USB_BRIDGE_LOG_BYTES, and printed as a hex dump on the same port once
+ * the bridge has let it go and before the console has it again, so no
+ * telemetry line lands inside the dump.
+ */
+#ifndef USB_BRIDGE_LOG
+#define USB_BRIDGE_LOG         0
+#endif
+
+/** @brief The log's ring, bytes: each record is 7 bytes and at most 64 of data. */
+#define USB_BRIDGE_LOG_BYTES   4096
+
+/** @} */
+
+/**
  * @defgroup cfg_am32 AM32 configuration mode
  * @brief Timings for reaching an ESC's bootloader. Tune these first if the
  *        config screen never connects.
@@ -657,6 +788,18 @@
  * depends on how often the firmware retries, not on how long it waits.
  */
 #define AM32_GREET_TMO_MS      30
+
+/**
+ * @brief The connect cycle's quiet phase, ms: the line rests on the pull-up
+ *        and nothing is sent, so Bluejay's 150 ms check and BLHeli_S's 15 ms
+ *        check can pass and an AM32 powered up meanwhile stays in its
+ *        bootloader (docs/design/bluejay-blheli-s.md, decision 2).
+ *        @see greet_cycle.h
+ */
+#define ESC_GREET_QUIET_MS     1000u
+
+/** @brief Greetings in a burst between two quiet phases, about 125 ms in all. */
+#define ESC_GREET_BURST        3u
 
 /**
  * @brief Pause after a settings write before reading it back.

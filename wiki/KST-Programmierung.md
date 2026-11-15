@@ -24,7 +24,7 @@ Digital).
 > die Platine mit einem Servo am ESC-Pin **startet**, und wenn du diesen
 > Bildschirm verlässt. Der Bildschirm fordert dich vorher zum Abziehen auf.
 
-Mit **SETTINGS → SERVO SUPPLY** auf `NONE`, der Voreinstellung, schaltest du
+Mit **SETTINGS → SERVO SUPPLY** auf `OWN`, der Voreinstellung, schaltest du
 das Servo von Hand ein und aus, mit einem Stecker oder einem Schalter. Mit
 `GP28` oder `GP29` schaltet der Prüfstand die Versorgung des Servos über einen
 DC-DC-Wandler (Gleichspannungswandler): siehe
@@ -36,7 +36,7 @@ DC-DC-Wandler (Gleichspannungswandler): siehe
 
 Das Servo braucht eine eigene Stromversorgung. Die Platine liefert nur Signal
 und Masse. Das Servo antwortet nur in den ersten Momenten, nachdem seine
-Versorgung eingeschaltet wurde. Mit SERVO SUPPLY auf `NONE` muss sich die
+Versorgung eingeschaltet wurde. Mit SERVO SUPPLY auf `OWN` muss sich die
 Versorgung daher von Hand schalten lassen: mit einem Stecker oder einem
 Schalter im Plusleiter. Mit `GP28` oder `GP29` schaltet der Prüfstand sie:
 siehe [Geschaltete Versorgung](#geschaltete-versorgung).
@@ -64,8 +64,8 @@ siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
-- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS** eingestellt.
-  Voreingestellt ist GP0.
+- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS → SIG PIN**
+  eingestellt, mit seinem J5-Pin unter dem Wert. Voreingestellt ist GP0.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
 
@@ -73,19 +73,26 @@ siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 
 ## Öffnen
 
-**MENU → KST SERVO** öffnen.
+Öffne **MENU → SERVO PROGRAMMER** und tippe auf **KST / CHASERVO** (siehe
+[Die Bildschirme](Die-Bildschirme#programmer)), mit stromlosem Servo, wie
+die Zeile unter dem Eintrag sagt: `POWER THE SERVO UP AFTER THE TAP.`, oder
+`THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung. PROGRAMMER
+belegt keinen Pin: DShot läuft bis zum Tippen auf SIG.
 
-Der Bildschirm übernimmt SIG vom ESC-Treiber. Dabei zeigt die Leiste
-`RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
-zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
+Das Tippen öffnet KST SERVO, das SIG im selben Frame vom ESC-Treiber
+übernimmt. Dabei zeigt die Leiste `RELEASING SIG GP0`, dann
+`TAKING SIG GP0`. Solange ein ESC auf dem Pin antwortet, zeigt sie
+stattdessen `CHECKING SIG GP0 FOR AN ESC`.
 
-- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP0.`
-  und danach `UNPLUG IT: KST FRAMES MAY READ` und `AS THROTTLE.` Er übernimmt
-  den Pin, sobald der ESC weg ist.
+- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm
+  `AN ESC ANSWERS ON SIG GP0.` und danach `UNPLUG IT: KST FRAMES MAY READ` und
+  `AS THROTTLE.` Er übernimmt den Pin, sobald der ESC weg ist. `BACK` führt
+  währenddessen zu `MENU` zurück.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
-  Pins noch belegt sind, zeigt er `PINS BUSY`.
+  Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`. Beides ist über
+  die Bildschirme nicht erreichbar.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
-  `GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
+  `SIG GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
   `CLOCK` und eine schließende Klammer. PWM ist Pulsweitenmodulation, DMA
   direkter Speicherzugriff (Direct Memory Access). `RETRY` versucht es
   erneut.
@@ -104,10 +111,11 @@ Servoimpulse.
 
 Der Bildschirm wiederholt die Eintrittsfolge des KST-Codes von rcbench, einen
 Versuch alle 116,6 ms bis 118,8 ms, 30 s lang. Die Leiste zählt Versuche und
-Zeit: `GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis aus
-Punkten.
+Zeit: `SIG GP0  TRY 12  1.4 S`. Solange die Suche läuft, dreht sich ein Kreis
+aus Punkten.
 
-Der Inhalt zeigt `POWER UP` und `THE SERVO NOW`, dann
+Der Inhalt zeigt `POWER UP` und `THE SERVO NOW` in Bernstein, den Schritt,
+der jetzt dran ist, dann
 `PLUG IT IN OR SWITCH ITS SUPPLY ON.` und
 `IT ANSWERS ONLY RIGHT AFTER POWER-ON.`
 
@@ -120,7 +128,7 @@ Antwort ist gültig, nennt eine bernsteinfarbene Zeile den Fehler, zum Beispiel
 
 | Leiste | Was geschehen ist | Schaltfläche |
 |---|---|---|
-| `GP0  TRY 12  1.4 S` | Die Suche läuft | `STOP SEARCH` |
+| `SIG GP0  TRY 12  1.4 S` | Die Suche läuft | `STOP SEARCH` |
 | `NO SERVO IN 30 S` | Kein Servo hat in 30 s geantwortet. Der Inhalt zeigt `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | `RETRY` |
 | `SEARCH STOPPED` | `STOP SEARCH` hat sie beendet, oder der Bildschirm hat gehangen und die Suche hat sich selbst gestoppt | `RETRY` |
 | `SEARCH FAILED` | Die Sitzung endete mit einem Ergebnis, das der Inhalt in Bernstein nennt | `RETRY` |
@@ -153,10 +161,10 @@ Liegt ein Vermerk auf der Karte, zeigt der Bildschirm in Bernstein
 Siehe [FILES](#files).
 
 Antwortet das Servo später nicht mehr, kehrt der Bildschirm hierher zurück
-und sucht erneut, aus jeder Ansicht außer der Verlassenseite und der
-Abziehseite. Er bemerkt es nur, während ein Lesen oder Schreiben läuft: Ein
-Servo, das unter einer ruhenden Feldliste ausgeschaltet wird, lässt die
-Liste stehen bis zum nächsten Lesen oder Schreiben. `BACK` während dieser
+und sucht erneut, aus jeder Ansicht außer der Verlassenseite. Er bemerkt es
+nur, während ein Lesen oder Schreiben läuft: Ein Servo, das unter einer
+ruhenden Feldliste ausgeschaltet wird, lässt die Liste stehen bis zum
+nächsten Lesen oder Schreiben. `BACK` während dieser
 Suche beendet sie und öffnet die Verlassenseite.
 
 ---
@@ -166,10 +174,10 @@ Suche beendet sie und öffnet die Verlassenseite.
 Ein abgeschlossenes Lesen öffnet die Feldliste.
 
 Die Leiste zeigt den Servotyp, `V6` oder `V8`, den Pin und die Sicherung:
-`BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die Karte gelegt
-hat, danach `BACKUP KST001`. Rechts steht ein Feld: `MODE` (grün), oder
-`IN DOUBT` (bernsteinfarben), wenn ein Schreibvorgang das Servo in einem
-unbekannten Zustand zurückgelassen hat.
+`BACKUP IN RAM`, bis ein Schreibvorgang die Sicherung auf die Karte gelegt
+hat, danach `BACKUP KST001`. Rechts steht ein eckiges Feld: `PROG MODE` auf
+Blau, solange das Servo im Programmiermodus ist, oder `IN DOUBT` auf Rot, wenn
+ein Schreibvorgang das Servo in einem unbekannten Zustand zurückgelassen hat.
 
 Jede Zeile zeigt die Gruppe in kleiner Schrift, den Feldnamen und den Wert.
 Die Zeilen sind 40 px hoch mit 42 px Abstand. Ziehe die Liste nach oben oder
@@ -178,8 +186,8 @@ unten, um zu verschieben.
 | Gruppe | Felder |
 |---|---|
 | TUNE | `MAX. DUTY`, `BOOST`, `STRETCH`, `SOFT START`, `SPEED LIMIT`, `SPEED`, `DEAD BAND` |
-| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSION`, `LEFT ANGLE`, `RIGHT ANGLE` |
-| FAILSAFE | `ALLOW UNCONT`, `UNCONTROLLED POS`, `UNCONTROLLED TIME` |
+| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSED`, `LEFT ANGLE`, `RIGHT ANGLE` |
+| FAILSAFE | `FAILSAFE MOVE`, `FAILSAFE POSITION`, `FAILSAFE TIME` |
 | LOCKED | `20K SEL`, `LOCK`, `PROT1 CANCLE`, `PROT1 EN`, `PROT1 TIME`, `PROT1 PWM`, `PROT POT ERR`, `POT SAM TIMES`, `PROT PWM ERR`, `NODE ADDR`, `SERVO / GYRO` |
 
 - Werte tragen ihre Einheit: `96 %`, `300.0 US`, `1.0 S`, `X1`, `ON`, `OFF`
@@ -188,7 +196,10 @@ unten, um zu verschieben.
   `RAW` und die Zahl.
 - LOCKED-Felder sind nur lesbar. Sie sind grau gezeichnet, und ein Tippen
   darauf wählt nichts aus.
-- Ein geänderter Wert ist grün gezeichnet.
+- Ein geänderter Wert ist cyan, mit einem 3 px breiten cyanfarbenen Balken am
+  linken Rand seiner Zeile. Ein Wert, wie er gelesen wurde, steht in der
+  Textfarbe, ausgewählt oder nicht: Die Auswahl hellt die Zeile und ihren
+  Namen auf, nicht den Wert.
 
 <img src="img/kst-edit.png" width="240" alt="DEAD BAND ausgewählt und von 2.0 US auf 2.2 US gestellt">
 
@@ -196,7 +207,8 @@ unten, um zu verschieben.
 
 1. Tippe auf eine änderbare Zeile. Die Editorleiste unter der Liste zeigt das
    Feld, den gespeicherten und den vorgemerkten Wert, zum Beispiel
-   `DEAD BAND  2.0 US ->`. Ist keine Zeile gewählt, zeigt die Leiste
+   `DEAD BAND  2.0 US ->` über `2.2 US`, den vorgemerkten Wert in Cyan, sobald
+   er abweicht. Ist keine Zeile gewählt, zeigt die Leiste
    `TAP A ROW TO EDIT IT` und `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tippe auf `-` oder `+` (44 × 44 px), um den Wert zu verstellen. Gedrückt
    halten wiederholt den Schritt. `+` erhöht den angezeigten Wert und `-`
@@ -204,7 +216,7 @@ unten, um zu verschieben.
    `DEAD BAND`.
 3. Oder wische die Zeile zur Seite. Ein Schritt ist ein Elftel des
    Wertebereichs des Feldes, aufgerundet, mindestens ein Rohschritt.
-4. `REVERT` verwirft alle vorgemerkten Änderungen.
+4. `REVERT`, in Bernstein beschriftet, verwirft alle vorgemerkten Änderungen.
 
 Ein Rohschritt ändert nicht immer den Text: `MAX. DUTY` zeigt `96 %` bei
 Rohwert 245 und bei Rohwert 244. Die Editorleiste und die Schreibseite
@@ -216,13 +228,13 @@ Zwei Arten von Grenzen gelten:
   die eine verletzen, daher halten `-` und `+` beim letzten zulässigen Wert an.
   `MAX. DUTY` hält zum Beispiel bei 98 % an. Ist kein weiterer Schritt
   zulässig, ist die Schaltfläche abgeblendet gezeichnet.
-- **Eine weiche Regel** wird übernommen. Die Zeile bekommt an ihrem linken Rand
-  eine 3 px breite bernsteinfarbene Markierung, und die Editorleiste zeigt den
-  Text der Regel in Bernstein, zum Beispiel
+- **Eine weiche Regel** wird übernommen. Der Balken der Zeile wird
+  bernsteinfarben, der Wert bleibt cyan, und die Editorleiste zeigt den Text
+  der Regel in Bernstein, zum Beispiel
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 
-Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `HOLD TO WRITE`
-(110 px), `REVERT` (52 px) und `FILES` (54 px). `HOLD TO WRITE` wirkt nur,
+Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `WRITE...`
+(110 px), `REVERT` (52 px) und `FILES` (54 px). `WRITE...` wirkt nur,
 wenn etwas vorgemerkt ist, keine harte Grenze verletzt ist und das Servo nicht
 im Zweifel ist.
 
@@ -230,16 +242,18 @@ im Zweifel ist.
 
 ## Schreiben
 
-**Halte `HOLD TO WRITE` 1 s lang.** Während du hältst, füllt sich ein Balken.
-Die Schreibseite öffnet sich und schreibt noch nichts.
+**Tippe `WRITE...` an.** Die Schreibseite öffnet sich und schreibt noch
+nichts. `WRITE...` zu halten bewirkt nicht mehr als ein Tippen: Die Seite
+öffnet sich, wenn der Finger abhebt.
 
-<img src="img/kst-write.png" width="240" alt="Die Schreibseite, ein Feld"> <img src="img/kst-write-many.png" width="240" alt="Die Schreibseite, fünf Felder, AND 1 MORE">
+<img src="img/kst-write.png" width="240" alt="Die Schreibseite, 1 CHANGE"> <img src="img/kst-write-many.png" width="240" alt="Die Schreibseite, 5 CHANGES, AND 1 MORE">
 
-Die Schreibseite heißt `KST WRITE`. Die Leiste zählt die Felder, `1 FIELD`
-oder `2 FIELDS`. Jedes geänderte Feld ist eine Zeile, `DEAD BAND` und
-`2.0 US -> 2.2 US`, bis zu vier, danach `AND 3 MORE`. Bernsteinfarbene Zeilen
-mit einem `*` am Anfang nennen die weichen Regeln, die gelten. Die Zeile am
-unteren Rand sagt, wohin die Sicherung geht:
+Die Schreibseite heißt `KST WRITE`. Die Leiste zählt die Änderungen,
+`1 CHANGE` oder `2 CHANGES`. Jedes geänderte Feld ist eine Zeile,
+`DEAD BAND` und `2.0 US -> 2.2 US`, der alte Wert und der Pfeil gedämpft,
+der neue Wert cyan, bis zu vier, danach `AND 3 MORE`. Bernsteinfarbene
+Zeilen mit einem `*` am Anfang nennen die weichen Regeln, die gelten. Die
+Zeile am unteren Rand sagt, wohin die Sicherung geht:
 
 | Zeile | Wann |
 |---|---|
@@ -255,11 +269,11 @@ unteren Rand sagt, wohin die Sicherung geht:
 `NO CARD`, `CARD ON USB` und `NO BACKUP ON THE CARD` stehen in Bernstein:
 Die Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
 späteres Schreiben mit eingebundener Karte sie sichert; LEAVE, REBOOT oder ein
-Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch. Ob
-es abgelehnt werden oder ein zweites Halten brauchen soll, ist beim Eigentümer
-offen.
+Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch.
 
-**Ein zweites Halten von 1 s schreibt.** Bevor der erste Frame des ersten
+**Halte das `HOLD TO WRITE` der Seite 1 s lang, um zu schreiben.** Während
+du hältst, füllt sich ein Balken; das Tippen, das die Seite geöffnet hat,
+zählt nicht. Bevor der erste Frame des ersten
 Schreibens der Sitzung mit eingebundener Karte zum Servo geht, kommt das beim
 Eintritt gelesene Abbild als Sicherung `BACKUP/KSTnnn.TXT` auf die Karte, und das Servo,
 wie es gerade ist, als Vermerk `KST/KST.TXT`. Spätere Schreibvorgänge der
@@ -273,24 +287,59 @@ Sicherung und der Vermerk zuerst auf die Karte, während der Bildschirm weiter
 zeichnet. Die Seite zeigt `SAVING THE BACKUP TO THE CARD.` und zum Beispiel
 `BLOCKS LEFT: 12`, und das Servo wird erst geschrieben, wenn die Karte beides
 hält. Nimmt die Karte die Daten nicht an, hält das Schreiben an:
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 Das Übertragen scheitert, wenn ein Blockschreiben fehlschlägt oder die Karte
 im Steckplatz gewechselt hat, nicht bei einer vollen Karte: Eine volle Karte
 endet in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist. Zum Servo ging
 nichts. Die Karte wird neu eingebunden, und `OK` führt zur Feldliste zurück;
-das nächste `HOLD TO WRITE` sichert erneut und schreibt dann.
+das nächste Schreiben, `WRITE...` und sein Halten, sichert erneut und
+schreibt dann.
+
+Das Warten auf die Karte endet, wenn die Karte die Dateien hält und das
+Schreiben hinausgeht, oder wenn das Übertragen scheitert und die Seite es
+wie oben sagt. Ein Hänger des Bildschirms mit der geschalteten Versorgung
+beendet es ebenfalls: Der Bildschirm kehrt zu seiner Hauptansicht mit
+`RETRY` zurück, nichts wird geschrieben, und das nächste Schreiben öffnet
+sich mit einem Tippen und wartet auf sein eigenes Halten. Ein Servo, das
+während des Wartens abgezogen wird, bemerkt der Bildschirm erst, wenn das
+Schreiben hinausgeht, das dann scheitert.
 
 <img src="img/kst-flush-failed.png" width="240" alt="Die Schreibseite, nachdem die Karte die Daten nicht annahm">
 
 Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
-`PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. `BACK` während des
-Schreibens wird vorgemerkt: Die Seite zeigt `LEAVING AFTER THE WRITE ENDS.`,
-und die Verlassenseite folgt auf das Ergebnis.
+`PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. Während das
+Schreiben läuft, und während es auf die Karte wartet, ist `BACK` grau und tut
+nichts: Kein `BACK` lässt ein Servo halb geschrieben zurück. `BACK` vor dem
+Halten oder unter dem Ergebnis führt zur Feldliste zurück.
+
+### Die BOARD-Spannung rot
+
+Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
+wieder 3,35 V erreicht, schreibt das Halten der Seite nichts: Keine Datei geht
+auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` und
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Die
+Sicherung und der Vermerk werden direkt nach dieser Prüfung eingereiht; der
+Bildschirm fragt erneut, kurz bevor sein erster Frame hinausgeht, nach dem
+Übertragen zur Karte. Eine Spannung, die währenddessen rot wird, hält das
+Schreiben ebenfalls an: Die Sicherung und der Vermerk des Schreibens können
+dann schon auf der Karte sein, und kein Frame geht hinaus. Ein laufendes
+Schreiben wird nicht angehalten: Abgebrochen ließe es das Servo teilweise
+geschrieben und ungeprüft zurück, während eines, das zu Ende läuft, mit dem
+Rücklesen endet. Bernstein und ein Wert unter 2,50 V (keine Zelle zu
+beurteilen) lehnen kein Schreiben ab. Das `HOLD TO RESTORE` der
+Wiederherstellungsseite wird ebenso abgelehnt.
+Die Bereiche sind der übliche Bereich einer Lithium-Polymer-Zelle, auf dieser
+Platine nicht gemessen. Was die Platine an USB-Versorgung ohne Zelle liest,
+ist ebenfalls nicht gemessen, also kann eine Platine nur an USB das Schreiben
+ablehnen.
+
+<img src="img/kst-board-low.png" width="240" alt="Die Schreibseite mit roter BOARD-Spannung: BOARD VOLTAGE IS RED: NOT WRITTEN. und CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
 
 ### Das Ergebnis
 
-Das Ergebnis ersetzt die Schaltflächen durch `OK`. `OK` führt zur Feldliste
-zurück.
+Das Ergebnis ersetzt die Schaltflächen durch `OK`. `OK` oder `BACK` führt
+zur Feldliste zurück.
 
 <img src="img/kst-result.png" width="240" alt="WRITE VERIFIED">
 
@@ -325,7 +374,8 @@ Zu den roten Ergebnissen gehören:
 
 <img src="img/kst-doubt.png" width="240" alt="IN DOUBT: THE SERVO DOES NOT HOLD THE VALUES">
 
-Nach einem Ergebnis `IN DOUBT` zeigt das Feld der Feldliste `IN DOUBT`, und
+Nach einem Ergebnis `IN DOUBT` zeigt das Feld der Feldliste `IN DOUBT` auf
+Rot, und
 die Schreib-Schaltfläche zeigt `IN DOUBT` und tut nichts. Der Bildschirm
 nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
 über [FILES](#files) wieder her.
@@ -352,8 +402,8 @@ nimmt kein Schreiben an, bis eine Wiederherstellung gelaufen ist. Stelle
 | Schaltfläche | Was sie tut |
 |---|---|
 | `SAVE AS KST003` | Schreibt das Servo, wie es gerade ist, nach `KST/` unter dem nächsten freien Namen, eins über dem höchsten KSTnnn, und nie über eine Datei. Die Leiste zeigt `SAVED AS KST003` in Grün. Hält `KST/` 50 Dateien, wirkt die Schaltfläche nicht, und die Leiste zeigt `KST/ HOLDS 50 FILES. REMOVE SOME.` Es gibt keine Tastatur, daher keinen anderen Namen |
-| `LOAD` | Hält die gewählte Datei gegen das Servo (Typ, Zugriffsklassen, harte Grenzen) und übernimmt ihre Werte als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `HOLD TO WRITE` |
-| `HOLD TO RESTORE` | 1 s halten. Schreibt das beim Eintritt gelesene Abbild über die Wiederherstellungsseite ins Servo zurück |
+| `LOAD` | Hält die gewählte Datei gegen das Servo (Typ, Zugriffsklassen, harte Grenzen) und übernimmt ihre Werte als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `WRITE...` und die Schreibseite |
+| `RESTORE...` | Tippen öffnet die Wiederherstellungsseite; ihr `HOLD TO RESTORE`, 1 s gehalten, schreibt das beim Eintritt gelesene Abbild ins Servo zurück |
 
 Eine Ablehnung nennt ihre Zeile, zum Beispiel
 `LINE 14: NOT A VALUE OF DEAD BAND`. Weitere Hinweise in der Leiste:
@@ -367,14 +417,18 @@ Eine Ablehnung nennt ihre Zeile, zum Beispiel
   gelesen. Es kann eine andere Karte sein. Nichts wird geladen, bis eine
   Zeile neu gewählt ist.
 
-`HOLD TO RESTORE` wirkt, wenn das Servo von der Sicherung abweicht oder im
-Zweifel ist. Die Wiederherstellungsseite heißt `KST RESTORE`. Sie zeigt zum
-Beispiel `BACK TO THE SESSION'S BACKUP` und
+`RESTORE...` wirkt, wenn das Servo von der Sicherung abweicht oder im
+Zweifel ist. Die Wiederherstellungsseite heißt `KST RESTORE`, und geschrieben
+wird erst, wenn ihr `HOLD TO RESTORE` 1 s lang gehalten ist.
+
+<img src="img/kst-restore.png" width="240" alt="Die Wiederherstellungsseite vor dem Halten: BACK TO THE SESSION'S BACKUP und HOLD TO RESTORE">
+
+Die Seite zeigt zum Beispiel `BACK TO THE SESSION'S BACKUP` und
 `4 REGISTERS DIFFER FROM THE BACKUP`. Sie zählt Register, gesperrte und
-unbenannte eingeschlossen, denn die Wiederherstellung schreibt auch sie.
-Eine Wiederherstellung, die der Planer nicht geprüft hat, braucht ein
-zweites Halten. Die Seite zeigt dann
-`THE PLANNER DID NOT CHECK THIS` und `RESTORE. HOLD AGAIN TO RUN IT.`
+unbenannte eingeschlossen, denn die Wiederherstellung schreibt auch sie. Eine
+Wiederherstellung, die der Planer nicht geprüft hat, braucht ein zweites
+Halten. Die Seite zeigt dann `THE PLANNER DID NOT CHECK THIS` und
+`RESTORE. HOLD AGAIN TO RUN IT.`
 
 ### Keine Karte, eine von USB gehaltene Karte, eine Karte ohne Datei
 
@@ -387,7 +441,7 @@ zweites Halten. Die Seite zeigt dann
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den Sicherungen des
 AM32-Editors und des Hitec-Programmierers, `BACKUP/KSTnnn.TXT`,
@@ -415,36 +469,50 @@ geschrieben. Ohne gewählte Zeile zeigt die Editorleiste
 ## Verlassen
 
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` in der Suche öffnet
-sie ebenfalls, sobald ein Servo geantwortet hat.
+sie ebenfalls, sobald ein Servo geantwortet hat. `BACK` auf der
+Verlassenseite ist grau und bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-<img src="img/kst-leave.png" width="240" alt="Die Verlassenseite: POWER THE SERVO OFF."> <img src="img/kst-leave-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN.">
+<img src="img/leave-kst.png" width="240" alt="Die Verlassenseite: 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="Nach LEAVE: 2 UNPLUG THE SERVO. aktuell, NEXT SERVO, RESTART DSHOT grau">
 
-Die Seite zeigt `POWER THE SERVO OFF.` und
-`IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.` Mit vorgemerkten
-Änderungen kommt `2 CHANGES NOT WRITTEN.` hinzu, im Zweifel
-`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` führt zur Feldliste zurück,
-nach einem verlorenen Servo zur Suche.
+Die Seite nummeriert drei Schritte. Der aktuelle Schritt ist
+bernsteinfarben, mit einem Balken am linken Rand; die anderen sind grau:
+
+1. `POWER THE SERVO OFF, THEN LEAVE.`, mit
+   `IT STAYS IN PROGRAMMING MODE UNTIL` und `ITS SUPPLY IS OFF.`
+2. `UNPLUG THE SERVO.`, mit `DSHOT RESTARTS ON SIG GP0 AND READS` und
+   `AS A 970 US PULSE AT 1000 HZ.`
+3. `RESTART DSHOT.`
+
+Unter den Schritten nennt die Seite in Bernstein, was LEAVE verliert:
+`2 CHANGES NOT WRITTEN.` bei vorgemerkten Änderungen und
+`THE SERVO IS IN DOUBT: RESTORE FIRST.` nach einem Schreiben im Zweifel.
+
+**`STAY`** führt zur Feldliste zurück, nach einem verlorenen Servo zur Suche.
 
 **Schalte das Servo aus. Tippe dann auf `LEAVE`.** Der Bildschirm hält die
-Leitung 100 ms lang auf Low, lässt den Pin los und zeigt `UNPLUG THE SERVO.`
-über `DSHOT RESTARTS ON GP0 AND READS AS` und `A 970 US PULSE AT 1000 HZ.`
-`LEAVE` verlässt auch eine Sitzung, die im Zweifel ist.
+Leitung 100 ms lang auf Low und lässt den Pin los. Ab dem Tippen ist
+Schritt 2 aktuell. `LEAVE` verlässt auch eine Sitzung, die im Zweifel ist.
+Solange der Pin freigegeben wird, zeigt die Seite `RELEASING THE PIN`, und
+die beiden Tasten, `NEXT SERVO` und `RESTART DSHOT` an der Stelle von
+`LEAVE`, sind grau.
 
-**Zieh das Servo ab und tippe dann auf `RESTART DSHOT`.** Der ESC-Treiber
-übernimmt den Pin wieder, und `MENU` erscheint. `BACK` auf dieser Seite führt
-stattdessen zur Suche zurück und behält den Pin. Solange die Seite
-`RELEASING THE PIN` oder `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` zeigt, ist
-`BACK` deaktiviert gezeichnet, als Umriss mit grauer Beschriftung: Es wirkt
-ab dem Moment, in dem `UNPLUG THE SERVO.` erscheint.
+**Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
+Es behält den Pin und startet eine neue Suche, und die Seite zeigt
+`NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** wirkt 1 s danach:
+Der ESC-Treiber übernimmt den Pin wieder, und `MENU` erscheint. Die Sekunde
+macht ein Doppeltippen auf `LEAVE` harmlos: Es landet, während
+`RESTART DSHOT` grau ist. Ein Druck, der begann, während es grau war,
+bewirkt beim Loslassen nichts.
 
 `BACK` in der Suche, bevor ein Servo geantwortet hat, gibt den Pin frei und
-zeigt die Abziehseite unmittelbar.
+öffnet die Seite bei Schritt 2, mit 1 nummeriert: `1 UNPLUG THE SERVO.`,
+`2 RESTART DSHOT.`
 
 ---
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`AN ESC ANSWERS ON SIG GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
 - **`NO SERVO IN 30 S`.** Prüfe Signal und Masse. Schalte das Servo erneut
   ein, während der Bildschirm sucht: Es antwortet nur direkt nach dem
   Einschalten.
@@ -457,8 +525,9 @@ zeigt die Abziehseite unmittelbar.
   das Servo. Schreibe erneut.
 - **Der Bildschirm kehrt zur Suche zurück.** Das Servo antwortet nicht mehr.
   Schalte es erneut ein.
-- **`IN DOUBT`.** Stelle über FILES mit `HOLD TO RESTORE` wieder her.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+- **`IN DOUBT`.** Stelle über FILES wieder her: `RESTORE...`, dann
+  `HOLD TO RESTORE`.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
   erneut.
 
@@ -474,23 +543,42 @@ Pull-down an Enable: 10 kΩ bis 100 kΩ für ein Enable ohne internen Pull-up.
 **Ein ESC an dieser Leitung bekommt den Ausgang des Wandlers auf seine
 BEC-Leitung.**
 
-<img src="img/kst-switched.png" width="240" alt="Die geschaltete Suche: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="Die Seite zum Verlassen mit HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="Der hängende Bildschirm: SUPPLY OFF">
+<img src="img/kst-switched.png" width="240" alt="Die geschaltete Suche: SUPPLY OFF 1.4 S"> <img src="img/leave-kst-switched.png" width="240" alt="Die Verlassenseite mit HOLD TO REBOOT"> <img src="img/leave-kst-supply-off.png" width="240" alt="Nach LEAVE: SUPPLY OFF FOR 2.0 S: 1.4 S LEFT."> <img src="img/kst-stalled.png" width="240" alt="Der hängende Bildschirm: SUPPLY OFF">
 
 - **Die Suche** schaltet das Servo vor jedem Versuch 2 s aus, dann ein:
-  `GP0  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
+  `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`. In die 30 s der Suche passen 14
   Einschaltvorgänge; danach `NO ANSWER IN 14 POWER-UPS`.
-- **Die Seite zum Verlassen** zeigt `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`
-  Nach LEAVE zeigt die Abziehseite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: Der
-  Pin wird 2 s nach dem Ausschalten freigegeben, gleich was die Sitzung
-  beendet.
-- **HOLD TO REBOOT** (1 s) schaltet das Servo 2 s aus und 1 s ein, geht in
-  den Programmiermodus und liest das Servo, wie es ist. Dieses Lesen ist die
+- **Die Verlassenseite** zeigt als Schritt 1
+  `LEAVE SWITCHES THE SUPPLY OFF.` Nach LEAVE zeigt sie
+  `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: Der Pin wird 2 s nach dem Ausschalten
+  freigegeben, gleich was die Sitzung beendet. Danach nennt keine Zeile die
+  Versorgung des nächsten Servos: Die Bank schaltet sie.
+- **HOLD TO REBOOT** (1 s), rechts neben `STAY` auf der Verlassenseite vor
+  LEAVE, schaltet das Servo 2 s aus und 1 s ein, geht in den
+  Programmiermodus und liest das Servo, wie es ist. Dieses Lesen ist die
   neue Sicherung, und die offenen Änderungen fallen weg. Ohne Karte geht die
-  Sicherung im Speicher verloren; die Seite sagt das über der Schaltfläche.
+  Sicherung im Speicher verloren; die Seite sagt das über der Schaltfläche:
+  `NO CARD: REBOOT LOSES THE BACKUP` und `IN RAM.`
+- **`BACK` während REBOOT** schaltet die Versorgung ab wie LEAVE und öffnet
+  die Verlassenseite bei `1 UNPLUG THE SERVO.`
 - **Ein Bildschirm, der 250 ms hängt,** schaltet die Versorgung ab, sobald
   eine laufende Operation geendet hat. Das Servo verlässt den
   Programmiermodus, und seine Sicherung im Speicher geht verloren. RETRY
   schaltet es ein und liest es erneut.
+- **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
+  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein
+  Messwert von 3,0 A oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die
+  Versorgung hochkam, sie sofort ab, auch während eines Lesens oder Schreibens.
+  Der Rahmen auf der Leitung läuft zu Ende: Der Leitungstreiber kann keinen
+  abbrechen. Das Servo verlässt den Programmiermodus, und die Seite zeigt
+  `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` oder
+  `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, dann
+  `RETRY POWERS IT UP AND READS IT AGAIN.` Die Versorgung bleibt bis RETRY
+  aus. Ein abgebrochenes Schreiben ist zweifelhaft, wie nach einem Hängen.
+  Ein Sensor, der nicht antwortet, `-- A` in der Leiste, schaltet nichts
+  ab, und die Sitzung läuft weiter. Nicht auf Hardware getestet.
+
+<img src="img/kst-cut.png" width="240" alt="Die harte Abschaltung: SIG GP0  SUPPLY OFF, THE SERVO DREW 3.0 A OR MORE, RETRY">
 
 ---
 

@@ -47,6 +47,7 @@
  * - @ref esc_task.h — core1 DShot pump and EDT decode
  * - @ref pin_claim.h — a screen takes the two signal pins from DShot
  * - @ref core1_job.h — core1 work on the claimed pins
+ * - @ref usb_bridge.h — the USB bridge's side of the serial port (core0)
  * - @ref servo_job.h — the servo tester's core1 job: PWM pulses, slew, sweep
  * - @ref servo_model.h — the servo tester's rules, pure
  * - @ref ui_servo.h — the servo tester screens
@@ -73,13 +74,16 @@
 #include "st7789.h"
 #include "touch.h"
 #include "sense.h"
+#include "clock.h"
 #include "esc_task.h"
 #include "core1_job.h"
+#include "usb_bridge.h"
 #include "ui.h"
 #include "sd_log.h"
 #include "usb_dev.h"
 #include "usb_msc.h"
 #include "card_cache.h"
+#include "servo_log.h"
 #include "settings.h"
 #include "servo_supply.h"
 #include "diag.h"
@@ -139,6 +143,9 @@ void setup() {
 	// tester. @see touchAnswered(), uiTouchLost()
 	touchInit();
 	senseInit();        // the current sensor, on the bus touchInit() set up
+	// The real-time clock, read once on the same bus, after senseInit() has
+	// started the bus record its transfers are noted to. @see clock.h
+	clockInit();
 	uiInit();
 
 	// The splash, while the ESC finishes booting. Core1 is not running yet:
@@ -183,6 +190,12 @@ void loop() {
 	// returns, so calling it from the top of the loop costs nothing when idle.
 	usbDevTask();
 
+	// The USB bridge's side of the port, right after TinyUSB has taken what
+	// arrived: every pass, not once a UI frame, so a frame from the PC goes
+	// to the wire 2 ms after its last byte. Nothing while the bridge does not
+	// hold the claim. @see usb_bridge.h
+	usbBridgeTask();
+
 	uint32_t now = millis();
 	if ((int32_t)(now - s_nextUiMs) >= 0) {
 		s_nextUiMs = now + UI_PERIOD_MS;
@@ -210,6 +223,12 @@ void loop() {
 	// the block in flight per pass, never a wait on the card's busy line.
 	// Nothing while the cache is off. @see card_cache.h
 	cardCachePoll();
+
+	// The servo tester's log, after the poll: its one card call of a pass
+	// is made only while nothing is queued or in flight, so a pass reads
+	// the card at most once, for this call or for the poll's batch start.
+	// Nothing while no servo log is open. @see servo_log.h
+	servoLogPoll();
 #endif
 
 #if SERIAL_TELEMETRY 

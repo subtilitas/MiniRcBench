@@ -40,6 +40,8 @@ set_source_files_properties(
     ${CMAKE_CURRENT_LIST_DIR}/hitec_job.cpp
     ${CMAKE_CURRENT_LIST_DIR}/hitec_line_port.cpp
     ${CMAKE_CURRENT_LIST_DIR}/servo_supply.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/sense.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/supply_guard.cpp
     ${HITEC_LIB}/protocols/hitec/hitec_session.c
     ${HITEC_LIB}/protocols/hitec/hitec_reg.c
     ${HITEC_LIB}/protocols/hitec/hitec_wire.c

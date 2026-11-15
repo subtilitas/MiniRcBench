@@ -1,0 +1,246 @@
+/**
+ * @file
+ * @brief Single-servo and two-servo models of a control surface.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include "servo_sim.h"
+
+#include <string.h>
+
+void servo_sim_defaults(servo_sim_cfg_t *cfg)
+{
+    if (cfg == NULL) {
+        return;
+    }
+    memset(cfg, 0, sizeof(*cfg));
+    cfg->stop_lo_us     = 1150;
+    cfg->stop_hi_us     = 1880;
+    cfg->free_a         = 0.12f;
+    cfg->stall_a        = 2.4f;
+    cfg->bind_us        = 45;
+    cfg->travel_a       = 0.95f;  /* about 40% of stall, while moving */
+    cfg->slew_us_per_ms = 1.2f;   /* 0.17s for 60 degrees */
+    cfg->noise_a        = 0.02f;
+}
+
+void servo_sim_init(servo_sim_t *s, const servo_sim_cfg_t *cfg)
+{
+    if (s == NULL || cfg == NULL) {
+        return;
+    }
+    memset(s, 0, sizeof(*s));
+    s->cfg  = *cfg;
+    s->seed = 0x5A17C0DEu;
+    /* Averaged in float: an odd sum of the two stops loses half a
+     * microsecond to integer division, and the midpoint is the one position
+     * this model starts from. */
+    s->position_us = ((float)cfg->stop_lo_us + (float)cfg->stop_hi_us) / 2.0f;
+}
+
+/**
+ * @brief Deterministic, so a failing case reproduces.
+ *
+ * @param s Model state. Advances the noise generator.
+ * @return noise, A, within plus or minus half of noise_a.
+ */
+static float noise(servo_sim_t *s)
+{
+    s->seed = s->seed * 1664525u + 1013904223u;
+    const float unit = (float)((s->seed >> 8) & 0xFFFFu) / 65535.0f; /* 0..1 */
+    return (unit - 0.5f) * s->cfg.noise_a;
+}
+
+float servo_sim_step(servo_sim_t *s, uint16_t cmd_us, uint32_t now_ms)
+{
+    if (s == NULL) {
+        return 0.0f;
+    }
+    if (!s->started) {
+        s->started = true;
+        s->last_ms = now_ms;
+    }
+
+    const uint32_t dt_ms = (uint32_t)(now_ms - s->last_ms);
+    s->last_ms = now_ms;
+
+    /* The servo's own limits first: past one, the servo holds it. */
+    if (s->cfg.limit_hi_us != 0u && cmd_us > s->cfg.limit_hi_us) {
+        cmd_us = s->cfg.limit_hi_us;
+    }
+    if (s->cfg.limit_lo_us != 0u && cmd_us < s->cfg.limit_lo_us) {
+        cmd_us = s->cfg.limit_lo_us;
+    }
+
+    /*
+     * The horn travels toward the command at a finite rate and cannot go past
+     * the stop, so the target it tracks is the command clamped to the
+     * linkage's range.  Clamping here separates "still travelling" from
+     * "arrived and pushing", which draw different currents.
+     */
+    float target = (float)cmd_us;
+    if (target > (float)s->cfg.stop_hi_us) {
+        target = (float)s->cfg.stop_hi_us;
+    } else if (target < (float)s->cfg.stop_lo_us) {
+        target = (float)s->cfg.stop_lo_us;
+    }
+    const float reach  = s->cfg.slew_us_per_ms * (float)dt_ms;
+    if (target > s->position_us) {
+        s->position_us += reach;
+        if (s->position_us > target) {
+            s->position_us = target;
+        }
+    } else {
+        s->position_us -= reach;
+        if (s->position_us < target) {
+            s->position_us = target;
+        }
+    }
+
+    /*
+     * How far past its stop the servo is commanded.  The horn cannot get
+     * there, but the command sets how hard it pushes, so this is measured
+     * from cmd_us rather than position_us.
+     */
+    float over = 0.0f;
+    if (cmd_us > s->cfg.stop_hi_us) {
+        over = (float)(cmd_us - s->cfg.stop_hi_us);
+    } else if (cmd_us < s->cfg.stop_lo_us) {
+        over = (float)(s->cfg.stop_lo_us - cmd_us);
+    }
+
+    const bool arrived = (s->position_us == target);
+
+    float amps;
+    if (!arrived) {
+        /*
+         * Still moving, so not pushing on anything.  A reading taken here is
+         * travel current, which a search would take for a baseline or a bind.
+         */
+        amps = s->cfg.travel_a;
+    } else if (over > 0.0f) {
+        float t = over / (float)(s->cfg.bind_us == 0 ? 1 : s->cfg.bind_us);
+        if (t > 1.0f) {
+            t = 1.0f;
+        }
+        amps = s->cfg.free_a + (s->cfg.stall_a - s->cfg.free_a) * t;
+    } else {
+        amps = s->cfg.free_a;
+    }
+
+    /* A tight spot costs extra to hold, whether or not anything is bound. */
+    if (arrived && s->cfg.stiff_hi_us > s->cfg.stiff_lo_us
+        && cmd_us >= s->cfg.stiff_lo_us && cmd_us <= s->cfg.stiff_hi_us) {
+        amps += s->cfg.stiff_a;
+    }
+
+    amps += noise(s);
+    return amps < 0.0f ? 0.0f : amps;
+}
+
+/* ------------------------------------------ two servos on one surface */
+
+void servo_pair_defaults(servo_pair_cfg_t *cfg, uint16_t center_us)
+{
+    if (cfg == NULL) {
+        return;
+    }
+    memset(cfg, 0, sizeof(*cfg));
+    cfg->center_us      = center_us;
+    cfg->offset_us      = 18;     /* B's center out by about 1.6 degrees */
+    cfg->travel         = 1.06f;  /* and its throw 6% long */
+    cfg->free_a         = 0.24f;  /* two servos, free */
+    cfg->fight_a_per_us = 0.011f;
+    cfg->travel_a       = 1.10f;
+    cfg->slew_us_per_ms = 1.2f;
+    cfg->noise_a        = 0.02f;
+}
+
+void servo_pair_init(servo_pair_t *p, const servo_pair_cfg_t *cfg)
+{
+    if (p == NULL || cfg == NULL) {
+        return;
+    }
+    memset(p, 0, sizeof(*p));
+    p->cfg      = *cfg;
+    p->seed     = 0x2B0DDA7Au;
+    p->pos_a_us = (float)cfg->center_us;
+    p->pos_b_us = (float)cfg->center_us;
+}
+
+float servo_pair_disagreement(const servo_pair_t *p, uint16_t cmd_a_us,
+                              uint16_t cmd_b_us)
+{
+    if (p == NULL) {
+        return 0.0f;
+    }
+    const float center = (float)p->cfg.center_us;
+    /*
+     * Where each servo holds the surface.  A is the reference only because
+     * there is nothing else to be right against: what matters is the
+     * difference, which the surface absorbs.
+     */
+    const float a = (float)cmd_a_us;
+    const float b = center + (float)p->cfg.offset_us
+                    + p->cfg.travel * ((float)cmd_b_us - center);
+    const float d = a - b;
+    return d < 0.0f ? -d : d;
+}
+
+/**
+ * @brief Move @p pos toward @p target by at most @p reach; true if it arrived.
+ *
+ * @param pos    Position to move, us. Updated in place.
+ * @param target Target position, us.
+ * @param reach  Largest move allowed, us.
+ * @return true when the position equals the target after the move.
+ */
+static bool approach(float *pos, float target, float reach)
+{
+    if (*pos < target) {
+        *pos += reach;
+        if (*pos > target) {
+            *pos = target;
+        }
+    } else if (*pos > target) {
+        *pos -= reach;
+        if (*pos < target) {
+            *pos = target;
+        }
+    }
+    return *pos == target;
+}
+
+float servo_pair_step(servo_pair_t *p, uint16_t cmd_a_us, uint16_t cmd_b_us,
+                      uint32_t now_ms)
+{
+    if (p == NULL) {
+        return 0.0f;
+    }
+    if (!p->started) {
+        p->started = true;
+        p->last_ms = now_ms;
+    }
+    const uint32_t dt_ms = (uint32_t)(now_ms - p->last_ms);
+    p->last_ms = now_ms;
+
+    const float reach = p->cfg.slew_us_per_ms * (float)dt_ms;
+    const bool  a_in  = approach(&p->pos_a_us, (float)cmd_a_us, reach);
+    const bool  b_in  = approach(&p->pos_b_us, (float)cmd_b_us, reach);
+
+    p->seed = p->seed * 1664525u + 1013904223u;
+    const float unit = (float)((p->seed >> 8) & 0xFFFFu) / 65535.0f;
+    const float n    = (unit - 0.5f) * p->cfg.noise_a;
+
+    float amps;
+    if (!a_in || !b_in) {
+        /* In transit: no disagreement is applied to the surface. */
+        amps = p->cfg.travel_a + n;
+    } else {
+        const float fight = servo_pair_disagreement(
+            p, (uint16_t)p->pos_a_us, (uint16_t)p->pos_b_us);
+        amps = p->cfg.free_a + p->cfg.fight_a_per_us * fight + n;
+    }
+    return amps < 0.0f ? 0.0f : amps;
+}

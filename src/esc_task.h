@@ -13,8 +13,8 @@
  *
  * Core0 commands it with single volatile writes, escSetThrottle() and
  * escSetArmed(), and reads it back with escSnapshot(), which copies the
- * telemetry under the shared critical section. escRequestBeep() takes that
- * section too.
+ * telemetry under the shared critical section. escRequestCommand(),
+ * escCancelCommand() and escCommandState() take that section too.
  *
  * @warning Core0 must call escHeartbeat() regularly. If it stops for longer
  *          than @ref UI_HEARTBEAT_TIMEOUT_MS, core1 assumes the UI has died and
@@ -27,6 +27,7 @@
 
 #include "config.h"
 #include "dshot/dshot.h"
+#include "kiss_telem.h"
 
 /**
  * @brief Everything core1 has decoded from the ESC.
@@ -149,7 +150,8 @@ void escTaskPoll();
 /**
  * @defgroup esc_core0 Core0 API
  * @brief Safe to call from core0. The commands are single volatile writes;
- *        escRequestBeep() and escSnapshot() take the shared critical section.
+ *        the command requests and escSnapshot() take the shared critical
+ *        section.
  * @{
  */
 
@@ -185,16 +187,116 @@ void escHeartbeat();
 uint32_t escHeartbeatMs();
 
 /**
- * @brief Queue a beacon command so the motor beeps.
+ * @brief Whether core1 would start a command now, as it last published.
  *
- * @param n Beacon 1..5, clamped.
- * @return False if the request was refused because the ESC is armed. The
- *         caller is expected to say so: a command that is silently dropped is
- *         indistinguishable from a button that does not work, which is exactly
- *         how it was reported. True means accepted; an arm before the
- *         beacon's last frame drops the rest. @see escPumpSlot()
+ * In the order core1 tests them. @see escCmdReadiness()
  */
-bool escRequestBeep(uint8_t n);
+enum class EscCmdReady : uint8_t {
+	NoAnswer, /**< No eRPM answer younger than @ref ESC_LINK_STALE_MS. */
+	Turning,  /**< The last eRPM answer is not 0. */
+	Settling, /**< The ESC has answered for less than @ref ESC_CMD_SETTLE_MS. */
+	Busy,     /**< An EDT enable, a command sequence or its gap goes out. */
+	Ready,    /**< A request starts on the next frame. */
+};
+
+/** @brief Where the last command sequence stands. @see escCommandState() */
+enum class EscCmdState : uint8_t {
+	Idle,     /**< No sequence since the bench started. */
+	Waiting,  /**< A request waits for the pump. */
+	Sending,  /**< The sequence goes out. */
+	Sent,     /**< Every block went out, each checked block answered. */
+	NotSent,  /**< Stopped before frame 6 of the first block went out. */
+	SaveLost, /**< Stopped after it: the change may sit in the ESC's RAM. */
+	Expired,  /**< The request never started: not ready within the wait, or an arm. */
+};
+
+/**
+ * @brief Whether ESC command @p cmd with @p save is one the command slot
+ *        sends. Pure.
+ *
+ * Beacons 1 to 5 and command 12, the save, go alone. Commands 7 to 10,
+ * direction and 3D mode, go only with the save after them: they change the
+ * ESC's RAM, and without 12 the change is gone at the ESC's next power cycle
+ * (decision 2 of `docs/design/esc-commands.md`). 6 is left out (decision 8),
+ * 13 and 14 are the EDT enable's own, and the rest are not offered.
+ *
+ * @param cmd  DShot command.
+ * @param save Send 12 after it.
+ * @return     True for a sequence escPumpSlot() can run.
+ */
+static inline bool escCmdValid(uint8_t cmd, bool save) {
+	if (cmd >= DSHOT_CMD_BEEP1 && cmd <= DSHOT_CMD_BEEP5) return !save;
+	if (cmd >= DSHOT_CMD_SPIN_DIRECTION_1 && cmd <= DSHOT_CMD_3D_MODE_ON) return save;
+	return cmd == DSHOT_CMD_SAVE_SETTINGS && !save;
+}
+
+/**
+ * @brief Whether escRequestCommand() takes a request. Pure.
+ *
+ * Refused while armed, at EscCmdReady::NoAnswer, Turning and Settling, and
+ * for a sequence escCmdValid() refuses. At Busy the request waits, at most
+ * @ref ESC_CMD_WAIT_MS.
+ *
+ * @param cmd   DShot command.
+ * @param save  Send 12 after it.
+ * @param armed Arm state.
+ * @param ready escCommandReady().
+ * @return      True when the request is to be handed to core1.
+ */
+static inline bool escCmdAccept(uint8_t cmd, bool save, bool armed,
+                                EscCmdReady ready) {
+	return escCmdValid(cmd, save) && !armed &&
+	       (ready == EscCmdReady::Busy || ready == EscCmdReady::Ready);
+}
+
+/**
+ * @brief A command request, as core0 hands it to core1.
+ *
+ * Under the shared critical section in esc_task.cpp. A @c cmd of 0 is no
+ * request.
+ */
+struct EscCmdRequest {
+	uint8_t  cmd;   /**< DShot command; 0 none. */
+	bool     save;  /**< Send 12 after it. */
+	uint32_t atMs;  /**< millis() of the request; the wait counts from it. */
+};
+
+/**
+ * @brief Request an ESC command from core1, with the save after it.
+ *
+ * escCmdAccept() decides, on the arm state and escCommandReady(). Core1
+ * starts the sequence on the first frame its own readiness reads
+ * EscCmdReady::Ready, and drops a request it could not start within
+ * @ref ESC_CMD_WAIT_MS. A request replaces one that still waits.
+ *
+ * @param cmd  1 to 5 (a beacon), 12, or 7 to 10 with @p save.
+ * @param save Send 12 after @p cmd.
+ * @return     True if the request was taken. The caller says so either way:
+ *             a command silently dropped is a button that does not work.
+ */
+bool escRequestCommand(uint8_t cmd, bool save);
+
+/**
+ * @brief Drop a request that still waits. A sequence already going out goes
+ *        on.
+ */
+void escCancelCommand();
+
+/**
+ * @brief Whether core1 would start a command now.
+ * @return What core1 published on its last frame slot; EscCmdReady::NoAnswer
+ *         before the first and while the pump is torn down.
+ */
+EscCmdReady escCommandReady();
+
+/**
+ * @brief Where the last command sequence stands.
+ * @param[out] cmd The sequence's command, or the waiting request's; may be
+ *                 null.
+ * @return EscCmdState::Waiting while a request waits, else the state core1
+ *         published for the last sequence.
+ */
+EscCmdState escCommandState(uint8_t *cmd);
 
 /** @brief What the automatic EDT enable should do this frame. */
 enum class EdtAutoAction : uint8_t {
@@ -346,7 +448,7 @@ struct EscEdtState {
  *
  * At the 1 kHz frame rate the burst takes 10 ms. Nothing waits on it: a
  * frame while armed carries the throttle (escFrameAction()), and an arm
- * abandons the burst. A beacon request and the first KISS request wait for
+ * abandons the burst. A command request and the first KISS request wait for
  * its end, at most 10 ms.
  *
  * @param e    State to reset.
@@ -387,8 +489,8 @@ static inline void escEdtBind(EscEdtState *e, uint8_t reps) {
  * @param linkUp   An eRPM frame arrived within @ref ESC_LINK_STALE_MS.
  * @param edtFresh An EDT frame arrived within @ref EDT_STALE_MS.
  * @param armed    Arm state.
- * @param ready    The motor is stopped (eRPM 0) and no beacon command is
- *                 going out.
+ * @param ready    The motor is stopped (eRPM 0) and no command sequence or
+ *                 its gap is going out.
  * @param nowMs    millis().
  * @param settleMs @ref EDT_SETTLE_MS.
  * @param retryMs  @ref EDT_RETRY_MS.
@@ -478,7 +580,7 @@ struct EscFrame {
  *   anyway, so sending one is at best noise in the frame stream; and a queued
  *   command must not be consumed by a frame that cannot deliver it. A command
  *   still owed at an arm is dropped by its owner instead: escEdtStep() for the
- *   EDT enable, escPumpSlot() for the beacon.
+ *   EDT enable, escPumpSlot() for a command sequence.
  *
  * @param armed       Arm state.
  * @param uiAlive     Core0 has checked in within @ref UI_HEARTBEAT_TIMEOUT_MS.
@@ -506,17 +608,230 @@ static inline EscFrame escFrameAction(bool armed, bool uiAlive, uint16_t throttl
 }
 
 /**
- * @brief Core1's command state between frame slots: the EDT enable, the
- *        beacon and the KISS request cadence.
+ * @brief The 11-bit DShot value and the telemetry bit frame @p f goes out
+ *        with. Pure.
  *
- * Written only by escPumpBind(), escPumpSlot() and escPumpFrameSent(), which
- * are pure. escTaskPoll() keeps one of these and does the I/O around them;
- * the host suite drives the same three functions against a model ESC.
+ * A command frame has the telemetry bit set. Bluejay and BLHeli_S clear a
+ * command, and its count, on a command frame with the bit clear, so a
+ * command sent without it never reaches their repeat count; AM32 acts on
+ * either. A throttle frame carries the bit only when it asks for a KISS
+ * reply. @see kissBuildDshotPayload()
+ *
+ * @param f              The frame.
+ * @param[out] telemetry The telemetry bit.
+ * @return               The value, 0 to 2047.
+ */
+static inline uint16_t escFrameWire(const EscFrame *f, bool *telemetry) {
+	if (f->sendCommand) {
+		*telemetry = true;
+		return f->command;
+	}
+	uint16_t payload = kissBuildDshotPayload(f->throttle, f->requestKiss);
+	*telemetry = (payload & 1u) != 0;
+	return (uint16_t)(payload >> 1);
+}
+
+/**
+ * @brief Core1's command sequence: a command, its repeats, and the save after
+ *        it.
+ *
+ * A sequence is one block, or two when it saves. A block is its command's
+ * repeats, @ref BEEP_REPEATS frames for a beacon and `DSHOT_CMD_REPEATS`, 10,
+ * for 7 to 10 and 12, then its gap of value 0 frames, @ref ESC_CMD_BEEP_GAP_MS
+ * or @ref ESC_CMD_GAP_MS. With @c save a block of 12 follows the first gap.
+ * A hold for direction or 3D therefore sends 10 frames of the command, 300 of
+ * 0, 10 of 12 and 300 of 0: 620 ms. The design and its sources are in
+ * `docs/design/esc-commands.md`.
+ *
+ * Written only by escCmdStart(), escCmdCheckReply(), escCmdFrameSent(),
+ * escCmdInterrupt() and escCmdExpire(), which are pure.
+ */
+struct EscCmdSeq {
+	uint8_t     cmd;      /**< The first block's command; 0 while no sequence runs. */
+	bool        save;     /**< A block of 12 follows the first. */
+	bool        saving;   /**< The block going out is that one. */
+	bool        stopped;  /**< The block stopped on a missing reply. @see escCmdCheckReply() */
+	uint8_t     sent;     /**< Frames of the block gone out. */
+	uint8_t     misses;   /**< Replies missing or bad among its frames 1 to 5. */
+	uint16_t    gapLeft;  /**< Frames of value 0 still owed after the block. */
+	EscCmdState state;    /**< Sending while it runs, then its outcome. */
+	uint8_t     stateCmd; /**< The command @ref state is about. */
+};
+
+/**
+ * @brief Frames of a block of 7 to 10 or 12 whose replies are checked.
+ *
+ * AM32 acts on the sixth equal frame and Bluejay and BLHeli_S on the seventh,
+ * so no ESC has acted before the sixth has gone out. Replies after it are not
+ * read: AM32 writes its flash while it decodes the save's sixth frame, and
+ * Bluejay may stop answering while it writes from the seventh.
+ */
+static constexpr uint8_t ESC_CMD_CHECKED_FRAMES = 6;
+
+/** @brief Replies to frames 1 to 5 of a block that may be missing or bad. */
+static constexpr uint8_t ESC_CMD_MISSES_ALLOWED = 1;
+
+/** @brief Whether @p cmd, 1 or above, is a beacon. Pure. */
+static inline bool escCmdIsBeacon(uint8_t cmd) { return cmd <= DSHOT_CMD_BEEP5; }
+
+/** @brief The command of the block going out. Pure. */
+static inline uint8_t escCmdBlockCmd(const EscCmdSeq *s) {
+	return s->saving ? (uint8_t)DSHOT_CMD_SAVE_SETTINGS : s->cmd;
+}
+
+/** @brief Frames of a block of @p cmd. Pure. */
+static inline uint8_t escCmdReps(uint8_t cmd) {
+	return escCmdIsBeacon(cmd) ? (uint8_t)BEEP_REPEATS : (uint8_t)DSHOT_CMD_REPEATS;
+}
+
+/** @brief Frames of value 0 after a block of @p cmd. Pure. */
+static inline uint16_t escCmdGapFrames(uint8_t cmd) {
+	static const uint16_t beacon[5] = ESC_CMD_BEEP_GAP_MS;
+	uint32_t ms = escCmdIsBeacon(cmd) ? beacon[cmd - 1] : ESC_CMD_GAP_MS;
+	return (uint16_t)(ms * 1000u / DSHOT_PERIOD_US);
+}
+
+/** @brief A block's command frames are still going out. Pure. */
+static inline bool escCmdInBlock(const EscCmdSeq *s) {
+	return s->cmd && !s->stopped && s->sent < escCmdReps(escCmdBlockCmd(s));
+}
+
+/**
+ * @brief The outcome of a sequence that stops where it stands. Pure.
+ *
+ * A finished outcome stays: a beacon is EscCmdState::Sent from its first
+ * frame, every open firmware acting on it. Otherwise NotSent while frame 6 of
+ * the first block has not gone out, as no ESC has acted; SaveLost after it,
+ * as AM32 may have acted, and before the save block's frame 6 its save
+ * cannot be known.
+ */
+static inline EscCmdState escCmdStopState(const EscCmdSeq *s) {
+	if (s->state != EscCmdState::Sending) return s->state;
+	return !s->saving && s->sent < ESC_CMD_CHECKED_FRAMES ? EscCmdState::NotSent
+	                                                      : EscCmdState::SaveLost;
+}
+
+/**
+ * @brief Start a sequence. Pure.
+ * @pre escCmdValid(@p cmd, @p save).
+ */
+static inline void escCmdStart(EscCmdSeq *s, uint8_t cmd, bool save) {
+	s->cmd      = cmd;
+	s->save     = save;
+	s->saving   = false;
+	s->stopped  = false;
+	s->sent     = 0;
+	s->misses   = 0;
+	s->gapLeft  = 0;
+	s->state    = EscCmdState::Sending;
+	s->stateCmd = cmd;
+}
+
+/**
+ * @brief Drop the sequence at once, with no gap: an arm, a bind, a teardown,
+ *        or a block a drain frame broke. Pure.
+ */
+static inline void escCmdInterrupt(EscCmdSeq *s) {
+	if (!s->cmd) return;
+	s->state = escCmdStopState(s);
+	s->cmd = 0;
+}
+
+/**
+ * @brief Check the reply to the block's last frame. Pure.
+ *
+ * Called on each slot before the next frame, with what out_dshot_poll()
+ * returned for the frame before. A reply is DSHOT_REPLY_GOOD, an eRPM or an
+ * EDT frame alike. Frames 1 to 6 of a block of 7 to 10 or 12 need one each;
+ * one reply to frames 1 to 5 may be missing or bad, frame 6's may not. A
+ * missing reply beyond that stops the block at once: no command frame more,
+ * the block's gap of 0 frames, and the sequence ends after it with
+ * escCmdStopState(). A beacon's block is not checked.
+ */
+static inline void escCmdCheckReply(EscCmdSeq *s, dshot_reply_t reply) {
+	if (!escCmdInBlock(s) || escCmdIsBeacon(s->cmd)) return;
+	if (s->sent == 0 || s->sent > ESC_CMD_CHECKED_FRAMES) return;
+	if (reply == DSHOT_REPLY_GOOD) return;
+	if (s->sent < ESC_CMD_CHECKED_FRAMES && ++s->misses <= ESC_CMD_MISSES_ALLOWED)
+		return;
+	s->state   = escCmdStopState(s);
+	s->stopped = true;
+	s->gapLeft = escCmdGapFrames(escCmdBlockCmd(s));
+}
+
+/**
+ * @brief Count one frame against the sequence. Pure.
+ *
+ * In a block, a command frame counts against it; any other frame, which only
+ * a drain sends there, breaks it, and escCmdInterrupt() ends it. A beacon is
+ * Sent from its first frame; a sequence of 7 to 10 or 12 when its last block's
+ * last frame has gone out. In a gap, every frame counts against it, and its
+ * end starts the save block or ends the sequence.
+ *
+ * @pre The frame is not an EDT enable frame. @see escPumpFrameSent()
+ */
+static inline void escCmdFrameSent(EscCmdSeq *s, const EscFrame *f) {
+	if (!s->cmd) return;
+	if (escCmdInBlock(s)) {
+		if (!f->sendCommand) {
+			escCmdInterrupt(s);
+			return;
+		}
+		if (escCmdIsBeacon(s->cmd)) s->state = EscCmdState::Sent;
+		if (++s->sent < escCmdReps(escCmdBlockCmd(s))) return;
+		s->gapLeft = escCmdGapFrames(escCmdBlockCmd(s));
+		if (s->saving || !s->save) s->state = EscCmdState::Sent;
+		return;
+	}
+	if (--s->gapLeft) return;
+	if (s->save && !s->saving && !s->stopped) {
+		s->saving = true;
+		s->sent   = 0;
+		s->misses = 0;
+	} else {
+		s->cmd = 0;
+	}
+}
+
+/**
+ * @brief Whether a command would start now. Pure.
+ *
+ * In order: no eRPM answer younger than @ref ESC_LINK_STALE_MS; the last
+ * eRPM answer not 0, a motor turning or coasting; the ESC answering for less
+ * than @ref ESC_CMD_SETTLE_MS, as AM32 takes commands only after more than
+ * 1 s of zero input; an EDT enable, a sequence or its gap going out.
+ *
+ * @param linkUp      An eRPM frame arrived within @ref ESC_LINK_STALE_MS.
+ * @param erpm        The last eRPM answer.
+ * @param linkUpSince EscEdtState::linkUpSinceMs; 0 while not answering.
+ * @param nowMs       millis().
+ * @param busy        An EDT enable, a sequence or its gap goes out.
+ * @return            The readiness.
+ */
+static inline EscCmdReady escCmdReadiness(bool linkUp, uint32_t erpm,
+                                          uint32_t linkUpSince, uint32_t nowMs,
+                                          bool busy) {
+	if (!linkUp) return EscCmdReady::NoAnswer;
+	if (erpm != 0) return EscCmdReady::Turning;
+	if (!linkUpSince || (int32_t)(nowMs - linkUpSince) < (int32_t)ESC_CMD_SETTLE_MS)
+		return EscCmdReady::Settling;
+	if (busy) return EscCmdReady::Busy;
+	return EscCmdReady::Ready;
+}
+
+/**
+ * @brief Core1's command state between frame slots: the EDT enable, the
+ *        command sequence and the KISS request cadence.
+ *
+ * Written only by escPumpBind(), escPumpRelease(), escPumpTeardown(),
+ * escPumpSlot() and escPumpFrameSent(), which are pure. escTaskPoll() keeps
+ * one of these and does the I/O around them; the host suite drives the same
+ * functions against model ESCs.
  */
 struct EscPump {
 	EscEdtState edt;           /**< The EDT enable. @see escEdtStep() */
-	uint8_t     beepCmd;       /**< Latched beacon command. */
-	uint8_t     beepReps;      /**< Beacon repeats still owed; 0 means none queued. */
+	EscCmdSeq   seq;           /**< The command sequence. @see EscCmdSeq */
+	EscCmdReady ready;         /**< Readiness after the last slot; escCommandReady(). */
 	uint16_t    kissCountdown; /**< Frames left before the next KISS request. */
 	/** escThrottleStamp() of the last frame; 0 for none since the bind. */
 	uint32_t    lastThrottleMs;
@@ -526,18 +841,67 @@ struct EscPump {
 struct EscSlot {
 	EscFrame frame;     /**< What to put on the wire. */
 	bool     forgetEdt; /**< The ESC is gone: clear the EDT arrival times. @see escEdtForget() */
-	bool     beepTaken; /**< The request was latched, or dropped by an arm: clear it. */
+	bool     cmdTaken;  /**< The request started, expired or was dropped by an arm: clear it. */
 };
 
 /**
+ * @brief The pump lets go of the pin: a sequence going out stops where it
+ *        stands, and nothing is ready. Pure.
+ *
+ * escPumpTeardown() calls it at a teardown, and escPumpBind() at every
+ * bind. @see escCmdInterrupt()
+ *
+ * @param p State to update.
+ */
+static inline void escPumpRelease(EscPump *p) {
+	escCmdInterrupt(&p->seq);
+	p->ready = EscCmdReady::NoAnswer;
+}
+
+/**
+ * @brief A request ends unstarted: the outcome reads EscCmdState::Expired,
+ *        about @p cmd. Pure.
+ * @param s   The sequence whose outcome core0 reads.
+ * @param cmd The request's command.
+ */
+static inline void escCmdExpire(EscCmdSeq *s, uint8_t cmd) {
+	s->state    = EscCmdState::Expired;
+	s->stateCmd = cmd;
+}
+
+/**
+ * @brief A teardown: the pump lets go of the pin, and a request that still
+ *        waits goes with it. Pure.
+ *
+ * escPumpRelease(), then the request: left waiting, it would start on the
+ * next bind's ESC once that settled within @ref ESC_CMD_WAIT_MS, on whatever
+ * screen is open by then. It is dropped either way. With no sequence
+ * running it reads EscCmdState::Expired about its command; a sequence the
+ * teardown cut keeps its outcome, which says more about the ESC than the
+ * request that waited behind it: NotSent or SaveLost in a block or its
+ * first gap, and Sent in the last gap, which still counts as running.
+ *
+ * @param p   State to update.
+ * @param req The request core0 made; @c cmd 0 for none.
+ * @return True when a request was dropped: clear it.
+ */
+static inline bool escPumpTeardown(EscPump *p, const EscCmdRequest *req) {
+	bool running = p->seq.cmd != 0;
+	escPumpRelease(p);
+	if (!req->cmd) return false;
+	if (!running) escCmdExpire(&p->seq, req->cmd);
+	return true;
+}
+
+/**
  * @brief A new bind: disarmed at throttle zero, the EDT enable first, no
- *        beacon owed, no throttle frame sent, and the first KISS request on
- *        the first free frame. Pure.
+ *        command sequence, no throttle frame sent, and the first KISS request
+ *        on the first free frame. Pure.
  *
  * Called once per bind, before the first frame. A bind is a new ESC as far
  * as the pump is concerned: after a SETTINGS change, and after a pin claim. It
  * starts disarmed whatever core0 last commanded, so arming again takes the
- * full hold on the tester screen. @see escEdtBind()
+ * full hold on the tester screen. @see escEdtBind(), escPumpRelease()
  *
  * @param p        State to reset.
  * @param armed    Core0's arm command, cleared.
@@ -548,7 +912,7 @@ static inline void escPumpBind(EscPump *p, volatile bool *armed,
 	*armed = false;
 	*throttle = 0;
 	escEdtBind(&p->edt, EDT_ENABLE_REPEATS);
-	p->beepReps = 0;
+	escPumpRelease(p);
 	p->kissCountdown = 0;
 	p->lastThrottleMs = 0;
 }
@@ -594,20 +958,23 @@ static inline void escEdtForget(EscTelemetry *tel) {
  *    younger than @ref ESC_LINK_STALE_MS, and EDT is fresh while any EDT
  *    frame is younger than @ref EDT_STALE_MS. That is the fact the header
  *    chip shows, so the retry stops when the display says EDT ON. The ESC is
- *    ready for a command when the motor is stopped (eRPM 0) and no beacon is
- *    going out. DShot commands execute only with the motor stopped, and a
- *    disarm leaves a prop coasting for seconds.
- * 2. The beacon. A request is latched only when the wire is free, no enable
- *    and no beacon going out. EDT goes first: it is the one the user cannot
- *    re-request, and a beep deferred by ten frames is a beep nobody notices
- *    was deferred. An arm drops the beacon, owed or asked for: no command
- *    frame goes out armed, so a kept beacon would hold back every KISS
- *    request until disarm, and then beep late.
+ *    ready for the enable when the motor is stopped (eRPM 0) and no command
+ *    sequence or its gap is going out, so no scheduled enable lands between
+ *    a command and its save. DShot commands execute only with the motor
+ *    stopped, and a disarm leaves a prop coasting for seconds.
+ * 2. The command sequence. @p reply checks the last frame
+ *    (escCmdCheckReply()). An arm drops the sequence and the request: no
+ *    command frame goes out armed, so a kept one would hold back every KISS
+ *    request until the disarm, and go out late. Disarmed, a request starts
+ *    when escCmdReadiness() reads Ready, so the enable goes first, and
+ *    expires once it has waited @ref ESC_CMD_WAIT_MS. The wait is a signed
+ *    difference, so a request stamped after this slot's clock reads as new.
  * 3. The KISS request. Every @ref KISS_REQUEST_EVERY_N frames while the
- *    receiver runs and no command is owed: a command frame goes out with the
- *    telemetry bit set anyway, and a reply arriving mid-command sequence is
- *    noise.
- * 4. The frame, escFrameAction(), with the enable ahead of the beacon.
+ *    receiver runs and no command frame is owed: a command frame goes out
+ *    with the telemetry bit set anyway, and a reply arriving mid-block is
+ *    noise. A gap's 0 frames carry requests.
+ * 4. The frame, escFrameAction(), with the enable ahead of the sequence.
+ * 5. EscPump::ready, escCmdReadiness() after the decision.
  *
  * Every telemetry field read here is written by core1, so core1 reads them
  * without the lock.
@@ -617,14 +984,16 @@ static inline void escEdtForget(EscTelemetry *tel) {
  * @param armed    Arm state.
  * @param uiAlive  Core0 has checked in within @ref UI_HEARTBEAT_TIMEOUT_MS.
  * @param throttle Throttle core0 last commanded, 0..2000.
- * @param beepReq  Beacon 1..5 core0 asked for; 0 is none.
+ * @param req      The request core0 made; @c cmd 0 for none.
+ * @param reply    What out_dshot_poll() returned for the last frame.
  * @param kissRx   The KISS receiver is running.
  * @param nowMs    millis().
  * @return What to send, and what to clear.
  */
 static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
                                   bool armed, bool uiAlive, uint16_t throttle,
-                                  uint8_t beepReq, bool kissRx, uint32_t nowMs) {
+                                  const EscCmdRequest *req, dshot_reply_t reply,
+                                  bool kissRx, uint32_t nowMs) {
 	EscSlot s = {{false, 0, 0, false}, false, false};
 
 	bool linkUp = tel->lastRpmMs != 0 &&
@@ -634,23 +1003,40 @@ static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
 	bool edtFresh = false;
 	for (uint32_t t : edtMs)
 		if (t != 0 && (uint32_t)(nowMs - t) < EDT_STALE_MS) edtFresh = true;
-	bool ready = tel->erpm == 0 && p->beepReps == 0;
+	bool ready = tel->erpm == 0 && p->seq.cmd == 0;
 
 	s.forgetEdt = escEdtStep(&p->edt, linkUp, edtFresh, armed, ready, nowMs,
 	                         EDT_SETTLE_MS, EDT_RETRY_MS,
 	                         EDT_ENABLE_REPEATS) == EdtAutoAction::Rearm;
 
+	escCmdCheckReply(&p->seq, reply);
 	if (armed) {
-		p->beepReps = 0;
-		s.beepTaken = beepReq != 0;
-	} else if (!p->edt.reps && !p->beepReps && beepReq) {
-		p->beepCmd  = (uint8_t)(DSHOT_CMD_BEEP1 + (beepReq - 1));
-		p->beepReps = BEEP_REPEATS;
-		s.beepTaken = true;
+		escCmdInterrupt(&p->seq);
+		if (req->cmd) {
+			escCmdExpire(&p->seq, req->cmd);
+			s.cmdTaken = true;
+		}
+	} else if (req->cmd) {
+		bool busy = p->edt.reps != 0 || p->seq.cmd != 0;
+		if (escCmdReadiness(linkUp, tel->erpm, p->edt.linkUpSinceMs, nowMs, busy) ==
+		    EscCmdReady::Ready) {
+			escCmdStart(&p->seq, req->cmd, req->save);
+			s.cmdTaken = true;
+		} else if ((int32_t)(nowMs - req->atMs) >= (int32_t)ESC_CMD_WAIT_MS) {
+			escCmdExpire(&p->seq, req->cmd);
+			s.cmdTaken = true;
+		}
 	}
 
-	uint8_t pendingCmd  = p->edt.reps ? (uint8_t)DSHOT_CMD_EDT_ENABLE : p->beepCmd;
-	uint8_t pendingReps = p->edt.reps ? p->edt.reps : p->beepReps;
+	uint8_t pendingCmd  = 0;
+	uint8_t pendingReps = 0;
+	if (p->edt.reps) {
+		pendingCmd  = DSHOT_CMD_EDT_ENABLE;
+		pendingReps = p->edt.reps;
+	} else if (escCmdInBlock(&p->seq)) {
+		pendingCmd  = escCmdBlockCmd(&p->seq);
+		pendingReps = (uint8_t)(escCmdReps(pendingCmd) - p->seq.sent);
+	}
 
 	bool wantKiss = false;
 	if (kissRx && pendingReps == 0) {
@@ -664,6 +1050,8 @@ static inline EscSlot escPumpSlot(EscPump *p, const EscTelemetry *tel,
 
 	s.frame = escFrameAction(armed, uiAlive, throttle, pendingCmd, pendingReps,
 	                         wantKiss);
+	p->ready = escCmdReadiness(linkUp, tel->erpm, p->edt.linkUpSinceMs, nowMs,
+	                           p->edt.reps != 0 || p->seq.cmd != 0);
 	return s;
 }
 
@@ -690,7 +1078,8 @@ static inline uint32_t escThrottleStamp(const EscFrame *f, uint32_t prevMs,
  *
  * A throttle frame stamps EscPump::lastThrottleMs, which the drain before a
  * teardown is measured from. A command frame counts against the enable while
- * one is owed, otherwise against the beacon. @see escEdtFrameSent()
+ * one is owed; every other frame counts against the command sequence, its
+ * block or its gap. @see escEdtFrameSent(), escCmdFrameSent()
  *
  * @param p     State to update.
  * @param f     The frame, EscSlot::frame.
@@ -698,9 +1087,8 @@ static inline uint32_t escThrottleStamp(const EscFrame *f, uint32_t prevMs,
  */
 static inline void escPumpFrameSent(EscPump *p, const EscFrame *f, uint32_t nowMs) {
 	p->lastThrottleMs = escThrottleStamp(f, p->lastThrottleMs, nowMs);
-	if (!f->sendCommand) return;
-	if (p->edt.reps)          escEdtFrameSent(&p->edt, nowMs);
-	else if (p->beepReps)     p->beepReps--;
+	if (f->sendCommand && p->edt.reps) escEdtFrameSent(&p->edt, nowMs);
+	else                               escCmdFrameSent(&p->seq, f);
 }
 
 /**
@@ -787,8 +1175,9 @@ static inline EscHandover escHandoverStep(bool suspendReq, bool rebuildReq,
  *
  * Throttle zero, with no command and no KISS request: the pump is about to
  * stop, and a command burst cut off by the teardown reaches no ESC's repeat
- * count. It takes no beacon and forgets no EDT, so nothing core0 asked for is
- * consumed by it.
+ * count. It takes no command request and forgets no EDT, so nothing core0
+ * asked for is consumed by it. Its frame breaks a command block under way
+ * (escCmdFrameSent()).
  *
  * @return The slot, as escPumpSlot() returns one.
  */
@@ -848,7 +1237,7 @@ static inline void escFoldReply(EscTelemetry *tel, dshot_reply_t reply,
 		case DSHOT_TELEM_ERPM:
 			tel->erpm = t->erpm;
 			tel->rpm  = (poles >= 2) ? (t->erpm / (poles / 2)) : t->erpm;
-			tel->lastRpmMs = nowMs;
+			tel->lastRpmMs = nowMs ? nowMs : 1;
 			break;
 		case DSHOT_TELEM_VOLTAGE:
 			tel->volts = t->value * 0.25f;

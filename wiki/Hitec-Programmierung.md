@@ -21,9 +21,9 @@ SD-Karte (Secure Digital).
 > Bedienoberfläche (UI, User Interface) gegen ein simuliertes Servo.
 
 > **Die klassische Familie braucht die geschaltete Servoversorgung.**
-> `CLASSIC` (HS-5xxx, HS-7xxx) braucht den DC-DC-Wandler
+> `HITEC CLASSIC` (HS-5xxx, HS-7xxx) braucht den DC-DC-Wandler
 > (Gleichspannungswandler) aus Teil C der [Verdrahtung](Verdrahtung) und
-> SERVO SUPPLY auf `GP28` oder `GP29`. Unter `NONE` lässt sich nur die
+> SERVO SUPPLY auf `GP28` oder `GP29`. Unter `OWN` lässt sich nur die
 > D-Serie öffnen. Siehe [Klassische Servos](#klassische-servos).
 
 > **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
@@ -77,8 +77,8 @@ GND ist die Masse der Platine.
   Serial Bus).
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
-- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS** eingestellt.
-  Voreingestellt ist GP0.
+- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS → SIG PIN**
+  eingestellt, mit seinem J5-Pin unter dem Wert. Voreingestellt ist GP0.
 - Die Läufe von rcbench nutzten eine Servoversorgung von 5,0 V. Andere
   Versorgungen sind nicht getestet, und auf dieser Platine ist nichts
   gelaufen.
@@ -94,56 +94,59 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 
 ---
 
-## Die Familie wählen
+## Den Bildschirm öffnen
 
-**MENU → HITEC SERVO** öffnen. Der Bildschirm öffnet mit der
-Familienauswahl. Er belegt noch keinen Pin.
+Öffne **MENU → SERVO PROGRAMMER** und tippe auf **HITEC D SERIES** oder
+**HITEC CLASSIC** (siehe [Die Bildschirme](Die-Bildschirme#programmer)).
+PROGRAMMER belegt keinen Pin: DShot läuft auf SIG, solange er zu sehen ist,
+also bleibt das Servo bis zum Tippen stromlos. Das Tippen öffnet diesen
+Bildschirm für die Familie und übernimmt SIG im selben Frame vom
+ESC-Treiber: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
+Gas null, hält an und lässt den Pin als Eingang, den sein Pull-up high hält.
+Die Leiste zeigt währenddessen `RELEASING SIG GP0 FROM DSHOT`.
 
-<img src="img/hitec-family.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf NONE: CLASSIC abgeblendet mit NEEDS THE CONVERTER OF WIRING PART C, D SERIES mit POWER THE SERVO UP BEFORE THE TAP.">
+- **D-Serie, SERVO SUPPLY auf `OWN`.** Der Eintritt liest sofort das Modell,
+  an der Versorgung, die das Servo hat, deshalb wartet der Bildschirm auf
+  dich: Die Leiste zeigt `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün
+  über `POWER THE SERVO UP, THEN TAP READ.` in Bernstein, und die breite
+  Schaltfläche zeigt `READ`. **Schließe das Servo an, schalte es ein, dann
+  tippe auf `READ`.** Zwischen dem Anhalten von DShot und `READ` geht nichts
+  an SIG.
+- **Mit SERVO SUPPLY auf `GP28` oder `GP29` und für ein klassisches
+  Servo** schaltet der Prüfstand das Servo nach dem Tippen selbst ein, also
+  startet der Job, sobald DShot angehalten hat. Der Wandler bleibt bis zum
+  ersten Schritt des Eintritts aus, von seinem Pull-down gehalten.
 
-Die Leiste zeigt `CHOOSE THE SERVO'S FAMILY`. Darunter liegen zwei
-Schaltflächen:
+<img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO für ein Servo der D-Serie mit SERVO SUPPLY auf OWN: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, POWER THE SERVO UP, THEN TAP READ. in Bernstein, und READ">
 
-- `CLASSIC`, darunter `HS-5XXX, HS-7XXX`. Es wirkt, solange SERVO SUPPLY
-  auf `GP28` oder `GP29` steht. Steht SERVO SUPPLY auf `NONE`, ist es
-  abgeblendet gezeichnet, und zwei bernsteinfarbene Zeilen nennen den Grund,
-  zuerst die Hardware: `NEEDS THE CONVERTER OF WIRING PART C` und
-  `AND SETTINGS > SERVO SUPPLY GP28/29.`
-- `D SERIES`, darunter `D485HW, D645MW AND THE OTHERS` und
-  `SUPPLY SWITCHED ON GP28` (oder `GP29`, je nach Einstellung) oder, unter
-  `NONE`, `POWER THE SERVO UP BEFORE THE TAP.`: An seiner eigenen
-  Versorgung muss das Servo laufen, wenn der Bildschirm eintritt, denn der
-  Eintritt liest sofort sein Modell.
+Gehört der Pin dem Servo, öffnet `BACK`, bevor das Servo im
+Programmiermodus ist, das Warten auf `READ` eingeschlossen, die
+Verlassenseite bei `1 UNPLUG THE SERVO.`, wie nach `LEAVE`: DShot startet
+erst mit `RESTART DSHOT` neu. `NEXT SERVO` startet dort eine neue Sitzung
+derselben Familie; für ein Servo der D-Serie an `OWN` führt es immer
+wieder zum Warten auf `READ`, damit auch das nächste Servo erst nach dem
+Tippen Strom bekommt. Solange der Treiber noch anhält
+oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu `MENU`
+zurück.
 
-**Schalte das Servo ein, dann tippe auf `D SERIES`.** Mit `GP28` oder `GP29`
-schaltet die Platine es ein. `BACK` in dieser Ansicht führt zu `MENU` zurück.
+<img src="img/hitec-esc.png" width="240" alt="HITEC SERVO, während ein ESC auf GP0 antwortet: CHECKING SIG GP0 FOR AN ESC in der Leiste, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein">
 
-> **Bis eine Familie gewählt ist, führt SIG DShot.** Die Familienansicht belegt
-> keinen Pin, und der DShot-Treiber sendet weiter alle 1000 µs einen Frame,
-> auch unscharf. Bidirektionales DShot hält die Leitung high und zieht sie bei
-> der voreingestellten DSHOT KBAUD von 600 je Frame etwa 27 µs lang low: Ein
-> PWM-Servo (Pulsweitenmodulation) liest das als Impuls von etwa 970 µs mit
-> 1000 Hz. Was ein Servo der D-Serie damit macht, ist nicht gemessen.
-> - Mit SERVO SUPPLY auf `NONE` braucht der Bildschirm das Servo beim Tippen
->   eingeschaltet, also halte diese Zeit kurz: Öffne HITEC SERVO, schließe das
->   Servo mit ausgeschalteter Versorgung an, schalte dann die Versorgung ein
->   und tippe sofort auf `D SERIES`.
-> - Mit `GP28` oder `GP29` bleibt der Wandler in der Familienansicht aus,
->   von seinem Pull-down gehalten, und der Prüfstand schaltet das Servo nach
->   dem Tippen ein.
+- Antwortet ein ESC auf dem Pin, übernimmt der Bildschirm nichts: Die
+  Leiste zeigt `CHECKING SIG GP0 FOR AN ESC`, und zwei bernsteinfarbene
+  Zeilen zeigen `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` und
+  `DSHOT STAYS ON THE PIN UNTIL THEN.` Der Bildschirm übernimmt den Pin,
+  sobald der ESC 500 ms lang still ist. Die Prüfung läuft nur, bevor der Pin
+  übernommen ist: Ein ESC, der danach angeschlossen wird, wird nicht
+  erkannt.
+- Solange der Tester scharf ist, zeigt der Bildschirm `DISARM FIRST`.
+  Solange die Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`.
+  Beides ist über die Bildschirme nicht erreichbar: Das Öffnen von `MENU`
+  entschärft, und `SERVO PROGRAMMER` öffnet nur, solange die Pins frei sind.
 
-Der Bildschirm übernimmt dann SIG vom ESC-Treiber. Dabei zeigt die Leiste
-`RELEASING GP0`, dann `TAKING GP0`. Solange ein ESC auf dem Pin antwortet,
-zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
+Während der Job sich bindet, zeigt die Leiste `TAKING SIG GP0`.
 
-- Antwortet ein ESC auf dem Pin, zeigt der Bildschirm `AN ESC ANSWERS ON GP0.`
-  und danach `UNPLUG IT: A HITEC ENTRY SENDS` und
-  `FRAMES INTO WHAT IS ON THE WIRE.` Er übernimmt den Pin, sobald der ESC weg
-  ist.
-- Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
-  Pins noch belegt sind, zeigt er `PINS BUSY`.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
-  `GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
+  `SIG GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
   `CLOCK` und eine schließende Klammer. PWM ist Pulsweitenmodulation, DMA
   direkter Speicherzugriff (Direct Memory Access). `RETRY` versucht es
   erneut.
@@ -155,15 +158,16 @@ zeigt sie stattdessen `CHECKING GP0 FOR AN ESC`.
 
 ## Eintritt und Lesen
 
-Ist der Pin übernommen, beginnt der Eintritt sofort.
+Hält der Job die Leitung, beginnt der Eintritt sofort. Die Überschrift des
+Inhalts, der laufende Schritt, ist bernsteinfarben.
 
-- **Mit SERVO SUPPLY auf `NONE`** liest der Bildschirm das Servo an der
-  Versorgung, die es hat. Schalte das Servo ein, bevor du auf `D SERIES`
+- **Mit SERVO SUPPLY auf `OWN`** liest der Bildschirm das Servo an der
+  Versorgung, die es hat. Schalte das Servo ein, bevor du auf `READ`
   tippst. Der Inhalt zeigt `READING THE MODEL`.
 - **Mit SERVO SUPPLY auf `GP28` oder `GP29`** schaltet der Bildschirm die Versorgung
   2,0 s lang aus und wieder ein. Die Leiste zählt die Aus-Zeit,
-  `GP0  SUPPLY OFF 1.4 S`, und der Inhalt zeigt `SUPPLY OFF`. Dann zeigt
-  die Leiste `GP0  SUPPLY ON` und der Inhalt `SERVO STARTING`, während das
+  `SIG GP0  SUPPLY OFF 1.4 S`, und der Inhalt zeigt `SUPPLY OFF`. Dann zeigt
+  die Leiste `SIG GP0  SUPPLY ON` und der Inhalt `SERVO STARTING`, während das
   Servo startet, etwa 1 s. Für diese Sekunde zeigt der Bildschirm keinen
   Zähler. Unter dem Text stehen zwei bernsteinfarbene Zeilen:
   `AN ESC ON THIS LEAD GETS THE` und `CONVERTER'S OUTPUT ON ITS BEC WIRE.`
@@ -180,7 +184,7 @@ bernsteinfarbene Zeile nennt die letzte Antwort, zum Beispiel
 `HEADER`, `ADDRESS`, `SUM`, `CUT`, `OVERFLOW` und `ARG`; `NONE` heißt: kein
 Antwortcode.
 
-Antwortet das Servo, zeigt die Leiste `GP0  IN SERIAL MODE`, und der Inhalt
+Antwortet das Servo, zeigt die Leiste `SIG GP0  IN SERIAL MODE`, und der Inhalt
 zählt das Lesen: `READING 21 REGISTERS`, `7 OF 21`. Dieses erste vollständige
 Lesen ist die Sicherung der Sitzung. Ein fehlgeschlagenes Lesen zeigt zum
 Beispiel `READ FAILED AT 0x32` mit dem Antwortwort darunter und bietet
@@ -199,11 +203,15 @@ Ansichten für Eintritt und Lesen in Bernstein zusätzlich
 
 ## Die Feldliste
 
-Die Leiste zeigt das Modell, den Pin und die Sicherung:
-`D485HW GP0 BACKUP IN MEMORY`, bis ein Schreibvorgang die Sicherung auf die
-Karte gelegt hat, danach zum Beispiel `BACKUP HT001`. Ein Modell ohne Namen
-in der Liste von rcbench zeigt `D SERIES` und seine Nummer. Rechts steht ein
-grünes Feld `MODE`.
+Die Leiste zeigt das Modell, die Sicherung und den Pin, mit zwei
+Leerzeichen dazwischen: `D485HW  BACKUP IN RAM  GP0`, bis ein
+Schreibvorgang die Sicherung auf die Karte gelegt hat, danach zum Beispiel
+`BACKUP HT001`. Ein klassisches Servo zeigt zuletzt seine Version, zum
+Beispiel `V16`. Ein Modell ohne Namen in der Liste von rcbench zeigt
+`D SERIES` und seine Nummer. Rechts steht ein eckiges Feld `PROG MODE` auf
+Blau. Eine Leiste, die bis an das Feld reichen würde, lässt Angaben von
+rechts weg: zuerst die Version, dann den Pin. Ein klassisches Servo zeigt
+`HS-5645MG  BACKUP IN RAM`, danach `HS-5645MG  BACKUP HT001`.
 
 Jede Zeile zeigt die Gruppe in kleiner Schrift, den Parameternamen und den
 Wert. Die Zeilen sind 40 px hoch mit 42 px Abstand. Ziehe die Liste nach oben
@@ -226,9 +234,13 @@ oder unten, um zu verschieben.
 - Ein gespeicherter Wert, den keine Codierung annimmt, zeigt `RAW` und die
   Zahl in Bernstein, zum Beispiel `RAW 1234`. Ein Wert, der sich nicht
   decodieren lässt, zeigt `?`.
-- Nur lesbare Zeilen sind gedämpft gezeichnet, und ein Tippen darauf wählt
-  nichts aus: `SENSITIVITY` und jede INFO-Zeile außer `ID`.
-- Ein geänderter Wert ist grün gezeichnet, und sein Name trägt ein `*`.
+- Nur lesbare Zeilen sind grau gezeichnet, ein `RAW`-Wert darin aber in
+  Bernstein, und ein Tippen darauf wählt nichts aus: `SENSITIVITY` und jede
+  INFO-Zeile außer `ID`.
+- Ein geänderter Wert ist cyan, mit einem 3 px breiten cyanfarbenen Balken am
+  linken Rand seiner Zeile; der Name trägt kein Zeichen. Ein Wert, wie er
+  gelesen wurde, steht in der Textfarbe, ausgewählt oder nicht: Die Auswahl
+  hellt die Zeile und ihren Namen auf, nicht den Wert.
 
 <img src="img/hitec-preview.png" width="240" alt="SPEED ausgewählt und von 100 % (4095) auf 90 % (18) gestellt">
 
@@ -236,7 +248,8 @@ oder unten, um zu verschieben.
 
 1. Tippe auf eine änderbare Zeile. Die Editorleiste unter der Liste zeigt den
    Parameter, den gespeicherten und den vorgemerkten Wert, zum Beispiel
-   `SPEED  100 % (4095) ->` über `90 % (18)`. Ist keine Zeile gewählt, zeigt
+   `SPEED  100 % (4095) ->` über `90 % (18)`, den vorgemerkten Wert in Cyan,
+   sobald er abweicht. Ist keine Zeile gewählt, zeigt
    die Leiste `TAP A ROW TO EDIT IT` und `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tippe auf `-` oder `+` (44 × 44 px), um den Wert auf den nächsten Wert zu
    stellen, den seine Codierung annimmt. Gedrückt halten wiederholt den
@@ -244,7 +257,7 @@ oder unten, um zu verschieben.
 3. Oder wische die Zeile zur Seite: ein grober Schritt je 16 px. Ein grober
    Schritt ist ein Elftel des Wertebereichs, aufgerundet, mindestens ein
    Schritt.
-4. `REVERT` verwirft alle vorgemerkten Änderungen.
+4. `REVERT`, in Bernstein beschriftet, verwirft alle vorgemerkten Änderungen.
 
 `FAILSAFE` geht durch `LIMP`, `OFF`, dann Stellungen von 900 µs bis
 2100 µs. Ein `RAW`-Wert nimmt beim ersten Schritt den nächsten zulässigen
@@ -260,9 +273,9 @@ Zwei Arten von Grenzen gelten:
   Bereich und Schritte der Codierung sind harte Grenzen, ebenso die
   Reihenfolge `LEFT END` unter `NEUTRAL` unter `RIGHT END`. Ist kein weiterer
   Schritt zulässig, ist die Schaltfläche abgeblendet gezeichnet.
-- **Eine weiche Regel** wird übernommen. Die Zeile bekommt an ihrem linken Rand
-  eine 3 px breite bernsteinfarbene Markierung, und die Editorleiste zeigt den
-  Text der Regel in Bernstein. Es sind die sieben Regeln von rcbench,
+- **Eine weiche Regel** wird übernommen. Der Balken der Zeile wird
+  bernsteinfarben, der Wert bleibt cyan, und die Editorleiste zeigt den Text
+  der Regel in Bernstein. Es sind die sieben Regeln von rcbench,
   verglichen mit dem zuletzt gelesenen Servo:
 
 | Regel | Text |
@@ -291,8 +304,8 @@ nicht mehr lesen oder wiederherstellen).
 
 <img src="img/hitec-id.png" width="240" alt="Die Schreibseite für ID 0 -> 1, mit dem bernsteinfarbenen ID-Hinweis">
 
-Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `HOLD TO WRITE`
-(110 px), `REVERT` (52 px) und `FILES` (54 px). `HOLD TO WRITE` wirkt nur,
+Unter der Editorleiste liegen drei Schaltflächen, 46 px hoch: `WRITE...`
+(110 px), `REVERT` (52 px) und `FILES` (54 px). `WRITE...` wirkt nur,
 wenn etwas vorgemerkt ist und das Servo seit dem letzten fehlgeschlagenen
 Schreiben gelesen wurde.
 
@@ -300,16 +313,19 @@ Schreiben gelesen wurde.
 
 ## Schreiben
 
-**Halte `HOLD TO WRITE` 1 s lang.** Während du hältst, füllt sich ein Balken.
-Die Schreibseite öffnet sich und schreibt noch nichts.
+**Tippe `WRITE...` an.** Die Schreibseite öffnet sich und schreibt noch
+nichts. `WRITE...` zu halten bewirkt nicht mehr als ein Tippen: Die Seite
+öffnet sich, wenn der Finger abhebt.
 
 <img src="img/hitec-write.png" width="240" alt="Die Schreibseite: SPEED 100 % (4095) -> 90 % (18), KEEP THE SERVO HORN CLEAR.">
 
-Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Werte, `1 VALUE`
-oder `2 VALUES`. Jeder geänderte Parameter ist eine Zeile, `SPEED` und
-`100 % (4095) -> 90 % (18)`, oder zwei, wenn der Wert nicht neben den Namen
-passt. Eine geänderte `ID` steht zuerst. Danach zählt zum Beispiel
-`AND 3 MORE` die Werte, die nicht aufgeführt sind.
+Die Schreibseite heißt `HITEC WRITE`. Die Leiste zählt die Änderungen,
+`1 CHANGE` oder `2 CHANGES`. Jeder geänderte Parameter ist eine Zeile,
+`SPEED` und `100 % (4095) -> 90 % (18)`, der alte Wert und der Pfeil
+gedämpft, der neue Wert cyan, oder zwei Zeilen, wenn der Wert nicht neben
+den Namen passt. Eine geänderte `ID` steht zuerst. Die Seite führt höchstens
+4 Änderungen auf; danach zählt zum Beispiel `AND 3 MORE` die Änderungen, die
+nicht aufgeführt sind.
 
 Unter den Werten, von oben nach unten:
 
@@ -324,7 +340,7 @@ Unter den Werten, von oben nach unten:
 - Zeilen mit einem `*` am Anfang: die weichen Regeln, die gelten.
 
 Die ersten vier stehen immer, wenn sie gelten; die Werte bekommen den Platz,
-der übrig bleibt, höchstens sechs. Jede weiche Regel steht ganz oder gar
+der übrig bleibt, höchstens vier. Jede weiche Regel steht ganz oder gar
 nicht, und passen nicht alle, zählt die letzte Zeile den Rest:
 `AND 2 MORE RULES: SEE EACH ROW.` Die Editorleiste jeder Zeile nennt ihre
 Regel.
@@ -345,11 +361,11 @@ Die Zeile am unteren Rand sagt, wohin die Sicherung geht:
 `NO CARD`, `CARD ON USB` und `NO BACKUP ON THE CARD` stehen in Bernstein: Die
 Werte des Servos vor dem ersten Schreiben liegen nur im Speicher, bis ein
 späteres Schreiben mit eingebundener Karte sie sichert; LEAVE oder ein
-Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch. Ob es
-abgelehnt werden oder ein zweites Halten brauchen soll, ist beim Eigentümer
-offen.
+Stromausfall verliert sie. Ohne Karte geht das Schreiben trotzdem durch.
 
-**Ein zweites Halten von 1 s schreibt.** Zuerst kommen die Schritte auf der
+**Halte das `HOLD TO WRITE` der Seite 1 s lang, um zu schreiben.** Während
+du hältst, füllt sich ein Balken; das Tippen, das die Seite geöffnet hat,
+zählt nicht. Zuerst kommen die Schritte auf der
 Karte:
 
 1. Vor dem ersten Schreiben der Sitzung, mit eingebundener Karte: Ein
@@ -360,36 +376,69 @@ Karte:
    Vermerk `HITEC/HITEC.TXT` auf die Karte.
 
 Mit einer Karte, die beim Öffnen des Bildschirms eingebunden war, gehen diese
-Dateien zuerst auf die Karte, während der Bildschirm weiter zeichnet. Die
-Seite zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben
-`SAVING THE FILES TO THE CARD.`) und zum Beispiel `BLOCKS LEFT: 12`. Das Servo
-wird erst geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die
-Daten nicht an, hält das Schreiben an. Beim ersten Schreiben der Sitzung
-zeigt die Seite
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`,
-bei
-einem späteren Schreiben
-`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+Dateien zuerst auf die Karte, während der Bildschirm weiter zeichnet. Die Seite
+zeigt `SAVING THE BACKUP TO THE CARD.` (bei einem späteren Schreiben `SAVING THE
+FILES TO THE CARD.`) und zum Beispiel `BLOCKS LEFT: 12`. Das Servo wird erst
+geschrieben, wenn die Karte die Dateien hält. Nimmt die Karte die Daten nicht
+an, hält das Schreiben an. Beim ersten Schreiben der Sitzung zeigt die Seite
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`,
+bei einem späteren Schreiben
+`THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 Zum Servo ging nichts. Die Karte wird neu eingebunden, und `OK` führt zur
-Feldliste zurück; das nächste `HOLD TO WRITE` sichert die Dateien erneut und
-schreibt dann. Eine volle Karte endet nicht hier, sondern in
-`THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
+Feldliste zurück; das nächste Schreiben, `WRITE...` und sein Halten, sichert
+die Dateien erneut und schreibt dann. Eine volle Karte endet nicht hier,
+sondern in `THE CARD TOOK NO FILE`, bevor etwas eingereiht ist.
+
+Das Warten auf die Karte endet, wenn die Karte die Dateien hält und das
+Schreiben hinausgeht, oder wenn das Übertragen scheitert und die Seite es
+wie oben sagt. Ein Hänger des Bildschirms mit der geschalteten Versorgung
+beendet es ebenfalls: Der Bildschirm kehrt zu seiner Hauptansicht mit
+`RETRY` zurück, nichts wird geschrieben, und das nächste Schreiben öffnet
+sich mit einem Tippen und wartet auf sein eigenes Halten. Ein Servo, das
+während des Wartens abgezogen wird, bemerkt der Bildschirm erst, wenn das
+Schreiben hinausgeht, das dann scheitert.
 
 Das Schreiben sendet dann die geänderten Register im Abstand von 20 ms,
 speichert sie im Servo, startet das Servo neu (1,0 s) und liest alle 21
 Register zurück. Für eine Einstellung dauert das etwa 1,7 s, berechnet aus
 den Zeiten von rcbench und nicht gemessen. Die Seite zeigt
 `WRITING: DO NOT UNPLUG.` und darunter `WRITES SENT: 2 OF 4`, dann
-`READING BACK`. `BACK` während des Schreibens wird vorgemerkt: Die Seite
-zeigt `LEAVING AFTER THE WRITE ENDS.`, und die Verlassenseite folgt auf das
-Ergebnis. Der Bildschirm bricht ein Schreiben nie ab.
+`READING BACK`. Während das Schreiben läuft, und während es auf die Karte
+wartet, ist `BACK` grau und tut nichts: Kein `BACK` lässt ein Servo halb
+geschrieben zurück. `BACK` vor dem Halten oder unter dem Ergebnis führt zur
+Feldliste zurück. Der Bildschirm bricht ein Schreiben nie ab.
 
 Ein geprüftes Schreiben entfernt seinen Vermerk. Spätere Schreibvorgänge der
 Sitzung sichern kein zweites Mal.
 
+### Die BOARD-Spannung rot
+
+Solange die BOARD-Spannung auf dem Tester rot ist, unter 3,30 V und bis sie
+wieder 3,35 V erreicht, schreibt das Halten der Seite nichts: Keine Datei geht
+auf die Karte und kein Frame zum Servo. Die Seite zeigt in Bernstein
+`BOARD VOLTAGE IS RED: NOT WRITTEN.` und
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`, und `HOLD TO WRITE` bleibt. Der
+Bildschirm fragt erneut, kurz bevor die Dateien des Schreibens und sein
+erster Frame hinausgehen, nach dem Warten auf das Übertragen zur Karte. Eine
+Spannung, die währenddessen rot wird, hält das Schreiben ebenfalls an: Die
+Sicherung und der Vermerk des Schreibens können dann schon auf der Karte
+sein, und kein Frame geht hinaus. Ein laufendes Schreiben wird nicht
+angehalten: Abgebrochen ließe es das Servo teilweise geschrieben und
+ungeprüft zurück, während eines, das zu Ende läuft, mit dem Rücklesen
+endet. Bernstein und ein Wert unter 2,50 V (keine Zelle zu beurteilen)
+lehnen kein Schreiben ab. Das `HOLD TO RESTORE` der Wiederherstellungsseite
+wird ebenso abgelehnt. Die
+Bereiche sind der übliche Bereich einer Lithium-Polymer-Zelle, auf dieser
+Platine nicht gemessen. Was die Platine an USB-Versorgung ohne Zelle liest,
+ist ebenfalls nicht gemessen, also kann eine Platine nur an USB das
+Schreiben ablehnen.
+
+<img src="img/hitec-board-low.png" width="240" alt="Die Schreibseite mit roter BOARD-Spannung: BOARD VOLTAGE IS RED: NOT WRITTEN. und CHARGE THE BOARD'S CELL, HOLD AGAIN. in Bernstein">
+
 ### Das Ergebnis
 
-Das Ergebnis ersetzt das Halten durch `OK`. `OK` führt zur Feldliste zurück.
+Das Ergebnis ersetzt das Halten durch `OK`. `OK` oder `BACK` führt zur
+Feldliste zurück.
 
 <img src="img/hitec-write-error.png" width="240" alt="THE SERVO DOES NOT HOLD THE VALUES: 0x54. READ AND CHECK.">
 
@@ -408,8 +457,8 @@ Zu den bernsteinfarbenen Ergebnissen gehören:
 - `NOTHING WAS WRITTEN: NO PLAN (CODE n).`, mit dem Code des Planers.
 - `NOTHING WAS WRITTEN (CODE n).`, mit dem Code der Sitzung.
 - `THE SCREEN STALLED. NOTHING WAS WRITTEN.`
-- `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
-- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+- `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
+- `THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 
 Nach einem Schreiben, das fehlschlug, nachdem Frames gesendet waren, hält
 das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
@@ -438,11 +487,11 @@ das Abbild die berührten Register nicht mehr: Die Schreib-Schaltfläche zeigt
 | Schaltfläche | Was sie tut |
 |---|---|
 | `SAVE AS HT002` | Schreibt das Servo, wie es zuletzt gelesen wurde, nach `HITEC/` unter dem nächsten freien Namen, eins über dem höchsten HTnnn, und nie über eine Datei. Die Leiste zeigt `SAVED AS HT002` in Grün. Hält `HITEC/` 50 `.TXT`-Dateien, den Vermerk nicht gezählt, wirkt die Schaltfläche nicht, und die Leiste zeigt `HITEC/ HOLDS 50 FILES. REMOVE SOME.` |
-| `LOAD` | Übernimmt die änderbaren Werte der gewählten Datei als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `HOLD TO WRITE`. Ein Vermerk lädt das Servo, wie es vor seinem Schreiben war |
-| `HOLD TO RESTORE` | 1 s halten. Öffnet die Wiederherstellungsseite `HITEC RESTORE`, die die Sicherung der Sitzung zurückschreibt. Wirkt, solange das Servo von der Sicherung abweicht |
+| `LOAD` | Übernimmt die änderbaren Werte der gewählten Datei als vorgemerkte Änderungen in die Feldliste. Geschrieben wird dann über `WRITE...` und die Schreibseite. Ein Vermerk lädt das Servo, wie es vor seinem Schreiben war |
+| `RESTORE...` | Tippen öffnet die Wiederherstellungsseite `HITEC RESTORE`, die die Sicherung der Sitzung zurückschreibt, wenn ihr `HOLD TO RESTORE` 1 s gehalten ist. Wirkt, solange das Servo von der Sicherung abweicht |
 
 Die Leiste der Wiederherstellungsseite zeigt zum Beispiel
-`BACK TO THE BACKUP: 3 VALUES`. Ihr Halten, `HOLD TO RESTORE`, schreibt wie
+`BACK TO THE BACKUP: 3 CHANGES`. Ihr Halten, `HOLD TO RESTORE`, schreibt wie
 `HOLD TO WRITE`.
 
 Eine Datei der anderen Familie oder eines anderen Layouts wird abgelehnt:
@@ -474,7 +523,7 @@ Eine von Hand bearbeitete Datei lädt nicht.
 - **Eine Karte, die keine Datei annimmt.** Nimmt eine eingebundene Karte weder
   die Sicherung noch den Vermerk an, stoppt das Schreiben vor dem ersten
   Frame. Die Schreibseite zeigt
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 Die Sicherungen teilen sich einen Ring von 50 Nummern mit den KST- und
 AM32-Sicherungen, `BACKUP/HTnnn.TXT`, `BACKUP/KSTnnn.TXT` und
@@ -487,44 +536,58 @@ Sicherung die älteste, gleich von welchem Gerät. Den Ring beschreibt die
 ## Verlassen
 
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` während eines
-Lesens öffnet sie ebenfalls.
+Lesens öffnet sie ebenfalls. `BACK` auf der Verlassenseite ist grau und
+bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`, `SUPPLY ON` oder
-`SUPPLY OFF`. Die Seite zeigt mit `GP28` oder `GP29` `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.`,
-mit `NONE` `LEAVE RESTARTS THE SERVO.` Mit vorgemerkten Änderungen kommt
-`2 CHANGES NOT WRITTEN.` hinzu, nach einem fehlgeschlagenen Schreiben
-`A WRITE DID NOT END VERIFIED.` in Bernstein.
+<img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE, den 2 s aus und 1 s mehr: NEXT SERVO und RESTART DSHOT aktiv">
+
+Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`,
+`SUPPLY ON` oder `SUPPLY OFF`. Die Seite nummeriert drei Schritte; der
+aktuelle ist bernsteinfarben, mit einem Balken am linken Rand, die anderen
+grau:
+
+1. `LEAVE SWITCHES THE SUPPLY OFF.` mit `GP28` oder `GP29`, oder
+   `LEAVE RESTARTS THE SERVO.` mit `OWN`.
+2. `UNPLUG THE SERVO.`, mit `DSHOT RESTARTS ON SIG GP0 AND READS` und
+   `AS A 970 US PULSE AT 1000 HZ.`
+3. `RESTART DSHOT.`
+
+Mit vorgemerkten Änderungen kommt `2 CHANGES NOT WRITTEN.` hinzu, nach
+einem fehlgeschlagenen Schreiben `A WRITE DID NOT END VERIFIED.`, in
+Bernstein.
 
 | Schaltfläche | Was sie tut |
 |---|---|
+| `STAY` | Führt zur Feldliste zurück |
 | `READ AGAIN` | Liest das Servo erneut und führt zur Feldliste zurück. Vorgemerkte Änderungen bleiben |
-| `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `NONE` startet es das Servo mit seinen gespeicherten Werten neu |
-| `BACK` | Führt zur Feldliste zurück |
+| `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `OWN` startet es das Servo mit seinen gespeicherten Werten neu |
 
-Nach `LEAVE` mit `GP28` oder `GP29` zeigt die nächste Seite
-`SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, bis die Leitung geschlossen ist. Dann
-zeigt sie `UNPLUG THE SERVO.` über `DSHOT RESTARTS ON GP0 AND READS AS` und
-`A 970 US PULSE AT 1000 HZ.`
+Nach `LEAVE` ist Schritt 2 aktuell, und `NEXT SERVO` und `RESTART DSHOT`,
+an der Stelle von `LEAVE`, sind grau, solange der Pin freigegeben wird. Mit
+`GP28` oder `GP29` zeigt die Seite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, bis
+die Leitung geschlossen ist; mit `OWN` `RELEASING THE PIN`.
 
-<img src="img/hitec-unplug.png" width="240" alt="Die Abziehseite: UNPLUG THE SERVO. und RESTART DSHOT">
-
-**Zieh das Servo ab und tippe dann auf `RESTART DSHOT`.** Der ESC-Treiber
-übernimmt den Pin wieder, und `MENU` erscheint. `BACK` auf dieser Seite
-behält den Pin und tritt erneut in das Servo ein. Solange die Seite
-`RELEASING THE PIN` zeigt oder die Versorgung herunterzählt, ist `BACK`
-deaktiviert gezeichnet, als Umriss mit grauer Beschriftung: Es wirkt ab dem
-Moment, in dem `UNPLUG THE SERVO.` erscheint.
+**Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
+Es behält den Pin und startet eine Sitzung für das nächste Servo. Mit `OWN`
+zeigt die Seite `NEXT SERVO: POWER IT AFTER THE TAP.`: Der Bildschirm kehrt
+zum Warten auf `READ` zurück. Mit geschalteter Versorgung beginnt der
+Eintritt sofort. **`RESTART DSHOT`** wirkt 1 s
+danach: Der ESC-Treiber übernimmt den Pin wieder, und `MENU` erscheint. Ein
+Doppeltippen auf `LEAVE` landet, während `RESTART DSHOT` grau ist, und
+startet nichts neu; ein Druck, der begann, während es grau war, bewirkt
+beim Loslassen nichts.
 
 `BACK` während des Eintritts, bevor das Servo geantwortet hat, bricht ihn ab
-und zeigt die Abziehseite.
+und öffnet die Seite bei `1 UNPLUG THE SERVO.`
 
 ---
 
 ## Wenn es nicht funktioniert
 
-- **`AN ESC ANSWERS ON GP0.`** Ein ESC hängt am ESC-Pin. Zieh ihn ab.
+- **`AN ESC ANSWERS ON SIG GP0: UNPLUG IT.`** Ein ESC hängt an SIG, dem
+  ESC-Pin. Zieh ihn ab.
 - **`NO SERVO ANSWERS` mit `REPLY: SILENT`.** Nichts hat geantwortet. Prüfe
-  die Versorgung des Servos, das Signalkabel und die Masse. Mit `NONE`
+  die Versorgung des Servos, das Signalkabel und die Masse. Mit `OWN`
   schalte das Servo vor dem Eintritt ein.
 - **`NO SERVO ANSWERS` mit einem anderen Antwortwort.** Flanken kommen an,
   aber keine Antwort ist gültig. Prüfe Signalkabel und Masse, und dass kein
@@ -533,8 +596,8 @@ und zeigt die Abziehseite.
 - **`THE SCREEN STALLED. NOTHING WAS WRITTEN.`** Der Bildschirm hing länger
   als 250 ms, bevor der Schreibvorgang hinausging. Schreibe erneut.
 - **Ein rotes Ergebnis.** Tippe auf `OK`, dann auf `READ AGAIN`, und prüfe
-  die Werte. Zurück zum Servo, wie es war, führt `HOLD TO RESTORE` in FILES.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+  die Werte. Zurück zum Servo, wie es war, führt `RESTORE...` in FILES.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Prüfe die Karte, oder nimm sie aus der USB-Nutzung, und schreibe dann
   erneut.
 
@@ -558,11 +621,24 @@ dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
   Seite zeigt dann
   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` und
   `RETRY POWERS IT UP AND READS IT AGAIN.` Ohne Karte, nach einem
-  Schreiben, kommt `NO CARD: THE BACKUP IN MEMORY IS LOST.` hinzu.
+  Schreiben, kommt `NO CARD: THE BACKUP IN RAM IS LOST.` hinzu.
+- **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
+  `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein
+  Messwert von 3,0 A oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die
+  Versorgung hochkam, sie sofort ab und brechen den Vorgang auf der Leitung ab,
+  auch während eines Lesens oder Schreibens und nach LEAVE, solange ein
+  Schreiben noch zu Ende läuft. Die Seite zeigt
+  `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` oder
+  `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, dann
+  `RETRY POWERS IT UP AND READS IT AGAIN.` Die Versorgung bleibt bis RETRY
+  aus. Ein Sensor, der nicht antwortet, `-- A` in der Leiste, schaltet
+  nichts ab, und die Sitzung läuft weiter. Nicht auf Hardware getestet.
 - **LEAVE** schaltet die Versorgung ab. Der Pin wird 2,0 s nach dem
   Ausschalten freigegeben.
 
-Mit `NONE` beendet ein Hängen die Sitzung nicht. Ein Hängen während des
+<img src="img/hitec-cut.png" width="240" alt="Die harte Abschaltung: SIG GP0  SUPPLY OFF, THE SERVO DREW 3.0 A OR MORE, RETRY">
+
+Mit `OWN` beendet ein Hängen die Sitzung nicht. Ein Hängen während des
 Eintritts beendet den Eintritt: Die Seite zeigt `NO SERVO ANSWERS` mit
 RETRY. Später endet ein laufendes Lesen oder Schreiben, das Servo bleibt im
 Programmiermodus, und der nächste Vorgang wird abgewiesen, bis der
@@ -573,11 +649,11 @@ Bildschirm wieder läuft: Ein Schreiben zeigt dann
 
 ## Klassische Servos
 
-`CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder `GP29`:
-Ein klassisches Servo geht nur beim Einschalten in den Programmiermodus,
-und die Platine schaltet seine Versorgung über den Wandler aus Teil C der
-[Verdrahtung](Verdrahtung). Unter `NONE` zeigt die Familienauswahl
-`NEEDS THE CONVERTER OF WIRING PART C` und
+`HITEC CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder
+`GP29`: Ein klassisches Servo geht nur beim Einschalten in den
+Programmiermodus, und die Platine schaltet seine Versorgung über den Wandler
+aus Teil C der [Verdrahtung](Verdrahtung). Unter `OWN` zeichnet PROGRAMMER
+den Eintrag abgeblendet und zeigt `NEEDS THE CONVERTER OF WIRING PART C` und
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
 Der Signalpegel:
@@ -597,7 +673,7 @@ ein simuliertes Servo. Noch kein klassischer Eintritt, kein Lesen und kein
 Schreiben lief an einem Servo auf dieser Platine. Die Bilder unten zeigen
 sie mit SERVO SUPPLY auf `GP28`.
 
-<img src="img/hitec-family-classic.png" width="240" alt="Die Familienauswahl mit SERVO SUPPLY auf GP28: CLASSIC freigegeben"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER mit SERVO SUPPLY auf GP28: HITEC CLASSIC freigegeben"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** Ein klassisches Servo, dessen Prüfsumme nicht aufgeht, zeigt
   `CHECKSUM` `BAD` in Bernstein. Die Zeile lässt sich auswählen, und die

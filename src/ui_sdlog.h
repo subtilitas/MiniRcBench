@@ -31,8 +31,9 @@ struct SdLogStatus;
  *
  * Shown above START from the end (@ref SdLogEnd): a write that found the
  * card full, a write, sync or close that failed, a file that did not open,
- * until the next start or mount; a log a tool stopped when it took the card,
- * until the next start. A refusal of USB DRIVE outranks it for its 4000 ms.
+ * a start that found `LOG99999.BFL`, until the next start or mount; a log
+ * a tool stopped when it took the card, until the next start. A refusal of
+ * USB DRIVE outranks it for its 4000 ms.
  * A tool's stop has one line: a mount hint takes the second.
  *
  * @param st The logger's status.

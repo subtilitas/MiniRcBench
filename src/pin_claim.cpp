@@ -22,15 +22,27 @@ static uint8_t    s_aux   = PIN_CLAIM_NO_GPIO;  /**< AUX GPIO, latched at Held. 
 static uint8_t    s_jobError = CORE1_JOB_OK;    /**< Why the job did not bind. */
 /** @brief A start went to core1 and has not been answered. */
 static bool       s_jobPending = false;
+/** @brief Held starts the job: from pinClaimBegin(), or pinClaimStartJob() for a deferring user. */
+static bool       s_jobWanted = false;
+/**
+ * @brief This claim shows the leave page before DShot restarts: its user's
+ *        PinUserInfo::unplug from pinClaimBegin(), or pinClaimWantLeavePage().
+ */
+static bool       s_unplug = false;
 /** @} */
 
-/** @brief The core1 job a screen runs; None for AM32. @see PIN_USERS */
+/** @brief The core1 job a screen runs. @see PIN_USERS */
 static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 
-/** @brief SERVO, KST and HITEC show the unplug page before DShot restarts. @see PIN_USERS */
-static bool needsUnplug(PinUser who) { return pinUserInfo(who).unplug; }
+/**
+ * @brief The claim shows the leave page before DShot restarts: SERVO, KST,
+ *        HITEC and the S.BUS monitor always, AM32 once an EFM8 bootloader
+ *        answered, the USB bridge once it asks. @see PIN_USERS,
+ *        pinClaimWantLeavePage()
+ */
+static bool needsUnplug() { return s_unplug; }
 
-/** @brief Hand the job its pins. AM32 has no job and starts nothing. */
+/** @brief Hand the job its pins. A user with no job starts nothing. */
 static void startJob() {
 	s_jobError = CORE1_JOB_OK;
 	s_jobPending = false;
@@ -51,24 +63,39 @@ static void restore() {
 }
 
 /**
- * @brief Leaving: restore, unless the unplug page is due.
+ * @brief Leaving: restore once the job is idle, unless the leave page is due.
  *
- * SERVO, KST and HITEC wait for RESTART DSHOT, which pinClaimUnplugDue()
- * offers only once their job is idle. AM32 has neither a job nor the page, so its claim
- * restores within the call that ended it.
+ * SERVO, KST, HITEC and the S.BUS monitor wait for RESTART DSHOT, which
+ * pinClaimUnplugDue() offers only once their job is idle; so does an AM32
+ * claim after an EFM8 bootloader answered (pinClaimWantLeavePage()), which
+ * ESC SETTINGS asks for before it starts its job. Any other AM32 claim has
+ * neither a job nor the page, so it restores within the call that ended it.
+ * The USB bridge has a job and no page: it restores on
+ * the first look at the claim that finds its job idle, settle()'s included,
+ * so DShot is never rebuilt on a pin the job's state machines still drive,
+ * and comes back after a screen that ended the claim and closed.
  */
 static void leaveStep() {
-	if (needsUnplug(s_who)) return;
+	if (needsUnplug()) return;
+	if (core1JobPhase() != Core1JobPhase::Idle) return;
 	restore();
 }
 
-/** @brief Restoring ends when the pump runs again. Nothing is left to do. */
+/**
+ * @brief Leaving moves on without its screen: a claim without the leave page
+ *        restores once its job is idle. Restoring ends when the pump runs
+ *        again. Run by every call that reads or changes the claim, so a
+ *        screen that ended the claim and closed, as ESC SETTINGS does,
+ *        leaves no claim behind for MENU's look at it.
+ */
 static void settle() {
+	if (s_state == ClaimState::Leaving) leaveStep();
 	if (s_state != ClaimState::Restoring || escTaskSuspended()) return;
 	s_state = ClaimState::Free;
 	s_who   = PinUser::None;
 	s_roles = 0;
 	s_sig = s_aux = PIN_CLAIM_NO_GPIO;
+	s_jobWanted = false;
 }
 
 ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
@@ -91,6 +118,8 @@ ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
 	s_sig = s_aux = PIN_CLAIM_NO_GPIO;
 	s_jobError = CORE1_JOB_OK;
 	s_jobPending = false;
+	s_jobWanted = !pinUserInfo(who).deferJob;
+	s_unplug = pinUserInfo(who).unplug;
 	s_state = ClaimState::Stopping;
 	// Disarms again, as the backstop under the Armed rule.
 	escTaskSuspend();
@@ -107,7 +136,7 @@ ClaimState pinClaimPoll() {
 				s_sig = escTaskDshotPin();
 				s_aux = escTaskKissPin();
 				s_state = ClaimState::Held;
-				startJob();
+				if (s_jobWanted) startJob();
 			}
 			break;
 
@@ -179,13 +208,35 @@ void pinClaimEnd(PinUser who) {
 }
 
 bool pinClaimUnplugDue() {
-	return s_state == ClaimState::Leaving && needsUnplug(s_who) &&
+	return s_state == ClaimState::Leaving && needsUnplug() &&
 	       core1JobPhase() == Core1JobPhase::Idle;
+}
+
+void pinClaimWantLeavePage(PinUser who) {
+	settle();
+	if (who != s_who) return;
+	if (s_state == ClaimState::Stopping || s_state == ClaimState::Held ||
+	    s_state == ClaimState::Running)
+		s_unplug = true;
+}
+
+bool pinClaimLeavePage() {
+	settle();
+	return s_state != ClaimState::Free && needsUnplug();
 }
 
 void pinClaimRestart(PinUser who) {
 	if (who != s_who || !pinClaimUnplugDue()) return;
 	restore();
+}
+
+void pinClaimStartJob(PinUser who) {
+	settle();
+	if (who != s_who || (s_state != ClaimState::Stopping && s_state != ClaimState::Held)) return;
+	bool first = !s_jobWanted;
+	s_jobWanted = true;
+	// Held with no job yet: the tap starts it. Stopping starts it at Held.
+	if (first && s_state == ClaimState::Held) startJob();
 }
 
 void pinClaimRetry(PinUser who) {
@@ -199,5 +250,10 @@ void pinClaimRetry(PinUser who) {
 void pinClaimKeep(PinUser who) {
 	if (who != s_who || !pinClaimUnplugDue()) return;
 	s_state = ClaimState::Held;
-	startJob();
+	s_jobError = CORE1_JOB_OK;
+	s_jobPending = false;
+	// A user that defers its job asks for it again: the next servo may need
+	// powering first, as its first did (menu-b.md, decision 34).
+	s_jobWanted = !pinUserInfo(s_who).deferJob;
+	if (s_jobWanted) startJob();
 }

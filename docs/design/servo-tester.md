@@ -173,7 +173,7 @@ commands the servo." The screen keeps that interaction and its rules.
 |---|---|---|
 | Surface | track 224 × 34 px at y 248, 8 px slop above, 1 px below | annulus around the shaft, 24 px to 122 px radius, ±104° of straight up, clipped to the dial band |
 | Spring mode | absolute: finger position is throttle, back to 0 on release | none |
-| HOLD mode | relative, by distance dragged (`HOLD_DRAG_SENSITIVITY_PCT`), so a touch never jumps the motor | always absolute; the release holds |
+| LATCH on | relative, by distance dragged (`HOLD_DRAG_SENSITIVITY_PCT`), so a touch never jumps the motor | always absolute; the release holds |
 | Large pad | relative swipe with a 6 px deadzone (`PAD_DEADZONE_PX`) | none |
 | Edge | 16 px saturation at each end (`THR_EDGE_SAT`) | ±90° to ±104° saturates at MIN or MAX |
 | Jump limit | relative modes, ceiling (`maxThrottle`) | SPEED slew, pulse range |
@@ -186,7 +186,7 @@ bounded by the pulse range and slowed by SPEED.
 
 ### Two servos
 
-Two horns share one dial: A in `C_LIME`, B in `C_CYAN`. A selector of three
+Two horns share one dial: A in `C_LIME`, B in `C_BLUE`. A selector of three
 buttons, `A`, `B` and `AB`, sits in the readout row; `AB` is selected when the
 screen opens. The selection decides what the drag, MIN, CENTRE, MAX and SWEEP
 drive:
@@ -209,15 +209,16 @@ are channels A and B of PWM slice 0, which forces one rate anyway.
 
 Entry: MENU → SERVO TESTER, a row of the registry
 ([menu.md](menu.md)). The main screen is the root and gets no entry; MENU is
-its navigation. BACK through the unplug page returns to MENU. While the claim
-is not Free, the row reads `PINS BUSY` and a tap opens nothing.
+its navigation. BACK through the leave page returns to MENU. While the claim
+is not Free, the row is drawn disabled, MENU's strip reads
+`DSHOT RESTARTING ON SIG GP0`, and a tap opens nothing.
 
-### SERVO
+### SERVO TESTER
 
 ```
 y   0 +------------------------------------------+
-      | SERVO                            [ BACK ]|  header, UI_HDR_H 36 px
-   40 | GP0  50 HZ  1000-2000 US           (SAFE)|  strip: caption, chip
+      | SERVO TESTER                     [ BACK ]|  header, UI_HDR_H 36 px
+   40 | SIG GP0  50 HZ  1000-2000 US       (SAFE)|  strip: caption, chip
    64 | THE SERVO MOVES TO CENTRE AT START.      |  two notes while SAFE
    76 | PULSES ON GP0 ARE THROTTLE TO AN ESC.    |
       |               .   -   -   .              |
@@ -268,11 +269,11 @@ repaints only when the values it shows change, and a change of view clears
 the panel first.
 
 While the pin is unavailable, the dial band holds the message from
-[pin-claim.md](pin-claim.md) and HOLD TO START is drawn disabled. The
-messages the screen shows there: the ESC answering on SIG, wrapped over three
-lines; `DISARM FIRST` and `PINS BUSY`, which the UI does not reach;
-`RELEASING DSHOT PIN` during the drain; `TAKING GP0` until the job binds; and
-`GP0 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
+[pin-claim.md](pin-claim.md) and HOLD TO START is drawn disabled. The messages
+the screen shows there: the ESC answering on SIG, wrapped over three lines;
+`DISARM FIRST` and `WAIT: DSHOT RESTARTING`, which the UI does not reach;
+`RELEASING SIG GP0` during the drain; `TAKING SIG GP0` until the job binds; and
+`SIG GP0 COULD NOT BE TAKEN (PWM)` with a RETRY button, for a first bind or a
 rebind core1 refused.
 
 ### SET
@@ -318,8 +319,16 @@ y   0 | SERVO SET                        [ BACK ]|
   above 60 Hz) is held as pending. The note band names the risk on two lines,
   `ABOVE 60 HZ AN ANALOGUE` `SERVO OVERHEATS.` or `A HELI PROFILE CAN
   DESTROY` `A SERVO NOT MADE FOR IT.`, and HOLD TO APPLY (1000 ms) applies it.
-  Every other change applies at once. BACK drops a pending change
-  (decision 11).
+  So is a TYPE, MIN or MAX change that takes the profile further past its
+  travel (below, decision 21). Every other change applies at once while
+  nothing is pending, and joins a pending change otherwise. BACK drops a
+  pending change (decision 11) through the BACK guard of
+  [menu-b.md](menu-b.md) decision 7: the first BACK keeps SET and draws
+  `1 CHANGE NOT APPLIED.` / `BACK AGAIN DISCARDS IT.` in `C_AMBER` on the
+  note band, counting the rows in `C_CYAN` (`2 CHANGES NOT APPLIED.` /
+  `BACK AGAIN DISCARDS THEM.`); the second returns to SERVO and drops it; a
+  press elsewhere disarms the guard. With nothing pending BACK returns at
+  once.
 - SERVOS TWO is drawn disabled when the claim refuses AUX: KISS live or SIG
   and AUX on one GPIO. With the SERVOS row selected, the note band shows the
   screen texts of the pin-claim design
@@ -332,7 +341,12 @@ y   0 | SERVO SET                        [ BACK ]|
   TAIL 760, centred at 760 µs, MIN more than `SERVO_TRAVEL_MARGIN_US` 100 µs
   below the type's MIN or MAX more than 100 µs above the type's MAX)
   shows `PAST ITS TRAVEL A SERVO STALLS AND` `HEATS. TRY MIN AND MAX
-  HORN-FREE.` in amber. It applies at once, with no HOLD TO APPLY. The note
+  HORN-FREE.` in amber. A TYPE, MIN or MAX change whose result is such a
+  profile and that changes TYPE, or takes MIN below or MAX above the applied
+  profile's, is held as pending (`servoTravelNeedsHold()`, decision 21), and
+  so is SERVOS ONE to TWO on such a profile (decision 22),
+  with this note as its warning; a heli or 60 Hz warning comes first. A
+  change toward the centre applies at once. The note
   band takes the first that holds: the pending warning; `STOP TO CHANGE THE
   PROFILE`; the cause of a refused TWO on the SERVOS row; the end-stop note
   with TYPE, MIN or MAX selected; `SPEED LIMITS THE SWEEP`; `TWO SERVOS ARE
@@ -345,24 +359,47 @@ y   0 | SERVO SET                        [ BACK ]|
   sine at 0.50 Hz, 100 %, 500 ms, endless. It changes the PULSE rows, so it
   is offered only while SAFE.
 - While RUNNING the right footer button is `STOP`, in `C_RED`, and acts on
-  press, as STOP on SERVO does (decision 16). The press that stops the servo
-  is not also a tap on DEFAULTS: DEFAULTS needs a new press. The SWEEP rows
-  stay adjustable while RUNNING, and so does SPEED on SERVO.
+  press, as STOP on SERVO TESTER does (decision 16). The press that stops
+  the servo is not also a tap on DEFAULTS: DEFAULTS needs a new press. The
+  SWEEP rows stay adjustable while RUNNING, and so does SPEED on SERVO
+  TESTER.
 
 The note band is two lines under the header, rows 40 to 61, where the other
 screens have a one-line strip: the warnings and the pin-claim texts do not fit
-one line of 240 px.
+one line of 240 px. Its second line, when no note takes it, shows in `C_DIM`
+the last step's move timing, `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, or
+before the first step the switched supply's start-up time,
+`SUPPLY UP IN 25 MS` ([current-sense.md](current-sense.md), slices 3 and 5).
 
-### The unplug page
+### The leave page
 
-BACK on SERVO, once a job has held the pins, shows the page of
-[pin-claim.md](pin-claim.md#restoring-dshot): `UNPLUG THE SERVO.`, `DSHOT
-RESTARTS ON GP0 AND READS AS` `A 970 US PULSE AT 1000 HZ.`, and RESTART
-DSHOT, a tap. Until core1 has released the pins the page says
-`RELEASING THE PINS`, and BACK on it does nothing. Once they are released,
-BACK on the page returns to SERVO and keeps the claim; the job binds again,
-SAFE. BACK from a claim still draining, or with no
-claim, leaves at once: nothing was driven.
+BACK on SERVO TESTER, once a job has held the pins, shows the leave page of
+[menu-b.md](menu-b.md#the-leave-page), `ui_leave`, filled by `drawLeave()` in
+`ui_servo.cpp`. BACK is the leave, so the page has no step before LEAVE and
+opens releasing:
+
+```
+y   0 | SERVO TESTER                    [  BACK  ]|  BACK drawn disabled
+   40 | SIG GP0  AUX GP1                          |  strip, C_DIM: the pins held
+   66 |#1 UNPLUG THE SERVO.                       |  step 1, current, C_AMBER
+   78 |#  DSHOT RESTARTS ON SIG GP0 AND READS     |
+   90 |#  AS A 970 US PULSE AT 1000 HZ.           |
+  104 | 2 RESTART DSHOT.                          |  step 2, C_DIM
+  158 | RELEASING THE PINS                        |  until core1 lets go, C_DIM
+  214 | [BACK TO SERVO]                           |  6, 214, 110 x 46
+  268 | [          RESTART DSHOT           ]      |  6, 268, 228 x 46, scale 2
+  320 +-------------------------------------------+
+```
+
+Until core1 has released the pins the note reads `RELEASING THE PINS`, or
+`RELEASING THE PIN` while the screen holds SIG alone, and both buttons are
+drawn disabled. Once they are released, BACK TO SERVO returns to SERVO
+TESTER and keeps the claim; the job binds again, SAFE. RESTART DSHOT takes a
+press that lands 1000 ms or more after the release
+([pin-claim.md](pin-claim.md#restoring-dshot)): at 50 Hz the pins go 41 ms
+after BACK, so without the wait a second tap could restart DShot into the
+servo. BACK on the page is drawn disabled and does nothing. BACK from a
+claim still draining, or with no claim, leaves at once: nothing was driven.
 
 ## Where it runs
 
@@ -504,8 +541,8 @@ UI frames:
   visit to the screen;
 - the last pulse: no pulse cut short at a release from RUNNING, at a rebind
   from RUNNING then SAFE, nor at `pinClaimEnd()` while RUNNING; the claim
-  stays `Leaving` until the job is idle, and BACK on the unplug page does
-  nothing until then; the status reads SAFE during the wait; a released pin
+  stays `Leaving` until the job is idle, and BACK TO SERVO on the leave page
+  does nothing until then; the status reads SAFE during the wait; a released pin
   is an input with the pull-down on;
 - a new visit, refused while an ESC answers or before the job binds, does
   not show the last visit's trip;
@@ -515,14 +552,15 @@ UI frames:
 - two servos: the selector, `AB` with REVERSE B.
 
 The screen tests are in `test/test_servo.cpp` too, through the real UI from
-MENU: the SERVO, SET and unplug screens render, the disabled states draw
+MENU: the SERVO TESTER, SET and leave screens render, the disabled states draw
 disabled and do not act, HOLD TO START fires at 1000 ms and not at 999 ms nor
 on a slide off, STOP fires on press, the KissLive and SamePin refusals reach
 the SET screen through the claim, an ESC answering on SIG holds the claim off
-until 500 ms after its last frame, and the unplug page comes before DShot
-restarts. `test/test_menu.cpp` checks the MENU row: SERVO TESTER opens its screen,
-BACK through the unplug page lands on MENU, and `PINS BUSY` while the claim
-restores. `make previews` adds
+until 500 ms after its last frame, and the leave page comes before DShot
+restarts, its RESTART DSHOT 1000 ms after the release. `test/test_menu.cpp`
+checks the MENU row: SERVO TESTER opens its screen, BACK through the leave
+page lands on MENU, and the row drawn disabled while
+the claim restores. `make previews` adds
 `docs/servo-preview.png`.
 
 ## Work breakdown
@@ -587,11 +625,21 @@ code needed a rule it did not give:
    While the screen waits for the pins, for example while an ESC answers, the
    claim of both returns `EscAnswering`, no AUX refusal is recorded and TWO
    can be chosen. When the ESC goes quiet with AUX refused, the screen takes
-   SIG alone and drops a TWO profile to one servo.
+   SIG alone and drops a TWO profile to one servo, applied or pending
+   (decision 22 holds a TWO past the travel as pending); the wait is then
+   decided again, so a wait that held only for TWO ends and the rest of the
+   edit applies (`claimPins()`).
+   Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+   decision 5: the unplug page is the leave page, whose BACK is drawn
+   disabled; its BACK TO SERVO keeps the claim and the roles it holds.
 8. **Profile at entry.** Every entry to SERVO starts at STANDARD PWM, 50 Hz,
    one servo, SPEED 100 % and the default sweep, not only every boot. BACK
    leads through the unplug page, so the next entry is likely a different
    servo, and decision 2's reason applies to it.
+   Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+   decisions 5 and 13: the screen is SERVO TESTER, and BACK opens the leave
+   page. BACK TO SERVO there returns to the main view, SAFE, with the
+   profile as it was; only an entry from MENU starts at the defaults.
 9. **Gap between MIN, CENTRE and MAX.** One step, 10 µs. rcbench keeps 50 µs;
    the design states only the order. A stepper that would cross a limit does
    not move, so values stay on the 10 µs grid.
@@ -600,7 +648,9 @@ code needed a rule it did not give:
     finger.
 11. **The warning.** Only a TYPE or RATE change whose result needs it waits
     for HOLD TO APPLY; a MIN change under an applied heli profile applies at
-    once. BACK from SET drops a pending change. DEFAULTS is offered only
+    once. BACK from SET drops a pending change, the second BACK after the
+    guard's warning (revised by decision 7 of [menu-b.md](menu-b.md), built
+    in its slice 5). DEFAULTS is offered only
     while SAFE; decision 16 puts STOP in its place while RUNNING.
 12. **SWEEP steps.** RATE 0.05 Hz, AMPLITUDE 5 %, DWELL 100 ms, MOVES 1; a
     swipe step is 10 of them.
@@ -613,6 +663,8 @@ code needed a rule it did not give:
 14. **Where the screen tests live.** In `test_servo.cpp`, not
     `test_ui.cpp`, so slice 3 does not edit the same test file; `test_ui.cpp`
     checks the CFG row only.
+    Revised by [menu-b.md](menu-b.md#decisions) decisions 13 and 16: the
+    CFG row is MENU's SERVO TESTER row, which `test_menu.cpp` checks.
 15. **Core1JobOps init.** A fourth member, `init`, called by
     `core1JobInit()` on core0, initialises a job's critical section before
     core1 starts. Null for a job with nothing to initialise.
@@ -646,8 +698,35 @@ Decision of the owner, 2026-10-18, on the switched servo supply that
 
 20. **Switched supply.** A change after KST programming uses it here too:
     SAFE is supply off, HOLD TO START switches it on, and STOP and a
-    heartbeat trip switch it off. Not built. Until that change the servo
-    tester never drives the enable pin, GP28 or GP29, so with a converter
-    fitted the converter stays off here, and the servo is unpowered unless
-    it has a supply of its own.
+    heartbeat trip switch it off.
     kst-programming.md records the same as its decision 10.
+    Built as slice 3 of [current-sense.md](current-sense.md#slice-3-as-built):
+    the enable pin is driven low from the bind, high at START, low at STOP,
+    at a heartbeat trip, at a silent touch controller or a stuck bus, and at
+    the release, where it becomes an undriven input after the last pulse.
+    The pulses wait at level 0 until the supply is up. With `SERVO SUPPLY`
+    at `OWN` nothing changes. Host-tested, not tested on hardware. The cuts
+    on the current sensor's readings are slice 4 of
+    [current-sense.md](current-sense.md#slice-4-as-built).
+
+Decision of the owner, 2026-11-14:
+
+21. **Limits past the travel.** TYPE WIDE, and MIN or MAX past the travel
+    margin, need HOLD TO APPLY, as the heli types do. Built as
+    `servoTravelNeedsHold()`: a change waits while the edited profile is
+    past its travel and its TYPE differs from the applied profile's, or its
+    MIN is below or its MAX above the applied profile's. A step back inside
+    the margin or to the applied value ends the wait, and a step toward the
+    centre applies at once, so one hold covers a profile once and a change
+    that only narrows it needs none. Decision 11's rule for a MIN change
+    under an applied heli profile holds when the change keeps the profile
+    inside its travel or moves MIN toward the centre. Not checked on a servo.
+
+Decision of the owner, 2026-11-14:
+
+22. **A second servo past the travel.** SERVOS ONE to TWO while the profile
+    is past its travel waits for HOLD TO APPLY, since it drives a second
+    servo against its end stops. Built in `servoTravelNeedsHold()` as one
+    more condition beside decision 21's: the edited profile drives more
+    servos than the applied one. TWO to ONE, and ONE to TWO on a profile
+    within its travel, apply at once. Not checked on a servo.

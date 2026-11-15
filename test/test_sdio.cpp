@@ -467,6 +467,9 @@ struct SimCard {
 	uint8_t  *rxBuf = nullptr;
 	uint32_t  rxBytes = 0, rxBlocks = 0, *rxCrc = nullptr;
 	bool      rxArmed = false, rxDone = false;
+	uint32_t  rxWords = 0;     ///< CRC words delivered, swapped until rx_wait().
+	uint32_t  rxLatency = 0;   ///< us from a read command to its data in, for rx_ready().
+	uint32_t  rxAt = 0;        ///< t when the data of the last read command is in.
 	int       unalignedArms = 0;
 
 	SimCard() {
@@ -548,8 +551,11 @@ struct SimCard {
 			uint32_t v = __builtin_bswap32(fifo[i]);
 			memcpy(dst + 4 * i, &v, 4);
 		}
-		rxCrc[2 * blk]     = fifo[len / 4];
-		rxCrc[2 * blk + 1] = fifo[len / 4 + 1];
+		// The CRC words come out of the byte-swapping DMA swapped, as the
+		// data does; rx_wait() gives them back in FIFO order.
+		rxCrc[2 * blk]     = __builtin_bswap32(fifo[len / 4]);
+		rxCrc[2 * blk + 1] = __builtin_bswap32(fifo[len / 4 + 1]);
+		rxWords = 2 * (blk + 1);
 		if (corruptData > 0) { dst[len / 2] ^= 0x01; corruptData--; }
 	}
 
@@ -569,6 +575,7 @@ struct SimCard {
 		uint32_t n = multi ? rxBlocks : 1;
 		for (uint32_t b = 0; b < n; b++) deliver(sector(lba + b).data(), 512, b);
 		rxDone = true;
+		rxAt = t + rxLatency;
 		return SDE_OK;
 	}
 
@@ -758,16 +765,27 @@ static sd_err_t simRxArm(void *c, uint8_t *buf, uint32_t bytes, uint32_t blocks,
 	if (s->armFail) return SDE_HW;
 	if ((uintptr_t)buf & 3u) s->unalignedArms++;
 	s->rxBuf = buf; s->rxBytes = bytes; s->rxBlocks = blocks; s->rxCrc = crc;
-	s->rxArmed = true; s->rxDone = false;
+	s->rxArmed = true; s->rxDone = false; s->rxWords = 0;
 	return SDE_OK;
 }
 static sd_err_t simRxWait(void *c, uint32_t timeout) {
 	SimCard *s = (SimCard *)c;
-	if (s->rxDone) return SDE_OK;
+	if (s->rxDone) {
+		if (s->t < s->rxAt) s->t = s->rxAt;
+		for (uint32_t i = 0; i < s->rxWords; i++) s->rxCrc[i] = __builtin_bswap32(s->rxCrc[i]);
+		s->rxWords = 0;
+		return SDE_OK;
+	}
 	s->t += timeout;
 	return SDE_TIMEOUT;
 }
 static void simRxStop(void *c) { ((SimCard *)c)->rxArmed = false; }
+static int g_rxReadyLooks = 0;
+static bool simRxReady(void *c) {
+	SimCard *s = (SimCard *)c;
+	g_rxReadyLooks++;
+	return s->rxArmed && s->rxDone && s->t >= s->rxAt;
+}
 static sd_err_t simTx(void *c, const uint32_t *w, uint32_t n, uint32_t st[2], uint32_t to) {
 	return ((SimCard *)c)->txBlock(w, n, st, to);
 }
@@ -788,6 +806,7 @@ static sdh_bus_t busOf(SimCard *s) {
 	b.rx_arm = simRxArm;
 	b.rx_wait = simRxWait;
 	b.rx_stop = simRxStop;
+	b.rx_ready = simRxReady;
 	b.tx_block = simTx;
 	b.dat0 = simDat0;
 	b.now_us = simNow;
@@ -1223,6 +1242,96 @@ static void testWriteAsync() {
 	checkInt("a poll with nothing in flight", sdh_write_poll(&b, &c, &w, &done), SDE_PARAM);
 }
 
+
+static int s_hookCalls = 0;
+static void countHook() { s_hookCalls++; }
+
+/** @brief A block read with sdh_read_start() and collected under sdh_read_poll(). */
+static void testReadAsync() {
+	section("SDIO: a block read without waiting for its data");
+
+	SimCard s;
+	sdh_bus_t b = busOf(&s);
+	sdh_card_t c;
+	sdh_init(&b, &c, 10000000u);
+	static uint32_t buf32[128];
+	uint8_t *buf = (uint8_t *)buf32;
+
+	sdh_rd_t r;
+	s.rxLatency = 900;
+	s.log.clear();
+	int stops = s.stops;
+	checkInt("CMD17 goes out", sdh_read_start(&b, &c, 9, buf, &r), SDE_OK);
+	checkTrue("under way, the receiver armed, the clock running",
+	          r.active && count(s, 17) == 1 && s.rxArmed && s.stops == stops);
+	bool done = true;
+	uint32_t t0 = s.t;
+	int looks = g_rxReadyLooks;
+	checkInt("not in: not done", sdh_read_poll(&b, &c, &r, &done), SDE_OK);
+	checkTrue("still under way, one look, no time spent",
+	          !done && r.active && g_rxReadyLooks == looks + 1 && s.t == t0);
+	s.t += 900;
+	checkInt("in: done, clean", sdh_read_poll(&b, &c, &r, &done), SDE_OK);
+	checkTrue("done, disarmed, the clock stopped", done && !r.active && !s.rxArmed && s.stops > stops);
+	checkTrue("the data right", memcmp(buf, s.sector(9).data(), 512) == 0);
+	checkInt("no CMD12 after it", count(s, 12), 0);
+
+	s.corruptData = 1;
+	s.log.clear();
+	sdh_read_start(&b, &c, 10, buf, &r);
+	s.t += 900;
+	t0 = s.t;
+	checkInt("a corrupt block: CRC error", sdh_read_poll(&b, &c, &r, &done), SDE_CRC);
+	checkTrue("done, no CMD12: the whole block came, the card back in transfer, the card ready",
+	          done && count(s, 12) == 0 && c.ready);
+	checkInt("no time spent on a command", (long)(s.t - t0), 0);
+	checkInt("the next attempt reads it", sdh_read_start(&b, &c, 10, buf, &r), SDE_OK);
+	s.t += 900;
+	checkInt("clean", sdh_read_poll(&b, &c, &r, &done), SDE_OK);
+	checkTrue("the data right", done && memcmp(buf, s.sector(10).data(), 512) == 0);
+
+	// Each look while the block is not in calls the driver's wait hook.
+	s_hookCalls = 0;
+	sdh_wait_hook = countHook;
+	s.noData = true;
+	s.log.clear();
+	sdh_read_start(&b, &c, 11, buf, &r);
+	s.t += SDH_READ_TIMEOUT_US - 1;
+	sdh_read_poll(&b, &c, &r, &done);
+	sdh_read_poll(&b, &c, &r, &done);
+	checkTrue("no data 1 us short of the limit: not done, the hook called at each look",
+	          !done && r.active && s_hookCalls == 2);
+	s.t += 1;
+	checkInt("at the limit: timeout", sdh_read_poll(&b, &c, &r, &done), SDE_TIMEOUT);
+	sdh_wait_hook = nullptr;
+	checkTrue("done, disarmed, CMD12 sent, the card ready for the next attempt",
+	          done && !s.rxArmed && count(s, 12) == 1 && c.ready);
+	s.noData = false;
+	checkInt("the next attempt goes out", sdh_read_start(&b, &c, 11, buf, &r), SDE_OK);
+	s.t += 900;
+	checkInt("and reads", sdh_read_poll(&b, &c, &r, &done), SDE_OK);
+
+	s.removeAtCmd = s.cmdCount;
+	checkInt("CMD17 unanswered: no response", sdh_read_start(&b, &c, 12, buf, &r), SDE_NO_RESPONSE);
+	checkTrue("nothing under way, disarmed, the card ready for the next attempt",
+	          !r.active && !s.rxArmed && c.ready);
+	s.removeAtCmd = -1;
+	s.removed = false;
+	sdh_init(&b, &c, 10000000u);
+
+	checkInt("an unaligned buffer: refused", sdh_read_start(&b, &c, 12, buf + 1, &r), SDE_PARAM);
+	checkInt("past the end: refused", sdh_read_start(&b, &c, c.sectors, buf, &r), SDE_PARAM);
+	checkInt("a null buffer: refused", sdh_read_start(&b, &c, 0, nullptr, &r), SDE_PARAM);
+	s.armFail = true;
+	checkInt("a receiver that does not arm: its error", sdh_read_start(&b, &c, 12, buf, &r), SDE_HW);
+	s.armFail = false;
+	c.ready = false;
+	checkInt("a card not ready: refused", sdh_read_start(&b, &c, 12, buf, &r), SDE_NOT_READY);
+	checkTrue("nothing under way", !r.active);
+	checkInt("a poll with nothing under way", sdh_read_poll(&b, &c, &r, &done), SDE_PARAM);
+	checkTrue("done", done);
+}
+
 /** @brief SD Status, presence and the error classes. */
 static void testStatusAndProbe() {
 	section("SDIO: SD Status, presence, error classes");
@@ -1340,6 +1449,7 @@ void runSdioTests() {
 	testWrite();
 	testWriteErrors();
 	testWriteAsync();
+	testReadAsync();
 	testStatusAndProbe();
 	testFaultPaths();
 }

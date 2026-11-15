@@ -11,8 +11,10 @@ names, what the ring holds and the write cache's scope; the SD write cache of
 | Tool | Device | Backup | Prefix |
 |---|---|---|---|
 | KST SERVO | KST and Chaservo servos | the image read at entry, rcbench's text format ([kst-programming.md](kst-programming.md#storage)) | `KST` |
-| AM32 CONFIG | AM32 ESCs (electronic speed controllers) | the settings block read at entry, as text (`src/am32_backup.*`) | `AM` |
+| ESC SETTINGS | AM32 ESCs (electronic speed controllers) | the settings block read at entry, as text (`src/am32_backup.*`) | `AM` |
 | Hitec | Hitec servos | the first full read after the entry, rcbench's servo file text, saved by `hitecFilesFirstWrite()` (`src/hitec_files.h`, [hitec-programming.md](hitec-programming.md#storage)) | `HT` |
+| ESC SETTINGS | Bluejay ESCs | the settings page as first read in the escwire session, rcbench's ESC settings text (`src/efm8_backup.h`, [bluejay-blheli-s.md](bluejay-blheli-s.md#slice-4-as-built)) | `BJ` |
+| ESC SETTINGS | BLHeli_S ESCs | as Bluejay's | `BH` |
 
 ## Card layout
 
@@ -70,8 +72,11 @@ Current limitations:
   unreadable, guesses its latest number from the names. With all 50 numbers
   taken the guess is 050, so the next backup writes over 001, which need not
   be the oldest: a ring whose true latest is 004 loses its 4th-newest
-  backup. The board has no real-time clock, so the files' dates cannot tell
-  the order either.
+  backup. The files' dates tell the order only between files written
+  while the board's real-time clock was set: the board has no cell for it,
+  so it is set over USB after each power-up (slice 5 of
+  [run-summary.md](run-summary.md#slice-5-as-built)), and files written
+  before the set carry FAT date 0.
 - A card on which 49 or 50 ring names are directories, made on a computer,
   leaves no free number, or one: a first write that keeps an old record then
   writes the session's backup over the record it just moved.
@@ -94,14 +99,23 @@ Automatic backups only: one per session, before the session's first write.
   into the ring as a Hitec backup, under the next number, before the
   session's first write, and the session's backup takes the number after
   it. A Hitec ring entry holds a servo file or such a record; both load.
-- AM32 has no record and no LOAD.
+- AM32, Bluejay and BLHeli_S have no record and no LOAD.
+- Bluejay and BLHeli_S save a backup before a session's first write and,
+  for a page that is only shown (an older layout, lost tags, a wrong
+  marker), as its list opens. That second kind skips the save when the
+  ring's latest backup is the same device's and holds the same text byte
+  for byte (`efm8BackupSave()` with `skipSame`), so a list opened again and
+  again on one ESC does not push older backups, a write's among them, out
+  of the 50 numbers. Only the latest backup is compared: the same page
+  after another device's backup is saved again.
 
 ## AM32 backup
 
-Before the first WRITE of an AM32 CONFIG session, the 48 bytes of the
-settings block as read at entry (`AM32_SETTINGS_SIZE`, `src/am32_eeprom.h`)
-go to the ring as `AMnnn.TXT`. The melody and the CAN (Controller Area
-Network) block, 0x30 to 0xBF, are not written by the editor and not saved.
+Before the first WRITE of an ESC SETTINGS session on an AM32 ESC, the 48 bytes
+of the settings block as read at entry (`AM32_SETTINGS_SIZE`,
+`src/am32_eeprom.h`) go to the ring as `AMnnn.TXT`. The melody and the CAN
+(Controller Area Network) block, 0x30 to 0xBF, are not written by the editor and
+not saved.
 
 ```text
 AM32 ESC settings, format 1
@@ -146,14 +160,13 @@ the AM32 backup among them, are in
 
 ## The write cache
 
-The cache of [sd-write-cache.md](sd-write-cache.md) runs during the pin
-claims of KST SERVO, AM32 CONFIG and HITEC SERVO, the tools that save
-backups, and not during SERVO
-([hitec-programming.md](hitec-programming.md#decisions-of-the-owner),
-decision 11). Its rules are that note's; a tool's write to
-its device starts only once the flush of its backup ends clean. A claim of
-any of them stops a blackbox log that runs when it opens: during a claim the
-DShot pump stops, so the log has nothing to record.
+The cache of [sd-write-cache.md](sd-write-cache.md) runs during the pin claims
+of KST SERVO, ESC SETTINGS and HITEC SERVO, the tools that save backups, and in
+SERVO TESTER only while its log runs
+([current-sense.md](current-sense.md#slice-6-as-built)). Its rules are that
+note's; a tool's write to its device starts only once the flush of its backup
+ends clean. A claim of any of them stops a blackbox log that runs when it opens:
+during a claim the DShot pump stops, so the log has nothing to record.
 
 ## Tests
 
@@ -170,6 +183,10 @@ DShot pump stops, so the log has nothing to record.
 - `test_kst_ui.cpp`: the backup line, a backup row on FILES and its LOAD,
   SAVE AS refused at 50 files.
 - `test_am32.cpp`: the AM32 backup's text and its checksum.
+- `test_efm8_view.cpp`: the Bluejay and BLHeli_S backup's text, read back by
+  rcbench's parser, and its save as `BJ001.TXT`; `test_backup_ring.cpp`: BJ
+  and BH in the one ring; `test_ui.cpp`: the backup before the first EFM8
+  write and the read-only lists' backups.
 - `test_ui.cpp`: the AM32 backup through the screen, a card that refuses it,
   no second backup in a session.
 

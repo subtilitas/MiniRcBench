@@ -1,8 +1,9 @@
 /**
  * @file card_cache.h
  * @brief The SD write cache (src/sdio/sd_cache.h) for the pin claims of the
- *        tools that save device backups: KST SERVO, HITEC SERVO and AM32
- *        CONFIG.
+ *        tools that save device backups, KST SERVO, HITEC SERVO and AM32
+ *        CONFIG, and for SERVO TESTER while its servo log runs
+ *        (servo_log.h).
  *
  * cardCacheBegin() at the claim's start stops a running blackbox log and
  * turns the cache on; card writes then return once queued, and
@@ -38,8 +39,9 @@ enum class CardCache : uint8_t {
 /**
  * @brief Stop a running log, recorded as stopped by @p tool (sdLogStopFor()),
  *        and turn the cache on. False with the cache off.
- * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec or
- *        @ref SdLogEnd::ByAm32, the tool whose claim this is.
+ * @param tool @ref SdLogEnd::ByKst, @ref SdLogEnd::ByHitec,
+ *        @ref SdLogEnd::ByAm32 or @ref SdLogEnd::ByServo, the tool whose
+ *        claim this is.
  */
 bool cardCacheBegin(SdLogEnd tool);
 
@@ -51,6 +53,13 @@ void cardCachePoll();
 
 /** @brief The cache's state; @p left, when not NULL, the blocks still to go. */
 CardCache cardCacheState(uint16_t *left = nullptr);
+
+/**
+ * @brief The next block waits for a fresh swap check, so a card swapped since
+ *        the batch's check takes none of the queued blocks: cardCacheFlush()
+ *        next fails on another card. Blocking while a block is in flight.
+ */
+void cardCacheRecheck();
 
 /** @brief Flush until Idle or Failed, blocking; Off with the cache off. */
 CardCache cardCacheFlush();

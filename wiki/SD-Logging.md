@@ -18,20 +18,73 @@ before power-up, or press `RETRY MOUNT` on the SD LOG screen after inserting
 it.
 
 Files are written to the directory `LOGS` as `LOG00001.BFL`, `LOG00002.BFL`,
-and so on. Each new file takes the lowest unused number from 00001 to 09999.
-Existing files are not overwritten. Logs an earlier firmware wrote to the
-card's root stay there and are not counted.
+and so on. Each new file takes the number after the highest `LOGnnnnn.BFL` in
+`LOGS`, so the highest number is the newest log: with `LOG00001.BFL` to
+`LOG00005.BFL` on the card and `LOG00002.BFL` deleted, the next log is
+`LOG00006.BFL`. An empty or new `LOGS` starts at `LOG00001.BFL`. Names count
+in any letter case (`log00007.bfl` is `LOG00007.BFL` to the card); other
+names, such as `LOG0007.BFL`, `LOG00007.TXT` or a renamed log, are ignored.
+Existing logs are not overwritten. Logs an earlier firmware wrote to the
+card's root stay there and are not counted. Each file carries the time of
+the board's real-time clock once the clock is set in that power-up (see
+[The clock](#the-clock)). Before that, the files carry FAT date and time
+0, which is no valid date; how a computer shows it is not verified.
 
-**The highest number is not always the newest log.** A number freed on a
-computer is taken again: with `LOG00001.BFL` to `LOG00005.BFL` on the card and
-`LOG00002.BFL` deleted, the next log is `LOG00002.BFL`. The board sets no
-clock, so the files' dates do not give the order either; what date the files
-carry is not verified. The SD LOG screen names the last log of the session
-(see `FILE` below). Whether new logs should be numbered after the highest
-file instead is open to the owner.
+The board reads `LOGS` once, at the first log after the card is mounted
+(power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount) and at
+the first log after a card error, and counts on from there. With many logs
+on the card that first start reads more of the card: one 512-byte block per
+16 files with short names. The SD LOG screen names the last log of the
+session (see `FILE` below).
+
+After `LOG99999.BFL` no number is left: no log starts, and the note reads
+`NO LOG STARTED: LOG99999.BFL EXISTS`. Take the card out, move the logs off
+it on a computer (`USB DRIVE` is read-only), put it back and press
+`RETRY MOUNT`.
 
 The board reads the card over 4-bit SDIO (Secure Digital Input/Output) at
 10 MHz.
+
+---
+
+## The clock
+
+The board's real-time clock dates the logs, their summaries and the device
+backups on the card. The board has no cell in its clock socket J2, so the
+clock is lost each time the board loses power: set it again after each
+power-up. There is no page on the device to set it. Connect the board to a
+computer with its USB cable and run, in the firmware's source folder:
+
+```text
+python3 tools/set_clock.py
+```
+
+It needs Python 3 and the pyserial package (`python3 -m pip install
+pyserial`), on Windows, Linux or macOS. It finds the board on USB by itself;
+with no board or several found it says so, and `--port` names one, for
+example `--port COM5` on Windows or `--port /dev/ttyACM0` on Linux.
+`--list` names the boards it finds. It answers with the time it set,
+`CLOCK SET 2026-11-14 15:42:07`. `--query` reads the clock without setting
+it, and `--help` lists the options.
+
+The clock takes the computer's local time: no time zone and no daylight
+saving. After a daylight-saving change, set it again.
+
+SETTINGS → BOARD → `CLOCK` shows the time to the minute, or `NOT SET` in
+grey; the line under it reads `SET AT EACH POWER-UP`. Until the set, files
+carry FAT date 0 and a run summary reads `Clock at start: not set`. A set
+during a log is allowed: the log goes on, and its summary adds `(clock set
+during the log)` to the stop's time.
+
+A terminal program on the board's serial port can send the same lines:
+`CLOCK 2026-11-14 15:42:07` sets the clock, `CLOCK?` reads it and is
+answered `CLOCK NOW` and the time. The board ignores its own answers when a
+terminal echoes them back. A wrong line is answered `CLOCK REFUSED: BAD
+LINE`, a date that does not exist `CLOCK REFUSED: BAD DATE`, a clock chip
+that does not answer `CLOCK REFUSED: RTC NOT ANSWERING`.
+
+The clock has not run on the board yet: the set, the time it keeps and the
+dates on a card are not verified.
 
 ---
 
@@ -47,16 +100,19 @@ The tester screen shows the state in its top row: `REC` (red) while recording,
 drawn on an amber chip, between the arm badge and `BOARD`, so a recording that
 stopped on its own shows while armed. SD LOG says what happened.
 
-A log also ends when KST SERVO, HITEC SERVO or AM32 CONFIG opens: the tool
+A log also ends when KST SERVO, HITEC SERVO or ESC SETTINGS opens: the tool
 needs the card for its backup. SD LOG then reads
-`RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `AM32 CONFIG`). Press
-`START` for a new log after the tool.
+`RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `ESC SETTINGS`). Press
+`START` for a new log after the tool. The servo tester stops it too, at
+`HOLD TO START` with the current sensor fitted, to write its own log,
+`LOGS/SRVnnnnn.CSV` ([Servo Tester](Servo-Tester#the-log-on-the-card));
+SD LOG then reads `RECORDING STOPPED BY SERVO TESTER`.
 
 **Stop the recording before cutting the board's power or pulling the card:**
-disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`.
-A stop writes the end of the log, gives back the unused space and closes the
-file. A log cut by a power loss or a pulled card is not closed. What it
-holds depends on when it was cut:
+disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`. A
+stop writes the end of the log, gives back the unused space, closes the file
+and writes its run summary beside it. A log cut by a power loss or a pulled
+card is not closed. What it holds depends on when it was cut:
 
 - **Within its first 2 s:** it reads 0 bytes. The file's size on the card
   is written every 2 s while recording, the first time 2 s after the start.
@@ -78,19 +134,86 @@ not measured on a card. How a viewer handles such a file is not tested.
 
 ---
 
+## The run summary
+
+Each log that stops clean gets a text file beside it with the same number:
+`LOG00012.TXT` beside `LOG00012.BFL`. Any text editor opens it. The stop
+writes it once the log is closed: `STOP`, the disarm that ends a log arming
+started, and a tool taking the card. A log that a card error ended gets
+none. SD LOG shows the summary after the stop (see
+[The last run](#the-last-run)).
+
+It holds one value a line:
+
+| Line | Content |
+|---|---|
+| `Log`, `Firmware` | The log's file name and the firmware version |
+| `Clock at start`, `Clock at stop` | The board's clock at the log's start and stop, as `2026-11-14 15:42:07`, or `not set` while the clock is not set; after a set during the log the stop's line adds `(clock set during the log)` ([The clock](#the-clock)) |
+| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` or `SERVO TESTER` |
+| `Duration`, `Armed` | The log's length and the time armed within it, in seconds |
+| `Max RPM` | The highest RPM: DShot eRPM (electrical RPM), or KISS eRPM in a log without DShot eRPM, divided by half the `MOTOR POLES` value at the stop |
+| `Max current`, `Max temperature` | The highest current and ESC (electronic speed controller) temperature: KISS while KISS is live, EDT (Extended DShot Telemetry) in its gaps; EDT alone when KISS sent 0 in every frame, an ESC without that sensor |
+| `Min voltage` | The lowest voltage while armed, from the same sources; a reading of 0.00 V does not count |
+| `Used, ESC counter` | How far the KISS counter of milliampere hours (mAh) rose during the log |
+| `Used, from current` | The current added up over time, with the time it was known |
+| `Frames` to `Worst flush` | The counters SD LOG shows while recording |
+
+A maximum or minimum counts a value only when three new readings in a row
+reach it, so one damaged reply sets none. The `raw` figure in brackets
+counts every reading, as a viewer finds it in the `.BFL`. Each line names
+its source, `DShot`, `KISS`, `EDT`, or `KISS and EDT` when EDT filled gaps
+in KISS, and its step. A value with no reading reads `unknown`, with the
+reason. `C` stands for degrees Celsius. An example:
+
+```text
+MiniRcBench run summary, format 1
+Log: LOG00012.BFL
+Firmware: 0.1.0
+Clock at start: not set
+Clock at stop: not set
+Ended by: STOP
+Duration: 144.2 s
+Armed: 102.5 s
+Max RPM: 18450 RPM (DShot, eRPM 129150, 14 poles; raw 18460 RPM)
+Max current: 23.41 A (KISS, 0.01 A steps; raw 23.55 A)
+Max temperature: 51 C (KISS, 1 C steps; raw 51 C)
+Min voltage: 14.82 V (KISS, 0.01 V steps, while armed; raw 14.79 V)
+Used, ESC counter: 312 mAh (KISS, 1 mAh steps)
+Used, from current: 305 mAh (KISS, current known for 144.0 s of 144.2 s)
+Frames: 72100
+Dropped frames: 0 (0 bytes)
+Written: 1043 kB
+Buffer peak: 2048 of 8192 bytes
+Worst flush: 12 ms
+```
+
+The `.TXT` files do not change the log numbers: only `.BFL` names count. A
+`.TXT` with the new log's number, left on the card after its log was
+deleted on a computer, is replaced.
+
+When the summary cannot be written, on a full card or after a failed write,
+the log stays whole on the card and `STATUS` stays `READY`. No `.TXT` is
+left, or, after a write that failed at the very end, an empty one. SD LOG
+then reads `NOT SAVED` in its `SUMMARY` row. The summary and its rows on
+SD LOG are tested with the firmware's host tests, the file over the FatFs
+library on a simulated card; on a card and on the board they are not
+tested.
+
+---
+
 ## Reading the screen
 
-Open it with **MENU → SD LOG**. SD LOG is the seventh row: drag `MENU` up
-36 px to bring it into view. The row shows the same state: `NO CARD`,
-`READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the
-card.
+Open it with **MENU → SD LOG**, the seventh row: drag MENU up 34 px to
+bring it whole into view. The row shows the same
+state: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a
+computer holds the card.
 
 <img src="img/log-ready.png" width="240" alt="Card mounted, ready to record">
 
 | Row | Meaning |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` or `CARD ERROR` |
-| **FILE** | The open file. After a log ends, its file with `(LAST)`, for example `LOG00012.BFL (LAST)`, next to its counters, until the next `START` or a mount. `--` before the first log after power-up and after a mount (`RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount): the card may be another one, so the name and the counters reset |
+| **FILE** | The open file. After a log ends, its file with `(LAST)`, for example `LOG00012.BFL (LAST)`, until the next `START` or a mount. `--` before the first log after power-up and after a mount (`RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount): the card may be another one, so the name and the counters reset |
 | **FRAMES** | Frames written so far |
 | **WRITTEN** | Kilobytes written |
 | **DROPPED FRAMES** | Frames the buffer could not hold. **Should be zero.** Red otherwise |
@@ -105,11 +228,45 @@ the buffer. `DROPPED FRAMES` above zero means the log already has gaps.
 
 The usual cause is a slow card. Try another card first.
 
-<img src="img/log-last.png" width="240" alt="FILE reads LOG00001.BFL (LAST) after STOP">
+The rows from `FRAMES` to `MOUNT` show while a log runs, and whenever no
+run summary shows: before the first log, after a mount and after
+`USB DRIVE`. After a stop, the last log's run takes their place.
+
+### The last run
+
+<img src="img/log-last.png" width="240" alt="SD LOG after STOP: FILE reads LOG00001.BFL (LAST), the rows below it the run">
+
+Once a log stops, the rows below `FILE` show its run summary, the same
+figures as its `.TXT`:
+
+| Row | Meaning |
+|---|---|
+| **MAX RPM** | The highest RPM, divided by half the `MOTOR POLES` value at the stop |
+| **MAX CURRENT** | The highest current, `23.41A` from KISS, whole amperes from EDT, `23A` |
+| **MAX TEMP** | The highest ESC temperature. Red at 90 °C and above, as on the tester |
+| **MIN VOLTAGE** | The lowest voltage while armed |
+| **USED** | How far the KISS counter rose, in mAh |
+| **USED FROM CURRENT** | In place of `USED` when the KISS counter did not rise: the current added up over time |
+| **ARMED** | The time armed within the log, `H:MM:SS` |
+| **SUMMARY** | The `.TXT`'s name, for example `LOG00012.TXT`; in red `NOT SAVED: CARD FULL` or `NOT SAVED: WRITE FAILED` when it was not written |
+
+A maximum or minimum is the value held over three new readings in a row,
+the figure the `.TXT` gives first; `--` when there is none. The word beside
+a value names its source: `KISS`, `EDT`, or `MIXED` when EDT filled gaps in
+KISS. RPM from DShot has none. A charge above 99999 mAh reads `>99999mAh`;
+the `.TXT` has the figure. `FRAMES` to `WORST FLUSH` are in the `.TXT`
+then. `CARD` and `MOUNT` stay hidden until the next `START` that opens a
+log, or a mount: they matter when no card mounts, and then no run shows.
+
+After a log a card error ended, the rows show its run up to the failure,
+`SUMMARY` reads `NOT SAVED`, and the lines above `START` say how it ended. A
+`START` that fails keeps the last run, as it keeps `FILE`. The tester shows
+nothing of the run: after a log that arming started and disarming stopped,
+open SD LOG to see it.
 
 ### How the last log ended
 
-<img src="img/log-card-full.png" width="240" alt="SD LOG after a write found the card full">
+<img src="img/log-card-full.png" width="240" alt="SD LOG after a write found the card full: the run, NOT SAVED: CARD FULL">
 
 When a log ends on its own, or a tool takes the card, amber lines above
 `START` say how, and what to do. A disarm that ends a log arming started, and
@@ -124,8 +281,10 @@ without a card the mount hint takes the second line.
 |---|---|---|
 | `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | A write found no free space | Delete files on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | A write, or the final sync or close, failed: a card that was pulled out, or a card fault. The two are not told apart | Reseat the card, press `RETRY MOUNT` |
-| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make `LOGS` or open the next file | Check the card on a computer, press `RETRY MOUNT` |
-| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | The tool took the card for its backup | `START` for a new log |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make or read `LOGS`, or open the next file | Check the card on a computer, press `RETRY MOUNT` |
+| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` holds `LOG99999.BFL`, and no number follows it | Move the logs off the card on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
+| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | The tool took the card for its backup | `START` for a new log |
+| `RECORDING STOPPED BY SERVO TESTER` | The servo tester took the card for its own log | `START` for a new log |
 
 A full card is told from a failed write by what the filesystem reports: a
 write that finds no free cluster ends with fewer bytes written and no error.
@@ -160,9 +319,10 @@ mounted.
 <img src="img/log-usb-serving.png" width="240" alt="The card served as a USB drive">
 
 `USB DRIVE` on the SD LOG screen presents the card to the computer on the USB
-(Universal Serial Bus) cable as a removable drive. Copy the `.BFL` files off,
-eject the drive on the computer, and the tester takes the card back. The
-screen shows the amount read so far.
+(Universal Serial Bus) cable as a removable drive. Copy the `.BFL` files and
+their `.TXT` summaries off, eject the drive on the computer, and the tester
+takes the card back. The screen shows the amount read so far, for example
+`3.0 MB READ`, in lime: a live reading.
 
 The board is a USB device already, for power and the serial port. The drive is
 a second USB interface on the same cable.
@@ -228,11 +388,11 @@ Fields per frame:
 |---|---|
 | `loopIteration`, `time` | Frame counter and time |
 | `motor[0]` | Commanded throttle |
-| `eRPM[0]` | eRPM (electrical RPM) from bidirectional DShot |
+| `eRPM[0]` | eRPM from bidirectional DShot |
 | `eRPMkiss[0]` | eRPM from KISS |
 | `vbatLatest`, `amperageLatest` | Voltage and current from KISS; 0 while KISS is not live |
-| `vbatEdt`, `amperageEdt` | Voltage and current from EDT (Extended DShot Telemetry) |
-| `escTemperature[0]` | ESC (electronic speed controller) temperature |
+| `vbatEdt`, `amperageEdt` | Voltage and current from EDT |
+| `escTemperature[0]` | ESC temperature |
 | `escConsumption` | Consumed mAh (KISS only) |
 | `escStress` | EDT stress value |
 

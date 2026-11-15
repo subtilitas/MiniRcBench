@@ -22,7 +22,7 @@ with a backup on the SD (Secure Digital) card first.
 > **boots** with a servo on the ESC pin, and when you leave this screen. The
 > screen asks you to unplug the servo first.
 
-With **SETTINGS → SERVO SUPPLY** at `NONE`, the default, you power the servo
+With **SETTINGS → SERVO SUPPLY** at `OWN`, the default, you power the servo
 up and down by hand, with a plug or a switch. With `GP28` or `GP29` the bench
 switches the servo's supply through a DC-DC (direct current to direct
 current) converter: see [Switched supply](#switched-supply).
@@ -33,7 +33,7 @@ current) converter: see [Switched supply](#switched-supply).
 
 The servo needs its own supply. The board supplies the signal and ground only.
 The servo answers only in the first moments after its supply comes on, so
-with SERVO SUPPLY at `NONE` the supply has to be switchable by hand: a plug,
+with SERVO SUPPLY at `OWN` the supply has to be switchable by hand: a plug,
 or a switch in its positive lead. With `GP28` or `GP29` the bench switches it:
 see [Switched supply](#switched-supply).
 
@@ -60,8 +60,8 @@ see [Switched supply](#switched-supply).
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
 - Join the two grounds once, at the board.
-- SIG is the ESC pin, as set under **MENU → SETTINGS**. GP0 is the
-  default.
+- SIG is the ESC pin, as set under **MENU → SETTINGS → SIG PIN**, with its
+  J5 pin under the value. GP0 is the default.
 - Unplug any ESC from the ESC pin. The screen waits while an ESC answers on
   it, but it cannot see every ESC.
 
@@ -69,20 +69,26 @@ see [Switched supply](#switched-supply).
 
 ## Opening it
 
-Open **MENU → KST SERVO**.
+Open **MENU → SERVO PROGRAMMER**, then tap **KST / CHASERVO** (see
+[The Screens](The-Screens#programmer)) with the servo unpowered, as the line
+under the entry says: `POWER THE SERVO UP AFTER THE TAP.`, or
+`THE BENCH SWITCHES IT ON GP28.` with the switched supply. PROGRAMMER takes
+no pin: DShot runs on SIG until the tap.
 
-The screen takes SIG from the ESC driver. While it does, the strip reads
-`RELEASING GP0`, then `TAKING GP0`. While an ESC answers on the pin it
-reads `CHECKING GP0 FOR AN ESC` instead.
+The tap opens KST SERVO, which takes SIG from the ESC driver on the same
+frame. While it does, the strip reads `RELEASING SIG GP0`, then
+`TAKING SIG GP0`. While an ESC answers on the pin it reads
+`CHECKING SIG GP0 FOR AN ESC` instead.
 
-- If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON GP0.`,
+- If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON SIG GP0.`,
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin
-  when the ESC is gone.
+  when the ESC is gone. `BACK` meanwhile returns to `MENU`.
 - While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
-  still in use, it says `PINS BUSY`.
+  still in use, it says `WAIT: DSHOT RESTARTING`. Neither is reachable
+  through the screens.
 - If the board cannot set up the line, the screen says
-  `GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA` or
-  `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
+  `SIG GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA`
+  or `CLOCK` and a closing bracket. PWM is pulse-width modulation and DMA is
   direct memory access. `RETRY` tries again.
 
 When the pin is taken, the search starts at once. The screen sends no servo
@@ -99,9 +105,10 @@ pulses.
 
 The screen repeats the entry sequence of rcbench's KST code, one attempt every
 116.6 ms to 118.8 ms, for 30 s. The strip counts the attempts and the time:
-`GP0  TRY 12  1.4 S`. A spinner turns while the search runs.
+`SIG GP0  TRY 12  1.4 S`. A spinner turns while the search runs.
 
-The body reads `POWER UP` and `THE SERVO NOW`, then
+The body reads `POWER UP` and `THE SERVO NOW` in amber, the step to take now,
+then
 `PLUG IT IN OR SWITCH ITS SUPPLY ON.` and
 `IT ANSWERS ONLY RIGHT AFTER POWER-ON.`
 
@@ -113,7 +120,7 @@ are `EARLY`, `LINE HIGH`, `LATE`, `CELL`, `LENGTH`, `RATE`, `FLAGS`,
 
 | Strip | What happened | Button |
 |---|---|---|
-| `GP0  TRY 12  1.4 S` | The search runs | `STOP SEARCH` |
+| `SIG GP0  TRY 12  1.4 S` | The search runs | `STOP SEARCH` |
 | `NO SERVO IN 30 S` | No servo answered in 30 s. The body reads `CHECK SIGNAL AND GROUND, THEN POWER THE SERVO UP AGAIN.` | `RETRY` |
 | `SEARCH STOPPED` | `STOP SEARCH` ended it, or the screen stalled and the search stopped itself | `RETRY` |
 | `SEARCH FAILED` | The session ended with a result, which the body names in amber | `RETRY` |
@@ -143,7 +150,7 @@ first card. With a record on the card, the screen adds
 amber. See [FILES](#files).
 
 If the servo stops answering later, the screen returns here and searches
-again, from any view but the leave page and the unplug page. It notices
+again, from any view but the leave page. It notices
 only when a read or a write runs: a servo powered off under an idle field
 list leaves the list up until the next read or write. `BACK` during that
 search stops it and opens the leave page.
@@ -155,9 +162,10 @@ search stops it and opens the leave page.
 A finished read opens the field list.
 
 The strip shows the servo type, `V6` or `V8`, the pin, and the backup:
-`BACKUP IN MEMORY` until a write has put the backup on the card, then
-`BACKUP KST001`. A chip at the right reads `MODE` (green), or `IN DOUBT`
-(amber) after a write left the servo in an unknown state.
+`BACKUP IN RAM` until a write has put the backup on the card, then
+`BACKUP KST001`. A square chip at the right reads `PROG MODE` on blue while
+the servo is in programming mode, or `IN DOUBT` on red after a write left the
+servo in an unknown state.
 
 Each row shows the group in small letters, the field name, and the value.
 Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
@@ -165,8 +173,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 | Group | Fields |
 |---|---|
 | TUNE | `MAX. DUTY`, `BOOST`, `STRETCH`, `SOFT START`, `SPEED LIMIT`, `SPEED`, `DEAD BAND` |
-| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSION`, `LEFT ANGLE`, `RIGHT ANGLE` |
-| FAILSAFE | `ALLOW UNCONT`, `UNCONTROLLED POS`, `UNCONTROLLED TIME` |
+| PULSE | `PULSE LOWER`, `PULSE UPPER`, `NEUTRAL`, `REVERSED`, `LEFT ANGLE`, `RIGHT ANGLE` |
+| FAILSAFE | `FAILSAFE MOVE`, `FAILSAFE POSITION`, `FAILSAFE TIME` |
 | LOCKED | `20K SEL`, `LOCK`, `PROT1 CANCLE`, `PROT1 EN`, `PROT1 TIME`, `PROT1 PWM`, `PROT POT ERR`, `POT SAM TIMES`, `PROT PWM ERR`, `NODE ADDR`, `SERVO / GYRO` |
 
 - Values carry their unit: `96 %`, `300.0 US`, `1.0 S`, `X1`, `ON`, `OFF`, or
@@ -174,14 +182,17 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
   sign. A raw value whose display is not established reads `RAW` and the number.
 - LOCKED fields are read-only. They are drawn grey and a tap on them selects
   nothing.
-- A changed value is drawn green.
+- A changed value is cyan, with a 3 px cyan bar at its row's left edge. A
+  value as read is in the text colour, selected or not: selecting a row
+  lights the row and its name, not the value.
 
 <img src="img/kst-edit.png" width="240" alt="DEAD BAND selected and stepped from 2.0 US to 2.2 US">
 
 ### Editing a field
 
 1. Tap an editable row. The editor bar under the list shows the field, its
-   stored value, and the pending value, for example `DEAD BAND  2.0 US ->`.
+   stored value, and the pending value, for example `DEAD BAND  2.0 US ->`
+   over `2.2 US`, the pending value cyan once it differs.
    With no row selected, the bar reads `TAP A ROW TO EDIT IT` and
    `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tap `-` or `+` (44 × 44 px) to step the value. Hold to repeat. `+`
@@ -189,7 +200,7 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
    goes: `+` widens `DEAD BAND`.
 3. Or swipe the row sideways. One step is an eleventh of the field's range,
    rounded up, at least one raw step.
-4. `REVERT` drops all pending changes.
+4. `REVERT`, labelled in amber, drops all pending changes.
 
 One raw step does not always change the text: `MAX. DUTY` reads `96 %` at
 raw 245 and at raw 244. The editor bar and the write page then add the raw
@@ -200,26 +211,28 @@ Two kinds of limit apply:
 - **A hard limit** is never offered. The stepper skips values that break
   one, so `-` and `+` stop at the last legal value. For example, `MAX. DUTY`
   stops at 98 %. When no further step is legal, the button is drawn disabled.
-- **A soft rule** is taken. The row gets a 3 px amber mark at its left edge
+- **A soft rule** is taken. The row's bar turns amber, the value stays cyan,
   and the editor bar shows the rule's text in amber, for example
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 
-Under the editor bar are three buttons, 46 px tall: `HOLD TO WRITE`
-(110 px), `REVERT` (52 px) and `FILES` (54 px). `HOLD TO WRITE` acts only when
+Under the editor bar are three buttons, 46 px tall: `WRITE...`
+(110 px), `REVERT` (52 px) and `FILES` (54 px). `WRITE...` acts only when
 something is pending, no hard limit is broken, and the servo is not in doubt.
 
 ---
 
 ## Writing
 
-**Hold `HOLD TO WRITE` for 1 s.** A bar fills while you hold. The write page
-opens and writes nothing.
+**Tap `WRITE...`.** The write page opens and writes nothing. Holding
+`WRITE...` does nothing more than a tap: the page opens when the finger
+lifts.
 
-<img src="img/kst-write.png" width="240" alt="The write page, one field"> <img src="img/kst-write-many.png" width="240" alt="The write page, five fields, AND 1 MORE">
+<img src="img/kst-write.png" width="240" alt="The write page, 1 CHANGE"> <img src="img/kst-write-many.png" width="240" alt="The write page, 5 CHANGES, AND 1 MORE">
 
-The write page is titled `KST WRITE`. The strip counts the fields, `1 FIELD`
-or `2 FIELDS`. Each changed field is one line, `DEAD BAND` and
-`2.0 US -> 2.2 US`, up to four, then `AND 3 MORE`. Amber lines starting with
+The write page is titled `KST WRITE`. The strip counts the changes,
+`1 CHANGE` or `2 CHANGES`. Each changed field is one line, `DEAD BAND` and
+`2.0 US -> 2.2 US`, the old value and the arrow dim, the new value cyan, up
+to four, then `AND 3 MORE`. Amber lines starting with
 `*` give the soft rules that apply. The line at the bottom says where the
 backup goes:
 
@@ -237,10 +250,11 @@ backup goes:
 `NO CARD`, `CARD ON USB` and `NO BACKUP ON THE CARD` are amber: the servo's
 values from before the first write are in memory only, until a later write
 with a card mounted saves them; LEAVE, REBOOT or a power loss loses them.
-Without a card the write still goes through. Whether it should be refused, or
-need a second hold, is open to the owner.
+Without a card the write still goes through.
 
-**A second hold of 1 s writes.** Before the first frame of the session's
+**Hold the page's `HOLD TO WRITE` for 1 s to write.** A bar fills while you
+hold; the tap that opened the page does not count. Before the first frame of
+the session's
 first write with a card mounted, the image read at entry goes to the card as
 the backup `BACKUP/KSTnnn.TXT`, and the servo as it stands goes to the card as the record
 `KST/KST.TXT`. Later writes of the session save no backup and write no
@@ -253,23 +267,51 @@ go to the card while the screen keeps drawing. The page reads
 `SAVING THE BACKUP TO THE CARD.` and `BLOCKS LEFT: 12`, for example, and the
 servo is written only once the card holds both. A flush the card does not
 take stops the write:
-`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+`THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.`
 A flush fails when a block write fails or the card in the slot changed, not
 when the card is full: a full card ends in `THE CARD TOOK NO FILE` before
 anything is queued. Nothing went to the servo. The card is mounted again, and
-`OK` returns to the field list; the next `HOLD TO WRITE` saves the backup
-again and then writes.
+`OK` returns to the field list; the next write, `WRITE...` and its hold,
+saves the backup again and then writes.
+
+The wait for the card ends when the card holds the files, and the write goes
+out, or when the flush fails, and the page says so as above. A stall of the
+screen, with the switched supply, also ends it: the screen returns to its
+main view with `RETRY`, nothing is written, and the next write opens on a tap
+and waits for its own hold. A servo unplugged during the wait is noticed
+only when the write goes out, which then fails.
 
 <img src="img/kst-flush-failed.png" width="240" alt="The write page after a flush the card did not take">
 
 While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
-`PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. `BACK` during the
-write is queued: the page reads `LEAVING AFTER THE WRITE ENDS.` and the leave
-page follows the result.
+`PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. While the write runs,
+and while it waits for the card, `BACK` is grey and does nothing: no `BACK`
+leaves a servo half written. `BACK` before the hold, or under the result,
+returns to the field list.
+
+### The BOARD voltage red
+
+While the BOARD voltage on the tester is red, below 3.30 V and until it rises to
+3.35 V, the page's hold writes nothing: no file goes to the card and no frame to
+the servo. The page reads, in amber, `BOARD VOLTAGE IS RED: NOT WRITTEN.` and
+`CHARGE THE BOARD'S CELL, HOLD AGAIN.`, and `HOLD TO WRITE` stays. The backup
+and the record are queued right after that check; the screen asks again just
+before its first frame goes out, after the card flush. A voltage that turns red
+during the flush stops the write too: the backup and the write's record may be
+on the card by then, and no frame goes out. A write already running is not
+stopped: cut off, it would leave the servo partly written and unverified, while
+one that finishes ends with its read-back. Amber, and a value below 2.50 V (no
+cell to judge), refuse no write. The restore page's `HOLD TO RESTORE` is refused
+the same way. The bands are a lithium-polymer cell's usual range, not measured
+on this board. What the board reads on USB power with no cell is not measured
+either, so a board on USB alone may refuse writes.
+
+<img src="img/kst-board-low.png" width="240" alt="The write page with the BOARD voltage red: BOARD VOLTAGE IS RED: NOT WRITTEN. and CHARGE THE BOARD'S CELL, HOLD AGAIN. in amber">
 
 ### The result
 
-The result replaces the buttons with `OK`. `OK` returns to the field list.
+The result replaces the buttons with `OK`. `OK`, or `BACK`, returns to the
+field list.
 
 <img src="img/kst-result.png" width="240" alt="WRITE VERIFIED">
 
@@ -303,7 +345,8 @@ The red results include:
 
 <img src="img/kst-doubt.png" width="240" alt="IN DOUBT: THE SERVO DOES NOT HOLD THE VALUES">
 
-After an `IN DOUBT` result the chip on the field list reads `IN DOUBT` and the
+After an `IN DOUBT` result the chip on the field list reads `IN DOUBT` on red
+and the
 write button reads `IN DOUBT` and does nothing. The screen takes no write
 until a restore has run. Restore from [FILES](#files).
 
@@ -328,8 +371,8 @@ until a restore has run. Restore from [FILES](#files).
 | Button | What it does |
 |---|---|
 | `SAVE AS KST003` | Writes the servo as it stands into `KST/` under the next free name, one above the highest KSTnnn, and never over a file. The strip reads `SAVED AS KST003` in green. Once `KST/` holds 50 files the button does not act and the strip reads `KST/ HOLDS 50 FILES. REMOVE SOME.` There is no keyboard, so there is no other name |
-| `LOAD` | Holds the selected file against the servo (type, access classes, hard limits) and puts its values into the field list as pending changes. The write then goes through `HOLD TO WRITE` |
-| `HOLD TO RESTORE` | Hold 1 s. Writes the image read at entry back to the servo, through the restore page |
+| `LOAD` | Holds the selected file against the servo (type, access classes, hard limits) and puts its values into the field list as pending changes. The write then goes through `WRITE...` and the write page |
+| `RESTORE...` | A tap opens the restore page; its `HOLD TO RESTORE`, held 1 s, writes the image read at entry back to the servo |
 
 A refusal names its line, for example `LINE 14: NOT A VALUE OF DEAD BAND`.
 Other notes on the strip:
@@ -342,13 +385,17 @@ Other notes on the strip:
   LOAD mounted the card again and read the list again. The card may be
   another one. Nothing loads until a row is chosen again.
 
-`HOLD TO RESTORE` acts when the servo differs from the backup or is in doubt.
-The restore page is titled `KST RESTORE`. It reads
-`BACK TO THE SESSION'S BACKUP` and `4 REGISTERS DIFFER FROM THE BACKUP`,
-for example. It counts registers, LOCKED and unnamed ones included, because
-the restore writes them too. A restore that the planner did not check needs
-a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
-`RESTORE. HOLD AGAIN TO RUN IT.`
+`RESTORE...` acts when the servo differs from the backup or is in doubt.
+The restore page is titled `KST RESTORE`, and nothing is written until its
+`HOLD TO RESTORE` has been held for 1 s.
+
+<img src="img/kst-restore.png" width="240" alt="The restore page before the hold: BACK TO THE SESSION'S BACKUP and HOLD TO RESTORE">
+
+The page reads `BACK TO THE SESSION'S BACKUP` and
+`4 REGISTERS DIFFER FROM THE BACKUP`, for example. It counts registers,
+LOCKED and unnamed ones included, because the restore writes them too. A
+restore that the planner did not check needs a second hold. The page then
+reads `THE PLANNER DID NOT CHECK THIS` and `RESTORE. HOLD AGAIN TO RUN IT.`
 
 ### No card, a card held by USB, a card that takes no file
 
@@ -361,7 +408,7 @@ a second hold. The page then reads `THE PLANNER DID NOT CHECK THIS` and
 - **A card that takes no file.** A card that is mounted but takes neither the
   backup nor the record stops the write before any frame. The write page
   reads
-  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`
+  `THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`
 
 The backups share one ring of 50 numbers with the backups of the AM32
 editor and the Hitec programmer, `BACKUP/KSTnnn.TXT`, `BACKUP/AMnnn.TXT` and
@@ -388,35 +435,47 @@ and does nothing.
 ## Leaving
 
 `BACK` on the field list opens the leave page. `BACK` on the search opens it
-too, once a servo has answered.
+too, once a servo has answered. `BACK` on the leave page is grey and does
+nothing: each way on is a button.
 
-<img src="img/kst-leave.png" width="240" alt="The leave page: POWER THE SERVO OFF."> <img src="img/kst-leave-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN.">
+<img src="img/leave-kst.png" width="240" alt="The leave page: 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="After LEAVE: 2 UNPLUG THE SERVO. current, NEXT SERVO, RESTART DSHOT grey">
 
-The page reads `POWER THE SERVO OFF.` and
-`IT STAYS IN PROGRAMMING MODE UNTIL ITS SUPPLY IS OFF.` With pending changes it
-adds `2 CHANGES NOT WRITTEN.`, and in doubt
-`THE SERVO IS IN DOUBT: RESTORE FIRST.` `BACK` returns to the field list,
-or, after a lost servo, to the search.
+The page numbers three steps. The current step is amber, with a bar at the
+left edge; the others are grey:
+
+1. `POWER THE SERVO OFF, THEN LEAVE.`, with
+   `IT STAYS IN PROGRAMMING MODE UNTIL` and `ITS SUPPLY IS OFF.`
+2. `UNPLUG THE SERVO.`, with `DSHOT RESTARTS ON SIG GP0 AND READS` and
+   `AS A 970 US PULSE AT 1000 HZ.`
+3. `RESTART DSHOT.`
+
+Under the steps, in amber, the page names what LEAVE loses:
+`2 CHANGES NOT WRITTEN.` with pending changes, and
+`THE SERVO IS IN DOUBT: RESTORE FIRST.` after a write in doubt.
+
+**`STAY`** returns to the field list, or, after a lost servo, to the search.
 
 **Power the servo off. Then tap `LEAVE`.** The screen holds the line low for
-100 ms, lets the pin go, and shows `UNPLUG THE SERVO.` under
-`DSHOT RESTARTS ON GP0 AND READS AS` and `A 970 US PULSE AT 1000 HZ.`
-`LEAVE` also leaves a session that is in doubt.
+100 ms and lets the pin go. Step 2 is current from the tap on. `LEAVE` also
+leaves a session that is in doubt. While the pin goes the page reads
+`RELEASING THE PIN`, and the two buttons, `NEXT SERVO` and
+`RESTART DSHOT` in `LEAVE`'s place, are grey.
 
-**Unplug the servo, then tap `RESTART DSHOT`.** The ESC driver takes the pin
-back and `MENU` returns. `BACK` on this page returns to the search instead and
-keeps the pin. While the page reads `RELEASING THE PIN` or
-`SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, `BACK` is drawn disabled, an outline
-with a grey label: it acts from the moment `UNPLUG THE SERVO.` shows.
+**Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
+the pin and starts a new search, and the page reads
+`NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** acts 1 s after
+that: the ESC driver takes the pin back and `MENU` returns. The second makes
+a double tap on `LEAVE` harmless: it lands while `RESTART DSHOT` is grey. A
+press that landed while it was grey does nothing when it lifts.
 
-`BACK` on the search before any servo answered releases the pin and shows the
-unplug page directly.
+`BACK` on the search before any servo answered lets the pin go and opens the
+page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 RESTART DSHOT.`
 
 ---
 
 ## When it does not work
 
-- **`AN ESC ANSWERS ON GP0.`** An ESC is on the ESC pin. Unplug it.
+- **`AN ESC ANSWERS ON SIG GP0.`** An ESC is on the ESC pin. Unplug it.
 - **`NO SERVO IN 30 S`.** Check signal and ground. Power the servo up again
   while the screen searches: it answers only right after power-on.
 - **`REPLY NOT VALID: ...`.** Edges arrive, but no reply is valid.
@@ -428,8 +487,8 @@ unplug page directly.
   Write again.
 - **The screen returns to the search.** The servo stopped answering. Power it
   up again.
-- **`IN DOUBT`.** Restore from FILES with `HOLD TO RESTORE`.
-- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.`**
+- **`IN DOUBT`.** Restore from FILES: `RESTORE...`, then `HOLD TO RESTORE`.
+- **`THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.`**
   Check the card, or take it out of USB use, then write again.
 
 ---
@@ -443,21 +502,39 @@ converter gives 5 V, more than 1 A, and has an external pull-down on its
 enable: 10 kΩ to 100 kΩ for an enable with no internal pull-up. **An ESC on
 this lead gets the converter's output on its BEC wire.**
 
-<img src="img/kst-switched.png" width="240" alt="The switched search: SUPPLY OFF 1.4 S"> <img src="img/kst-leave-switched.png" width="240" alt="The leave page with HOLD TO REBOOT"> <img src="img/kst-stalled.png" width="240" alt="The stalled screen: SUPPLY OFF">
+<img src="img/kst-switched.png" width="240" alt="The switched search: SUPPLY OFF 1.4 S"> <img src="img/leave-kst-switched.png" width="240" alt="The leave page with HOLD TO REBOOT"> <img src="img/leave-kst-supply-off.png" width="240" alt="After LEAVE: SUPPLY OFF FOR 2.0 S: 1.4 S LEFT."> <img src="img/kst-stalled.png" width="240" alt="The stalled screen: SUPPLY OFF">
 
 - **The search** switches the servo off for 2 s, then on, before each try:
-  `GP0  TRY 3  SUPPLY OFF 1.4 S`. 14 power-ups fit in the 30 s search;
+  `SIG GP0  TRY 3  SUPPLY OFF 1.4 S`. 14 power-ups fit in the 30 s search;
   then `NO ANSWER IN 14 POWER-UPS`.
-- **The leave page** reads `LEAVE SWITCHES THE SERVO'S SUPPLY OFF.` After
-  LEAVE the unplug page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: the pin is
-  let go 2 s after the switch-off, whatever ended the session.
-- **HOLD TO REBOOT** (1 s) switches the servo off for 2 s and on for 1 s,
-  enters programming mode and reads the servo as it is. That read is the
-  new backup, and the pending changes go. Without a card the backup in
-  memory is lost; the page says so above the button.
+- **The leave page**'s step 1 reads `LEAVE SWITCHES THE SUPPLY OFF.` After
+  LEAVE the page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`: the pin is let
+  go 2 s after the switch-off, whatever ended the session. Once it is let
+  go no line names the next servo's power: the bench switches it.
+- **HOLD TO REBOOT** (1 s), right of `STAY` on the leave page before
+  LEAVE, switches the servo off for 2 s and on for 1 s, enters programming
+  mode and reads the servo as it is. That read is the new backup, and the
+  pending changes go. Without a card the backup in memory is lost; the page
+  says so above the button: `NO CARD: REBOOT LOSES THE BACKUP` and
+  `IN RAM.`
+- **`BACK` during REBOOT** switches the supply off as LEAVE does and opens
+  the leave page at `1 UNPLUG THE SERVO.`
 - **A screen that stalls** for 250 ms switches the supply off once a running
   operation has ended. The servo leaves programming mode and its backup in
   memory goes. RETRY powers it up and reads it again.
+- **The current sensor's cuts**, with SETTINGS → CURRENT SENSE at `INA219`
+  and the sensor answering: while the supply is on, one reading of 3.0 A or
+  more, or readings under 4.0 V for 1 s after the supply came up, switch it off
+  at once, during a read or a write too. The frame on the wire finishes: the
+  line driver cannot cut one. The servo leaves programming mode, and the page
+  reads `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` or
+  `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, then
+  `RETRY POWERS IT UP AND READS IT AGAIN.` The supply stays off until
+  RETRY. A write it cut is in doubt, as after a stall. A sensor that does
+  not answer, `-- A` on the strip, cuts nothing, and the session goes on.
+  Not tested on hardware.
+
+<img src="img/kst-cut.png" width="240" alt="The hard cut: SIG GP0  SUPPLY OFF, THE SERVO DREW 3.0 A OR MORE, RETRY">
 
 ---
 

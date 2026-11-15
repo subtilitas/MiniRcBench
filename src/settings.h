@@ -22,7 +22,9 @@
  * One dedicated flash sector, at the top of the address space the build
  * declares — see settings_flash.cpp. The block is versioned and CRC'd, and
  * anything that fails to validate falls back to compiled defaults *whole*,
- * never field by field. @see settingsValidate()
+ * never field by field. A whole block of versions 2 to 5 is carried over
+ * field by field from its own layout. @see settingsValidate(),
+ * settingsLoad()
  *
  * Writing is deliberately manual. A flash erase parks core1 for tens of
  * milliseconds, which stops the DShot pump; that is a thing to do on purpose
@@ -41,19 +43,26 @@
 /**
  * @brief Layout version.
  *
- * Bump on any change to @ref Settings. A block with a different version is
- * discarded entirely rather than migrated — see @ref settingsLoad() for why
- * that is the safe direction here.
+ * Bump on any change to @ref Settings, and describe the layout it replaces
+ * in settings.cpp's table of older layouts, so settingsLoad() carries a
+ * block of it over. A block of a version the table does not hold, below 2
+ * or above this one, is discarded whole.
  *
- * Version 4 moves the signal pins to GP0 and GP1 and the switched supply's
- * enable to GP28 or GP29, so a block of an earlier version, with its ESC pin
- * on GP29 or GP28 or its supply enable on GP0, is discarded and the compiled
- * defaults load. Version 5 adds @ref Settings::currentSense in the byte that
- * was padding, so a version 4 block has the same size: its version alone
- * discards it, and the compiled defaults load, every setting included. The
- * host suite pins the layout.
+ * Version 2 is the 12-byte layout up to @ref Settings::highContrast.
+ * Version 3 adds @ref Settings::servoSupply, then 0 none or 1 an enable on
+ * GP0. Version 4 moves the signal pins to GP0 and GP1 and the supply's
+ * enable to GP28 (1) or GP29 (2). Version 5 adds @ref Settings::currentSense
+ * in the byte that was padding. Version 6 adds the angle meter's ALONG AXIS,
+ * SIGN, LENGTH and calibration after it, 44 bytes in all
+ * (docs/design/angle-meter.md, decision 4). The host suite pins every layout.
+ *
+ * DshotDisplay writes the same magic at the same place, version 2 with the
+ * layout above (its `src/settings.h` at the tags v2.0 and v2.3). A block it
+ * wrote is carried over as version 2; so a DshotDisplay that moves on must
+ * not use versions 3 to 6 for another layout, nor this firmware a version
+ * DshotDisplay uses, or one firmware reads the other's block as its own.
  */
-#define SETTINGS_VERSION 5
+#define SETTINGS_VERSION 6
 
 /** @brief Lowest backlight level: below it the panel looks dead. */
 #define BACKLIGHT_MIN 16
@@ -69,16 +78,35 @@ struct Settings {
 	 * offers to change it.
 	 */
 	uint8_t  boardId;
-	uint8_t  dshotPin;     /**< GPIO carrying the ESC signal wire. */
+	uint8_t  dshotPin;     /**< SIG: GPIO carrying the ESC signal wire. */
 	uint16_t dshotKbaud;   /**< DShot bitrate: 150, 300, 600 or 1200. */
 	uint8_t  kissEnable;   /**< Non-zero to claim a UART for KISS telemetry. */
-	uint8_t  kissPin;      /**< GPIO the ESC's telemetry pad connects to. Any free one. */
+	/** @brief AUX: GPIO the ESC's telemetry pad connects to, and servo B's.
+	 *         Any free one but SIG's. */
+	uint8_t  kissPin;
 	uint8_t  poles;        /**< Motor pole count, for eRPM to RPM. */
 	uint16_t maxThrottle;  /**< Throttle ceiling, out of 0..2000. */
 	uint8_t  backlight;    /**< Preferred backlight level, @ref BACKLIGHT_MIN to 255. */
 	uint8_t  highContrast; /**< Non-zero selects @ref Theme::HighContrast. */
-	uint8_t  servoSupply;  /**< The switched servo supply: 0 none, 1 an enable on GP28, 2 on GP29. @see servo_supply.h */
+	/** @brief The switched servo supply: 0 none (OWN on the screen: the
+	 *         servo has its own supply), 1 an enable on GP28, 2 on GP29.
+	 *         @see servo_supply.h */
+	uint8_t  servoSupply;
 	uint8_t  currentSense; /**< The current sensor: 0 none, 1 an INA219 on J3. @see sense.h */
+	/**
+	 * @name The angle meter's
+	 * Set on its SETUP and FLIP CAL pages (ui_angle.h), not on SETTINGS.
+	 * @see angle_model.h
+	 * @{
+	 */
+	uint8_t  angleAlong;       /**< ALONG AXIS: 0 `LONG`, 1 `SHORT`. */
+	uint8_t  angleInvert;      /**< SIGN: 0 `NORMAL`, 1 `INVERT`. */
+	uint16_t angleLengthMm;    /**< LENGTH, mm: 0 `OFF`, or 10 to 500. */
+	uint8_t  angleCalValid;    /**< 1: the calibration below is kept; 0: none. */
+	uint8_t  angleSpare;       /**< 0; the byte before the calibration's floats. */
+	float    angleCalOffG[3];  /**< The calibration's offset per chip axis X, Y, Z, g; 0 with none. */
+	float    angleCalGain[3];  /**< Its gain per chip axis; 1 with none. */
+	/** @} */
 };
 
 /**
@@ -151,10 +179,16 @@ void settingsDefaults(Settings *out);
  *
  * Repairs, in order: pole count even and in range; throttle ceiling a whole
  * number of steps and within @ref MAX_THROTTLE_CEILING; DShot bitrate one of
- * the four legal values; board id @ref BOARD_ID_LCD_2_8; ESC pin free; KISS
- * pin free and not the same pin as the ESC — KISS is switched off rather than
- * moved if it is not; servo supply 0 to 2, any other value 0; current
- * sensor 0 or 1, any other value 0.
+ * the four legal values; board id @ref BOARD_ID_LCD_2_8; SIG, the ESC pin,
+ * free; AUX, the KISS pin, free and not SIG's, whatever KISS is. An AUX pin
+ * the board does not free takes the board's default and switches KISS off.
+ * AUX on SIG's GPIO moves to the next free pin after SIG, and KISS keeps its
+ * switch; only with no second free pin is KISS switched off. Servo supply
+ * 0 to 2, any other value 0; current sensor 0 or 1, any other value 0.
+ * The angle meter's: ALONG AXIS and SIGN 0 or 1, any other value 0; LENGTH
+ * 0 or 10 to 500 mm, any other value 0, `OFF`; the spare byte 0; a
+ * calibration angleCalValid() refuses, or a flag other than 0 or 1, none,
+ * and with none the offsets 0 and the gains 1.
  *
  * @param[in,out] s Settings to repair in place.
  * @return true if nothing needed changing.
@@ -168,6 +202,16 @@ bool settingsValidate(Settings *s);
  * field by field: a partially-trusted block is how a corrupted byte becomes a
  * throttle ceiling of 100 %, and there is no version of that trade worth
  * taking. @ref settingsStored() reports which happened.
+ *
+ * A whole block of version 2, 3, 4 or 5, its size and its CRC right for
+ * its own layout, is carried over (settingsCarriedOver()): each field it has
+ * is read from its offset in that layout, each newer field takes its
+ * default, and settingsValidate() then judges the result as it judges a
+ * version 6 block. A version 3 SERVO SUPPLY of 1 named an enable on GP0, which the
+ * signal wire now uses: it loads as 0, OWN. A KISS pin this board does not
+ * free takes the board's default, as settingsValidate() repairs it. Flash is
+ * not rewritten: the old block stays until a save lands, and every boot
+ * until then carries it over again.
  */
 void settingsLoad();
 
@@ -193,22 +237,72 @@ Settings *settings();
  */
 bool settingsSave();
 
+/**
+ * @brief Write the angle meter's fields of the live settings to flash, with
+ *        every other field as the last load or save left it: SETUP and FLIP
+ *        CAL save what they set, and a change on SETTINGS that was not saved
+ *        stays unsaved (docs/design/angle-meter.md, "Interlocks").
+ *
+ * The block is validated before the write, and the live angle fields take
+ * the validated values. The rules of settingsSave() hold: nothing is written
+ * while a pin claim holds, a block equal to the stored one is not written
+ * again, except after a carry-over, and the write is read back. A save that
+ * lands ends settingsResetByUpdate() and settingsCarriedOver(), as
+ * settingsSave() does.
+ *
+ * @warning As settingsSave(): the caller must be disarmed.
+ * @return true if the block was written and read back correctly, or needed
+ *         no write.
+ */
+bool settingsSaveAngle();
+
+/**
+ * @brief Copy the angle meter's fields, ALONG AXIS, SIGN, LENGTH, the
+ *        calibration and its spare byte, from @p src to @p dst; every other
+ *        field of @p dst stays.
+ * @param[out] dst Takes them.
+ * @param src      Gives them.
+ */
+void settingsCopyAngle(Settings *dst, const Settings *src);
+
+/**
+ * @brief True while the live angle meter's fields differ from what the last
+ *        load or save put live: the meter's setup or calibration is not in
+ *        flash. A change on SETTINGS alone does not set it.
+ * @return Whether the meter has fields to save.
+ */
+bool settingsAngleDirty();
+
 /** @brief True if a valid block was found at boot. @return Load outcome. */
 bool settingsStored();
 
 /**
  * @brief True after settingsLoad() discarded a block of another version: a
- *        firmware with another @ref SETTINGS_VERSION wrote it, and every
- *        setting is back at its compiled default.
+ *        firmware with a @ref SETTINGS_VERSION this one cannot carry over
+ *        wrote it, and every setting is back at its compiled default.
  *
  * The block must be whole to count: @ref SETTINGS_MAGIC, a version other
  * than this one, a size of at most @ref SETTINGS_OTHER_MAX bytes of payload
  * and a CRC-32 right over its own header and payload. Blank flash and a
- * damaged block read false. The splash and MENU's SETTINGS row show it; a
+ * damaged block read false; so does a block carried over
+ * (settingsCarriedOver()). The splash and MENU's SETTINGS row show it; a
  * save that lands (settingsSave() true) ends it.
  * @return Whether the last load discarded such a block and no save has landed since.
  */
 bool settingsResetByUpdate();
+
+/**
+ * @brief True after settingsLoad() carried a version 2, 3, 4 or 5 block
+ *        over into the live settings, until a save lands.
+ *
+ * The live settings are the carried ones and settingsDirty() compares
+ * against them, so it reads false; flash still holds the old block, and
+ * settingsSave() writes a version 6 block even with nothing changed. The
+ * splash, MENU's SETTINGS row and SETTINGS' note line show it in place of
+ * the reset by an update.
+ * @return Whether the last load carried a block over and no save has landed since.
+ */
+bool settingsCarriedOver();
 
 /**
  * @brief The ESC pin settingsLoad() put live: the pin the splash names, and
@@ -221,13 +315,16 @@ uint8_t settingsBootDshotPin();
 /**
  * @brief The largest payload a block of another version may declare and
  *        still be judged whole by settingsResetByUpdate(). Version 2 had
- *        12 bytes, versions 3 to 5 have `sizeof(Settings)`.
+ *        12 bytes, versions 3 to 5 had 14, version 6 has 44,
+ *        `sizeof(Settings)`.
  */
 #define SETTINGS_OTHER_MAX 52
 
 /**
- * @brief True if the live settings differ from what is in flash.
- * @return Whether a save would change anything.
+ * @brief True if the live settings differ from what is in flash: from what
+ *        the last load or save put live. After a carry-over that is the
+ *        carried settings, not the older block flash still holds.
+ * @return Whether the pilot changed anything since.
  */
 bool settingsDirty();
 

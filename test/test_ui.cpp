@@ -22,6 +22,7 @@
 #include "ui.h"
 #include "ui_settings.h"
 #include "ui_menu.h"
+#include "ui_esc_cmd.h"
 #include "ui_sdlog.h"
 #include "ui_screen.h"
 #include "ui_servo.h"
@@ -30,9 +31,11 @@
 #include "touch.h"
 #include "esc_task.h"
 #include "esc_merge.h"
+#include "kv_est.h"
 #include "config.h"
 #include "kiss_telem.h"
 #include "sd_log.h"
+#include "run_summary.h"
 #include "pin_claim.h"
 #include "core1_job.h"
 #include "plat.h"
@@ -42,6 +45,9 @@
 #include "usb_msc.h"
 #include "version.h"
 #include "../src/ui_am32.cpp"   // NOLINT -- see the note above
+#include "fake_escwire_port.h"
+#include "ew_line.h"
+#include "ew_file.h"
 
 // --- probes into the included translation unit ---
 static uint8_t uiByte(int o)     { return s_eeprom[o]; }
@@ -60,8 +66,15 @@ static int uiRowOf(const char *name) {
 #define UI_FRAME_MS 25
 
 static void frames(int n) {
-	// Core1's pump runs between UI frames.
-	for (int i = 0; i < n; i++) { fakeAdvance(UI_FRAME_MS); fakePumpPoll(); uiTick(); }
+	// Core1 runs a job once a millisecond, then the pump, between UI frames.
+	for (int i = 0; i < n; i++) {
+		for (int ms = 0; ms < UI_FRAME_MS; ms++) {
+			fakeAdvance(1);
+			core1JobPoll();
+		}
+		fakePumpPoll();
+		uiTick();
+	}
 }
 
 // The helpers that address a control by id. They run frames() between touches.
@@ -202,6 +215,16 @@ static void testLogScreen() {
 	checkTrue("not recording on arrival", !sdLogActive());
 	checkControlTable("SD LOG, card idle");
 	fakeDumpFrame("shot_log_ready.ppm");
+	{
+		// Command buttons carry the neutral text colour (menu-b.md, decision 11).
+		UiRect t = ctlRect(UI_FIX(SdLogCtl::Toggle)), u = ctlRect(UI_FIX(SdLogCtl::Usb));
+		checkTrue("START's label in the text colour, scale 2",
+		          fakeTextIs(t.x + (t.w - gfxTextW("START", 2)) / 2, t.y + (t.h - 14) / 2,
+		                     "START", C_TEXT, C_PANEL, 2));
+		checkTrue("USB DRIVE's label in the text colour",
+		          fakeTextIs(u.x + (u.w - gfxTextW("USB DRIVE", 1)) / 2, u.y + (u.h - 7) / 2,
+		                     "USB DRIVE", C_TEXT, C_PANEL, 1));
+	}
 
 	tapId(UI_FIX(SdLogCtl::Toggle));
 	checkTrue("START begins a log", sdLogActive());
@@ -248,7 +271,7 @@ static void testLogScreen() {
 		checkTrue("the button reads RETRY MOUNT, inside its 104 px",
 		          gfxTextW("RETRY MOUNT", 1) + 8 <= r.w &&
 		          fakeTextIs(r.x + (r.w - gfxTextW("RETRY MOUNT", 1)) / 2, r.y + (r.h - 7) / 2,
-		                     "RETRY MOUNT", C_CYAN, C_PANEL, 1));
+		                     "RETRY MOUNT", C_TEXT, C_PANEL, 1));
 	}
 	// A card that answers and fails otherwise needs another fix.
 	st.mountResult = 13;         // FR_NO_FILESYSTEM
@@ -329,6 +352,568 @@ static bool logFileRowIs(const char *text) {
 	return fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(text, 1), y, text, C_TEXT, C_BG, 1);
 }
 
+// ---------------------------------------------------------------------------
+// SD LOG: the last run (docs/design/run-summary.md, slice 3)
+// ---------------------------------------------------------------------------
+
+/** @brief The text line of SD LOG's row @p row: 19 px rows from y 44, scale 1 centred. */
+static int logRowTextY(int row) { return UI_HDR_H + 8 + row * 19 + (19 - 7) / 2; }
+
+/** @brief Whether row @p row's label reads @p label, dim, from x 8. */
+static bool logLabelIs(int row, const char *label) {
+	return fakeTextIs(UI_MARGIN, logRowTextY(row), label, C_DIM, C_BG, 1);
+}
+
+/**
+ * @brief Whether row @p row's value reads @p value in @p col, its right edge
+ *        at @p right: x 197 beside a tag, x 232 without.
+ */
+static bool logValueIs(int row, const char *value, uint16_t col, int right) {
+	return fakeTextIs(right - gfxTextW(value, 1), logRowTextY(row), value, col, C_BG, 1);
+}
+
+/** @brief Whether row @p row's tag reads @p tag in @p col from x 203. */
+static bool logTagIs(int row, const char *tag, uint16_t col) {
+	return fakeTextIs(203, logRowTextY(row), tag, col, C_BG, 1);
+}
+
+/**
+ * @brief Whether row @p row, its value @p value at x 232, has no tag: no
+ *        ink from x 198 to the column before the value. A tag there would
+ *        also overlap the value, which logValueIs() then reads as wrong.
+ */
+static bool logNoTag(int row, const char *value) {
+	const uint16_t *fb = gfxBuffer();
+	int first = GFX_W - UI_MARGIN - gfxTextW(value, 1);
+	for (int y = logRowTextY(row); y < logRowTextY(row) + 7; y++)
+		for (int x = 198; x < first; x++)
+			if (fb[y * GFX_W + x] != C_BG) return false;
+	return true;
+}
+
+/** @brief Whether rows 2 to 8 hold the counters, CARD and MOUNT, as with no summary. */
+static bool logCountersShown() {
+	return logLabelIs(2, "FRAMES") && logLabelIs(3, "WRITTEN") &&
+	       logLabelIs(4, "DROPPED FRAMES") && logLabelIs(5, "BUF PEAK") &&
+	       logLabelIs(6, "WORST FLUSH") && logLabelIs(7, "CARD") && logLabelIs(8, "MOUNT");
+}
+
+/** @brief Whether rows 2 to 8 hold the run's labels; @p used is row 6's. */
+static bool logRunLabelsShown(const char *used = "USED") {
+	return logLabelIs(2, "MAX RPM") && logLabelIs(3, "MAX CURRENT") &&
+	       logLabelIs(4, "MAX TEMP") && logLabelIs(5, "MIN VOLTAGE") &&
+	       logLabelIs(6, used) && logLabelIs(7, "ARMED") && logLabelIs(8, "SUMMARY");
+}
+
+/** @brief One held extreme of @p v, from KISS or the DShot line. */
+static RunSumExtreme logRunHeld(int32_t v, bool kiss) {
+	RunSumExtreme x = {};
+	x.heldOk = x.rawOk = true;
+	x.held = x.raw = v;
+	x.heldKiss = x.rawKiss = kiss;
+	if (kiss) x.anyKiss = true;
+	else      x.anyLine = true;
+	return x;
+}
+
+/**
+ * @brief The note's example run: STOP after 144.2 s, 102.5 s armed, 129150
+ *        eRPM from DShot, KISS current, temperature and voltage, a counter
+ *        rise of 312 mAh; its `.TXT` saved.
+ */
+static void logRunExample(RunSum *s) {
+	runSumBegin(s, 1000000u, false);
+	s->end = RunSumEnd::Stop;
+	s->stopUs = s->startUs + 144200000u;
+	s->everArmed = true;
+	s->armedUs = 102500000u;
+	s->erpm = logRunHeld(129150, false);
+	s->amps = logRunHeld(2341, true);
+	s->temp = logRunHeld(51, true);
+	s->volts = logRunHeld(1482, true);
+	s->kissSeen = s->kissVoltsSet = s->kissAmpsSet = s->kissTempSet = s->kissMahSet = true;
+	s->mahRise = 312;
+	s->ampSumKiss = true;
+	s->ampKnownUs = 144000000u;
+	s->ampUs = 305ull * 360000000u;
+	s->file = RunSumFile::Saved;
+}
+
+/**
+ * @brief SD LOG's rows 2 to 8 after a stop: the run, its tags and colours,
+ *        the rows it hides, when it shows and when not, and the redraw.
+ */
+static void testLogRun() {
+	section("SD LOG: the last run");
+
+	static RunSum sum;
+	logRunExample(&sum);
+	fakeSdLogSetSummary(&sum, 14);
+	fakeSdLogSetHighest(0);
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	st.cardType = 3;
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	enterLogScreen();
+	frames(2);
+	checkTrue("before the first log: no summary, the counters, CARD and MOUNT",
+	          logCountersShown());
+	frames(2);
+	checkInt("no summary, unchanged: nothing repainted", fakeLastFlushBands(), 0);
+
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
+	frames(2);
+	checkTrue("a log runs", sdLogActive());
+	checkTrue("while it runs: the counters, CARD and MOUNT", logCountersShown());
+
+	settings()->poles = 12;    // MOTOR POLES changed after the stop: not used
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
+	frames(2);
+	checkTrue("stopped: the run's labels in rows 2 to 8", logRunLabelsShown());
+	checkTrue("FRAMES, WRITTEN, DROPPED FRAMES, BUF PEAK and WORST FLUSH hidden",
+	          !logLabelIs(2, "FRAMES") && !logLabelIs(3, "WRITTEN") &&
+	          !logLabelIs(4, "DROPPED FRAMES") && !logLabelIs(5, "BUF PEAK") &&
+	          !logLabelIs(6, "WORST FLUSH"));
+	checkTrue("CARD and MOUNT hidden", !logLabelIs(7, "CARD") && !logLabelIs(8, "MOUNT"));
+	checkTrue("STATUS and FILE stay",
+	          logLabelIs(0, "STATUS") && logFileRowIs("LOG00001.BFL (LAST)"));
+	checkTrue("MAX RPM 18450 at the stop's 14 poles, from DShot: untagged, at x 232",
+	          logValueIs(2, "18450", C_TEXT, 232) && logNoTag(2, "18450"));
+	checkTrue("MAX CURRENT 23.41A to x 197, KISS in the text colour",
+	          logValueIs(3, "23.41A", C_TEXT, 197) && logTagIs(3, "KISS", C_TEXT));
+	checkTrue("MAX TEMP 51`C, KISS", logValueIs(4, "51`C", C_TEXT, 197) &&
+	                                 logTagIs(4, "KISS", C_TEXT));
+	checkTrue("MIN VOLTAGE 14.82V, KISS", logValueIs(5, "14.82V", C_TEXT, 197) &&
+	                                      logTagIs(5, "KISS", C_TEXT));
+	checkTrue("USED 312mAh, KISS", logValueIs(6, "312mAh", C_TEXT, 197) &&
+	                               logTagIs(6, "KISS", C_TEXT));
+	checkTrue("ARMED 0:01:42, untagged",
+	          logValueIs(7, "0:01:42", C_TEXT, 232) && logNoTag(7, "0:01:42"));
+	checkTrue("SUMMARY LOG00001.TXT, untagged, the text colour",
+	          logValueIs(8, "LOG00001.TXT", C_TEXT, 232) && logNoTag(8, "LOG00001.TXT"));
+	{
+		int x0 = 0, x1 = 0;
+		checkTrue("a STOP leaves no note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	}
+
+	// The redraw: an unchanged run repaints nothing.
+	frames(2);
+	checkInt("an unchanged run: nothing repainted", fakeLastFlushBands(), 0);
+	// Each part of the key on its own redraws. The status's own fields stay.
+	sdLogStatus(&st);
+	st.summaryPoles = 12;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("MOTOR POLES at the stop 12: MAX RPM 21525",
+	          logValueIs(2, "21525", C_TEXT, 232));
+	st.summaryPoles = 14;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("and 14 again: 18450", logValueIs(2, "18450", C_TEXT, 232));
+	sum.file = RunSumFile::CardFull;
+	frames(1);
+	checkTrue("the file's result changed: NOT SAVED: CARD FULL, red",
+	          logValueIs(8, "NOT SAVED: CARD FULL", C_RED, 232));
+	sum.end = RunSumEnd::Disarm;
+	sum.mahRise = 400;
+	frames(1);
+	checkTrue("how the log ended changed: redrawn", logValueIs(6, "400mAh", C_TEXT, 197));
+	sum.stopUs += 1;
+	sum.temp.held = 90;
+	frames(1);
+	checkTrue("the stop time changed: redrawn; MAX TEMP 90`C, red",
+	          logValueIs(4, "90`C", C_RED, 197) && logTagIs(4, "KISS", C_TEXT));
+	static RunSum other;
+	logRunExample(&other);
+	other.stopUs = sum.stopUs;
+	other.end = sum.end;
+	other.file = sum.file;
+	other.mahRise = 500;
+	st.summary = &other;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("another summary: redrawn", logValueIs(6, "500mAh", C_TEXT, 197));
+	st.summary = nullptr;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("the summary gone, nothing else changed: the counters again",
+	          logCountersShown());
+	st.summary = &sum;
+	fakeSdLogSet(&st);
+	frames(1);
+	checkTrue("and back: the run", logRunLabelsShown());
+
+	// The alert colours.
+	sum.temp.held = 89;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("MAX TEMP 89`C: the text colour", logValueIs(4, "89`C", C_TEXT, 197));
+	sum.file = RunSumFile::WriteFailed;
+	frames(1);
+	checkTrue("NOT SAVED: WRITE FAILED, red", logValueIs(8, "NOT SAVED: WRITE FAILED", C_RED, 232));
+	sum.file = RunSumFile::Saved;
+
+	// Tags: EDT and MIXED dim, EDT current in whole amperes.
+	sum.amps = logRunHeld(2300, false);
+	sum.kissAmpsSet = true;
+	sum.temp = logRunHeld(51, false);
+	sum.temp.anyKiss = true;                       // a KISS gap filled by EDT
+	sum.volts = logRunHeld(1475, false);
+	sum.volts.anyKiss = true;
+	sum.volts.heldKiss = false;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("EDT current 23A, EDT dim", logValueIs(3, "23A", C_TEXT, 197) &&
+	                                      logTagIs(3, "EDT", C_DIM));
+	checkTrue("MIXED temperature, MIXED dim", logValueIs(4, "51`C", C_TEXT, 197) &&
+	                                          logTagIs(4, "MIXED", C_DIM));
+	checkTrue("MIXED voltage from EDT: 14.75V", logValueIs(5, "14.75V", C_TEXT, 197) &&
+	                                            logTagIs(5, "MIXED", C_DIM));
+	// MAX RPM from KISS eRPM: tagged KISS, at x 197.
+	sum.erpm = RunSumExtreme{};
+	sum.kissErpm = logRunHeld(128800, true);
+	// USED from current, the counter flat.
+	sum.mahRise = 0;
+	sum.ampSumEdt = true;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("MAX RPM from KISS: 18400, KISS", logValueIs(2, "18400", C_TEXT, 197) &&
+	                                            logTagIs(2, "KISS", C_TEXT));
+	checkTrue("the counter flat: USED FROM CURRENT 305mAh, MIXED",
+	          logLabelIs(6, "USED FROM CURRENT") && logValueIs(6, "305mAh", C_TEXT, 197) &&
+	          logTagIs(6, "MIXED", C_DIM));
+
+	// Unknown values: `--`, dim, untagged at x 232.
+	runSumBegin(&sum, 1000000u, false);
+	sum.end = RunSumEnd::Stop;
+	sum.stopUs = sum.startUs + 2000000u;
+	sum.file = RunSumFile::Saved;
+	frames(1);
+	checkTrue("nothing came: MAX RPM to USED read --, dim, untagged",
+	          logValueIs(2, "--", C_DIM, 232) && logValueIs(3, "--", C_DIM, 232) &&
+	          logValueIs(4, "--", C_DIM, 232) && logValueIs(5, "--", C_DIM, 232) &&
+	          logValueIs(6, "--", C_DIM, 232) && logNoTag(2, "--") && logNoTag(3, "--") &&
+	          logNoTag(4, "--") && logNoTag(5, "--") && logNoTag(6, "--"));
+	checkTrue("USED keeps its label", logLabelIs(6, "USED"));
+	checkTrue("ARMED 0:00:00 is a value", logValueIs(7, "0:00:00", C_TEXT, 232));
+	// Fewer than three new values: the raw one is in the file only.
+	sum.amps.rawOk = true;
+	sum.amps.raw = 1200;
+	sum.amps.anyKiss = true;
+	sum.kissSeen = sum.kissAmpsSet = true;
+	sum.stopUs += 1;
+	frames(1);
+	checkTrue("a raw value without a held one: --", logValueIs(3, "--", C_DIM, 232) &&
+	                                                 logNoTag(3, "--"));
+	// A summary whose file was not tried: SUMMARY --.
+	sum.file = RunSumFile::NotWritten;
+	frames(1);
+	checkTrue("no file result: SUMMARY --", logValueIs(8, "--", C_DIM, 232));
+
+	// The widest values fit beside their labels on the screen, at 2 poles.
+	sdLogStatus(&st);
+	st.summaryPoles = 2;
+	fakeSdLogSet(&st);
+	logRunExample(&sum);
+	// KISS eRPM, so MAX RPM's widest value stands beside a tag; DShot eRPM
+	// is never tagged.
+	sum.erpm = RunSumExtreme{};
+	sum.kissErpm = logRunHeld(60000000, true);
+	sum.amps = logRunHeld(65535, true);
+	sum.amps.anyLine = true;
+	sum.volts = sum.amps;
+	sum.temp = logRunHeld(255, true);
+	sum.temp.anyLine = true;
+	sum.mahRise = 0;
+	sum.ampSumEdt = true;
+	sum.ampUs = 100000ull * 360000000u;
+	sum.armedUs = 3599999000000ull;
+	sum.file = RunSumFile::WriteFailed;
+	frames(1);
+	checkTrue("the widest values in place",
+	          logValueIs(2, "60000000", C_TEXT, 197) && logTagIs(2, "KISS", C_TEXT) &&
+	          logValueIs(3, "655.35A", C_TEXT, 197) && logValueIs(4, "255`C", C_RED, 197) &&
+	          logValueIs(5, "655.35V", C_TEXT, 197) &&
+	          logLabelIs(6, "USED FROM CURRENT") && logValueIs(6, ">99999mAh", C_TEXT, 197) &&
+	          logTagIs(6, "MIXED", C_DIM) && logValueIs(7, "999:59:59", C_TEXT, 232) &&
+	          logValueIs(8, "NOT SAVED: WRITE FAILED", C_RED, 232));
+	checkTrue("and each row's labels stay whole", logRunLabelsShown("USED FROM CURRENT"));
+
+	// A failed start keeps the last summary, as it keeps the file's number;
+	// the note says why no log started.
+	sdLogStatus(&st);
+	st.summaryPoles = 14;
+	fakeSdLogSet(&st);
+	logRunExample(&sum);
+	fakeSdLogSetHighest(99999);
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START, refused
+	frames(2);
+	sdLogStatus(&st);
+	checkTrue("a failed start: no log", !sdLogActive() && st.end == SdLogEnd::NoFreeNumber);
+	checkTrue("the run stays", logRunLabelsShown() && logValueIs(2, "18450", C_TEXT, 232));
+	checkTrue("its note on the lines above START",
+	          fakeTextCentredIs(217, "NO LOG STARTED: LOG99999.BFL EXISTS", C_AMBER, C_BG, 1));
+
+	// A mount forgets it: CARD and MOUNT come back.
+	fakeSdLogSetHighest(0);
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	checkTrue("RETRY MOUNT: no summary, the counters, CARD and MOUNT", logCountersShown());
+	checkTrue("CARD reads the card", logValueIs(7, "SDHC/XC 29.7GB", C_TEXT, 232));
+
+	// A run again, then USB DRIVE's handover and its release forget it.
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // START
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
+	frames(2);
+	checkTrue("a second log: its run", logRunLabelsShown());
+	tapId(UI_FIX(SdLogCtl::Usb));
+	frames(2);
+	sdLogStatus(&st);
+	checkTrue("the card handed over: no summary", mscGetState() == MscState::Serving &&
+	                                              st.summary == nullptr);
+	tapId(UI_FIX(SdLogCtl::Toggle));                       // EJECT
+	frames(2);
+	checkTrue("released: no summary, the counters, CARD and MOUNT",
+	          mscGetState() == MscState::Idle && logCountersShown());
+
+	fakeSdLogSetSummary(nullptr, 0);
+	settings()->poles = 14;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+}
+
+/**
+ * @brief The tester shows nothing of the run: an auto log's stop leaves the
+ *        tester as it is without a summary (run-summary.md, decision 2).
+ */
+static void testTesterNoRun() {
+	section("Tester: nothing of the last run");
+	static RunSum sum;
+	logRunExample(&sum);
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	st.cardType = 3;
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	fakeSdLogSetHighest(0);
+	fakeSdLogSetSummary(&sum, 14);
+	checkTrue("on the tester", uiCurrentScreen() == UiScreenId::Tester);
+	holdToArm();
+	checkTrue("armed: an auto log runs", uiArmed() && sdLogActive());
+	tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+	frames(4);
+	sdLogStatus(&st);
+	checkTrue("disarmed: the log stopped, its summary kept",
+	          !uiArmed() && !sdLogActive() && st.summary == &sum);
+	// Right after the disarm, before the tester is left: the frame of an
+	// auto log with a summary against the same arm and disarm without one.
+	uint32_t atStop = fakeRegionHash(0, 0, GFX_W, GFX_H);
+	fakeSdLogSetSummary(nullptr, 0);
+	holdToArm();
+	checkTrue("armed again: an auto log runs", uiArmed() && sdLogActive());
+	tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+	frames(4);
+	sdLogStatus(&st);
+	checkTrue("disarmed: the log stopped, no summary",
+	          !uiArmed() && !sdLogActive() && st.summary == nullptr);
+	checkTrue("right after the disarm: the same frame as with the summary",
+	          fakeRegionHash(0, 0, GFX_W, GFX_H) == atStop);
+	// The same tester, drawn whole, with and without the summary.
+	st.summary = &sum;
+	st.summaryPoles = 14;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(TesterCtl::Menu));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(4);
+	uint32_t with = fakeRegionHash(0, 0, GFX_W, GFX_H);
+	st.summary = nullptr;
+	fakeSdLogSet(&st);
+	tapId(UI_FIX(TesterCtl::Menu));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(4);
+	checkTrue("the tester's frame is the same without the summary",
+	          fakeRegionHash(0, 0, GFX_W, GFX_H) == with);
+	fakeSdLogSetSummary(nullptr, 0);
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	frames(2);
+}
+
+/**
+ * @brief A new log's number: the highest `LOGnnnnn.BFL` plus 1, the name
+ *        rule the directory scan applies, and the refusal after
+ *        `LOG99999.BFL`.
+ *
+ * The pure rule in sd_log.h and SD LOG against the fake logger. The scan
+ * itself, the kept number and its reading again after a remount run over
+ * FatFs in test/log_next_fatfs.cpp (`make lognum`).
+ */
+static void testLogNumbering() {
+	section("SD LOG: a new log is numbered after the highest file");
+
+	struct NameCase { const char *name; bool match; uint32_t n; };
+	static const NameCase NAMES[] = {
+		{ "LOG00001.BFL", true, 1 },
+		{ "LOG00042.BFL", true, 42 },
+		{ "LOG00000.BFL", true, 0 },
+		{ "LOG99999.BFL", true, 99999 },
+		{ "LOG12345.BFL", true, 12345 },
+		// FAT compares names without case: these are the same files.
+		{ "log00007.bfl", true, 7 },
+		{ "Log00008.Bfl", true, 8 },
+		{ "LOG00009.bfl", true, 9 },
+		{ "lOG00010.BFl", true, 10 },
+		{ "LOG0001.BFL",  false, 0 },    // four digits
+		{ "LOG000001.BFL", false, 0 },   // six digits
+		{ "LOG00001.TXT", false, 0 },
+		{ "LOG00001.BF",  false, 0 },
+		{ "LOG00001.BFLX", false, 0 },
+		{ "LOG00001.BFL.bak", false, 0 },
+		{ "LOG00001",     false, 0 },
+		{ "LOG00001.",    false, 0 },
+		{ "LOG00001BFL",  false, 0 },
+		{ "LOG0000A.BFL", false, 0 },
+		{ "LOG-0001.BFL", false, 0 },
+		{ "LOG 0001.BFL", false, 0 },
+		{ "LOG:0001.BFL", false, 0 },    // ':' follows '9' in ASCII
+		{ "LOG/0001.BFL", false, 0 },    // '/' precedes '0'
+		{ " LOG00001.BFL", false, 0 },
+		{ "LOG00001.BFL ", false, 0 },
+		{ "XLOG00001.BFL", false, 0 },
+		{ "XOG00001.BFL", false, 0 },
+		{ "LAG00001.BFL", false, 0 },
+		{ "LOX00001.BFL", false, 0 },
+		{ "LOG00001XBFL", false, 0 },
+		{ "LOG00001.AFL", false, 0 },
+		{ "LOG00001.BEL", false, 0 },
+		{ "LOG00001.BFK", false, 0 },
+		{ "Flight with the new prop LOG00099.BFL", false, 0 },   // a long name
+		{ "LOG000~1.BFL", false, 0 },    // an 8.3 alias of a long name
+		{ "LOG",          false, 0 },
+		{ "",             false, 0 },
+		{ ".",            false, 0 },
+		{ "..",           false, 0 },
+		{ "LOGS",         false, 0 },
+	};
+	for (const NameCase &c : NAMES) {
+		uint32_t n = 0xDEADBEEFu;
+		bool m = sdLogNameNumber(c.name, &n);
+		char what[96];
+		snprintf(what, sizeof(what), "\"%s\": %s", c.name, c.match ? "a log's name" : "not a log's name");
+		checkTrue(what, m == c.match);
+		if (c.match) {
+			snprintf(what, sizeof(what), "\"%s\": number %lu", c.name, (unsigned long)c.n);
+			checkTrue(what, n == c.n);
+		} else {
+			checkTrue("and the number is left alone", n == 0xDEADBEEFu);
+		}
+	}
+	{
+		uint32_t n = 5;
+		checkTrue("no name: no log", !sdLogNameNumber(nullptr, &n) && n == 5);
+	}
+
+	// The scan's fold: the highest wins, whatever the order; others ignored.
+	{
+		uint32_t h = 0;
+		static const char *DIR1[] = { "LOG00003.BFL", "LOG00017.BFL", "notes.txt", "LOG00009.BFL",
+		                              "LOG000017.BFL", "LOG00200.TXT", "log00012.bfl" };
+		for (const char *nm : DIR1) sdLogNoteName(&h, nm);
+		checkInt("the highest of 3, 17, 9 and 12, the rest ignored", (long)h, 17);
+		checkInt("so the next is 18", (long)sdLogNextNumber(h), 18);
+		h = 0;
+		sdLogNoteName(&h, "LOG00000.BFL");
+		checkInt("LOG00000.BFL alone: highest 0", (long)h, 0);
+		checkInt("next 1", (long)sdLogNextNumber(h), 1);
+		h = 40;
+		sdLogNoteName(&h, "LOG00005.BFL");
+		checkInt("a lower number leaves the highest", (long)h, 40);
+		sdLogNoteName(&h, "LOG00041.BFL");
+		checkInt("a higher one takes it", (long)h, 41);
+	}
+	checkInt("an empty or new directory: 1", (long)sdLogNextNumber(0), 1);
+	checkInt("after 1: 2", (long)sdLogNextNumber(1), 2);
+	checkInt("after 99998: 99999", (long)sdLogNextNumber(99998), 99999);
+	checkInt("after 99999: none free", (long)sdLogNextNumber(99999), 0);
+	checkInt("never past it", (long)sdLogNextNumber(100000), 0);
+	checkInt("nor wrapped", (long)sdLogNextNumber(0xFFFFFFFFu), 0);
+
+	// On SD LOG, through the fake card, which uses the same rule: each start
+	// takes the number after the highest, also after a log was deleted below
+	// it, and LOG99999.BFL refuses the start with its two lines.
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	st.cardType = 3;
+	st.cardSizeMB = 30500;
+	fakeSdLogSet(&st);
+	fakeSdLogSetHighest(0);
+	enterLogScreen();
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("an empty LOGS/: LOG00001.BFL", logFileRowIs("LOG00001.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("the next start: LOG00002.BFL", logFileRowIs("LOG00002.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	// A computer left LOG00041.BFL as the highest, the ones below deleted.
+	fakeSdLogSetHighest(41);
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("after LOG00041.BFL: LOG00042.BFL", logFileRowIs("LOG00042.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	fakeSdLogSetHighest(99998);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("after LOG99998.BFL: LOG99999.BFL", logFileRowIs("LOG99999.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	sdLogStatus(&st);
+	checkTrue("after LOG99999.BFL: no log starts", !sdLogActive() && st.state == SdLogState::Error &&
+	                                                st.end == SdLogEnd::NoFreeNumber);
+	checkTrue("the note says which file", fakeTextCentredIs(217, "NO LOG STARTED: LOG99999.BFL EXISTS",
+	                                                        C_AMBER, C_BG, 1));
+	checkTrue("and the next step", fakeTextCentredIs(228, "MOVE LOGS TO A COMPUTER, RETRY MOUNT",
+	                                                 C_AMBER, C_BG, 1));
+	checkTrue("the FILE row keeps the last log", logFileRowIs("LOG99999.BFL (LAST)"));
+	// A mount forgets the cause; with the logs moved off, the next is 1.
+	fakeSdLogSetHighest(0);
+	tapId(UI_FIX(SdLogCtl::Retry));
+	frames(2);
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	checkTrue("LOGS/ emptied on a computer: LOG00001.BFL again", logFileRowIs("LOG00001.BFL"));
+	tapId(UI_FIX(SdLogCtl::Toggle));
+	frames(2);
+	fakeSdLogSetHighest(0);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+}
+
 /**
  * @brief How the last log ended, on SD LOG's two note lines, and the FILE
  *        row's last log.
@@ -351,15 +936,16 @@ static void testLogEndNotes() {
 	{
 		static const SdLogEnd ALL[] = { SdLogEnd::None, SdLogEnd::CardFull, SdLogEnd::WriteFailed,
 		                                SdLogEnd::OpenFailed, SdLogEnd::ByKst, SdLogEnd::ByHitec,
-		                                SdLogEnd::ByAm32 };
+		                                SdLogEnd::ByAm32, SdLogEnd::NoFreeNumber, SdLogEnd::ByServo };
 		bool ok = true;
 		for (SdLogEnd e : ALL) {
 			SdLogEnd m = e;
 			sdLogMountForget(&m);
-			bool tool = e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32;
+			bool tool = e == SdLogEnd::ByKst || e == SdLogEnd::ByHitec || e == SdLogEnd::ByAm32 ||
+			            e == SdLogEnd::ByServo;
 			ok &= tool ? m == e : m == SdLogEnd::None;
 		}
-		checkTrue("a mount: the faults forgotten, the three tools' stops kept", ok);
+		checkTrue("a mount: the faults forgotten, the four tools' stops kept", ok);
 	}
 
 	SdLogStatus st;
@@ -368,6 +954,10 @@ static void testLogEndNotes() {
 	st.cardType = 3;
 	st.cardSizeMB = 30500;
 	fakeSdLogSet(&st);
+	fakeSdLogSetHighest(0);                                // an empty LOGS/
+	static RunSum run;                                     // the stop's run summary
+	logRunExample(&run);
+	fakeSdLogSetSummary(&run, 14);
 	enterLogScreen();
 	frames(2);
 	checkTrue("before the first log: FILE --", logFileRowIs("--"));
@@ -385,6 +975,7 @@ static void testLogEndNotes() {
 	          UI_MARGIN + gfxTextW("FILE", 1) + 6 <=
 	              GFX_W - UI_MARGIN - gfxTextW("LOG09999.BFL (LAST)", 1));
 	checkTrue("a STOP leaves no note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
+	checkTrue("and its run in rows 2 to 8", logRunLabelsShown());
 	fakeDumpFrame("shot_log_last.ppm");
 	// A mount: the card may be another one, and the file not on it.
 	{
@@ -417,13 +1008,23 @@ static void testLogEndNotes() {
 		  "RECORDING STOPPED: CARD WRITE FAILED", "REMOVED? REINSERT, THEN RETRY MOUNT" },
 		{ SdLogState::Error, SdLogEnd::OpenFailed,
 		  "NO LOG STARTED: THE FILE DID NOT OPEN", "CHECK THE CARD, THEN RETRY MOUNT" },
+		{ SdLogState::Error, SdLogEnd::NoFreeNumber,
+		  "NO LOG STARTED: LOG99999.BFL EXISTS", "MOVE LOGS TO A COMPUTER, RETRY MOUNT" },
 		{ SdLogState::Idle, SdLogEnd::ByKst,   "RECORDING STOPPED BY KST SERVO", "" },
 		{ SdLogState::Idle, SdLogEnd::ByHitec, "RECORDING STOPPED BY HITEC SERVO", "" },
-		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY AM32 CONFIG", "" },
+		{ SdLogState::Idle, SdLogEnd::ByAm32,  "RECORDING STOPPED BY ESC SETTINGS", "" },
+		{ SdLogState::Idle, SdLogEnd::ByServo, "RECORDING STOPPED BY SERVO TESTER", "" },
 	};
+	// A log the card filled: its run up to the failure, not saved.
+	static RunSum full;
+	logRunExample(&full);
+	full.end = RunSumEnd::CardFull;
+	full.file = RunSumFile::CardFull;
 	for (const auto &e : ENDS) {
 		st.state = e.state;
 		st.end = e.end;
+		st.summary = e.end == SdLogEnd::CardFull ? &full : nullptr;
+		st.summaryPoles = 14;
 		st.fileNumber = 12;
 		// About 12 minutes at 7.3 kB/s before the card filled.
 		st.framesLogged = 361500;
@@ -445,12 +1046,17 @@ static void testLogEndNotes() {
 		          gfxTextW(e.l1, 1) <= GFX_W - 2 * UI_MARGIN &&
 		          gfxTextW(e.l2, 1) <= GFX_W - 2 * UI_MARGIN);
 		checkTrue("the FILE row names the last log", logFileRowIs("LOG00012.BFL (LAST)"));
-		if (e.end == SdLogEnd::CardFull) fakeDumpFrame("shot_log_card_full.ppm");
+		if (e.end == SdLogEnd::CardFull) {
+			checkTrue("CARD FULL: the run up to the failure, NOT SAVED: CARD FULL in red",
+			          logRunLabelsShown() && logValueIs(8, "NOT SAVED: CARD FULL", C_RED, 232));
+			fakeDumpFrame("shot_log_card_full.ppm");
+		}
 	}
 
 	// A refusal of USB DRIVE outranks the note for its 4000 ms.
 	st.state = SdLogState::Logging;
 	st.end = SdLogEnd::None;
+	st.summary = nullptr;
 	fakeSdLogSet(&st);
 	tapId(UI_FIX(SdLogCtl::Usb));
 	st.state = SdLogState::Error;
@@ -464,7 +1070,7 @@ static void testLogEndNotes() {
 	checkTrue("the refusal over: the note",
 	          fakeTextCentredIs(217, "RECORDING STOPPED: CARD WRITE FAILED", C_AMBER, C_BG, 1));
 
-	// A tool's stop through the real claim: AM32 CONFIG on a running log.
+	// A tool's stop through the real claim: ESC SETTINGS on a running log.
 	tapId(UI_FIX(SdLogCtl::Retry));                        // a mount: the note goes
 	frames(2);
 	checkTrue("RETRY MOUNT clears the note", !fakeInkExtent(217, 7, C_BG, &x0, &x1));
@@ -476,19 +1082,19 @@ static void testLogEndNotes() {
 	frames(2);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	frames(20);
-	checkTrue("AM32 CONFIG's claim stopped the log", !sdLogActive());
+	checkTrue("ESC SETTINGS' claim stopped the log", !sdLogActive());
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	tapId(menuRow(&UI_SDLOG));
 	frames(2);
 	checkTrue("SD LOG names the tool",
-	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	          fakeTextCentredIs(217, "RECORDING STOPPED BY ESC SETTINGS", C_AMBER, C_BG, 1));
 	tapId(UI_FIX(SdLogCtl::Retry));
 	frames(2);
 	checkTrue("a mount keeps a tool's stop: it stays true of the last log",
-	          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1));
+	          fakeTextCentredIs(217, "RECORDING STOPPED BY ESC SETTINGS", C_AMBER, C_BG, 1));
 	{
 		// The card gone: the mount hint takes the second line.
 		SdLogStatus gone;
@@ -500,7 +1106,7 @@ static void testLogEndNotes() {
 		fakeSdLogSet(&gone);
 		frames(2);
 		checkTrue("no card: the tool's stop, and the insert hint under it",
-		          fakeTextCentredIs(217, "RECORDING STOPPED BY AM32 CONFIG", C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(217, "RECORDING STOPPED BY ESC SETTINGS", C_AMBER, C_BG, 1) &&
 		          fakeTextCentredIs(228, "INSERT A CARD, THEN RETRY MOUNT", C_DIM, C_BG, 1));
 		tapId(UI_FIX(SdLogCtl::Retry));            // the fake finds a card
 		frames(2);
@@ -511,6 +1117,7 @@ static void testLogEndNotes() {
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // STOP
 	frames(2);
 
+	fakeSdLogSetSummary(nullptr, 0);
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::Idle;
 	fakeSdLogSet(&st);
@@ -658,6 +1265,8 @@ static void testUsbDriveScreen() {
 	frames(2);
 	checkControlTable("SD LOG, card held");
 	fakeDumpFrame("shot_log_usb_serving.ppm");
+	checkTrue("the read counter in lime, a live reading, at scale 2",
+	          fakeTextCentredIs(UI_HDR_H + 8 + 104, "3.0 MB READ", C_LIME, C_BG, 2));
 
 	// START must not work while a host owns the card: the logger has let go.
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // now EJECT, not START
@@ -778,6 +1387,10 @@ static void testKissDisplay() {
 	fakeSetTelemetry(&tel);
 	frames(2);
 	fakeDumpFrame("shot_tester_kiss.ppm");
+	// A source tag is neutral: KISS in the text colour, 6 px in from the
+	// tile's right edge at x 119, on the label row at y 133.
+	checkTrue("the KISS tag in the text colour",
+	          fakeTextIs(119 - 6 - gfxTextW("KISS", 1), 133, "KISS", C_TEXT, C_PANEL, 1));
 
 	// --- what the screen shows, not what escMerge() returns ---
 	//
@@ -813,6 +1426,8 @@ static void testKissDisplay() {
 	fakeSetTelemetry(&tel);
 	frames(2);
 	checkTrue("the voltage tile changes when KISS expires", voltTile() != voltsFromKiss);
+	checkTrue("the EDT tag dim",
+	          fakeTextIs(119 - 6 - gfxTextW("EDT", 1), 133, "EDT", C_DIM, C_PANEL, 1));
 	checkTrue("and so does the current tile", ampTile() != ampsFromKiss);
 
 	// Bring KISS back and the fine values must return -- the same pixels as
@@ -997,32 +1612,27 @@ static bool menuChipIs(const char *text, uint16_t fill) {
 }
 
 /**
- * @brief MENU's EDT chip tracks reception, and BEEP's row acknowledges a tap.
- *
- * BEEP was reported as showing no reaction. The command was going out -- the
- * ESC beeped -- but nothing on screen moved, because the command is over in
- * about 6 ms and the UI repaints at 40 Hz. The acknowledgement is on the row
- * now: for 350 ms after a tap its status reads SENT on an ink fill, or
- * REFUSED on an amber fill.
+ * @brief MENU's EDT chip tracks reception, and ESC COMMANDS' row opens its
+ *        page.
  *
  * The EDT chip on the strip is read-only. There is no enable button any more:
  * the firmware sends one to each ESC as it appears, so the control was for
  * something already handled. What remains is worth showing, because "green"
  * and "all four telemetry tiles read --" are the same fact.
  */
-static void testMenuBeepRow() {
-	section("MENU: the EDT chip and BEEP's row");
+static void testMenuChip() {
+	section("MENU: the EDT chip and ESC COMMANDS' row");
 
 	feedLiveTelemetry();
 	tapId(UI_FIX(TesterCtl::Menu));          // into MENU (this force-disarms)
 	frames(2);
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
-	const UiRect beep = ctlRect(menuRow(&UI_BEEP));
-	auto beepRow = [&]() { return fakeRegionHash(beep.x, beep.y, beep.w, beep.h); };
+	const UiRect cmds = ctlRect(menuRow(&UI_ESC_CMD));
 	uint32_t chipOn = fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H);
-	uint32_t idle   = beepRow();
-	checkTrue("BEEP's row reads DISARMED on the panel fill",
-	          menuStatusIs(beep, "DISARMED", C_DIM, C_PANEL));
+	checkTrue("ESC COMMANDS is the first row, its label at scale 2 from x 16, 142 px",
+	          uiMenuRowOf(&UI_ESC_CMD) == 0 &&
+	          fakeTextIs(16, cmds.y + 13, "ESC COMMANDS", C_TEXT, C_PANEL, 2) &&
+	          gfxTextW("ESC COMMANDS", 2) == 142);
 	fakeDumpFrame("shot_menu_edt_on.ppm");
 
 	checkTrue("EDT frames: the chip reads EDT ON, green", menuChipIs(UI_MENU_EDT_ON, C_GREEN));
@@ -1059,9 +1669,13 @@ static void testMenuBeepRow() {
 	frameAfter(1);
 	checkTrue("eRPM 500 ms old: NO ESC", menuChipIs(UI_MENU_NO_ESC, C_GRID));
 	// The widest text the chip shows keeps clear of the strip's caption,
-	// `GP29  1200 KBIT/S` at its widest: 17 characters from x 8.
+	// `SIG GP1  AUX GP0  DSHOT1200` at its widest on this board, whose
+	// signal pins are GP0 and GP1: 27 characters from x 8.
 	checkTrue("the widest chip clears the widest caption",
-	          UI_MARGIN + gfxTextW("GP29  1200 KBIT/S", 1) + 4 <=
+	          UI_MARGIN + gfxTextW("SIG GP1  AUX GP0  DSHOT1200", 1) + 4 <=
+	              GFX_W - UI_MARGIN - gfxTextW(UI_MENU_EDT_OFF, 1) - 12);
+	checkTrue("and the caption while DShot restarts",
+	          UI_MARGIN + gfxTextW("DSHOT RESTARTING ON SIG GP1", 1) + 4 <=
 	              GFX_W - UI_MARGIN - gfxTextW(UI_MENU_EDT_OFF, 1) - 12);
 	feedLiveTelemetry();
 	frames(2);
@@ -1076,41 +1690,21 @@ static void testMenuBeepRow() {
 	tap(200, UI_STRIP_Y + UI_STRIP_H / 2);
 	checkInt("tapping the chip does nothing", fakeBeepRequests(), beepBefore);
 
-	// BEEP is a row of the list: it fires on release.
-	pressId(menuRow(&UI_BEEP)); fakeRelease(); frames(1);
-	checkInt("tapping BEEP sends the command", fakeBeepRequests(), beepBefore + 1);
-	checkTrue("an action row opens nothing", uiCurrentScreen() == UiScreenId::Menu);
-	uint32_t lit = beepRow();
-	checkTrue("and the row acknowledges it", lit != idle);
-	checkTrue("SENT, on the ink fill", menuStatusIs(beep, "SENT", C_PAPER, C_INK));
-	fakeDumpFrame("shot_menu_beep_flash.ppm");
-
-	// 350 ms from the frame of the release: still lit at 349 ms, gone at 350.
-	frameAfter(349);
-	checkTrue("the flash holds for 349 ms", menuStatusIs(beep, "SENT", C_PAPER, C_INK));
-	frameAfter(1);
-	checkTrue("and clears itself at 350 ms", beepRow() == idle);
-
+	// ESC COMMANDS is a tool row: it opens its page on release, and sends
+	// nothing itself.
+	pressId(menuRow(&UI_ESC_CMD));
+	checkTrue("a press on ESC COMMANDS opens nothing yet", uiCurrentScreen() == UiScreenId::Menu);
+	fakeRelease(); frames(1);
+	checkTrue("its release opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	checkInt("and sends nothing", fakeBeepRequests(), beepBefore);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("whose BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	// Its far edge, the row's last pixel column, x 231, still hits.
-	fakePress(beep.x + beep.w - 1, beep.y + beep.h / 2); frames(1); fakeRelease(); frames(1);
-	checkInt("BEEP's last pixel is BEEP", fakeBeepRequests(), beepBefore + 2);
-	fakeAdvance(400); frames(2);
-
-	// Refusal. Not reachable by hand -- opening MENU force-disarms and there
-	// is no ARM control on that screen -- so this drives the arm state
-	// directly. It is tested because the request can refuse, not because a
-	// user can currently make it.
-	escSetArmed(true);
-	pressId(menuRow(&UI_BEEP)); fakeRelease(); frames(1);
-	uint32_t refused = beepRow();
-	checkTrue("a refused command looks different from an accepted one",
-	          refused != lit && refused != idle);
-	checkTrue("REFUSED, on the amber fill", menuStatusIs(beep, "REFUSED", C_PAPER, C_AMBER));
-	checkInt("and nothing was sent", fakeBeepRequests(), beepBefore + 2);
-	fakeDumpFrame("shot_menu_beep_refused.ppm");
-	escSetArmed(false);
-	fakeAdvance(400); frames(2);
-	checkTrue("the refusal clears too", beepRow() == idle);
+	fakePress(cmds.x + cmds.w - 1, cmds.y + cmds.h / 2); frames(1); fakeRelease(); frames(1);
+	checkTrue("the row's last pixel opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 
 	tapId(UI_FIX(UI_BACK));               // BACK, in the header
 	frames(2);
@@ -1140,6 +1734,120 @@ static void enterSettings() {
 static void tapRowId(UiControlId id, IdExpect want = IdExpect::Enabled) {
 	revealRow(id.row);
 	tapId(id, want);
+}
+
+/**
+ * @brief Whether SETTINGS row @p row, scrolled whole into view, reads
+ *        @p label at y+18, its value @p value in @p col at scale 2 and, under
+ *        the value, the connector line @p sub in C_DIM at y+27, both ending at
+ *        x 132; with @p sub null, nothing under the value. The value is at
+ *        y+8 on a row that has a connector line, OWN's empty one included,
+ *        and centred, at y+15, on a row that has none (@p subRow false).
+ */
+static bool settingsRowShows(int row, const char *label, const char *value, uint16_t col,
+                             const char *sub, bool subRow = true) {
+	revealRow(row);
+	UiRect r = ctlRect(UI_ROW(row, Row));
+	if (r.h != 44) return false;
+	if (!fakeTextIs(UI_MARGIN, r.y + 18, label, C_DIM, C_BG, 1)) return false;
+	// Nothing more of the label: blank for two character cells after it, on
+	// its rows under a raised value's (y+22 to y+24).
+	const uint16_t *lb = gfxBuffer();
+	for (int y = r.y + 22; y < r.y + 25; y++)
+		for (int x = UI_MARGIN + gfxTextW(label, 1); x < UI_MARGIN + gfxTextW(label, 1) + 12; x++)
+			if (lb[y * GFX_W + x] != C_BG) return false;
+	if (!fakeTextIs(132 - gfxTextW(value, 2), r.y + (subRow ? 8 : 15), value, col, C_BG, 2)) return false;
+	if (sub) return fakeTextIs(132 - gfxTextW(sub, 1), r.y + 27, sub, C_DIM, C_BG, 1);
+	const uint16_t *fb = gfxBuffer();
+	// Under the label's rows (to y+24) and the value's (to y+21, or y+28
+	// centred), to the row's foot.
+	for (int y = r.y + (subRow ? 25 : 29); y < r.y + 44; y++)
+		for (int x = 60; x < 133; x++)
+			if (fb[y * GFX_W + x] != C_BG) return false;
+	return true;
+}
+
+/**
+ * @brief Pin @p name ("GP0") of connector @p conn ("J5") in the board header's
+ *        connector table, read as tools/make_wiring.py reads it; 0 for none.
+ *        The suite runs in test/, so the header is ../src/.
+ */
+static int boardConnectorPin(const char *conn, const char *name) {
+	FILE *f = fopen("../src/board_rp2350_touch_lcd_2_8.h", "r");
+	if (!f) return 0;
+	char line[256], cur[8] = "";
+	int found = 0;
+	while (!found && fgets(line, sizeof(line), f)) {
+		const char *p = line;
+		while (*p == ' ' || *p == '\t') p++;
+		if (*p != '*') { cur[0] = '\0'; continue; }
+		p++;
+		while (*p == ' ') p++;
+		char c[8]; int count, used = 0;
+		if (sscanf(p, "%7[J0-9] (%dP):%n", c, &count, &used) == 2 && used > 0 && c[0] == 'J') {
+			snprintf(cur, sizeof(cur), "%s", c);
+			p += used;
+		} else if (!(cur[0] && p[0] >= '0' && p[0] <= '9' && strchr(p, '='))) {
+			cur[0] = '\0';
+			continue;
+		}
+		if (strcmp(cur, conn) != 0) continue;
+		int num, n;
+		char nm[16];
+		while (sscanf(p, " %d=%15s%n", &num, nm, &n) == 2) {
+			if (strcmp(nm, name) == 0) { found = num; break; }
+			p += n;
+		}
+	}
+	fclose(f);
+	return found;
+}
+
+/**
+ * @brief SIG PIN's and AUX PIN's J5 lines and SERVO SUPPLY's J4 line agree
+ *        with the board header's connector table.
+ */
+static void testSettingsConnectorLines() {
+	section("SETTINGS: the connector lines agree with the board header");
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
+	enterSettings();
+	for (uint8_t g = 0; g < 2; g++) {
+		settings()->dshotPin = g;
+		settings()->kissPin = (uint8_t)(1 - g);
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));   // a repaint
+		char gp[8], sub[16], what[64];
+		snprintf(gp, sizeof(gp), "GP%u", (unsigned)g);
+		int j5 = boardConnectorPin("J5", gp);
+		snprintf(sub, sizeof(sub), "J5 PIN %d", j5);
+		snprintf(what, sizeof(what), "SIG on %s: %s, as the header's J5 says", gp, sub);
+		checkTrue(what, j5 > 0 && settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", gp, C_TEXT, sub));
+		char agp[8], asub[16];
+		snprintf(agp, sizeof(agp), "GP%u", (unsigned)(1 - g));
+		int aj5 = boardConnectorPin("J5", agp);
+		snprintf(asub, sizeof(asub), "J5 PIN %d", aj5);
+		snprintf(what, sizeof(what), "AUX on %s: %s", agp, asub);
+		checkTrue(what, aj5 > 0 && settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", agp, C_TEXT, asub));
+	}
+	for (uint8_t mode = 1; mode <= SERVO_SUPPLY_MODE_MAX; mode++) {
+		settings()->servoSupply = mode;
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+		char gp[8], sub[16], what[64];
+		snprintf(gp, sizeof(gp), "GP%u", (unsigned)servoSupplyPinOf(mode));
+		int j4 = boardConnectorPin("J4", gp);
+		snprintf(sub, sizeof(sub), "J4 PIN %d", j4);
+		snprintf(what, sizeof(what), "SERVO SUPPLY %s: %s, as the header's J4 says", gp, sub);
+		checkTrue(what, j4 > 0 &&
+		          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", gp, C_TEXT, sub));
+	}
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	fakeFlashClear();
+	settingsLoad();
 }
 
 /**
@@ -1179,7 +1887,7 @@ static void testSettingsWiring() {
 
 	// One step first: the board offers exactly two free pins, so an even
 	// number of steps lands back where it started and nothing would be dirty.
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 	checkTrue("one step moves the pin", settings()->dshotPin != start);
 	checkTrue("changing the pin is unsaved", settingsDirty());
 	checkTrue("the change reached the DShot pump",
@@ -1188,9 +1896,9 @@ static void testSettingsWiring() {
 	// Then step all the way round and check every stop is legal.
 	bool allFree = true;
 	for (int i = 0; i < 6; i++) {
-		tapId(UI_ROW(SettingsRowId::Pin, Plus));
+		tapId(UI_ROW(SettingsRowId::Sig, Plus));
 		if (!settingsPinFree(settings()->dshotPin)) allFree = false;
-		tapId(UI_ROW(SettingsRowId::Pin, Minus));
+		tapId(UI_ROW(SettingsRowId::Sig, Minus));
 		if (!settingsPinFree(settings()->dshotPin)) allFree = false;
 	}
 	checkTrue("every step lands on a free GPIO", allFree);
@@ -1198,14 +1906,14 @@ static void testSettingsWiring() {
 	// The frame for the docs, at 0 px: the first rows and an unsaved change,
 	// with the ESC pin back on the boot pin (test_menu.cpp takes the frame
 	// with the pin's warning).
-	tapId(UI_ROW(SettingsRowId::Pin, Minus));
+	tapId(UI_ROW(SettingsRowId::Sig, Minus));
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
 	fakeDumpFrame("shot_settings.ppm");
 	tapId(UI_ROW(SettingsRowId::Poles, Minus));
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 
 	// Bitrate halves and doubles through the four legal values, and wraps.
-	// DSHOT KBAUD's row is cut by the viewport's bottom at 0 px, 10 px of it
+	// DSHOT's row is cut by the viewport's bottom at 0 px, 10 px of it
 	// showing, so it is scrolled into view first.
 	settings()->dshotKbaud = 600;
 	tapRowId(UI_ROW(SettingsRowId::Speed, Minus));
@@ -1223,10 +1931,10 @@ static void testSettingsWiring() {
  *
  * Draws the expected label over the one on screen and compares the two
  * hashes, so the check is on the rendered glyphs rather than on a string the
- * UI meant to draw. The rectangle is the widest label, `DS1200`, at scale 1.
+ * UI meant to draw. The rectangle is the widest label, `DSHOT1200`, at scale 1.
  */
 static bool statusLabelIs(const char *text, uint16_t colour) {
-	const int x = 104, y = 3, w = 36, h = 7;
+	const int x = 104, y = 3, w = 53, h = 7;
 	uint32_t shown = fakeRegionHash(x, y, w, h);
 	gfxRect(x, y, w, h, C_PANEL);
 	gfxText(x, y, text, colour, 1);
@@ -1251,21 +1959,21 @@ static void testStatusBarBitrate() {
 	uint8_t pin = escTaskDshotPin();
 	escTaskConfigure(pin, 600, false, 0);
 	frames(2);
-	checkTrue("DS600 at 600 kbit/s", statusLabelIs("DS600", C_DIM));
+	checkTrue("DSHOT600 at 600 kbit/s", statusLabelIs("DSHOT600", C_DIM));
 
 	escTaskConfigure(pin, 150, false, 0);
 	frames(1);
-	checkTrue("DS150 once the pump runs at 150", statusLabelIs("DS150", C_DIM));
+	checkTrue("DSHOT150 once the pump runs at 150", statusLabelIs("DSHOT150", C_DIM));
 	escTaskConfigure(pin, 300, false, 0);
 	frames(1);
-	checkTrue("DS300 at 300", statusLabelIs("DS300", C_DIM));
+	checkTrue("DSHOT300 at 300", statusLabelIs("DSHOT300", C_DIM));
 	escTaskConfigure(pin, 1200, false, 0);
 	frames(1);
-	checkTrue("DS1200 at 1200", statusLabelIs("DS1200", C_DIM));
+	checkTrue("DSHOT1200 at 1200", statusLabelIs("DSHOT1200", C_DIM));
 
 	fakeSetEdtRequested(true);
 	frames(1);
-	checkTrue("cyan once EDT is requested", statusLabelIs("DS1200", C_CYAN));
+	checkTrue("the text colour once EDT is requested", statusLabelIs("DSHOT1200", C_TEXT));
 
 	EscTelemetry tel;
 	memset(&tel, 0, sizeof(tel));
@@ -1278,18 +1986,20 @@ static void testStatusBarBitrate() {
 	feedLiveTelemetry();
 	escTaskConfigure(pin, DSHOT_SPEED_KBAUD, false, 0);
 	frames(1);
-	checkTrue("and the bitrate again when it clears", statusLabelIs("DS600", C_CYAN));
+	checkTrue("and the bitrate again when it clears", statusLabelIs("DSHOT600", C_TEXT));
 }
 
 /**
- * @brief KISS can only be switched on against a pin that can actually receive.
+ * @brief SIG PIN and AUX PIN: both live whatever KISS is, and a step of
+ *        either swaps the two, so they never share a GPIO; KISS TELEM
+ *        switches KISS on and off on AUX without moving a pin.
  *
- * On the 2.8" board there is exactly one such pin and it is also the default
- * ESC pin, so this is the case that decides whether the screen is honest or
- * merely tidy.
+ * The 2.8" board frees two pins, so every step of either row is a swap.
+ * Each step is checked against the pins it started from, at once: a step up
+ * and one down checked only at the end pass whether or not the row acts.
  */
 static void testSettingsKiss() {
-	section("SETTINGS: KISS needs a pin of its own");
+	section("SETTINGS: SIG PIN and AUX PIN swap, live whatever KISS is");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -1297,81 +2007,80 @@ static void testSettingsKiss() {
 	frames(2);
 	enterSettings();
 
-	// Force the clash the board can create, then let the screen resolve it.
 	settings()->kissEnable = 0;
-	settings()->kissPin = settings()->dshotPin;
+	settings()->dshotPin = 0;
+	settings()->kissPin = 1;
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
-
-	// This used to have a second outcome -- "the 2.8" has nowhere to put it, so
-	// it stays off" -- because a KISS pin had to be one of the eight a hardware
-	// UART can receive on, and that board frees exactly one of them: the pin
-	// the ESC starts on. The receiver is a PIO state machine now, so every
-	// board with two free pins can do this. @see pio_uart_rx.h
-	checkInt("KISS comes on", settings()->kissEnable, 1);
-	checkTrue("on a pin this board offers", settingsPinFree(settings()->kissPin));
-	checkTrue("and not the ESC's", settings()->kissPin != settings()->dshotPin);
-
-	// Stepping must not land back on the ESC's pin, however few the board
-	// leaves free. On the 2.8" that is a two-pin board with both spoken for, so
-	// the step has nowhere legal to go and stays put rather than colliding --
-	// which is the one case where "only legal values can be selected" and "the
-	// button does something" cannot both hold.
-	for (int i = 0; i < 4; i++) {
-		tapRowId(UI_ROW(SettingsRowId::KissPin, Plus));
-		checkTrue("stepping KISS never lands on the ESC pin",
-		          settings()->kissPin != settings()->dshotPin);
-		checkTrue("and never leaves the board's free set",
-		          settingsPinFree(settings()->kissPin));
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));   // a repaint, KISS off again
+	checkTrue("SIG PIN: GP0, J5 PIN 2 under it",
+	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP0", C_TEXT, "J5 PIN 2"));
+	checkTrue("AUX PIN: GP1, J5 PIN 1 under it",
+	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP1", C_TEXT, "J5 PIN 1"));
+	checkTrue("DSHOT: the rate alone, nothing under it",
+	          settingsRowShows((int)SettingsRowId::Speed, "DSHOT", "600", C_TEXT, nullptr, false));
+	for (int i = 0; i < 2; i++) {
+		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+		tapRowId(UI_ROW(SettingsRowId::Aux, Plus));
+		checkTrue("KISS off: AUX PIN + acts and swaps SIG and AUX",
+		          settings()->kissPin == sig && settings()->dshotPin == aux);
+		checkTrue("and DShot follows SIG", fakeWiring().dshotPin == settings()->dshotPin);
 	}
-	for (int i = 0; i < 4; i++) {
-		tapRowId(UI_ROW(SettingsRowId::Pin, Minus));
-		checkTrue("and stepping the ESC pin avoids the KISS pin too",
-		          settings()->dshotPin != settings()->kissPin);
-		checkTrue("staying inside the free set as well",
-		          settingsPinFree(settings()->dshotPin));
+	{
+		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+		tapRowId(UI_ROW(SettingsRowId::Aux, Minus));
+		checkTrue("AUX PIN - swaps them too",
+		          settings()->kissPin == sig && settings()->dshotPin == aux);
 	}
+	checkTrue("SIG on GP1: J5 PIN 1 under it",
+	          settings()->dshotPin == 1 &&
+	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP1", C_TEXT, "J5 PIN 1"));
+	checkTrue("AUX on GP0: J5 PIN 2 under it",
+	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP0", C_TEXT, "J5 PIN 2"));
+	checkInt("and KISS stays off", settings()->kissEnable, 0);
 
-	// Switching it off is always available.
+	uint8_t sig0 = settings()->dshotPin, aux0 = settings()->kissPin;
+	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+	checkInt("KISS TELEM switches KISS on", settings()->kissEnable, 1);
+	checkTrue("on AUX, moving neither pin",
+	          settings()->dshotPin == sig0 && settings()->kissPin == aux0);
+	for (int i = 0; i < 2; i++) {
+		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
+		tapRowId(UI_ROW(SettingsRowId::Sig, Minus));
+		checkTrue("KISS on: SIG PIN - swaps SIG and AUX",
+		          settings()->kissPin == sig && settings()->dshotPin == aux);
+		checkTrue("and the wiring follows both",
+		          fakeWiring().dshotPin == settings()->dshotPin &&
+		          fakeWiring().kissPin == settings()->kissPin && fakeWiring().kissEnable);
+		// Off the boot pin with KISS on, the line over LINK names the swap
+		// of the ESC's wires, not a servo.
+		bool off = settings()->dshotPin != settingsBootDshotPin();
+		bool swapShown = fakeTextIs(UI_MARGIN, 230, "SWAP THE ESC'S SIGNAL AND KISS WIRES",
+		                            C_AMBER, C_BG, 1);
+		checkTrue(off ? "SIG off the boot pin, KISS on: SWAP THE ESC'S SIGNAL AND KISS WIRES"
+		              : "SIG back on the boot pin: no swap line",
+		          off == swapShown);
+	}
+	checkTrue("no step left a pin outside the free set",
+	          settingsPinFree(settings()->dshotPin) && settingsPinFree(settings()->kissPin));
+	sig0 = settings()->dshotPin;
+	aux0 = settings()->kissPin;
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkInt("toggling again switches it off", settings()->kissEnable, 0);
-
-	// ...and with it off, the pin row stops being a control. It used to look
-	// live and step a pin that was not in use, which SAVE then wrote to flash:
-	// a reconfiguration nobody asked for, on a row already reading "--", with
-	// nothing on the screen to say it had happened. Reported as #23, and the
-	// hard part of it is that the old behaviour was invisible rather than
-	// wrong-looking. Both buttons, both directions, several times.
-	// Each direction is checked against the pin it started from, immediately.
-	// Stepping up and then down and checking once at the end passes whether or
-	// not the row is gated, because the two cancel: the first version of this
-	// test did exactly that and proved nothing.
-	int pinWhenOff = (int)settings()->kissPin;
-	tapRowId(UI_ROW(SettingsRowId::KissPin, Plus), IdExpect::Disabled);
-	checkInt("with KISS off, + does not step the pin",
-	         (int)settings()->kissPin, pinWhenOff);
-	// Re-read rather than reusing pinWhenOff: if + had stepped, - would step
-	// back onto it and the second check would pass on the strength of the
-	// first one failing.
-	int pinBeforeMinus = (int)settings()->kissPin;
-	tapRowId(UI_ROW(SettingsRowId::KissPin, Minus), IdExpect::Disabled);
-	checkInt("and neither does -", (int)settings()->kissPin, pinBeforeMinus);
-
-	// The row comes back to life with the function, rather than staying dead
-	// until something repaints it.
-	//
-	// The board frees two pins and the ESC holds one of them, so the step
-	// correctly stays put -- the same case the loop above is written around.
-	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
-	checkInt("KISS back on", settings()->kissEnable, 1);
-
-	tapRowId(UI_ROW(SettingsRowId::KissPin, Plus));
-	checkTrue("the pin row is live again, with nowhere on this board to go",
-	          settingsPinFree(settings()->kissPin) &&
-	          settings()->kissPin != settings()->dshotPin);
-	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
+	checkTrue("and moves neither pin",
+	          settings()->dshotPin == sig0 && settings()->kissPin == aux0);
 }
 
-/** @brief SERVO SUPPLY: KST's section, stepped NONE, GP28, GP29, applied at once, saved and reset. */
+/** @brief Hold HOLD DEFAULTS until it fires, then lift. */
+static void holdReset() {
+	pressId(UI_FIX(SettingsCtl::Defaults));
+	holdId(UI_FIX(SettingsCtl::Defaults), 60);
+	fakeRelease(); frames(1);
+}
+
+/**
+ * @brief SERVO SUPPLY: a core section, stepped OWN, GP28, GP29 with the J4
+ *        pin under the value, applied at once, saved and reset.
+ */
 static void testSettingsServoSupply() {
 	section("SETTINGS: SERVO SUPPLY");
 
@@ -1382,9 +2091,13 @@ static void testSettingsServoSupply() {
 	enterSettings();
 
 	checkInt("none by default", settings()->servoSupply, 0);
+	checkTrue("SERVO SUPPLY reads OWN, nothing under it",
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "OWN", C_TEXT, nullptr));
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Minus));
-	checkInt("- at NONE stays", settings()->servoSupply, 0);
+	checkInt("- at OWN stays", settings()->servoSupply, 0);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
+	checkTrue("GP28, J4 PIN 11 under it",
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP28", C_TEXT, "J4 PIN 11"));
 	FakePin p = fakePin(28);
 	checkTrue("+: GP28, applied at once",
 	          settings()->servoSupply == 1 && servoSupplyFitted() && servoSupplyPin() == 28);
@@ -1393,6 +2106,8 @@ static void testSettingsServoSupply() {
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
 	p = fakePin(29);
 	checkTrue("+ again: GP29", settings()->servoSupply == 2 && servoSupplyPin() == 29);
+	checkTrue("GP29, J4 PIN 12 under it",
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP29", C_TEXT, "J4 PIN 12"));
 	checkTrue("GP29 an undriven input", p.function == GPIO_FUNC_SIO && !p.output && p.inputOff);
 	checkTrue("GP28 stays one", !fakePin(28).output && fakePin(28).inputOff);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
@@ -1405,8 +2120,8 @@ static void testSettingsServoSupply() {
 	settingsLoad();
 	checkTrue("saved: a reload keeps GP29", settingsStored() && settings()->servoSupply == 2);
 
-	tapId(UI_FIX(SettingsCtl::Reset));
-	checkTrue("RESET: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
+	holdReset();
+	checkTrue("DEFAULTS: none, applied at once", settings()->servoSupply == 0 && !servoSupplyFitted());
 	p = fakePin(29);
 	checkTrue("GP29 left an undriven input", !p.output && p.inputOff);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
@@ -1425,9 +2140,9 @@ static bool captionIs(const char *want) {
 }
 
 /**
- * @brief CURRENT SENSE: KST's section below SERVO SUPPLY, toggled NONE and
- *        INA219, applied at once, its caption from the probe, saved and
- *        reset; nothing sent to 0x40 with NONE.
+ * @brief CURRENT SENSE: in the SERVO SUPPLY section, below SERVO SUPPLY,
+ *        toggled NONE and INA219, applied at once, its caption from the
+ *        probe, saved and reset; nothing sent to 0x40 with NONE.
  */
 static void testSettingsCurrentSense() {
 	section("SETTINGS: CURRENT SENSE");
@@ -1466,8 +2181,8 @@ static void testSettingsCurrentSense() {
 	frames(45);
 	checkTrue("another part at 0x40: OTHER PART", captionIs("OTHER PART"));
 
-	tapId(UI_FIX(SettingsCtl::Reset));
-	checkTrue("RESET: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
+	holdReset();
+	checkTrue("DEFAULTS: NONE, applied at once", settings()->currentSense == 0 && !senseDeclared());
 	uint32_t n = fakeI2cTransactionsTo(INA219_ADDR);
 	frames(80);
 	checkInt("and nothing sent to 0x40 after", fakeI2cTransactionsTo(INA219_ADDR), n);
@@ -1565,7 +2280,7 @@ static void testSettingsSave() {
 	const UiRect save = ctlRect(UI_FIX(SettingsCtl::Save));
 	const int barX = save.x, barY = save.y - 4, barW = save.w;
 
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 	checkTrue("a change is pending", settingsDirty());
 
 	// A tap is not a save.
@@ -1582,7 +2297,7 @@ static void testSettingsSave() {
 	// Moving off the button mid-hold cancels.
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 20);
-	holdId(UI_FIX(SettingsCtl::Reset), 40);
+	holdId(UI_FIX(SettingsCtl::Defaults), 40);
 	fakeRelease(); frames(1);
 	checkTrue("sliding off cancels the hold", settingsDirty());
 
@@ -1597,8 +2312,8 @@ static void testSettingsSave() {
 		checkTrue("500 ms: 75 px of the 150, from the button's left edge",
 		          fb[barX] == C_LIME && fb[barX + 74] == C_LIME &&
 		          fb[barX + 75] == C_BG && fb[barX - 1] == C_BG);
-		checkTrue("and the button is blue while held",
-		          gfxBuffer()[(save.y + save.h - 5) * GFX_W + barX + 4] == C_BLUE);
+		checkTrue("and the button is red while held, as every hold",
+		          gfxBuffer()[(save.y + save.h - 5) * GFX_W + barX + 4] == C_RED);
 	}
 	fakeRelease(); frames(2);
 	checkTrue("and it clears on release",
@@ -1627,16 +2342,16 @@ static void testSettingsSave() {
 	settingsLoad();
 	checkInt("the pin came back after a reload", settings()->dshotPin, want);
 
-	// RESET restores compiled defaults into the live copy without touching flash.
+	// DEFAULTS restores compiled defaults into the live copy without touching flash.
 	Settings def;
 	settingsDefaults(&def);
-	tapId(UI_FIX(SettingsCtl::Reset));
-	checkInt("RESET restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
-	checkTrue("RESET alone leaves flash as it was", settingsStored());
+	holdReset();
+	checkInt("DEFAULTS restores the compiled ESC pin", settings()->dshotPin, def.dshotPin);
+	checkTrue("DEFAULTS alone leaves flash as it was", settingsStored());
 
 	// SETTINGS opened again under a press that is on HOLD TO SAVE: the press
 	// is not timed, as the hold waits for a press that lands.
-	checkTrue("RESET left a change pending", settingsDirty());
+	checkTrue("DEFAULTS left a change pending", settingsDirty());
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 20);
 	uiSettingsEnter();
@@ -1648,10 +2363,10 @@ static void testSettingsSave() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	// MENU opens at 0 px: the SETTINGS row, the sixth, is whole and its
-	// status shows with no drag.
-	checkInt("MENU's SETTINGS row is whole at 0 px, no drag",
-	         ctlRect(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)).h, 40);
+	// MENU opens at 0 px: the SETTINGS row, the eighth, starts at y 356,
+	// below the view, and is whole after a drag of 76 px, its status with it.
+	checkTrue("MENU's SETTINGS row is below the view at 0 px",
+	          !ctlPresent(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)));
 	checkTrue("MENU's SETTINGS row reads UNSAVED in amber",
 	          menuStatusIs(ctlRect(menuRow(&UI_SETTINGS)), "UNSAVED", C_AMBER, C_PANEL));
 	fakeDumpFrame("shot_menu_unsaved.ppm");
@@ -1673,49 +2388,50 @@ static void testTapCancels() {
 	uiInit();
 	frames(2);
 
-	// HOLD is observable through the throttle gauge: with it on, the bar latches
+	// LATCH is observable through the throttle gauge: with it on, the bar latches
 	// instead of springing back. Arm, prove it springs back, then try to turn
-	// HOLD on by a press that slides away -- it must still spring back.
+	// LATCH on by a press that slides away -- it must still spring back.
 	holdToArm();
 	swipe(20, 160, thrY(), 8);
 	frames(2);
 	checkInt("spring mode: released throttle returns to zero", fakeThrottle(), 0);
 
 	int hx, hy, ax, ay;
-	ctlCentre(UI_FIX(TesterCtl::Hold), &hx, &hy);
+	ctlCentre(UI_FIX(TesterCtl::Latch), &hx, &hy);
 	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
 	fakePress(hx, hy); frames(2);
 	fakeHold(ax, ay);  frames(2);   // slide off, onto ARM
 	fakeRelease();     frames(2);
 	swipe(20, 160, thrY(), 8);
 	frames(2);
-	checkInt("sliding off HOLD never turned it on", fakeThrottle(), 0);
+	checkInt("sliding off LATCH never turned it on", fakeThrottle(), 0);
 
 	// The same press, released in place, does toggle it.
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 160, thrY(), 8);
 	frames(2);
-	checkTrue("released in place, HOLD latched the throttle", fakeThrottle() > 0);
-	tapId(UI_FIX(TesterCtl::Hold));       // back off, which zeroes it
+	checkTrue("released in place, LATCH latched the throttle", fakeThrottle() > 0);
+	tapId(UI_FIX(TesterCtl::Latch));       // back off, which zeroes it
 	tapId(UI_FIX(TesterCtl::Menu));       // into MENU for the rest
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// MENU: press BEEP's row, slide off it, release. Neither fires.
-	int beeps = fakeBeepRequests();
+	// MENU: press ESC COMMANDS' row, slide off it, release. Neither row
+	// fires.
 	int bx, by;
-	ctlCentre(menuRow(&UI_BEEP), &bx, &by);
+	ctlCentre(menuRow(&UI_ESC_CMD), &bx, &by);
 	fakePress(bx, by);      frames(2);
 	fakeHold(bx, by + 60);  frames(2);
 	fakeRelease();          frames(2);
-	checkInt("sliding off BEEP sent nothing", fakeBeepRequests(), beeps);
+	checkTrue("sliding off ESC COMMANDS opened nothing", uiCurrentScreen() == UiScreenId::Menu);
 
 	// Still on MENU, which the next tap proves by working: the row the
 	// finger slid onto is only hit-tested, so if the slide had activated
 	// anything this fails.
 	fakePress(bx, by);      frames(2);
 	fakeRelease();          frames(2);
-	checkInt("released in place, it fires", fakeBeepRequests(), beeps + 1);
-	checkTrue("so the screen never left", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("released in place, it opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 }
 
 /** @brief A held stepper repeats and accelerates; a tap moves exactly one step. */
@@ -1891,9 +2607,9 @@ static void testDisarmButton() {
 	checkTrue("armed to begin with", uiArmed());
 
 	// Put some throttle on and make it stay, so the zeroing is observable.
-	// HOLD latches it; in spring mode the release at the end of a swipe would
+	// LATCH latches it; in spring mode the release at the end of a swipe would
 	// have already returned it to zero and the check below would prove nothing.
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 120, thrY(), 8);
 	frames(2);
 	checkTrue("throttle is latched up", fakeThrottle() > 0);
@@ -1908,7 +2624,7 @@ static void testDisarmButton() {
 	checkInt("and the commanded throttle is zeroed", fakeThrottle(), 0);
 	checkInt("the UI agrees", uiThrottle(), 0);
 
-	// HOLD is dropped too, so re-arming cannot resume a latched throttle.
+	// LATCH is dropped too, so re-arming cannot resume a latched throttle.
 	holdToArm();
 	swipe(20, 120, thrY(), 8);
 	frames(2);
@@ -2036,7 +2752,7 @@ static void testThrottleBarStopsAtTheButtons() {
 	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
 	checkInt("the track's grab area ends where ARM begins", thr.y + thr.h + 1, arm.y);
 	int hx, hy;
-	ctlCentre(UI_FIX(TesterCtl::Hold), &hx, &hy);
+	ctlCentre(UI_FIX(TesterCtl::Latch), &hx, &hy);
 	fakePress(hx, arm.y - 1); frames(1);
 	fakeHold(hx, arm.y - 1);  frames(1);
 	checkTrue("the last row of the band still drives the bar", fakeThrottle() > 0);
@@ -2067,12 +2783,12 @@ static void testCeilingBindsInRelativeMode() {
 
 	uint16_t ceiling = settings()->maxThrottle;
 
-	// HOLD mode: the gauge is relative. Swipe far past the right-hand end,
+	// LATCH mode: the gauge is relative. Swipe far past the right-hand end,
 	// several times, and it must sit exactly on the ceiling.
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	for (int i = 0; i < 4; i++) swipe(10, 235, thrY(), 6);
 	frames(2);
-	checkTrue("HOLD mode never exceeds the ceiling", fakeThrottle() <= ceiling);
+	checkTrue("LATCH mode never exceeds the ceiling", fakeThrottle() <= ceiling);
 	checkInt("and reaches it", fakeThrottle(), ceiling);
 
 	// The pad: always relative, in either mode. Swipe up the full height
@@ -2254,14 +2970,14 @@ static uint16_t simEscFrame(SimEsc *esc, uint16_t value) {
  * escFoldReply(), escPumpSlot(), escEdtForget() and escPumpFrameSent(), the
  * functions escTaskPoll() calls. What is modelled here is only what the PIO
  * driver, core0 and the clock do: one frame per millisecond, its reply read
- * one slot later, and the beacon request core0 raises.
+ * one slot later, and the command request core0 raises.
  */
 struct SimPump {
 	EscPump  pump;
 	EscTelemetry tel;
 	bool     armed;
 	uint16_t throttle;
-	uint8_t  beepReq;       /**< core0's s_beepReq. */
+	EscCmdRequest req;      /**< core0's s_cmdReq. */
 	bool     kissRx;        /**< A KISS receiver runs. */
 	unsigned kissReqs;      /**< Frames sent with the KISS request bit. */
 	uint32_t ms;            /**< millis() of the slot about to run. */
@@ -2301,13 +3017,12 @@ static void simSlot(SimPump *p, SimEsc *esc) {
 
 	// 2. The decision, and what core1 does with it.
 	EscSlot s = escPumpSlot(&p->pump, &p->tel, p->armed, true, p->throttle,
-	                        p->beepReq, p->kissRx, ms);
+	                        &p->req, r, p->kissRx, ms);
 	if (s.forgetEdt) escEdtForget(&p->tel);
-	if (s.beepTaken) p->beepReq = 0;
+	if (s.cmdTaken) p->req.cmd = 0;
 	const EscFrame &f = s.frame;
-	uint16_t value = f.sendCommand
-	               ? f.command
-	               : (uint16_t)(kissBuildDshotPayload(f.throttle, f.requestKiss) >> 1);
+	bool telemetry;
+	uint16_t value = escFrameWire(&f, &telemetry);
 	if (f.requestKiss) p->kissReqs++;
 	escPumpFrameSent(&p->pump, &f, ms);
 
@@ -2354,6 +3069,14 @@ static unsigned simBurstStarts(const SimPump *p, unsigned from, unsigned to,
 		}
 	}
 	return n;
+}
+
+/** @brief Slot @p from starts a run of exactly @p n frames of @p value. */
+static bool simRunOf(const SimPump *p, unsigned from, unsigned n, uint16_t value) {
+	if (from > 0 && p->sent[from - 1] == value) return false;
+	for (unsigned i = 0; i < n; i++)
+		if (p->sent[from + i] != value) return false;
+	return p->sent[from + n] != value;
 }
 
 static SimPump s_sim;   // 210 kB, most of it trace: static, not on the stack
@@ -2527,18 +3250,25 @@ static void testEdtBindBurstRules() {
 	n = simBurstStarts(p, from, p->slot, starts, 16);
 	checkInt("disarmed: the enable follows on the settled link", (long)n, 1);
 
-	// A beacon asked for at the bind waits for the burst.
+	// A beacon asked for during a scheduled enable waits for the burst. The
+	// ESC has answered for more than ESC_CMD_SETTLE_MS, without EDT, so the
+	// enable is retried every second.
 	memset(&esc, 0, sizeof(esc));
 	esc.present = esc.ready = true;
 	simBoot(p, 5000);
-	p->beepReq = 2;
-	simRun(p, &esc, EDT_ENABLE_REPEATS);
-	checkInt("beacon: the request waits for the enable", p->beepReq, 2);
+	simRun(p, &esc, ESC_CMD_SETTLE_MS + 100);
+	while (p->pump.edt.reps == 0) simRun(p, &esc, 1);
+	unsigned burst = p->slot - 1;
+	p->req = {DSHOT_CMD_BEEP2, false, p->ms};
+	simRun(p, &esc, 3);
+	checkInt("beacon: the request waits for the enable", p->req.cmd, DSHOT_CMD_BEEP2);
 	simRun(p, &esc, 10);
-	checkInt("beacon: and is taken after it", p->beepReq, 0);
-	checkTrue("beacon: the enable is the first 10 frames", simBindBurstAt(p, 0));
-	checkInt("beacon: frame 11 is the beacon", p->sent[EDT_ENABLE_REPEATS],
-	         DSHOT_CMD_BEEP2);
+	checkInt("beacon: and is taken after it", p->req.cmd, 0);
+	simRun(p, &esc, 20);
+	checkTrue("beacon: the enable is 10 frames, unbroken",
+	          simRunOf(p, burst, EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
+	checkTrue("beacon: the next frames are the beacon",
+	          simRunOf(p, burst + EDT_ENABLE_REPEATS, BEEP_REPEATS, DSHOT_CMD_BEEP2));
 
 	// An ESC that kept EDT on is unplugged and plugged back in. The link
 	// loss clears the request state and the EDT fields; the replies after
@@ -2562,14 +3292,6 @@ static void testEdtBindBurstRules() {
 	         (long)simBurstStarts(p, back, p->slot, starts, 16), 0);
 }
 
-/** @brief Slot @p from starts a run of exactly @p n frames of @p value. */
-static bool simRunOf(const SimPump *p, unsigned from, unsigned n, uint16_t value) {
-	if (from > 0 && p->sent[from - 1] == value) return false;
-	for (unsigned i = 0; i < n; i++)
-		if (p->sent[from + i] != value) return false;
-	return p->sent[from + n] != value;
-}
-
 /** @brief The first slot from @p from whose frame carried the KISS request bit. */
 static unsigned simNextKiss(const SimPump *p, unsigned from) {
 	for (unsigned i = from; i < p->slot && i < SIM_SLOTS; i++)
@@ -2590,11 +3312,14 @@ static void testKissCadence() {
 
 	SimPump *p = &s_sim;
 	SimEsc esc;
-	memset(&esc, 0, sizeof(esc));   // nothing connected: no scheduled enable
+	// An ESC that kept EDT on: it answers, so a beacon can start, and EDT
+	// arrives, so no scheduled enable goes out.
+	memset(&esc, 0, sizeof(esc));
+	esc.present = esc.canEdt = esc.edt = esc.ready = true;
 
 	simBoot(p, 5000);
 	p->kissRx = true;
-	simRun(p, &esc, 200);
+	simRun(p, &esc, ESC_CMD_SETTLE_MS + 100);
 	checkInt("first request on the first free frame",
 	         (long)simNextKiss(p, 0), EDT_ENABLE_REPEATS);
 	unsigned r = simNextKiss(p, 100);
@@ -2606,7 +3331,7 @@ static void testKissCadence() {
 	unsigned last = r;
 	while (simNextKiss(p, last + 1) < at) last = simNextKiss(p, last + 1);
 	simRun(p, &esc, last + KISS_REQUEST_EVERY_N - at);
-	p->beepReq = 1;
+	p->req = {DSHOT_CMD_BEEP1, false, p->ms};
 	simRun(p, &esc, 100);
 	unsigned due = last + KISS_REQUEST_EVERY_N;
 	checkTrue("beacon: it takes the due slot", p->sent[due] == DSHOT_CMD_BEEP1);
@@ -2618,23 +3343,24 @@ static void testKissCadence() {
 	// while armed, and no beacon goes out after the disarm.
 	for (int waiting = 0; waiting < 2; waiting++) {
 		memset(&esc, 0, sizeof(esc));
+		esc.present = esc.canEdt = esc.edt = esc.ready = true;
 		simBoot(p, 5000);
 		p->kissRx = true;
-		simRun(p, &esc, waiting ? 3 : 100);
-		p->beepReq = 3;
+		simRun(p, &esc, waiting ? 3 : ESC_CMD_SETTLE_MS + 100);
+		p->req = {DSHOT_CMD_BEEP3, false, p->ms};
 		simRun(p, &esc, waiting ? 2 : 3);
 		if (!waiting)
 			checkTrue("arm mid-beacon: the beacon is going out, frames owed",
 			          p->sent[p->slot - 1] == DSHOT_CMD_BEEP3 &&
-			          p->pump.beepReps > 0);
+			          escCmdInBlock(&p->pump.seq));
 		else
-			checkInt("arm in the enable: the beacon waits", p->beepReq, 3);
+			checkInt("arm in the enable: the beacon waits", p->req.cmd, DSHOT_CMD_BEEP3);
 		p->armed = true;
 		p->throttle = 100;
 		unsigned armedAt = p->slot;
 		simRun(p, &esc, 200);
 		checkInt(waiting ? "arm in the enable: the request is taken"
-		                 : "arm mid-beacon: no request left", p->beepReq, 0);
+		                 : "arm mid-beacon: no request left", p->req.cmd, 0);
 		unsigned k = simNextKiss(p, armedAt);
 		checkTrue(waiting ? "arm in the enable: a request within 20 frames"
 		                  : "arm mid-beacon: a request within 20 frames",
@@ -2751,21 +3477,25 @@ static void testEdtStepRules() {
 	          n == 1 && starts[0] == disarmAt &&
 	          simRunOf(p, disarmAt, EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
 
-	// A beacon that is going out when the scheduled enable falls due keeps
-	// the wire, and the enable follows it.
+	// A beacon that is going out when a scheduled enable falls due keeps the
+	// wire, and the enable follows the end of its gap, 280 ms for beacon 3.
+	// The ESC answers without EDT, so the enable is retried every second;
+	// the beacon starts 3 ms before the retry after the 1500 ms settle.
 	memset(&esc, 0, sizeof(esc));
 	esc.present = esc.ready = true;
 	simBoot(p, 5000);
-	const unsigned due = 1 + EDT_SETTLE_MS;
-	simRun(p, &esc, due - 3);
-	p->beepReq = 3;
-	simRun(p, &esc, 100);
+	simRun(p, &esc, ESC_CMD_SETTLE_MS + 700);
+	n = simBurstStarts(p, 0, p->slot, starts, 16);
+	const unsigned due = starts[n - 1] + EDT_RETRY_MS + EDT_ENABLE_REPEATS - 1;
+	simRun(p, &esc, due - 3 - p->slot);
+	p->req = {DSHOT_CMD_BEEP3, false, p->ms};
+	simRun(p, &esc, 400);
 	checkTrue("beacon: all 6 frames, unbroken",
 	          simRunOf(p, due - 3, BEEP_REPEATS, DSHOT_CMD_BEEP3));
 	n = simBurstStarts(p, due - 3, p->slot, starts, 16);
 	checkInt("beacon: one enable after it", (long)n, 1);
-	checkTrue("beacon: on the next frame, 10 frames long",
-	          n == 1 && starts[0] == due - 3 + BEEP_REPEATS &&
+	checkTrue("beacon: on the frame after its gap, 10 frames long",
+	          n == 1 && starts[0] == due - 3 + BEEP_REPEATS + 280 &&
 	          simRunOf(p, starts[0], EDT_ENABLE_REPEATS, DSHOT_CMD_EDT_ENABLE));
 }
 
@@ -2806,8 +3536,8 @@ static void testIdleAutoDisarm() {
 	for (int i = 0; i < 3; i++) {
 		fakeAdvance(IDLE_DISARM_MS - 2000);
 		frames(2);
-		tapId(UI_FIX(TesterCtl::Hold));      // any touch counts
-		tapId(UI_FIX(TesterCtl::Hold));      // and back off
+		tapId(UI_FIX(TesterCtl::Latch));      // any touch counts
+		tapId(UI_FIX(TesterCtl::Latch));      // and back off
 	}
 	checkTrue("touching keeps it armed", uiArmed());
 }
@@ -2821,7 +3551,7 @@ static bool hintIs(const char *text, uint16_t col) {
  * @brief A touch controller that stops answering disarms a latched throttle
  *        within TOUCH_LOST_MS, says so, and the note goes when it answers.
  *
- * A dead touch cannot press DISARM, and with HOLD on the throttle would
+ * A dead touch cannot press DISARM, and with LATCH on the throttle would
  * otherwise stand until the idle interlock, IDLE_DISARM_MS on.
  */
 static void testTouchLoss() {
@@ -2845,10 +3575,10 @@ static void testTouchLoss() {
 	checkInt("TOUCH_LOST_MS is four 25 ms frames", TOUCH_LOST_MS, 4 * UI_FRAME_MS);
 
 	holdToArm();
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 120, thrY(), 8);
 	frames(2);
-	checkTrue("armed, throttle latched by HOLD", uiArmed() && fakeThrottle() > 0);
+	checkTrue("armed, throttle latched by LATCH", uiArmed() && fakeThrottle() > 0);
 
 	// The last answer was on the last frame. Three frames, 75 ms, without one:
 	// a short gap does not stop the motor.
@@ -2864,7 +3594,7 @@ static void testTouchLoss() {
 	checkTrue("NO TELEMETRY keeps its line",
 	          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
 	checkTrue("the note fits left of x 226 and clear of the pole count",
-	          226 - gfxTextW(UI_TOUCH_LOST_TEXT, 1) > 10 + gfxTextW("14P", 1) + 4);
+	          226 - gfxTextW(UI_TOUCH_LOST_TEXT, 1) > 10 + gfxTextW("14 POLES", 1) + 4);
 	frames(40);
 	checkTrue("a second on: still disarmed, the note still up",
 	          !uiArmed() && hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
@@ -2875,11 +3605,11 @@ static void testTouchLoss() {
 	frames(1);
 	checkTrue("answering again: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
 	checkTrue("and it stays disarmed", !uiArmed() && fakeThrottle() == 0);
-	// HOLD went off with the disarm: re-armed, a swipe springs back to zero.
+	// LATCH went off with the disarm: re-armed, a swipe springs back to zero.
 	holdToArm();
 	swipe(20, 120, thrY(), 8);
 	frames(2);
-	checkTrue("HOLD is off: re-armed, the throttle springs back",
+	checkTrue("LATCH is off: re-armed, the throttle springs back",
 	          uiArmed() && fakeThrottle() == 0);
 	tapId(UI_FIX(TesterCtl::Arm));
 	checkTrue("disarmed for the next case", !uiArmed());
@@ -2932,10 +3662,10 @@ static void testTouchLossStall() {
 	uiInit();
 	frames(4);
 	holdToArm();
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 120, thrY(), 8);
 	frames(2);
-	checkTrue("armed, throttle latched by HOLD", uiArmed() && fakeThrottle() > 0);
+	checkTrue("armed, throttle latched by LATCH", uiArmed() && fakeThrottle() > 0);
 
 	// A card write holds core0 for 150 ms; the read after it fails.
 	fakeTouchAnswers(false);
@@ -2952,7 +3682,7 @@ static void testTouchLossStall() {
 
 	// A stall with the controller answering after it: nothing at all.
 	holdToArm();
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 120, thrY(), 8);
 	frames(2);
 	frameAfter(400);
@@ -2965,7 +3695,7 @@ static void testTouchLossStall() {
 	// Four failed reads quicker than TOUCH_LOST_MS, frames 10 ms apart: not
 	// yet; the time since the last answer has to reach 100 ms too.
 	holdToArm();
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	swipe(20, 120, thrY(), 8);
 	frames(2);
 	fakeTouchAnswers(false);
@@ -3094,9 +3824,27 @@ static void testBoardCellColour() {
 	checkTrue("armed at 3.20 V: the voltage in red", uiArmed() && shows("3.20V", C_RED));
 	fakeAdvance(IDLE_DISARM_MS - 3000);
 	frames(1);
-	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place",
-	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 7, "IDLE 3s", C_AMBER, C_PANEL, 2));
+	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place, from y 11",
+	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 11, "IDLE 3s", C_AMBER, C_PANEL, 2));
 	checkTrue("and no voltage", !shows("3.20V", C_RED) && !shows("3.20V", C_TEXT));
+	// At 1200 kbit/s the rate, DSHOT1200, ends at x 156, right of where
+	// IDLE 5s starts, x 154: the two share no pixel. Each reads alone in its
+	// own rectangle, which do not meet, and the row between is blank.
+	{
+		uint8_t pin = escTaskDshotPin();
+		escTaskConfigure(pin, 1200, false, 0);
+		fakeAdvance(1000);
+		frames(1);
+		const char *idle = "IDLE 2s";
+		uint16_t rateCol = escEdtRequested() ? C_TEXT : C_DIM;
+		bool alone = fakeTextIs(104, 3, "DSHOT1200", rateCol, C_PANEL, 1) &&
+		             fakeTextIs(GFX_W - 4 - gfxTextW(idle, 2), 11, idle, C_AMBER, C_PANEL, 2);
+		bool gap = true;
+		for (int x = 104; x < GFX_W - 4; x++)
+			if (gfxBuffer()[10 * GFX_W + x] != C_PANEL) gap = false;
+		checkTrue("DSHOT1200 and IDLE 2s share no pixel, y 10 blank between", alone && gap);
+		escTaskConfigure(pin, DSHOT_SPEED_KBAUD, false, 0);
+	}
 	fakeAdvance(4000);
 	frames(2);
 	checkTrue("the idle interlock disarms", !uiArmed());
@@ -3176,6 +3924,23 @@ static void testSplashTouch() {
 	frames(2);
 	checkTrue("its lift opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
+
+	// The same for a finger resting on a readout: its lift opens SETTINGS.
+	uiInit();
+	uiDrawSplash();
+	ctlCentre(UI_FIX(TesterCtl::Max), &mx, &my);
+	fakePress(mx, my);
+	fakeAdvance(UI_FRAME_MS);
+	uiSplashTick();
+	frames(4);
+	checkTrue("a finger on MAX from the splash on: the tester stays, disarmed",
+	          uiCurrentScreen() == UiScreenId::Tester && !uiArmed() && fakeThrottle() == 0);
+	fakeRelease();
+	frames(2);
+	checkTrue("its lift opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
 
 	// Answering at boot: no line.
@@ -3289,26 +4054,30 @@ static void testHitBoundaries() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// MENU's rows are 40 px tall at a 42 px pitch: BEEP ends where the gap
-	// above AM32 CONFIG starts, and SETTINGS where the gap above SD LOG
-	// starts. A tap in either gap must hit neither neighbour -- an inclusive
-	// far edge would make adjacent rows overlap.
-	const UiRect beep  = ctlRect(menuRow(&UI_BEEP));
-	const UiRect settingsRow = ctlRect(menuRow(&UI_SETTINGS));
-	int beeps = fakeBeepRequests();
-	tap(beep.x + beep.w / 2, beep.y + beep.h);
+	// MENU's rows are 40 px tall at a 42 px pitch: ESC COMMANDS ends where
+	// the gap above ESC CONFIG starts, and SD LOG where the gap above
+	// SETTINGS starts. A tap in either gap must hit neither neighbour -- an
+	// inclusive far edge would make adjacent rows overlap.
+	const UiRect cmds  = ctlRect(menuRow(&UI_ESC_CMD));
+	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h);
 	frames(2);
-	checkInt("a tap in the BEEP/AM32 gap sends nothing", fakeBeepRequests(), beeps);
-	checkTrue("and opens nothing", uiCurrentScreen() == UiScreenId::Menu);
-	tap(beep.x + beep.w, beep.y + beep.h / 2);
-	checkInt("one past BEEP's right edge sends nothing", fakeBeepRequests(), beeps);
-	tap(settingsRow.x + settingsRow.w / 2, settingsRow.y + settingsRow.h);
-	frames(2);
-	checkTrue("a tap in the gap below SETTINGS left MENU up",
+	checkTrue("a tap in the ESC COMMANDS/AM32 gap opens nothing",
 	          uiCurrentScreen() == UiScreenId::Menu);
-	tap(beep.x + beep.w / 2, beep.y + beep.h - 1);
-	checkInt("BEEP's last pixel row is BEEP", fakeBeepRequests(), beeps + 1);
-	fakeAdvance(400); frames(2);
+	tap(cmds.x + cmds.w, cmds.y + cmds.h / 2);
+	checkTrue("nor one past ESC COMMANDS' right edge", uiCurrentScreen() == UiScreenId::Menu);
+	// SD LOG, the seventh row, is whole only after a drag, which moves ESC
+	// COMMANDS too: MENU opens again at 0 px for the last tap.
+	const UiRect logRow = ctlRect(menuRow(&UI_SDLOG));
+	tap(logRow.x + logRow.w / 2, logRow.y + logRow.h);
+	frames(2);
+	checkTrue("a tap in the gap below SD LOG left MENU up",
+	          uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(TesterCtl::Menu));
+	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h - 1);
+	checkTrue("ESC COMMANDS' last pixel row opens it", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 
 	// MOTOR POLES - on SETTINGS is a rectangle. One past each far edge is
 	// outside: the gap before + on the right, the gap between rows below.
@@ -3331,14 +4100,15 @@ static void testHitBoundaries() {
  * @brief MENU's rows: SERVO opens its screen, and a tool that claims the
  *        pins is refused while they are not Free.
  *
- * A tool row that claims pins reads PINS BUSY while the claim is not
- * Free, as for the time Restoring takes after RESTART DSHOT: its control is
- * gated on the same value, and a tap opens nothing and claims nothing.
+ * A tool row that claims pins is drawn disabled under its own status while
+ * the claim is not Free, as for the time Restoring takes after RESTART
+ * DSHOT, and the strip says why: its control is gated on the same value,
+ * and a tap opens nothing and claims nothing.
  * SERVO is built: a tap opens it and claims the pins, and leaving goes
- * through its unplug page to MENU. test_servo.cpp tests the screen itself.
+ * through its leave page to MENU. test_servo.cpp tests the screen itself.
  */
 static void testMenuDestinations() {
-	section("MENU: SERVO opens its screen, PINS BUSY refuses");
+	section("MENU: SERVO opens its screen, a busy claim refuses");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -3355,12 +4125,13 @@ static void testMenuDestinations() {
 	// The registry, in MENU order.
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
-	checkInt("MENU has seven rows", rows, 7);
-	checkTrue("BEEP, AM32 CONFIG, SERVO TESTER, KST SERVO, HITEC SERVO, SETTINGS, SD LOG, in that order",
-	          uiMenuRowOf(&UI_BEEP) == 0 && uiMenuRowOf(&UI_AM32) == 1 &&
-	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_KST) == 3 &&
-	          uiMenuRowOf(&UI_HITEC) == 4 && uiMenuRowOf(&UI_SETTINGS) == 5 &&
-	          uiMenuRowOf(&UI_SDLOG) == 6);
+	checkInt("MENU has eight rows", rows, 8);
+	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, "
+	          "SD LOG, SETTINGS, in that order",
+	          uiMenuRowOf(&UI_ESC_CMD) == 0 && uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
+	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SERVO_PROG) == 3 &&
+	          uiMenuRowOf(&UI_RX_SIGNALS) == 4 && uiMenuRowOf(&UI_TOOLS) == 5 &&
+	          uiMenuRowOf(&UI_SDLOG) == 6 && uiMenuRowOf(&UI_SETTINGS) == 7);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.
@@ -3369,28 +4140,52 @@ static void testMenuDestinations() {
 		UiRect r = ctlRect(menuRow(s));
 		return fb[(r.y + 8) * GFX_W + (r.x + 5)];
 	};
-	checkTrue("AM32 is filled", pixelIn(&UI_AM32) == C_PANEL);
-	checkTrue("SETTINGS is filled", pixelIn(&UI_SETTINGS) == C_PANEL);
+	checkTrue("ESC COMMANDS is filled", pixelIn(&UI_ESC_CMD) == C_PANEL);
+	checkTrue("ESC CONFIG is filled", pixelIn(&UI_ESC_CONFIG) == C_PANEL);
+	checkTrue("SERVO PROGRAMMER is filled", pixelIn(&UI_SERVO_PROG) == C_PANEL);
 	checkTrue("SERVO is filled", pixelIn(&UI_SERVO) == C_PANEL);
-	char pins[16];
-	snprintf(pins, sizeof(pins), "GP%u", (unsigned)escTaskDshotPin());
-	checkTrue("AM32's row names the SIG pin",
-	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), pins, C_DIM, C_PANEL));
+	checkTrue("RX SIGNALS is filled", pixelIn(&UI_RX_SIGNALS) == C_PANEL);
+	// A tool row reports no status (menu-b.md decision 18): the strip names
+	// the pins. Its right end, where a status would stand, is the fill.
+	auto statusBlank = [&](const UiScreen *s, uint16_t fill) {
+		UiRect r = ctlRect(menuRow(s));
+		for (int y = r.y + 14; y < r.y + 26; y++)
+			for (int x = 210; x < 228; x++)
+				if (fb[y * GFX_W + x] != fill) return false;
+		return true;
+	};
+	checkTrue("ESC COMMANDS' row has no status", statusBlank(&UI_ESC_CMD, C_PANEL));
+	checkTrue("nor ESC CONFIG's", statusBlank(&UI_ESC_CONFIG, C_PANEL));
+	checkTrue("nor SERVO TESTER's", statusBlank(&UI_SERVO, C_PANEL));
+	checkTrue("nor RX SIGNALS'", statusBlank(&UI_RX_SIGNALS, C_PANEL));
 
 	// Another claim holds the pins, as Restoring does after RESTART DSHOT:
-	// both tools that claim them read PINS BUSY and do not act.
+	// both tools that claim them are drawn disabled and do not act.
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	frames(2);
-	// A refused row is drawn disabled: an outline, the background inside.
-	checkTrue("AM32 reads PINS BUSY, drawn disabled",
-	          menuStatusIs(ctlRect(menuRow(&UI_AM32)), "PINS BUSY", C_AMBER, C_BG));
-	checkTrue("SERVO reads PINS BUSY, drawn disabled",
-	          menuStatusIs(ctlRect(menuRow(&UI_SERVO)), "PINS BUSY", C_AMBER, C_BG));
+	// A refused row is drawn disabled, an outline with the background
+	// inside, under its own status, none for a tool: no word for the claim
+	// on the row.
+	checkTrue("ESC CONFIG, whose ESC SETTINGS claims, drawn disabled, no status",
+	          pixelIn(&UI_ESC_CONFIG) == C_BG && statusBlank(&UI_ESC_CONFIG, C_BG));
+	checkTrue("SERVO drawn disabled, no status", pixelIn(&UI_SERVO) == C_BG && statusBlank(&UI_SERVO, C_BG));
+	char restarting[40];
+	snprintf(restarting, sizeof(restarting), "DSHOT RESTARTING ON SIG GP%u",
+	         (unsigned)settings()->dshotPin);
+	checkTrue("the strip says why, in amber",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, restarting, C_AMBER, C_BG, 1));
 	checkTrue("both rows are gated",
-	          !ctlEnabled(menuRow(&UI_AM32)) && !ctlEnabled(menuRow(&UI_SERVO)));
-	checkTrue("the rows that claim nothing still act",
-	          ctlEnabled(menuRow(&UI_BEEP)) && ctlEnabled(menuRow(&UI_SDLOG)));
+	          !ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !ctlEnabled(menuRow(&UI_SERVO)));
+	checkTrue("SERVO PROGRAMMER, whose entries claim, drawn disabled and gated",
+	          pixelIn(&UI_SERVO_PROG) == C_BG && !ctlEnabled(menuRow(&UI_SERVO_PROG)));
+	checkTrue("and RX SIGNALS, whose MONITOR claims",
+	          pixelIn(&UI_RX_SIGNALS) == C_BG && statusBlank(&UI_RX_SIGNALS, C_BG) &&
+	          !ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("ESC COMMANDS, which needs DShot on SIG, drawn disabled and gated",
+	          pixelIn(&UI_ESC_CMD) == C_BG && statusBlank(&UI_ESC_CMD, C_BG) &&
+	          !ctlEnabled(menuRow(&UI_ESC_CMD)));
+	checkTrue("SD LOG, which claims nothing, still acts", ctlEnabled(menuRow(&UI_SDLOG)));
 	checkTrue("SETTINGS, which changes the wiring a claim latched, does not",
 	          !ctlEnabled(menuRow(&UI_SETTINGS)));
 	checkControlTable("MENU, pins busy");
@@ -3407,13 +4202,20 @@ static void testMenuDestinations() {
 	frames(1);
 	checkTrue("a tap on SERVO opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("nor claims a pin", pinClaimHolder() == PinUser::Am32);
-	tapId(menuRow(&UI_AM32), IdExpect::Disabled);
+	tapId(menuRow(&UI_ESC_CONFIG), IdExpect::Disabled);
 	frames(1);
-	checkTrue("nor does a tap on AM32", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("nor does a tap on ESC CONFIG", uiCurrentScreen() == UiScreenId::Menu);
 	pinClaimEnd(PinUser::Am32);
 	frames(2);
 	checkTrue("the claim ends: the pins are Free", pinClaimState() == ClaimState::Free);
 	checkTrue("and SERVO acts again", ctlEnabled(menuRow(&UI_SERVO)));
+	{
+		char cap[40];
+		snprintf(cap, sizeof(cap), "SIG GP%u  AUX GP%u  DSHOT%u", (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
+		checkTrue("the strip names both pins and the rate again, dim",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, C_DIM, C_BG, 1));
+	}
 
 	uint32_t whole = fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H);
 	tapId(menuRow(&UI_SERVO));
@@ -3427,17 +4229,19 @@ static void testMenuDestinations() {
 	tapId(UI_FIX(UI_BACK));
 	core1JobPoll();
 	frames(1);
-	checkTrue("BACK: the unplug page", pinClaimUnplugDue());
+	checkTrue("BACK: the leave page, the pins let go", pinClaimUnplugDue());
+	// RESTART DSHOT takes a press 1000 ms after the release.
+	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); k++) frames(1);
 	tapId(UI_FIX(ServoCtl::Restart));   // RESTART DSHOT
 	frames(2);
 	checkTrue("RESTART DSHOT: DShot back, MENU up",
 	          pinClaimState() == ClaimState::Free &&
 	          pixelIn(&UI_SERVO) == C_PANEL);
 	checkTrue("RESTART DSHOT leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	int beeps = fakeBeepRequests();
-	tapId(menuRow(&UI_BEEP));
-	checkInt("and MENU takes taps", fakeBeepRequests(), beeps + 1);
-	fakeAdvance(400); frames(2);
+	tapId(menuRow(&UI_ESC_CMD));
+	checkTrue("and MENU takes taps: ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
@@ -3458,7 +4262,7 @@ static void testRailReAnchor() {
 	uiInit();
 	frames(4);
 	holdToArm();
-	tapId(UI_FIX(TesterCtl::Hold));           // HOLD: the gauge is relative
+	tapId(UI_FIX(TesterCtl::Latch));           // LATCH: the gauge is relative
 
 	uint16_t ceiling = settings()->maxThrottle;
 
@@ -3560,18 +4364,19 @@ static void testBoardRow() {
 	fakeRelease(); frames(2);
 	checkInt("holding it does nothing either", settings()->boardId, recorded);
 
-	// The scroll range. 6 captions of 20 px and 14 rows at a 50 px pitch are
-	// 820 px of content; the viewport, y 40 to 239, is 200 px, so the list
-	// scrolls 0 px to 620 px. Dragged past its end, it stops at 620 px, with
-	// VERSION's row, content y 650, at y 40 + 650 - 620 = 70, then the
+	// The scroll range. 6 captions of 20 px and 15 rows at a 50 px pitch are
+	// 870 px of content; the viewport, y 40 to 239, is 200 px, so the list
+	// scrolls 0 px to 670 px. Dragged past its end, it stops at 670 px, with
+	// CLOCK's row, content y 700, at y 40 + 700 - 670 = 70, then the
 	// DIAGNOSTICS caption, LAST RESTART's row at y 140 and UPTIME's, content
-	// y 770, at y 190.
+	// y 820, at y 190.
 	const UiRect save0 = ctlRect(UI_FIX(SettingsCtl::Save));
 	settingsDrag(-180);
 	settingsDrag(-180);
 	settingsDrag(-180);
-	checkInt("at the end of the list, VERSION's row is at y 70",
-	         ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 70);
+	settingsDrag(-180);
+	checkInt("at the end of the list, CLOCK's row is at y 70",
+	         ctlRect(UI_ROW(SettingsRowId::Clock, Row)).y, 70);
 	checkInt("LAST RESTART's at y 140",
 	         ctlRect(UI_ROW(SettingsRowId::LastRestart, Row)).y, 140);
 	checkInt("and UPTIME's, the last, at y 190",
@@ -3579,29 +4384,47 @@ static void testBoardRow() {
 	settingsDrag(-180);
 	checkInt("and a drag past the end does not move it",
 	         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 190);
+	// CLOCK, not set: its label 12 px down the row and its caption 25 px
+	// down, both from x 8; the value right-aligned to x 232, 18 px down.
+	checkTrue("CLOCK's label, over its caption",
+	          fakeTextIs(UI_MARGIN, 70 + 12, "CLOCK", C_DIM, C_BG, 1));
+	checkTrue("its caption: SET AT EACH POWER-UP",
+	          fakeTextIs(UI_MARGIN, 70 + 25, "SET AT EACH POWER-UP", C_DIM, C_BG, 1));
+	checkTrue("CLOCK reads NOT SET, dim",
+	          fakeTextIs(232 - gfxTextW("NOT SET", 1), 70 + 18, "NOT SET", C_DIM, C_BG, 1));
+	checkTrue("CLOCK has no control",
+	          !ctlPresent(UI_ROW(SettingsRowId::Clock, Minus)) &&
+	          !ctlPresent(UI_ROW(SettingsRowId::Clock, Toggle)) &&
+	          !ctlEnabled(UI_ROW(SettingsRowId::Clock, Row)));
+	checkControlTable("SETTINGS, at the end");
+	checkTrue("the clock is set to the shot's uptime", fakeClockSetMs(FAKE_SHOT_UPTIME_MS));
+	frames(2);
+	fakeDumpFrame("shot_settings_scrolled.ppm");
+	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 550 = 90,
+	// VERSION's, content y 650, at y 140.
+	settingsDrag(120);
+	checkInt("120 px back, BUILT FOR's row is at y 90",
+	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 90);
+	checkTrue("BUILT FOR names the board, right-aligned",
+	          fakeTextIs(232 - gfxTextW(g_board->label, 1), 90 + 18, g_board->label,
+	                     C_GRID, C_BG, 1));
+	checkInt("VERSION's row at y 140",
+	         ctlRect(UI_ROW(SettingsRowId::Version, Row)).y, 140);
 	// The rows' text: label at x 8, value right-aligned to x 232, both
 	// 18 px down the 44 px row.
-	checkTrue("VERSION's label", fakeTextIs(UI_MARGIN, 70 + 18, "VERSION", C_DIM, C_BG, 1));
+	checkTrue("VERSION's label", fakeTextIs(UI_MARGIN, 140 + 18, "VERSION", C_DIM, C_BG, 1));
 	checkTrue("VERSION reads the firmware's version, " FW_VERSION_STRING,
-	          fakeTextIs(232 - gfxTextW(FW_VERSION_STRING, 1), 70 + 18, FW_VERSION_STRING,
+	          fakeTextIs(232 - gfxTextW(FW_VERSION_STRING, 1), 140 + 18, FW_VERSION_STRING,
 	                     C_GRID, C_BG, 1));
 	checkTrue("VERSION has no control",
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Minus)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Toggle)) &&
 	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)));
-	checkControlTable("SETTINGS, at the end");
-	fakeDumpFrame("shot_settings_scrolled.ppm");
-	// 120 px back: BUILT FOR's row, content y 600, at y 40 + 600 - 500 = 140.
-	settingsDrag(120);
-	checkInt("120 px back, BUILT FOR's row is at y 140",
-	         ctlRect(UI_ROW(SettingsRowId::BuiltFor, Row)).y, 140);
-	checkTrue("BUILT FOR names the board, right-aligned",
-	          fakeTextIs(232 - gfxTextW(g_board->label, 1), 140 + 18, g_board->label,
-	                     C_GRID, C_BG, 1));
 	const UiRect save1 = ctlRect(UI_FIX(SettingsCtl::Save));
 	checkTrue("HOLD TO SAVE does not move with the list, at y 268",
 	          save1.y == 268 && save1.y == save0.y && save1.h == save0.h);
 	// Back up: at 0 px, MOTOR POLES' row, content y 20, is at y 60.
+	settingsDrag(180);
 	settingsDrag(180);
 	settingsDrag(180);
 	settingsDrag(180);
@@ -3611,7 +4434,7 @@ static void testBoardRow() {
 	// And no save reboots: every setting applies live. This counter staying
 	// still is what fails if a save that needs a restart is ever added.
 	int reboots = fakeRebootCount();
-	tapId(UI_ROW(SettingsRowId::Pin, Plus));
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 60);
 	fakeRelease(); frames(2);
@@ -3756,10 +4579,10 @@ static void testPressedLookClears() {
 	          fakeRegionHash(pm.x, pm.y, pm.w, pm.h) == idle);
 
 	// The same rule on the wiring rows, which never had pressed states at all.
-	const UiRect pin = ctlRect(UI_ROW(SettingsRowId::Pin, Minus));
+	const UiRect pin = ctlRect(UI_ROW(SettingsRowId::Sig, Minus));
 	idle = fakeRegionHash(pin.x, pin.y, pin.w, pin.h);
-	pressId(UI_ROW(SettingsRowId::Pin, Minus));
-	checkTrue("ESC PIN's stepper draws its pressed state",
+	pressId(UI_ROW(SettingsRowId::Sig, Minus));
+	checkTrue("SIG PIN's stepper draws its pressed state",
 	          fakeRegionHash(pin.x, pin.y, pin.w, pin.h) != idle);
 	fakeRelease(); frames(1);
 	checkTrue("and returns to rest on release",
@@ -3790,15 +4613,22 @@ static void testScreenChangeResidue() {
 	uiInit();
 	frames(2);
 
-	// The tester screen legitimately shows some cyan of its own -- KISS source
-	// tags, the EDT chip -- so the assertion is against its *own* baseline: a
-	// round trip through SETTINGS, whose section captions are cyan, must not
-	// add any.
-	int before = fakeCountColour(C_CYAN);
+	// The marker is amber in the footer band, y 260 to y 319: SETTINGS'
+	// HOLD RESET label is amber there, and the tester's button row is not.
+	// The tester may show amber elsewhere -- NO TELEMETRY, the IDLE
+	// countdown -- so the assertion is against its *own* baseline: a round
+	// trip through SETTINGS must not add any.
+	auto footerAmber = []() {
+		int n = 0;
+		for (int y = 260; y < GFX_H; y++)
+			for (int x = 0; x < GFX_W; x++) n += gfxBuffer()[y * GFX_W + x] == C_AMBER;
+		return n;
+	};
+	int before = footerAmber();
 
 	enterSettings();
-	int onSettings = fakeCountColour(C_CYAN);
-	checkTrue("SETTINGS shows more cyan", onSettings > before);
+	int onSettings = footerAmber();
+	checkTrue("SETTINGS shows more amber in the footer band", onSettings > before);
 
 	tapId(UI_FIX(UI_BACK));                 // BACK, to MENU
 	frames(2);
@@ -3806,8 +4636,8 @@ static void testScreenChangeResidue() {
 	tapId(UI_FIX(UI_BACK));                 // BACK, to the tester screen
 	frames(3);
 	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
-	int after = fakeCountColour(C_CYAN);
-	checkTrue("no SETTINGS cyan survives on the tester screen",
+	int after = footerAmber();
+	checkTrue("no SETTINGS amber survives on the tester screen",
 	          after <= before);
 }
 
@@ -3926,6 +4756,227 @@ static void testTesterBoardAndCard() {
 	fakeRelease(); frames(2);
 }
 
+static bool tester3dShown();
+
+/** @brief Every pixel of row @p y from x @p x0 to @p x1, inclusive, is @p col. */
+static bool rowIs(int y, int x0, int x1, uint16_t col) {
+	for (int x = x0; x <= x1; x++)
+		if (gfxBuffer()[y * GFX_W + x] != col) return false;
+	return true;
+}
+
+/** @brief The underline under @p text at (x, y): the text's width in C_TEXT, C_BG either side. */
+static bool underlined(int x, int y, const char *text) {
+	const int w = gfxTextW(text, 1);
+	return rowIs(y, x, x + w - 1, C_TEXT) && rowIs(y, x - 1, x - 1, C_BG) &&
+	       rowIs(y, x + w, x + w, C_BG);
+}
+
+/** @brief Row @p y from x @p x0 to @p x1 carries no C_TEXT pixel. */
+static bool noTextOn(int y, int x0, int x1) {
+	for (int x = x0; x <= x1; x++)
+		if (gfxBuffer()[y * GFX_W + x] == C_TEXT) return false;
+	return true;
+}
+
+/**
+ * @brief The tester's readouts open SETTINGS, and BACK there returns to the
+ *        tester (docs/design/menu-b.md, owner decision 4 and decisions 17
+ *        and 20); LATCH names the throttle latch (decision 15 a).
+ *
+ * `14 POLES` and `MAX 20%` are underlined while a tap on them acts:
+ * disarmed, and the pin claim Free, as MENU's SETTINGS row. The tap runs
+ * the disarm MENU runs, so LATCH is off afterwards. Armed, the pad and the
+ * track take the press and the readouts do nothing. The pole count gives
+ * way to the 3D note, and so does its target.
+ */
+static void testTesterReadouts() {
+	section("Tester: the readouts open SETTINGS; LATCH");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	feedLiveTelemetry();
+	frames(4);
+	const uint16_t *fb = gfxBuffer();
+
+	// --- the texts and their underlines ---
+	checkTrue("14 POLES in the text colour at x 10, y 114",
+	          fakeTextIs(10, 114, "14 POLES", C_TEXT, C_BG, 1));
+	checkInt("14 POLES is 47 px", gfxTextW("14 POLES", 1), 47);
+	checkTrue("underlined at y 122, x 10 to 56", underlined(10, 122, "14 POLES"));
+	checkTrue("MAX 20% at x 88, y 236", fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1));
+	checkTrue("underlined at y 244, x 88 to 128", underlined(88, 244, "MAX 20%"));
+	checkTrue("the widest texts fit their targets: 28 POLES, MAX 100%",
+	          10 + gfxTextW("28 POLES", 1) <= 4 + 72 && 88 + gfxTextW("MAX 100%", 1) <= 82 + 60);
+	checkTrue("LATCH on the middle button, THROTTLE on the track's caption",
+	          fakeTextIs(116 + (54 - gfxTextW("LATCH", 1)) / 2, 283 + (33 - 7) / 2, "LATCH",
+	                     C_DIM, C_PANEL, 1) &&
+	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
+
+	// --- the control table ---
+	const UiRect poles = ctlRect(UI_FIX(TesterCtl::Poles));
+	const UiRect max = ctlRect(UI_FIX(TesterCtl::Max));
+	checkTrue("Poles at {4, 106, 72, 22}",
+	          poles.x == 4 && poles.y == 106 && poles.w == 72 && poles.h == 22);
+	checkTrue("Max at {82, 230, 60, 22}",
+	          max.x == 82 && max.y == 230 && max.w == 60 && max.h == 22);
+	checkTrue("both act while disarmed",
+	          ctlEnabled(UI_FIX(TesterCtl::Poles)) && ctlEnabled(UI_FIX(TesterCtl::Max)));
+	checkControlTable("tester, the readouts live");
+
+	// --- a tap opens SETTINGS; BACK returns to the tester ---
+	tapId(UI_FIX(TesterCtl::Poles));
+	checkTrue("a tap on the pole count opens SETTINGS",
+	          uiCurrentScreen() == UiScreenId::Settings);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK from SETTINGS returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("which is drawn whole again", fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1) &&
+	          underlined(10, 122, "14 POLES") && underlined(88, 244, "MAX 20%"));
+	tapId(UI_FIX(TesterCtl::Max));
+	checkTrue("a tap on MAX opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
+
+	// The origin goes with the open: SETTINGS from MENU returns to MENU.
+	enterSettings();
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("SETTINGS opened from MENU returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("and MENU to the tester", uiCurrentScreen() == UiScreenId::Tester);
+
+	// A press that slides off the readout opens nothing.
+	fakePress(poles.x + poles.w / 2, poles.y + poles.h / 2); frames(1);
+	fakeHold(poles.x + poles.w / 2, poles.y - 20); frames(1);
+	fakeRelease(); frames(1);
+	checkTrue("a press that slides off opens nothing", uiCurrentScreen() == UiScreenId::Tester);
+
+	// --- the tap runs MENU's disarm: LATCH goes off ---
+	tapId(UI_FIX(TesterCtl::Latch));
+	frames(1);
+	checkTrue("LATCH on: the button fills blue, the caption reads " UI_TESTER_LATCHED_TEXT,
+	          fb[(283 + 4) * GFX_W + 116 + 4] == C_BLUE &&
+	          fakeTextIs(8, 236, UI_TESTER_LATCHED_TEXT, C_DIM, C_BG, 1));
+	checkInt("LATCHED is 41 px", gfxTextW(UI_TESTER_LATCHED_TEXT, 1), 41);
+	{
+		const int mx = max.x + max.w / 2, my = max.y + max.h / 2;
+		fakePress(mx, my); frames(2);
+		checkTrue("disarmed, the press on MAX in the track's grab band moves nothing",
+		          fakeThrottle() == 0 && !fakeArmed());
+		fakeRelease(); frames(1);
+		checkTrue("the tap opens SETTINGS, disarmed",
+		          uiCurrentScreen() == UiScreenId::Settings && !uiArmed() && !fakeArmed());
+		// The frame that opened SETTINGS paints none of the tester over it.
+		bool clear = true;
+		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
+		checkTrue("and paints no tester row over the cleared frame", clear);
+	}
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("back on the tester: LATCH is off",
+	          fb[(283 + 4) * GFX_W + 116 + 4] == C_PANEL &&
+	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
+
+	// --- armed: inert, no underline ---
+	holdToArm();
+	checkTrue("armed", uiArmed() && fakeArmed());
+	// The kV estimate takes the pole count's place while armed
+	// (docs/design/esc-commands.md, decision 6); the arm hold outlasted the
+	// telemetry, so it has no figure. @see testTesterKvEst()
+	checkTrue("armed: KV EST -- in place of 14 POLES, MAX 20% stays, no underline",
+	          fakeTextIs(10, 114, "KV EST --", C_TEXT, C_BG, 1) && noTextOn(122, 4, 75) &&
+	          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1) && noTextOn(244, 82, 141));
+	checkTrue("armed: neither acts",
+	          !ctlEnabled(UI_FIX(TesterCtl::Poles)) && !ctlEnabled(UI_FIX(TesterCtl::Max)));
+	checkControlTable("tester, armed, the readouts inert");
+	tapId(UI_FIX(TesterCtl::Poles), IdExpect::Disabled);
+	checkTrue("armed: a tap on the pole count opens nothing and keeps the arm",
+	          uiCurrentScreen() == UiScreenId::Tester && uiArmed() && fakeArmed());
+	tapId(UI_FIX(TesterCtl::Max), IdExpect::Disabled);
+	frames(1);
+	checkTrue("nor does a tap on MAX: the track took it, and sprang back",
+	          uiCurrentScreen() == UiScreenId::Tester && uiArmed() && fakeThrottle() == 0);
+	// The press is the throttle's: MAX's centre is in the track's grab band,
+	// the pole count in the pad.
+	{
+		const int mx = max.x + max.w / 2, my = max.y + max.h / 2;
+		fakePress(mx, my); frames(1); fakeHold(mx, my); frames(1);
+		checkTrue("armed: a press on MAX drives the track", fakeThrottle() > 0);
+		fakeRelease(); frames(1);
+		checkInt("and springs back on the lift", fakeThrottle(), 0);
+		const int px = poles.x + poles.w / 2, py = poles.y + poles.h / 2;
+		fakePress(px, py); frames(1);
+		for (int d = 4; d <= 4 * PAD_DEADZONE_PX; d += 4) { fakeHold(px, py - d); frames(1); }
+		checkTrue("armed: a swipe up from the pole count drives the pad", fakeThrottle() > 0);
+		fakeRelease(); frames(1);
+		checkInt("and springs back on the lift", fakeThrottle(), 0);
+		checkTrue("still armed, still the tester",
+		          uiArmed() && uiCurrentScreen() == UiScreenId::Tester);
+	}
+	// MENU leaves the tester over a cleared frame, as the readouts do: with
+	// LATCH on, its disarm changes the throttle band and the buttons, and
+	// the frame of the tap paints neither back.
+	tapId(UI_FIX(TesterCtl::Latch));
+	tapId(UI_FIX(TesterCtl::Menu));
+	{
+		bool clear = true;
+		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
+		checkTrue("MENU from the armed tester with LATCH on: no tester row painted over it",
+		          uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && clear);
+	}
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	holdToArm();
+	checkTrue("armed again", uiArmed());
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	frames(2);
+	checkTrue("disarmed: the underlines are back",
+	          !uiArmed() && underlined(10, 122, "14 POLES") && underlined(88, 244, "MAX 20%"));
+
+	// --- another claim holds the pins: inert, no underline ---
+	checkTrue("another claim holds the pins",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	frames(2);
+	checkTrue("claim busy: no underline", noTextOn(122, 4, 75) && noTextOn(244, 82, 141));
+	checkTrue("claim busy: neither acts",
+	          !ctlEnabled(UI_FIX(TesterCtl::Poles)) && !ctlEnabled(UI_FIX(TesterCtl::Max)));
+	checkControlTable("tester, claim busy");
+	tapId(UI_FIX(TesterCtl::Poles), IdExpect::Disabled);
+	tapId(UI_FIX(TesterCtl::Max), IdExpect::Disabled);
+	checkTrue("claim busy: a tap on either opens nothing", uiCurrentScreen() == UiScreenId::Tester);
+	pinClaimEnd(PinUser::Am32);
+	frames(2);
+	checkTrue("the claim ends: both act and are underlined again",
+	          ctlEnabled(UI_FIX(TesterCtl::Poles)) && underlined(10, 122, "14 POLES") &&
+	          underlined(88, 244, "MAX 20%"));
+
+	// --- the 3D note takes the pole count's row, and its target ---
+	esc3dSetNote(true);
+	uiInit();
+	frames(2);
+	checkTrue("3D note: no pole count, no Poles control",
+	          tester3dShown() && !ctlPresent(UI_FIX(TesterCtl::Poles)));
+	fakePress(poles.x + poles.w / 2, poles.y + poles.h / 2); frames(2);
+	fakeRelease(); frames(1);
+	checkTrue("a tap on the note opens nothing", uiCurrentScreen() == UiScreenId::Tester);
+	tapId(UI_FIX(TesterCtl::Max));
+	checkTrue("MAX still opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	esc3dSetNote(false);
+	uiInit();
+	frames(2);
+}
+
 /**
  * @brief The text probes of fakes.h in high contrast, where every glyph is
  *        one row taller: a blank region reads false and is left as it was;
@@ -3990,7 +5041,7 @@ static void testSplash() {
 	settings()->dshotPin = other;
 	uiDrawSplash();
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)other);
-	checkTrue("ESC PIN moved: the warning names the new pin",
+	checkTrue("SIG PIN moved: the warning names the new pin",
 	          fakeTextCentredIs(288, want, C_AMBER, C_BG, 1));
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, 29u);
 	checkTrue("a two-digit pin fits too: 30 characters, 179 px",
@@ -4002,21 +5053,39 @@ static void testSplash() {
 	frames(2);
 }
 
-/** @brief Open AM32 CONFIG from the tester, and run @p n frames. */
+/**
+ * @brief Open ESC SETTINGS from the tester, take the claim, let the connect
+ *        cycle's quiet phase pass, and run @p n frames: the first of them
+ *        greets.
+ */
 static void enterAm32(int n) {
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(menuRow(&UI_AM32));
-	checkTrue("AM32 CONFIG opens", uiCurrentScreen() == UiScreenId::Am32);
+	openEscSettings();
+	checkTrue("ESC SETTINGS opens", uiCurrentScreen() == UiScreenId::Am32);
+	for (int i = 0; i < 10 && s_state == S_HANDOVER; i++) frames(1);
+	if (s_state == S_CONNECT) fakeAdvance(ESC_GREET_QUIET_MS);
 	frames(n);
 }
 
-/** @brief BACK from AM32 CONFIG to MENU, then from MENU to the tester. */
+/**
+ * @brief BACK from ESC SETTINGS to MENU, then from MENU to the tester: from
+ *        ESC HEX or ESC WRITE through the list, and a second BACK where the
+ *        guard arms on edits not written.
+ */
 static void leaveAm32ToTester() {
-	tapId(UI_FIX(UI_BACK));
-	frames(2);
+	for (int i = 0; i < 4 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+		tapId(UI_FIX(UI_BACK));
+		frames(2);
+	}
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+}
+
+/** @brief Tap WRITE... on the list: true when ESC WRITE opened. */
+static bool am32OpenPage() {
+	tapId(UI_FIX(Am32Ctl::Write));
+	return s_state == S_PAGE;
 }
 
 /** @brief MENU's strip shows the run cue on its second line, in amber. */
@@ -4024,12 +5093,2549 @@ static bool menuRunCueShown() {
 	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1);
 }
 
+/** @brief The tester shows @ref ESC_3D_TESTER_NOTE on the RPM area's bottom row. */
+static bool tester3dShown() {
+	return fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1);
+}
+
+/** @brief The tester's bottom row as it is without the 3D note: the pole count. */
+static bool testerPolesShown() {
+	char p[16];
+	snprintf(p, sizeof(p), "%d POLES", settings()->poles);
+	return fakeTextIs(10, 114, p, C_TEXT, C_BG, 1);
+}
+
+/** @brief Select 3D MODE in the open list and step it to @p on. */
+static void am32Set3d(bool on) {
+	const int v = uiRowOf("3D MODE");
+	uiRowY("3D MODE"); frames(1);
+	tapId(UI_ROW(v, Row));
+	tapId(UI_FIX(on ? Am32Ctl::EditPlus : Am32Ctl::EditMinus));
+}
+
+/** @brief Hold WRITE for 50 frames, then dismiss the result with OK. */
+static void am32HoldWrite() {
+	int wx, wy;
+	ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+}
+
 /**
- * @brief AM32 CONFIG says what a value does and what to do next: the strip
+ * @brief The tester's 3D note: set by a list read with 3D MODE on and by a
+ *        write of it on that the ESC accepted, verified or not; cleared by a
+ *        list read or a verified write with it off; kept by an edit not
+ *        written, a refused write, a failed read, a read that opens no list
+ *        and the read-only view; shown armed and disarmed and beside NO
+ *        TELEMETRY, with SWIPE ACTIVE in its place while the pad is engaged.
+ */
+static void testAm32TesterNote() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	uint8_t keep[AM32_SETTINGS_SIZE];
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
+	esc3dSetNote(false);
+
+	section("Tester: the 3D note");
+	{
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		frames(2);
+		checkTrue("no AM32 read yet: the pole count, no note",
+		          testerPolesShown() && !tester3dShown());
+		checkTrue("33 characters, 197 px, from x 10 to x 206, inside the RPM label's right edge, x 226",
+		          gfxTextW(ESC_3D_TESTER_NOTE, 1) == 197 && 10 + gfxTextW(ESC_3D_TESTER_NOTE, 1) <= 226);
+
+		enterAm32(6);
+		checkTrue("a read with 3D MODE off: no note", s_state == S_LIST && !esc3dNote());
+		am32Set3d(true);
+		leaveAm32ToTester();
+		frames(2);
+		checkTrue("3D MODE edited on, not written: no note", !esc3dNote() && !tester3dShown());
+
+		enterAm32(6);
+		am32Set3d(true);
+		fakeAm32FailWrites(1);
+		am32HoldWrite();
+		checkTrue("a write of 3D MODE on that the ESC refuses: no note",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !esc3dNote());
+		fakeAm32FailReads(3);
+		am32HoldWrite();
+		checkTrue("accepted, its read-back failed: the note is set, fail-safe",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && esc3dNote());
+		am32HoldWrite();
+		checkTrue("the write verifies with 3D MODE on: the note stands",
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && esc3dNote());
+		leaveAm32ToTester();
+		frames(2);
+		checkTrue("the tester: " ESC_3D_TESTER_NOTE " in amber at x 10, y 114", tester3dShown());
+		checkTrue("the pole count and the swipe hint give way",
+		          !testerPolesShown() &&
+		          !fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114, "SWIPE = THROTTLE", C_GRID, C_BG, 1));
+		checkTrue("NO TELEMETRY stays on its row, y 102",
+		          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
+		holdToArm();
+		feedLiveTelemetry();
+		frames(2);
+		checkTrue("armed: the note stays", fakeArmed() && tester3dShown());
+		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
+		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
+		const uint16_t before = fakeThrottle();
+		fakePress(px, pb - 40); frames(1);
+		for (int y = pb - 40; y >= pb - 70; y -= 6) { fakeHold(px, y); frames(1); }
+		checkTrue("the pad engaged: SWIPE ACTIVE in green in place of the note",
+		          !tester3dShown() && !testerPolesShown() &&
+		          fakeTextIs(226 - gfxTextW("SWIPE ACTIVE", 1), 114, "SWIPE ACTIVE", C_LIME, C_BG, 1));
+		checkTrue("and the swipe raised the throttle, as without the note",
+		          fakeThrottle() > before);
+		fakeRelease(); frames(2);
+		checkTrue("released: the note returns, no SWIPE ACTIVE",
+		          tester3dShown() &&
+		          !fakeTextIs(226 - gfxTextW("SWIPE ACTIVE", 1), 114, "SWIPE ACTIVE", C_LIME, C_BG, 1));
+		fakeDumpFrame("shot_tester_3d.ppm");
+		tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
+		frames(2);
+		checkTrue("disarmed: the note stays", !fakeArmed() && tester3dShown());
+		fakeSetTelemetry(&quiet);
+
+		// A read of the ESC as it is: 3D MODE on, the note kept; edited off
+		// and not written, kept; written off and verified, cleared.
+		enterAm32(6);
+		checkTrue("a read with 3D MODE on: the note stands", esc3dNote());
+		am32Set3d(false);
+		checkTrue("edited off, not written: the note stands", esc3dNote());
+		fakeAm32SkewWrites(1);
+		am32HoldWrite();
+		checkTrue("a write that reads back different: the note stands", !s_verified && esc3dNote());
+		am32HoldWrite();
+		checkTrue("written off and verified: the note goes",
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !esc3dNote());
+		leaveAm32ToTester();
+		frames(2);
+		checkTrue("the tester: the pole count again, no note", testerPolesShown() && !tester3dShown());
+
+		// A write of 3D MODE on that the ESC accepts and that reads back
+		// different sets the note too; a verified write of it off clears it.
+		enterAm32(6);
+		am32Set3d(true);
+		fakeAm32SkewWrites(1);
+		am32HoldWrite();
+		checkTrue("3D MODE on, accepted, read back different: the note is set",
+		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && esc3dNote());
+		fakeAm32FailReads(1000);
+		leaveAm32ToTester();
+		enterAm32(6);
+		checkTrue("a read that fails: the note stands",
+		          s_state != S_LIST && strncmp(s_status, "READ FAILED", 11) == 0 && esc3dNote());
+		fakeAm32FailReads(0);
+		leaveAm32ToTester();
+		enterAm32(6);
+		am32Set3d(false);
+		am32HoldWrite();
+		checkTrue("written off and verified: the note goes again",
+		          s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !esc3dNote());
+		leaveAm32ToTester();
+
+		// Another ESC, or one set elsewhere: the read decides.
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
+		enterAm32(6);
+		checkTrue("an ESC read with 3D MODE on: the note is set", esc3dNote());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		enterAm32(6);
+		checkTrue("one read with 3D MODE off: the note goes", !esc3dNote());
+		// A read that does not open the list leaves it as it was.
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
+		leaveAm32ToTester();
+		enterAm32(6);
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+		fakeAm32Blank(true);
+		enterAm32(6);
+		checkTrue("NO VALID SETTINGS: the note stands", s_state == S_CONNECT && esc3dNote());
+		// Left while the page still finds no valid settings, so no retry
+		// reads the ESC before BACK.
+		leaveAm32ToTester();
+		fakeAm32Blank(false);
+		// The read-only view of a layout not known does not read byte 0x12
+		// as 3D MODE: it neither clears nor sets the note.
+		const uint8_t lay = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		checkTrue("the note before the read-only view", esc3dNote());
+		enterAm32(6);
+		checkTrue("the read-only view, byte 0x12 at 0: the note stands", s_state == S_VIEW && esc3dNote());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		enterAm32(6);
+		checkTrue("a list read with 3D MODE off: no note", s_state == S_LIST && !esc3dNote());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 1);
+		enterAm32(6);
+		checkTrue("the read-only view, byte 0x12 at 1: no note", s_state == S_VIEW && !esc3dNote());
+		leaveAm32ToTester();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
+	}
+
+	// The skewed writes above flip byte 0x1B in the ESC: every byte back.
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
+	esc3dSetNote(false);
+	frames(2);
+}
+
+/** @brief A card in the slot, idle, nothing on it. */
+static void am32Card() {
+	fakeFatReset(1u << 20);
+	SdLogStatus idle;
+	memset(&idle, 0, sizeof(idle));
+	idle.state = SdLogState::Idle;
+	fakeSdLogSet(&idle);
+	fakeMscSet(MscState::Idle, 0);
+}
+
+/** @brief No card in the slot. */
+static void am32NoCard() {
+	SdLogStatus none;
+	memset(&none, 0, sizeof(none));
+	none.state = SdLogState::NoCard;
+	fakeSdLogSet(&none);
+}
+
+/** @brief The strip's two lines read @p l1 and @p l2 in amber. */
+static bool stripNoteIs(const char *l1, const char *l2) {
+	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, l1, UI_COL_WARN, C_BG, 1) &&
+	       fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, l2, UI_COL_WARN, C_BG, 1);
+}
+
+/** @brief The board's voltage at @p volts, held for enough frames to settle. */
+static void boardVolts(float volts) {
+	fakeAdcSet((uint16_t)(volts / 3.0f / 3.3f * 4095.0f + 0.5f));
+	frames(80);
+}
+
+/** @brief Fields of AM32_FIELDS shown for the ESC's block with byte 0x01 at @p layout. */
+static int shownAt(uint8_t layout) {
+	uint8_t b[AM32_SETTINGS_SIZE];
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) b[i] = fakeEscByte(i);
+	b[AM32_OFF_LAYOUT_REVISION] = layout;
+	int n = 0;
+	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) n += am32FieldShown(&AM32_FIELDS[i], b);
+	return n;
+}
+
+/** @brief The read-only view's hex line @p k reads the fake ESC's bytes, at x 6. */
+static bool hexLineShown(int k) {
+	char line[64];
+	int n = snprintf(line, sizeof(line), "%02X ", k * 8);
+	for (int i = 0; i < 8 && k * 8 + i < AM32_SETTINGS_SIZE; i++)
+		n += snprintf(line + n, sizeof(line) - n, "%02X ", fakeEscByte(k * 8 + i));
+	return fakeTextIs(UI_MARGIN, LIST_Y0 + k * HEX_ROW_H, line, C_DIM, C_BG, 1);
+}
+
+/** @brief A tap at the middle of @p r, a rectangle no control of this frame owns. */
+static void tapRect(const UiRect &r) { tap(r.x + r.w / 2, r.y + r.h / 2); }
+
+/**
+ * @brief A plausible block in a layout the table does not know, 1 or 5 to 8,
+ *        opens the read-only view: the bytes in hex, NOT VERIFIED, the backup
+ *        on the card. No control leads to the write, and the write itself
+ *        refuses the bytes.
+ */
+static void testAm32ReadOnly() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	uint8_t keep[AM32_SETTINGS_SIZE];
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
+
+	section("AM32 read-only: layout 5, the bytes, a backup, no write");
+	{
+		am32Card();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		enterAm32(6);
+		checkTrue("the read-only view opens", s_state == S_VIEW && s_hexView);
+		checkInt("no field is shown in layout 5", shownAt(5), 0);
+		checkInt("nor in 1, 6, 7 or 8", shownAt(1) + shownAt(6) + shownAt(7) + shownAt(8), 0);
+		checkTrue("layouts 2 to 4 show fields", shownAt(2) > 0 && shownAt(3) > 0 && shownAt(4) > 0);
+		checkInt("the list holds no field", s_visibleCount, 0);
+		checkTrue("the strip: LAYOUT 5 NOT KNOWN: READ-ONLY. / NOT VERIFIED. BACKUP AM001",
+		          stripNoteIs("LAYOUT 5 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP AM001"));
+		bool hex = true;
+		for (int k = 0; k < HEX_LINES; k++) hex = hex && hexLineShown(k);
+		checkTrue("the 48 bytes in hex, 8 a line, from the text margin, x 8", hex);
+		checkTrue(AM32_UI_RO_BYTES ", grey", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, C_BG, 1));
+		checkTrue(AM32_UI_RO_TABLE ", grey", fakeTextCentredIs(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("the strip stays inside the panel's 8 px margins",
+		          fakeInkExtent(UI_STRIP_LINE1_Y, 18, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
+		          x1 < GFX_W - UI_MARGIN);
+		static char want[AM32_BACKUP_MAX], got[AM32_BACKUP_MAX];
+		size_t wantLen = am32BackupFormat(s_entry, am32BlEscTypeName(), am32BlEepromAddr(),
+		                                  want, sizeof(want));
+		int32_t gotLen = fakeFatGet("BACKUP/AM001.TXT", got, sizeof(got));
+		checkTrue("the backup is on the card as the view opened",
+		          gotLen == (int32_t)wantLen && wantLen > 0 && memcmp(got, want, wantLen) == 0);
+		checkTrue("it says the fields are not read, and holds no field line",
+		          strstr(want, "Layout not known: fields not read, not verified\n") != nullptr &&
+		          strstr(want, " = ") == nullptr && strstr(want, "bytes 48\n") != nullptr);
+		UiControl tbl[UI_CONTROLS_MAX];
+		checkInt("BACK is the one control", uiControls(tbl, UI_CONTROLS_MAX), 1);
+		checkTrue("and it is BACK", ctlPresent(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+		          !ctlPresent(UI_FIX(Am32Ctl::Revert)) && !ctlPresent(UI_FIX(Am32Ctl::Hex)));
+		checkControlTable("AM32 read-only");
+		fakeDumpFrame("shot_am32_readonly.ppm");
+
+		// Every place a control of the list stands: nothing selects, steps,
+		// toggles or writes.
+		int writes = fakeAm32Writes();
+		uint8_t before[AM32_SETTINGS_SIZE];
+		memcpy(before, s_eeprom, sizeof(before));
+		fakePress(BTN_WRITE.x + BTN_WRITE.w / 2, BTN_WRITE.y + BTN_WRITE.h / 2);
+		frames(1);
+		for (int i = 0; i < 60; i++) {
+			fakeHold(BTN_WRITE.x + BTN_WRITE.w / 2, BTN_WRITE.y + BTN_WRITE.h / 2);
+			frames(1);
+		}
+		fakeRelease();
+		frames(2);
+		tapRect(BTN_REVERT);
+		tapRect(BTN_HEX);
+		tapRect(BTN_MINUS);
+		tapRect(BTN_PLUS);
+		tap(GFX_W / 2, LIST_Y0 + 5);
+		swipe(30, 220, LIST_Y0 + 20, 10);
+		checkTrue("a hold where WRITE stands, taps on REVERT, HEX, - and +, a swipe: "
+		          "the view as it was", s_state == S_VIEW && s_hexView && s_selected < 0 &&
+		          memcmp(before, s_eeprom, sizeof(before)) == 0);
+		checkInt("no write went to the ESC", fakeAm32Writes(), writes);
+
+		// The write itself refuses the bytes, whatever reaches it: an edit
+		// made behind the screen's back and the write state set directly.
+		s_eeprom[0x1B] ^= 0x02;
+		uint8_t esc = fakeEscByte(0x1B);
+		s_state = S_WRITING;
+		snprintf(s_status, sizeof(s_status), "WRITING...");
+		frames(2);
+		checkTrue("the write refuses a layout not known: nothing to the ESC",
+		          fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc &&
+		          strcmp(s_status, AM32_UI_RO_REFUSED) == 0);
+		checkTrue(AM32_UI_RO_REFUSED " on the result page",
+		          fakeTextIs(UI_MARGIN, 196, AM32_UI_RO_REFUSED, UI_COL_WARN, C_BG, 1));
+		checkTrue("no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
+		tapId(UI_FIX(Am32Ctl::Ok));
+		checkTrue("OK: the read-only view again", s_state == S_VIEW);
+		s_eeprom[0x1B] ^= 0x02;
+		leaveAm32ToTester();
+	}
+
+	section("AM32 read-only: no card, a card that refuses");
+	{
+		am32NoCard();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 8);
+		enterAm32(6);
+		checkTrue("layout 8, no card: read-only, no backup", s_state == S_VIEW &&
+		          stripNoteIs("LAYOUT 8 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. NO CARD: NO BACKUP."));
+		int x0 = 0, x1 = 0;
+		checkTrue("the longest second line stays inside the panel's 8 px margins",
+		          fakeInkExtent(UI_STRIP_LINE2_Y, 8, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
+		          x1 < GFX_W - UI_MARGIN);
+		leaveAm32ToTester();
+		am32Card();
+		fakeFatWriteProtect(true);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 6);
+		enterAm32(6);
+		checkTrue("a card that refuses: BACKUP FAILED.", s_state == S_VIEW &&
+		          stripNoteIs("LAYOUT 6 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP FAILED."));
+		fakeFatWriteProtect(false);
+		leaveAm32ToTester();
+	}
+
+	section("AM32 read-only: layout 1");
+	{
+		am32Card();
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 1);
+		enterAm32(6);
+		checkTrue("layout 1 opens the read-only view", s_state == S_VIEW && s_hexView);
+		checkTrue("the note", stripNoteIs("LAYOUT 1 NOT KNOWN: READ-ONLY.", "NOT VERIFIED. BACKUP AM001"));
+		static char got[AM32_BACKUP_MAX];
+		checkTrue("the backup holds no field line",
+		          fakeFatGet("BACKUP/AM001.TXT", got, sizeof(got)) > 0 &&
+		          strstr(got, "Layout not known: fields not read, not verified\n") != nullptr &&
+		          strstr(got, " = ") == nullptr);
+		leaveAm32ToTester();
+	}
+
+	section("AM32: layouts 2 to 4 open the list, a block that is not plausible does not open");
+	{
+		for (uint8_t lay = 2; lay <= 4; lay++) {
+			am32Card();
+			fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+			enterAm32(6);
+			char what[64];
+			snprintf(what, sizeof(what), "layout %u: the list, WRITE, no backup yet", lay);
+			checkTrue(what, s_state == S_LIST && !s_hexView && ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+			          !fakeFatExists("BACKUP/AM001.TXT"));
+			leaveAm32ToTester();
+		}
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 9);
+		enterAm32(6);
+		checkTrue("layout 9 is not plausible: the connect page explains",
+		          s_state == S_CONNECT && strcmp(s_status, "NO VALID SETTINGS") == 0 &&
+		          fakeTextCentredIs(196, AM32_UI_NO_SETTINGS_1, C_AMBER, C_BG, 1));
+		leaveAm32ToTester();
+	}
+	am32NoCard();
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) fakeEscSet(i, keep[i]);
+}
+
+/**
+ * @brief The board's voltage in the red band refuses an AM32 write: the
+ *        result page says why and what to do. Amber and NoCell refuse
+ *        nothing.
+ */
+static void testAm32BoardLow() {
+	section("AM32 write: refused while the BOARD voltage is red");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	checkTrue("the list is open", s_state == S_LIST);
+	boardVolts(3.20f);
+	checkTrue("3.20 V on the AM32 screen: the band is red", uiBoardCellNow() == BoardCell::Critical);
+	const int vp = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vp, Row));
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	uint8_t want = uiByte(0x1B);
+	checkTrue("a change to write", want != fakeEscByte(0x1B));
+	int writes = fakeAm32Writes();
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	checkTrue("held: nothing written", fakeEscByte(0x1B) != want && fakeAm32Writes() == writes &&
+	          strcmp(s_status, UI_BOARD_LOW_1) == 0);
+	checkTrue(UI_BOARD_LOW_1 " in amber, y 196",
+	          fakeTextIs(UI_MARGIN, 196, UI_BOARD_LOW_1, UI_COL_WARN, C_BG, 1));
+	checkTrue("then " AM32_UI_BOARD_LOW_2 " in amber, y 208: OK, then WRITE... and the hold",
+	          fakeTextIs(UI_MARGIN, 208, AM32_UI_BOARD_LOW_2, UI_COL_WARN, C_BG, 1));
+	checkInt("37 characters, 221 px", gfxTextW(AM32_UI_BOARD_LOW_2, 1), 221);
+	fakeDumpFrame("shot_am32_board_low.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the list, the change kept", s_state == S_LIST && uiByte(0x1B) == want);
+	boardVolts(3.40f);
+	checkTrue("3.40 V: amber", uiBoardCellNow() == BoardCell::Low);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	checkTrue("amber writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	boardVolts(1.0f);
+	checkTrue("1.00 V: no cell to judge", uiBoardCellNow() == BoardCell::NoCell);
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	want = uiByte(0x1B);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	checkTrue("NoCell writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the text colour", uiBoardCellNow() == BoardCell::Ok);
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	want = uiByte(0x1B);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	checkTrue("Ok writes", fakeEscByte(0x1B) == want && strcmp(s_status, "WRITE VERIFIED") == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeAdcSet(fakeAdcDefault());
+	frames(80);
+	leaveAm32ToTester();
+}
+
+/**
+ * @brief Decision 14 of docs/design/menu-b.md on ESC SETTINGS: the editor's
+ *        44 px - and + at the button edge, the footer at y 268, and the
+ *        result's OK as the wide button, 6/228 at y 268, which takes only a
+ *        press that lands after the write ended: the finger that ended the
+ *        hold lifts on it.
+ */
+static void testAm32LayoutTable() {
+	section("AM32 layout: the editor's - and +, the footer, OK the wide button");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	checkTrue("the list is open", s_state == S_LIST);
+	const int vp = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vp, Row));
+	UiRect m = ctlRect(UI_FIX(Am32Ctl::EditMinus)), p = ctlRect(UI_FIX(Am32Ctl::EditPlus));
+	checkTrue("- at x 6, 44 x 44 px, y 218", m.x == 6 && m.y == 218 && m.w == 44 && m.h == 44);
+	checkTrue("+ ending at x 234, 44 x 44 px", p.x == 190 && p.y == 218 && p.w == 44 && p.h == 44);
+	checkTrue("the hint centred in the 140 px between them",
+	          fakeTextIs(50 + (140 - gfxTextW("SWIPE = COARSE", 1)) / 2, EDIT_Y + 33, "SWIPE = COARSE",
+	                     C_GRID, C_BG, 1));
+	UiRect w = ctlRect(UI_FIX(Am32Ctl::Write)), r = ctlRect(UI_FIX(Am32Ctl::Revert)),
+	       h = ctlRect(UI_FIX(Am32Ctl::Hex));
+	checkTrue("the footer 6/110, 122/52, 180/54 at y 268, 46 px",
+	          w.x == 6 && w.w == 110 && r.x == 122 && r.w == 52 && h.x == 180 && h.w == 54 &&
+	          w.y == 268 && r.y == 268 && h.y == 268 && w.h == 46 && r.h == 46 && h.h == 46);
+	checkControlTable("AM32 list, the layout table");
+
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	uint8_t want = uiByte(0x1B);
+	int wx, wy;
+	ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	const int okX = 6 + (228 - gfxTextW("OK", 2)) / 2, okY = 268 + (46 - 14) / 2;
+	checkTrue("the hold's finger still down on OK: OK drawn at rest, not pressed",
+	          s_state == S_WRITING && s_verified && fakeTextIs(okX, okY, "OK", C_TEXT, C_PANEL, 2) &&
+	          !fakeTextIs(okX + 1, okY + 1, "OK", C_TEXT, C_PANEL, 2));
+	fakeRelease(); frames(3);
+	checkTrue("written and verified", fakeEscByte(0x1B) == want && s_verified);
+	UiRect ok = ctlRect(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the wide button, 6/228 at y 268, 46 px",
+	          ok.x == 6 && ok.y == 268 && ok.w == 228 && ok.h == 46);
+	checkTrue("over HOLD TO WRITE: the hold's lift lands on OK", wx >= ok.x && wx < ok.x + ok.w &&
+	          wy >= ok.y && wy < ok.y + ok.h);
+	checkTrue("that lift leaves the result up", s_state == S_WRITING && ctlEnabled(UI_FIX(Am32Ctl::Ok)));
+	checkTrue("OK at scale 2, centred, as KST's and Hitec's",
+	          fakeTextIs(6 + (228 - gfxTextW("OK", 2)) / 2, 268 + (46 - 14) / 2, "OK", C_TEXT, C_PANEL, 2));
+	checkTrue("the power-cycle line above it, y 208",
+	          fakeTextIs(UI_MARGIN, 208, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+	checkControlTable("AM32 result, the layout table");
+	pressId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("a fresh press on OK draws it pressed, 1 px in",
+	          fakeTextIs(okX + 1, okY + 1, "OK", C_TEXT, C_PANEL, 2));
+	fakeRelease(); frames(1);
+	checkTrue("a tap on OK: the list", s_state == S_LIST);
+
+	// Put the fake ESC back as it was.
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("the ESC as it was", s_state == S_LIST && !anyDirty());
+	leaveAm32ToTester();
+}
+
+/** @brief Select the AM32 field @p name and step it once, + or else -; true when it changed. */
+static bool am32Step(const char *name) {
+	const int v = uiRowOf(name);
+	if (v < 0) return false;
+	uiRowY(name); frames(1);
+	tapId(UI_ROW(v, Row));
+	const Am32Field *f = &AM32_FIELDS[s_visible[v]];
+	uint8_t before = s_eeprom[f->offset];
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	if (s_eeprom[f->offset] == before) tapId(UI_FIX(Am32Ctl::EditMinus));
+	return s_eeprom[f->offset] != before;
+}
+
+/** @brief The AM32 field called @p name. */
+static const Am32Field *am32Field(const char *name) {
+	int v = uiRowOf(name);
+	return v < 0 ? nullptr : &AM32_FIELDS[s_visible[v]];
+}
+
+/** @brief The strip's one-line caption reads @p text in @p col. */
+static bool am32StripIs(const char *text, uint16_t col) {
+	return fakeTextIs(UI_MARGIN, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, col, C_BG, 1);
+}
+
+/** @brief The header's title reads @p text. */
+static bool am32TitleIs(const char *text) {
+	return fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, text, C_TEXT, C_PANEL, 2);
+}
+
+/**
+ * @brief Decisions 6 and 13 of docs/design/menu-b.md on ESC SETTINGS: the
+ *        editor bar names the old value; `WRITE...` opens ESC WRITE, which
+ *        lists each change as label and `old -> new`, at most 4 and then
+ *        `AND n MORE`, counts them on the strip, names the backup, and holds;
+ *        BACK leaves it for the list before the hold and with the result.
+ */
+static void testAm32WritePage() {
+	section("ESC WRITE: the editor's old value, the page's changes, its backup line");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32Card();
+	enterAm32(6);
+	checkTrue("the list, titled ESC SETTINGS", s_state == S_LIST && am32TitleIs("ESC SETTINGS"));
+
+	// The editor bar: the label alone, then label and old value once changed.
+	const int cx = BTN_MINUS_X + EDIT_BTN_W, cw = BTN_PLUS_X - cx;
+	const Am32Field *poles = am32Field("POLES");
+	const int vp = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vp, Row));
+	checkTrue("unchanged: the bar's top line is the label alone, dim",
+	          fakeTextIs(cx + (cw - gfxTextW("POLES", 1)) / 2, EDIT_Y + 2, "POLES", C_DIM, C_BG, 1));
+	char old[24], top[48];
+	am32FormatValue(poles, s_original, old, sizeof(old));
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	snprintf(top, sizeof(top), "POLES  %s ->", old);
+	checkTrue("changed: `POLES  14 ->` over the new value, dim",
+	          fakeTextIs(cx + (cw - gfxTextW(top, 1)) / 2, EDIT_Y + 2, top, C_DIM, C_BG, 1));
+	char now[24];
+	am32FormatValue(poles, s_eeprom, now, sizeof(now));
+	checkTrue("  the new value under it in the changed colour",
+	          fakeTextIs(cx + (cw - gfxTextW(now, 2)) / 2, EDIT_Y + 14, now, UI_COL_CHANGED, C_BG, 2));
+	checkTrue("LOW VOLT CUTOFF steps", am32Step("LOW VOLT CUTOFF"));
+	const Am32Field *lvc = am32Field("LOW VOLT CUTOFF");
+	am32FormatValue(lvc, s_original, old, sizeof(old));
+	snprintf(top, sizeof(top), "LOW VOLT CUTOFF  %s ->", old);
+	char shortTop[32];
+	snprintf(shortTop, sizeof(shortTop), "%s ->", old);
+	checkTrue("a top line wider than the 140 px gap drops the label",
+	          gfxTextW(top, 1) > cw &&
+	          fakeTextIs(cx + (cw - gfxTextW(shortTop, 1)) / 2, EDIT_Y + 2, shortTop, C_DIM, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Revert));
+
+	// One change: the strip's word in the singular.
+	checkTrue("POLES steps", am32Step("POLES"));
+	checkTrue("a tap on WRITE... opens ESC WRITE", am32OpenPage());
+	checkTrue("one change: the strip reads 1 CHANGE, no S", am32StripIs("1 CHANGE ", C_DIM));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("BACK and REVERT: the list as read", s_state == S_LIST && !anyDirty());
+
+	// Five changes: the page lists four and AND 1 MORE.
+	const char *names[] = { "POLES", "KV", "PWM FREQ", "BEEP VOLUME", "DEAD BAND" };
+	bool stepped = true;
+	for (const char *n : names) stepped = am32Step(n) && stepped;
+	checkTrue("five fields changed", stepped && changeCount(s_original, s_eeprom) == 5);
+	checkTrue("the list's button reads WRITE..., no hold bar on the list",
+	          fakeTextIs(6 + (110 - gfxTextW("WRITE...", 1)) / 2, 268 + (46 - 7) / 2, "WRITE...", C_TEXT,
+	                     C_PANEL, 1) &&
+	          gfxBuffer()[264 * GFX_W + 8] == C_BG);
+	int writes = fakeAm32Writes();
+	checkTrue("a tap on WRITE... opens ESC WRITE", am32OpenPage());
+	frames(1);
+	checkTrue("titled ESC WRITE, BACK live", am32TitleIs("ESC WRITE") && ctlEnabled(UI_FIX(UI_BACK)) &&
+	          backLook() == BackLook::Live);
+	checkTrue("the strip counts them: 5 CHANGES, dim", am32StripIs("5 CHANGES", C_DIM));
+	bool lines = true;
+	int y = 62, listed = 0;
+	for (uint16_t i = 0; i < s_visibleCount && listed < 4; i++) {
+		const Am32Field *f = &AM32_FIELDS[s_visible[i]];
+		if (s_original[f->offset] == s_eeprom[f->offset]) continue;
+		char a[24], b[24], head[32], all[48];
+		am32FormatValue(f, s_original, a, sizeof(a));
+		am32FormatValue(f, s_eeprom, b, sizeof(b));
+		snprintf(head, sizeof(head), "%s -> ", a);
+		snprintf(all, sizeof(all), "%s -> %s", a, b);
+		int x = GFX_W - UI_MARGIN - gfxTextW(all, 1);
+		int vy = UI_MARGIN + gfxTextW(f->name, 1) + 6 > x ? y + 10 : y;
+		if (!fakeTextIs(UI_MARGIN, y, f->name, C_TEXT, C_BG, 1) ||
+		    !fakeTextIs(x, vy, head, C_DIM, C_BG, 1) ||
+		    !fakeTextIs(x + 6 * (int)strlen(head), vy, b, UI_COL_CHANGED, C_BG, 1))
+			lines = false;
+		y += 20;
+		listed++;
+	}
+	checkTrue("four lines from y 62, 20 px apart: the label, old dim, new cyan", lines && listed == 4);
+	checkTrue("then AND 1 MORE, dim, y 142", fakeTextIs(UI_MARGIN, 142, "AND 1 MORE", C_DIM, C_BG, 1));
+	checkTrue("the backup line: BACKUP FIRST: BACKUP/AM001.TXT, dim, y 236",
+	          fakeTextIs(UI_MARGIN, 236, "BACKUP FIRST: BACKUP/AM001.TXT", C_DIM, C_BG, 1));
+	checkTrue("HOLD TO WRITE in the wide button, scale 2",
+	          fakeTextIs(6 + (228 - gfxTextW("HOLD TO WRITE", 2)) / 2, 268 + (46 - 14) / 2, "HOLD TO WRITE",
+	                     C_TEXT, C_PANEL, 2));
+	UiRect hr = ctlRect(UI_FIX(Am32Ctl::WriteHold));
+	checkTrue("HOLD TO WRITE: 6/228 at y 268, 46 px", hr.x == 6 && hr.w == 228 && hr.y == 268 && hr.h == 46);
+	checkTrue("nothing written by opening the page", fakeAm32Writes() == writes);
+	fakeDumpFrame("shot_am32_write.ppm");
+
+	// The backup line follows the card.
+	am32NoCard();
+	frames(2);
+	checkTrue("no card: " AM32_UI_NO_CARD_LOST ", amber",
+	          fakeTextIs(UI_MARGIN, 236, AM32_UI_NO_CARD_LOST, UI_COL_WARN, C_BG, 1));
+	am32Card();
+	fakeMscSet(MscState::Serving, 0);
+	frames(2);
+	checkTrue("a USB host holds the card: " AM32_UI_USB_LOST ", amber",
+	          fakeTextIs(UI_MARGIN, 236, AM32_UI_USB_LOST, UI_COL_WARN, C_BG, 1));
+	fakeMscSet(MscState::Idle, 0);
+	frames(2);
+	checkTrue("the card back: BACKUP FIRST names the file again",
+	          fakeTextIs(UI_MARGIN, 236, "BACKUP FIRST: BACKUP/AM001.TXT", C_DIM, C_BG, 1));
+	checkInt("37 characters: 221 px", gfxTextW(AM32_UI_USB_LOST, 1), 221);
+
+	// BACK before the hold: the list, the edits kept.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK before the hold: the list, five changes kept, nothing written",
+	          s_state == S_LIST && changeCount(s_original, s_eeprom) == 5 && fakeAm32Writes() == writes &&
+	          uiCurrentScreen() == UiScreenId::Am32);
+
+	// The write, its result, and BACK with the result.
+	uint8_t want[AM32_SETTINGS_SIZE];
+	memcpy(want, s_eeprom, sizeof(want));
+	am32OpenPage();
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	bool same = true;
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) same = same && fakeEscByte(i) == want[i];
+	checkTrue("the hold wrote the five and verified", same && s_verified &&
+	          strcmp(s_status, "WRITE VERIFIED. BACKUP AM001") == 0);
+	checkTrue("the result keeps the page's lines: 5 CHANGES, POLES first",
+	          am32StripIs("5 CHANGES", C_DIM) && fakeTextIs(UI_MARGIN, 62, "POLES", C_TEXT, C_BG, 1));
+	checkTrue("the backup line names the backup made: BACKUP: BACKUP/AM001.TXT",
+	          fakeTextIs(UI_MARGIN, 236, "BACKUP: BACKUP/AM001.TXT", C_DIM, C_BG, 1));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with the result: the list, nothing left to write",
+	          s_state == S_LIST && !anyDirty() && uiCurrentScreen() == UiScreenId::Am32);
+
+	// Put the fake ESC back as it was.
+	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) s_eeprom[i] = s_entry[i];
+	am32OpenPage();
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease(); frames(3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("the ESC as read", s_state == S_LIST && !anyDirty() &&
+	          memcmp(s_original, s_entry, AM32_SETTINGS_SIZE) == 0);
+	leaveAm32ToTester();
+	am32NoCard();
+}
+
+/**
+ * @brief ESC WRITE writes what it shows or nothing: settings changed under
+ *        the page behind the screen's back are refused, and a page that
+ *        lists no change, edits only in bytes no listed field covers, has no
+ *        live hold.
+ */
+static void testAm32PageWritesWhatItShows() {
+	section("ESC WRITE: the page writes what it shows, or nothing");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	const uint8_t poles = s_original[0x1B];
+	checkTrue("POLES steps", am32Step("POLES"));
+	int writes = fakeAm32Writes();
+	struct Case { const char *what; uint8_t *bytes; int off; };
+	const int dead = am32Field("DEAD BAND")->offset;
+	const Case cases[] = {
+		{ "an edit under the page: refused, nothing written", s_eeprom, dead },
+		{ "the settings as read changed under the page: refused, nothing written", s_original, dead },
+	};
+	for (const Case &c : cases) {
+		checkTrue("a tap on WRITE... opens ESC WRITE", am32OpenPage());
+		c.bytes[c.off] ^= 0x01;
+		pressId(UI_FIX(Am32Ctl::WriteHold));
+		holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+		fakeRelease(); frames(3);
+		checkTrue(c.what, s_state == S_WRITING && strcmp(s_status, AM32_UI_PAGE_STALE) == 0 &&
+		          fakeAm32Writes() == writes && fakeEscByte(0x1B) == poles &&
+		          fakeTextIs(UI_MARGIN, 196, AM32_UI_PAGE_STALE, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, 208, AM32_UI_PAGE_STALE_2, UI_COL_WARN, C_BG, 1));
+		c.bytes[c.off] ^= 0x01;
+		tapId(UI_FIX(Am32Ctl::Ok));
+		checkTrue("  OK: the list, the edit kept", s_state == S_LIST && s_eeprom[0x1B] != poles);
+	}
+	tapId(UI_FIX(Am32Ctl::Revert));
+
+	// A byte that no listed field covers, changed behind the screen's back:
+	// WRITE... opens, the page lists nothing, and its hold does not act.
+	int off = -1;
+	for (int i = AM32_SETTINGS_SIZE - 1; i > AM32_OFF_SUB_REVISION && off < 0; i--) {
+		bool listed = false;
+		for (uint16_t v = 0; v < s_visibleCount; v++)
+			if (AM32_FIELDS[s_visible[v]].offset == i) listed = true;
+		if (!listed) off = i;
+	}
+	checkTrue("a byte no listed field covers", off > 0);
+	s_eeprom[off] ^= 0x01;
+	frames(1);
+	checkTrue("WRITE... acts on it", ctlEnabled(UI_FIX(Am32Ctl::Write)));
+	checkTrue("the page opens", am32OpenPage());
+	checkTrue("  0 CHANGES, HOLD TO WRITE drawn disabled",
+	          am32StripIs("0 CHANGES", C_DIM) && !ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	pressId(UI_FIX(Am32Ctl::WriteHold), IdExpect::Disabled);
+	holdId(UI_FIX(Am32Ctl::WriteHold), 60);
+	fakeRelease(); frames(2);
+	checkTrue("  held 1500 ms: nothing written", s_state == S_PAGE && fakeAm32Writes() == writes);
+	tapId(UI_FIX(UI_BACK));
+	s_eeprom[off] ^= 0x01;
+	frames(1);
+	checkTrue("the list as read", s_state == S_LIST && !anyDirty());
+	leaveAm32ToTester();
+}
+
+/**
+ * @brief Decision 7 of docs/design/menu-b.md on ESC SETTINGS, and decision
+ *        13's ESC HEX: with edits not written the first BACK arms the guard,
+ *        whose two amber lines name the count; a press elsewhere disarms it;
+ *        the second BACK goes to MENU and drops the edits. Without edits BACK
+ *        leaves at once. ESC HEX's BACK returns to the list.
+ */
+static void testAm32Guard() {
+	section("ESC SETTINGS: BACK on edits not written arms the guard");
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	am32NoCard();
+	enterAm32(6);
+	int writes = fakeAm32Writes();
+	uint8_t esc = fakeEscByte(0x1B);
+	checkTrue("POLES steps", am32Step("POLES"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("one change: the first BACK stays, the guard armed",
+	          uiCurrentScreen() == UiScreenId::Am32 && s_state == S_LIST && s_guard.armed);
+	checkTrue("  1 CHANGE NOT WRITTEN. / BACK AGAIN DISCARDS IT., amber",
+	          stripNoteIs("1 CHANGE NOT WRITTEN.", "BACK AGAIN DISCARDS IT."));
+	tapId(UI_ROW(uiRowOf("POLES"), Row));
+	checkTrue("a press on a row disarms it: the caption returns", !s_guard.armed &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "1 CHANGE NOT WRITTEN.", UI_COL_WARN, C_BG, 1) &&
+	          uiCurrentScreen() == UiScreenId::Am32 && anyDirty());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the next BACK arms it again", s_guard.armed && uiCurrentScreen() == UiScreenId::Am32);
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("a press on HEX disarms it", !s_guard.armed && s_hexView);
+	checkTrue("ESC HEX: the title names the view", am32TitleIs("ESC HEX"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK on ESC HEX: the list, titled ESC SETTINGS, the edit kept",
+	          uiCurrentScreen() == UiScreenId::Am32 && s_state == S_LIST && !s_hexView &&
+	          am32TitleIs("ESC SETTINGS") && anyDirty() && !s_guard.armed);
+	checkTrue("DEAD BAND steps", am32Step("DEAD BAND"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("two changes: 2 CHANGES NOT WRITTEN. / BACK AGAIN DISCARDS THEM.",
+	          s_guard.armed && stripNoteIs("2 CHANGES NOT WRITTEN.", "BACK AGAIN DISCARDS THEM."));
+	checkControlTable("ESC SETTINGS, the guard armed");
+	fakeDumpFrame("shot_am32_discard.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the second BACK: MENU, nothing written, the ESC as it was",
+	          uiCurrentScreen() == UiScreenId::Menu && fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc);
+	tapId(UI_FIX(UI_BACK));
+	enterAm32(6);
+	checkTrue("back in: the list as read", s_state == S_LIST && !anyDirty() && !s_guard.armed);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("no edits: one BACK leaves", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	enterAm32(6);
+	checkTrue("POLES steps", am32Step("POLES"));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("REVERT under the armed guard: disarmed, nothing pending", !s_guard.armed && !anyDirty());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("then one BACK leaves", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
+}
+
+/**
+ * @brief ESC SETTINGS says what a value does and what to do next: the strip
  *        notes, the next step under a write that is not verified, the
  *        connect page's lines, and MENU's cue after a session that reached
  *        the bootloader.
  */
+/**
+ * @brief ESC SETTINGS' claim names SIG by role and number, and a refusal for
+ *        another holder, which MENU never lets through, says to wait.
+ */
+static void testAm32ClaimWords() {
+	section("ESC SETTINGS: RELEASING SIG GP0, and WAIT: DSHOT RESTARTING");
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(2);
+	checkTrue("another claim holds the pins",
+	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
+	claimPins();
+	checkTrue("refused: WAIT: DSHOT RESTARTING",
+	          !s_claimed && strcmp(s_status, UI_WAIT_RESTART_TEXT) == 0);
+	pinClaimEnd(PinUser::Servo);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) frames(1);
+	claimPins();
+	char want[32];
+	snprintf(want, sizeof(want), "RELEASING SIG GP%u", (unsigned)settings()->dshotPin);
+	checkTrue("taken: RELEASING SIG GP0", s_claimed && strcmp(s_status, want) == 0);
+	cardCacheEnd();
+	pinClaimEnd(PinUser::Am32);
+	s_claimed = false;
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) frames(1);
+	checkTrue("and given back", pinClaimState() == ClaimState::Free);
+}
+
+/** @brief An EFM8 bootloader's answer to the greeting: `471d`, E8 B2, 6, 1, 0x30. */
+static const uint8_t EFM8_ANSWER[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+
+/** @brief Frames until the screen is in @p st, at most @p max. */
+static bool untilState(Am32Screen st, int max) {
+	for (int i = 0; i < max && s_state != st; i++) frames(1);
+	return s_state == st;
+}
+
+/** @brief Frames until MENU, at most @p max. */
+static bool untilMenu(int max) {
+	for (int i = 0; i < max && uiCurrentScreen() != UiScreenId::Menu; i++) frames(1);
+	return uiCurrentScreen() == UiScreenId::Menu;
+}
+
+/**
+ * @brief A fresh simulated EFM8 ESC with signature 0xE8 @p sig, Bluejay's
+ *        page or BLHeli_S's, which answers ESC SETTINGS' greeting.
+ */
+static void efm8Esc(uint8_t sig, bool bluejay) {
+	fakeEwReset(sig, bluejay);
+	uint8_t a[9];
+	memcpy(a, EFM8_ANSWER, 9);
+	a[5] = sig;
+	fakeAm32Garble(a, 9);
+}
+
+/** @brief The simulated ESC's settings page, to edit before the read. */
+static uint8_t *efm8Page() { return fakeEwSim()->flash + fakeEwSim()->base; }
+
+/** @brief ESC SETTINGS opened on the ESC set up, its answer taken, frames until the list or @p max. */
+static bool efm8Read(int max = 120) {
+	enterAm32(1);
+	fakeAm32Garble(nullptr, 0);
+	return untilState(S_EW_LIST, max);
+}
+
+/** @brief The EFM8 list's row whose label is @p name, or -1. */
+static int ewRowOf(const char *name) {
+	for (int i = 0; i < s_ewRowCount; i++)
+		if (strcmp(s_ewRows[i].f->name, name) == 0) return i;
+	return -1;
+}
+
+/** @brief Tap the EFM8 list's row @p name, scrolled into view. */
+static bool ewTapRow(const char *name) {
+	int r = ewRowOf(name);
+	if (r < 0) return false;
+	uiListScrollTo(&s_list, r * ROW_PITCH);
+	frames(1);
+	tapId(UI_ROW(r, Row));
+	return s_ewSel == r;
+}
+
+/** @brief BACK from the EFM8 list: LEAVE, then MENU. True when DShot came back once, with no leave page. */
+static bool efm8Exit(int *leaveFrame) {
+	sim_t *e = fakeEwSim();
+	int resumes = fakeResumeCount();
+	int before = e->starts;
+	tapId(UI_FIX(UI_BACK));
+	bool exiting = s_state == S_EW_EXIT;
+	bool sawLeavePage = false;
+	for (int i = 0; i < 40 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+		frames(1);
+		sawLeavePage = sawLeavePage || s_state == S_LEAVE;
+	}
+	*leaveFrame = -1;
+	for (int i = before; i < e->starts; i++)
+		if (fakeEwSentLeave(i)) *leaveFrame = i;
+	return exiting && !sawLeavePage && uiCurrentScreen() == UiScreenId::Menu &&
+	       fakeResumeCount() == resumes + 1;
+}
+
+/** @brief ESC WRITE's hold, held past its 1000 ms; true once the write page's write began. */
+static bool efm8HoldWrite() {
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 50);
+	fakeRelease();
+	frames(1);
+	return s_state == S_EW_WRITING;
+}
+
+/** @brief Frames until the EFM8 write or READ AGAIN ends, at most @p max. */
+static bool efm8UntilDone(int max = 600) {
+	for (int i = 0; i < max && s_ewOpRun; i++) frames(1);
+	return !s_ewOpRun;
+}
+
+/** @brief The result lines at y 196 and 208: @p l1 in @p c1, @p l2 in @p c2. */
+static bool ewResultIs(const char *l1, uint16_t c1, const char *l2, uint16_t c2) {
+	return fakeTextIs(UI_MARGIN, 196, l1, c1, C_BG, 1) && fakeTextIs(UI_MARGIN, 208, l2, c2, C_BG, 1);
+}
+
+/** @brief Select row @p name and step it @p n times by - or +. */
+static bool ewEditRow(const char *name, int n) {
+	if (!ewTapRow(name)) return false;
+	for (int i = 0; i < (n < 0 ? -n : n); i++) tapId(UI_FIX(n < 0 ? Am32Ctl::EditMinus : Am32Ctl::EditPlus));
+	return true;
+}
+
+/** @brief Whether BACKUP/<name> holds rcbench's text of @p page, read under 0xE8 @p sig. */
+static bool efm8BackupHolds(const char *path, uint8_t sig, const uint8_t *page) {
+	static char want[EW_FILE_MAX], got[EW_FILE_MAX];
+	const uint8_t ans[9] = { 0x34, 0x37, 0x31, 0x64, 0xE8, sig, 0x06, 0x01, 0x30 };
+	ew_contact_t c;
+	ew_ident_t id;
+	ew_id_contact(ans, &c);
+	ew_id_efm8(&c, page, &id);
+	size_t n = efm8BackupFormat(&c, &id, page, want, sizeof(want));
+	int32_t g = fakeFatGet(path, got, sizeof(got));
+	return n > 0 && g == (int32_t)n && memcmp(got, want, n) == 0;
+}
+
+/**
+ * @brief Slice 4 of docs/design/bluejay-blheli-s.md through the screen,
+ *        against rcbench's simulated ESC: the editable list, ESC WRITE, the
+ *        backup before the first write, the results, READ AGAIN, the
+ *        guarded BACK and the leave page after a half-written page, the
+ *        heartbeat's stop, and that nothing but the settings page is erased
+ *        or programmed.
+ */
+static void testEfm8Write() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	s_blReached = false;
+
+	section("ESC WRITE: a Bluejay 0.21 page edited");
+	am32Card();
+	efm8Esc(0xB2, true);
+	uint8_t orig[EW_PAGE_MAX];
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	sim_t *e = fakeEwSim();
+	checkTrue("TIMING - : MEDIUM", ewEditRow("TIMING", -1) && s_ewDraft[0x15] == 3);
+	frames(1);
+	checkTrue("the bar: TIMING  MEDIUM HIGH -> over MEDIUM, cyan",
+	          fakeTextIs(BTN_MINUS_X + EDIT_BTN_W + (BTN_PLUS_X - BTN_MINUS_X - EDIT_BTN_W -
+	                                                  gfxTextW("TIMING  MEDIUM HIGH ->", 1)) / 2,
+	                     EDIT_Y + 2, "TIMING  MEDIUM HIGH ->", C_DIM, C_BG, 1));
+	UiRect rt = ctlRect(UI_ROW(s_ewSel, Row));
+	checkTrue("the row's value cyan, its bar", fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("MEDIUM", 2), rt.y + 13,
+	                                                     "MEDIUM", UI_COL_CHANGED, C_PANEL, 2));
+	checkTrue("WRITE... and REVERT live", ctlEnabled(UI_FIX(Am32Ctl::Write)) && ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	checkTrue("DIRECTION + : REVERSED", ewEditRow("DIRECTION", +1) && s_ewDraft[0x0B] == 2);
+	checkTrue("+ at the top rail: 3D REVERSED, then nothing", ewEditRow("DIRECTION", +4) && s_ewDraft[0x0B] == 4);
+	checkTrue("back to REVERSED", ewEditRow("DIRECTION", -2) && s_ewDraft[0x0B] == 2);
+	const uint8_t beep = s_ewDraft[0x1B];
+	checkTrue("BEEP STRENGTH selected", ewTapRow("BEEP STRENGTH"));
+	UiRect rb = ctlRect(UI_ROW(s_ewSel, Row));
+	swipe(rb.x + 40, rb.x + 40 + UI_AXIS_LOCK_PX + 2 * UI_SWIPE_STEP_PX + 4, rb.y + rb.h / 2, 2);
+	checkInt("a swipe of 2 coarse steps: 48 more", s_ewDraft[0x1B], beep + 48);
+	checkTrue("POWER RATING selected", ewTapRow("POWER RATING"));
+	{
+		const int cx = BTN_MINUS_X + EDIT_BTN_W, cw = BTN_PLUS_X - cx;
+		checkTrue("2S AND ABOVE, 142 px at scale 2, wider than the bar's 140: at scale 1",
+		          gfxTextW("2S AND ABOVE", 2) > cw &&
+		          fakeTextIs(cx + (cw - gfxTextW("2S AND ABOVE", 1)) / 2, EDIT_Y + 18, "2S AND ABOVE", C_TEXT,
+		                     C_BG, 1));
+	}
+	frames(1);
+	checkTrue("3 rows changed, nothing sent", ewPending() == 3 && e->erases == 0 && e->programs == 0);
+	checkTrue("BEEP STRENGTH selected again", ewTapRow("BEEP STRENGTH"));
+	checkControlTable("ESC SETTINGS, the EFM8 list edited");
+	fakeDumpFrame("shot_efm8_edit.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with edits: the guard, 3 CHANGES NOT WRITTEN.",
+	          s_state == S_EW_LIST && s_guard.armed &&
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "3 CHANGES NOT WRITTEN.", UI_COL_WARN, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("a press elsewhere disarms it", !s_guard.armed && s_state == S_EW_LIST);
+
+	section("ESC WRITE: the page");
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("WRITE...: ESC WRITE", s_state == S_EW_PAGE &&
+	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE_WRITE, C_TEXT, C_PANEL, 2));
+	checkTrue("3 CHANGES", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "3 CHANGES", C_DIM, C_BG, 1));
+	checkTrue("DIRECTION first: NORMAL -> REVERSED", fakeTextIs(UI_MARGIN, WP_LINE_Y, "DIRECTION", C_TEXT, C_BG, 1) &&
+	          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("NORMAL -> REVERSED", 1), WP_LINE_Y, "NORMAL", C_DIM, C_BG, 1));
+	checkTrue("TIMING: MEDIUM HIGH -> MEDIUM", fakeTextIs(UI_MARGIN, WP_LINE_Y + WP_PITCH, "TIMING", C_TEXT, C_BG, 1));
+	checkTrue("the backup line: BACKUP FIRST: BACKUP/BJ001.TXT",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP FIRST: BACKUP/BJ001.TXT", C_DIM, C_BG, 1));
+	checkTrue("HOLD TO WRITE live", ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	checkControlTable("ESC SETTINGS, ESC WRITE of an EFM8 page");
+	fakeDumpFrame("shot_efm8_write.ppm");
+	tapId(UI_FIX(Am32Ctl::WriteHold));
+	checkTrue("a tap writes nothing", s_state == S_EW_PAGE && e->starts == 5);
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 20);
+	fakeRelease();
+	frames(1);
+	checkTrue("a hold let go at 500 ms writes nothing", s_state == S_EW_PAGE && e->starts == 5 &&
+	          !fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the list, the edits kept", s_state == S_EW_LIST && ewPending() == 3);
+	tapId(UI_FIX(Am32Ctl::Write));
+
+	section("ESC WRITE: written and read back");
+	uint8_t draft[EW_PAGE_MAX];
+	memcpy(draft, s_ewDraft, sizeof(draft));
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 45);
+	checkTrue("the hold: WRITING, BACK drawn disabled", s_state == S_EW_WRITING && s_ewOpRun &&
+	          !ctlEnabled(UI_FIX(UI_BACK)) &&
+	          fakeTextIs(UI_MARGIN, WP_STATE_Y, AM32_UI_WRITING, UI_COL_WARN, C_BG, 1));
+	checkTrue("the backup first: BJ001.TXT, the page as first read", fakeFatExists("BACKUP/BJ001.TXT") &&
+	          efm8BackupHolds("BACKUP/BJ001.TXT", 0xB2, orig));
+	fakeRelease();
+	frames(1);
+	checkControlTable("ESC SETTINGS, ESC WRITE writing");
+	fakeDumpFrame("shot_efm8_writing.ppm");
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK does nothing; a lifted finger stops nothing", s_state == S_EW_WRITING);
+	checkTrue("the write ends", efm8UntilDone());
+	checkTrue("WRITE VERIFIED. BACKUP BJ001, green; LEAVING STARTS THE ESC WITH THEM.",
+	          ewResultIs("WRITE VERIFIED. BACKUP BJ001", UI_COL_SAFE, EFM8_UI_LEAVING_2, C_TEXT));
+	checkTrue("the ESC holds the draft, tags as read", memcmp(efm8Page(), draft, 255) == 0 &&
+	          memcmp(efm8Page() + 0x40, orig + 0x40, 48) == 0);
+	checkTrue("one erase, one program, the settings page only",
+	          e->erases == 1 && e->programs == 1 && fakeEwOnlySettingsPage());
+	checkControlTable("ESC SETTINGS, ESC WRITE verified");
+	fakeDumpFrame("shot_efm8_verified.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the list, nothing changed now", s_state == S_EW_LIST && ewPending() == 0 &&
+	          !ctlEnabled(UI_FIX(Am32Ctl::Write)));
+	checkTrue("a second write", ewEditRow("DEMAG", +1) && s_ewDraft[0x1F] == 3);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("its backup line names the backup made", fakeTextIs(UI_MARGIN, WP_BACKUP_Y,
+	                                                              "BACKUP: BACKUP/BJ001.TXT", C_DIM, C_BG, 1));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("verified, no second backup", s_verified && efm8Page()[0x1F] == 3 &&
+	          !fakeFatExists("BACKUP/BJ002.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	int leaveAt = -1;
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt == e->starts - 1);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: BLHeli_S 16.7 with no card; the 3D note");
+	am32NoCard();
+	efm8Esc(0xB1, false);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("DIRECTION to 3D", ewEditRow("DIRECTION", +2) && s_ewDraft[0x0B] == 3);
+	checkTrue("the note: 3D", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("no card: NO CARD: OLD VALUES LOST ON LEAVING, amber",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, AM32_UI_NO_CARD_LOST, UI_COL_WARN, C_BG, 1));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("WRITE VERIFIED alone", strcmp(s_status, "WRITE VERIFIED") == 0 && efm8Page()[0x0B] == 3);
+	checkTrue("the tester's 3D note set", esc3dNote());
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DIRECTION back to NORMAL", ewEditRow("DIRECTION", -2) && s_ewDraft[0x0B] == 1);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone() && s_verified);
+	checkTrue("the note cleared", !esc3dNote());
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a card that refuses the backup; the BOARD voltage red");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	int n0 = e->starts;
+	checkTrue("an edit", ewEditRow("TIMING", -1));
+	fakeFatWriteProtect(true);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("NO BACKUP ON THE CARD: NOT WRITTEN, nothing sent",
+	          strcmp(s_status, "NO BACKUP ON THE CARD: NOT WRITTEN") == 0 && e->starts == n0 &&
+	          ewResultIs("NO BACKUP ON THE CARD: NOT WRITTEN", UI_COL_WARN, AM32_UI_CHECK_CARD, UI_COL_WARN));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeFatWriteProtect(false);
+	boardVolts(3.20f);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held at 3.20 V", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("BOARD VOLTAGE IS RED: NOT WRITTEN., nothing sent, no backup",
+	          ewResultIs(UI_BOARD_LOW_1, UI_COL_WARN, AM32_UI_BOARD_LOW_2, UI_COL_WARN) && e->starts == n0 &&
+	          !fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeAdcSet(fakeAdcDefault());
+	frames(80);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("then written", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          fakeFatExists("BACKUP/BJ001.TXT") && efm8Page()[0x15] == 3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: the ESC's page changed since the read; READ AGAIN");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	efm8Page()[0x1B] = 41;
+	fakeEwSnapshot();
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("ESC PAGE CHANGED: NOT WRITTEN. / TAP OK, READ AGAIN.",
+	          ewResultIs(EFM8_UI_CHANGED_1, UI_COL_WARN, EFM8_UI_READ_AGAIN_2, UI_COL_WARN) && e->erases == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("READ AGAIN in WRITE...'s place", ctlEnabled(UI_FIX(Am32Ctl::ReadAgain)) &&
+	          !ctlPresent(UI_FIX(Am32Ctl::Write)) &&
+	          fakeTextIs(BTN_WRITE.x + (BTN_WRITE.w - gfxTextW("READ AGAIN", 1)) / 2, BTN_WRITE.y + (BTN_WRITE.h - 7) / 2,
+	                     "READ AGAIN", C_TEXT, C_PANEL, 1));
+	checkControlTable("ESC SETTINGS, the EFM8 list with READ AGAIN");
+	// The read's transaction never ends: the driver fails, and the session
+	// with it.
+	sim_script(e, F_STUCK, 1, 1, 0);
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN whose driver fails: the session ended, the cycle greets again",
+	          efm8UntilDone() && untilState(S_CONNECT, 80) && s_connectNote == CN_EW_STOPPED &&
+	          pinClaimLeavePage());
+	e->fail = F_NONE;
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, true);
+	checkTrue("the list again", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	efm8Page()[0x1B] = 41;
+	fakeEwSnapshot();
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held: changed", efm8HoldWrite() && efm8UntilDone() && s_ewMustRead);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	e->dead = true;
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN unanswered: READ AGAIN stays, the page as it was",
+	          efm8UntilDone(400) && s_state == S_EW_LIST && s_ewMustRead && s_ewPage[0x1B] != 41 &&
+	          ctlEnabled(UI_FIX(Am32Ctl::ReadAgain)));
+	e->dead = false;
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("read", efm8UntilDone() && s_state == S_EW_LIST && !s_ewMustRead);
+	checkTrue("the page as it is now, the edit kept", s_ewPage[0x1B] == 41 && s_ewDraft[0x1B] == 41 &&
+	          s_ewDraft[0x15] == 3 && ewPending() == 1);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("then written", efm8HoldWrite() && efm8UntilDone() && s_verified && efm8Page()[0x15] == 3 &&
+	          efm8Page()[0x1B] == 41);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: the ESC's power cut after the erase");
+	am32Card();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	// The write's transactions 0 to 3 are the re-read and the erase: the ESC
+	// is gone from the data on.
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("NO ANSWER IN THE WRITE: KEEP POWER. / TAP OK, THEN READ AGAIN.",
+	          ewResultIs(EFM8_UI_LOST_1, UI_COL_WARN, EFM8_UI_LOST_2, UI_COL_WARN));
+	checkTrue("the page erased, tags and all; nothing else", e->erases == 1 && efm8Page()[0x40] == 0xFF &&
+	          fakeEwOnlySettingsPage());
+	checkTrue("the backup holds the page as read, tags included", efm8BackupHolds("BACKUP/BJ001.TXT", 0xB2, orig));
+	fakeDumpFrame("shot_efm8_lost.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	frames(1);
+	checkTrue("the list: READ AGAIN, no editor", s_state == S_EW_LIST && ctlPresent(UI_FIX(Am32Ctl::ReadAgain)) &&
+	          !ctlPresent(UI_FIX(Am32Ctl::EditMinus)));
+	checkTrue("the strip: HALF WRITTEN: KEEP THE ESC POWERED. / READ AGAIN, THEN WRITE.",
+	          stripNoteIs(EFM8_UI_TORN_1, EFM8_UI_DIRTY_READ));
+	checkTrue("a swipe edits nothing", ewTapRow("BEEP STRENGTH"));
+	UiRect rs = ctlRect(UI_ROW(s_ewSel, Row));
+	swipe(rs.x + 40, rs.x + 120, rs.y + rs.h / 2, 8);
+	checkTrue("the draft as it was", s_ewDraft[0x1B] == orig[0x1B]);
+	int resumes = fakeResumeCount();
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the guard names the page", s_guard.armed &&
+	          stripNoteIs(EFM8_UI_GUARD_1, EFM8_UI_GUARD_2));
+	checkTrue("35 and 34 characters", strlen(EFM8_UI_GUARD_1) == 35 && strlen(EFM8_UI_GUARD_2) == 34);
+	fakeDumpFrame("shot_efm8_guard.ppm");
+	tapId(UI_FIX(Am32Ctl::Hex));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("a press elsewhere disarms it", !s_guard.armed);
+	tapId(UI_FIX(Am32Ctl::Revert));
+	checkTrue("REVERT: no edit left", !ewEdited());
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with no edit on the half-written page: the guard all the same",
+	          s_state == S_EW_LIST && s_guard.armed && stripNoteIs(EFM8_UI_GUARD_1, EFM8_UI_GUARD_2));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	e->dead = false;
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN: read, half written, read since", efm8UntilDone() && s_ewDirty && s_ewReread &&
+	          !s_ewMustRead);
+	frames(1);
+	checkTrue("the strip: WRITE AGAIN NOW. REVERT: AS READ.", stripNoteIs(EFM8_UI_TORN_1, EFM8_UI_DIRTY_WRITE));
+	checkTrue("the page as first read kept", memcmp(s_ewPage, orig, 255) == 0);
+	checkTrue("reverted before: WRITE... live with no edit, REVERT not",
+	          !ewEdited() && ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("ESC WRITE: 0 CHANGES, THE PAGE AS READ, TAGS INCLUDED.",
+	          s_state == S_EW_PAGE && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "0 CHANGES", C_DIM, C_BG, 1) &&
+	          fakeTextIs(UI_MARGIN, WP_LINE_Y, EFM8_UI_AS_READ, C_TEXT, C_BG, 1));
+	checkTrue("its hold live", ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	fakeDumpFrame("shot_efm8_asread.ppm");
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("verified: the page as read, tags included", s_verified && memcmp(efm8Page(), orig, 255) == 0);
+	checkTrue("still the settings page only", fakeEwOnlySettingsPage());
+	checkTrue("no second backup", !fakeFatExists("BACKUP/BJ002.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("no DShot all along", fakeResumeCount() == resumes);
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: programs that do not take: half written, then the draft again");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	checkTrue("DIRECTION to 3D", ewEditRow("DIRECTION", +2) && s_ewDraft[0x0B] == 3);
+	checkTrue("the tester's 3D note off", !esc3dNote());
+	memcpy(draft, s_ewDraft, sizeof(draft));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_NO_TAKE, 0, 40, 0);
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone(1200));
+	checkTrue("HALF WRITTEN: KEEP THE ESC POWERED. / TAP OK, WRITE AGAIN NOW.",
+	          ewResultIs(EFM8_UI_TORN_1, UI_COL_WARN, EFM8_UI_TORN_2, UI_COL_WARN) && e->erases == 3);
+	checkTrue("3D in the half-written draft: the tester's note set", esc3dNote());
+	e->fail = F_NONE;
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("the list: WRITE... live, no READ AGAIN", ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
+	          !ctlPresent(UI_FIX(Am32Ctl::ReadAgain)));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("the draft's changes listed, its hold live", fakeTextIs(UI_MARGIN, WP_LINE_Y, "DIRECTION", C_TEXT, C_BG, 1) &&
+	          ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	checkTrue("held: verified", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          memcmp(efm8Page(), draft, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DIRECTION back to NORMAL, written", ewEditRow("DIRECTION", -2));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held: verified, the note cleared", efm8HoldWrite() && efm8UntilDone() && s_verified && !esc3dNote());
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: BACK on a half-written page aborts with no LEAVE");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held: lost", efm8HoldWrite() && efm8UntilDone() && strcmp(s_status, EFM8_UI_LOST_1) == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	resumes = fakeResumeCount();
+	int starts = e->starts;
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the second BACK: the leave page", s_state == S_LEAVE);
+	frames(2);
+	EwJobStatus st;
+	escwireJobStatus(&st);
+	checkTrue("the session aborted: no frame, no LEAVE, the line parked", st.job == EwJobState::Ended &&
+	          e->starts == starts && e->line == EW_LINE_PARK);
+	checkTrue("no DShot", fakeResumeCount() == resumes && escTaskSuspended());
+	tapId(UI_FIX(Am32Ctl::Stay));
+	checkTrue("STAY: the session ended, the cycle greets again", untilState(S_CONNECT, 60) &&
+	          pinClaimLeavePage() && fakeResumeCount() == resumes);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot back once", uiCurrentScreen() == UiScreenId::Menu &&
+	          fakeResumeCount() == resumes + 1);
+	bool left = false;
+	for (int i = 0; i < e->starts; i++) left = left || fakeEwSentLeave(i);
+	checkTrue("no LEAVE frame went to the half-written page", !left);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a heartbeat lapse after the erase");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	memcpy(draft, s_ewDraft, sizeof(draft));
+	tapId(UI_FIX(Am32Ctl::Write));
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 45);
+	fakeRelease();
+	for (int i = 0; i < 400 && e->erases == 0; i++) frames(1);
+	checkTrue("erased", e->erases == 1);
+	// Core0 stalls: core1 runs on alone, the heartbeat lapses.
+	for (int ms = 0; ms < 3000; ms++) {
+		fakeAdvance(1);
+		core1JobPoll();
+	}
+	escwireJobStatus(&st);
+	checkTrue("the write ran to its read-back, then parked", st.stalled && st.result == EW_SES_OK &&
+	          st.job == EwJobState::Ended && memcmp(efm8Page(), draft, 255) == 0 && e->line == EW_LINE_PARK);
+	checkTrue("the screen: verified, the session ended", efm8UntilDone() &&
+	          ewResultIs("WRITE VERIFIED", UI_COL_SAFE, EFM8_UI_ENDED_2, C_TEXT));
+	resumes = fakeResumeCount();
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again, no DShot", untilState(S_CONNECT, 60) && fakeResumeCount() == resumes &&
+	          pinClaimLeavePage());
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a Write the job refuses for a lapsed heartbeat is asked again");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	{
+		int hx, hy;
+		ctlCentre(UI_FIX(Am32Ctl::WriteHold), &hx, &hy);
+		fakePress(hx, hy);
+		for (int i = 0; i < 60 && s_state != S_EW_WRITING; i++) {
+			fakeHold(hx, hy);
+			frames(1);
+		}
+		fakeRelease();
+		int n = e->starts;
+		// The frame that sends Write, then core0 stalls past the heartbeat.
+		fakeAdvance(1);
+		fakePumpPoll();
+		uiTick();
+		fakeAdvance(300);
+		core1JobPoll();
+		escwireJobStatus(&st);
+		checkTrue("the job refuses it, nothing sent", st.refused == EwJobRefusal::NoUi && e->starts == n &&
+		          e->erases == 0);
+	}
+	checkTrue("asked again: verified", efm8UntilDone() && s_verified && efm8Page()[0x15] == 3);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a second session in one visit saves its own backup");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("written, BJ001", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DEMAG edited", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	// The re-read's transaction never ends: the driver fails before the erase.
+	sim_script(e, F_STUCK, 1, 1, 0);
+	checkTrue("held: the line driver failed, nothing erased, the session ended",
+	          efm8HoldWrite() && efm8UntilDone() && e->erases == 1 &&
+	          ewResultIs(EFM8_UI_DRIVER_1, UI_COL_WARN, EFM8_UI_ENDED_2, UI_COL_WARN));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	// The ESC waits in its bootloader and answers the next greeting.
+	e->fail = F_NONE;
+	e->contacted = false;
+	e->dead = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("its answer: a new session", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	checkTrue("the list", untilState(S_EW_LIST, 160));
+	checkTrue("DEMAG edited again", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("its backup line names the next number",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP FIRST: BACKUP/BJ002.TXT", C_DIM, C_BG, 1));
+	checkTrue("written with its own backup, BJ002", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          strcmp(s_status, "WRITE VERIFIED. BACKUP BJ002") == 0 && fakeFatExists("BACKUP/BJ002.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: an AM32 answering after an EFM8 session saves its own backup");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("written, BJ001", efm8HoldWrite() && efm8UntilDone() && fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("DEMAG edited", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_STUCK, 1, 1, 0);
+	checkTrue("held: the session ended", efm8HoldWrite() && efm8UntilDone() && s_ewEnded);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	frames(45);
+	checkTrue("an AM32 answers: its list", s_state == S_LIST);
+	checkTrue("POLES steps", am32Step("POLES"));
+	am32HoldWrite();
+	checkTrue("its own backup, AM002", fakeFatExists("BACKUP/AM002.TXT"));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the leave page", s_state == S_LEAVE);
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a driver failure after the erase, no card: the old page kept on the screen");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	// Transactions 0 to 3 are the re-read and the erase; the address before
+	// the data never ends.
+	sim_script(e, F_STUCK, 4, 1, 0);
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("erased, the session ended: NO ANSWER IN THE WRITE / SESSION ENDED: RESTORE ON A COMPUTER.",
+	          e->erases == 1 && s_ewEnded &&
+	          ewResultIs(EFM8_UI_LOST_1, UI_COL_WARN, EFM8_UI_ENDED_DIRTY_2, UI_COL_WARN));
+	checkTrue("37 characters, 221 px", gfxTextW(EFM8_UI_ENDED_DIRTY_2, 1) == 221);
+	checkTrue("the backup line: NO BACKUP: OLD PAGE ON THIS SCREEN., amber",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, EFM8_UI_KEPT_ONLY, UI_COL_WARN, C_BG, 1));
+	checkTrue("the old page kept", s_ewKeptLen == 255 && memcmp(s_ewKept, orig, 255) == 0 && !s_ewKeptOnCard);
+	fakeDumpFrame("shot_efm8_ended.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	frames(1);
+	checkTrue("OLD PAGE on the connect page", ctlEnabled(UI_FIX(Am32Ctl::OldPage)) &&
+	          fakeTextIs(BTN_HEX.x + (BTN_HEX.w - gfxTextW(EFM8_UI_KEPT_BUTTON, 1)) / 2,
+	                     BTN_HEX.y + (BTN_HEX.h - 7) / 2, EFM8_UI_KEPT_BUTTON, C_TEXT, C_PANEL, 1));
+	checkControlTable("ESC SETTINGS, the connect page with OLD PAGE");
+	tapId(UI_FIX(Am32Ctl::OldPage));
+	{
+		char line0[40];
+		snprintf(line0, sizeof(line0), "00 %02X %02X %02X %02X %02X %02X %02X %02X ", orig[0], orig[1], orig[2],
+		         orig[3], orig[4], orig[5], orig[6], orig[7]);
+		checkTrue("OLD PAGE: ESC HEX of the old page, amber", s_state == S_EW_KEPT &&
+		          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE_HEX, C_TEXT, C_PANEL, 2) &&
+		          fakeTextIs(UI_MARGIN, LIST_Y0, line0, UI_COL_WARN, C_BG, 1));
+	}
+	checkTrue("the strip: OLD PAGE, BEFORE THE CUT WRITE: / ON THIS SCREEN ONLY: COPY IT.",
+	          stripNoteIs(EFM8_UI_KEPT_1, EFM8_UI_KEPT_SCREEN));
+	checkTrue("32 lines, the list scrolls", s_list.rows == 32 && uiListMaxScroll(&s_list) > 0);
+	checkControlTable("ESC SETTINGS, the old page");
+	fakeDumpFrame("shot_efm8_oldpage.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the connect page again", s_state == S_CONNECT);
+	// The ESC, still powered in its bootloader, answers the next greeting.
+	e->fail = F_NONE;
+	e->contacted = false;
+	e->dead = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("its answer: a new session", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	for (int i = 0; i < 120 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
+	frames(1);
+	checkTrue("the erased page named: SETTINGS PAGE EMPTY, OLD PAGE still there",
+	          strcmp(s_status, "EFM8 E8B2: SETTINGS PAGE EMPTY") == 0 && ctlEnabled(UI_FIX(Am32Ctl::OldPage)) &&
+	          s_ewKeptLen == 255 && memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::OldPage));
+	checkTrue("OLD PAGE from the session's page", s_state == S_EW_KEPT);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the session's page", s_state == S_EW);
+	resumes = fakeResumeCount();
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+	          fakeResumeCount() == resumes + 1);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a heartbeat lapse in a write that ends half written, a card in");
+	am32Card();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_NO_TAKE, 0, 40, 0);
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 45);
+	fakeRelease();
+	for (int i = 0; i < 400 && e->erases == 0; i++) frames(1);
+	for (int ms = 0; ms < 3000; ms++) {
+		fakeAdvance(1);
+		core1JobPoll();
+	}
+	checkTrue("half written after one procedure, the session ended",
+	          efm8UntilDone() && e->programs == 1 && s_ewEnded && s_ewDirty &&
+	          ewResultIs(EFM8_UI_TORN_1, UI_COL_WARN, EFM8_UI_ENDED_DIRTY_2, UI_COL_WARN));
+	checkTrue("the backup line names the backup", fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP: BACKUP/BJ001.TXT",
+	                                                         C_DIM, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	tapId(UI_FIX(Am32Ctl::OldPage));
+	checkTrue("OLD PAGE: ALSO ON THE CARD: BACKUP BJ001",
+	          s_state == S_EW_KEPT && stripNoteIs(EFM8_UI_KEPT_1, "ALSO ON THE CARD: BACKUP BJ001") &&
+	          efm8BackupHolds("BACKUP/BJ001.TXT", 0xB2, orig));
+	tapId(UI_FIX(UI_BACK));
+	// A page put back by other means: the next session opens a list, and its
+	// ESC HEX shows the old page under its own.
+	memcpy(efm8Page(), orig, 255);
+	e->fail = F_NONE;
+	e->contacted = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("a new session", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	checkTrue("the list", untilState(S_EW_LIST, 160));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("ESC HEX: 32 lines, the heading, 32 lines of the old page", s_list.rows == 32 + 1 + 32);
+	uiListScrollTo(&s_list, 32 * HEX_ROW_H);
+	s_redraw = true;
+	frames(1);
+	checkTrue("the heading in amber under the page's lines",
+	          fakeTextIs(UI_MARGIN, LIST_Y0, EFM8_UI_KEPT_1, UI_COL_WARN, C_BG, 1));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: READ AGAIN on a half-written page that ends the session; the guard's abort");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held: lost, the session goes on", efm8HoldWrite() && efm8UntilDone() && !s_ewEnded &&
+	          s_ewKeptLen == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	e->dead = false;
+	sim_script(e, F_STUCK, 1, 1, 0);
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN whose driver fails: the old page kept, the cycle greets again",
+	          efm8UntilDone() && untilState(S_CONNECT, 80) && s_ewKeptLen == 255 &&
+	          memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("a fresh visit: no old page", efm8Read() && s_ewKeptLen == 0);
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held: lost", efm8HoldWrite() && efm8UntilDone() && s_ewDirty);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the guard's second BACK: the old page kept", s_state == S_LEAVE && s_ewKeptLen == 255 &&
+	          memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::Stay));
+	checkTrue("STAY: the cycle greets again, OLD PAGE offered", untilState(S_CONNECT, 60) &&
+	          ctlEnabled(UI_FIX(Am32Ctl::OldPage)));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a torn page that reads as writable does not replace the kept old page");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING to MEDIUM", ewEditRow("TIMING", -1) && s_ewDraft[0x15] == 3);
+	tapId(UI_FIX(Am32Ctl::Write));
+	// Every program stores TIMING with bit 0 cleared: 2, neither page.
+	sim_script(e, F_CORRUPT, 0, 40, 0x15);
+	checkTrue("held: half written, one bit off, marker and tags intact",
+	          efm8HoldWrite() && efm8UntilDone(1200) && strcmp(s_status, EFM8_UI_TORN_1) == 0 &&
+	          efm8Page()[0x15] == 2 && efm8Page()[0x0D] == 0x55 && efm8Page()[0x0E] == 0xAA &&
+	          memcmp(efm8Page() + 0x40, orig + 0x40, 48) == 0);
+	e->fail = F_NONE;
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the guard's second BACK: the old page kept", s_state == S_LEAVE && s_ewKeptLen == 255 &&
+	          memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::Stay));
+	checkTrue("STAY: the cycle greets again", untilState(S_CONNECT, 60));
+	uint8_t torn[EW_PAGE_MAX];
+	memcpy(torn, efm8Page(), sizeof(torn));
+	e->contacted = false;
+	e->dead = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("session 2", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	checkTrue("the torn page reads as Bluejay 208, writable", untilState(S_EW_LIST, 160) && ewWritable() &&
+	          s_ewPage[0x15] == 2);
+	checkTrue("DEMAG edited", ewEditRow("DEMAG", +1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("a second cut write: lost", efm8HoldWrite() && efm8UntilDone() && s_ewDirty);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the guard's second BACK again: still the first old page, not the torn one",
+	          s_state == S_LEAVE && memcmp(s_ewKept, orig, 255) == 0 && memcmp(s_ewKept, torn, 255) != 0 &&
+	          !s_ewKeptOnCard);
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a page changed and read again gets its own backup");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	efm8Page()[0x1B] = 41;
+	fakeEwSnapshot();
+	uint8_t moved[EW_PAGE_MAX];
+	memcpy(moved, efm8Page(), sizeof(moved));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held: changed, BJ001 of the first read saved", efm8HoldWrite() && efm8UntilDone() &&
+	          s_ewMustRead && fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN", efm8UntilDone() && !s_ewMustRead);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("the backup line: BACKUP FIRST: BACKUP/BJ002.TXT",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP FIRST: BACKUP/BJ002.TXT", C_DIM, C_BG, 1));
+	checkTrue("written, BJ002 holds the page read again", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          efm8BackupHolds("BACKUP/BJ002.TXT", 0xB2, moved));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: read-only lists save their backup and never write");
+	am32Card();
+	efm8Esc(0xB2, false);
+	memset(efm8Page() + 0x40, 0xFF, 48);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("lost tags: the list", efm8Read());
+	e = fakeEwSim();
+	frames(1);
+	checkTrue("REFLASH ON A COMPUTER. BACKUP BH001", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. BACKUP BH001"));
+	checkTrue("BH001.TXT holds the page as read", efm8BackupHolds("BACKUP/BH001.TXT", 0xB2, orig));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, false);
+	memset(efm8Page() + 0x40, 0xFF, 48);
+	checkTrue("the same page opened again", efm8Read());
+	frames(1);
+	checkTrue("no second copy: BACKUP BH001 named, no BH002",
+	          stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. BACKUP BH001") &&
+	          !fakeFatExists("BACKUP/BH002.TXT"));
+	checkTrue("the bar: SHOWN ONLY: NOTHING IS WRITTEN.",
+	          fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_SHOWN, C_GRID, C_BG, 1));
+	checkTrue("DIRECTION selected: no -, no +", ewTapRow("DIRECTION") && !ctlPresent(UI_FIX(Am32Ctl::EditMinus)));
+	tapId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
+	checkTrue("WRITE... does nothing", s_state == S_EW_LIST && e->erases == 0 && e->programs == 0);
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, true);
+	efm8Page()[0x01] = 19;
+	efm8Page()[0x02] = 206;
+	checkTrue("Bluejay 206: the list", efm8Read());
+	frames(1);
+	checkTrue("SHOWN ONLY. BACKUP BJ002", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "SHOWN ONLY. BACKUP BJ002",
+	                                                  UI_COL_WARN, C_BG, 1));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	fakeFatWriteProtect(true);
+	efm8Esc(0xB2, true);
+	efm8Page()[0x0E] = 0;
+	checkTrue("a wrong marker on a card that refuses: the list", efm8Read());
+	frames(1);
+	checkTrue("SHOWN ONLY. BACKUP FAILED.", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "SHOWN ONLY. BACKUP FAILED.",
+	                                                    UI_COL_WARN, C_BG, 1));
+	fakeFatWriteProtect(false);
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	am32NoCard();
+	efm8Esc(0xB2, false);
+	memset(efm8Page() + 0x40, 0xFF, 48);
+	checkTrue("lost tags, no card: the list", efm8Read());
+	frames(1);
+	checkTrue("REFLASH ON A COMPUTER. NO CARD.", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. NO CARD."));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	fakeMscSet(MscState::Serving, 0);
+	efm8Esc(0xB2, true);
+	efm8Page()[0x0E] = 0;
+	checkTrue("a wrong marker, USB holding the card: the list", efm8Read());
+	frames(1);
+	checkTrue("SHOWN ONLY. USB DRIVE: NO BACKUP.", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y,
+	                                                         "SHOWN ONLY. USB DRIVE: NO BACKUP.", UI_COL_WARN, C_BG, 1));
+	fakeMscSet(MscState::Idle, 0);
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+}
+
+/**
+ * @brief Slices 2 and 3 of docs/design/bluejay-blheli-s.md through the
+ *        screen: the connect cycle; an EFM8 answer hands SIG to the escwire
+ *        job, which reads the page into a read-only list; LEAVE from the list;
+ *        a page not taken, an ESC that stops answering and BACK while reading
+ *        each end on the leave page of decision 8, whose RESTART DSHOT alone
+ *        gives DShot back and clears the cue.
+ */
+static void testAm32Efm8() {
+	EscTelemetry quiet;
+	memset(&quiet, 0, sizeof(quiet));
+	fakeSetTelemetry(&quiet);
+	s_blReached = false;
+
+	section("ESC SETTINGS: no EFM8 answer, DShot back within BACK");
+	{
+		fakeAm32Silent(true);
+		enterAm32(4);
+		checkTrue("the claim has no leave page", pinClaimHolder() == PinUser::Am32 && !pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkInt("DShot asked back within BACK", fakeResumeCount(), resumes + 1);
+		checkTrue("no leave page is due", !pinClaimUnplugDue());
+		fakeAm32Silent(false);
+		frames(1);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: the connect cycle, 1000 ms quiet, then 3 greetings");
+	{
+		fakeAm32Silent(true);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		tapId(UI_FIX(TesterCtl::Menu));
+		frames(2);
+		openEscSettings();
+		checkTrue("the claim", untilState(S_CONNECT, 10));
+		uint32_t t0 = millis();
+		int greets = fakeAm32Handshakes();
+		checkTrue("LINE HIGH, NOTHING SENT, y 176, amber",
+		          fakeTextCentredIs(176, AM32_UI_QUIET, C_AMBER, C_BG, 1) && strcmp(s_status, AM32_UI_QUIET) == 0);
+		checkTrue("23 characters, 137 px", gfxTextW(AM32_UI_QUIET, 1) == 137);
+		fakeDumpFrame("shot_am32_quiet.ppm");
+		while (fakeAm32Handshakes() == greets && millis() - t0 < 2000) frames(1);
+		checkInt("the first greeting 1000 ms after the quiet phase began", (long)(millis() - t0), 1000);
+		checkTrue("WAITING... (TRY 1)", strcmp(s_status, "WAITING... (TRY 1)") == 0);
+		frames(1);
+		frames(1);
+		checkInt("3 greetings, one a frame", fakeAm32Handshakes() - greets, 3);
+		checkTrue("WAITING... (TRY 3)", strcmp(s_status, "WAITING... (TRY 3)") == 0);
+		uint32_t t1 = millis();
+		frames(1);
+		checkTrue("then quiet: LINE HIGH, NOTHING SENT", strcmp(s_status, AM32_UI_QUIET) == 0);
+		while (fakeAm32Handshakes() == greets + 3 && millis() - t1 < 2000) frames(1);
+		checkInt("the next burst 1000 ms after the third greeting", (long)(millis() - t1), 1000);
+		checkTrue("tries counted in greet phases only: TRY 4", strcmp(s_status, "WAITING... (TRY 4)") == 0);
+		frames(2);
+		checkInt("3 greetings again", fakeAm32Handshakes() - greets, 6);
+		// An AM32 answer in a burst opens the AM32 list, as before.
+		fakeAm32Silent(false);
+		frames(50);
+		checkTrue("an AM32 answer in the next burst: the list", s_state == S_LIST && !pinClaimLeavePage());
+		checkInt("its greeting was the burst's first", fakeAm32Handshakes() - greets, 7);
+		leaveAm32ToTester();
+	}
+
+	section("ESC SETTINGS: a Bluejay 0.21 ESC, read through the escwire job");
+	{
+		am32NoCard();
+		efm8Esc(0xB2, true);
+		int ends = fakeAm32Ends();
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the answer: the session page", s_state == S_EW);
+		checkTrue("the transport let go of SIG", fakeAm32Ends() == ends + 1);
+		checkTrue("the claim has the leave page, MENU the run cue", pinClaimLeavePage() && s_blReached);
+		checkTrue("the claim's job is asked for", core1JobRunning() == Core1Job::EscWire);
+		frames(1);
+		checkTrue("the job binds SIG on core1", fakeEwOpens() == 1 && fakeEwGpio() == settings()->dshotPin &&
+		          pinClaimState() == ClaimState::Running);
+		checkTrue("the status: EFM8 E8B2 ANSWERED: READING.",
+		          strcmp(s_status, "EFM8 E8B2 ANSWERED: READING.") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("28 characters, 167 px", gfxTextW(s_status, 1) == 167);
+		checkTrue("EFM8 BOOTLOADER, y 84, in place of POWER-CYCLE THE ESC",
+		          fakeTextCentredIs(84, AM32_UI_EW_HEAD, C_TEXT, C_BG, 2) &&
+		          !fakeTextCentredIs(84, "POWER-CYCLE THE ESC", UI_COL_WARN, C_BG, 2));
+		checkTrue("its three lines", fakeTextCentredIs(116, AM32_UI_EW_1, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(130, AM32_UI_EW_2, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(144, AM32_UI_EW_3, C_DIM, C_BG, 1));
+		checkTrue("BACK the one control", ctlEnabled(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(Am32Ctl::Write)));
+		checkControlTable("ESC SETTINGS, the EFM8 session reading");
+		fakeDumpFrame("shot_am32_efm8.ppm");
+
+		checkTrue("the list opens", untilState(S_EW_LIST, 120));
+		sim_t *e = fakeEwSim();
+		checkTrue("nothing erased or programmed", e->erases == 0 && e->programs == 0);
+		checkTrue("the page as the ESC holds it, 255 bytes", s_ewId.len == 255 &&
+		          memcmp(s_ewPage, efm8Page(), 255) == 0);
+		checkInt("17 rows", s_ewRowCount, 17);
+		frames(1);
+		checkControlTable("ESC SETTINGS, the EFM8 list");
+		checkTrue("ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT, C_PANEL, 2));
+		checkTrue("the strip: BLUEJAY 0.21  LAYOUT 208  E8B2, dim",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "BLUEJAY 0.21  LAYOUT 208  E8B2", C_DIM, C_BG, 1));
+		UiRect r0 = ctlRect(UI_ROW(0, Row));
+		checkTrue("row 0: MOTOR, DIRECTION NORMAL, editable: label dim, value in the text colour",
+		          fakeTextIs(UI_MARGIN, r0.y + 11, "MOTOR", C_GRID, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, r0.y + 21, "DIRECTION", C_DIM, C_BG, 1) &&
+		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("NORMAL", 2), r0.y + 13, "NORMAL", C_TEXT, C_BG, 2));
+		checkTrue("no edit: WRITE... and REVERT drawn disabled, HEX live",
+		          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)) &&
+		          ctlEnabled(UI_FIX(Am32Ctl::Hex)));
+		checkTrue("the bar's lines", fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_EDIT, C_GRID, C_BG, 1) &&
+		          fakeTextCentredIs(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, C_BG, 1));
+		checkTrue("21 and 33 characters, 125 and 197 px", gfxTextW(EFM8_UI_BAR_EDIT, 1) == 125 &&
+		          gfxTextW(AM32_UI_EW_BAR_2, 1) == 197);
+		fakeDumpFrame("shot_efm8_list.ppm");
+		tapId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
+		checkTrue("WRITE... does nothing", s_state == S_EW_LIST && e->erases == 0 && e->programs == 0);
+		checkTrue("3D off: no note", !esc3dNote());
+
+		section("ESC SETTINGS: the EFM8 list's strip notes");
+		checkTrue("TEMPERATURE selected", ewTapRow("TEMPERATURE"));
+		checkTrue("at OFF: PROTECTION OFF", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROT_2, UI_COL_WARN, C_BG, 1));
+		checkTrue("selected: the row's fill", fakeTextIs(UI_MARGIN, ctlRect(UI_ROW(s_ewSel, Row)).y + 21,
+		                                                 "TEMPERATURE", C_TEXT, C_PANEL, 1));
+		checkTrue("POWER RATING selected", ewTapRow("POWER RATING"));
+		checkTrue("its note", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_RATING_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_RATING_2, UI_COL_WARN, C_BG, 1));
+		fakeDumpFrame("shot_efm8_note.ppm");
+		checkTrue("LED selected: the caption again", ewTapRow("LED") &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "BLUEJAY 0.21  LAYOUT 208  E8B2", C_DIM, C_BG, 1));
+		checkTrue("LED edits: - and +", ctlEnabled(UI_FIX(Am32Ctl::EditMinus)) &&
+		          ctlEnabled(UI_FIX(Am32Ctl::EditPlus)));
+		checkTrue("PWM INDICATOR selected: shown only, its label grey", ewTapRow("PWM INDICATOR") &&
+		          fakeTextIs(UI_MARGIN, ctlRect(UI_ROW(s_ewSel, Row)).y + 21, "PWM INDICATOR", C_GRID, C_PANEL, 1));
+		checkTrue("no -, no +", !ctlPresent(UI_FIX(Am32Ctl::EditMinus)) && !ctlPresent(UI_FIX(Am32Ctl::EditPlus)));
+		uint8_t pwm = s_ewDraft[0x0A];
+		UiRect rl = ctlRect(UI_ROW(s_ewSel, Row));
+		swipe(rl.x + 40, rl.x + 200, rl.y + rl.h / 2, 8);
+		checkTrue("a swipe on it changes nothing", s_ewDraft[0x0A] == pwm && !ewEdited() && e->programs == 0);
+
+		section("ESC SETTINGS: ESC HEX of a Bluejay page");
+		uiListScrollTo(&s_list, 0);
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("ESC HEX", s_hexView && fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE_HEX,
+		                                             C_TEXT, C_PANEL, 2));
+		checkTrue("32 lines of 8 bytes, the list scrolls", s_list.rows == 32 && uiListMaxScroll(&s_list) > 0);
+		char line0[40];
+		snprintf(line0, sizeof(line0), "00 %02X %02X %02X %02X %02X %02X %02X %02X ", s_ewPage[0], s_ewPage[1],
+		         s_ewPage[2], s_ewPage[3], s_ewPage[4], s_ewPage[5], s_ewPage[6], s_ewPage[7]);
+		checkTrue("line 0: the offset and 8 bytes", fakeTextIs(UI_MARGIN, LIST_Y0, line0, C_DIM, C_BG, 1));
+		fakeDumpFrame("shot_efm8_hex.ppm");
+		fakePress(120, 210);
+		frames(1);
+		for (int y = 210; y >= 0; y -= 10) {
+			fakeHold(120, y);
+			frames(1);
+		}
+		fakeRelease();
+		frames(1);
+		checkTrue("dragged up: the last line, F8 and 7 bytes", s_list.scrollPx == uiListMaxScroll(&s_list));
+		char last[40];
+		snprintf(last, sizeof(last), "F8 %02X %02X %02X %02X %02X %02X %02X ", s_ewPage[0xF8], s_ewPage[0xF9],
+		         s_ewPage[0xFA], s_ewPage[0xFB], s_ewPage[0xFC], s_ewPage[0xFD], s_ewPage[0xFE]);
+		int lastY = LIST_Y0 + 31 * HEX_ROW_H - s_list.scrollPx;
+		checkTrue("its text", fakeTextIs(UI_MARGIN, lastY, last, C_DIM, C_BG, 1));
+		checkTrue("no rows to tap", !ctlPresent(UI_ROW(0, Row)));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK on ESC HEX: the list", s_state == S_EW_LIST && !s_hexView);
+
+		section("ESC SETTINGS: BACK from the EFM8 list sends LEAVE");
+		uint32_t t0 = millis();
+		int leaveAt = -1;
+		tapId(UI_FIX(Am32Ctl::Hex));
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("the list", s_state == S_EW_LIST && !s_hexView);
+		// The exit page, one frame after BACK.
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: LEAVING, BACK drawn disabled", s_state == S_EW_EXIT && !ctlEnabled(UI_FIX(UI_BACK)) &&
+		          backLook() == BackLook::Disabled);
+		checkTrue("its lines", fakeTextCentredIs(84, AM32_UI_EXIT_HEAD, C_TEXT, C_BG, 2) &&
+		          fakeTextCentredIs(116, AM32_UI_EXIT_1, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(130, AM32_UI_EXIT_2, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(144, AM32_UI_EXIT_3, UI_COL_WARN, C_BG, 1));
+		checkControlTable("ESC SETTINGS, LEAVE going out");
+		fakeDumpFrame("shot_efm8_leaving.ppm");
+		bool page = false;
+		for (int i = 0; i < 40 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+			frames(1);
+			page = page || s_state == S_LEAVE;
+		}
+		for (int i = 0; i < e->starts; i++)
+			if (fakeEwSentLeave(i)) leaveAt = i;
+		checkTrue("LEAVE went out: 00 01 and its CRC, the last frame", leaveAt >= 0 && leaveAt == e->starts - 1);
+		checkTrue("then MENU, with no leave page", uiCurrentScreen() == UiScreenId::Menu && !page);
+		checkTrue("300 ms of low line first", millis() - t0 >= 300);
+		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
+		checkTrue("the job idle when DShot was asked back", fakeResumeJobIdle());
+		frames(2);
+		checkTrue("the claim ends; LEAVE has no answer, so the run cue stands",
+		          pinClaimState() == ClaimState::Free && s_blReached && menuRunCueShown());
+		checkTrue("an eRPM frame from before the answer leaves it", uiAm32RunCue(s_blReachedMs - 1));
+		checkTrue("one after LEAVE clears it", !uiAm32RunCue(millis()) && !s_blReached);
+		checkTrue("the line closed", fakeEwCloses() == 1 && !fakeEwOpen());
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: BLHeli_S 16.7 in 3D");
+	{
+		efm8Esc(0xB1, false);
+		efm8Page()[0x0B] = 3;
+		checkTrue("the list opens", efm8Read());
+		frames(1);
+		checkTrue("BLHeli_S 33: 15 rows, 112 bytes", s_ewRowCount == 15 && s_ewId.len == 112);
+		checkTrue("the strip: the 3D note", fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_3D_1, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_3D_2, UI_COL_WARN, C_BG, 1));
+		UiRect r1 = ctlRect(UI_ROW(1, Row));
+		checkTrue("DIRECTION, row 1: 3D", strcmp(s_ewRows[1].f->name, "DIRECTION") == 0 &&
+		          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("3D", 2), r1.y + 13, "3D", C_TEXT, C_BG, 2));
+		checkTrue("the tester's 3D note is set", esc3dNote());
+		fakeDumpFrame("shot_efm8_3d.ppm");
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("ESC HEX: 14 lines, no scroll", s_list.rows == 14 && uiListMaxScroll(&s_list) == 0);
+		tapId(UI_FIX(UI_BACK));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+		frames(2);
+		checkTrue("the tester shows the 3D note", tester3dShown());
+
+		efm8Esc(0xB1, false);
+		checkTrue("the same ESC at NORMAL: the list", efm8Read());
+		checkTrue("the note cleared", !esc3dNote());
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: read-only lists");
+	{
+		efm8Esc(0xB2, true);
+		efm8Page()[0x01] = 19;
+		efm8Page()[0x02] = 206;
+		efm8Page()[0x06] = 1;  // DITHERING ON: the byte Bluejay 0.19 has there
+		checkTrue("Bluejay 0.19, layout 206: the list", efm8Read());
+		frames(1);
+		checkTrue("BLUEJAY 0.19, LAYOUT 206: READ-ONLY., amber",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, "BLUEJAY 0.19, LAYOUT 206: READ-ONLY.", UI_COL_WARN, C_BG, 1));
+		checkTrue("SHOWN ONLY. NO BACKUP SAVED., amber",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_SHOWN_ONLY, UI_COL_WARN, C_BG, 1));
+		checkTrue("rows read-only, WRITE... disabled", ctlPresent(UI_ROW(0, Row)) && !ctlEnabled(UI_FIX(Am32Ctl::Write)));
+		checkTrue("layout 206: POWER RATING, no SAFETY ARM", ewRowOf("POWER RATING") >= 0 && ewRowOf("SAFETY ARM") < 0);
+		fakeDumpFrame("shot_efm8_readonly.ppm");
+		checkTrue("a selected row's note outranks it", ewTapRow("POWER RATING") &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_RATING_1, UI_COL_WARN, C_BG, 1));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+
+		efm8Esc(0xB2, false);
+		memset(efm8Page() + 0x40, 0xFF, 48);
+		checkTrue("BLHeli_S whose tags read 0xFF: the list", efm8Read());
+		frames(1);
+		checkTrue("ESC LOST ITS TAGS: READ-ONLY.",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_LOST_TAGS, UI_COL_WARN, C_BG, 1) &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_REFLASH, UI_COL_WARN, C_BG, 1));
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+
+		efm8Esc(0xB2, true);
+		efm8Page()[0x0E] = 0x00;
+		efm8Page()[0x0B] = 4;
+		checkTrue("Bluejay whose marker is wrong, DIRECTION 3D REVERSED: the list", efm8Read());
+		frames(1);
+		checkTrue("SETTINGS MARKER WRONG: READ-ONLY.",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_MARKER, UI_COL_WARN, C_BG, 1));
+		checkTrue("the tester's 3D note left as it was", !esc3dNote());
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a page not taken, then BACK: the leave page of decision 8");
+	{
+		efm8Esc(0xB2, true);
+		memset(efm8Page(), 0xFF, 256);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		for (int i = 0; i < 80 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
+		frames(1);
+		checkTrue("the connect page stays", s_state == S_EW && s_ewRowCount == 0);
+		checkTrue("EFM8 E8B2: SETTINGS PAGE EMPTY, y 176",
+		          strcmp(s_status, "EFM8 E8B2: SETTINGS PAGE EMPTY") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("its two lines, y 196 and 210", fakeTextCentredIs(196, EFM8_UI_EMPTY_1, C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(210, EFM8_UI_EMPTY_2, C_AMBER, C_BG, 1));
+		checkTrue("no POWER-CYCLE THE ESC", fakeTextCentredIs(84, AM32_UI_EW_HEAD, C_TEXT, C_BG, 2));
+		checkTrue("BACK the one control", !ctlPresent(UI_FIX(Am32Ctl::Write)) && ctlEnabled(UI_FIX(UI_BACK)));
+		fakeDumpFrame("shot_efm8_empty.ppm");
+		frames(40);
+		checkTrue("it stays: the job idle in mode", s_state == S_EW && fakeEwSim()->starts == 3);
+
+		sim_t *e = fakeEwSim();
+		int resumes = fakeResumeCount(), starts = e->starts;
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, the screen stays", uiCurrentScreen() == UiScreenId::Am32 &&
+		          s_state == S_LEAVE);
+		frames(1);
+		checkTrue("no DShot, the job keeps SIG", fakeResumeCount() == resumes && fakeEwOpen() &&
+		          escTaskSuspended() && pinClaimHolder() == PinUser::Am32);
+		checkControlTable("ESC SETTINGS, the leave page before LEAVE");
+		checkTrue("BACK drawn disabled", !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+		checkTrue("titled ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT,
+		                                            C_PANEL, 2));
+		char strip[32];
+		snprintf(strip, sizeof(strip), "EFM8 E8B2  SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip: EFM8 E8B2  SIG GP0", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		const int y1 = UI_LEAVE_STEP_Y, y2 = y1 + 3 * UI_LEAVE_LINE_H + UI_LEAVE_STEP_GAP;
+		checkTrue("step 1, current: UNPLUG THE ESC BATTERY, THEN LEAVE.",
+		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, true));
+		checkTrue("its detail lines", leaveStepIs(y1 + 12, 0, AM32_UI_LEAVE_1A, true) &&
+		          leaveStepIs(y1 + 24, 0, AM32_UI_LEAVE_1B, true));
+		checkTrue("step 2: PLUG IT IN AFTER RESTART DSHOT.", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, false));
+		checkTrue("step 1 is 35 characters, 209 px, to x 228",
+		          strlen(AM32_UI_LEAVE_1) == 35 && UI_LEAVE_TEXT_X + gfxTextW(AM32_UI_LEAVE_1, 1) == 229);
+		checkTrue("the others 33, 26 and 31 characters",
+		          strlen(AM32_UI_LEAVE_1A) == 33 && strlen(AM32_UI_LEAVE_1B) == 26 &&
+		          strlen(AM32_UI_LEAVE_2) == 31);
+		checkTrue("STAY and LEAVE live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
+		checkTrue("no note", leaveNoteBlank(0));
+		fakeDumpFrame("shot_am32_leave.ppm");
+
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the connect page, the claim and the job kept", s_state == S_EW &&
+		          pinClaimHolder() == PinUser::Am32 && escTaskSuspended() && fakeEwOpen());
+		frames(2);
+		checkTrue("the page still named", fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1) &&
+		          strcmp(s_status, "EFM8 E8B2: SETTINGS PAGE EMPTY") == 0);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
+
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(1);
+		checkTrue("LEAVE: the job lets go of SIG, no frame sent", !fakeEwOpen() && e->starts == starts);
+		checkTrue("and DShot waits", fakeResumeCount() == resumes &&
+		          pinClaimState() == ClaimState::Leaving && pinClaimUnplugDue());
+		checkControlTable("ESC SETTINGS, the leave page after LEAVE");
+		checkTrue("step 2 current, step 1 not", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, true) &&
+		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, false));
+		auto leftBlank = []() {
+			const uint16_t *fb = gfxBuffer();
+			const UiRect &r = UI_LEAVE_LEFT;
+			for (int y = r.y; y < r.y + r.h; y++)
+				for (int x = r.x; x < r.x + r.w; x++)
+					if (fb[y * GFX_W + x] != C_BG) return false;
+			return true;
+		};
+		checkTrue("no left button after LEAVE", !ctlPresent(UI_FIX(Am32Ctl::Stay)) && leftBlank());
+		checkTrue("RESTART DSHOT drawn disabled", leaveWideIs("RESTART DSHOT", false) &&
+		          !ctlEnabled(UI_FIX(Am32Ctl::Restart)));
+		tapId(UI_FIX(Am32Ctl::Restart), IdExpect::Disabled);
+		checkTrue("a tap before 1000 ms restarts nothing", fakeResumeCount() == resumes &&
+		          s_state == S_LEAVE);
+		frames(37);
+		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Restart)) &&
+		          leaveWideIs("RESTART DSHOT", true));
+		checkTrue("the run cue still stands", uiAm32RunCue(0));
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
+		frames(2);
+		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
+		checkTrue("the claim ends", pinClaimState() == ClaimState::Free);
+		checkTrue("no LEAVE frame went", e->starts == starts);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a page not known");
+	{
+		efm8Esc(0xB5, false);
+		memcpy(efm8Page() + 0x60, "SOMETHING ELSE..", 16);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		for (int i = 0; i < 80 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
+		frames(1);
+		checkTrue("EFM8 E8B5: PAGE NOT KNOWN", strcmp(s_status, "EFM8 E8B5: PAGE NOT KNOWN") == 0 &&
+		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
+		checkTrue("its two lines", fakeTextCentredIs(196, EFM8_UI_REFUSED_1, C_AMBER, C_BG, 1) &&
+		          fakeTextCentredIs(210, EFM8_UI_REFUSED_2, C_AMBER, C_BG, 1));
+		fakeDumpFrame("shot_efm8_refused.ppm");
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: BACK while the job reads");
+	{
+		efm8Esc(0xB2, true);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(3);
+		checkTrue("entering", s_state == S_EW && fakeEwOpen());
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the session page", s_state == S_EW);
+		checkTrue("the read goes on: the list", untilState(S_EW_LIST, 120));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+
+		efm8Esc(0xB2, true);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(3);
+		tapId(UI_FIX(UI_BACK));
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(1);
+		checkTrue("LEAVE while entering: the job cut, SIG let go, DShot waits",
+		          !fakeEwOpen() && core1JobPhase() == Core1JobPhase::Idle && fakeResumeCount() == resumes);
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		          fakeResumeCount() == resumes + 1);
+		bool sent = false;
+		for (int i = 0; i < fakeEwSim()->starts; i++) sent = sent || fakeEwSentLeave(i);
+		checkTrue("no LEAVE frame went", !sent);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an ESC that answers the greeting, then not escwire");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwSim()->dead = true;
+		fakeAm32Silent(false);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
+		enterAm32(1);
+		fakeAm32Silent(true);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the session page", s_state == S_EW);
+		int pinBefore = fakeAm32Pin();
+		fakeAm32Reset();
+		checkTrue("silent: the cycle greets again", untilState(S_CONNECT, 400));
+		(void)pinBefore;
+		checkTrue("the job idle, the transport has SIG again", core1JobPhase() == Core1JobPhase::Idle &&
+		          !fakeEwOpen() && fakeAm32Pin() == settings()->dshotPin);
+		checkTrue("the claim Held, its leave page kept", pinClaimState() == ClaimState::Held && pinClaimLeavePage());
+		frames(1);
+		checkTrue("THE ESC ANSWERED, THEN STOPPED., y 196", fakeTextCentredIs(196, AM32_UI_EW_STOPPED_1, C_AMBER, C_BG, 1));
+		checkTrue("SEARCHING AGAIN., y 210", fakeTextCentredIs(210, AM32_UI_EW_STOPPED_2, C_AMBER, C_BG, 1));
+		checkTrue("the quiet phase's status", strcmp(s_status, AM32_UI_QUIET) == 0);
+		checkTrue("POWER-CYCLE THE ESC again", fakeTextCentredIs(84, "POWER-CYCLE THE ESC", UI_COL_WARN, C_BG, 2));
+		fakeDumpFrame("shot_efm8_stopped.ppm");
+		int greets = fakeAm32Handshakes();
+		frames(42);
+		checkTrue("the next burst greets; the lines stay", fakeAm32Handshakes() > greets &&
+		          fakeTextCentredIs(196, AM32_UI_EW_STOPPED_1, C_AMBER, C_BG, 1));
+		fakeAm32Silent(false);
+
+		section("ESC SETTINGS: after an EFM8 answer, BACK from the AM32 list opens the leave page");
+		frames(45);
+		checkTrue("a later AM32 answer: the list, the leave page kept",
+		          s_state == S_LIST && pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		checkTrue("POLES steps", am32Step("POLES"));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("one change: the first BACK arms the guard", s_state == S_LIST && s_guard.armed);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the second BACK: the leave page, not MENU", uiCurrentScreen() == UiScreenId::Am32 &&
+		          s_state == S_LEAVE);
+		checkTrue("and no DShot", fakeResumeCount() == resumes && escTaskSuspended());
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the list, the edit kept, the guard disarmed",
+		          s_state == S_LIST && anyDirty() && !s_guard.armed);
+		tapId(UI_FIX(Am32Ctl::Hex));
+		checkTrue("ESC HEX", s_state == S_LIST && s_hexView);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK on ESC HEX: the list, not the leave page", s_state == S_LIST && !s_hexView);
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the guard's second BACK again: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		frames(2);
+		checkTrue("the claim ends, the cue cleared", pinClaimState() == ClaimState::Free && !s_blReached);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: after an EFM8 answer, BACK from the read-only view opens the leave page");
+	{
+		const uint8_t lay = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
+		efm8Esc(0xB2, true);
+		fakeEwSim()->dead = true;
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("silent: the cycle greets again", untilState(S_CONNECT, 400));
+		frames(45);
+		checkTrue("a later AM32 answer, layout 5: the read-only view, the leave page kept",
+		          s_state == S_VIEW && pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes &&
+		          escTaskSuspended());
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the read-only view", s_state == S_VIEW);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a LEAVE that does not go out");
+	{
+		efm8Esc(0xB2, true);
+		checkTrue("the list", efm8Read());
+		sim_script(fakeEwSim(), F_START_FALSE, 0, 1, 0);
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: LEAVING", s_state == S_EW_EXIT);
+		checkTrue("the driver refuses the frame: the leave page", untilState(S_LEAVE, 20));
+		checkTrue("no DShot, the cue stands", fakeResumeCount() == resumes && s_blReached);
+		tapId(UI_FIX(Am32Ctl::Stay));
+		checkTrue("STAY: the session ended, the cycle greets again", untilState(S_CONNECT, 40) &&
+		          pinClaimLeavePage());
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		          fakeResumeCount() == resumes + 1);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a LEAVE the job refuses for a lapsed heartbeat is asked again");
+	{
+		efm8Esc(0xB2, true);
+		checkTrue("the list", efm8Read());
+		int resumes = fakeResumeCount(), n = fakeEwSim()->starts;
+		UiRect back = ctlRect(UI_FIX(UI_BACK));
+		fakePress(back.x + back.w / 2, back.y + back.h / 2);
+		frames(2);
+		fakeRelease();
+		fakeAdvance(1);
+		fakePumpPoll();
+		uiTick();
+		checkTrue("BACK: LEAVING", s_state == S_EW_EXIT);
+		// Core1 takes the command only after a stall of core0 longer than the
+		// heartbeat's 250 ms.
+		fakeAdvance(300);
+		core1JobPoll();
+		EwJobStatus st;
+		escwireJobStatus(&st);
+		checkTrue("the job refuses it, nothing sent, the ESC still in mode",
+		          st.refused == EwJobRefusal::NoUi && st.inMode && fakeEwSim()->starts == n);
+		bool page = false;
+		for (int i = 0; i < 40 && uiCurrentScreen() == UiScreenId::Am32; i++) {
+			frames(1);
+			page = page || s_state == S_LEAVE;
+		}
+		checkTrue("asked again: LEAVE went out, MENU, no leave page",
+		          fakeEwSentLeave(n) && uiCurrentScreen() == UiScreenId::Menu && !page &&
+		          fakeResumeCount() == resumes + 1);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an AM32 answers the session's own contact");
+	{
+		efm8Esc(0xB2, true);
+		sim_init_am(fakeEwSim(), 3, 2);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the session page", s_state == S_EW);
+		checkTrue("not an EFM8: the cycle greets again", untilState(S_CONNECT, 200) && pinClaimLeavePage());
+		EwJobStatus st;
+		escwireJobStatus(&st);
+		checkTrue("its page was not read, nothing written", st.contact.cpu == EW_CPU_ARM && !st.haveRead &&
+		          fakeEwSim()->programs == 0);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an EFM8 answer with a byte lost brings the leave page");
+	{
+		// `471`, the `d` lost, then E8 B2 06 01 30: no EFM8 answer by the
+		// rule, a piece of one.
+		static const uint8_t CUT[8] = { '4', '7', '1', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		s_blReached = false;
+		fakeAm32Garble(CUT, sizeof(CUT));
+		enterAm32(1);
+		checkTrue("the bytes, REPLY NOT UNDERSTOOD:", s_state == S_CONNECT && s_connectNote == CN_GARBLED &&
+		          fakeTextCentredIs(196, "REPLY NOT UNDERSTOOD:", C_AMBER, C_BG, 1));
+		fakeAm32Garble(nullptr, 0);
+		fakeAm32Silent(true);
+		frames(1);
+		checkTrue("no job, the leave page and the run cue set", core1JobRunning() == Core1Job::None &&
+		          pinClaimLeavePage() && s_blReached);
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes);
+		char strip[32];
+		snprintf(strip, sizeof(strip), "EFM8  SIG GP%u", (unsigned)settings()->dshotPin);
+		checkTrue("the strip names no part: EFM8  SIG GP0",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU, the cue cleared",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 && !s_blReached);
+		fakeAm32Silent(false);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: the job's bind refused");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwRefuse(EW_LINE_ERR_DMA);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		char want[48];
+		snprintf(want, sizeof(want), "SIG GP%u COULD NOT BE TAKEN (DMA)", (unsigned)settings()->dshotPin);
+		checkTrue("SIG GP0 COULD NOT BE TAKEN (DMA), y 176", s_state == S_EW && strcmp(s_status, want) == 0 &&
+		          fakeTextCentredIs(176, want, C_AMBER, C_BG, 1));
+		checkTrue("nothing opened, the claim Held, its leave page set", fakeEwOpens() == 0 &&
+		          pinClaimState() == ClaimState::Held && pinClaimLeavePage());
+		checkTrue("SIG on its pull-up, not floating", fakePin(settings()->dshotPin).pull == FakePull::Up);
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: the leave page", s_state == S_LEAVE);
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		          fakeResumeCount() == resumes + 1);
+		fakeEwRefuse(0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: a pin the job's line driver does not take");
+	{
+		efm8Esc(0xB2, true);
+		fakeEwRefuse(EW_LINE_ERR_ARG);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		frames(2);
+		char want[48];
+		snprintf(want, sizeof(want), "SIG GP%u COULD NOT BE TAKEN (PIN)", (unsigned)settings()->dshotPin);
+		checkTrue("SIG GP0 COULD NOT BE TAKEN (PIN)", s_state == S_EW && strcmp(s_status, want) == 0);
+		tapId(UI_FIX(UI_BACK));
+		tapId(UI_FIX(Am32Ctl::Leave));
+		frames(45);
+		tapId(UI_FIX(Am32Ctl::Restart));
+		checkTrue("BACK, LEAVE, RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		fakeEwRefuse(0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: an answer with a glitch byte after it is an EFM8's");
+	{
+		fakeEwReset(0xB2, true);
+		uint8_t a[10];
+		memcpy(a, EFM8_ANSWER, 9);
+		a[9] = 0xFF;
+		fakeAm32Garble(a, 10);
+		enterAm32(1);
+		fakeAm32Garble(nullptr, 0);
+		checkTrue("the session page, the leave page set", s_state == S_EW && pinClaimLeavePage());
+		checkTrue("the list", untilState(S_EW_LIST, 120));
+		int leaveAt = -1;
+		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		frames(2);
+		tapId(UI_FIX(UI_BACK));
+	}
+
+	section("ESC SETTINGS: the leave page goes with the claim");
+	{
+		enterAm32(6);
+		checkTrue("an AM32 answer: the list", s_state == S_LIST && !pinClaimLeavePage());
+		int resumes = fakeResumeCount();
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK: MENU, DShot asked back within BACK",
+		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		// The AM32 handshake set the cue; an eRPM frame after an EFM8
+		// answer clears it as after a handshake.
+		s_blReachedMs = millis();
+		checkTrue("an eRPM frame after the answer clears the cue",
+		          uiAm32RunCue(s_blReachedMs - 1) && !uiAm32RunCue(s_blReachedMs + 1));
+		frames(1);
+		tapId(UI_FIX(UI_BACK));
+	}
+}
+
 static void testAm32Guidance() {
 	// No eRPM for the rest of this test unless it stamps one.
 	EscTelemetry quiet;
@@ -4042,8 +7648,10 @@ static void testAm32Guidance() {
 	{
 		static const uint8_t junk[3] = { 0x55, 0xAA, 0x01 };
 		fakeAm32Garble(junk, 3);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
+		checkTrue("no piece of an EFM8 answer: no leave page", !pinClaimLeavePage() && !s_efm8Seen);
 		checkTrue("the bytes once in the page, y 176",
 		          fakeTextCentredIs(176, s_status, C_AMBER, C_BG, 1));
 		checkTrue("REPLY NOT UNDERSTOOD:, y 196",
@@ -4062,9 +7670,11 @@ static void testAm32Guidance() {
 	section("AM32 connect: silence shows the page alone");
 	{
 		fakeAm32Silent(true);
+		fakeClockAlign(FAKE_SPINNER_TURN_MS);
 		enterAm32(4);
 		checkTrue("still connecting", s_state == S_CONNECT);
-		checkTrue("POWER-CYCLE THE ESC, y 84", fakeTextCentredIs(84, "POWER-CYCLE THE ESC", C_LIME, C_BG, 2));
+		checkTrue("POWER-CYCLE THE ESC, y 84, amber: the current step",
+		          fakeTextCentredIs(84, "POWER-CYCLE THE ESC", C_AMBER, C_BG, 2));
 		int x0 = 0, x1 = 0;
 		checkTrue("no note at y 196 to y 231", !fakeInkExtent(196, 36, C_BG, &x0, &x1) ||
 		          (x0 >= GFX_W / 2 - 42 && x1 <= GFX_W / 2 + 42));
@@ -4091,14 +7701,15 @@ static void testAm32Guidance() {
 		checkTrue("the ESC's settings are untouched", same);
 		checkTrue("the handshake reached the bootloader: MENU's cue stands", s_blReached);
 		fakeAm32Blank(false);
-		frames(2);
+		// The burst after the next quiet second.
+		frames(45);
 		checkTrue("a good read opens the list", s_state == S_LIST);
 		tapId(UI_FIX(UI_BACK));
 		frames(2);
 		checkTrue("MENU: " AM32_UI_RUN_CUE " in amber under the caption", menuRunCueShown());
-		char cap[32];
-		snprintf(cap, sizeof(cap), "GP%u  %u KBIT/S", (unsigned)settings()->dshotPin,
-		         (unsigned)settings()->dshotKbaud);
+		char cap[40];
+		snprintf(cap, sizeof(cap), "SIG GP%u  AUX GP%u  DSHOT%u", (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin, (unsigned)settings()->dshotKbaud);
 		checkTrue("the caption stays on the first line",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, cap, C_DIM, C_BG, 1));
 		int x0 = 0, x1 = 0;
@@ -4139,33 +7750,6 @@ static void testAm32Guidance() {
 		checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 	}
 
-	section("AM32 connect: a layout the table is not checked against");
-	{
-		uint8_t rev = fakeEscByte(AM32_OFF_LAYOUT_REVISION);
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 5);
-		enterAm32(6);
-		checkTrue("the connect page stays: LAYOUT 5 NOT KNOWN",
-		          s_state == S_CONNECT && strcmp(s_status, "LAYOUT 5 NOT KNOWN") == 0);
-		checkTrue("the text is built from the constants: LAYOUTS 2 TO 4",
-		          strcmp(AM32_UI_LAYOUT_1, "THE TESTER KNOWS LAYOUTS 2 TO 4.") == 0);
-		checkTrue(AM32_UI_LAYOUT_1 ", y 196",
-		          fakeTextCentredIs(196, AM32_UI_LAYOUT_1, C_AMBER, C_BG, 1));
-		checkTrue(AM32_UI_NO_SETTINGS_2 ", y 210",
-		          fakeTextCentredIs(210, AM32_UI_NO_SETTINGS_2, C_AMBER, C_BG, 1));
-		checkTrue("no WRITE to hold", !ctlPresent(UI_FIX(Am32Ctl::Write)));
-		fakeDumpFrame("shot_am32_layout.ppm");
-		// Layout 1 is AlkaMotors before 1.78, which reads nothing above 0x29.
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 1);
-		frames(2);
-		checkTrue("layout 1: LAYOUT 1 NOT KNOWN", s_state == S_CONNECT &&
-		          strcmp(s_status, "LAYOUT 1 NOT KNOWN") == 0);
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, 4);
-		frames(2);
-		checkTrue("layout 4 opens the list", s_state == S_LIST);
-		fakeEscSet(AM32_OFF_LAYOUT_REVISION, rev);
-		leaveAm32ToTester();
-	}
-
 	section("AM32 list on firmware 2.22, layout 4: the values only it accepts");
 	{
 		uint8_t keep[AM32_SETTINGS_SIZE];
@@ -4199,7 +7783,7 @@ static void testAm32Guidance() {
 		frames(1);
 		checkTrue("  an active limit: no protection note",
 		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
-		checkTrue("  the editor reads 200A", fakeTextCentredIs(EDIT_Y + 14, "200A", C_AMBER, C_BG, 2));
+		checkTrue("  the editor reads 200A, changed: cyan", fakeTextCentredIs(EDIT_Y + 14, "200A", C_CYAN, C_BG, 2));
 		// LOW VOLT CUTOFF: + from CELL is ABSOLUTE, and ABS VOLT CUT reads volts.
 		const int vl = uiRowOf("LOW VOLT CUTOFF");
 		uiRowY("LOW VOLT CUTOFF"); frames(1);
@@ -4208,7 +7792,7 @@ static void testAm32Guidance() {
 		frames(1);
 		checkTrue("2.22: + from CELL is ABSOLUTE",
 		          uiByte(AM32_OFF_LOW_VOLT_CUTOFF) == 2 &&
-		          fakeTextCentredIs(EDIT_Y + 14, "ABSOLUTE", C_AMBER, C_BG, 2));
+		          fakeTextCentredIs(EDIT_Y + 14, "ABSOLUTE", C_CYAN, C_BG, 2));
 		checkTrue("  an active cutoff: no protection note",
 		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1));
 		const int va = uiRowOf("ABS VOLT CUT");
@@ -4216,8 +7800,8 @@ static void testAm32Guidance() {
 		uiRowY("ABS VOLT CUT"); frames(1);
 		tapId(UI_ROW(va, Row));
 		frames(1);
-		checkTrue("2.22: ABS VOLT CUT reads 10.0V",
-		          fakeTextCentredIs(EDIT_Y + 14, "10.0V", C_LIME, C_BG, 2));
+		checkTrue("2.22: ABS VOLT CUT reads 10.0V, as read: the text colour",
+		          fakeTextCentredIs(EDIT_Y + 14, "10.0V", C_TEXT, C_BG, 2));
 		fakeDumpFrame("shot_am32_fw222.ppm");
 		tapId(UI_FIX(Am32Ctl::Revert));
 		leaveAm32ToTester();
@@ -4287,7 +7871,7 @@ static void testAm32Guidance() {
 		frames(1);
 		char name[AM32_NAME_LEN + 1], cap[48];
 		am32DeviceName(s_eeprom, name);
-		snprintf(cap, sizeof(cap), "%s  %s  FW %u.%u", name, am32BlEscTypeName(),
+		snprintf(cap, sizeof(cap), "%s  %s  AM32 %u.%u", name, am32BlEscTypeName(),
 		         s_eeprom[AM32_OFF_MAIN_REVISION], s_eeprom[AM32_OFF_SUB_REVISION]);
 		checkTrue("edited off: the device caption is back",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, cap, C_DIM, C_BG, 1));
@@ -4310,8 +7894,8 @@ static void testAm32Guidance() {
 		frames(1);
 		const UiRect tr = ctlRect(UI_ROW(vt, Row));
 		checkTrue("the row reads OFF",
-		          fakeTextIs(GFX_W - 8 - gfxTextW("OFF", 2), tr.y + 13, "OFF", C_AMBER, C_PANEL, 2));
-		checkTrue("the editor reads OFF", fakeTextCentredIs(EDIT_Y + 14, "OFF", C_AMBER, C_BG, 2));
+		          fakeTextIs(GFX_W - 8 - gfxTextW("OFF", 2), tr.y + 13, "OFF", C_CYAN, C_PANEL, 2));
+		checkTrue("the editor reads OFF", fakeTextCentredIs(EDIT_Y + 14, "OFF", C_CYAN, C_BG, 2));
 		checkTrue("selected and off: the protection note",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_PROT_2, UI_COL_WARN, C_BG, 1));
@@ -4390,7 +7974,7 @@ static void testAm32Guidance() {
 			for (uint8_t k = 0; f->names && k < f->nameCount; k++)
 				if (gfxTextW(f->names[k], 2) > room) fits = false;
 		}
-		checkTrue("every value name fits the editor's 112 px at scale 2", fits && room == 112);
+		checkTrue("every value name fits the editor's 140 px at scale 2", fits && room == 140);
 		const uint8_t fw[2] = { fakeEscByte(AM32_OFF_MAIN_REVISION), fakeEscByte(AM32_OFF_SUB_REVISION) };
 		int wx, wy;
 		for (int old = 0; old < 2; old++) {
@@ -4407,8 +7991,8 @@ static void testAm32Guidance() {
 			frames(1);
 			const char *want = old ? "? (2)" : "ABSOLUTE";
 			checkTrue(old ? "1.35: the editor reads ? (2)" : "2.22: the editor reads ABSOLUTE",
-			          fakeTextCentredIs(EDIT_Y + 14, want, C_LIME, C_PANEL, 2) ||
-			          fakeTextCentredIs(EDIT_Y + 14, want, C_LIME, C_BG, 2));
+			          fakeTextCentredIs(EDIT_Y + 14, want, C_TEXT, C_PANEL, 2) ||
+			          fakeTextCentredIs(EDIT_Y + 14, want, C_TEXT, C_BG, 2));
 			checkTrue(old ? "1.35: AM32 does not cut off on 2: the protection note"
 			              : "2.22: no protection note",
 			          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) == (old == 1));
@@ -4419,7 +8003,7 @@ static void testAm32Guidance() {
 			tapId(UI_FIX(Am32Ctl::EditMinus));
 			uint8_t poles = uiByte(0x1B);
 			ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
-			pressId(UI_FIX(Am32Ctl::Write));
+			am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 			fakeRelease(); frames(3);
 			checkTrue("  written and verified, LOW VOLT CUTOFF still 2",
@@ -4427,7 +8011,7 @@ static void testAm32Guidance() {
 			tapId(UI_FIX(Am32Ctl::Ok));
 			// Put POLES back.
 			tapId(UI_FIX(Am32Ctl::EditPlus));
-			pressId(UI_FIX(Am32Ctl::Write));
+			am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 			fakeRelease(); frames(3);
 			tapId(UI_FIX(Am32Ctl::Ok));
@@ -4462,14 +8046,16 @@ static void testAm32Guidance() {
 		};
 		for (const Case &c : cases) {
 			c.arm();
-			pressId(UI_FIX(Am32Ctl::Write));
+			am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 			fakeRelease(); frames(3);
 			checkTrue(c.what, strncmp(s_status, c.prefix, strlen(c.prefix)) == 0);
-			checkTrue("  then " AM32_UI_RETRY " in amber, y 170",
-			          fakeTextCentredIs(170, AM32_UI_RETRY, UI_COL_WARN, C_BG, 1));
+			checkTrue("  the result in amber, y 196",
+			          fakeTextIs(UI_MARGIN, 196, s_status, UI_COL_WARN, C_BG, 1));
+			checkTrue("  then " AM32_UI_RETRY " in amber, y 208",
+			          fakeTextIs(UI_MARGIN, 208, AM32_UI_RETRY, UI_COL_WARN, C_BG, 1));
 			checkTrue("  and no power-cycle line",
-			          !fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+			          !fakeTextIs(UI_MARGIN, 208, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
 			int nx0 = 0, nx1 = 0;
 			checkTrue("  the caption alone on the strip: y 51 to 61 blank",
 			          !fakeInkExtent(51, 11, C_BG, &nx0, &nx1));
@@ -4480,22 +8066,22 @@ static void testAm32Guidance() {
 		}
 		// The hold again: the write runs and verifies. The frame the hold
 		// fires on draws WRITING... alone, without the last result's line.
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		int held = 0;
 		while (s_state != S_WRITING && held++ < 60) { fakeHold(wx, wy); frames(1); }
 		checkTrue("WRITING...: the last result's next step is gone",
 		          s_state == S_WRITING && strcmp(s_status, "WRITING...") == 0 &&
-		          !fakeTextCentredIs(170, AM32_UI_RETRY, UI_COL_WARN, C_BG, 1));
+		          !fakeTextIs(UI_MARGIN, 208, AM32_UI_RETRY, UI_COL_WARN, C_BG, 1));
 		for (int i = 0; i < 10; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("holding again writes and verifies", fakeEscByte(0x1B) == want && s_verified &&
-		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+		          fakeTextIs(UI_MARGIN, 208, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
 		checkInt("29 and 34 characters: 173 and 203 px",
 		         gfxTextW(AM32_UI_POWER_CYCLE, 1) * 1000 + gfxTextW(AM32_UI_RETRY, 1), 173203);
 		tapId(UI_FIX(Am32Ctl::Ok));
 		// Put the fake ESC back as it was.
 		tapId(UI_FIX(Am32Ctl::EditMinus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		tapId(UI_FIX(Am32Ctl::Ok));
@@ -4531,7 +8117,7 @@ static void testAm32Guidance() {
 			tapId(UI_FIX(Am32Ctl::EditPlus));
 			int wx, wy;
 			ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
-			pressId(UI_FIX(Am32Ctl::Write));
+			am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 			for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 			fakeRelease(); frames(3);
 			if (!s_verified) verified = false;
@@ -4618,6 +8204,354 @@ static void testAm32Guidance() {
 	frames(2);
 }
 
+/**
+ * @brief Telemetry for the kV estimate, stamped now: eRPM, EDT voltage and,
+ *        with @p kissVolts above 0, a KISS voltage that outranks it.
+ */
+static void feedKvTelemetry(uint32_t erpm, float edtVolts, float kissVolts = 0.0f,
+                            bool voltsFresh = true) {
+	EscTelemetry tel;
+	memset(&tel, 0, sizeof(tel));
+	tel.erpm = erpm;
+	tel.lastRpmMs = millis();
+	tel.packetRate = 998;
+	tel.volts = edtVolts;
+	if (voltsFresh) tel.edtVoltsMs = millis();
+	if (kissVolts > 0.0f) {
+		tel.haveKiss = true;
+		tel.kissVolts = kissVolts;
+		tel.kissAmps = 1.3f;              // a motor with no propeller
+		tel.kissTempC = 31;
+		tel.kissLastMs = voltsFresh ? millis() : millis() - KISS_STALE_MS - 1;
+	}
+	fakeSetTelemetry(&tel);
+}
+
+/** @brief @p n UI frames with the same telemetry stamped before each. */
+static void kvFrames(int n, uint32_t erpm, float edtVolts, float kissVolts = 0.0f) {
+	for (int i = 0; i < n; i++) { feedKvTelemetry(erpm, edtVolts, kissVolts); frames(1); }
+}
+
+/** @brief @p text at (x, y) in @p col and nothing in the 3 characters after it. */
+static bool textAlone(int x, int y, const char *text, uint16_t col) {
+	if (!fakeTextIs(x, y, text, col, C_BG, 1)) return false;
+	const int x0 = x + gfxTextW(text, 1) + 1;
+	for (int j = 0; j < 7; j++)
+		if (!rowIs(y + j, x0, x0 + 17, C_BG)) return false;
+	return true;
+}
+
+/**
+ * @brief Press the throttle track at @p pct of its usable span and hold it
+ *        until the throttle stops moving. Telemetry is fed on every frame.
+ * @return The throttle held. One frame has passed since it last changed.
+ */
+static uint16_t kvHoldTrack(int pct, uint32_t erpm, float edtVolts, float kissVolts = 0.0f) {
+	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
+	const int ty = thr.y + thr.h / 2;
+	const int tx = thr.x + THR_EDGE_SAT_T + ((thr.w - 2 * THR_EDGE_SAT_T) * pct / 100);
+	fakePress(tx, ty);
+	kvFrames(1, erpm, edtVolts, kissVolts);
+	uint16_t was = uiThrottle();
+	for (int i = 0; i < 10; i++) {
+		fakeHold(tx, ty);
+		kvFrames(1, erpm, edtVolts, kissVolts);
+		if (uiThrottle() == was) break;
+		was = uiThrottle();
+	}
+	return was;
+}
+
+/**
+ * @brief RPM/V and the kV estimate on the tester, slice 3 of
+ *        docs/design/esc-commands.md (decisions 6 and 7).
+ *
+ * `RPM/V` rides on the ERPM line and `KV EST` takes the pole count's place
+ * while armed; disarmed, the tester is as before. The estimate shows from
+ * 75 % throttle, 1000 ms after the throttle last moved, with a fresh voltage
+ * above 0.5 V, and not with the 3D note. The rules at each boundary are
+ * kv_est.h's, tested in test_kv_est.cpp; this is the wiring and the fit.
+ */
+static void testTesterKvEst() {
+	section("Tester: RPM/V and the kV estimate (esc-commands slice 3)");
+
+	fakeFlashClear();
+	settingsLoad();
+	settings()->maxThrottle = 2000;          // MAX 100%: the estimate needs 75 %
+	esc3dSetNote(false);                     // an earlier case left it standing
+	uiInit();
+	// 14 poles: 156,800 eRPM is 22,400 RPM, a 1,750 kV motor's ideal speed
+	// at 16.0 V and 80 % duty.
+	const uint32_t erpm = 156800, rpm = erpm / 7;
+	kvFrames(4, erpm, 15.75f);
+
+	// --- disarmed: the tester as before ---
+	checkTrue("disarmed: ERPM 156800 alone on its line, no RPM/V",
+	          textAlone(10, 102, "ERPM 156800", C_DIM));
+	checkTrue("disarmed: 14 POLES, underlined", testerPolesShown());
+
+	// --- armed at 0 %: RPM/V, and the estimate asks for 75 % ---
+	holdToArm();
+	kvFrames(2, erpm, 15.75f);
+	char want[40];
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1575));
+	checkTrue("armed: ERPM 156800  RPM/V 1422, EDT's 15.75 V", fakeArmed() &&
+	          textAlone(10, 102, want, C_DIM));
+	checkTrue("RPM/V is 22400 / 15.75 rounded: 1422", kvEstRpmPerVolt(rpm, 1575) == 1422);
+	checkTrue("KV EST 75%+ in place of 14 POLES, the text colour",
+	          textAlone(10, 114, "KV EST 75%+", C_TEXT) && !testerPolesShown());
+	checkTrue("no underline under it", noTextOn(122, 4, 75));
+	checkTrue("SWIPE = THROTTLE stays",
+	          fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114, "SWIPE = THROTTLE",
+	                     C_TEXT, C_BG, 1));
+
+	// --- 50 %: still below the minimum ---
+	uint16_t t = kvHoldTrack(50, erpm, 15.75f);
+	checkTrue("50 %: KV EST 75%+", t < KV_EST_MIN_THROTTLE && t > 0 &&
+	          textAlone(10, 114, "KV EST 75%+", C_TEXT));
+	kvFrames(45, erpm, 15.75f);
+	checkTrue("held 50 % for over 1 s: still KV EST 75%+",
+	          uiThrottle() == t && textAlone(10, 114, "KV EST 75%+", C_TEXT));
+	// A new voltage below 75 %: RPM/V follows it, the estimate still asks.
+	// 16.05 V is 1604.9998 hundredths in a float: the tile's rounding, not
+	// a truncation, gives 1605.
+	kvFrames(2, erpm, 15.75f, 16.05f);
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1605));
+	checkTrue("KISS's 16.05 V at 50 %: ERPM 156800  RPM/V 1396, rounded from 16.05",
+	          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(rpm, 1605) == 1396 &&
+	          kvEstRpmPerVolt(rpm, 1604) != 1396 && textAlone(10, 114, "KV EST 75%+", C_TEXT));
+	fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+
+	// --- 80 %: no figure until the throttle has stood 1000 ms ---
+	t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+	checkTrue("80 % held", t >= KV_EST_MIN_THROTTLE && t <= 2000);
+	checkTrue("the throttle just moved: KV EST --", textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(38, erpm, 15.75f, 16.0f);   // 39 frames, 975 ms since it moved
+	checkTrue("975 ms after it moved: KV EST --",
+	          uiThrottle() == t && textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(1, erpm, 15.75f, 16.0f);    // 1000 ms
+	const uint32_t kv = kvEstKv(rpm, 1600, t);
+	char kvText[16];
+	snprintf(kvText, sizeof(kvText), "KV EST %u", (unsigned)kv);
+	checkTrue("1000 ms after it moved: the figure, from KISS's 16.00 V",
+	          uiThrottle() == t && textAlone(10, 114, kvText, C_TEXT));
+	checkTrue("  about 1,750 kV, the motor's ideal speed at 80 %",
+	          kv >= 1700 && kv <= 1800);
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V %u", (unsigned)kvEstRpmPerVolt(rpm, 1600));
+	checkTrue("ERPM 156800  RPM/V 1400 from KISS", textAlone(10, 102, want, C_DIM) &&
+	          kvEstRpmPerVolt(rpm, 1600) == 1400);
+	fakeDumpFrame("shot_tester_kv.ppm");
+
+	// The figures follow the readout's filtered eRPM, not the last reply:
+	// a step to 163,800 moves the filter 1/8 of the way on the next frame.
+	kvFrames(1, 163800, 15.75f, 16.0f);
+	{
+		const uint32_t shown = 156800 + ((163800 - 156800) >> RPM_FILTER_SHIFT);
+		snprintf(want, sizeof(want), "ERPM %u  RPM/V %u", (unsigned)shown,
+		         (unsigned)kvEstRpmPerVolt(shown / 7, 1600));
+		checkTrue("a step in eRPM: RPM/V from the filtered 157675, 1408",
+		          textAlone(10, 102, want, C_DIM) && kvEstRpmPerVolt(shown / 7, 1600) == 1408);
+		char k1[16];
+		snprintf(k1, sizeof(k1), "KV EST %u", (unsigned)kvEstKv(shown / 7, 1600, t));
+		(void)k1;
+		checkTrue("  the filter 3.7 % off the reply, past 3 %: KV EST --",
+		          textAlone(10, 114, "KV EST --", C_TEXT));
+	}
+	kvFrames(80, 163800, 15.75f, 16.0f);   // past the snap: the reply exactly
+	{
+		char k2[16];
+		snprintf(k2, sizeof(k2), "KV EST %u", (unsigned)kvEstKv(163800 / 7, 1600, t));
+		checkTrue("the filter caught up with 163,800: the figure again",
+		          textAlone(10, 114, k2, C_TEXT));
+	}
+	kvFrames(80, erpm, 15.75f, 16.0f);
+
+	// The eRPM check, once passed, holds (kv_est.h): a reply 1.7 % above the
+	// filter keeps the figure, a reply of 0 (a stall) drops it on that frame.
+	{
+		char kh[16];
+		kvFrames(1, 159936, 15.75f, 16.0f);   // filter 157192, 1.7 % under it
+		snprintf(kh, sizeof(kh), "KV EST %u", (unsigned)kvEstKv(157192 / 7, 1600, t));
+		checkTrue("held, a reply 1.7 % off the filter: the figure stays",
+		          textAlone(10, 114, kh, C_TEXT));
+		kvFrames(80, erpm, 15.75f, 16.0f);
+		kvFrames(1, 0, 15.75f, 16.0f);
+		checkTrue("held, a stalled motor's reply of 0: KV EST -- on that frame",
+		          textAlone(10, 114, "KV EST --", C_TEXT));
+		kvFrames(80, erpm, 15.75f, 16.0f);
+		snprintf(kh, sizeof(kh), "KV EST %u", (unsigned)kvEstKv(rpm, 1600, t));
+		checkTrue("the reply back: the figure again", textAlone(10, 114, kh, C_TEXT));
+	}
+
+	// A restarted settle clears the hold: with the figure held, move the
+	// throttle out of its band; at 1000 ms the filter is 1.7 % off the reply,
+	// past the 0.5 % that passes a check, so the field reads --.
+	{
+		uint16_t t2 = kvHoldTrack(85, erpm, 15.75f, 16.0f);
+		checkTrue("the throttle moved out of its band", t2 > t + KV_EST_SETTLE_BAND);
+		kvFrames(38, erpm, 15.75f, 16.0f);   // 975 ms
+		kvFrames(1, 159936, 15.75f, 16.0f);  // 1000 ms, the reply 1.7 % off
+		checkTrue("1000 ms after the move, the filter 1.7 % off: KV EST --, the hold cleared",
+		          uiThrottle() == t2 && textAlone(10, 114, "KV EST --", C_TEXT));
+		t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+		kvFrames(45, erpm, 15.75f, 16.0f);
+		char k3[16];
+		snprintf(k3, sizeof(k3), "KV EST %u", (unsigned)kvEstKv(rpm, 1600, t));
+		checkTrue("back at 80 %, settled: the figure", uiThrottle() == t && textAlone(10, 114, k3, C_TEXT));
+	}
+
+	// A voltage step that moves the estimate and leaves RPM/V as it was:
+	// the estimate is redrawn on its own change.
+	{
+		uint32_t v1 = 0;
+		for (uint32_t v = 1601; v < 1700 && !v1; v++)
+			if (kvEstRpmPerVolt(rpm, v) == kvEstRpmPerVolt(rpm, v + 1) &&
+			    kvEstKv(rpm, v, t) != kvEstKv(rpm, v + 1, t)) v1 = v;
+		checkTrue("a voltage pair with RPM/V alike and the estimate apart", v1 != 0);
+		kvFrames(2, erpm, 15.75f, (float)v1 / 100.0f);
+		char a1[16], a2[16];
+		snprintf(a1, sizeof(a1), "KV EST %u", (unsigned)kvEstKv(rpm, v1, t));
+		snprintf(a2, sizeof(a2), "KV EST %u", (unsigned)kvEstKv(rpm, v1 + 1, t));
+		const bool first = textAlone(10, 114, a1, C_TEXT);
+		kvFrames(2, erpm, 15.75f, (float)(v1 + 1) / 100.0f);
+		checkTrue("  the estimate follows a step of 0.01 V that RPM/V does not",
+		          first && textAlone(10, 114, a2, C_TEXT));
+		kvFrames(2, erpm, 15.75f, 16.0f);
+	}
+
+	// --- a finger resting on the bar: jitter of a pixel each frame ---
+	{
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		const uint16_t t85 = kvHoldTrack(85, erpm, 15.75f, 16.0f);
+		const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
+		const int ty = thr.y + thr.h / 2;
+		const int tx = thr.x + THR_EDGE_SAT_T + ((thr.w - 2 * THR_EDGE_SAT_T) * 85 / 100);
+		int lo = t85, hi = t85;
+		bool early = false;
+		for (int i = 0; i < 38; i++) {
+			fakeHold(tx + (i % 2 ? 0 : 1), ty);
+			kvFrames(1, erpm, 15.75f, 16.0f);
+			lo = uiThrottle() < lo ? uiThrottle() : lo;
+			hi = uiThrottle() > hi ? uiThrottle() : hi;
+			early = early || !textAlone(10, 114, "KV EST --", C_TEXT);
+		}
+		checkTrue("85 %, a pixel of jitter a frame: the throttle moves 1 to 20",
+		          hi - lo >= 1 && hi - lo <= KV_EST_SETTLE_BAND);
+		checkTrue("  KV EST -- for 975 ms", !early);
+		fakeHold(tx + 1, ty);
+		kvFrames(1, erpm, 15.75f, 16.0f);
+		char kj[16];
+		snprintf(kj, sizeof(kj), "KV EST %u", (unsigned)kvEstKv(rpm, 1600, uiThrottle()));
+		checkTrue("  the figure at 1000 ms, the jitter notwithstanding",
+		          textAlone(10, 114, kj, C_TEXT));
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+		kvFrames(41, erpm, 15.75f, 16.0f);
+		checkTrue("back at 80 %, settled: the figure", t == uiThrottle() &&
+		          textAlone(10, 114, kvText, C_TEXT));
+	}
+
+	// --- the voltage goes stale: no figure in either field ---
+	for (int i = 0; i < 2; i++) {
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.erpm = erpm; tel.lastRpmMs = millis(); tel.packetRate = 998;
+		fakeSetTelemetry(&tel);
+		frames(1);
+	}
+	checkTrue("no voltage: ERPM 156800  RPM/V --", textAlone(10, 102, "ERPM 156800  RPM/V --", C_DIM));
+	checkTrue("no voltage: KV EST --", textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(1, erpm, 15.75f, 16.0f);
+	checkTrue("the voltage back on a settled throttle: the figure again",
+	          textAlone(10, 114, kvText, C_TEXT));
+
+	// --- the eRPM link goes stale: NO TELEMETRY, KV EST -- ---
+	{
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.kissVolts = 16.0f; tel.haveKiss = true;
+		fakeSetTelemetry(&tel);
+		for (int i = 0; i < 4; i++) {
+			tel.kissLastMs = millis();
+			fakeSetTelemetry(&tel);
+			frames(1);
+		}
+	}
+	checkTrue("no eRPM answer: NO TELEMETRY, KV EST --",
+	          textAlone(10, 102, "NO TELEMETRY", C_AMBER) && textAlone(10, 114, "KV EST --", C_TEXT));
+	kvFrames(1, erpm, 15.75f, 16.0f);
+	checkTrue("the link back: the figure", textAlone(10, 114, kvText, C_TEXT));
+
+	// --- the disarm: nothing is held ---
+	fakeRelease();
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	kvFrames(2, erpm, 15.75f, 16.0f);
+	checkTrue("disarmed: ERPM alone, 14 POLES underlined, no figure",
+	          !fakeArmed() && textAlone(10, 102, "ERPM 156800", C_DIM) && testerPolesShown() &&
+	          underlined(10, 122, "14 POLES"));
+	holdToArm();
+	kvFrames(2, erpm, 15.75f, 16.0f);
+	checkTrue("armed again at 0 %: KV EST 75%+, not the old figure",
+	          fakeArmed() && textAlone(10, 114, "KV EST 75%+", C_TEXT));
+
+	// --- the 3D note: it takes the row; RPM/V stays on the ERPM line ---
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	esc3dSetNote(true);
+	uiInit();
+	kvFrames(2, erpm, 15.75f, 16.0f);
+	holdToArm();
+	t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
+	kvFrames(45, erpm, 15.75f, 16.0f);
+	snprintf(want, sizeof(want), "ERPM 156800  RPM/V 1400");
+	checkTrue("3D note, 80 % settled: the note, no KV EST",
+	          tester3dShown() && !fakeTextIs(10, 114, kvText, C_TEXT, C_BG, 1));
+	checkTrue("  RPM/V stays on the ERPM line", textAlone(10, 102, want, C_DIM));
+	{
+		// A swipe on the pad takes the row from the note: SWIPE ACTIVE alone,
+		// no estimate beside it.
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
+		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
+		fakePress(px, pb - 40); kvFrames(1, erpm, 15.75f, 16.0f);
+		for (int y = pb - 40; y >= pb - 70; y -= 6) { fakeHold(px, y); kvFrames(1, erpm, 15.75f, 16.0f); }
+		bool clear = true;
+		for (int j = 0; j < 7; j++) clear = clear && rowIs(114 + j, 4, 120, C_BG);
+		checkTrue("3D note, the pad engaged: SWIPE ACTIVE, no KV EST beside it",
+		          clear && fakeTextIs(226 - gfxTextW("SWIPE ACTIVE", 1), 114, "SWIPE ACTIVE",
+		                              C_LIME, C_BG, 1));
+		fakeRelease(); kvFrames(2, erpm, 15.75f, 16.0f);
+	}
+	// RPM/V 0 is a figure, and `--` is not: 1 RPM at 16.00 V, then no voltage.
+	kvFrames(120, 7, 15.75f, 16.0f);
+	checkTrue("1 RPM at 16.00 V: ERPM 7  RPM/V 0", textAlone(10, 102, "ERPM 7  RPM/V 0", C_DIM));
+	for (int i = 0; i < 2; i++) {
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.erpm = 7; tel.lastRpmMs = millis(); tel.packetRate = 998;
+		fakeSetTelemetry(&tel);
+		frames(1);
+	}
+	checkTrue("  the voltage gone: ERPM 7  RPM/V --", textAlone(10, 102, "ERPM 7  RPM/V --", C_DIM));
+	fakeRelease();
+	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+	esc3dSetNote(false);
+
+	// --- fit: the widest texts and their room ---
+	checkInt("KV EST 99999 is 71 px", gfxTextW("KV EST 99999", 1), 71);
+	checkTrue("  ends 50 px before SWIPE = THROTTLE at x 131",
+	          226 - gfxTextW("SWIPE = THROTTLE", 1) - (10 + gfxTextW("KV EST 99999", 1)) == 50);
+	checkInt("ERPM 60000000  RPM/V 99999 is 155 px",
+	         gfxTextW("ERPM 60000000  RPM/V 99999", 1), 155);
+	checkTrue("  ends 27 px before RPM at x 192",
+	          226 - gfxTextW("RPM", 2) - (10 + gfxTextW("ERPM 60000000  RPM/V 99999", 1)) == 27);
+
+	uiInit();
+	fakeFlashClear();
+	settingsLoad();
+	feedLiveTelemetry();
+	frames(2);
+}
+
 void runUiTests() {
 	// Off zero before anything is stamped. Virtual time starts at 0, and 0 is
 	// reserved for "this frame type has never arrived" -- so telemetry stamped
@@ -4643,6 +8577,23 @@ void runUiTests() {
 	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
 	const int ty = thr.y + thr.h / 2;
 
+	section("Tester: the readouts and the hint take the neutral colours");
+	{
+		const int hx = 226 - gfxTextW("SWIPE = THROTTLE", 1);
+		checkTrue("disarmed: SWIPE = THROTTLE grey",
+		          fakeTextIs(hx, 114, "SWIPE = THROTTLE", C_GRID, C_BG, 1));
+		checkTrue("MAX 20% in the text colour at x 88, y 236",
+		          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1));
+		holdToArm();
+		checkTrue("armed: SWIPE = THROTTLE in the text colour",
+		          fakeArmed() && fakeTextIs(hx, 114, "SWIPE = THROTTLE", C_TEXT, C_BG, 1));
+		checkTrue("armed: MAX 20% still the text colour",
+		          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1));
+		tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
+		frames(2);
+		checkTrue("disarmed again", !fakeArmed());
+	}
+
 	section("Throttle: spring mode is absolute");
 	{
 		holdToArm();
@@ -4661,10 +8612,10 @@ void runUiTests() {
 		checkInt("springs back to zero on release", fakeThrottle(), 0);
 	}
 
-	section("Throttle: HOLD mode is relative");
+	section("Throttle: LATCH mode is relative");
 	{
 		const int mid = thr.x + thr.w / 2;
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD on
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH on
 		fakePress(mid, ty); frames(2);
 		checkInt("touching the bar does not jump", fakeThrottle(), 0);
 		for (int x = mid; x <= mid + 56; x += 8) { fakeHold(x, ty); frames(1); }
@@ -4680,8 +8631,8 @@ void runUiTests() {
 		fakeHold(thr.x + 22, ty); frames(1);
 		checkInt("reverse re-anchors, no windup", fakeThrottle(), 39, 6);
 		fakeRelease(); frames(2);
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD off
-		checkInt("turning HOLD off zeroes throttle", fakeThrottle(), 0);
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH off
+		checkInt("turning LATCH off zeroes throttle", fakeThrottle(), 0);
 	}
 
 	section("Throttle pad: the number area is always relative");
@@ -4689,7 +8640,7 @@ void runUiTests() {
 		// Points on the pad are measured up from its bottom edge.
 		const UiRect pad = ctlRect(UI_FIX(TesterCtl::Pad));
 		const int px = pad.x + pad.w / 2, pb = pad.y + pad.h;
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD on
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH on
 		fakePress(px, pb - 60); frames(2); fakeRelease(); frames(2);
 		checkInt("a tap on the pad does nothing", fakeThrottle(), 0);
 		fakePress(px, pb - 60); frames(1);
@@ -4702,7 +8653,7 @@ void runUiTests() {
 		for (int y = pb - 40; y >= pb - 146; y -= 6) { fakeHold(px, y); frames(1); }
 		checkInt("swipe up raises", fakeThrottle(), 400 * 100 / 213 * 60 / 100, 4);
 		fakeRelease(); frames(2);
-		tapId(UI_FIX(TesterCtl::Hold));                       // HOLD off
+		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH off
 	}
 
 	section("Navigation into AM32 config");
@@ -4720,9 +8671,12 @@ void runUiTests() {
 		frames(2);
 		checkControlTable("MENU");
 		fakeDumpFrame("shot_menu.ppm");
-		tapId(menuRow(&UI_AM32));
+		openEscSettings();
 		checkTrue("AM32 opens from MENU", uiCurrentScreen() == UiScreenId::Am32);
+		// The connect cycle sends nothing for its first 1000 ms.
 		for (int i = 0; i < 8; i++) frames(1);
+		checkTrue("1000 ms quiet first: nothing read yet", uiVisibleCount() == 0 && s_state == S_CONNECT);
+		for (int i = 0; i < 40; i++) frames(1);
 		checkTrue("settings read and decoded", uiVisibleCount() > 0);
 		checkInt("poles decoded", uiByte(0x1B), 14);
 		checkControlTable("AM32 list");
@@ -4740,8 +8694,39 @@ void runUiTests() {
 		checkInt("row selects", uiByte(0x18), 24);
 		checkControlTable("AM32 list, a field selected");
 
+		{
+			// As read and selected: the row's fill lights, the value stays in
+			// the text colour, no bar (menu-b.md, decision 8).
+			frames(1);
+			const UiRect r = ctlRect(UI_ROW(vPwm, Row));
+			const uint16_t *fb = gfxBuffer();
+			checkTrue("selected, as read: 24KHZ in the text colour on the row's fill, no bar",
+			          fakeTextIs(232 - gfxTextW("24KHZ", 2), r.y + 13, "24KHZ", C_TEXT, C_PANEL, 2) &&
+			          fb[(r.y + 5) * GFX_W + 1] == C_PANEL);
+			checkTrue("the editor bar's value in the text colour too",
+			          fakeTextCentredIs(EDIT_Y + 14, "24KHZ", C_TEXT, C_BG, 2));
+		}
 		tapId(UI_FIX(Am32Ctl::EditPlus));
 		checkInt("+ button is one fine step", uiByte(0x18), 25);
+		{
+			frames(1);
+			const UiRect r = ctlRect(UI_ROW(vPwm, Row));
+			const uint16_t *fb = gfxBuffer();
+			checkTrue("changed: 25KHZ cyan, and a 3 px cyan bar at the row's left edge",
+			          fakeTextIs(232 - gfxTextW("25KHZ", 2), r.y + 13, "25KHZ", C_CYAN, C_PANEL, 2) &&
+			          fb[(r.y + 5) * GFX_W] == C_CYAN && fb[(r.y + 5) * GFX_W + 2] == C_CYAN &&
+			          fb[(r.y + 5) * GFX_W + 3] == C_PANEL);
+			checkTrue("the editor bar's value cyan",
+			          fakeTextCentredIs(EDIT_Y + 14, "25KHZ", C_CYAN, C_BG, 2));
+			const UiRect h = ctlRect(UI_FIX(Am32Ctl::Hex));
+			checkTrue("HEX, a command button: its label in the text colour",
+			          fakeTextIs(h.x + (h.w - gfxTextW("HEX", 1)) / 2, h.y + (h.h - 7) / 2,
+			                     "HEX", C_TEXT, C_PANEL, 1));
+			const UiRect rv = ctlRect(UI_FIX(Am32Ctl::Revert));
+			checkTrue("REVERT's label amber",
+			          fakeTextIs(rv.x + (rv.w - gfxTextW("REVERT", 1)) / 2, rv.y + (rv.h - 7) / 2,
+			                     "REVERT", C_AMBER, C_PANEL, 1));
+		}
 		fakeDumpFrame("shot_am32_edit.ppm");
 		tapId(UI_FIX(Am32Ctl::EditMinus));
 		checkInt("- button steps back", uiByte(0x18), 24);
@@ -5060,19 +9045,46 @@ void runUiTests() {
 		want = uiByte(0x1B);
 		checkTrue("edit is local until written", fakeEscByte(0x1B) != want);
 
-		// WRITE's rectangle: the hold bar sits 4 px above it, and the button
-		// shows red near its bottom edge while held.
-		const UiRect wr = ctlRect(UI_FIX(Am32Ctl::Write));
+		// WRITE... holds nothing: a press held on it writes nothing, and its
+		// release opens ESC WRITE (docs/design/menu-b.md, decision 6).
+		int lx, ly;
+		ctlCentre(UI_FIX(Am32Ctl::Write), &lx, &ly);
+		checkTrue("the list's button reads WRITE..., live with a change",
+		          ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
+		          fakeTextIs(6 + (110 - gfxTextW("WRITE...", 1)) / 2, 268 + (46 - 7) / 2, "WRITE...",
+		                     C_TEXT, C_PANEL, 1));
+		pressId(UI_FIX(Am32Ctl::Write));
+		for (int i = 0; i < 60; i++) { fakeHold(lx, ly); frames(1); }
+		checkTrue("WRITE... held 1500 ms: nothing written, still the list",
+		          fakeEscByte(0x1B) != want && s_state == S_LIST);
+		fakeRelease(); frames(1);
+		checkTrue("its release opens ESC WRITE, nothing written", s_state == S_PAGE &&
+		          fakeEscByte(0x1B) != want);
+		{
+			// Earlier sections may leave other fields changed: the strip
+			// counts what the page lists.
+			char cnt[24];
+			int n = changeCount(s_pageFrom, s_pageTo);
+			snprintf(cnt, sizeof(cnt), "%d CHANGE%s", n, n == 1 ? "" : "S");
+			checkTrue("the strip counts the page's changes", n >= 1 && am32StripIs(cnt, C_DIM));
+		}
+		checkControlTable("ESC WRITE before the hold");
+		for (int i = 0; i < 60; i++) frames(1);
+		checkTrue("the tap that opened it starts no hold: 1500 ms on, the page", s_state == S_PAGE &&
+		          !s_writeHold.holding && fakeEscByte(0x1B) != want);
+
+		// HOLD TO WRITE's rectangle: the hold bar sits 4 px above it, and the
+		// button shows red near its bottom edge while held.
+		const UiRect wr = ctlRect(UI_FIX(Am32Ctl::WriteHold));
 		int wx, wy;
-		ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
-
-		pressId(UI_FIX(Am32Ctl::Write));
+		ctlCentre(UI_FIX(Am32Ctl::WriteHold), &wx, &wy);
+		pressId(UI_FIX(Am32Ctl::WriteHold));
 		fakeRelease(); frames(2);
-		checkTrue("a tap on WRITE does not commit", fakeEscByte(0x1B) != want);
+		checkTrue("a tap on HOLD TO WRITE does not commit", fakeEscByte(0x1B) != want && s_state == S_PAGE);
 
-		pressId(UI_FIX(Am32Ctl::Write));
+		pressId(UI_FIX(Am32Ctl::WriteHold));
 		fakeHold(wx, wy); frameAfter(999);
-		checkTrue("held 999 ms: not written", fakeEscByte(0x1B) != want && s_state == S_LIST);
+		checkTrue("held 999 ms: not written", fakeEscByte(0x1B) != want && s_state == S_PAGE);
 		checkTrue("the bar shows the hold",
 		          gfxBuffer()[(wr.y - 4) * GFX_W + wr.x + 2] == C_LIME);
 		checkTrue("and the button is red while held",
@@ -5080,15 +9092,20 @@ void runUiTests() {
 		fakeHold(wx, wy); frameAfter(1);
 		checkTrue("OK is drawn and does not act during WRITING...", s_state == S_WRITING &&
 		          ctlPresent(UI_FIX(Am32Ctl::Ok)) && !ctlEnabled(UI_FIX(Am32Ctl::Ok)));
+		checkTrue("BACK is disabled and drawn so while the write runs",
+		          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+		checkTrue(AM32_UI_WRITING " in amber, y 196",
+		          fakeTextIs(UI_MARGIN, 196, AM32_UI_WRITING, UI_COL_WARN, C_BG, 1));
+		checkControlTable("ESC WRITE, writing");
 		for (int i = 0; i < 20; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkInt("1000 ms commits and verifies", fakeEscByte(0x1B), want);
 		checkControlTable("AM32 write result");
 		// No card: WRITE VERIFIED fits at scale 2, and the next step is named.
-		checkTrue("no card: WRITE VERIFIED at scale 2, y 140",
-		          fakeTextCentredIs(140, "WRITE VERIFIED", C_TEXT, C_BG, 2));
-		checkTrue("then " AM32_UI_POWER_CYCLE ", y 170",
-		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+		checkTrue("no card: WRITE VERIFIED, y 196, green",
+		          fakeTextIs(UI_MARGIN, 196, "WRITE VERIFIED", C_GREEN, C_BG, 1));
+		checkTrue("then " AM32_UI_POWER_CYCLE ", y 208",
+		          fakeTextIs(UI_MARGIN, 208, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
 		checkInt("29 characters, 173 px", gfxTextW(AM32_UI_POWER_CYCLE, 1), 173);
 		fakeDumpFrame("shot_am32_written.ppm");
 
@@ -5112,22 +9129,22 @@ void runUiTests() {
 		tapId(UI_FIX(Am32Ctl::EditMinus));
 		uint8_t want2 = uiByte(0x1B);
 		checkTrue("a change to write", want2 != fakeEscByte(0x1B));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("a card that refuses the backup: nothing written to the ESC",
 		          fakeEscByte(0x1B) != want2 && strcmp(s_status, "NO BACKUP ON THE CARD: NOT WRITTEN") == 0);
-		// 34 characters: 406 px at scale 2, so scale 1, and no power cycle
-		// for a write that did not happen.
+		// 34 characters at scale 1, and no power cycle for a write that did
+		// not happen.
 		int rx0 = 0, rx1 = 0;
-		checkTrue("the refusal, at scale 1, inside the panel",
-		          fakeTextCentredIs(140, "NO BACKUP ON THE CARD: NOT WRITTEN", C_TEXT, C_BG, 1) &&
-		          fakeInkExtent(140, 40, C_BG, &rx0, &rx1) && rx0 >= UI_MARGIN && rx1 < GFX_W - UI_MARGIN);
-		checkTrue("no power-cycle line: " AM32_UI_CHECK_CARD " in amber, y 170",
-		          fakeTextCentredIs(170, AM32_UI_CHECK_CARD, UI_COL_WARN, C_BG, 1));
+		checkTrue("the refusal in amber, inside the panel",
+		          fakeTextIs(UI_MARGIN, 196, "NO BACKUP ON THE CARD: NOT WRITTEN", UI_COL_WARN, C_BG, 1) &&
+		          fakeInkExtent(196, 19, C_BG, &rx0, &rx1) && rx0 >= UI_MARGIN && rx1 < GFX_W - UI_MARGIN);
+		checkTrue("no power-cycle line: " AM32_UI_CHECK_CARD " in amber, y 208",
+		          fakeTextIs(UI_MARGIN, 208, AM32_UI_CHECK_CARD, UI_COL_WARN, C_BG, 1));
 		tapId(UI_FIX(Am32Ctl::Ok));
 		fakeFatWriteProtect(false);
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		int32_t gotLen = fakeFatGet("BACKUP/AM001.TXT", gotText, sizeof(gotText));
@@ -5139,18 +9156,18 @@ void runUiTests() {
 		// scale 2, which ran off both edges of the 240 px panel. Every lit
 		// pixel of the result's band stays 8 px or more inside the edges.
 		int ex0 = 0, ex1 = 0;
-		checkTrue("the result's band has text", fakeInkExtent(140, 40, C_BG, &ex0, &ex1));
+		checkTrue("the result's band has text", fakeInkExtent(196, 19, C_BG, &ex0, &ex1));
 		checkTrue("and it stays inside the panel's 8 px margins",
 		          ex0 >= UI_MARGIN && ex1 < GFX_W - UI_MARGIN);
-		checkTrue("WRITE VERIFIED. BACKUP AM001 at scale 1, y 140: 167 px",
+		checkTrue("WRITE VERIFIED. BACKUP AM001 at scale 1, y 196: 167 px",
 		          gfxTextW("WRITE VERIFIED. BACKUP AM001", 1) == 167 &&
-		          fakeTextCentredIs(140, "WRITE VERIFIED. BACKUP AM001", C_TEXT, C_BG, 1));
+		          fakeTextIs(UI_MARGIN, 196, "WRITE VERIFIED. BACKUP AM001", C_GREEN, C_BG, 1));
 		checkTrue("then " AM32_UI_POWER_CYCLE,
-		          fakeTextCentredIs(170, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
+		          fakeTextIs(UI_MARGIN, 208, AM32_UI_POWER_CYCLE, C_TEXT, C_BG, 1));
 		fakeDumpFrame("shot_am32_written_backup.ppm");
 		tapId(UI_FIX(Am32Ctl::Ok));
 		tapId(UI_FIX(Am32Ctl::EditPlus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("a second write saves no second backup", !fakeFatExists("BACKUP/AM002.TXT"));
@@ -5159,7 +9176,7 @@ void runUiTests() {
 		fakeVolumeSet(2);
 		unsigned rec = fakeCacheCalls().recovers;
 		tapId(UI_FIX(Am32Ctl::EditMinus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("another card: mounted again, the backup saved to it, then the write",
@@ -5169,7 +9186,7 @@ void runUiTests() {
 		// A card that does not answer its serial read: mounted again too.
 		fakeVolumeSet(2, false);
 		tapId(UI_FIX(Am32Ctl::EditPlus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("a card that does not answer: mounted again, the backup saved again",
@@ -5180,14 +9197,14 @@ void runUiTests() {
 		s_backupDone = s_backupOnCard = false;
 		fakeVolumeFailNext(1);
 		tapId(UI_FIX(Am32Ctl::EditMinus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("the serial unread after the backup", fakeFatExists("BACKUP/AM004.TXT") &&
 		                                              s_backupOnCard && !s_backupVolumeRead);
 		tapId(UI_FIX(Am32Ctl::Ok));
 		tapId(UI_FIX(Am32Ctl::EditPlus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("the next WRITE checks and saves again", fakeFatExists("BACKUP/AM005.TXT") &&
@@ -5197,7 +9214,7 @@ void runUiTests() {
 		fakeMscSet(MscState::Serving, 0);
 		rec = fakeCacheCalls().recovers;
 		tapId(UI_FIX(Am32Ctl::EditMinus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("USB holds the card: no recovery", fakeCacheCalls().recovers == rec);
@@ -5211,7 +9228,7 @@ void runUiTests() {
 		fakeCacheFlushTo(CardCache::Failed);
 		uint8_t before3 = fakeEscByte(0x1B);
 		tapId(UI_FIX(Am32Ctl::EditMinus));
-		pressId(UI_FIX(Am32Ctl::Write));
+		am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
 		for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
 		fakeRelease(); frames(3);
 		checkTrue("a backup the card's flush lost: nothing written to the ESC",
@@ -5223,19 +9240,25 @@ void runUiTests() {
 		fakeCacheReset();
 		logIdle.state = SdLogState::NoCard;
 		fakeSdLogSet(&logIdle);
+		int writes0 = fakeAm32Writes();
 		pressId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
 		holdId(UI_FIX(Am32Ctl::Write), 50);
 		fakeRelease(); frames(1);
-		checkTrue("held on NO CHANGES: no write", s_state == S_LIST);
+		checkTrue("held and released on WRITE... with no change: no page, no write",
+		          s_state == S_LIST && fakeAm32Writes() == writes0);
 		// A change made under the same press, which the UI cannot do with
-		// one finger: the press landed on a disabled button, so it is not
-		// timed.
+		// one finger: the release opens the page, whose hold never saw the
+		// press, so nothing is timed and nothing written.
 		pressId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
 		s_eeprom[0x1B] = (uint8_t)(s_original[0x1B] + 2);
 		holdId(UI_FIX(Am32Ctl::Write), 60);
-		checkTrue("a press on NO CHANGES, changes made under it: held 1500 ms, no write",
-		          s_state == S_LIST && anyDirty());
 		fakeRelease(); frames(1);
+		for (int i = 0; i < 60; i++) frames(1);
+		checkTrue("a press on a disabled WRITE..., changes made under it: the page, no write",
+		          s_state == S_PAGE && !s_writeHold.holding && fakeAm32Writes() == writes0);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK on ESC WRITE before the hold: the list, the edit kept",
+		          s_state == S_LIST && anyDirty() && uiCurrentScreen() == UiScreenId::Am32);
 		s_eeprom[0x1B] = s_original[0x1B];
 		frames(1);
 		tapId(UI_FIX(Am32Ctl::Hex));                     // HEX view
@@ -5267,12 +9290,15 @@ void runUiTests() {
 
 	testLogScreen();
 	testLogEndNotes();
+	testLogRun();
+	testTesterNoRun();
+	testLogNumbering();
 	testTesterSdErr();
 	testUsbDriveScreen();
 	testManualLogSurvivesArming();
 	testKissDisplay();
 	testTelemetryExpires();
-	testMenuBeepRow();
+	testMenuChip();
 
 	testBoardRow();
 	testArmInterlocks();
@@ -5308,6 +9334,7 @@ void runUiTests() {
 	testStatusBarBitrate();
 	testSettingsKiss();
 	testSettingsServoSupply();
+	testSettingsConnectorLines();
 	testSettingsCurrentSense();
 	testSettingsDisplay();
 	testSettingsSave();
@@ -5315,11 +9342,23 @@ void runUiTests() {
 	testPressedLookClears();
 	testScreenChangeResidue();
 	testTesterBoardAndCard();
+	testTesterReadouts();
 	testBoardCellColour();
 	testSplash();
 	testSplashTouch();
 	testTextProbes();
+	testAm32ClaimWords();
 	testAm32Guidance();
+	testAm32Efm8();
+	testEfm8Write();
+	testAm32TesterNote();
+	testAm32ReadOnly();
+	testAm32BoardLow();
+	testAm32LayoutTable();
+	testAm32WritePage();
+	testAm32PageWritesWhatItShows();
+	testAm32Guard();
+	testTesterKvEst();
 
 	// Back to a known state for anything that runs after this.
 	fakeFlashClear();

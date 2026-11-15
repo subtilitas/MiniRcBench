@@ -234,6 +234,21 @@ static sd_err_t devWritePoll(void *ctx, bool *done) {
 	return sdh_write_poll(&b, &c->sdio_if_p->state.card, &s_wr, done);
 }
 
+/** @brief The swap check's read under way. */
+static sdh_rd_t s_rd;
+
+static sd_err_t devReadStart(void *ctx, uint32_t lba, uint8_t *buf) {
+	sd_card_t *c = (sd_card_t *)ctx;
+	sdh_bus_t b = busOf(c);
+	return sdh_read_start(&b, &c->sdio_if_p->state.card, lba, buf, &s_rd);
+}
+
+static sd_err_t devReadPoll(void *ctx, bool *done) {
+	sd_card_t *c = (sd_card_t *)ctx;
+	sdh_bus_t b = busOf(c);
+	return sdh_read_poll(&b, &c->sdio_if_p->state.card, &s_rd, done);
+}
+
 static sdc_dev_t s_dev;
 
 bool sd_sdio_cache_begin(sd_card_t *c, uint32_t check_lba, uint32_t check_off) {
@@ -244,6 +259,8 @@ bool sd_sdio_cache_begin(sd_card_t *c, uint32_t check_lba, uint32_t check_off) {
 		s_dev.read = devRead;
 		s_dev.write_start = devWriteStart;
 		s_dev.write_poll = devWritePoll;
+		s_dev.read_start = devReadStart;
+		s_dev.read_poll = devReadPoll;
 		ok = sdc_begin(&s_dev, check_lba, check_off) == SDE_OK;
 		syncStatus(c);
 	}
@@ -265,6 +282,14 @@ int sd_sdio_cache_state(uint16_t *left) {
 		return SD_SDIO_CACHE_OFF;
 	}
 	return (int)sdc_state(left);
+}
+
+void sd_sdio_cache_recheck(sd_card_t *c) {
+	if (!sdc_on()) return;
+	sd_lock(c);
+	sdc_recheck();
+	syncStatus(c);
+	sd_unlock(c);
 }
 
 int sd_sdio_cache_flush(sd_card_t *c) {

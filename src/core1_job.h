@@ -6,12 +6,23 @@
  * claims a PIO state machine is the core that frees it; the AM32 transport,
  * on core0, is the exception. While the pin claim holds (pin_claim.h),
  * escTaskPoll() returns at once and core1 runs one job instead: the servo
- * tester, the KST programmer or the Hitec programmer. `loop1()` calls escTaskPoll() and then
- * core1JobPoll(); with no job, core1JobPoll() returns at once too.
+ * tester, the KST programmer, the Hitec programmer, the S.BUS monitor, the
+ * USB bridge, the ESC settings session of a Bluejay or BLHeli_S ESC or the
+ * S.BUS output.
+ * `loop1()` calls escTaskPoll() and then core1JobPoll(); with no job,
+ * core1JobPoll() returns at once too.
  *
- * Core1Job::Servo, Core1Job::Kst and Core1Job::Hitec name the three jobs of
- * docs/design/servo-tester.md, docs/design/kst-programming.md and
- * docs/design/hitec-programming.md: servo_job.h, kst_job.h and hitec_job.h.
+ * Core1Job::Servo, Core1Job::Kst, Core1Job::Hitec and Core1Job::Sbus name
+ * the four jobs of docs/design/servo-tester.md,
+ * docs/design/kst-programming.md, docs/design/hitec-programming.md and
+ * docs/design/rx-signals.md: servo_job.h, kst_job.h, hitec_job.h and
+ * sbus_job.h.
+ * Core1Job::Bridge is the USB bridge's job of docs/design/usb-bridge.md:
+ * bridge_wire.h.
+ * Core1Job::EscWire is the job of docs/design/bluejay-blheli-s.md:
+ * escwire_job.h.
+ * Core1Job::SbusOut is the S.BUS output's job of
+ * docs/design/sbus-output.md: sbus_out_job.h, opened by S.BUS OUTPUT.
  *
  * Core0 starts and stops a job; core1 binds, steps and releases it. The
  * request and the job's phase are shared under one critical section, in the
@@ -30,6 +41,10 @@ enum class Core1Job : uint8_t {
 	Servo,  /**< Servo PWM on SIG, and AUX in two-servo mode (servo_job.h). */
 	Kst,    /**< KST and Chaservo programming on SIG (kst_job.h). */
 	Hitec,  /**< Hitec programming on SIG (hitec_job.h). */
+	Sbus,   /**< The S.BUS monitor: UART0 receive on GP1, SIG or AUX (sbus_job.h). */
+	Bridge, /**< The USB bridge: a 19200 baud PIO line on SIG (bridge_wire.h). */
+	EscWire,  /**< ESC SETTINGS after an EFM8 bootloader answered: rcbench's escwire on SIG (escwire_job.h). */
+	SbusOut,  /**< The S.BUS output: UART0 sends on GP0, SIG or AUX (sbus_out_job.h). */
 };
 
 /** @brief Where a job is between core1JobStart() and idle. */
@@ -44,7 +59,10 @@ enum class Core1JobPhase : uint8_t {
  * @brief Why a job did not bind. 0 is none.
  *
  * The bind failures name the resource, as the screens show them: `GP0 COULD
- * NOT BE TAKEN (PWM)`, `(PIO)`, `(DMA)` or `(CLOCK)`.
+ * NOT BE TAKEN (PWM)`, `(PIO)`, `(DMA)` or `(CLOCK)`. CORE1_JOB_NO_GP1 is a
+ * wiring, not a resource: the S.BUS screen (ui_sbus.h) checks the wiring
+ * before it claims, so for it the refusal is a backstop. CORE1_JOB_NO_GP0
+ * is the same backstop for the S.BUS output (sbus_out_job.h).
  */
 enum Core1JobError : uint8_t {
 	CORE1_JOB_OK      = 0,  /**< Bound, or nothing started. */
@@ -52,11 +70,14 @@ enum Core1JobError : uint8_t {
 	CORE1_JOB_PWM     = 2,  /**< No PWM slice or channel for the pin. */
 	CORE1_JOB_PIO     = 3,  /**< No PIO block with room for the program. */
 	CORE1_JOB_DMA     = 4,  /**< No free DMA channel. */
-	CORE1_JOB_CLOCK   = 5,  /**< `clk_sys` is outside what the job accepts. */
+	CORE1_JOB_CLOCK   = 5,  /**< `clk_sys`, or `clk_peri` for the S.BUS job, is outside what the job accepts. */
+	CORE1_JOB_NO_GP1  = 6,  /**< The S.BUS job: neither role is GP1, UART0's receive pin. */
+	CORE1_JOB_PIN     = 7,  /**< The ESC settings job: its line driver does not take the pin. */
+	CORE1_JOB_NO_GP0  = 8,  /**< The S.BUS output job: neither role is GP0, UART0's transmit pin. */
 };
 
 /**
- * @brief What one job does on core1. All three run on core1.
+ * @brief What one job does on core1. All of them run on core1.
  *
  * A job's slice defines one of these. core1_job.cpp calls them; nothing else
  * does.
@@ -125,8 +146,10 @@ Core1JobPhase core1JobPhase();
 
 /**
  * @brief Why the last job did not bind. Core0.
- * @return CORE1_JOB_PWM, CORE1_JOB_PIO, CORE1_JOB_DMA or CORE1_JOB_CLOCK from
- *         the job's bind; CORE1_JOB_OK when it bound or none was started.
+ * @return CORE1_JOB_PWM, CORE1_JOB_PIO, CORE1_JOB_DMA, CORE1_JOB_CLOCK,
+ *         CORE1_JOB_NO_GP1, CORE1_JOB_PIN or CORE1_JOB_NO_GP0 from the
+ *         job's bind;
+ *         CORE1_JOB_OK when it bound or none was started.
  *         Never CORE1_JOB_REFUSED: a refused start is reported by
  *         pinClaimJobError().
  */

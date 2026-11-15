@@ -9,6 +9,9 @@
 // stubs already make: a signature that drifts -- a callback TinyUSB renames, an
 // argument that changes type -- fails here, on the machine you are already on,
 // instead of after a CI round-trip to an ARM toolchain.
+//
+// The CDC calls are the exception: test/fake_cdc.cpp defines them for the
+// suite, a port with a host on the other end, for the USB bridge's tests.
 #pragma once
 
 #include <stdbool.h>
@@ -74,6 +77,9 @@ bool     tud_cdc_connected(void);
 uint32_t tud_cdc_write_available(void);
 uint32_t tud_cdc_write(const void *buffer, uint32_t bufsize);
 uint32_t tud_cdc_write_flush(void);
+bool     tud_cdc_write_clear(void);
+uint32_t tud_cdc_available(void);
+uint32_t tud_cdc_read(void *buffer, uint32_t bufsize);
 
 // --- MSC ---
 #define SCSI_SENSE_NOT_READY        0x02

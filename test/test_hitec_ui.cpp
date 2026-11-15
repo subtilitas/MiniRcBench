@@ -1,8 +1,8 @@
 /**
  * @file test_hitec_ui.cpp
- * @brief HITEC SERVO through the real UI: MENU, the family, the claim, the
- *        entry and the read, the field list, the write, FILES, the leave and
- *        the unplug page.
+ * @brief HITEC SERVO through the real UI: MENU, PROGRAMMER's two Hitec
+ *        entries, the claim, READ, the entry and the read, the field list,
+ *        the write, FILES and the leave page.
  *
  * Hitec is a name or trademark of its owner; it is used here only to say
  * which servos this module works with.
@@ -30,6 +30,7 @@
 #include "sd_log.h"
 #include "settings.h"
 #include "theme.h"
+#include "touch.h"
 #include "ui.h"
 #include "ui_hitec.h"
 #include "ui_menu.h"
@@ -166,18 +167,33 @@ static void freshHitec(uint8_t family, bool switched) {
 	hitecFrames(2);
 }
 
-/** @brief The tester to HITEC SERVO, through MENU. */
-static void openHitec() {
-	tapId(UI_FIX(TesterCtl::Menu));
-	hitecFrames(1);
-	tapId(menuRow(&UI_HITEC));
+/** @brief The entry point of PROGRAMMER's entry for @p family. */
+static void (*enterOf(uint8_t family))() {
+	return family == HITEC_CLASSIC ? uiHitecEnterClassic : uiHitecEnterD;
+}
+
+/**
+ * @brief The tester to HITEC SERVO for @p family, through MENU and
+ *        PROGRAMMER: the entry's tap claims SIG.
+ */
+static void openHitec(uint8_t family) {
+	openProgrammer(enterOf(family));
 	hitecFrames(2);
 }
 
-/** @brief Open the screen, choose @p family and wait for the field list. */
+/**
+ * @brief Open the screen for @p family; a D series servo on its own supply
+ *        then waits in Held for READ, which is tapped once it acts.
+ */
+static void openAndRead(uint8_t family) {
+	openHitec(family);
+	if (family == HITEC_D && !servoSupplyFitted() && untilEnabled(UI_FIX(HitecCtl::Read), 20))
+		tapId(UI_FIX(HitecCtl::Read));
+}
+
+/** @brief Open the screen for @p family and wait for the field list. */
 static bool toList(uint8_t family) {
-	openHitec();
-	tapId(UI_FIX(family == HITEC_CLASSIC ? HitecCtl::Classic : HitecCtl::DSeries));
+	openAndRead(family);
 	return untilView(HitecView::List, 800);
 }
 
@@ -193,6 +209,12 @@ static bool holdUntilGone(UiControlId id) {
 	fakeRelease();
 	hitecFrame();
 	return gone;
+}
+
+/** @brief Tap @p id; true when it left the screen. */
+static bool tapUntilGone(UiControlId id) {
+	tapId(id);
+	return !ctlPresent(id);
 }
 
 /** @brief The D series SPEED the job's image holds. */
@@ -224,8 +246,8 @@ static void speedDown() {
 static void leaveAll() {
 	for (int i = 0; i < 10 && uiCurrentScreen() == UiScreenId::Hitec; i++) {
 		HitecView v = uiHitecView();
-		if (v == HitecView::Unplug) {
-			if (untilCtl(UI_FIX(HitecCtl::Restart), 200)) tapId(UI_FIX(HitecCtl::Restart));
+		if (v == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::Restart))) {
+			if (untilEnabled(UI_FIX(HitecCtl::Restart), 200)) tapId(UI_FIX(HitecCtl::Restart));
 		} else if (v == HitecView::Leave) {
 			if (untilEnabled(UI_FIX(HitecCtl::Leave), 400)) tapId(UI_FIX(HitecCtl::Leave));
 		} else if (v == HitecView::Write && !ctlPresent(UI_FIX(HitecCtl::WriteHold)) &&
@@ -251,58 +273,295 @@ static void watchRecord() {
 		s_writesAtRecord = (int)fakeHitecSim()->writes;
 }
 
-static void testFamily() {
-	section("Hitec screen: MENU opens it, the family");
+/** @brief Whether the main view's line at y 80 + 14 k reads @p text in @p col. */
+static bool mainLineIs(int k, const char *text, uint16_t col) { return lineIs(80 + 14 * k, text, col); }
+
+/**
+ * @brief PROGRAMMER's HITEC D SERIES with SERVO SUPPLY at OWN (decision 34
+ *        of docs/design/menu-b.md): the tap claims SIG, DShot drains and stops, and the
+ *        main view waits in Held for READ, with no job and no frame on SIG
+ *        until then. BACK there opens the leave page releasing.
+ */
+static void testEntry() {
+	section("Hitec D SERIES on OWN: the tap takes SIG, then READ");
 	freshHitec(HITEC_D, false);
-	openHitec();
-	checkTrue("HITEC SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Hitec);
-	checkTrue("on the family view", uiHitecView() == HitecView::Family);
-	checkTrue("no pin claimed yet", pinClaimState() == ClaimState::Free);
-	checkTrue("CLASSIC disabled with NONE", !ctlEnabled(UI_FIX(HitecCtl::Classic)));
-	checkTrue("D SERIES acts", ctlEnabled(UI_FIX(HitecCtl::DSeries)));
-	checkControlTable("Hitec family");
-	// CLASSIC's reason names the hardware first, then the setting; D SERIES
-	// says when to power the servo. Each line is redrawn over the full width,
-	// so nothing else may share its rows.
-	const UiRect cl = ctlRect(UI_FIX(HitecCtl::Classic));
-	const UiRect ds = ctlRect(UI_FIX(HitecCtl::DSeries));
-	checkTrue("NONE: CLASSIC needs the converter of wiring part C",
-	          lineIs(cl.y + cl.h + 16, HITEC_UI_CLASSIC_WHY_1, C_AMBER));
-	checkTrue("and SETTINGS > SERVO SUPPLY GP28/29",
-	          lineIs(cl.y + cl.h + 28, HITEC_UI_CLASSIC_WHY_2, C_AMBER));
-	checkTrue("the second line ends above D SERIES", cl.y + cl.h + 28 + 7 < ds.y);
-	checkTrue("D SERIES: power the servo up before the tap",
-	          lineIs(ds.y + ds.h + 18, HITEC_UI_D_POWER, C_DIM));
-	checkTrue("36, 36 and 34 characters: 215, 215 and 203 px, to x 223 at most",
-	          gfxTextW(HITEC_UI_CLASSIC_WHY_1, 1) == 215 && gfxTextW(HITEC_UI_CLASSIC_WHY_2, 1) == 215 &&
-	          gfxTextW(HITEC_UI_D_POWER, 1) == 203);
-	int x0 = 0, x1 = 0;
-	checkTrue("no note reaches the panel's 8 px margin",
-	          fakeInkExtent(cl.y + cl.h + 4, 34, C_BG, &x0, &x1) && x0 >= 8 && x1 < GFX_W - 8 &&
-	          fakeInkExtent(ds.y + ds.h + 4, 24, C_BG, &x0, &x1) && x0 >= 8 && x1 < GFX_W - 8);
-	fakeDumpFrame("shot_hitec_family.ppm");
+	openChooser();
+	checkTrue("PROGRAMMER claims nothing: DShot runs on SIG",
+	          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended() && fakePinReturned());
+	int resumes = fakeResumeCount();
+	tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+	checkTrue("HITEC D SERIES opens HITEC SERVO on its main view",
+	          uiCurrentScreen() == UiScreenId::Hitec && uiHitecView() == HitecView::Main);
+	checkTrue("the claim on SIG begins on the tap's frame", pinClaimHolder() == PinUser::Hitec &&
+	          pinClaimState() == ClaimState::Stopping);
+	// A UI frame before core1's next pass: the pump has not drained yet.
+	uiTick();
+	{
+		char rel[40];
+		snprintf(rel, sizeof(rel), "RELEASING SIG GP%u FROM DSHOT", (unsigned)escTaskDshotPin());
+		checkTrue("while DShot drains: RELEASING SIG GP0 FROM DSHOT, dim",
+		          pinClaimState() == ClaimState::Stopping &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, rel, C_DIM, C_BG, 1) &&
+		          !ctlPresent(UI_FIX(HitecCtl::Read)));
+	}
+	hitecFrames(1);
+	checkTrue("DShot drained and stopped: Held", pinClaimState() == ClaimState::Held &&
+	          escTaskSuspended());
+	char held[40];
+	snprintf(held, sizeof(held), HITEC_UI_HELD_FMT, (unsigned)escTaskDshotPin());
+	checkStr("the strip names SIG by role and number", held, "SIG GP0 IS THE SERVO'S: DSHOT IS OFF.");
+	checkTrue("37 and 34 characters: 221 and 203 px, to x 228 at most",
+	          gfxTextW(held, 1) == 221 && gfxTextW(HITEC_UI_POWER_READ, 1) == 203);
+	checkTrue("the strip: " HITEC_UI_HELD_FMT ", green",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, held, UI_COL_SAFE, C_BG, 1));
+	checkTrue("then " HITEC_UI_POWER_READ ", amber",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, HITEC_UI_POWER_READ, UI_COL_WARN, C_BG, 1));
+	checkTrue("READ in the wide button, live", ctlEnabled(UI_FIX(HitecCtl::Read)) &&
+	          ctlRect(UI_FIX(HitecCtl::Read)).y == UI_FOOT_Y && ctlRect(UI_FIX(HitecCtl::Read)).w == 228 &&
+	          fakeTextCentredIs(UI_FOOT_Y + 16, "READ", C_TEXT, C_PANEL, 2));
+	checkControlTable("Hitec, waiting for READ");
+	fakeDumpFrame("shot_hitec_read_wait.ppm");
+	hitecFrames(40);
+	checkTrue("1 s on: still Held, no job, no line, no frame to the servo",
+	          pinClaimState() == ClaimState::Held && core1JobPhase() == Core1JobPhase::Idle &&
+	          fakeHitecLineOpens() == 0 && fakeHitecSim()->writes == 0 &&
+	          uiHitecView() == HitecView::Main);
+	// BACK: the pin went to a servo, so the leave page, releasing, as after
+	// LEAVE; NEXT SERVO there returns to the wait, still held, with no job.
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK: the leave page, releasing", uiHitecView() == HitecView::Leave &&
+	          pinClaimState() == ClaimState::Leaving && ctlPresent(UI_FIX(HitecCtl::Restart)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::Leave)) && !ctlPresent(UI_FIX(HitecCtl::LeaveRead)));
+	checkTrue("no servo in the mode: UNPLUG THE SERVO. is step 1, RESTART DSHOT. step 2",
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
+	checkTrue("NEXT SERVO once the pin is let go", untilEnabled(UI_FIX(HitecCtl::NextServo), 10));
+	checkTrue("RESTART DSHOT waits 1000 ms: disabled", !ctlEnabled(UI_FIX(HitecCtl::Restart)));
+	checkStr("the note's text", HITEC_UI_NEXT_POWER, "NEXT SERVO: POWER IT AFTER THE TAP.");
+	checkTrue("released, no switch: NEXT SERVO: POWER IT AFTER THE TAP., dim",
+	          leaveNoteIs(0, HITEC_UI_NEXT_POWER, C_DIM));
+	checkTrue("DShot is still down", fakeResumeCount() == resumes && escTaskSuspended());
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK there does nothing", uiHitecView() == HitecView::Leave);
+	tapId(UI_FIX(HitecCtl::NextServo));
+	checkTrue("NEXT SERVO before READ: the wait again, held, no job",
+	          uiHitecView() == HitecView::Main && pinClaimState() == ClaimState::Held &&
+	          ctlEnabled(UI_FIX(HitecCtl::Read)) && core1JobPhase() == Core1JobPhase::Idle &&
+	          fakeHitecLineOpens() == 0);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK again: the leave page", untilCtl(UI_FIX(HitecCtl::Restart), 10));
+	checkTrue("RESTART DSHOT 1000 ms after the release", untilEnabled(UI_FIX(HitecCtl::Restart), 60));
+	tapId(UI_FIX(HitecCtl::Restart));
+	checkTrue("RESTART DSHOT: MENU, DShot resumed", uiCurrentScreen() == UiScreenId::Menu &&
+	          fakeResumeCount() == resumes + 1);
+	checkTrue("MENU draws SERVO PROGRAMMER disabled while the pump rebuilds",
+	          pinClaimState() == ClaimState::Restoring && !ctlEnabled(menuRow(&UI_SERVO_PROG)));
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
+	checkTrue("then the claim is free", pinClaimState() == ClaimState::Free &&
+	          ctlEnabled(menuRow(&UI_SERVO_PROG)));
 	tapId(UI_FIX(UI_BACK));
 	hitecFrames(2);
 
-	freshHitec(HITEC_CLASSIC, true);
-	openHitec();
-	checkTrue("with GP28: CLASSIC acts", ctlEnabled(UI_FIX(HitecCtl::Classic)));
-	checkTrue("and its reason is gone", lineIs(cl.y + cl.h + 16, "", C_AMBER) &&
-	          lineIs(cl.y + cl.h + 28, "", C_AMBER));
-	checkTrue("D SERIES names the switch, not the power-up",
-	          lineIs(ds.y + ds.h + 18, "SUPPLY SWITCHED ON GP28", C_DIM));
-	fakeDumpFrame("shot_hitec_family_classic.ppm");
+	section("Hitec D SERIES on OWN: READ starts the job");
+	openHitec(HITEC_D);
+	checkTrue("the wait for READ", untilEnabled(UI_FIX(HitecCtl::Read), 10) &&
+	          fakeHitecLineOpens() == 0);
+	tapId(UI_FIX(HitecCtl::Read));
+	checkTrue("READ: the job binds and opens the line", untilCtl(UI_FIX(HitecCtl::Stop), 40) &&
+	          fakeHitecLineOpens() == 1 && !ctlPresent(UI_FIX(HitecCtl::Read)));
+	checkTrue("the entry reads the servo: the field list", untilView(HitecView::List, 800));
+	// NEXT SERVO asks for the next servo's power after its tap, as the first
+	// one's: the READ wait again, with no job and no frame on SIG.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the leave page before LEAVE", untilEnabled(UI_FIX(HitecCtl::Leave), 400));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE: NEXT SERVO once the pin is let go", untilEnabled(UI_FIX(HitecCtl::NextServo), 400));
+	checkTrue("its note: NEXT SERVO: POWER IT AFTER THE TAP.", leaveNoteIs(0, HITEC_UI_NEXT_POWER, C_DIM));
+	{
+		const int opens = fakeHitecLineOpens();
+		const unsigned writes = fakeHitecSim()->writes;
+		tapId(UI_FIX(HitecCtl::NextServo));
+		hitecFrames(40);
+		checkTrue("NEXT SERVO after a read: the READ wait, Held, no job",
+		          uiHitecView() == HitecView::Main && pinClaimState() == ClaimState::Held &&
+		          core1JobPhase() == Core1JobPhase::Idle && ctlEnabled(UI_FIX(HitecCtl::Read)));
+		checkTrue("no line opened and nothing written for the next servo",
+		          fakeHitecLineOpens() == opens && fakeHitecSim()->writes == writes);
+		checkTrue("the strip asks for the power",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, HITEC_UI_POWER_READ, UI_COL_WARN, C_BG, 1));
+		tapId(UI_FIX(HitecCtl::Read));
+		checkTrue("READ: the next servo read", untilView(HitecView::List, 800) &&
+		          fakeHitecLineOpens() == opens + 1);
+	}
+	leaveAll();
+
+	section("Hitec entry: READ takes only a press that landed on it");
+	openChooser();
+	tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+	{
+		const int opens = fakeHitecLineOpens();
+		const UiRect w = { 6, UI_FOOT_Y, 228, UI_FOOT_H };
+		// The press lands while DShot drains, before READ shows.
+		fakePress(w.x + w.w / 2, w.y + w.h / 2);
+		uiTick();
+		checkTrue("pressed while Stopping: no READ yet", pinClaimState() == ClaimState::Stopping &&
+		          !ctlPresent(UI_FIX(HitecCtl::Read)));
+		for (int i = 0; i < 4; i++) { fakeHold(w.x + w.w / 2, w.y + w.h / 2); hitecFrame(); }
+		checkTrue("READ shows under the finger, drawn at rest",
+		          ctlEnabled(UI_FIX(HitecCtl::Read)) &&
+		          fakeTextCentredIs(UI_FOOT_Y + 16, "READ", C_TEXT, C_PANEL, 2));
+		fakeRelease();
+		hitecFrames(4);
+		checkTrue("its lift starts nothing", pinClaimState() == ClaimState::Held &&
+		          core1JobPhase() == Core1JobPhase::Idle && fakeHitecLineOpens() == opens);
+		tapId(UI_FIX(HitecCtl::Read));
+		checkTrue("a fresh tap on READ starts the job", untilCtl(UI_FIX(HitecCtl::Stop), 40) &&
+		          fakeHitecLineOpens() == opens + 1);
+	}
+	leaveAll();
+
+	section("Hitec entry: an ESC answering on SIG keeps DShot");
+	{
+		const int opens = fakeHitecLineOpens();
+		EscTelemetry t;
+		memset(&t, 0, sizeof(t));
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		openChooser();
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		hitecFrames(2);
+		char esc[40];
+		snprintf(esc, sizeof(esc), HITEC_UI_ESC_FMT, (unsigned)escTaskDshotPin());
+		checkStr("the ESC line names SIG", esc, "AN ESC ANSWERS ON SIG GP0: UNPLUG IT.");
+		checkInt("37 characters, 221 px, to x 228", gfxTextW(esc, 1), 221);
+		checkTrue("refused: no claim, DShot runs", uiCurrentScreen() == UiScreenId::Hitec &&
+		          pinClaimState() == ClaimState::Free && fakePinReturned() && !escTaskSuspended());
+		checkTrue("the strip: CHECKING SIG GP0 FOR AN ESC, dim",
+		          lineIs(UI_STRIP_Y + 4, "CHECKING SIG GP0 FOR AN ESC", C_DIM));
+		checkTrue("the lines: " HITEC_UI_ESC_FMT " and " HITEC_UI_ESC_2 ", amber",
+		          mainLineIs(0, esc, C_AMBER) && mainLineIs(1, HITEC_UI_ESC_2, C_AMBER));
+		checkTrue("no READ and no job", !ctlPresent(UI_FIX(HitecCtl::Read)) &&
+		          core1JobPhase() == Core1JobPhase::Idle);
+		checkControlTable("Hitec, an ESC answers");
+		fakeDumpFrame("shot_hitec_esc.ppm");
+		// Quiet for 500 ms: the claim follows by itself.
+		memset(&t, 0, sizeof(t));
+		fakeSetTelemetry(&t);
+		hitecFrames(3);
+		checkTrue("the ESC quiet: the claim holds, READ acts",
+		          pinClaimState() == ClaimState::Held && ctlEnabled(UI_FIX(HitecCtl::Read)) &&
+		          fakeHitecLineOpens() == opens);
+		leaveAll();
+
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		openChooser();
+		const int resumes = fakeResumeCount();
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		hitecFrames(1);
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK while refused: MENU, DShot never stopped",
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Free &&
+		          fakeResumeCount() == resumes && !escTaskSuspended());
+		memset(&t, 0, sizeof(t));
+		fakeSetTelemetry(&t);
+		tapId(UI_FIX(UI_BACK));
+		hitecFrames(2);
+	}
+
+	section("Hitec entry: BACK while DShot drains returns to MENU");
+	freshHitec(HITEC_D, false);
+	openChooser();
+	resumes = fakeResumeCount();
+	tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+	checkTrue("Stopping after the tap", pinClaimState() == ClaimState::Stopping);
+	// BACK tapped in UI frames before core1's next pass: the claim still
+	// drains when the tap lifts.
+	fakePress(uiBackRect().x + 8, uiBackRect().y + 8);
+	uiTick();
+	fakeRelease();
+	uiTick();
+	checkTrue("BACK from Stopping: MENU, DShot resumed at once",
+	          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 &&
+	          fakeHitecLineOpens() == 0);
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
+	tapId(UI_FIX(UI_BACK));
+	hitecFrames(2);
+
+	section("Hitec entry: with the switched supply the job starts after the claim");
+	for (uint8_t fam : { (uint8_t)HITEC_D, (uint8_t)HITEC_CLASSIC }) {
+		freshHitec(fam, true);
+		openHitec(fam);
+		bool read = false;
+		for (int i = 0; i < 60 && !(read = ctlPresent(UI_FIX(HitecCtl::Read))) &&
+		                core1JobPhase() != Core1JobPhase::Running;
+		     i++)
+			hitecFrame();
+		char what[80];
+		snprintf(what, sizeof(what), "%s: no READ, the job binds once Held",
+		         fam == HITEC_D ? "D SERIES" : "CLASSIC");
+		checkTrue(what, !read && core1JobPhase() == Core1JobPhase::Running &&
+		                pinClaimState() == ClaimState::Running && fakeHitecLineOpens() == 1);
+		snprintf(what, sizeof(what), "%s: the supply off at the bind, never on before it",
+		         fam == HITEC_D ? "D SERIES" : "CLASSIC");
+		checkTrue(what, !enHigh() && fakeHitecSim()->switchOns == 0);
+		snprintf(what, sizeof(what), "%s: the read ends on the field list",
+		         fam == HITEC_D ? "D SERIES" : "CLASSIC");
+		checkTrue(what, untilView(HitecView::List, 800));
+		if (fam == HITEC_CLASSIC) {
+			// NEXT SERVO keeps the family: the classic servo reads again.
+			tapId(UI_FIX(UI_BACK));
+			untilEnabled(UI_FIX(HitecCtl::Leave), 400);
+			tapId(UI_FIX(HitecCtl::Leave));
+			checkTrue("CLASSIC: NEXT SERVO after the off time", untilEnabled(UI_FIX(HitecCtl::NextServo), 400));
+			tapId(UI_FIX(HitecCtl::NextServo));
+			checkTrue("NEXT SERVO: a classic session again, no READ, the field list",
+			          !ctlPresent(UI_FIX(HitecCtl::Read)) && untilView(HitecView::List, 1200) &&
+			          job().image.series == HITEC_CLASSIC);
+		}
+		leaveAll();
+	}
+
+	// HITEC CLASSIC is drawn disabled without the switch; opened all the
+	// same, as only a test can, its job starts with the claim and the job's
+	// refusal of a classic entry without the supply is the backstop.
+	section("Hitec entry: CLASSIC without the switch, opened by hand");
+	freshHitec(HITEC_CLASSIC, false);
+	openChooser();
+	uiChooseTool(&UI_HITEC, uiHitecEnterClassic);
+	hitecFrames(1);
+	checkTrue("HITEC SERVO opens and claims SIG", uiCurrentScreen() == UiScreenId::Hitec &&
+	          pinClaimHolder() == PinUser::Hitec);
+	for (int i = 0; i < 40 && job().refused != HitecRefusal::State; i++) hitecFrame();
+	checkTrue("no READ: the job starts with the claim, as for any CLASSIC",
+	          !ctlPresent(UI_FIX(HitecCtl::Read)) && core1JobPhase() == Core1JobPhase::Running);
+	checkTrue("and refuses the entry: no supply switched, nothing written",
+	          job().refused == HitecRefusal::State && job().job == HitecJobState::Opening &&
+	          fakeHitecSim()->switchOns == 0 && fakeHitecSim()->writes == 0);
 	leaveAll();
 }
 
 static void testDSeriesRead() {
 	section("Hitec screen: a D series servo on its own supply, the claim, the read");
 	freshHitec(HITEC_D, false);
-	openHitec();
-	tapId(UI_FIX(HitecCtl::DSeries));
+	openAndRead(HITEC_D);
 	checkTrue("D SERIES: the main view", uiHitecView() == HitecView::Main);
+	{
+		int x0 = 0, x1 = 0;
+		checkTrue("the main view clears the strip band: y 56 to 61 blank",
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+	}
 	checkTrue("it claims SIG", pinClaimHolder() == PinUser::Hitec);
 	hitecFrames(4);
 	checkControlTable("Hitec main");
@@ -312,6 +571,24 @@ static void testDSeriesRead() {
 	          st.job == HitecJobState::InMode && st.hasImage && st.hasBackup);
 	checkTrue("GP28 untouched", !enHigh());
 	checkControlTable("Hitec list");
+	{
+		char model[24], want[48];
+		hitecModelText(&st.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP IN RAM  GP0", model);
+		checkTrue("the strip: model, backup and pin, two spaces apart, 155 px beside PROG MODE",
+		          gfxTextW(want, 1) == 155 && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+		int x0 = 0, x1 = 0;
+		checkTrue("the READ wait's second strip line is gone: y 56 to 61 blank",
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+		// Ink put into y 56 to 61 by hand; the list's next drawing clears
+		// it, as its strip clear covers y 40 to 61.
+		gfxRect(UI_MARGIN, 56, 100, 6, C_TEXT);
+		revealRow(1);
+		tapId(UI_ROW(1, Row));
+		hitecFrames(1);
+		checkTrue("the list redrawn: y 56 to 61 blank again", uiHitecView() == HitecView::List &&
+		          !fakeInkExtent(56, 6, C_BG, &x0, &x1));
+	}
 	checkTrue("HOLD TO WRITE waits for an edit", !ctlEnabled(UI_FIX(HitecCtl::Write)));
 	checkTrue("REVERT too", !ctlEnabled(UI_FIX(HitecCtl::Revert)));
 	checkTrue("MODEL's row cannot be selected", !ctlEnabled(UI_ROW(11, Row)));
@@ -338,28 +615,35 @@ static void testDSeriesRead() {
 }
 
 static void testWrite() {
-	section("Hitec screen: HOLD TO WRITE, the backup and record first, the result");
+	section("Hitec screen: WRITE..., HOLD TO WRITE, the backup and record first, the result");
 	freshHitec(HITEC_D, false);
 	checkTrue("the field list", toList(HITEC_D));
 	int32_t before = jobSpeed();
 	speedDown();
 
-	// Not at 750 ms, not on a slide off.
+	// WRITE...: nothing while pressed, nothing on a slide off; the tap's
+	// release opens the write page.
+	checkTrue("the list's button reads WRITE...",
+	          fakeTextIs(6 + (110 - gfxTextW("WRITE...", 1)) / 2, 268 + (46 - 7) / 2, "WRITE...", C_TEXT,
+	                     C_PANEL, 1));
 	pressId(UI_FIX(HitecCtl::Write));
 	int x, y;
 	ctlCentre(UI_FIX(HitecCtl::Write), &x, &y);
-	for (int i = 0; i < 29; i++) { fakeHold(x, y); hitecFrame(); }
-	fakeRelease(); hitecFrame();
-	checkTrue("a 750 ms hold opens nothing", uiHitecView() == HitecView::List);
-	pressId(UI_FIX(HitecCtl::Write));
-	for (int i = 0; i < 20; i++) { fakeHold(x, y); hitecFrame(); }
+	for (int i = 0; i < 60; i++) { fakeHold(x, y); hitecFrame(); }
+	checkTrue("a 1500 ms press opens nothing while down", uiHitecView() == HitecView::List);
 	for (int i = 0; i < 30; i++) { fakeHold(x, 120); hitecFrame(); }
 	fakeRelease(); hitecFrame();
-	checkTrue("a hold slid off opens nothing", uiHitecView() == HitecView::List);
+	checkTrue("a press slid off opens nothing", uiHitecView() == HitecView::List);
 
-	checkTrue("a full hold opens the write page", holdUntilGone(UI_FIX(HitecCtl::Write)));
+	checkTrue("a tap opens the write page", tapUntilGone(UI_FIX(HitecCtl::Write)));
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
+	hitecFrames(60);
+	checkTrue("the tap's press is not timed: 1500 ms on, HOLD TO WRITE still waits",
+	          uiHitecView() == HitecView::Write && ctlEnabled(UI_FIX(HitecCtl::WriteHold)) &&
+	          jobSpeed() == before);
 	checkControlTable("Hitec write page");
+	checkTrue("the strip counts 1 CHANGE", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 CHANGE", C_DIM, C_BG, 1) &&
+	          !fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 VALUE", C_DIM, C_BG, 1));
 	fakeDumpFrame("shot_hitec_write.ppm");
 	s_writesAtRecord = -1;
 	fakeFatOnCall(watchRecord);
@@ -381,7 +665,7 @@ static void testWrite() {
 
 	// A second write of the session: no second backup.
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("a second write ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	checkTrue("no second backup", !fakeFatExists("BACKUP/HT002.TXT"));
@@ -390,7 +674,7 @@ static void testWrite() {
 	// A later write while the record removal still flushes: the flush ends,
 	// then this write's record, then its frames.
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 4);
 	s_writesAtRecord = -1;
 	fakeFatOnCall(watchRecord);
@@ -398,6 +682,11 @@ static void testWrite() {
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	hitecFrames(4);
 	checkTrue("an earlier batch flushing: no write frame yet", fakeHitecSim()->writes == writes1);
+	checkTrue("waiting for the flush: BACK disabled, and drawn so", uiHitecView() == HitecView::Write &&
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("a tap on it: the page waits, no write frame", uiHitecView() == HitecView::Write &&
+	          fakeHitecSim()->writes == writes1);
 	fakeCacheSet(CardCache::Idle, 0);
 	checkTrue("then the write ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	fakeFatOnCall(nullptr);
@@ -406,16 +695,23 @@ static void testWrite() {
 	checkTrue("verified", job().result == HITEC_SES_OK);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 
-	// BACK during a write: the write ends, then the leave page.
+	// BACK during a write is drawn disabled and does nothing: no leave is
+	// queued, and the result follows on the page.
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the write runs", job().job == HitecJobState::Busy);
-	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK disabled while it runs, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
 	checkTrue("BACK keeps the write page while it runs", uiHitecView() == HitecView::Write);
 	checkControlTable("Hitec writing");
-	checkTrue("the leave page after the write", untilView(HitecView::Leave, 800));
+	checkTrue("the result on the page, no leave page",
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && uiHitecView() == HitecView::Write);
 	checkTrue("the write ended verified", job().result == HITEC_SES_OK);
+	checkTrue("BACK live again under the result", ctlEnabled(UI_FIX(UI_BACK)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with the result: the list", uiHitecView() == HitecView::List);
 	leaveAll();
 }
 
@@ -437,7 +733,7 @@ static void testFlushWait() {
 		          ended.state == SdLogState::Idle && ended.end == SdLogEnd::ByHitec);
 	}
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
 	unsigned writes = fakeHitecSim()->writes;
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
@@ -461,7 +757,7 @@ static void testFlushWait() {
 	freshHitec(HITEC_D, false);
 	checkTrue("again the field list", toList(HITEC_D));
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
 	writes = fakeHitecSim()->writes;
 	unsigned recovers = fakeCacheCalls().recovers;
@@ -475,10 +771,10 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) &&
 	          lineIs(196, "THE CARD DID NOT TAKE THE BACKUP", C_AMBER) &&
 	          lineIs(208, "(REMOVED OR SWAPPED?). NOTHING WENT TO", C_AMBER) &&
-	          lineIs(220, "THE SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "THE SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	// Holding again retries: the backup is saved again, then the write runs.
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("held again: the write sent and verified",
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeHitecSim()->writes > writes &&
@@ -487,7 +783,7 @@ static void testFlushWait() {
 	// A later write whose batch fails: the page names a file, not the backup.
 	writes = fakeHitecSim()->writes;
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	fakeCacheSet(CardCache::Flushing, 12);
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	hitecFrames(2);
@@ -497,7 +793,7 @@ static void testFlushWait() {
 	          ctlPresent(UI_FIX(HitecCtl::WriteOk)) && fakeHitecSim()->writes == writes &&
 	          lineIs(196, "THE CARD DID NOT TAKE A FILE (REMOVED", C_AMBER) &&
 	          lineIs(208, "OR SWAPPED?). NOTHING WENT TO THE", C_AMBER) &&
-	          lineIs(220, "SERVO. CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "SERVO. TAP OK, WRITE AGAIN.", C_AMBER));
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
 	fakeCacheReset();
@@ -509,7 +805,7 @@ static void testWriteError() {
 	checkTrue("the field list", toList(HITEC_D));
 	speedDown();
 	fakeHitecSim()->ignoreAddr = 0x54;
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the result", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	HitecStatus st = job();
@@ -522,10 +818,37 @@ static void testWriteError() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the leave page", uiHitecView() == HitecView::Leave);
 	checkControlTable("Hitec leave");
+	checkTrue("without the switch: LEAVE RESTARTS THE SERVO. is step 1, current",
+	          leaveStepIs(66, '1', HITEC_UI_LEAVE_RESTARTS, true) &&
+	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false));
+	checkTrue("the notes: the change not written, the write not verified, amber",
+	          leaveNoteIs(0, "1 CHANGE NOT WRITTEN.", C_AMBER) &&
+	          leaveNoteIs(1, "A WRITE DID NOT END VERIFIED.", C_AMBER));
+	fakeDumpFrame("shot_leave_hitec_failed.ppm");
+	{
+		UiRect r = ctlRect(UI_FIX(HitecCtl::LeaveRead));
+		checkTrue("READ AGAIN right of STAY, at scale 1",
+		          r.x == UI_LEAVE_RIGHT.x && r.y == UI_LEAVE_RIGHT.y && r.w == UI_LEAVE_RIGHT.w &&
+		          fakeTextIs(r.x + (r.w - gfxTextW("READ AGAIN", 1)) / 2, r.y + (r.h - 7) / 2,
+		                     "READ AGAIN", C_TEXT, C_PANEL, 1));
+	}
 	tapId(UI_FIX(HitecCtl::LeaveRead));
 	checkTrue("READ AGAIN reads", untilView(HitecView::List, 400));
 	for (int i = 0; i < 800 && job().job != HitecJobState::InMode; i++) hitecFrame();
 	checkTrue("in the mode again", job().job == HitecJobState::InMode);
+	// The read may not have started yet: wait until the job has been in the
+	// mode with the image known for 40 frames.
+	for (int i = 0, calm = 0; i < 1600 && calm < 40; i++) {
+		hitecFrame();
+		calm = job().job == HitecJobState::InMode && !job().unknown ? calm + 1 : 0;
+	}
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page, the servo in the mode and read, the failed write named",
+	          uiHitecView() == HitecView::Leave && job().job == HitecJobState::InMode &&
+	          !job().unknown && leaveNoteIs(1, "A WRITE DID NOT END VERIFIED.", C_AMBER));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE after the failed write: the record stays",
+	          ctlPresent(UI_FIX(HitecCtl::Restart)) && fakeFatExists("HITEC/HITEC.TXT"));
 	leaveAll();
 	checkTrue("the record of the failed write stays after LEAVE", fakeFatExists("HITEC/HITEC.TXT"));
 }
@@ -563,15 +886,21 @@ static void testFiles() {
 	// A write, then HOLD TO RESTORE puts the backup back.
 	int32_t before = jobSpeed();
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	untilCtl(UI_FIX(HitecCtl::WriteOk), 800);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	checkTrue("written", jobSpeed() < before);
 	tapId(UI_FIX(HitecCtl::Files));
 	checkTrue("RESTORE acts once the servo differs from the backup", ctlEnabled(UI_FIX(HitecCtl::Restore)));
-	checkTrue("HOLD TO RESTORE opens the write page", holdUntilGone(UI_FIX(HitecCtl::Restore)));
+	checkTrue("the restore button reads RESTORE...",
+	          fakeTextIs(122 + (112 - gfxTextW("RESTORE...", 1)) / 2, ctlRect(UI_FIX(HitecCtl::Restore)).y +
+	                     (ctlRect(UI_FIX(HitecCtl::Restore)).h - 7) / 2, "RESTORE...", C_TEXT, C_PANEL, 1));
+	checkTrue("a tap on RESTORE... opens the write page", tapUntilGone(UI_FIX(HitecCtl::Restore)));
 	checkTrue("the restore page", uiHitecView() == HitecView::Write);
+	hitecFrames(60);
+	checkTrue("it restores nothing until its hold", jobSpeed() != before &&
+	          ctlEnabled(UI_FIX(HitecCtl::WriteHold)));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the restore ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	checkInt("the servo is back to the backup", jobSpeed(), before);
@@ -610,7 +939,7 @@ static void testNoCardWrite() {
 	tapId(UI_FIX(UI_BACK));
 	int32_t before = jobSpeed();
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	hitecFrames(1);
 	checkTrue("no card: the old values lost at LEAVE, amber",
 	          lineIs(236, "NO CARD: OLD VALUES LOST AT LEAVE", C_AMBER));
@@ -627,7 +956,7 @@ static void testNoCardWrite() {
 	checkTrue("a card held by USB: RETRY MOUNT disabled", !ctlEnabled(UI_FIX(HitecCtl::RetryMount)));
 	tapId(UI_FIX(UI_BACK));
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	hitecFrames(1);
 	checkTrue("a card held by USB: the same cost, amber",
 	          lineIs(236, "CARD ON USB: OLD VALUES LOST AT LEAVE", C_AMBER));
@@ -639,7 +968,7 @@ static void testNoCardWrite() {
 	freshHitec(HITEC_D, false);
 	checkTrue("the field list", toList(HITEC_D));
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	fakeFatWriteProtect(true);
 	unsigned writes0 = fakeHitecSim()->writes;
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
@@ -648,7 +977,7 @@ static void testNoCardWrite() {
 	checkTrue("the note says why, that the servo is unchanged, and what next",
 	          lineIs(196, "THE CARD TOOK NO FILE (FULL OR", C_AMBER) &&
 	          lineIs(208, "REMOVED?). NOTHING WENT TO THE SERVO.", C_AMBER) &&
-	          lineIs(220, "CHECK THE CARD, HOLD AGAIN.", C_AMBER));
+	          lineIs(220, "CHECK THE CARD, TAP OK, WRITE AGAIN.", C_AMBER));
 	fakeFatWriteProtect(false);
 	tapId(UI_FIX(HitecCtl::WriteOk));
 	leaveAll();
@@ -657,7 +986,7 @@ static void testNoCardWrite() {
 	freshHitec(HITEC_D, false);
 	checkTrue("the field list", toList(HITEC_D));
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	fakeFatFail(FakeFatCall::Write, FR_DISK_ERR);
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the backup refused, the record taken: the write runs",
@@ -693,7 +1022,7 @@ static void testRecordAtEntry() {
 	speedDown();
 	tapId(UI_FIX(HitecCtl::Revert));
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	untilCtl(UI_FIX(HitecCtl::WriteOk), 800);
 	checkTrue("the old record moved into the ring first, the backup after it",
@@ -709,6 +1038,23 @@ static void testClassic() {
 	fakeHitecSim()->mem[0x1C] ^= 0x01;
 	checkTrue("the field list", toList(HITEC_CLASSIC));
 	checkTrue("GP28 on", enHigh());
+	{
+		// MODEL  BACKUP IN RAM  GP0  Vnn runs into the PROG MODE chip: the
+		// version and the pin, the items furthest right, go; the backup's
+		// state and the spaces stay.
+		char model[24], full[64], pin[64], want[48];
+		HitecStatus cs = job();
+		hitecModelText(&cs.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP IN RAM", model);
+		snprintf(pin, sizeof(pin), "%s  GP0", want);
+		snprintf(full, sizeof(full), "%s  V%02X", pin, cs.image.version);
+		const int room = uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN;
+		checkTrue("the room ends 4 px before the chip, at x 163", room == 155);
+		checkTrue("with the pin, or the pin and the version, it would not fit",
+		          gfxTextW(full, 1) > room && gfxTextW(pin, 1) > room);
+		checkTrue("the strip keeps the backup: model and backup, two spaces apart",
+		          gfxTextW(want, 1) <= room && fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 	int sumRow = -1;
 	HitecRow rows[HITEC_ROWS_MAX];
 	int nr = hitecRows(HITEC_LAYOUT_HS5, rows);
@@ -723,7 +1069,7 @@ static void testClassic() {
 	fakeDumpFrame("shot_hitec_repair.ppm");
 	tapId(UI_FIX(HitecCtl::Repair));
 	checkTrue("REPAIR is an edit to write", ctlEnabled(UI_FIX(HitecCtl::Write)));
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the write ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 1200));
 	hitec_value_t v;
@@ -732,6 +1078,17 @@ static void testClassic() {
 	          hitec_param_get(&st.image, HITEC_LAYOUT_HS5, HITEC_P_C_CHECKSUM, &v) == HITEC_GET_OK &&
 	          v.value == HITEC_SUM_OK);
 	tapId(UI_FIX(HitecCtl::WriteOk));
+	{
+		// After the first write the backup has a name: beside PROG MODE the
+		// version and the pin still go.
+		char model[24], want[48], pin[64];
+		hitecModelText(&st.image, model, sizeof(model));
+		snprintf(want, sizeof(want), "%s  BACKUP HT001", model);
+		snprintf(pin, sizeof(pin), "%s  GP0", want);
+		checkTrue("the written backup on the strip: model and backup HT001",
+		          uiHitecView() == HitecView::List && gfxTextW(pin, 1) > uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN &&
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 
 	tapId(UI_FIX(HitecCtl::Files));
 	tapId(UI_ROW(1, Row));
@@ -752,7 +1109,7 @@ static void testClassic() {
 	revealRow(0);
 	tapId(UI_ROW(0, Row));
 	tapId(UI_FIX(HitecCtl::EditMinus));
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("its write page", uiHitecView() == HitecView::Write);
 	fakeDumpFrame("shot_hitec_not_measured.ppm");
 	tapId(UI_FIX(UI_BACK));
@@ -771,13 +1128,12 @@ static void testSupplyCurrent() {
 	fakeI2cReset();
 	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
 	ina->currentA = 0.08;
-	openHitec();
-	tapId(UI_FIX(HitecCtl::Classic));
+	openAndRead(HITEC_CLASSIC);
 	for (int i = 0; i < 400 && !(job().job == HitecJobState::Entering && job().power == HitecPower::Listen);
 	     i++)
 		hitecFrame();
-	checkTrue("listening, the supply on: GP0  SUPPLY ON 0.08 A",
-	          job().power == HitecPower::Listen && lineIs(UI_STRIP_Y + 4, "GP0  SUPPLY ON 0.08 A", C_DIM));
+	checkTrue("listening, the supply on: SIG GP0  SUPPLY ON 0.08 A",
+	          job().power == HitecPower::Listen && lineIs(UI_STRIP_Y + 4, "SIG GP0  SUPPLY ON 0.08 A", C_DIM));
 	leaveAll();
 
 	// STOP during a D series entry: RETRY, the supply off, no current on the
@@ -785,8 +1141,7 @@ static void testSupplyCurrent() {
 	freshHitec(HITEC_D, true);
 	settings()->currentSense = 1;
 	senseConfigure(1);
-	openHitec();
-	tapId(UI_FIX(HitecCtl::DSeries));
+	openAndRead(HITEC_D);
 	untilCtl(UI_FIX(HitecCtl::Stop), 200);
 	tapId(UI_FIX(HitecCtl::Stop));
 	checkTrue("STOP: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 400));
@@ -798,6 +1153,112 @@ static void testSupplyCurrent() {
 	settings()->currentSense = 0;
 	senseConfigure(0);
 	fakeI2cReset();
+}
+
+/** @brief Whether @p text, wrapped at 37 characters, is on the main view's lines from @p k, in @p col. */
+static bool wrappedAt(int k, const char *text, uint16_t col, int lines) {
+	char l[3][48];
+	int n = kstWrap(text, 37, l, 3);
+	if (n != lines || strstr(l[n - 1], "...")) return false;
+	for (int i = 0; i < n; i++)
+		if (!mainLineIs(k + i, l[i], col)) return false;
+	return true;
+}
+
+static void testSupplyCuts() {
+	section("Hitec screen: the hard and the collapse cut");
+	freshHitec(HITEC_D, true);
+	settings()->currentSense = 1;
+	senseConfigure(1);
+	fakeI2cReset();
+	FakeIna219 *ina = fakeI2cAddIna219(INA219_ADDR);
+	ina->voutV = 5.0;
+	checkTrue("the field list on GP28", toList(HITEC_D) && enHigh());
+	ina->currentA = 3.2;
+	hitecFrames(3);
+	checkTrue("3.2 A: the supply off, Main with RETRY", !enHigh() &&
+	          uiHitecView() == HitecView::Main && job().cut == GuardCut::Hard &&
+	          ctlEnabled(UI_FIX(HitecCtl::Retry)));
+	checkTrue("the strip: SIG GP0  SUPPLY OFF", lineIs(UI_STRIP_Y + 4, "SIG GP0  SUPPLY OFF", C_DIM));
+	checkTrue("the cause on two amber lines, then RETRY's line",
+	          wrappedAt(0, UI_CUT_HARD_TEXT, C_AMBER, 2) && mainLineIs(2, UI_CUT_RETRY, C_AMBER));
+	checkControlTable("Hitec cut");
+	fakeDumpFrame("shot_hitec_cut.ppm");
+	ina->currentA = 0.1;
+	tapId(UI_FIX(HitecCtl::Retry));
+	checkTrue("RETRY reads again", untilView(HitecView::List, 1200) && enHigh() &&
+	          job().cut == GuardCut::None);
+	ina->voutV = 3.8;
+	for (int i = 0; i < 60 && enHigh(); i++) hitecFrame();
+	hitecFrames(2);
+	checkTrue("3.8 V for 1 s: off, the collapse's text", !enHigh() &&
+	          job().cut == GuardCut::Collapse && wrappedAt(0, UI_CUT_LOW_TEXT, C_AMBER, 2) &&
+	          mainLineIs(2, UI_CUT_RETRY, C_AMBER));
+	// A stall, not a cut: the stall's own text still.
+	ina->voutV = 5.0;
+	tapId(UI_FIX(HitecCtl::Retry));
+	untilView(HitecView::List, 1200);
+	for (int i = 0; i < 400; i++) core1Pass();
+	hitecFrames(4);
+	checkTrue("a stall after RETRY: the stall's text, no cut",
+	          job().stalled && job().cut == GuardCut::None &&
+	          wrappedAt(0, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER, 2));
+	leaveAll();
+	settings()->currentSense = 0;
+	senseConfigure(0);
+	fakeI2cReset();
+	supply(false);
+}
+
+/**
+ * @brief A write that waits for the card's flush ends with its page: a stall
+ *        while it waits takes the screen to Main, and the next write opens
+ *        on a tap and sends nothing until its own hold, whatever the card
+ *        does meanwhile.
+ */
+static void testFlushWaitEndsWithThePage() {
+	section("Hitec screen: a stall during the flush wait; the next write needs its hold");
+	fakeCacheReset();
+	freshHitec(HITEC_D, true);
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
+	checkTrue("the field list on GP28", toList(HITEC_D));
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	unsigned writes = fakeHitecSim()->writes;
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	hitecFrames(2);
+	checkTrue("the hold waits for the flush: no write frame",
+	          uiHitecView() == HitecView::Write && fakeHitecSim()->writes == writes &&
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER));
+	// The UI stops for 400 ms: the heartbeat lapses and the job switches the
+	// servo off. The card still flushes.
+	for (int i = 0; i < 400; i++) core1Pass();
+	hitecFrames(4);
+	checkTrue("a stall during the wait: Main with RETRY, no write frame",
+	          untilCtl(UI_FIX(HitecCtl::Retry), 200) && uiHitecView() == HitecView::Main &&
+	          fakeHitecSim()->writes == writes);
+	tapId(UI_FIX(HitecCtl::Retry));
+	checkTrue("RETRY reads the servo again", untilView(HitecView::List, 1200));
+	speedDown();
+	writes = fakeHitecSim()->writes;
+	checkTrue("a tap on WRITE...: the write page", tapUntilGone(UI_FIX(HitecCtl::Write)) &&
+	          uiHitecView() == HitecView::Write);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(40);
+	checkTrue("the card idle: no write frame without the page's hold, HOLD TO WRITE waits",
+	          fakeHitecSim()->writes == writes && ctlEnabled(UI_FIX(HitecCtl::WriteHold)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::WriteOk)));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the hold writes, and the write verifies", untilCtl(UI_FIX(HitecCtl::WriteOk), 800) &&
+	          fakeHitecSim()->writes > writes && job().result == HITEC_SES_OK);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+	fakeCacheReset();
+	card();
 }
 
 static void testStallAndBack() {
@@ -818,26 +1279,60 @@ static void testStallAndBack() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from FILES: the field list", uiHitecView() == HitecView::List);
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from the write page: the field list", uiHitecView() == HitecView::List);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the list: the leave page", uiHitecView() == HitecView::Leave);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the leave page: the field list", uiHitecView() == HitecView::List);
+	checkTrue("BACK from the list: the leave page", uiHitecView() == HitecView::Leave &&
+	          ctlEnabled(UI_FIX(HitecCtl::Stay)) && ctlEnabled(UI_FIX(HitecCtl::Leave)) &&
+	          ctlEnabled(UI_FIX(HitecCtl::LeaveRead)));
+	checkTrue("BACK there disabled, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkTrue("with GP28: LEAVE SWITCHES THE SUPPLY OFF. is step 1, current",
+	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", true) &&
+	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false) &&
+	          leaveStepIs(92, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", false) &&
+	          leaveStepIs(118, '3', "RESTART DSHOT.", false));
+	checkTrue("STAY and LEAVE drawn live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
+	checkControlTable("Hitec leave, switched");
+	fakeDumpFrame("shot_leave_hitec.ppm");
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("BACK on the leave page does nothing", uiHitecView() == HitecView::Leave);
+	tapId(UI_FIX(HitecCtl::Stay));
+	checkTrue("STAY: the field list", uiHitecView() == HitecView::List);
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(HitecCtl::Leave));
-	checkTrue("LEAVE: the unplug page", uiHitecView() == HitecView::Unplug);
-	hitecFrame();
-	checkTrue("GP28 off on the next frame", !enHigh());
+	checkTrue("LEAVE: the page releasing, RESTART DSHOT in LEAVE's place, disabled",
+	          uiHitecView() == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::Restart)) &&
+	          ctlRect(UI_FIX(HitecCtl::Restart)).y == UI_LEAVE_WIDE.y &&
+	          !ctlEnabled(UI_FIX(HitecCtl::Restart)) && !ctlEnabled(UI_FIX(HitecCtl::NextServo)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::LeaveRead)));
+	tapId(UI_FIX(HitecCtl::Restart), IdExpect::Disabled);
+	checkTrue("a double tap on LEAVE restarts nothing", uiCurrentScreen() == UiScreenId::Hitec &&
+	          pinClaimState() == ClaimState::Leaving);
+	checkTrue("GP28 off", !enHigh());
+	checkTrue("step 2 current from LEAVE on",
+	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", false) &&
+	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", true));
+	{
+		char want[48];
+		unsigned left = job().supplyLeftDs;
+		snprintf(want, sizeof(want), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", left / 10, left % 10);
+		checkTrue("the note counts the 2 s off down, dim", left > 0 && leaveNoteIs(0, want, C_DIM));
+	}
 	checkTrue("BACK waits for the 2 s off: disabled, and drawn so",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
-	checkControlTable("Hitec unplug, the supply off");
-	checkTrue("RESTART DSHOT after the 2 s off", untilCtl(UI_FIX(HitecCtl::Restart), 200));
-	checkTrue("BACK acts from that frame on, and is drawn live",
-	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
-	checkControlTable("Hitec unplug");
-	fakeDumpFrame("shot_hitec_unplug.ppm");
+	checkControlTable("Hitec leave, the supply off");
+	checkTrue("NEXT SERVO after the 2 s off", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
+	uint32_t t0 = millis();
+	checkTrue("RESTART DSHOT waits, drawn disabled", !ctlEnabled(UI_FIX(HitecCtl::Restart)) &&
+	          leaveWideIs("RESTART DSHOT", false) && leaveNoteBlank(0));
+	checkTrue("RESTART DSHOT live 1000 ms later", untilEnabled(UI_FIX(HitecCtl::Restart), 60) &&
+	          millis() - t0 >= 1000 && millis() - t0 < 1025);
+	checkTrue("BACK still disabled, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkControlTable("Hitec leave, released");
+	fakeDumpFrame("shot_leave_hitec_released.ppm");
 	tapId(UI_FIX(HitecCtl::Restart));
 	hitecFrames(4);
 	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -964,7 +1459,7 @@ static void testWritePageHornLine() {
 	revealRow(6);
 	tapId(UI_ROW(6, Row));
 	tapId(UI_FIX(HitecCtl::EditPlus));
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("ID and DIRECTION: the write page", uiHitecView() == HitecView::Write);
 	int hy = hornLineY();
 	checkTrue("the ID row first, at y 62", rowLabelY("ID") == UI_BODY_Y);
@@ -994,7 +1489,7 @@ static void testWritePageHornLine() {
 	revealRow(6);
 	tapId(UI_ROW(6, Row));
 	tapId(UI_FIX(HitecCtl::EditPlus));
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("its write page", uiHitecView() == HitecView::Write);
 	hy = hornLineY();
 	checkTrue("the horn line", hy > 0);
@@ -1024,10 +1519,17 @@ static void testWritePageHornLine() {
 	checkTrue("the field list", toList(HITEC_D));
 	checkTrue("ten or more values change", changed >= 10);
 	checkTrue("the file loads", loadFirstFile());
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
 	checkTrue("the ID row first", rowLabelY("ID") == UI_BODY_Y);
 	checkTrue("AND n MORE counts the rows not listed", andMore() == changed - rowsListed());
+	checkTrue("4 rows at most, as KST's page", rowsListed() == HITEC_PAGE_ROWS_MAX && rowsListed() == 4);
+	{
+		char want[24];
+		snprintf(want, sizeof(want), "%d CHANGES", changed);
+		checkTrue("the strip counts CHANGES, the leave page's word",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1));
+	}
 	checkTrue("the horn line", hornLineY() > 0);
 	checkTrue("the ID note, whole", idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
 	checkTrue("nothing below y 192", clearBelow192());
@@ -1049,7 +1551,7 @@ static void testWritePageHornLine() {
 	putFile(&f);
 	checkTrue("a D645MW reads", toList(HITEC_D) && !hitecModelMeasuredNow());
 	checkTrue("the file loads", loadFirstFile());
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
 	hy = hornLineY();
 	changed = hitecChangedCount(&servo, &f, HITEC_LAYOUT_D);
@@ -1077,16 +1579,15 @@ static void testWritePageHornLine() {
 	putFile(&f);
 	checkTrue("a D645MW reads", toList(HITEC_D) && !hitecModelMeasuredNow());
 	checkTrue("the file loads", loadFirstFile());
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("the write page", uiHitecView() == HitecView::Write);
 	fakeDumpFrame("shot_hitec_write_full.ppm");
 	hy = hornLineY();
 	changed = hitecChangedCount(&servo, &f, HITEC_LAYOUT_D);
 	checkTrue("the ID row first, FAILSAFE second", rowLabelY("ID") == UI_BODY_Y &&
 	          rowLabelY("FAILSAFE") == UI_BODY_Y + 12);
-	checkTrue("FAILSAFE's value under its label", fakeTextIs(GFX_W - UI_MARGIN -
-	          gfxTextW("900 US (900) -> 2100 US (2100)", 1), UI_BODY_Y + 22,
-	          "900 US (900) -> 2100 US (2100)", C_LIME, C_BG, 1));
+	checkTrue("FAILSAFE's value under its label: the old value dim, the new cyan",
+	          fakeChangeIs(UI_BODY_Y + 22, "900 US (900)", "2100 US (2100)", C_BG));
 	checkTrue("AND n MORE counts the rest", andMore() == changed - rowsListed() && andMore() > 0);
 	checkTrue("the horn line, the ID note, FILE, MODEL",
 	          hy > 0 && idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false) && noteLineY(FILE_LINE) > hy &&
@@ -1108,7 +1609,7 @@ static void testIdAndBack() {
 	hitecFrame();
 	checkTrue("ID 1: the editor bar says a write may lock out read and restore",
 	          idNoteDrawn(HITEC_UI_ID_NOTE_BAR, 22, true));
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	checkTrue("an ID write: its page", uiHitecView() == HitecView::Write);
 	checkTrue("the page says the bench may not read or restore the servo after it",
 	          idNoteDrawn(HITEC_UI_ID_NOTE_PAGE, 36, false));
@@ -1140,7 +1641,7 @@ static void testIdAndBack() {
 	hitecFrame();
 	for (int i = 0; i < 800 && job().job != HitecJobState::InMode; i++) hitecFrame();
 	hitecFrames(2);
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the reversal writes", untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && job().result == HITEC_SES_OK);
 	hitec_image_t want;
@@ -1157,26 +1658,36 @@ static void testIdAndBack() {
 
 	// STOP during the entry, BACK during the entry.
 	freshHitec(HITEC_D, true);
-	openHitec();
-	tapId(UI_FIX(HitecCtl::DSeries));
+	openAndRead(HITEC_D);
 	checkTrue("the entry offers STOP", untilCtl(UI_FIX(HitecCtl::Stop), 200));
 	tapId(UI_FIX(HitecCtl::Stop));
 	checkTrue("STOP: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 400));
 	checkTrue("the supply is off", !enHigh());
 	tapId(UI_FIX(HitecCtl::Retry));
 	checkTrue("RETRY enters again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
+	tapId(UI_FIX(HitecCtl::Stop));
+	checkTrue("STOP again: the entry ended", untilCtl(UI_FIX(HitecCtl::Retry), 400) &&
+	          job().job == HitecJobState::EntryEnded);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK during the entry: the unplug page", uiHitecView() == HitecView::Unplug);
-	checkTrue("RESTART DSHOT after the off time", untilCtl(UI_FIX(HitecCtl::Restart), 200));
+	checkTrue("BACK after a failed entry: the leave page, releasing, at its unplug step",
+	          uiHitecView() == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::NextServo)) &&
+	          !ctlPresent(UI_FIX(HitecCtl::Leave)) && !ctlPresent(UI_FIX(HitecCtl::Stay)) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true));
+	checkTrue("NEXT SERVO after the off time", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
+	tapId(UI_FIX(HitecCtl::NextServo));
+	checkTrue("NEXT SERVO: the entry again", untilCtl(UI_FIX(HitecCtl::Stop), 200));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK on the unplug page: a new session on the main view", uiHitecView() == HitecView::Main);
+	checkTrue("BACK during the entry: the leave page, releasing", uiHitecView() == HitecView::Leave &&
+	          ctlPresent(UI_FIX(HitecCtl::NextServo)) && !ctlPresent(UI_FIX(HitecCtl::Leave)));
+	checkTrue("NEXT SERVO after the off time", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
+	tapId(UI_FIX(HitecCtl::NextServo));
+	checkTrue("NEXT SERVO: a new session on the main view", uiHitecView() == HitecView::Main);
 	checkTrue("it reads the servo again", untilView(HitecView::List, 1200));
 	leaveAll();
 
 	// BACK during the entry's own read: it stops, the leave page follows.
 	freshHitec(HITEC_D, false);
-	openHitec();
-	tapId(UI_FIX(HitecCtl::DSeries));
+	openAndRead(HITEC_D);
 	for (int i = 0; i < 400 && job().job != HitecJobState::Busy; i++) hitecFrame();
 	hitecFrames(2);
 	checkTrue("the entry's read runs", job().job == HitecJobState::Busy && uiHitecView() == HitecView::Main);
@@ -1197,7 +1708,7 @@ static void testCardSwap() {
 	freshHitec(HITEC_D, false);
 	checkTrue("the field list", toList(HITEC_D));
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the first write", untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeFatExists("BACKUP/HT001.TXT"));
 	tapId(UI_FIX(HitecCtl::WriteOk));
@@ -1207,7 +1718,7 @@ static void testCardSwap() {
 	unsigned recovers = fakeCacheCalls().recovers;
 	unsigned writes = fakeHitecSim()->writes;
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("another card: mounted again, the backup saved to it, then the write",
 	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && fakeCacheCalls().recovers == recovers + 1 &&
@@ -1220,7 +1731,7 @@ static void testCardSwap() {
 	recovers = fakeCacheCalls().recovers;
 	writes = fakeHitecSim()->writes;
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	hitecFrames(2);
 	checkTrue("a batch queued: no write frame", fakeHitecSim()->writes == writes);
@@ -1240,7 +1751,7 @@ static void testStallInWrite() {
 	freshHitec(HITEC_D, true);
 	checkTrue("the field list on GP28", toList(HITEC_D));
 	speedDown();
-	holdUntilGone(UI_FIX(HitecCtl::Write));
+	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the write runs", job().job == HitecJobState::Busy);
 	// The UI stops for 2 s: the job finishes the write, then switches off.
@@ -1253,8 +1764,371 @@ static void testStallInWrite() {
 	leaveAll();
 }
 
+/** @brief The board's voltage at @p volts, held for enough frames to settle. */
+static void boardVolts(float volts) {
+	fakeAdcSet((uint16_t)(volts / 3.0f / 3.3f * 4095.0f + 0.5f));
+	hitecFrames(60);
+}
+
+/** @brief Hold @p id for 50 frames, 1250 ms, and let go. */
+static void holdFor(UiControlId id) {
+	int x, y;
+	ctlCentre(id, &x, &y);
+	fakePress(x, y);
+	hitecFrame();
+	for (int i = 0; i < 50; i++) { fakeHold(x, y); hitecFrame(); }
+	fakeRelease();
+	hitecFrames(2);
+}
+
+/**
+ * @brief The BOARD voltage red refuses the write page's hold, a write and a
+ *        restore: no file and no write, two amber lines in the page's state
+ *        lines. Amber, no cell and the text colour write. A write that waits
+ *        for its backup's flush is refused when the voltage turns red
+ *        meanwhile; a write already running is not stopped.
+ */
+static void testBoardLow() {
+	section("Hitec screen: no write or restore while the BOARD voltage is red");
+	fakeCacheReset();
+	freshHitec(HITEC_D, false);
+	checkTrue("the field list", toList(HITEC_D));
+	int32_t before = jobSpeed();
+	speedDown();
+	checkTrue("the write page", tapUntilGone(UI_FIX(HitecCtl::Write)));
+	boardVolts(3.20f);
+	checkTrue("3.20 V: red", uiBoardCellNow() == BoardCell::Critical);
+	unsigned writes0 = fakeHitecSim()->writes;
+	holdFor(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the hold writes nothing: no backup, no record, no write",
+	          !fakeFatExists("BACKUP/HT001.TXT") && !fakeFatExists("HITEC/HITEC.TXT") &&
+	          fakeHitecSim()->writes == writes0 && jobSpeed() == before);
+	checkTrue(UI_BOARD_LOW_1 ", amber, in the state lines", lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+	checkTrue(UI_BOARD_LOW_2 ", amber", lineIs(208, UI_BOARD_LOW_2, C_AMBER));
+	int x0 = 0, x1 = 0;
+	checkTrue("both inside the panel's 8 px margins",
+	          fakeInkExtent(196, 20, C_BG, &x0, &x1) && x0 >= 8 && x1 < GFX_W - 8);
+	checkTrue("HOLD TO WRITE stays", ctlEnabled(UI_FIX(HitecCtl::WriteHold)));
+	checkTrue("the horn line stays: nothing was written", hornLineY() >= 0);
+	checkControlTable("Hitec write page, board low");
+	fakeDumpFrame("shot_hitec_board_low.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the field list", uiHitecView() == HitecView::List);
+	checkTrue("the write page again: no refusal lines before a hold",
+	          tapUntilGone(UI_FIX(HitecCtl::Write)) && uiHitecView() == HitecView::Write &&
+	          !lineIs(196, UI_BOARD_LOW_1, C_AMBER) && !lineIs(208, UI_BOARD_LOW_2, C_AMBER));
+
+	// Amber and no cell to judge: each writes.
+	const float volts[] = { 3.40f, 1.00f };
+	const BoardCell band[] = { BoardCell::Low, BoardCell::NoCell };
+	const char *what[] = { "3.40 V, amber: the hold writes", "1.00 V, no cell: the hold writes" };
+	for (int k = 0; k < 2; k++) {
+		boardVolts(volts[k]);
+		int32_t was = jobSpeed();
+		if (k > 0) {
+			speedDown();
+			tapUntilGone(UI_FIX(HitecCtl::Write));
+		}
+		checkTrue(what[k], uiBoardCellNow() == band[k] && holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+		          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && job().result == HITEC_SES_OK &&
+		          jobSpeed() < was);
+		tapId(UI_FIX(HitecCtl::WriteOk));
+	}
+	checkTrue("the backup went first", fakeFatExists("BACKUP/HT001.TXT"));
+
+	// 3.92 V writes; a write already running is not stopped by red.
+	boardVolts(3.92f);
+	int32_t was = jobSpeed();
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	checkTrue("3.92 V: the hold starts the write", uiBoardCellNow() == BoardCell::Ok &&
+	          holdUntilGone(UI_FIX(HitecCtl::WriteHold)));
+	fakeAdcSet((uint16_t)(3.20f / 3.0f / 3.3f * 4095.0f + 0.5f));
+	for (int i = 0; i < 40 && uiBoardCellNow() != BoardCell::Critical; i++) hitecFrame();
+	checkTrue("the band turns red while the write runs", uiBoardCellNow() == BoardCell::Critical &&
+	          job().job == HitecJobState::Busy && !ctlPresent(UI_FIX(HitecCtl::WriteOk)));
+	checkTrue("red while it runs: the write ends verified",
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && job().result == HITEC_SES_OK &&
+	          jobSpeed() < was);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+
+	// RESTORE goes through the write page: refused the same way.
+	hitecFrames(60);
+	checkTrue("red again", uiBoardCellNow() == BoardCell::Critical);
+	int32_t written = jobSpeed();
+	tapId(UI_FIX(HitecCtl::Files));
+	checkTrue("a tap on RESTORE... opens the restore page", tapUntilGone(UI_FIX(HitecCtl::Restore)) &&
+	          uiHitecView() == HitecView::Write);
+	holdFor(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("and its hold restores nothing", jobSpeed() == written &&
+	          lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the hold restores", holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() == before);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+
+	section("Hitec screen: the BOARD voltage turns red while the backup flushes");
+	fakeCacheReset();
+	freshHitec(HITEC_D, false);
+	SdLogStatus logging;
+	memset(&logging, 0, sizeof(logging));
+	logging.state = SdLogState::Logging;
+	fakeSdLogSet(&logging);
+	checkTrue("the field list", toList(HITEC_D));
+	before = jobSpeed();
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	writes0 = fakeHitecSim()->writes;
+	checkTrue("the hold at 3.92 V queues the backup", holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+	          lineIs(196, "SAVING THE BACKUP TO THE CARD.", C_AMBER));
+	boardVolts(3.20f);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(5);
+	checkTrue("red when the flush ends: no write, the two lines",
+	          fakeHitecSim()->writes == writes0 && jobSpeed() == before &&
+	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && ctlEnabled(UI_FIX(HitecCtl::WriteHold)));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the next hold writes", holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() < before);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+
+	// A hold at red while an earlier batch flushes: refused at once, not
+	// after the flush.
+	before = jobSpeed();
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 5);
+	boardVolts(3.20f);
+	writes0 = fakeHitecSim()->writes;
+	holdFor(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("a hold at red during a flush: the refusal at once, no wait",
+	          lineIs(196, UI_BOARD_LOW_1, C_AMBER) && lineIs(208, UI_BOARD_LOW_2, C_AMBER) &&
+	          !lineIs(196, "SAVING THE FILES TO THE CARD.", C_AMBER) &&
+	          ctlEnabled(UI_FIX(HitecCtl::WriteHold)) && fakeHitecSim()->writes == writes0);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(3);
+	checkTrue("the flush ends: still nothing written, no record",
+	          fakeHitecSim()->writes == writes0 && !fakeFatExists("HITEC/HITEC.TXT") &&
+	          jobSpeed() == before);
+	boardVolts(3.92f);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the field list, the change kept", uiHitecView() == HitecView::List);
+
+	// A later write waits for an earlier batch before its record goes in:
+	// red when that flush ends, the record stays off the card too.
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 5);
+	writes0 = fakeHitecSim()->writes;
+	checkTrue("no record on the card after the verified write", !fakeFatExists("HITEC/HITEC.TXT"));
+	checkTrue("the hold at 3.92 V waits for the earlier batch",
+	          holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+	          lineIs(196, "SAVING THE FILES TO THE CARD.", C_AMBER));
+	boardVolts(3.20f);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(5);
+	checkTrue("red when it ends: no record, no write, the two lines",
+	          !fakeFatExists("HITEC/HITEC.TXT") && fakeHitecSim()->writes == writes0 &&
+	          jobSpeed() == before && lineIs(196, UI_BOARD_LOW_1, C_AMBER));
+	boardVolts(3.92f);
+	checkTrue("3.92 V: the hold writes", holdUntilGone(UI_FIX(HitecCtl::WriteHold)) &&
+	          untilCtl(UI_FIX(HitecCtl::WriteOk), 800) && jobSpeed() < before);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	leaveAll();
+
+	// A write refused at red after its record went to the card: LEAVE from
+	// the servo in the mode, with no write that failed, removes the record.
+	fakeCacheReset();
+	freshHitec(HITEC_D, false);
+	fakeSdLogSet(&logging);
+	checkTrue("the field list again", toList(HITEC_D));
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	fakeCacheSet(CardCache::Flushing, 12);
+	writes0 = fakeHitecSim()->writes;
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	boardVolts(3.20f);
+	fakeCacheSet(CardCache::Idle, 0);
+	hitecFrames(5);
+	checkTrue("red when the flush ends: the record on the card, no write",
+	          fakeFatExists("HITEC/HITEC.TXT") && fakeHitecSim()->writes == writes0);
+	boardVolts(3.92f);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the leave page, LEAVE live", uiHitecView() == HitecView::Leave &&
+	          ctlEnabled(UI_FIX(HitecCtl::Leave)));
+	tapId(UI_FIX(HitecCtl::Leave));
+	checkTrue("LEAVE from the servo in the mode removes the session's record",
+	          !fakeFatExists("HITEC/HITEC.TXT") && ctlPresent(UI_FIX(HitecCtl::Restart)));
+	leaveAll();
+	fakeCacheReset();
+	fakeAdcSet(fakeAdcDefault());
+}
+
+/** @brief The framebuffer's pixel at (@p x, @p y). */
+static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
+
+/** @brief Whether any pixel of the rectangle is @p col. */
+static bool regionHas(int x, int y, int w, int h, uint16_t col) {
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (pixel(i, j) == col) return true;
+	return false;
+}
+
+/** @brief The D series list row labelled @p label, or -1. */
+static int dRowOf(const char *label) {
+	HitecRow rows[HITEC_ROWS_MAX];
+	int n = hitecRows(HITEC_LAYOUT_D, rows);
+	for (int i = 0; i < n; i++)
+		if (!strcmp(rows[i].label, label)) return i;
+	return -1;
+}
+
+/**
+ * @brief The colour roles on HITEC SERVO (docs/design/menu-b.md, decisions 8
+ *        and 11): the headline amber, PROG MODE on blue, a row's value by its
+ *        state with its bar and no `*`, the editor bar's value likewise,
+ *        REVERT amber.
+ */
+static void testColourRoles() {
+	section("Hitec screen: the colour roles");
+	freshHitec(HITEC_D, true);
+	openAndRead(HITEC_D);
+	hitecFrames(2);
+	checkTrue("SUPPLY OFF in amber, the current step",
+	          fakeTextCentredIs(70, "SUPPLY OFF", C_AMBER, C_BG, 2));
+	checkTrue("the field list", untilView(HitecView::List, 800));
+	hitecFrames(1);
+	const int cw = gfxTextW("PROG MODE", 1) + 12, cx = GFX_W - UI_MARGIN - cw;
+	checkTrue("PROG MODE on blue, a square 65 px chip from x 167",
+	          cx == 167 && fakeTextIs(cx + 6, 44, "PROG MODE", C_ONACCENT, C_BLUE, 1) &&
+	          pixel(cx, 42) == C_BLUE && pixel(cx + cw - 1, 53) == C_BLUE && pixel(cx, 41) == C_BG);
+	checkTrue("the strip's caption ends 4 px or more before the chip",
+	          !regionHas(cx - 4, UI_STRIP_Y, 4, UI_STRIP_H, C_DIM));
+
+	const int sp = dRowOf("SPEED"), db = dRowOf("DIRECTION");
+	checkTrue("SPEED and DIRECTION rows", sp >= 0 && db >= 0);
+	revealRow(sp);
+	tapId(UI_ROW(sp, Row));
+	hitecFrames(1);
+	UiRect r = ctlRect(UI_ROW(sp, Row));
+	auto valueHas = [&](const UiRect &q, uint16_t col) { return regionHas(120, q.y + 13, 112, 14, col); };
+	checkTrue("selected, as read: the value in the text colour, never lime; no bar",
+	          valueHas(r, C_TEXT) && !valueHas(r, C_LIME) && pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("the editor bar's value in the text colour",
+	          regionHas(52, 234, 136, 14, C_TEXT) && !regionHas(52, 234, 136, 14, C_LIME));
+	tapId(UI_FIX(HitecCtl::EditMinus));
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(sp, Row));
+	checkTrue("-: changed, the value cyan, a 3 px cyan bar",
+	          valueHas(r, C_CYAN) && !valueHas(r, C_TEXT) && pixel(0, r.y + 5) == C_CYAN &&
+	          pixel(2, r.y + 5) == C_CYAN && pixel(3, r.y + 5) == C_PANEL);
+	checkTrue("the label carries no *: SPEED from x 8 in the text colour",
+	          fakeTextIs(UI_MARGIN, r.y + 21, "SPEED", C_TEXT, C_PANEL, 1));
+	checkTrue("the editor bar's value cyan",
+	          regionHas(52, 234, 136, 14, C_CYAN) && !regionHas(52, 234, 136, 14, C_LIME));
+	const UiRect rv = ctlRect(UI_FIX(HitecCtl::Revert));
+	checkTrue("REVERT's label amber",
+	          fakeTextIs(rv.x + (rv.w - gfxTextW("REVERT", 1)) / 2, rv.y + (rv.h - 7) / 2,
+	                     "REVERT", C_AMBER, C_PANEL, 1));
+	tapId(UI_FIX(HitecCtl::Revert));
+	revealRow(db);
+	tapId(UI_ROW(db, Row));
+	tapId(UI_FIX(ctlEnabled(UI_FIX(HitecCtl::EditMinus)) ? HitecCtl::EditMinus : HitecCtl::EditPlus));
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(db, Row));
+	checkTrue("DIRECTION reversed, a soft rule: the bar amber, the value cyan",
+	          valueHas(r, C_CYAN) && pixel(1, r.y + 5) == C_AMBER);
+	checkTrue("the rule's top line in cyan, the new value", regionHas(52, 220, 136, 7, C_CYAN));
+	tapId(UI_FIX(HitecCtl::Revert));
+	HitecRow rows[HITEC_ROWS_MAX];
+	int n = hitecRows(HITEC_LAYOUT_D, rows), ro = -1;
+	for (int i = 0; i < n && ro < 0; i++)
+		if (!hitecEditable(HITEC_LAYOUT_D, rows[i].param)) ro = i;
+	checkTrue("a row the bench does not write", ro >= 0);
+	revealRow(ro);
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(ro, Row));
+	checkTrue("read-only: its label and value grey",
+	          fakeTextIs(UI_MARGIN, r.y + 21, rows[ro].label, C_GRID, C_BG, 1) &&
+	          !valueHas(r, C_TEXT) && !valueHas(r, C_LIME));
+	leaveAll();
+
+	// A SPEED the encoding does not take, 1234 at 0x54: RAW 1234, amber in
+	// the row and in the editor bar alike.
+	freshHitec(HITEC_D, false);
+	fakeHitecSim()->mem[0x54] = 0xD2;
+	fakeHitecSim()->mem[0x55] = 0x04;
+	checkTrue("a raw SPEED: the field list", toList(HITEC_D));
+	revealRow(sp);
+	tapId(UI_ROW(sp, Row));
+	hitecFrames(1);
+	r = ctlRect(UI_ROW(sp, Row));
+	checkTrue("RAW 1234 amber in the row",
+	          fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("RAW 1234", 2), r.y + 13, "RAW 1234", C_AMBER,
+	                     C_PANEL, 2));
+	checkTrue("and amber in the editor bar, as the row",
+	          regionHas(52, 234, 136, 14, C_AMBER) && !regionHas(52, 234, 136, 14, C_TEXT));
+	leaveAll();
+}
+
+/**
+ * @brief The strip's room at its edge beside PROG MODE: a D series model
+ *        rcbench does not name reads `D SERIES` and its number, so the
+ *        number's digits set the strip's width in 6 px steps. With 2 digits
+ *        `D SERIES 42  BACKUP IN RAM` is 155 px and keeps the backup, ending
+ *        4 px before the chip; with 3, 161 px, it does not fit, and the model
+ *        stays alone. Widths at scale 1 are 6 n - 1 px, so no strip ends
+ *        1 to 3 px before the chip: the room's 4 px term and a room of 159 px
+ *        draw the same strips.
+ */
+static void testStripRoom() {
+	section("Hitec screen: the strip's room beside PROG MODE, 155 px");
+	const struct { uint16_t number; const char *want; } cases[] = {
+		{ 42, "D SERIES 42  BACKUP IN RAM" },
+		{ 420, "D SERIES 420" },
+	};
+	for (const auto &c : cases) {
+		freshHitec(HITEC_D, false);
+		fakeHitecSim()->mem[0x00] = (uint8_t)(c.number & 0xFF);
+		fakeHitecSim()->mem[0x01] = (uint8_t)(c.number >> 8);
+		char what[96];
+		snprintf(what, sizeof(what), "model number %u: the field list", c.number);
+		checkTrue(what, toList(HITEC_D));
+		hitecFrames(1);
+		snprintf(what, sizeof(what), "the strip reads %s, %d px, and nothing after it", c.want, gfxTextW(c.want, 1));
+		const int end = UI_MARGIN + gfxTextW(c.want, 1);
+		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, c.want, C_DIM, C_BG, 1) &&
+		          !regionHas(end, UI_STRIP_Y, uiChipX(HITEC_UI_CHIP) - end, UI_STRIP_H, C_DIM));
+		leaveAll();
+	}
+	checkInt("D SERIES 42  BACKUP IN RAM: 155 px, to x 162", gfxTextW("D SERIES 42  BACKUP IN RAM", 1), 155);
+	checkInt("D SERIES 420  BACKUP IN RAM: 161 px", gfxTextW("D SERIES 420  BACKUP IN RAM", 1), 161);
+}
+
+/**
+ * @brief Another claim holds the pins: HITEC SERVO, opened by hand since
+ *        MENU refuses its row, says to wait for DShot's restart.
+ */
+static void testBusyRefusal() {
+	section("HITEC screen: another claim holds the pins");
+	freshHitec(HITEC_D, false);
+	checkTrue("another claim holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	TouchState none;
+	memset(&none, 0, sizeof(none));
+	uiHitecEnterD();
+	UI_HITEC.tick(&none);
+	checkTrue("HITEC refused: WAIT: DSHOT RESTARTING, amber",
+	          pinClaimHolder() == PinUser::Am32 && lineIs(80, UI_WAIT_RESTART_TEXT, C_AMBER));
+	pinClaimEnd(PinUser::Am32);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) hitecFrames(1);
+	freshHitec(HITEC_D, false);
+}
+
 void runHitecUiTests() {
-	testFamily();
+	testEntry();
 	testDSeriesRead();
 	testWrite();
 	testFlushWait();
@@ -1265,9 +2139,15 @@ void runHitecUiTests() {
 	testRecordAtEntry();
 	testClassic();
 	testSupplyCurrent();
+	testSupplyCuts();
+	testFlushWaitEndsWithThePage();
 	testStallAndBack();
 	testIdAndBack();
 	testWritePageHornLine();
 	testCardSwap();
 	testStallInWrite();
+	testBoardLow();
+	testColourRoles();
+	testStripRoom();
+	testBusyRefusal();
 }

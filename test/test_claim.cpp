@@ -27,6 +27,7 @@
 #include "ui.h"
 #include "ui_widgets.h"
 #include "ui_am32.h"
+#include "ui_menu.h"
 #include "plat.h"
 
 #include "../src/core1_job.cpp"   // NOLINT -- see the note above
@@ -93,13 +94,17 @@ static void removeJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = nullptr;
 	s_ops[(uint8_t)Core1Job::Kst]   = nullptr;
 	s_ops[(uint8_t)Core1Job::Hitec] = nullptr;
+	s_ops[(uint8_t)Core1Job::Sbus]  = nullptr;
+	s_ops[(uint8_t)Core1Job::EscWire] = nullptr;
 }
 
-/** @brief The table as it ships: the servo, KST and Hitec jobs. */
+/** @brief The table as it ships: the servo, KST, Hitec, S.BUS and ESC settings jobs. */
 static void shippedJobs() {
 	s_ops[(uint8_t)Core1Job::Servo] = &SERVO_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Kst]   = &KST_JOB_OPS;
 	s_ops[(uint8_t)Core1Job::Hitec] = &HITEC_JOB_OPS;
+	s_ops[(uint8_t)Core1Job::Sbus]  = &SBUS_JOB_OPS;
+	s_ops[(uint8_t)Core1Job::EscWire] = &ESCWIRE_JOB_OPS;
 }
 
 // ---------------------------------------------------------------------------
@@ -169,13 +174,19 @@ static void frames(int n) {
 #define UI_IDS_FRAMES(n) frames(n)
 #include "ui_ids.h"
 
-/** @brief Whether MENU row @p id shows a status in C_AMBER: PINS BUSY. */
+/**
+ * @brief Whether MENU row @p id is drawn refused: an outline with the
+ *        background inside, where a live row has the panel fill, and the
+ *        strip reads DSHOT RESTARTING ON SIG GPn in amber.
+ */
 static bool busyShown(UiControlId id) {
 	UiRect r = ctlRect(id);
-	for (int y = r.y; y < r.y + r.h; y++)
-		for (int x = r.x; x < r.x + r.w; x++)
-			if (gfxBuffer()[y * GFX_W + x] == C_AMBER) return true;
-	return false;
+	char want[40];
+	snprintf(want, sizeof(want), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+	// On the first line of two while MENU's AM32 run cue stands under it.
+	return gfxBuffer()[(r.y + 8) * GFX_W + r.x + 5] == C_BG &&
+	       (fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1) ||
+	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_AMBER, C_BG, 1));
 }
 
 // ---------------------------------------------------------------------------
@@ -357,7 +368,8 @@ static void testHandoverRules() {
 	EscSlot d = escDrainSlot();
 	checkTrue("a drain slot is throttle zero, no command, no KISS request",
 	          !d.frame.sendCommand && d.frame.throttle == 0 && !d.frame.requestKiss);
-	checkTrue("and takes no beacon and forgets no EDT", !d.beepTaken && !d.forgetEdt);
+	checkTrue("and takes no command request and forgets no EDT",
+	          !d.cmdTaken && !d.forgetEdt);
 
 	EscPump p;
 	memset(&p, 0xA5, sizeof(p));
@@ -388,7 +400,7 @@ struct HandoverSim {
 	EscTelemetry tel;
 	bool     armed;               /**< core0's s_armed. */
 	uint16_t throttle;            /**< core0's s_throttle. */
-	uint8_t  beepReq;             /**< core0's s_beepReq. */
+	EscCmdRequest req;            /**< core0's s_cmdReq. */
 	bool     suspendReq;          /**< core0's s_suspendReq. */
 	bool     rebuildReq;          /**< core0's s_rebuildReq. */
 	bool     pumpUp;              /**< s_pumpUp. */
@@ -426,8 +438,8 @@ static void hsSlot(HandoverSim *h) {
 	EscSlot s = act == EscHandover::Drain
 	          ? escDrainSlot()
 	          : escPumpSlot(&h->pump, &h->tel, h->armed, true, h->throttle,
-	                        h->beepReq, false, h->ms);
-	if (s.beepTaken) h->beepReq = 0;
+	                        &h->req, DSHOT_REPLY_NONE, false, h->ms);
+	if (s.cmdTaken) h->req.cmd = 0;
 	if (act == EscHandover::Drain) {
 		h->drainFrames++;
 		if (s.frame.sendCommand || s.frame.throttle || s.frame.requestKiss)
@@ -469,7 +481,7 @@ static void testHandoverSlots() {
 	// request. A beacon asked for at the same moment is left for later.
 	h->armed = false;
 	h->throttle = 0;
-	h->beepReq = 1;
+	h->req = {1, false, h->ms};
 	h->suspendReq = true;
 	uint32_t last = h->lastThrottleFrameMs;
 	for (int i = 0; i < 1000 && !h->suspended; i++) hsSlot(h);
@@ -478,9 +490,9 @@ static void testHandoverSlots() {
 	         (long)(h->teardownMs - last), 251);
 	checkInt("every slot between is a drain frame", h->drainFrames, 250);
 	checkInt("each throttle zero, no command, no KISS request", h->badDrainFrames, 0);
-	checkInt("the drain takes no beacon", h->beepReq, 1);
+	checkInt("the drain takes no beacon", h->req.cmd, 1);
 
-	h->beepReq = 0;
+	h->req.cmd = 0;
 	h->suspendReq = false;
 	hsSlot(h);
 	checkTrue("a resume binds again, disarmed",
@@ -917,6 +929,105 @@ static void testBackEveryState() {
 	removeJobs();
 }
 
+static FakeJob g_hitecJob;
+static uint8_t hitecBind(uint8_t sig, uint8_t aux) { return bindInto(&g_hitecJob, sig, aux); }
+static void hitecStep(uint32_t, bool alive) { g_hitecJob.steps++; g_hitecJob.uiAlive = alive; }
+static bool hitecRelease(uint32_t) { return releaseFrom(&g_hitecJob); }
+static const Core1JobOps FAKE_HITEC = { hitecBind, hitecStep, hitecRelease, nullptr };
+
+/**
+ * @brief HITEC defers its job: the claim holds SIG with no job until the
+ *        family tap, and BACK before it passes the unplug page.
+ */
+static void testDeferredJob() {
+	section("Pin claim: HITEC holds SIG before its job");
+
+	uiInit();
+	freshPump();
+	installJobs();
+	memset(&g_hitecJob, 0, sizeof(g_hitecJob));
+	s_ops[(uint8_t)Core1Job::Hitec] = &FAKE_HITEC;
+	checkTrue("HITEC and ESC SETTINGS defer their jobs", pinUserInfo(PinUser::Hitec).deferJob &&
+	          !pinUserInfo(PinUser::Servo).deferJob && !pinUserInfo(PinUser::Kst).deferJob &&
+	          pinUserInfo(PinUser::Am32).deferJob);
+	int resumes = fakeResumeCount();
+	checkTrue("HITEC claims", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	checkTrue("held", pinClaimPoll() == ClaimState::Held);
+	core1JobPoll();
+	pinClaimPoll();
+	checkTrue("no job is asked for at Held", core1JobPhase() == Core1JobPhase::Idle &&
+	          g_hitecJob.binds == 0 && pinClaimState() == ClaimState::Held &&
+	          pinClaimJobError() == CORE1_JOB_OK);
+	checkInt("the pin is latched", pinClaimGpio(PIN_SIG), SIG_GPIO);
+	pinClaimStartJob(PinUser::Servo);
+	core1JobPoll();
+	checkTrue("a start from another screen does nothing", core1JobPhase() == Core1JobPhase::Idle &&
+	          g_hitecJob.binds == 0 && pinClaimPoll() == ClaimState::Held);
+
+	// BACK before the tap: the unplug page, as after a session.
+	pinClaimEnd(PinUser::Hitec);
+	checkTrue("BACK: leaving, the unplug page at once", pinClaimState() == ClaimState::Leaving &&
+	          pinClaimUnplugDue());
+	pinClaimStartJob(PinUser::Hitec);
+	checkTrue("no start while leaving", core1JobPhase() == Core1JobPhase::Idle);
+	pinClaimKeep(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("BACK on the unplug page: held, still no job",
+	          pinClaimPoll() == ClaimState::Held && g_hitecJob.binds == 0 &&
+	          core1JobPhase() == Core1JobPhase::Idle);
+	checkInt("DShot stayed down", fakeResumeCount(), resumes);
+
+	// The tap: the job starts and binds.
+	pinClaimStartJob(PinUser::Hitec);
+	checkTrue("the tap asks for the job", core1JobPhase() == Core1JobPhase::Starting);
+	pinClaimStartJob(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("it binds once", g_hitecJob.binds == 1 && pinClaimPoll() == ClaimState::Running);
+	pinClaimEnd(PinUser::Hitec);
+	core1JobPoll();
+	pinClaimPoll();
+	pinClaimKeep(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("after the tap, NEXT SERVO on the leave page returns to Held with no job",
+	          g_hitecJob.binds == 1 && pinClaimPoll() == ClaimState::Held &&
+	          core1JobPhase() == Core1JobPhase::Idle);
+	pinClaimStartJob(PinUser::Hitec);
+	core1JobPoll();
+	checkTrue("and the next tap starts it again",
+	          g_hitecJob.binds == 2 && pinClaimPoll() == ClaimState::Running);
+	checkTrue("back to free", toFree());
+
+	// The tap while the pump still drains: the job follows at Held.
+	escSetArmed(true);
+	escSetThrottle(200);
+	pump();
+	checkTrue("claims during a drain", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
+	pinClaimStartJob(PinUser::Hitec);
+	checkTrue("stopping, nothing started", pinClaimPoll() == ClaimState::Stopping &&
+	          core1JobPhase() == Core1JobPhase::Idle);
+	for (int i = 0; i < 4 && pinClaimState() != ClaimState::Held; i++) {
+		fakeAdvance(100);
+		pump();
+		pinClaimPoll();
+	}
+	checkTrue("held: the job starts", pinClaimState() == ClaimState::Held &&
+	          core1JobPhase() == Core1JobPhase::Starting);
+	core1JobPoll();
+	checkTrue("and binds", pinClaimPoll() == ClaimState::Running && g_hitecJob.binds == 3);
+	checkTrue("back to free", toFree());
+
+	// The next claim defers again.
+	checkTrue("claims", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	pinClaimPoll();
+	core1JobPoll();
+	checkTrue("a new claim waits for its tap again", pinClaimPoll() == ClaimState::Held &&
+	          g_hitecJob.binds == 3);
+	checkTrue("back to free", toFree());
+	removeJobs();
+}
+
 /** @brief The rebuild after a claim uses the wiring from before it. */
 static void testRestore() {
 	section("Pin claim: DShot comes back as it was");
@@ -1020,7 +1131,7 @@ static void testHeartbeat() {
 	removeJobs();
 }
 
-/** @brief settingsSave() refuses while a claim holds. */
+/** @brief settingsSave() and settingsSaveAngle() refuse while a claim holds. */
 static void testNoSaveDuringClaim() {
 	section("Pin claim: no flash write while it holds");
 
@@ -1033,10 +1144,93 @@ static void testNoSaveDuringClaim() {
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	checkTrue("a save while it holds is refused", !settingsSave());
 	checkInt("and writes nothing", fakeFlashWrites(), writes);
+	settings()->angleLengthMm = 40;
+	checkTrue("nor does the angle meter's save", !settingsSaveAngle());
+	checkInt("which writes nothing either", fakeFlashWrites(), writes);
 	checkTrue("back to free", toFree());
+	checkTrue("the angle meter's save goes through after it",
+	          settingsSaveAngle() && fakeFlashWrites() == writes + 1);
 	checkTrue("the save goes through after it", settingsSave());
 	fakeFlashClear();
 	settingsLoad();
+}
+
+/**
+ * @brief The leave page belongs to the claim (docs/design/bluejay-blheli-s.md,
+ *        slice 2): an AM32 claim resumes DShot within pinClaimEnd() as
+ *        before, and one given the leave page by pinClaimWantLeavePage()
+ *        waits for RESTART DSHOT; the page lasts until Free and goes with
+ *        the claim; only the holder sets it, and only before it leaves.
+ */
+static void testLeavePagePerClaim() {
+	section("Pin claim: the leave page per claim");
+
+	uiInit();
+	freshPump();
+	installJobs();
+
+	checkTrue("Free: no leave page", !pinClaimLeavePage());
+	pinClaimWantLeavePage(PinUser::Am32);
+	checkTrue("asked for while Free: nothing", !pinClaimLeavePage());
+
+	// An AM32 claim as before: DShot within BACK.
+	int resumes = fakeResumeCount();
+	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	checkTrue("its user's row: no leave page", !pinClaimLeavePage());
+	pump();
+	checkTrue("held", pinClaimPoll() == ClaimState::Held);
+	pinClaimWantLeavePage(PinUser::Servo);
+	checkTrue("asked for by a screen that does not hold it: nothing", !pinClaimLeavePage());
+	pinClaimEnd(PinUser::Am32);
+	checkInt("no EFM8 answer: DShot resumes within pinClaimEnd()", fakeResumeCount(), resumes + 1);
+	checkTrue("restoring, no page due", pinClaimState() == ClaimState::Restoring && !pinClaimUnplugDue());
+	pinClaimWantLeavePage(PinUser::Am32);
+	checkTrue("asked for after the end: nothing", !pinClaimLeavePage());
+	pump();
+	checkTrue("free", pinClaimState() == ClaimState::Free);
+
+	// The same user, given the page while Held: DShot waits.
+	resumes = fakeResumeCount();
+	checkTrue("AM32 claims again", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	pinClaimWantLeavePage(PinUser::Am32);
+	checkTrue("given while Stopping: the page", pinClaimLeavePage());
+	pump();
+	checkTrue("held, the page kept", pinClaimPoll() == ClaimState::Held && pinClaimLeavePage());
+	checkTrue("no job", core1JobRunning() == Core1Job::None);
+	pinClaimEnd(PinUser::Am32);
+	checkTrue("BACK: leaving, DShot not asked", pinClaimState() == ClaimState::Leaving &&
+	          fakeResumeCount() == resumes);
+	checkTrue("the page is due at once: no job to wait for", pinClaimUnplugDue());
+	for (int i = 0; i < 3; i++) { pump(); pinClaimPoll(); }
+	checkTrue("and stays due, DShot down", pinClaimState() == ClaimState::Leaving &&
+	          fakeResumeCount() == resumes && escTaskSuspended());
+	pinClaimKeep(PinUser::Servo);
+	pinClaimRestart(PinUser::Servo);
+	checkTrue("RESTART from another screen: nothing", pinClaimState() == ClaimState::Leaving &&
+	          fakeResumeCount() == resumes);
+	pinClaimRestart(PinUser::Am32);
+	checkInt("RESTART DSHOT resumes the pump", fakeResumeCount(), resumes + 1);
+	checkTrue("restoring", pinClaimState() == ClaimState::Restoring);
+	pump();
+	checkTrue("free, the page gone with the claim", pinClaimState() == ClaimState::Free &&
+	          !pinClaimLeavePage());
+
+	// The next AM32 claim starts without it.
+	resumes = fakeResumeCount();
+	checkTrue("AM32 claims a third time", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	pump();
+	pinClaimPoll();
+	checkTrue("no page from the claim before", !pinClaimLeavePage());
+	pinClaimEnd(PinUser::Am32);
+	checkInt("DShot within pinClaimEnd() again", fakeResumeCount(), resumes + 1);
+	pump();
+	checkTrue("free", pinClaimState() == ClaimState::Free);
+
+	// A user with the page from its row reports it.
+	checkTrue("KST claims", pinClaimBegin(PinUser::Kst, PIN_SIG) == ClaimRefusal::None);
+	checkTrue("KST's row: the page", pinClaimLeavePage());
+	checkTrue("back to free", toFree());
+	removeJobs();
 }
 
 /** @brief The AM32 screen on the claim, through the real UI. */
@@ -1053,7 +1247,7 @@ static void testAm32Screen() {
 	frames(1);  // MENU's first paint: the table check compares BACK's look.
 	checkControlTable("MENU");
 	frames(2);
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens from MENU", uiCurrentScreen() == UiScreenId::Am32);
 	checkTrue("AM32 holds the claim", pinClaimHolder() == PinUser::Am32);
 	frames(4);
@@ -1078,7 +1272,7 @@ static void testAm32Screen() {
 	checkTrue("BACK from MENU returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens a second time", uiCurrentScreen() == UiScreenId::Am32);
 	frames(4);
 	checkTrue("AM32 opened again takes the pin again",
@@ -1097,7 +1291,7 @@ static void testAm32Screen() {
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
 	fakeRelease(); frames(2);
-	tapId(UI_FIX(TesterCtl::Hold));
+	tapId(UI_FIX(TesterCtl::Latch));
 	// The drag starts mid-track, at the track's vertical centre.
 	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
 	const int thrY = thr.y + thr.h / 2;
@@ -1108,7 +1302,7 @@ static void testAm32Screen() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("MENU opens from a running motor", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("MENU disarms", !uiArmed() && !fakeArmed());
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens from MENU after a running motor", uiCurrentScreen() == UiScreenId::Am32);
 	uint32_t stamp = fakeLastThrottleMs();
 	checkTrue("AM32 opened within 250 ms of the last throttle frame",
@@ -1124,22 +1318,22 @@ static void testAm32Screen() {
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
 	// Another claim holds. MENU refuses AM32 while the claim is not Free:
-	// the row reads PINS BUSY, does not act, and a tap opens nothing. Once
+	// the row is drawn disabled, does not act, and a tap opens nothing. Once
 	// the claim is Free, the row opens AM32, which claims at once.
 	checkTrue("a SERVO claim holds",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	frames(1);
 	checkControlTable("MENU, the pins busy");
-	checkTrue("MENU: AM32 reads PINS BUSY", busyShown(menuRow(&UI_AM32)));
-	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_AM32)));
-	tapId(menuRow(&UI_AM32), IdExpect::Disabled);
+	checkTrue("MENU: AM32 drawn disabled, the strip DSHOT RESTARTING", busyShown(menuRow(&UI_ESC_CONFIG)));
+	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_ESC_CONFIG)));
+	tapId(menuRow(&UI_ESC_CONFIG), IdExpect::Disabled);
 	checkTrue("a tap on it opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("and leaves the other claim alone", pinClaimHolder() == PinUser::Servo);
 	toFree();
 	frames(1);
 	checkTrue("the other claim gone: the row acts again",
-	          ctlEnabled(menuRow(&UI_AM32)) && !busyShown(menuRow(&UI_AM32)));
-	tapId(menuRow(&UI_AM32));
+	          ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !busyShown(menuRow(&UI_ESC_CONFIG)));
+	openEscSettings();
 	checkTrue("AM32 opens, and claims on the tap",
 	          uiCurrentScreen() == UiScreenId::Am32 && pinClaimHolder() == PinUser::Am32);
 	tapId(UI_FIX(UI_BACK));
@@ -1153,10 +1347,16 @@ static void testAm32Screen() {
 
 void runClaimTests() {
 	section("Core1 jobs: the table as it ships");
-	checkTrue("the servo, KST and Hitec jobs are in the table",
+	checkTrue("the servo, KST, Hitec, S.BUS and ESC settings jobs are in the table",
 	          s_ops[(uint8_t)Core1Job::Servo] == &SERVO_JOB_OPS &&
 	          s_ops[(uint8_t)Core1Job::Kst] == &KST_JOB_OPS &&
-	          s_ops[(uint8_t)Core1Job::Hitec] == &HITEC_JOB_OPS);
+	          s_ops[(uint8_t)Core1Job::Hitec] == &HITEC_JOB_OPS &&
+	          s_ops[(uint8_t)Core1Job::Sbus] == &SBUS_JOB_OPS &&
+	          s_ops[(uint8_t)Core1Job::EscWire] == &ESCWIRE_JOB_OPS);
+	checkTrue("and the USB bridge's job",
+	          s_ops[(uint8_t)Core1Job::Bridge] == &BRIDGE_JOB_OPS);
+	checkTrue("and the S.BUS output's job",
+	          s_ops[(uint8_t)Core1Job::SbusOut] == &SBUS_OUT_JOB_OPS);
 	installJobs();
 	s_ops[(uint8_t)Core1Job::Kst] = &FAKE_KST_INIT;
 	core1JobInit();
@@ -1174,9 +1374,11 @@ void runClaimTests() {
 	testOrder();
 	testJobGuard();
 	testBackEveryState();
+	testDeferredJob();
 	testRestore();
 	testHeartbeat();
 	testNoSaveDuringClaim();
+	testLeavePagePerClaim();
 	testAm32Screen();
 
 	shippedJobs();

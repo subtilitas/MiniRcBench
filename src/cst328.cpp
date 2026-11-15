@@ -10,7 +10,7 @@
  * code. Reading one finger is a 5-byte transfer instead of 27.
  *
  * The bus is shared with the current sensor (sense.h). Each transfer is
- * reported to the sensor's bus record with senseNoteTouch(), so a bus that
+ * reported to the sensor's bus record with senseNote(), so a bus that
  * fails touch is seen as stuck between two sensor reads.
  *
  * @see touch.h for the interface this driver implements.
@@ -76,16 +76,17 @@
 
 static bool s_prevDown = false;        /**< Contact state at the previous poll. */
 static bool s_answered = false;        /**< A read completed since touchInit(). */
-static uint32_t s_answerMs = 0;        /**< millis() at the last answer. */
+/** @brief millis() of the last answer; core0 writes it, core1 reads it. */
+static volatile uint32_t s_answeredMs = 0;
 
-/** @brief Record an answer: for touchAnswered() and touchLastAnswerMs(). */
+/** @brief Record an answer: for touchAnswered() and touchAnsweredMs(). */
 static void noteAnswer() {
 	s_answered = true;
-	s_answerMs = millis();
+	s_answeredMs = millis();
 }
 
 bool touchAnswered() { return s_answered; }
-uint32_t touchLastAnswerMs() { return s_answerMs; }
+uint32_t touchAnsweredMs() { return s_answeredMs; }
 static int16_t s_downX = 0, s_downY = 0; /**< Where the current press started. */
 
 /**
@@ -100,7 +101,7 @@ static bool wrCmd(uint16_t reg) {
 	// 16-bit register address, big-endian, and the address alone is the command.
 	uint8_t a[2] = { (uint8_t)(reg >> 8), (uint8_t)(reg & 0xFF) };
 	int rc = i2c_write_timeout_us(TOUCH_I2C, TOUCH_ADDR, a, 2, false, I2C_TIMEOUT_US);
-	senseNoteTouch(rc, 2);
+	senseNote(rc, 2);
 	return rc == 2;
 }
 
@@ -117,10 +118,10 @@ static bool rdRegs(uint16_t reg, uint8_t *buf, uint8_t n) {
 	// nostop=true leaves a repeated start; a stop here would make the
 	// controller forget the register pointer.
 	int rc = i2c_write_timeout_us(TOUCH_I2C, TOUCH_ADDR, a, 2, true, I2C_TIMEOUT_US);
-	senseNoteTouch(rc, 2);
+	senseNote(rc, 2);
 	if (rc != 2) return false;
 	rc = i2c_read_timeout_us(TOUCH_I2C, TOUCH_ADDR, buf, n, false, I2C_TIMEOUT_US);
-	senseNoteTouch(rc, n);
+	senseNote(rc, n);
 	return rc == n;
 }
 

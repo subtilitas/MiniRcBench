@@ -30,8 +30,10 @@
 #include "sense.h"
 #include "settings.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
+#include "ui_leave.h"
 #include "ui_list.h"
 #include "ui_screen.h"
 #include "ui_widgets.h"
@@ -59,35 +61,31 @@
 #define HL_EDIT_Y    218              /**< The editor bar. */
 #define HL_EDIT_H    44
 #define HL_STEP_W    UI_EDIT_BTN_W    /**< - and +, 44 px. */
-#define HL_FOOT_Y    UI_FOOT_Y        /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
+#define HL_FOOT_Y    UI_FOOT_Y        /**< WRITE..., REVERT, FILES; the wide button. */
 #define HL_FOOT_H    UI_FOOT_H
 #define HF_LIST_Y1   229              /**< Last row of the file list. */
 #define HF_SAVE_Y    234              /**< SAVE AS, or RETRY MOUNT. */
 #define HF_BTN_H     40
-#define HF_LOAD_Y    278              /**< LOAD and HOLD TO RESTORE. */
+#define HF_LOAD_Y    278              /**< LOAD and `RESTORE...`. */
 /** @brief Files the FILES page lists at most. */
 #define HITEC_UI_FILES_MAX 64
-#define HF_CLASSIC_Y 80               /**< The family view: CLASSIC's top. */
-#define HF_DSERIES_Y 168              /**< D SERIES' top. */
-#define HF_FAMILY_H  46               /**< Both buttons' height. */
-#define HF_WHY_1     16               /**< CLASSIC's first note line, px under the button. */
-#define HF_WHY_2     28               /**< ...and its second. */
 /** @brief The write page's state lines: its list ends above them. */
 #define HW_STATE_Y 196
 /** @} */
 
 static const UiRect FIELD_VIEW  = { 0, UI_BODY_Y, GFX_W, HL_LIST_Y1 - UI_BODY_Y + 1 };
 static const UiRect FILE_VIEW   = { 0, UI_BODY_Y, GFX_W, HF_LIST_Y1 - UI_BODY_Y + 1 };
-static const UiRect BTN_CLASSIC = { 6, HF_CLASSIC_Y, 228, HF_FAMILY_H };
-static const UiRect BTN_DSERIES = { 6, HF_DSERIES_Y, 228, HF_FAMILY_H };
-// The family view's notes are scale 1 from x 8: 37 characters reach x 228.
-static_assert(sizeof(HITEC_UI_CLASSIC_WHY_1) - 1 <= 37 && sizeof(HITEC_UI_CLASSIC_WHY_2) - 1 <= 37 &&
-                  sizeof(HITEC_UI_D_POWER) - 1 <= 37,
-              "a family note runs off the panel");
-// CLASSIC's model line and two note lines at a 12 px pitch from 4 px under
-// the button: the last, 7 px tall, ends 7 px or more above D SERIES.
-static_assert(HF_CLASSIC_Y + HF_FAMILY_H + HF_WHY_2 + 7 + 7 <= HF_DSERIES_Y,
-              "CLASSIC's note runs into D SERIES");
+// The main view's claim lines are scale 1 from x 8: 37 characters reach
+// x 228. Those naming SIG by role and number are 37 characters with a
+// one-digit GP, 221 px: SIG is GP0 or GP1, the board's only free GPIOs.
+static_assert(BOARD_FREE_GPIO_MASK <= 0x3FFu && sizeof(HITEC_UI_ESC_FMT) - 1 - 1 <= 37 &&
+                  sizeof(HITEC_UI_HELD_FMT) - 1 - 1 <= 37,
+              "a claim line naming SIG runs off the panel");
+static_assert(sizeof(HITEC_UI_ESC_2) - 1 <= 37 && sizeof(HITEC_UI_POWER_READ) - 1 <= 37,
+              "a claim line runs off the panel");
+static_assert(sizeof(HITEC_UI_LEAVE_RESTARTS) - 1 <= UI_LEAVE_STEP_CHARS &&
+                  sizeof(HITEC_UI_NEXT_POWER) - 1 <= UI_LEAVE_NOTE_CHARS,
+              "a leave line runs past x 232");
 static const UiRect BTN_MINUS   = { 6, HL_EDIT_Y, HL_STEP_W, HL_EDIT_H };
 static const UiRect BTN_PLUS    = { GFX_W - 6 - HL_STEP_W, HL_EDIT_Y, HL_STEP_W, HL_EDIT_H };
 static const UiRect BTN_REPAIR  = { 6, HL_EDIT_Y, 70, HL_EDIT_H };
@@ -98,8 +96,6 @@ static const UiRect BTN_WIDE    = { 6, HL_FOOT_Y, 228, HL_FOOT_H };
 static const UiRect BTN_SAVE    = { 6, HF_SAVE_Y, 228, HF_BTN_H };
 static const UiRect BTN_LOAD    = { 6, HF_LOAD_Y, 110, HF_BTN_H };
 static const UiRect BTN_RESTORE = { 122, HF_LOAD_Y, 112, HF_BTN_H };
-static const UiRect BTN_RESTART = { 40, 200, 160, 40 };
-static const UiRect BTN_LREAD   = { 6, 214, 228, 46 };
 
 static_assert(HL_LIST_Y1 < HL_EDIT_Y, "the field list overlaps the editor bar");
 static_assert(HL_EDIT_Y + HL_EDIT_H + UI_HOLD_BAR_H < HL_FOOT_Y,
@@ -117,9 +113,20 @@ static_assert(HL_STEP_W >= UI_TAP_MIN && HL_FOOT_H >= UI_TAP_MIN && HF_BTN_H >= 
 // state
 // ---------------------------------------------------------------------------
 
-static HitecView    s_view = HitecView::Family;
-static uint8_t      s_family = HITEC_D;     /**< The family chosen. */
+static HitecView    s_view = HitecView::Main;
+static uint8_t      s_family = HITEC_D;     /**< The family chosen on PROGRAMMER. */
 static bool         s_claimed = false;      /**< pinClaimBegin() took the claim. */
+/**
+ * @brief The job starts with the claim: CLASSIC, and D SERIES with the
+ *        switched supply, whose servo is unpowered until the entry's POWER
+ *        step. D SERIES on OWN waits in Held for READ
+ *        (docs/design/menu-b.md, decision 34).
+ */
+static bool         s_startNow = false;
+/** @brief pinClaimStartJob() was called for this servo: the job is wanted until NEXT SERVO. */
+static bool         s_jobAsked = false;
+/** @brief The press under way landed on READ while READ acted: only such a press reads. */
+static bool         s_readPress = false;
 static ClaimRefusal s_refusal = ClaimRefusal::None;
 static HitecStatus  s_st;                   /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;
@@ -160,6 +167,7 @@ static int         s_rowCount = 0;
 static int         s_sel = -1;
 static Repeat      s_repeat;
 static UiHold      s_hold;
+static UiLeave     s_leave;  /**< The leave page: its phase and its presses. */
 static bool        s_writing = false;
 static bool        s_flushing = false;
 static bool        s_restoring = false;
@@ -168,7 +176,8 @@ static bool        s_result = false;
 static uint8_t     s_resultSes = 0;
 static HitecRefusal s_resultRefused = HitecRefusal::None;
 static const char *s_cardNote = nullptr;
-static bool        s_leaveQueued = false;
+/** @brief The last hold, or the write after its flush, met the BOARD voltage red: nothing was written. */
+static bool s_boardLow = false;
 static char        s_preset[HITEC_FILES_NAME_MAX];
 static bool        s_saveFull = false;
 static char        s_backupNext[BACKUP_NAME_MAX];
@@ -204,14 +213,22 @@ static bool running() {
 }
 
 /**
- * @brief Whether BACK acts on this frame: everywhere but on the unplug page
- *        before the job has let the pin go (pinClaimUnplugDue()), where
- *        pinClaimKeep() would refuse. The control table reports it, the tap
- *        is gated on it, the frame key holds it and the header draws it.
- *        The unplug page draws its header and reports its table from its own
- *        one read of pinClaimUnplugDue(), which this equals on that page.
+ * @brief Whether BACK acts on this frame: everywhere but on the leave page,
+ *        in every phase, where each way on is a labelled button, and on the
+ *        write page while the write runs or waits for the card's flush
+ *        (docs/design/menu-b.md, decision 5): BACK never leaves a servo half
+ *        written. The control table reports it, the tap is gated on it, the
+ *        frame key holds it and the header draws it.
  */
-static bool backActs() { return s_view != HitecView::Unplug || pinClaimUnplugDue(); }
+static bool backActs() {
+	if (s_view == HitecView::Write && (s_writing || s_flushing)) return false;
+	return s_view != HitecView::Leave;
+}
+
+/** @brief The leave page's claim has ended: LEAVE was tapped, or it opened releasing. */
+static bool claimEnded() {
+	return s_view == HitecView::Leave && s_leave.phase != UiLeavePhase::Before;
+}
 
 /** @brief The seq of the last command sent, an operation or a card phase's. */
 static uint16_t s_sentSeq = 0;
@@ -321,9 +338,8 @@ static bool cardHeldByUsb() { return mscHoldsCard(mscGetState()); }
 static_assert((BOARD_FREE_GPIO_MASK & 0x3C000000u) == 0,
               "a classic Hitec servo drives SIG to 5 V: SIG must be a fault tolerant pin");
 
-static bool classicAllowed() { return servoSupplyFitted(); }
-
 static void go(HitecView v) {
+	s_boardLow = false;
 	if (v != HitecView::Write) s_flushing = false;
 	s_view = v;
 	uiHoldReset(&s_hold);
@@ -352,14 +368,13 @@ static void forgetServo() {
 	s_otherModel[0] = '\0';
 }
 
-/** @brief A new session: the claim's first frame, or after BACK on the unplug page. */
+/** @brief A new session: the claim's first frame, or after NEXT SERVO on the leave page. */
 static void newSession() {
 	HitecCardPhase phase;
 	s_opOpen = false;
 	s_enterSent = false;
 	forgetFirst();
 	forgetServo();
-	s_leaveQueued = false;
 	s_cardNote = nullptr;
 	s_recordFound = hitecFilesRecordPresent();
 	escHeartbeat();
@@ -377,11 +392,32 @@ static void layoutRows() {
 	s_sel = -1;
 }
 
+/** @brief Want the job: it starts at Held, or now from Held (pinClaimStartJob()). */
+static void startJob() {
+	s_jobAsked = true;
+	pinClaimStartJob(PinUser::Hitec);
+}
+
+/**
+ * @brief Claim SIG: from the entry point, on the tap's frame, and again
+ *        every frame while refused. DShot drains and stops first; the job
+ *        follows at once where @ref s_startNow says so.
+ */
 static void claimPin() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Hitec, PIN_SIG);
 	s_claimed = r == ClaimRefusal::None;
 	s_refusal = r;
-	if (s_claimed) cardCacheBegin(SdLogEnd::ByHitec);
+	if (!s_claimed) return;
+	cardCacheBegin(SdLogEnd::ByHitec);
+	if (s_startNow) startJob();
+}
+
+/**
+ * @brief The claim holds SIG with no job wanted: D SERIES on OWN waits for
+ *        READ. DShot is down and the pad an input with the pull-up on.
+ */
+static bool readWait() {
+	return s_claimed && !s_jobAsked && pinClaimState() == ClaimState::Held && pinClaimJobError() == 0;
 }
 
 static void readFiles();
@@ -451,10 +487,6 @@ static void opEnd() {
 		s_base = s_st.image;
 		s_otherModel[0] = '\0';
 	}
-	if (s_leaveQueued) {
-		s_leaveQueued = false;
-		go(HitecView::Leave);
-	}
 }
 
 static void follow() {
@@ -475,8 +507,7 @@ static void follow() {
 		forgetServo();
 		forgetFirst();
 		s_opOpen = false;
-		s_leaveQueued = false;
-		if (s_view != HitecView::Leave && s_view != HitecView::Unplug) go(HitecView::Main);
+		if (s_view != HitecView::Leave) go(HitecView::Main);
 	}
 	if (opEnded()) opEnd();
 }
@@ -488,6 +519,9 @@ static void follow() {
 /** @brief What the main view shows. */
 struct MainText {
 	char        strip[40];
+	uint16_t    stripCol;   /**< The strip's colour; `C_DIM` unless set. */
+	const char *strip2;     /**< A second strip line, or null. */
+	uint16_t    strip2Col;
 	const char *big;
 	const char *line[8];
 	uint16_t    lineCol[8];
@@ -520,35 +554,50 @@ static void escLines(MainText *m) {
 static void mainText(MainText *m) {
 	static char a[48], b[48];
 	memset(m, 0, sizeof(*m));
+	m->stripCol = C_DIM;
 	uint8_t sig = sigGpio();
+	// The claim from the entry tap on PROGRAMMER: refused, it is asked for
+	// again every frame, and DShot stays on SIG meanwhile.
 	if (!s_claimed) {
 		switch (s_refusal) {
 			case ClaimRefusal::EscAnswering:
-				snprintf(a, sizeof(a), "AN ESC ANSWERS ON GP%u.", sig);
+				snprintf(m->strip, sizeof(m->strip), "CHECKING SIG GP%u FOR AN ESC", sig);
+				snprintf(a, sizeof(a), HITEC_UI_ESC_FMT, sig);
 				addLine(m, a, C_AMBER);
-				addLine(m, "UNPLUG IT: A HITEC ENTRY SENDS", C_AMBER);
-				addLine(m, "FRAMES INTO WHAT IS ON THE WIRE.", C_AMBER);
-				snprintf(m->strip, sizeof(m->strip), "CHECKING GP%u FOR AN ESC", sig);
+				addLine(m, HITEC_UI_ESC_2, C_AMBER);
 				return;
+			// Neither is reachable through the UI: the chooser opens only
+			// while the claim is Free, and MENU disarms. Kept so that a
+			// refusal never leaves the view blank.
 			case ClaimRefusal::Armed: addLine(m, "DISARM FIRST", C_AMBER); return;
-			default:                  addLine(m, "PINS BUSY", C_AMBER);    return;
+			default:                  addLine(m, UI_WAIT_RESTART_TEXT, C_AMBER); return;
 		}
 	}
 	ClaimState cs = pinClaimState();
 	if (cs == ClaimState::Stopping) {
-		snprintf(m->strip, sizeof(m->strip), "RELEASING GP%u", sig);
+		snprintf(m->strip, sizeof(m->strip), "RELEASING SIG GP%u FROM DSHOT", sig);
 		return;
 	}
 	uint8_t err = pinClaimJobError();
 	if (err) {
 		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
-		snprintf(a, sizeof(a), "GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
+		snprintf(a, sizeof(a), "SIG GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
 		addLine(m, a, C_AMBER);
 		m->button = "RETRY"; m->ctl = HitecCtl::Retry; m->enabled = true;
 		return;
 	}
+	if (readWait()) {
+		// D SERIES on OWN: SIG is the servo's and DShot is off. The entry
+		// reads the model at once, so the servo runs before READ.
+		snprintf(m->strip, sizeof(m->strip), HITEC_UI_HELD_FMT, sig);
+		m->stripCol = UI_COL_SAFE;
+		m->strip2 = HITEC_UI_POWER_READ;
+		m->strip2Col = UI_COL_WARN;
+		m->button = "READ"; m->ctl = HitecCtl::Read; m->enabled = true;
+		return;
+	}
 	if (cs != ClaimState::Running) {
-		snprintf(m->strip, sizeof(m->strip), "TAKING GP%u", sig);
+		snprintf(m->strip, sizeof(m->strip), "TAKING SIG GP%u", sig);
 		return;
 	}
 	bool classic = s_family == HITEC_CLASSIC;
@@ -556,20 +605,20 @@ static void mainText(MainText *m) {
 		case HitecJobState::Entering:
 			m->button = "STOP"; m->ctl = HitecCtl::Stop; m->enabled = true;
 			if (s_st.power == HitecPower::Off) {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF %u.%u S", sig,
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF %u.%u S", sig,
 				         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 				m->big = "SUPPLY OFF";
 				addLine(m, classic ? "THEN ON: THE SERVO ENTERS SERIAL" : "THEN ON: THE SERVO STARTS, AND",
 				        C_DIM);
 				addLine(m, classic ? "MODE AT ITS POWER-UP." : "THE BENCH READS ITS MODEL.", C_DIM);
 			} else if (classic) {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON", sig);
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY ON", sig);
 				senseAppendCurrent(m->strip, sizeof(m->strip));
 				m->big = "LISTENING";
 				addLine(m, "FOR THE SERVO'S + AFTER ITS", C_DIM);
 				addLine(m, "POWER-UP, THEN THE FIRST COMMAND.", C_DIM);
 			} else {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  %s", sig, s_st.supplyFitted ? "SUPPLY ON" : "");
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  %s", sig, s_st.supplyFitted ? "SUPPLY ON" : "");
 				if (s_st.supplyFitted) senseAppendCurrent(m->strip, sizeof(m->strip));
 				m->big = s_st.supplyFitted ? "SERVO STARTING" : "READING THE MODEL";
 				addLine(m, "THEN THE BENCH READS ITS MODEL.", C_DIM);
@@ -578,14 +627,19 @@ static void mainText(MainText *m) {
 			return;
 		case HitecJobState::EntryEnded:
 			m->button = "RETRY"; m->ctl = HitecCtl::Retry; m->enabled = true;
-			// Only the switched supply stalls a session: with NONE a lapse lets
+			// Only the switched supply stalls a session: with OWN a lapse lets
 			// the running operation end and refuses the next one (hitec_job.h).
-			if (s_st.stalled) {
-				snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF", sig);
-				addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.", C_AMBER);
-				addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
+			// A cut of the current sensor's guard, like a stall, ended the
+			// session with the supply.
+			if (s_st.cut != GuardCut::None || s_st.stalled) {
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF", sig);
+				const char *why = "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.";
+				if (s_st.cut == GuardCut::Hard)          why = UI_CUT_HARD_TEXT;
+				else if (s_st.cut == GuardCut::Collapse) why = UI_CUT_LOW_TEXT;
+				addWrapped(m, why, C_AMBER);
+				addLine(m, UI_CUT_RETRY, C_AMBER);
 				if (!hitecFilesMounted() && s_st.stallWrote)
-					addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+					addLine(m, UI_NO_CARD_RAM_LOST, C_AMBER);
 				return;
 			}
 			snprintf(m->strip, sizeof(m->strip), "%s", classic ? "NO SERVO IN SERIAL MODE" : "NO SERVO ANSWERS");
@@ -603,7 +657,7 @@ static void mainText(MainText *m) {
 			return;
 		case HitecJobState::Busy:
 		case HitecJobState::InMode:
-			snprintf(m->strip, sizeof(m->strip), "GP%u  IN SERIAL MODE", sig);
+			snprintf(m->strip, sizeof(m->strip), "SIG GP%u  IN SERIAL MODE", sig);
 			if (s_readFailed && s_st.job == HitecJobState::InMode) {
 				if (s_st.result == HITEC_SES_ERR_ABORTED) {
 					addLine(m, "THE READ WAS STOPPED.", C_AMBER);
@@ -624,20 +678,28 @@ static void mainText(MainText *m) {
 			m->button = "STOP"; m->ctl = HitecCtl::Stop; m->enabled = s_st.job == HitecJobState::Busy;
 			return;
 		default:
-			snprintf(m->strip, sizeof(m->strip), "STARTING THE ENTRY ON GP%u", sig);
+			snprintf(m->strip, sizeof(m->strip), "STARTING THE ENTRY ON SIG GP%u", sig);
 			return;
 	}
 }
+
+/**
+ * @brief Clear the whole strip band, y 40 to 61: the main view's READ wait
+ *        draws two strip lines (uiStripTwoLines()), whose second ends below
+ *        the 16 px uiStripClear() clears.
+ */
+static void stripClear() { uiStripTwoLines(nullptr, C_BG, nullptr, C_BG); }
 
 static void drawMain() {
 	static MainText m;
 	mainText(&m);
 	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
-	if (m.strip[0]) uiStripText(m.strip, C_DIM);
+	stripClear();
+	if (m.strip2) uiStripTwoLines(m.strip, m.stripCol, m.strip2, m.strip2Col);
+	else if (m.strip[0]) uiStripText(m.strip, m.stripCol);
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	int y = 80;
-	if (m.big) { gfxTextCenter(70, m.big, C_LIME, 2); y = 100; }
+	if (m.big) { gfxTextCenter(70, m.big, UI_COL_WARN, 2); y = 100; }
 	for (int i = 0; i < 8 && m.line[i]; i++) {
 		gfxText(UI_MARGIN, y, m.line[i], m.lineCol[i], 1);
 		y += 14;
@@ -646,48 +708,11 @@ static void drawMain() {
 		gfxText(UI_MARGIN, 230, "A WRITE WAS INTERRUPTED. HITEC/", C_AMBER, 1);
 		gfxText(UI_MARGIN, 242, "HITEC.TXT HOLDS THE SERVO AS IT WAS.", C_AMBER, 1);
 	}
-	if (m.button)
-		uiButton(BTN_WIDE, m.button, C_PANEL, C_TEXT, 2, m.enabled && pressing(BTN_WIDE), m.enabled);
-}
-
-// ---------------------------------------------------------------------------
-// the family view
-// ---------------------------------------------------------------------------
-
-static void drawFamily() {
-	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
-	uiStripText("CHOOSE THE SERVO'S FAMILY", C_DIM);
-	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
-	bool c = classicAllowed();
-	uiButton(BTN_CLASSIC, "CLASSIC", C_PANEL, C_TEXT, 2, c && pressing(BTN_CLASSIC), c);
-	gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + 4, "HS-5XXX, HS-7XXX", C_DIM, 1);
-	// CLASSIC needs hardware, the converter of wiring part C, before the
-	// setting means anything: the two lines name both, the part first.
-	if (!c) {
-		gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + HF_WHY_1, HITEC_UI_CLASSIC_WHY_1, C_AMBER, 1);
-		gfxText(UI_MARGIN, BTN_CLASSIC.y + BTN_CLASSIC.h + HF_WHY_2, HITEC_UI_CLASSIC_WHY_2, C_AMBER, 1);
+	if (m.button) {
+		bool counts = m.ctl != HitecCtl::Read || s_readPress;
+		uiButton(BTN_WIDE, m.button, C_PANEL, C_TEXT, 2, m.enabled && counts && pressing(BTN_WIDE),
+		         m.enabled);
 	}
-	uiButton(BTN_DSERIES, "D SERIES", C_PANEL, C_TEXT, 2, pressing(BTN_DSERIES));
-	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 4, "D485HW, D645MW AND THE OTHERS", C_DIM, 1);
-	// A D series servo on its own supply must be running before the tap: the
-	// entry reads its model at once, with no wait for a power-up.
-	char sw[32];
-	snprintf(sw, sizeof(sw), "SUPPLY SWITCHED ON GP%u", (unsigned)servoSupplyPin());
-	gfxText(UI_MARGIN, BTN_DSERIES.y + BTN_DSERIES.h + 18,
-	        servoSupplyFitted() ? sw : HITEC_UI_D_POWER, C_DIM, 1);
-}
-
-static void familyTouch() {
-	uint8_t f = 0xFF;
-	if (classicAllowed() && tapped(BTN_CLASSIC)) f = HITEC_CLASSIC;
-	else if (tapped(BTN_DSERIES)) f = HITEC_D;
-	if (f == 0xFF) return;
-	s_family = f;
-	hitecJobSetFamily(f);
-	newSession();
-	go(HitecView::Main);
-	claimPin();
 }
 
 // ---------------------------------------------------------------------------
@@ -730,25 +755,33 @@ static bool stepOk(int dir) {
 	return s_memo[dir > 0];
 }
 
+/**
+ * @brief The value state of row @p i (docs/design/menu-b.md, decision 8): a
+ *        value the screen cannot show as a setting, or the checksum row that
+ *        needs a repair, is Odd; a row the bench does not write is ReadOnly;
+ *        a written row that differs from the servo as read is Changed.
+ * @param i       The row.
+ * @param raw     The value is shown raw, not as a setting.
+ * @param changed The row is written and differs from the servo.
+ */
+static UiValue rowValue(int i, bool raw, bool changed) {
+	if (raw) return UiValue::Odd;
+	if (!hitecEditable(s_layout, s_rows[i].param)) return selectable(i) ? UiValue::Odd : UiValue::ReadOnly;
+	return changed ? UiValue::Changed : UiValue::Plain;
+}
+
 static void drawFieldRow(int i, int y, void *) {
 	const HitecRow &r = s_rows[i];
-	bool edit = hitecEditable(s_layout, r.param);
-	bool sel = i == s_sel;
 	bool changed = hitecWritten(s_layout, r.param) && hitecDiffers(&s_st.image, &s_draft, s_layout, r.param);
-	gfxRect(0, y, GFX_W, HL_ROW_H - 1, sel ? C_PANEL : C_BG);
-	gfxText(UI_MARGIN, y + 11, r.group, C_GRID, 1);
-	char label[24];
-	snprintf(label, sizeof(label), "%s%s", changed ? "*" : "", r.label);
-	gfxText(UI_MARGIN, y + 21, label, edit || selectable(i) ? (sel ? C_TEXT : C_DIM) : C_GRID, 1);
 	char v[32];
 	bool raw = false;
 	hitecValueText(&s_draft, s_layout, r.param, v, sizeof(v), &raw);
-	int sc = gfxTextW(v, 2) <= 104 ? 2 : 1;
-	uint16_t col = raw ? C_AMBER : !edit ? (selectable(i) ? C_AMBER : C_GRID) : (changed ? C_LIME : C_TEXT);
-	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (HL_ROW_H - 1 - 7 * sc + 1) / 2, v, col, sc);
-	if (changed && hitecSoftRules(&s_st.image, &s_draft, s_layout, r.param))
-		gfxRect(0, y, 3, HL_ROW_H - 1, C_AMBER);
-	gfxHLine(0, y + HL_ROW_H - 1, GFX_W, C_PANEL);
+	// A change has a cyan bar, amber when it breaks a soft rule: the bar is
+	// the shape cue, so the label carries no mark.
+	UiEdge edge = !changed ? UiEdge::None
+	            : hitecSoftRules(&s_st.image, &s_draft, s_layout, r.param) ? UiEdge::Rule : UiEdge::Changed;
+	UiField f = { r.group, r.label, v, rowValue(i, raw, changed), edge, i == s_sel };
+	uiListDrawField(y, HL_ROW_H, f);
 }
 
 /** @brief The first rule of @p rules. */
@@ -763,22 +796,25 @@ static bool readFirst() { return s_st.unknown; }
 
 static void drawList() {
 	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	char model[24], strip[48], backup[24], gp[8];
 	hitecModelText(&s_st.image, model, sizeof(model));
 	char ver[8] = "";
-	if (s_family == HITEC_CLASSIC) snprintf(ver, sizeof(ver), " V%02X", s_st.image.version);
-	snprintf(gp, sizeof(gp), " GP%u", sigGpio());
-	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), " BACKUP %.5s", s_write.backupName);
-	else                       snprintf(backup, sizeof(backup), " BACKUP IN MEMORY");
-	// The longest of these that ends before the MODE chip, 4 px clear of it.
-	const int room = GFX_W - UI_MARGIN - (gfxTextW("MODE", 1) + 12) - 4 - UI_MARGIN;
-	// Precisions as the buffers above: 12 + 7 + 7 + 17 characters at most.
-	snprintf(strip, sizeof(strip), "%.12s%.7s%.7s%.17s", model, ver, gp, backup);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.7s%.17s", model, ver, backup);
-	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.7s%.7s", model, ver, gp);
+	if (s_family == HITEC_CLASSIC) snprintf(ver, sizeof(ver), "  V%02X", s_st.image.version);
+	snprintf(gp, sizeof(gp), "  GP%u", sigGpio());
+	if (s_write.backupName[0]) snprintf(backup, sizeof(backup), "  BACKUP %.5s", s_write.backupName);
+	else                       snprintf(backup, sizeof(backup), "  " UI_BACKUP_RAM);
+	// Items two spaces apart, as on MENU, KST and SERVO, the backup's state
+	// first after the model. A strip that does not end 4 px before the chip
+	// drops items from the right: the version, then the pin, then the backup.
+	const int room = uiChipX(HITEC_UI_CHIP) - 4 - UI_MARGIN;
+	// Precisions as the buffers above: 12 + 18 + 8 + 8 characters at most.
+	snprintf(strip, sizeof(strip), "%.12s%.18s%.8s%.8s", model, backup, gp, ver);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.18s%.8s", model, backup, gp);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s%.18s", model, backup);
+	if (gfxTextW(strip, 1) > room) snprintf(strip, sizeof(strip), "%.12s", model);
 	uiStripText(strip, C_DIM);
-	uiChip("MODE", C_GREEN);
+	uiChip(HITEC_UI_CHIP, UI_COL_LATCHED);
 	uiListDraw(&s_list, drawFieldRow, nullptr);
 
 	gfxRect(0, HL_LIST_Y1 + 1, GFX_W, HL_FOOT_Y - HL_LIST_Y1 - 1, C_BG);
@@ -802,7 +838,8 @@ static void drawList() {
 		}
 		char now[32], want[32], top[64];
 		hitecValueText(&s_st.image, s_layout, r.param, now, sizeof(now), nullptr);
-		hitecValueText(&s_draft, s_layout, r.param, want, sizeof(want), nullptr);
+		bool raw = false;
+		hitecValueText(&s_draft, s_layout, r.param, want, sizeof(want), &raw);
 		uint32_t rules = edit ? hitecSoftRules(&s_st.image, &s_draft, s_layout, r.param) : 0;
 		const char *note = rules ? hitecRuleText(firstRule(rules)) : nullptr;
 		hitec_value_t id;
@@ -812,7 +849,8 @@ static void drawList() {
 		if (note) {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
-			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top, C_LIME, 1);
+			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top,
+			        uiListValueColour(rowValue(s_sel, raw, strcmp(now, want) != 0)), 1);
 			char lines[3][48];
 			int n = kstWrap(note, cw / 6, lines, 3);
 			for (int i = 0; i < n; i++)
@@ -824,7 +862,8 @@ static void drawList() {
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", changed ? "->" : "");
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, HL_EDIT_Y + 2, top, C_DIM, 1);
 			int sc = gfxTextW(want, 2) <= cw ? 2 : 1;
-			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, HL_EDIT_Y + 16, want, edit ? C_LIME : C_GRID, sc);
+			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, HL_EDIT_Y + 16, want,
+			        uiListValueColour(rowValue(s_sel, raw, changed)), sc);
 		}
 	}
 
@@ -833,13 +872,13 @@ static void drawList() {
 		bool ok = idleMode();
 		uiButton(BTN_WRITE, "READ AGAIN", C_PANEL, C_TEXT, 1, ok && pressing(BTN_WRITE), ok);
 	} else {
+		// WRITE... opens the write page on a tap; only that page holds
+		// (docs/design/menu-b.md, decision 6).
 		bool w = writeAllowed();
-		uiHoldDrawBar(&s_hold, BTN_WRITE, HL_FOOT_Y - 4, millis());
-		uiButton(BTN_WRITE, "HOLD TO WRITE", s_hold.holding ? C_RED : C_PANEL,
-		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, w);
+		uiButton(BTN_WRITE, "WRITE...", C_PANEL, C_TEXT, 1, w && pressing(BTN_WRITE), w);
 	}
 	bool rv = pending() > 0;
-	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_TEXT, 1, rv && pressing(BTN_REVERT), rv);
+	uiButton(BTN_REVERT, "REVERT", C_PANEL, UI_COL_WARN, 1, rv && pressing(BTN_REVERT), rv);
 	uiButton(BTN_FILES, "FILES", C_PANEL, C_TEXT, 1, pressing(BTN_FILES));
 }
 
@@ -865,7 +904,9 @@ static void listTouch() {
 			s_readFailed = false;
 			sendOp(HitecOp::ReadAll);
 		}
-	} else if (uiHoldUpdate(&s_hold, BTN_WRITE, s_t, writeAllowed(), millis())) {
+	} else if (writeAllowed() && tapped(BTN_WRITE)) {
+		// A tap, on release: the write page's hold starts fresh there
+		// (go()), so the tap's press is never timed.
 		openWrite(&s_draft, false);
 		return;
 	}
@@ -940,7 +981,13 @@ static bool writeFiles() {
 }
 
 static void sendWrite() {
+	// Asked again here: the write may have waited for a flush since the hold.
+	// Refused now, the backup and the record are on the card; no frame goes
+	// out.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	escHeartbeat();
+	s_wroteOnce = true;
 	s_writing = true;
 	sendOp(HitecOp::Write, &s_pageTo);
 }
@@ -978,19 +1025,20 @@ static void filesThenWrite();
  *        write failed or the card in the slot changed (sd_cache.h), so a
  *        full card does not end here; it ends in CARD_TOOK_NO_FILE. The
  *        card is mounted again and the first write forgotten, so the next
- *        hold saves the backup again. Three lines of 38 characters.
+ *        write saves the backup again. Three lines of 38 characters under
+ *        OK, which returns to the list.
  */
 static const char *const FLUSH_FAILED =
-	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.";
 /** @brief As FLUSH_FAILED, for a batch that held another file. */
 static const char *const FLUSH_FAILED_FILE =
-	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.";
 /**
  * @brief The write page's text when FatFs refused the first write's files:
  *        among the causes a full card and a card that is gone.
  */
 static const char *const CARD_TOOK_NO_FILE =
-	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.";
 
 /**
  * @brief The flush a write waits for has ended: with an earlier batch on the
@@ -1027,6 +1075,10 @@ static void waitFlush(FlushWait w) {
  *        write: every write puts its record on the card before its first frame.
  */
 static void filesThenWrite() {
+	// Asked again here: an earlier batch's flush may have run since the hold,
+	// and this write's record goes to the card next.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	if (cardSwapped()) restartOnNewCard();
 	s_flushFirst = !s_firstDone;
 	if (!writeFiles()) {
@@ -1043,6 +1095,13 @@ static void filesThenWrite() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
+	// The BOARD voltage red: no file goes to the card and no frame to the
+	// servo. A write already running is not stopped: cut off, it would leave
+	// the servo partly written and unverified. Asked here as well as in
+	// filesThenWrite(): a hold at red is refused at once, not only after an
+	// earlier batch's flush that may still run.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
 	// With the swap check armed, an earlier batch still flushing ends before
 	// this write's files go in, so the check reads the volume they land on.
@@ -1071,11 +1130,11 @@ static bool holdOk() {
 
 static void drawWrite() {
 	uiHeader(s_restoring ? "HITEC RESTORE" : "HITEC WRITE", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	char buf[96];
 	int changed = hitecChangedCount(&s_pageFrom, &s_pageTo, s_layout);
-	snprintf(buf, sizeof(buf), "%s%d VALUE%s", s_restoring ? "BACK TO THE BACKUP: " : "", changed,
+	snprintf(buf, sizeof(buf), "%s%d CHANGE%s", s_restoring ? "BACK TO THE BACKUP: " : "", changed,
 	         changed == 1 ? "" : "S");
 	uiStripText(buf, C_DIM);
 	// The page's parts and their sizes, laid out by hitecPageLayout(): the
@@ -1120,13 +1179,12 @@ static void drawWrite() {
 		nv++;
 	}
 	in.values = nv;
-	char pair[HITEC_PAGE_ROWS_MAX][72];
+	char pair[HITEC_PAGE_ROWS_MAX][72], from[HITEC_PAGE_ROWS_MAX][32], to[HITEC_PAGE_ROWS_MAX][32];
 	for (int k = 0; k < nv && k < HITEC_PAGE_ROWS_MAX; k++) {
 		const HitecRow &r = s_rows[order[k]];
-		char a[32], b[32];
-		hitecValueText(&s_pageFrom, s_layout, r.param, a, sizeof(a), nullptr);
-		hitecValueText(&s_pageTo, s_layout, r.param, b, sizeof(b), nullptr);
-		snprintf(pair[k], sizeof(pair[k]), "%s -> %s", a, b);
+		hitecValueText(&s_pageFrom, s_layout, r.param, from[k], sizeof(from[k]), nullptr);
+		hitecValueText(&s_pageTo, s_layout, r.param, to[k], sizeof(to[k]), nullptr);
+		snprintf(pair[k], sizeof(pair[k]), "%.31s -> %.31s", from[k], to[k]);
 		bool under = UI_MARGIN + gfxTextW(r.label, 1) + 6 > GFX_W - UI_MARGIN - gfxTextW(pair[k], 1);
 		in.valueH[k] = under ? 22 : 12;
 	}
@@ -1145,8 +1203,8 @@ static void drawWrite() {
 		const HitecRow &r = s_rows[order[k]];
 		int y = out.rowY[k];
 		gfxText(UI_MARGIN, y, r.label, C_TEXT, 1);
-		gfxText(GFX_W - UI_MARGIN - gfxTextW(pair[k], 1), in.valueH[k] == 22 ? y + 10 : y, pair[k],
-		        C_LIME, 1);
+		uiChangeText(GFX_W - UI_MARGIN - gfxTextW(pair[k], 1), in.valueH[k] == 22 ? y + 10 : y,
+		             from[k], to[k]);
 	}
 	if (out.moreY >= 0) {
 		snprintf(buf, sizeof(buf), "AND %d MORE", nv - out.rows);
@@ -1195,7 +1253,6 @@ static void drawWrite() {
 		if (s_st.planSteps && s_st.stepIndex >= s_st.planSteps) snprintf(buf, sizeof(buf), "READING BACK");
 		else snprintf(buf, sizeof(buf), "WRITES SENT: %u OF %u", (unsigned)s_st.stepIndex, (unsigned)s_st.planSteps);
 		gfxText(UI_MARGIN, 210, buf, C_TEXT, 1);
-		if (s_leaveQueued) gfxText(UI_MARGIN, 252, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 		return;
 	}
 	if (s_result || s_cardNote) {
@@ -1216,6 +1273,12 @@ static void drawWrite() {
 		for (int k = 0; k < n; k++) gfxText(UI_MARGIN, 196 + 12 * k, rl[k], c, 1);
 		uiButton(BTN_WIDE, "OK", C_PANEL, C_TEXT, 2, pressing(BTN_WIDE));
 		return;
+	}
+	// The page's state lines, under the layout's last line (HW_STATE_Y): the
+	// reserved lines above keep their place.
+	if (s_boardLow) {
+		gfxText(UI_MARGIN, HW_STATE_Y, UI_BOARD_LOW_1, C_AMBER, 1);
+		gfxText(UI_MARGIN, HW_STATE_Y + 12, UI_BOARD_LOW_2, C_AMBER, 1);
 	}
 	bool ok = holdOk();
 	uiHoldDrawBar(&s_hold, BTN_WIDE, HL_FOOT_Y - 4, millis());
@@ -1243,10 +1306,7 @@ static void writeTouch() {
 		}
 		return;
 	}
-	if (uiHoldUpdate(&s_hold, BTN_WIDE, s_t, holdOk(), millis())) {
-		s_wroteOnce = true;
-		startWrite();
-	}
+	if (uiHoldUpdate(&s_hold, BTN_WIDE, s_t, holdOk(), millis())) startWrite();
 }
 
 // ---------------------------------------------------------------------------
@@ -1335,7 +1395,7 @@ static bool loadOk() {
 
 static void drawFiles() {
 	uiHeader("HITEC FILES", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	char strip[48];
 	bool mounted = hitecFilesMounted();
 	if (s_fileNote[0])              uiStripText(s_fileNote, s_fileNoteCol);
@@ -1360,10 +1420,9 @@ static void drawFiles() {
 	}
 	bool l = loadOk();
 	uiButton(BTN_LOAD, "LOAD", C_PANEL, C_TEXT, 1, l && pressing(BTN_LOAD), l);
+	// RESTORE... opens the restore page on a tap; that page holds.
 	bool r = restoreAllowed();
-	uiHoldDrawBar(&s_hold, BTN_RESTORE, HF_LOAD_Y - 4, millis());
-	uiButton(BTN_RESTORE, "HOLD TO RESTORE", s_hold.holding ? C_RED : C_PANEL,
-	         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, r);
+	uiButton(BTN_RESTORE, "RESTORE...", C_PANEL, C_TEXT, 1, r && pressing(BTN_RESTORE), r);
 }
 
 static void fileNote(uint16_t col, const char *text) {
@@ -1455,7 +1514,9 @@ static void saveAs() {
 }
 
 static void filesTouch() {
-	if (uiHoldUpdate(&s_hold, BTN_RESTORE, s_t, restoreAllowed(), millis())) {
+	// RESTORE...: a tap, on release, opens the restore page, whose HOLD TO
+	// RESTORE runs it (docs/design/menu-b.md, decision 6).
+	if (restoreAllowed() && tapped(BTN_RESTORE)) {
 		openWrite(&s_st.backup, true);
 		return;
 	}
@@ -1478,76 +1539,134 @@ static void filesTouch() {
 }
 
 // ---------------------------------------------------------------------------
-// the leave page and the unplug page
+// the leave page
 // ---------------------------------------------------------------------------
+
+/** @brief LEAVE acts: no write runs or waits for its flush (decision 5 of menu-b.md). */
+static bool leaveOk() { return !s_writing && !s_flushing; }
+
+/** @brief Open the leave page in @p phase. */
+static void openLeave(UiLeavePhase phase) {
+	go(HitecView::Leave);
+	uiLeaveOpen(&s_leave, phase, UI_HOLD_MS);
+}
+
+/** @brief What the leave page shows on this frame. */
+static void leaveText(UiLeaveText *tx) {
+	// Static: the page draws from them after this returns.
+	static char dshot[40], changes[40], supply[40];
+	memset(tx, 0, sizeof(*tx));
+	int first = 0;
+	if (s_leave.before) {
+		tx->step[0][0] = s_st.supplyFitted ? UI_LEAVE_SWITCHED : HITEC_UI_LEAVE_RESTARTS;
+		first = 1;
+	}
+	uiLeaveUnplugSteps(tx, first, sigGpio(), dshot, sizeof(dshot));
+	tx->next = "NEXT SERVO";
+	int k = 0;
+	if (s_leave.phase == UiLeavePhase::Before) {
+		int n = pending();
+		if (n) {
+			snprintf(changes, sizeof(changes), "%d CHANGE%s NOT WRITTEN.", n, n == 1 ? "" : "S");
+			tx->note[k++] = changes;
+		}
+		if (s_lastFailed) tx->note[k++] = "A WRITE DID NOT END VERIFIED.";
+	} else if (s_leave.phase == UiLeavePhase::Releasing) {
+		if (s_st.supplyUsed && s_st.supplyLeftDs) {
+			uiLeaveSupplyNote(supply, sizeof(supply), KST_SUPPLY_OFF_MS, s_st.supplyLeftDs);
+			tx->note[k++] = supply;
+		} else {
+			tx->note[k++] = UI_LEAVE_RELEASING;
+		}
+	} else if (!servoSupplyFitted()) {
+		// The setting, not the job: no job runs before NEXT SERVO. NEXT
+		// SERVO returns to the READ wait, so the next servo is powered
+		// after the tap, once DShot cannot reach it.
+		tx->note[k++] = HITEC_UI_NEXT_POWER;
+	}
+}
 
 static void drawLeave() {
 	uiHeader("HITEC SERVO", s_t, backActs());
-	uiStripClear();
+	stripClear();
 	char strip[48];
 	if (s_haveDraft) {
 		char model[24];
 		hitecModelText(&s_st.image, model, sizeof(model));
-		snprintf(strip, sizeof(strip), "%.16s  GP%u  %s", model, sigGpio(),
+		snprintf(strip, sizeof(strip), "%.16s  SIG GP%u  %s", model, sigGpio(),
 		         s_st.supplyFitted ? (s_st.supplyOn ? "SUPPLY ON" : "SUPPLY OFF") : "");
 	} else {
-		snprintf(strip, sizeof(strip), "GP%u", sigGpio());
+		snprintf(strip, sizeof(strip), "SIG GP%u", sigGpio());
 	}
 	uiStripText(strip, C_DIM);
-	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
-	gfxText(UI_MARGIN, 76, s_st.supplyFitted ? "LEAVE SWITCHES THE SERVO'S SUPPLY OFF."
-	                                         : "LEAVE RESTARTS THE SERVO.", C_AMBER, 1);
-	int y = 96;
-	char buf[48];
-	int n = pending();
-	if (n) {
-		snprintf(buf, sizeof(buf), "%d CHANGE%s NOT WRITTEN.", n, n == 1 ? "" : "S");
-		gfxText(UI_MARGIN, y, buf, C_TEXT, 1);
-		y += 14;
+	UiLeaveText tx;
+	leaveText(&tx);
+	uiLeaveDraw(&s_leave, tx, s_t, millis());
+	if (s_leave.phase == UiLeavePhase::Before) {
+		bool rd = idleMode();
+		uiButton(UI_LEAVE_RIGHT, "READ AGAIN", C_PANEL, C_TEXT, 1, rd && pressing(UI_LEAVE_RIGHT), rd);
 	}
-	if (s_lastFailed) {
-		gfxText(UI_MARGIN, y, "A WRITE DID NOT END VERIFIED.", C_AMBER, 1);
-		y += 14;
-	}
-	if (s_leaveQueued && s_writing) gfxText(UI_MARGIN, y, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
-	bool rd = idleMode();
-	uiButton(BTN_LREAD, "READ AGAIN", C_PANEL, C_TEXT, 2, rd && pressing(BTN_LREAD), rd);
-	bool ok = !s_writing;
-	uiButton(BTN_WIDE, "LEAVE", C_PANEL, C_TEXT, 2, ok && pressing(BTN_WIDE), ok);
 }
 
-static void drawUnplug() {
-	// One read decides both: core1 can change it between two.
-	bool due = pinClaimUnplugDue();
-	uiHeader("HITEC SERVO", s_t, due);
-	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
-	if (!due) {
-		if (s_st.supplyUsed && s_st.supplyLeftDs) {
-			char w[48];
-			snprintf(w, sizeof(w), "SUPPLY OFF FOR %u.%u S: %u.%u S LEFT.", KST_SUPPLY_OFF_MS / 1000u,
-			         KST_SUPPLY_OFF_MS / 100u % 10u, s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
-			gfxTextCenter(120, w, C_AMBER, 1);
-		} else {
-			gfxTextCenter(120, "RELEASING THE PIN", C_DIM, 1);
-		}
-		return;
-	}
-	gfxTextCenter(100, "UNPLUG THE SERVO.", C_AMBER, 2);
-	char b[48];
-	snprintf(b, sizeof(b), "DSHOT RESTARTS ON GP%u AND READS AS", sigGpio());
-	gfxTextCenter(140, b, C_TEXT, 1);
-	gfxTextCenter(154, "A 970 US PULSE AT 1000 HZ.", C_TEXT, 1);
-	uiButton(BTN_RESTART, "RESTART DSHOT", C_PANEL, C_TEXT, 1, pressing(BTN_RESTART));
-}
-
+/**
+ * @brief End the claim; the leave page's release follows.
+ * @return false when the screen left at once: the claim was not held, or
+ *         DShot resumes without a release.
+ */
 static bool endClaim() {
 	HitecCardPhase phase;
 	if (!s_claimed) return false;
 	cardCacheEnd();
 	pinClaimEnd(PinUser::Hitec);
 	ClaimState cs = pinClaimState();
-	if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
-	go(HitecView::Unplug);
+	return cs != ClaimState::Free && cs != ClaimState::Restoring;
+}
+
+/** @brief One frame of the leave page's touch. @return false when the screen left. */
+static bool leaveTouch() {
+	uint32_t now = millis();
+	uiLeavePoll(&s_leave, pinClaimUnplugDue(), now);
+	s_leave.leaveEnabled = leaveOk();
+	if (s_leave.phase == UiLeavePhase::Before && idleMode() && tapped(UI_LEAVE_RIGHT)) {
+		s_readFailed = false;
+		sendOp(HitecOp::ReadAll);
+		go(s_haveDraft ? HitecView::List : HitecView::Main);
+		return true;
+	}
+	switch (uiLeaveTouch(&s_leave, s_t, now)) {
+		case UiLeaveEv::Stay:
+			go(s_haveDraft ? HitecView::List : HitecView::Main);
+			break;
+		case UiLeaveEv::Leave:
+			// The servo leaves after a verified write: the session's record
+			// goes. The page is releasing now.
+			if (s_st.job == HitecJobState::InMode && !s_lastFailed && !s_st.unknown) {
+				HitecCardPhase phase;
+				hitecFilesRecordRemove(&s_write);
+			}
+			if (!endClaim()) return false;
+			s_drawnKey = 0;
+			break;
+		case UiLeaveEv::Next:
+			// pinClaimKeep() acts only while the pin is let go.
+			if (!pinClaimUnplugDue()) break;
+			pinClaimKeep(PinUser::Hitec);
+			cardCacheBegin(SdLogEnd::ByHitec);
+			// A new session in the family chosen on PROGRAMMER, asked for as
+			// the first was: at once with the switched supply or CLASSIC, else
+			// on READ, once the next servo is powered (decision 34).
+			newSession();
+			s_jobAsked = false;
+			if (s_startNow) startJob();
+			go(HitecView::Main);
+			break;
+		case UiLeaveEv::Restart:
+			if (!pinClaimUnplugDue()) break;
+			pinClaimRestart(PinUser::Hitec);
+			return false;
+		case UiLeaveEv::None:
+			break;
+	}
 	return true;
 }
 
@@ -1560,18 +1679,6 @@ HitecView uiHitecView() { return s_view; }
 uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	switch (s_view) {
-		case HitecView::Family:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
-			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Classic), BTN_CLASSIC, classicAllowed());
-			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::DSeries), BTN_DSERIES, true);
-			return n;
-		case HitecView::Unplug: {
-			// One read decides both: core1 can change it between two.
-			bool due = pinClaimUnplugDue();
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
-			if (due) uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Restart), BTN_RESTART, true);
-			return n;
-		}
 		case HitecView::Main: {
 			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			static MainText m;
@@ -1613,21 +1720,45 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max) {
 			return n;
 		case HitecView::Leave:
 			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
-			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::LeaveRead), BTN_LREAD, idleMode());
-			uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Leave), BTN_WIDE, !s_writing);
+			if (s_leave.phase == UiLeavePhase::Before) {
+				uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Stay), UI_LEAVE_LEFT, true);
+				uiControlAdd(out, &n, max, UI_FIX(HitecCtl::LeaveRead), UI_LEAVE_RIGHT, idleMode());
+				uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Leave), UI_LEAVE_WIDE, s_leave.leaveEnabled);
+			} else {
+				uiControlAdd(out, &n, max, UI_FIX(HitecCtl::NextServo), UI_LEAVE_LEFT,
+				             s_leave.phase == UiLeavePhase::Released);
+				uiControlAdd(out, &n, max, UI_FIX(HitecCtl::Restart), UI_LEAVE_WIDE,
+				             uiLeaveRestartLive(&s_leave, millis()));
+			}
 			return n;
 	}
 	return n;
 }
 
-void uiHitecEnter() {
-	s_view = HitecView::Family;
+/**
+ * @brief Open the screen for @p family: a new session, then the claim of
+ *        SIG on this frame, the job wanted at once unless D SERIES runs on
+ *        OWN (docs/design/menu-b.md, decision 34).
+ */
+static void enterFamily(uint8_t family) {
+	s_family = family;
+	hitecJobSetFamily(family);
+	s_view = HitecView::Main;
 	s_claimed = false;
+	s_jobAsked = false;
+	s_readPress = false;
+	s_startNow = family == HITEC_CLASSIC || servoSupplyFitted();
 	s_refusal = ClaimRefusal::None;
+	newSession();
 	uiHoldReset(&s_hold);
 	s_repeat = Repeat{};
 	s_drawnKey = 0;
+	claimPin();
 }
+
+void uiHitecEnterD() { enterFamily(HITEC_D); }
+
+void uiHitecEnterClassic() { enterFamily(HITEC_CLASSIC); }
 
 static uint32_t mix(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
 
@@ -1642,7 +1773,8 @@ static uint32_t frameKey() {
 	uint32_t h = 2166136261u;
 	h = mix(h, (uint32_t)s_view);
 	h = mixBytes(h, &s_st, sizeof(s_st));
-	h = mix(h, ((uint32_t)s_claimed << 8) | (uint32_t)s_refusal);
+	h = mix(h, ((uint32_t)s_readPress << 17) | ((uint32_t)s_jobAsked << 16) | ((uint32_t)s_claimed << 8) |
+	           (uint32_t)s_refusal);
 	h = mix(h, ((uint32_t)pinClaimState() << 8) | pinClaimJobError());
 	h = mix(h, pinClaimUnplugDue());
 	h = mix(h, backActs());
@@ -1656,10 +1788,10 @@ static uint32_t frameKey() {
 		h = mix(h, ((uint32_t)s_flushing << 24) | ((uint32_t)cc << 16) | left);
 	}
 	h = mix(h, ((uint32_t)s_writing << 0) | ((uint32_t)s_result << 1) | ((uint32_t)s_readFailed << 3) |
-	           ((uint32_t)s_leaveQueued << 4) | ((uint32_t)s_recordFound << 5) |
+	           ((uint32_t)s_recordFound << 5) |
 	           ((uint32_t)hitecFilesMounted() << 6) | ((uint32_t)cardHeldByUsb() << 7) |
 	           ((uint32_t)s_haveDraft << 8) | ((uint32_t)s_lastFailed << 9) |
-	           ((uint32_t)servoSupplyFitted() << 10));
+	           ((uint32_t)servoSupplyFitted() << 10) | ((uint32_t)s_boardLow << 11));
 	h = mix(h, s_resultSes);
 	h = mixBytes(h, s_fileNote, strlen(s_fileNote));
 	h = mixBytes(h, s_preset, strlen(s_preset));
@@ -1670,6 +1802,10 @@ static uint32_t frameKey() {
 	h = mix(h, (uint32_t)s_fileCount);
 	h = mix(h, (uint32_t)(uintptr_t)s_cardNote);
 	h = mix(h, (uint32_t)uiHoldPercent(&s_hold, millis()));
+	if (s_view == HitecView::Leave)
+		h = mix(h, ((uint32_t)s_leave.phase << 8) | ((uint32_t)s_leave.before << 4) |
+		           ((uint32_t)s_leave.leaveEnabled << 3) | ((uint32_t)s_leave.leavePress << 2) |
+		           ((uint32_t)s_leave.restartPress << 1) | (uint32_t)uiLeaveRestartLive(&s_leave, millis()));
 	if (s_view == HitecView::Main) {
 		// The main view's strip as composed: the current counts only in the
 		// states that show it, and a reading that rounds to the same text
@@ -1677,6 +1813,7 @@ static uint32_t frameKey() {
 		static MainText km;
 		mainText(&km);
 		h = mixBytes(h, km.strip, strlen(km.strip));
+		h = mix(h, (uint32_t)(uintptr_t)km.strip2);
 	}
 	static UiControl c[UI_CONTROLS_MAX];
 	uint8_t n = uiHitecControls(c, UI_CONTROLS_MAX);
@@ -1688,18 +1825,17 @@ bool uiHitecTick(const TouchState *t) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
 	hitecJobStatus(&s_st);
-	if (s_view != HitecView::Family) {
-		if (s_claimed) pinClaimPoll();
-		else if (s_view != HitecView::Unplug) claimPin();
-		if (s_view != HitecView::Unplug) follow();
-	}
+	// The claim from the entry tap's frame: DShot drains and stops before
+	// the main view asks for the servo. Refused, it is asked for again
+	// every frame.
+	if (s_claimed) pinClaimPoll();
+	else if (!claimEnded()) claimPin();
+	if (!claimEnded()) follow();
 
-	// BACK on the unplug page waits for the job to let the pin go: backActs().
+	// BACK on the leave page is drawn disabled and does nothing: backActs().
 	bool back = backActs() && uiBackTapped(s_t);
 	if (back) {
 		switch (s_view) {
-			case HitecView::Family:
-				return false;
 			case HitecView::Main:
 				if (running() && (s_st.job == HitecJobState::InMode || s_st.job == HitecJobState::Busy)) {
 					// BACK during a read, the entry's own or READ AGAIN, stops it;
@@ -1708,36 +1844,44 @@ bool uiHitecTick(const TouchState *t) {
 						sendOp(HitecOp::Abort);
 						s_readFailed = true;
 					}
-					go(HitecView::Leave);
+					openLeave(UiLeavePhase::Before);
 				} else {
+					// No servo in the mode: the page opens releasing, the
+					// READ wait included, since the pin went to a servo.
+					// Refused or Stopping: MENU, DShot resumed at once.
 					if (running() && s_st.job == HitecJobState::Entering) sendOp(HitecOp::Abort);
 					if (!endClaim()) return false;
+					openLeave(UiLeavePhase::Releasing);
 				}
 				break;
-			case HitecView::List:  go(HitecView::Leave); break;
+			case HitecView::List:  openLeave(UiLeavePhase::Before); break;
 			case HitecView::Files: go(HitecView::List); break;
 			case HitecView::Write:
-				if (s_writing) s_leaveQueued = true;
-				else { s_result = false; s_cardNote = nullptr; go(HitecView::List); }
+				// Not while the write runs or waits for its flush: backActs().
+				s_result = false;
+				s_cardNote = nullptr;
+				go(HitecView::List);
 				break;
-			case HitecView::Leave: go(s_haveDraft ? HitecView::List : HitecView::Main); break;
-			case HitecView::Unplug:
-				pinClaimKeep(PinUser::Hitec);
-				cardCacheBegin(SdLogEnd::ByHitec);
-				newSession();
-				go(HitecView::Main);
-				break;
+			case HitecView::Leave: break;  // drawn disabled: backActs()
 		}
 		s_drawnKey = 0;
 	}
 
 	switch (s_view) {
-		case HitecView::Family: familyTouch(); break;
 		case HitecView::Main: {
 			static MainText m;
 			mainText(&m);
-			if (m.button && m.enabled && tapped(BTN_WIDE)) {
-				if (m.ctl == HitecCtl::Retry && pinClaimJobError()) {
+			// READ counts a press by when it landed, as LEAVE does: a
+			// press that landed while DShot drained, or on another button
+			// in the wide rectangle, does not start the job on its lift.
+			if (s_t->pressed) s_readPress = m.button && m.ctl == HitecCtl::Read && m.enabled;
+			bool counts = m.ctl != HitecCtl::Read || s_readPress;
+			if (m.button && m.enabled && counts && tapped(BTN_WIDE)) {
+				if (m.ctl == HitecCtl::Read) {
+					// The servo is powered: the job binds and the entry
+					// starts. No frame went to SIG before this tap.
+					startJob();
+				} else if (m.ctl == HitecCtl::Retry && pinClaimJobError()) {
 					pinClaimRetry(PinUser::Hitec);
 				} else if (m.ctl == HitecCtl::Retry) {
 					forgetServo();
@@ -1756,51 +1900,25 @@ bool uiHitecTick(const TouchState *t) {
 		case HitecView::Write: writeTouch(); break;
 		case HitecView::Files: filesTouch(); break;
 		case HitecView::Leave:
-			if (idleMode() && tapped(BTN_LREAD)) {
-				s_readFailed = false;
-				sendOp(HitecOp::ReadAll);
-				go(s_haveDraft ? HitecView::List : HitecView::Main);
-				break;
-			}
-			if (!s_writing && tapped(BTN_WIDE)) {
-				// The servo leaves after a verified write: the session's record goes.
-				if (s_st.job == HitecJobState::InMode && !s_lastFailed && !s_st.unknown) {
-					HitecCardPhase phase;
-					hitecFilesRecordRemove(&s_write);
-				}
-				if (!endClaim()) return false;
-			}
-			break;
-		case HitecView::Unplug:
-			if (pinClaimUnplugDue() && tapped(BTN_RESTART)) {
-				pinClaimRestart(PinUser::Hitec);
-				return false;
-			}
+			if (!leaveTouch()) return false;
 			break;
 	}
 	uint32_t key = frameKey();
 	if (key != s_drawnKey) {
 		s_drawnKey = key;
 		switch (s_view) {
-			case HitecView::Family: drawFamily(); break;
 			case HitecView::Main:   drawMain(); break;
 			case HitecView::List:   drawList(); break;
 			case HitecView::Write:  drawWrite(); break;
 			case HitecView::Files:  drawFiles(); break;
 			case HitecView::Leave:  drawLeave(); break;
-			case HitecView::Unplug: drawUnplug(); break;
 		}
 	}
 	return true;
 }
 
-/** @brief HITEC SERVO's MENU status: the signal pin it claims, from the settings. */
-static void hitecMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, "GP%u", (unsigned)settings()->dshotPin);
-	*col = C_DIM;
-}
-
+// No MENU row opens it: PROGRAMMER's entries name their entry point.
 const UiScreen UI_HITEC = {
-	UiScreenId::Hitec, "HITEC SERVO", PinUser::Hitec, hitecMenuStatus,
-	uiHitecEnter, uiHitecTick, nullptr, uiHitecControls, nullptr, false,
+	UiScreenId::Hitec, "HITEC SERVO", PinUser::Hitec, nullptr,
+	uiHitecEnterD, uiHitecTick, nullptr, uiHitecControls, nullptr, false,
 };

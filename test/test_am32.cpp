@@ -13,8 +13,10 @@
  */
 
 #include "check.h"
+#include "greet_cycle.h"
 #include "am32_eeprom.h"
 #include "am32_bl.h"
+#include "bl_answer.h"
 #include "am32_backup.h"
 
 #include <stdio.h>
@@ -259,9 +261,186 @@ static void testBackupText() {
 	checkInt("1.79: six field lines fewer", lines79, lines - 6);
 }
 
+/**
+ * @brief The greeting's answer classified (bl_answer.h): AM32 answers of the
+ *        three families stay AM32; `471`, a byte, E8 B1, B2 or B5, two bytes
+ *        and 0x30 is an EFM8 with that signature, with or without an echo
+ *        before it; E8 B3, a short answer, no 0x30 or another start are not
+ *        understood (docs/design/bluejay-blheli-s.md, "Tests").
+ */
+static void testBlAnswer() {
+	section("The greeting's answer: AM32, EFM8 or not understood");
+	auto kindIs = [](const uint8_t *b, int n, BlAnswerKind k) { return blAnswerClassify(b, n).kind == k; };
+
+	checkTrue("no byte: silent", kindIs(nullptr, 0, BlAnswerKind::Silent));
+	const uint8_t one[1] = { 0x30 };
+	checkTrue("one byte: not understood", kindIs(one, 1, BlAnswerKind::NotUnderstood));
+
+	static const uint8_t FAMILY[3] = { AM32_ESC_F051_1KB, AM32_ESC_G071_2KB, AM32_ESC_F3_2KB };
+	for (uint8_t fam : FAMILY) {
+		const uint8_t am[9] = { '4', '7', '1', 0x64, fam, 0x06, 0x06, 0x01, 0x30 };
+		BlAnswer a = blAnswerClassify(am, 9);
+		char what[64];
+		snprintf(what, sizeof(what), "AM32 family %02X: AM32, the family kept", fam);
+		checkTrue(what, a.kind == BlAnswerKind::Am32 && a.family == fam && a.signature == 0);
+		// As am32BlHandshake() always took it: five bytes are enough.
+		snprintf(what, sizeof(what), "family %02X in the last five bytes alone: AM32", fam);
+		checkTrue(what, kindIs(am + 4, 5, BlAnswerKind::Am32));
+	}
+
+	static const uint8_t PART[3] = { 0xB1, 0xB2, 0xB5 };
+	for (uint8_t part : PART) {
+		const uint8_t e[9] = { '4', '7', '1', 'd', 0xE8, part, 0x06, 0x01, 0x30 };
+		BlAnswer a = blAnswerClassify(e, 9);
+		char what[64];
+		snprintf(what, sizeof(what), "471d E8 %02X 06 01 30: EFM8, signature E8%02X", part, part);
+		checkTrue(what, a.kind == BlAnswerKind::Efm8 && a.signature == (uint16_t)(0xE800u | part) &&
+		                a.family == 0);
+		// The greeting's echo in front, as a host with a UART captures it.
+		uint8_t echo[30];
+		static const uint8_t GREET_TAIL[21] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		                                        0x0D, 'B', 'L', 'H', 'e', 'l', 'i', 0xF4, 0x7D };
+		memcpy(echo, GREET_TAIL, 21);
+		memcpy(echo + 21, e, 9);
+		a = blAnswerClassify(echo, 30);
+		snprintf(what, sizeof(what), "with the echo before it: EFM8 E8%02X", part);
+		checkTrue(what, a.kind == BlAnswerKind::Efm8 && a.signature == (uint16_t)(0xE800u | part));
+	}
+
+	{
+		// The loose rule of slice 3: `471` and 0xE8 four bytes on name an
+		// EFM8; what follows the 0xE8 is escwire's own contact's to check.
+		auto efm8 = [](const uint8_t *b, int n, uint16_t sig) {
+			BlAnswer a = blAnswerClassify(b, n);
+			return a.kind == BlAnswerKind::Efm8 && a.signature == sig && a.family == 0;
+		};
+		const uint8_t b3[9] = { '4', '7', '1', 'd', 0xE8, 0xB3, 0x06, 0x01, 0x30 };
+		checkTrue("E8 B3: EFM8, signature E8B3", efm8(b3, 9, 0xE8B3));
+		const uint8_t e9[9] = { '4', '7', '1', 'd', 0xE9, 0xB2, 0x06, 0x01, 0x30 };
+		checkTrue("E9 B2: not understood", kindIs(e9, 9, BlAnswerKind::NotUnderstood));
+		const uint8_t nak[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0xC1 };
+		checkTrue("C1 in place of 0x30: EFM8 E8B2", efm8(nak, 9, 0xE8B2));
+		const uint8_t e[9] = { '4', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		// Not understood, but a piece of an EFM8 answer: the claim gets the
+		// leave page.
+		auto piece = [](const uint8_t *b, int n) {
+			BlAnswer a = blAnswerClassify(b, n);
+			return a.kind == BlAnswerKind::NotUnderstood && a.fragment && blAnswerEfm8Fragment(b, n);
+		};
+		checkTrue("its leading 4 lost, 71d E8 ...: not understood, a piece", piece(e + 1, 8));
+		const uint8_t noD[8] = { '4', '7', '1', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		checkTrue("its d lost, 471 E8 B2 ...: not understood, a piece", piece(noD, 8));
+		checkTrue("471 alone: a piece", piece(e, 3));
+		const uint8_t sevenOne[4] = { '7', '1', 0x00, 0xE8 };
+		checkTrue("71, a byte, E8: a piece", piece(sevenOne, 4));
+		static const uint8_t PART[3] = { 0xB1, 0xB2, 0xB5 };
+		for (uint8_t p : PART) {
+			const uint8_t sig[3] = { 0x55, 0xE8, p };
+			char what[48];
+			snprintf(what, sizeof(what), "55 E8 %02X: a piece", p);
+			checkTrue(what, piece(sig, 3));
+		}
+		const uint8_t noise[3] = { 0x55, 0xAA, 0x01 };
+		checkTrue("55 AA 01: no piece", !blAnswerClassify(noise, 3).fragment && !blAnswerEfm8Fragment(noise, 3));
+		const uint8_t near[9] = { '4', '7', 0x00, '7', '1', 0xE9, 0x00, 0xE8, 0xB3 };
+		checkTrue("47, 71 with E8 three bytes on, E8 B3: no piece", !blAnswerEfm8Fragment(near, 9));
+		const uint8_t shortTail[3] = { 0x00, '7', '1' };
+		checkTrue("71 at the end, no room for E8: no piece", !blAnswerEfm8Fragment(shortTail, 3));
+		const uint8_t lastE8[2] = { 0x00, 0xE8 };
+		checkTrue("E8 as the last byte: no piece", !blAnswerEfm8Fragment(lastE8, 2));
+		checkTrue("no byte: silent, no piece", !blAnswerClassify(nullptr, 0).fragment);
+		checkTrue("471d E8, cut there: EFM8, signature E800", efm8(e, 5, 0xE800));
+		checkTrue("471d E8 B2, cut there: EFM8 E8B2", efm8(e, 6, 0xE8B2));
+		checkTrue("471d, cut before the E8: not understood", kindIs(e, 4, BlAnswerKind::NotUnderstood));
+		uint8_t glitch[10];
+		memcpy(glitch, e, 9);
+		glitch[9] = 0xFF;
+		checkTrue("a glitch byte after the 0x30: EFM8 E8B2", efm8(glitch, 10, 0xE8B2));
+		uint8_t garbled[9];
+		memcpy(garbled, e, 9);
+		garbled[6] = 0x86;
+		checkTrue("the version byte garbled: EFM8 E8B2", efm8(garbled, 9, 0xE8B2));
+		garbled[3] = 0x00;
+		checkTrue("and the byte after 471 too: EFM8 E8B2", efm8(garbled, 9, 0xE8B2));
+		// Two answers, an old one first: the last 471 counts.
+		uint8_t two[18];
+		memcpy(two, b3, 9);
+		memcpy(two + 9, e, 9);
+		checkTrue("two answers: the last one's signature, E8B2", efm8(two, 18, 0xE8B2));
+		memcpy(two, e, 9);
+		memcpy(two + 9, b3, 9);
+		checkTrue("the other way round: E8B3", efm8(two, 18, 0xE8B3));
+		const uint8_t s4[9] = { '4', '7', '2', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		checkTrue("472 in place of 471: not understood", kindIs(s4, 9, BlAnswerKind::NotUnderstood));
+		const uint8_t s0[9] = { '5', '7', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		checkTrue("571 in place of 471: not understood", kindIs(s0, 9, BlAnswerKind::NotUnderstood));
+		const uint8_t s1[9] = { '4', '6', '1', 'd', 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		checkTrue("461 in place of 471: not understood", kindIs(s1, 9, BlAnswerKind::NotUnderstood));
+		const uint8_t at5[10] = { '4', '7', '1', 'd', 0x00, 0xE8, 0xB2, 0x06, 0x01, 0x30 };
+		checkTrue("0xE8 five bytes on, not four: not understood", kindIs(at5, 10, BlAnswerKind::NotUnderstood));
+		// An AM32 answer stays as it was read before: a glitch after its 0x30
+		// leaves it not understood, and its family is no 0xE8.
+		const uint8_t am[10] = { '4', '7', '1', 0x64, AM32_ESC_F051_1KB, 0x06, 0x06, 0x01, 0x30, 0xFF };
+		checkTrue("an AM32 answer with a glitch byte: not understood",
+		          kindIs(am, 10, BlAnswerKind::NotUnderstood));
+		// An AM32 family fifth from the end outranks a 471 .. E8 before it.
+		uint8_t both[14];
+		memcpy(both, e, 5);
+		memcpy(both + 5, am, 9);
+		checkTrue("an AM32 answer after an EFM8 pattern: AM32", kindIs(both, 14, BlAnswerKind::Am32));
+		checkTrue("an AM32 answer holds 471, and is never a piece", !blAnswerClassify(both, 14).fragment &&
+		          !blAnswerClassify(am, 9).fragment);
+		checkTrue("an EFM8 answer is no piece either", !blAnswerClassify(e, 9).fragment);
+		checkTrue("an AM32 answer with a glitch byte holds 471: a piece", blAnswerClassify(am, 10).fragment);
+	}
+}
+
+static void testGreetCycle() {
+	section("The connect cycle: 1000 ms quiet, then 3 greetings");
+	auto run = [](uint32_t t0, bool *quiet999, bool *greet1000, int *burst, bool *quietAfter) {
+		GreetCycle c;
+		greetCycleStart(&c, t0);
+		*quiet999 = greetCyclePhase(&c, t0) == GreetPhase::Quiet &&
+		            greetCyclePhase(&c, t0 + 999) == GreetPhase::Quiet;
+		*greet1000 = greetCyclePhase(&c, t0 + 1000) == GreetPhase::Greet;
+		// One greeting each 41 ms while the phase says so.
+		uint32_t t = t0 + 1000;
+		*burst = 0;
+		while (greetCyclePhase(&c, t) == GreetPhase::Greet && *burst < 10) {
+			t += 41;
+			greetCycleSent(&c, t);
+			(*burst)++;
+		}
+		*quietAfter = greetCyclePhase(&c, t) == GreetPhase::Quiet &&
+		              greetCyclePhase(&c, t + 999) == GreetPhase::Quiet &&
+		              greetCyclePhase(&c, t + 1000) == GreetPhase::Greet;
+	};
+	bool q, g, qa;
+	int burst;
+	run(5000, &q, &g, &burst, &qa);
+	checkTrue("quiet at the start and at 999 ms", q);
+	checkTrue("greeting at 1000 ms", g);
+	checkInt("greetings in a burst", burst, 3);
+	checkInt("ESC_GREET_BURST", ESC_GREET_BURST, 3);
+	checkTrue("then quiet 1000 ms from the third's end", qa);
+	run(0xFFFFFFFFu - 500, &q, &g, &burst, &qa);
+	checkTrue("across a wrap of millis(): quiet, then greeting at 1000 ms", q && g);
+	checkInt("and 3 greetings", burst, 3);
+	checkTrue("then quiet", qa);
+	GreetCycle c;
+	greetCycleStart(&c, 100);
+	greetCycleSent(&c, 1200);
+	checkTrue("after the first greeting the burst goes on at once",
+	          greetCyclePhase(&c, 1200) == GreetPhase::Greet);
+	greetCycleStart(&c, 1300);
+	checkTrue("a start: quiet again", greetCyclePhase(&c, 1300) == GreetPhase::Quiet && c.sent == 0);
+}
+
 void runAm32Tests() {
 	testAdvanceEncodings();
 	testBackupText();
+	testBlAnswer();
+	testGreetCycle();
 	section("AM32 init string (must be byte-exact)");
 	{
 		// Twelve zeros, 0x0D, "BLHeli", then the fixed signature F4 7D.
@@ -272,9 +451,13 @@ void runAm32Tests() {
 		int zeros = 0;
 		while (zeros < 21 && REF[zeros] == 0) zeros++;
 		checkInt("leading zero count", zeros, 12);
-		// F4 7D is a literal, not a checksum over the body.
+		// F4 7D is no checksum over the 19 bytes before it, but CRC-16/ARC
+		// over `BLHeli` alone: an EFM8 bootloader starts its CRC at each new
+		// scan, so it takes the greeting too (bl_answer.h).
 		checkTrue("trailer is not a CRC of the body",
 		          am32Crc16(REF, 19) != (uint16_t)(0x7DF4));
+		checkTrue("trailer is the CRC of BLHeli alone, low byte first",
+		          am32Crc16(REF + 13, 6) == (uint16_t)(REF[19] | REF[20] << 8));
 	}
 
 	section("AM32 result texts");

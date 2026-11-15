@@ -22,8 +22,10 @@ stress and a status byte on the same wire, interleaved with eRPM frames. It
 needs support in the ESC firmware (BLHeli_32, Bluejay, AM32), and the ESC must
 receive an enable command. The firmware sends it; see below.
 
-Bidirectional DShot and EDT work on hardware. No defect is known as of
-DshotDisplay v2.3.
+Bidirectional DShot and EDT work on hardware with the DShot driver of
+DshotDisplay v2.3 (owner report; no defect known). This firmware's DShot
+driver comes from rcbench and has not run on hardware in MiniRcBench yet;
+rcbench ran it at DShot600 on one AM32 ESC.
 
 **KISS telemetry** is an optional third wire from the ESC's telemetry pad. Its
 steps are 0.01 V and 0.01 A, against EDT's 0.25 V and 1 A, and it carries
@@ -54,11 +56,11 @@ means; its documentation, where there is one, lists the conditions.
 
 ### The small `KISS` / `EDT` tag
 
-The voltage and current tiles carry a tag on their label row: cyan `KISS` or
-dim `EDT`. `12.25 V` from EDT means a value somewhere in a 0.25 V step. The
-same reading from KISS is within 0.01 V. When a tag changes from `KISS` to
-`EDT`, the telemetry wire has stopped and the reading is 25 times coarser,
-although the digits may not change visibly.
+The voltage and current tiles carry a tag on their label row: `KISS` in the text
+colour or dim `EDT`. `12.25 V` from EDT means a value somewhere in a 0.25 V
+step. The same reading from KISS is within 0.01 V. When a tag changes from
+`KISS` to `EDT`, the telemetry wire has stopped and the reading is 25 times
+coarser, although the digits may not change visibly.
 
 ---
 
@@ -85,12 +87,12 @@ An **expired status tile reads `--`, never `OK`**.
 The firmware does it, with no button.
 
 The first 10 frames the tester sends to the ESC are the enable: at power-up,
-after a change of the ESC pin, the DShot bitrate, KISS or the KISS pin under
-SETTINGS, and when the AM32 screen hands the signal wire back. They take 10 ms.
-Every reply is decoded with EDT on from the first one, so an ESC that kept
-EDT on through one of those restarts shows its voltage and temperature at
-once and never a false RPM. An ESC with AM32 or Bluejay shows the correct RPM
-with EDT off; for other ESC firmware with EDT off that is unknown.
+after a change of SIG PIN, DSHOT, KISS TELEM or AUX PIN under SETTINGS, and when
+the AM32 screen hands the signal wire back. They take 10 ms. Every reply is
+decoded with EDT on from the first one, so an ESC that kept EDT on through one
+of those restarts shows its voltage and temperature at once and never a false
+RPM. An ESC with AM32 or Bluejay shows the correct RPM with EDT off; for other
+ESC firmware with EDT off that is unknown.
 
 An ESC powered up moments before ignores that first enable. While an ESC
 answers with eRPM and no EDT frame has arrived for 1 s, the firmware sends the
@@ -102,7 +104,8 @@ hold:
 
 - the link has been up for 300 ms, so the ESC has finished booting;
 - the tester is disarmed and the motor is stopped (eRPM is zero);
-- no other command, such as BEEP, is being sent.
+- no other command, such as a beacon from ESC COMMANDS, is being sent, nor
+  the zero throttle that follows it.
 
 An ESC executes a DShot command only after a run of identical frames, so an
 enable sent at another time would be lost.
@@ -124,7 +127,9 @@ An ESC with KISS telemetry sends a 10-byte frame at 115200 baud from its
 telemetry pad when requested. The tester requests one every 20th DShot frame,
 which is 50 Hz. The wire adds finer voltage and current, and consumed mAh.
 
-**Status:** working on hardware (owner report).
+**Status:** works on hardware with the DShot driver of DshotDisplay v2.3
+(owner report); whether that report covers the RP2350-Touch-LCD-2.8 is not
+recorded. Not tested on hardware with this firmware.
 
 | | RP2350-Touch-LCD-2.8 |
 |---|---|
@@ -134,12 +139,12 @@ The board only receives on this line. The receiver is a UART (universal
 asynchronous receiver-transmitter) built from a PIO (programmable I/O) state
 machine, so **either free GPIO works**. GPIO means
 general-purpose input/output pin. Turn it on under
-**MENU → SETTINGS → KISS TELEM** and set the pin in the row below. The pin
-stepper skips the ESC signal pin.
+**MENU → SETTINGS → KISS TELEM**. KISS listens on AUX, set in the row below,
+**AUX PIN**, with its J5 pin under the value. A step of AUX PIN or SIG PIN
+swaps the two, so the KISS wire never shares the ESC signal pin.
 
-**Default: off.** The board has two free pins, GP0 and GP1, and the ESC
-uses one of them. Turning KISS on moves the KISS pin
-off the ESC pin if they coincide.
+**Default: off.** The board has two free pins, GP0 and GP1: SIG, the ESC's,
+and AUX. Turning KISS on moves no pin.
 
 > **Voltage.** The KISS specification puts this line at 3.6 V. GP0 and GP1
 > tolerate 5.5 V while the board is powered and 3.63 V while it is off. The
@@ -157,5 +162,5 @@ last KISS value.
 above 5 %.
 
 A poor link usually comes from the signal wire: too long, unshielded, or routed
-near motor phase wires. Shorten it first. Otherwise set **DSHOT KBAUD** to 300
+near motor phase wires. Shorten it first. Otherwise set **DSHOT** to 300
 under **MENU → SETTINGS**. The `LINK` row on the SETTINGS screen updates live.

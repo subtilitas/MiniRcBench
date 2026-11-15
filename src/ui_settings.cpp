@@ -6,9 +6,9 @@
  * The rules that matter more than the widgets:
  *
  * - **Only legal values can be selected.** The `-`/`+` buttons step through
- *   the board's free-GPIO mask and past whichever pin the other wire is on,
- *   so there is no invalid pin to reject and no error state to design.
- *   @see stepPinAvoiding()
+ *   the board's free-GPIO mask, and a step onto the other signal pin's GPIO
+ *   swaps SIG and AUX, so there is no invalid pin to reject and no error
+ *   state to design. @see stepPinSwapping()
  * - **Changes apply live; only persistence needs the hold.** The one-second
  *   hold is about writing flash, which parks core1, not about the value.
  * - **A press on a control never scrolls the list.** A drag scrolls only
@@ -35,6 +35,7 @@
 #include "sense.h"
 #include "version.h"
 #include "diag.h"
+#include "clock.h"
 
 #include "plat.h"
 #include <stdio.h>
@@ -54,6 +55,14 @@
  *        (VIEW_H_PIN), and scrolls 12 px further. Its top rows do not move.
  */
 #define PIN_Y       230
+/**
+ * @brief The line at @ref PIN_Y while SIG is off the boot pin with KISS on:
+ *        SIG and AUX swapped, so the ESC's signal and KISS wires swap too.
+ *        36 characters, 215 px.
+ */
+#define SETTINGS_SWAP_NOTE "SWAP THE ESC'S SIGNAL AND KISS WIRES"
+static_assert(UI_MARGIN + 6 * (int)(sizeof(SETTINGS_SWAP_NOTE) - 1) - 1 <= 232,
+              "the swap note runs past x 232");
 #define VIEW_H_PIN  188         /**< To y 227, while the ESC pin's warning shows. */
 #define CAP_H       20          /**< A section caption. */
 #define ROW_H       44          /**< A row's controls. */
@@ -67,14 +76,16 @@
 #define BAR_X       235         /**< The scroll bar. */
 #define LINK_Y      242         /**< Live link readout. */
 #define NOTE_Y      254         /**< One line saying what state the settings are in. */
-#define FOOT_Y      268
-#define FOOT_H      48
-#define SAVE_X      8
+#define FOOT_Y      UI_FOOT_Y   /**< The two-button footer, y 268 to 313. */
+#define FOOT_H      UI_FOOT_H
+#define SAVE_X      UI_EDGE     /**< HOLD TO SAVE, x 6 to 155. */
 #define SAVE_W      150
-#define DEF_X       162
-#define DEF_W       70
+#define DEF_X       162         /**< HOLD DEFAULTS, x 162 to 233. */
+#define DEF_W       72
 #define CAP_LABEL_DY 12         /**< A captioned row's label, from the row's top. */
 #define CAP_TEXT_DY  25         /**< Its caption, from the row's top. */
+#define VAL_SUB_DY   8          /**< A value over a connector line, from the row's top. */
+#define SUB_DY       27         /**< The connector line, from the row's top. */
 /** @} */
 
 static_assert(VIEW_Y0 >= UI_HDR_H, "the list overlaps the header");
@@ -91,9 +102,24 @@ static_assert(FOOT_Y + FOOT_H <= GFX_H, "the footer runs off the panel");
 static_assert(BTN_M_X + BTN_W < BTN_P_X, "the row buttons overlap");
 static_assert(BTN_P_X + BTN_W < BAR_X && BTN_M_X + TOGGLE_W < BAR_X,
               "a row button runs into the scroll bar");
-static_assert(DEF_X + DEF_W <= GFX_W - 8, "RESET runs off the panel");
+static_assert(SAVE_X + SAVE_W + 6 == DEF_X && DEF_X + DEF_W == GFX_W - UI_EDGE,
+              "the footer is not 6/150 and 162/72");
+/**
+ * @brief DEFAULTS' label, two scale-1 lines: a hold, as HOLD TO SAVE says.
+ *        `HOLD DEFAULTS` on one line is 77 px, wider than the button.
+ */
+#define DEFAULTS_LINE1 "HOLD"
+#define DEFAULTS_LINE2 "DEFAULTS"
+/** @brief The two lines' pitch: 7 px of text and 5 px between them. */
+#define DEFAULTS_PITCH 12
+static_assert(6 * (int)(sizeof(DEFAULTS_LINE2) - 1) - 1 + 2 * 4 <= DEF_W,
+              "DEFAULTS does not fit its button with 4 px each side");
+static_assert(DEFAULTS_PITCH + 7 + 2 * 4 <= FOOT_H, "the two lines do not fit the button");
 static_assert(CAP_TEXT_DY >= CAP_LABEL_DY + 7 + 4 && CAP_TEXT_DY + 7 <= ROW_H,
               "a row's caption overlaps its label or leaves the row");
+static_assert(SUB_DY >= VAL_SUB_DY + 14 + 4 && SUB_DY + 7 <= ROW_H &&
+              SUB_DY >= (ROW_H - 7) / 2 + 7 + 2,
+              "a connector line overlaps its value or the label's rows, or leaves the row");
 
 /** @brief Backlight adjustment step. 8 levels across the usable range. */
 #define BACKLIGHT_STEP 32
@@ -114,18 +140,23 @@ static bool     s_changed = false;
  *        flash erase.
  */
 static UiHold   s_saveHold;
+/**
+ * @brief HOLD DEFAULTS: the compiled defaults load after @ref UI_HOLD_MS on
+ *        the button, once per press, as HOLD TO SAVE.
+ */
+static UiHold   s_resetHold;
 
 /** @brief What the last save attempt did. Drives the note line. */
 enum class SaveOutcome : uint8_t { None, Ok, Failed, FailedArmed };
 static SaveOutcome s_saveOutcome = SaveOutcome::None;
 
 /**
- * @brief RESET loaded the defaults and nothing has changed since: the note
+ * @brief DEFAULTS loaded the defaults and nothing has changed since: the note
  *        line says `DEFAULTS LOADED - RESTART TO UNDO` while restarting would
  *        undo it (resetNoteShown()).
  */
 static bool s_resetNote = false;
-/** @brief The live settings as RESET left them, after validation. */
+/** @brief The live settings as DEFAULTS left them, after validation. */
 static Settings s_resetLive;
 
 /** @brief True when validation last had to repair something the user asked for. */
@@ -140,6 +171,8 @@ static uint32_t s_captionKey = 0;
 static int s_shownRate = -1, s_shownErr = -1;
 /** @brief The uptime second last drawn, so UPTIME repaints once a second. */
 static uint32_t s_shownUptime = 0;
+/** @brief The CLOCK row's minute last drawn, so it repaints once a minute. */
+static uint32_t s_shownClock = 0;
 
 /** @brief This frame's touch. */
 static const TouchState *s_t = nullptr;
@@ -155,7 +188,8 @@ struct Item {
 	uint8_t                index; /**< The row's number for UI_ROW(); 0 for a caption. */
 };
 
-#define MAX_SECTIONS 12  /**< 2 core sections, up to 7 tool sections, DISPLAY, BOARD and DIAGNOSTICS. */
+/** @brief 3 core sections, up to 6 tools', DISPLAY, BOARD and DIAGNOSTICS. */
+#define MAX_SECTIONS 12
 #define MAX_ITEMS 40     /**< Captions and rows; items past it are not shown. */
 #define MAX_ROWS  24     /**< Rows; rows past it are not shown. */
 static Item    s_items[MAX_ITEMS];
@@ -174,26 +208,39 @@ static uint8_t s_pressRow = 0;
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Step a pin, stepping past the one the other wire is on.
+ * @brief Step one signal pin; a step onto the other's GPIO swaps the two.
  *
- * The ESC and the telemetry wire cannot share a GPIO. On the 2.8" board
- * exactly two pins are free, so whichever one you are not on is the other
- * wire's. The validator's answer to a collision is to switch KISS off, which
- * is right for a stored block nobody chose and wrong for a stepper.
+ * SIG and AUX never share a GPIO (settingsValidate()). On the 2.8" board
+ * exactly two pins are free, so every step of either row swaps SIG and AUX.
+ * Both rows act whatever KISS is: the servo tester drives servo B on AUX
+ * with KISS off.
  *
- * @param from   Current pin.
- * @param dir    +1 or -1.
- * @param avoid  The other wire's pin.
- * @param active Whether the other wire is in use.
- * @return The next legal pin, or @p from when the board offers no other.
+ * @param mine  The stepped pin.
+ * @param other The other signal pin.
+ * @param dir   +1 or -1.
  */
-static uint8_t stepPinAvoiding(uint8_t from, int dir, uint8_t avoid, bool active) {
-	uint8_t p = settingsNextPin(from, dir);
-	if (active && p == avoid) p = settingsNextPin(p, dir);
-	// Two free pins and both spoken for: stay put rather than landing on the
-	// pin this function exists to avoid.
-	if (active && p == avoid) return from;
-	return p;
+static void stepPinSwapping(uint8_t *mine, uint8_t *other, int dir) {
+	uint8_t p = settingsNextPin(*mine, dir);
+	if (p == *mine) return;   // the board offers no other pin
+	if (p == *other) *other = *mine;
+	*mine = p;
+	s_changed = true;
+}
+
+/**
+ * @brief The J5 pin a signal GPIO is brought out on, from the pin map in
+ *        board_rp2350_touch_lcd_2_8.h: J5 pin 1 is GP1, pin 2 is GP0. 0 for
+ *        a GPIO J5 does not carry.
+ */
+static unsigned j5PinOf(uint8_t gpio) {
+	return gpio == 0 ? 2u : gpio == 1 ? 1u : 0u;
+}
+
+/** @brief `J5 PIN n` for @p gpio, or an empty string. */
+static void j5Text(char *b, size_t n, uint8_t gpio) {
+	unsigned j = j5PinOf(gpio);
+	if (j) snprintf(b, n, "J5 PIN %u", j);
+	else   b[0] = '\0';
 }
 
 static void polesValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->poles); *c = C_TEXT; }
@@ -206,7 +253,7 @@ static void polesStep(int dir) {
 
 static void maxValue(char *b, size_t n, uint16_t *c) {
 	snprintf(b, n, "%u%%", (unsigned)((uint32_t)settings()->maxThrottle * 100 / 2000));
-	*c = C_AMBER;
+	*c = C_TEXT;
 }
 static void maxStep(int dir) {
 	int t = (int)settings()->maxThrottle + MAX_THROTTLE_STEP * dir;
@@ -215,14 +262,9 @@ static void maxStep(int dir) {
 	s_changed = true;
 }
 
-static void pinValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_LIME; }
-static void pinStep(int dir) {
-	Settings *s = settings();
-	uint8_t p = stepPinAvoiding(s->dshotPin, dir, s->kissPin, s->kissEnable != 0);
-	if (p == s->dshotPin) return;
-	s->dshotPin = p;
-	s_changed = true;
-}
+static void sigValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_TEXT; }
+static void sigStep(int dir) { stepPinSwapping(&settings()->dshotPin, &settings()->kissPin, dir); }
+static void sigSub(char *b, size_t n) { j5Text(b, n, settings()->dshotPin); }
 
 static void speedValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->dshotKbaud); *c = C_TEXT; }
 static void speedStep(int dir) {
@@ -235,30 +277,62 @@ static void speedStep(int dir) {
 static void kissValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->kissEnable ? "ON" : "OFF"); *c = C_TEXT; }
 static bool kissOn() { return settings()->kissEnable != 0; }
 static void kissToggle() {
-	// Turning KISS on moves it off the ESC's pin rather than enabling it
-	// against a collision and letting validation switch it straight back off.
-	Settings *s = settings();
-	if (s->kissEnable) {
-		s->kissEnable = 0;
-	} else {
-		s->kissEnable = 1;
-		if (s->kissPin == s->dshotPin) s->kissPin = settingsNextPin(s->kissPin, +1);
-	}
+	// KISS listens on AUX, which is never SIG's GPIO (settingsValidate()).
+	settings()->kissEnable = settings()->kissEnable ? 0 : 1;
 	s_changed = true;
 }
 
-static void kissPinValue(char *b, size_t n, uint16_t *c) {
-	// With KISS off this row has nothing to set: the value reads "--" and the
-	// buttons are drawn unavailable and do not act. @see #23
-	if (settings()->kissEnable) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_CYAN; }
-	else                        { snprintf(b, n, "--"); *c = C_DIM; }
+/**
+ * @brief AUX PIN's value, whatever KISS is: KISS listens on it, and the
+ *        servo tester drives servo B on it.
+ */
+static void auxValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_TEXT; }
+static void auxStep(int dir) { stepPinSwapping(&settings()->kissPin, &settings()->dshotPin, dir); }
+static void auxSub(char *b, size_t n) { j5Text(b, n, settings()->kissPin); }
+
+/**
+ * @brief OWN, GP28 or GP29: the switched supply's enable pin. OWN: the servo
+ *        has its own supply.
+ */
+static void supplyValue(char *b, size_t n, uint16_t *c) {
+	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
+	if (pin == SERVO_SUPPLY_NO_PIN) snprintf(b, n, "OWN");
+	else                            snprintf(b, n, "GP%u", (unsigned)pin);
+	*c = C_TEXT;
 }
-static void kissPinStep(int dir) {
-	Settings *s = settings();
-	uint8_t p = stepPinAvoiding(s->kissPin, dir, s->dshotPin, true);
-	if (p == s->kissPin) return;
-	s->kissPin = p;
-	s_changed = true;
+/** @brief - and + step OWN, GP28, GP29, and stop at the ends. */
+static void supplyStep(int dir) {
+	int m = (int)settings()->servoSupply + (dir < 0 ? -1 : 1);
+	if (m < 0 || m > (int)SERVO_SUPPLY_MODE_MAX) return;
+	settings()->servoSupply = (uint8_t)m;
+}
+/**
+ * @brief The J4 pin of the enable, from the pin map in
+ *        board_rp2350_touch_lcd_2_8.h: `J4 PIN 11` for GP28, `J4 PIN 12` for
+ *        GP29; none with OWN.
+ */
+static void supplySub(char *b, size_t n) {
+	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
+	if (pin == 28 || pin == 29) snprintf(b, n, "J4 PIN %u", (unsigned)(pin == 28 ? 11 : 12));
+	else                        b[0] = '\0';
+}
+
+/** @brief NONE or INA219: the current sensor on J3. */
+static void senseValue(char *b, size_t n, uint16_t *c) {
+	snprintf(b, n, "%s", settings()->currentSense ? "INA219" : "NONE");
+	*c = C_TEXT;
+}
+static bool senseOn() { return settings()->currentSense != 0; }
+/** @brief NONE and INA219, in turn. */
+static void senseToggle() {
+	settings()->currentSense = settings()->currentSense ? (uint8_t)SenseMode::None
+	                                                    : (uint8_t)SenseMode::Ina219;
+}
+/** @brief FOUND, NOT FOUND or OTHER PART under the label; none with NONE. */
+static void senseCaptionText(char *b, size_t n, uint16_t *c) {
+	const char *cap = senseCaption();
+	snprintf(b, n, "%s", cap ? cap : "");
+	*c = cap && strcmp(cap, "FOUND") == 0 ? C_LIME : C_AMBER;
 }
 
 static void contrastValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->highContrast ? "HIGH" : "NORMAL"); *c = C_TEXT; }
@@ -291,18 +365,23 @@ static void boardValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", g_
 static void versionValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", FW_VERSION_STRING); *c = C_GRID; }
 
 static constexpr SettingsRow ROWS_TESTER[] = {
-	{ "MOTOR POLES",  SettingsKind::Stepper, 2, polesValue, nullptr, polesStep, nullptr, nullptr, nullptr },
-	{ "MAX THROTTLE", SettingsKind::Stepper, 4, maxValue,   nullptr, maxStep,   nullptr, nullptr, nullptr },
+	{ "MOTOR POLES",  SettingsKind::Stepper, 2, polesValue, nullptr, polesStep, nullptr, nullptr, nullptr, nullptr },
+	{ "MAX THROTTLE", SettingsKind::Stepper, 4, maxValue,   nullptr, maxStep,   nullptr, nullptr, nullptr, nullptr },
 };
 static constexpr SettingsRow ROWS_WIRING[] = {
-	{ "ESC PIN",      SettingsKind::Stepper, 4, pinValue,     nullptr, pinStep,     nullptr,    nullptr, nullptr },
-	{ "DSHOT KBAUD",  SettingsKind::Stepper, 4, speedValue,   nullptr, speedStep,   nullptr,    nullptr, nullptr },
-	{ "KISS TELEM",   SettingsKind::Toggle,  3, kissValue,    nullptr, nullptr,     kissToggle, kissOn, nullptr },
-	{ "KISS PIN",     SettingsKind::Stepper, 4, kissPinValue, kissOn,  kissPinStep, nullptr,    nullptr, nullptr },
+	{ "SIG PIN",      SettingsKind::Stepper, 4, sigValue,     nullptr, sigStep,     nullptr,    nullptr, nullptr, sigSub },
+	{ "DSHOT",        SettingsKind::Stepper, 4, speedValue,   nullptr, speedStep,   nullptr,    nullptr, nullptr, nullptr },
+	{ "KISS TELEM",   SettingsKind::Toggle,  3, kissValue,    nullptr, nullptr,     kissToggle, kissOn,  nullptr, nullptr },
+	{ "AUX PIN",      SettingsKind::Stepper, 4, auxValue,     nullptr, auxStep,     nullptr,    nullptr, nullptr, auxSub },
+};
+/** @brief SERVO SUPPLY, a core section after WIRING: KST and Hitec use it. */
+static constexpr SettingsRow ROWS_SUPPLY[] = {
+	{ "SERVO SUPPLY",  SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr,     nullptr, nullptr, supplySub },
+	{ "CURRENT SENSE", SettingsKind::Toggle,  6, senseValue,  nullptr, nullptr,    senseToggle, senseOn, senseCaptionText, nullptr },
 };
 static constexpr SettingsRow ROWS_DISPLAY[] = {
-	{ "CONTRAST",     SettingsKind::Toggle,  6, contrastValue,  nullptr, nullptr,       contrastToggle, contrastOn, nullptr },
-	{ "BACKLIGHT",    SettingsKind::Stepper, 3, backlightValue, nullptr, backlightStep, nullptr,        nullptr, nullptr },
+	{ "CONTRAST",     SettingsKind::Toggle,  6, contrastValue,  nullptr, nullptr,       contrastToggle, contrastOn, nullptr, nullptr },
+	{ "BACKLIGHT",    SettingsKind::Stepper, 3, backlightValue, nullptr, backlightStep, nullptr,        nullptr, nullptr, nullptr },
 };
 /** @brief BUILT FOR's widest value: the board's label, characters. */
 #define BUILT_FOR_WIDEST 20
@@ -312,9 +391,48 @@ static_assert(sizeof(BOARD_LABEL) - 1 <= BUILT_FOR_WIDEST,
 #define VERSION_WIDEST 6
 static_assert(sizeof(FW_VERSION_STRING) - 1 <= VERSION_WIDEST,
               "the version is wider than VERSION's value column");
+/** @brief CLOCK's widest value, `2026-11-14 15:42`, characters. */
+#define CLOCK_ROW_WIDEST 16
+/**
+ * @brief CLOCK's caption. The board has no cell on J2, so the clock is lost
+ *        at power-off and set again over USB after each power-up
+ *        (docs/design/run-summary.md, decision 6).
+ */
+#define CLOCK_ROW_CAPTION "SET AT EACH POWER-UP"
+static_assert(UI_MARGIN + 6 * (int)(sizeof(CLOCK_ROW_CAPTION) - 1) - 1 + 4 <=
+                  RO_R - (6 * CLOCK_ROW_WIDEST - 1),
+              "CLOCK's caption runs into its widest value");
+/**
+ * @brief The kept clock to the minute, `2026-11-14 15:42`, or `NOT SET`
+ *        in C_DIM. No bus transfer.
+ */
+static void clockValue(char *b, size_t n, uint16_t *c) {
+	ClockReading r;
+	clockNow(&r);
+	if (!r.set) {
+		snprintf(b, n, "NOT SET");
+		*c = C_DIM;
+		return;
+	}
+	char t[CLOCK_TEXT_BYTES];
+	clockText(&r.t, t);
+	snprintf(b, n, "%.16s", t);
+	*c = C_GRID;
+}
+static void clockCaption(char *b, size_t n, uint16_t *c) {
+	snprintf(b, n, "%s", CLOCK_ROW_CAPTION);
+	*c = C_DIM;
+}
+/** @brief What the CLOCK row shows, as a number: 0 not set, else minutes since 2000 plus 1. */
+static uint32_t clockShown() {
+	ClockReading r;
+	clockNow(&r);
+	return r.set ? clockToSecs(&r.t) / 60u + 1u : 0u;
+}
 static constexpr SettingsRow ROWS_BOARD[] = {
-	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr },
-	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "BUILT FOR", SettingsKind::ReadOnly, BUILT_FOR_WIDEST, boardValue,   nullptr, nullptr, nullptr, nullptr, nullptr,      nullptr },
+	{ "VERSION",   SettingsKind::ReadOnly, VERSION_WIDEST,   versionValue, nullptr, nullptr, nullptr, nullptr, nullptr,      nullptr },
+	{ "CLOCK",     SettingsKind::ReadOnly, CLOCK_ROW_WIDEST, clockValue,   nullptr, nullptr, nullptr, nullptr, clockCaption, nullptr },
 };
 
 /**
@@ -333,13 +451,14 @@ static void uptimeValue(char *b, size_t n, uint16_t *c) {
 	*c = C_GRID;
 }
 static constexpr SettingsRow ROWS_DIAG[] = {
-	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr, nullptr },
-	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
 };
 
 #define COUNT(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
 static constexpr SettingsSection SEC_TESTER  = { "ESC TESTER", ROWS_TESTER,  COUNT(ROWS_TESTER) };
 static constexpr SettingsSection SEC_WIRING  = { "WIRING",     ROWS_WIRING,  COUNT(ROWS_WIRING) };
+static constexpr SettingsSection SEC_SUPPLY  = { "SERVO SUPPLY", ROWS_SUPPLY, COUNT(ROWS_SUPPLY) };
 static constexpr SettingsSection SEC_DISPLAY = { "DISPLAY",    ROWS_DISPLAY, COUNT(ROWS_DISPLAY) };
 static constexpr SettingsSection SEC_BOARD   = { "BOARD",      ROWS_BOARD,   COUNT(ROWS_BOARD) };
 static constexpr SettingsSection SEC_DIAG    = { "DIAGNOSTICS", ROWS_DIAG,  COUNT(ROWS_DIAG) };
@@ -374,6 +493,7 @@ static constexpr bool settingsSectionFits(const SettingsSection &s) {
 }
 static_assert(settingsSectionFits(SEC_TESTER), "an ESC TESTER label runs into its value");
 static_assert(settingsSectionFits(SEC_WIRING), "a WIRING label runs into its value");
+static_assert(settingsSectionFits(SEC_SUPPLY), "a SERVO SUPPLY label runs into its value");
 static_assert(settingsSectionFits(SEC_DISPLAY), "a DISPLAY label runs into its value");
 static_assert(settingsSectionFits(SEC_BOARD), "a BOARD label runs into its value");
 static_assert(settingsSectionFits(SEC_DIAG), "a DIAGNOSTICS label runs into its value");
@@ -383,14 +503,16 @@ static_assert(settingsSectionFits(SEC_DIAG), "a DIAGNOSTICS label runs into its 
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Lay the sections out: the core ones, each tool's in registry order,
- *        then DISPLAY, BOARD and DIAGNOSTICS.
+ * @brief Lay the sections out: the core ones, ESC TESTER, WIRING and SERVO
+ *        SUPPLY, each tool's in registry order, then DISPLAY, BOARD and
+ *        DIAGNOSTICS.
  */
 static void buildItems() {
 	const SettingsSection *secs[MAX_SECTIONS];
 	int ns = 0;
 	secs[ns++] = &SEC_TESTER;
 	secs[ns++] = &SEC_WIRING;
+	secs[ns++] = &SEC_SUPPLY;
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
 	for (uint8_t i = 0; i < n && ns < MAX_SECTIONS - 3; i++)
@@ -454,10 +576,10 @@ static UiRect partRect(const Item &it, UiPart part) {
 	}
 }
 
-/** @brief Whether any of the UPTIME row shows in the viewport. */
-static bool uptimeInView() {
+/** @brief Whether any of row @p r shows in the viewport. */
+static bool rowInView(const SettingsRow *r) {
 	for (uint8_t i = 0; i < s_itemCount; i++) {
-		if (s_items[i].row != &ROWS_DIAG[1]) continue;
+		if (s_items[i].row != r) continue;
 		return clipToView(partRect(s_items[i], UiPart::Row)).h > 0;
 	}
 	return false;
@@ -507,7 +629,7 @@ static void drawItem(uint8_t i) {
 	const Item &it = s_items[i];
 	int y = topOf(it);
 	if (!it.row) {
-		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_CYAN, 1);
+		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_TEXT, 1);
 		return;
 	}
 	const SettingsRow &r = *it.row;
@@ -527,7 +649,16 @@ static void drawItem(uint8_t i) {
 	bool en = rowEnabled(r);
 	switch (r.kind) {
 		case SettingsKind::Stepper: {
-			gfxText(VAL_R - gfxTextW(v, 2), y + (ROW_H - 14) / 2, v, col, 2);
+			// With a connector line the value moves up, y+8 to y+21, and the
+			// line sits under it, y+27 to y+33, both ending at VAL_R.
+			if (r.sub) {
+				gfxText(VAL_R - gfxTextW(v, 2), y + VAL_SUB_DY, v, col, 2);
+				char sub[16];
+				r.sub(sub, sizeof(sub));
+				if (sub[0]) gfxText(VAL_R - gfxTextW(sub, 1), y + SUB_DY, sub, C_DIM, 1);
+			} else {
+				gfxText(VAL_R - gfxTextW(v, 2), y + (ROW_H - 14) / 2, v, col, 2);
+			}
 			UiRect m = partRect(it, UiPart::Minus), p = partRect(it, UiPart::Plus);
 			uiButton(m, "-", C_PANEL, C_TEXT, 2, controlPressed(i, clipToView(m)), en);
 			uiButton(p, "+", C_PANEL, C_TEXT, 2, controlPressed(i, clipToView(p)), en);
@@ -547,7 +678,7 @@ static void drawItem(uint8_t i) {
 }
 
 /**
- * @brief Whether RESET's note is true now: RESET was the last change (the
+ * @brief Whether DEFAULTS' note is true now: DEFAULTS was the last change (the
  *        tick ends s_resetNote at any other, and at every completed HOLD TO
  *        SAVE, saved or not), and the live settings differ from what the
  *        next boot loads (the saved settings, or the compiled defaults when
@@ -568,11 +699,16 @@ static bool resetNoteShown() {
  * from the step that changed it (applyLive()). Against the saved pin the
  * note would end at a save, against the pin at opening at a return to
  * SETTINGS, with DShot still on a pin nothing warned about.
+ *
+ * With KISS on, a step of SIG PIN or AUX PIN swaps the two, so DShot runs on
+ * the wire the ESC's KISS pad was on until the wires are swapped too: the
+ * line says that instead, @ref SETTINGS_SWAP_NOTE.
  */
 static const char *pinNote() {
 	static char buf[40];
 	uint8_t pin = settings()->dshotPin;
 	if (pin == settingsBootDshotPin()) return nullptr;
+	if (settings()->kissEnable) return SETTINGS_SWAP_NOTE;
 	snprintf(buf, sizeof(buf), UI_SPLASH_PIN_FMT, (unsigned)pin);
 	return buf;
 }
@@ -596,9 +732,10 @@ static bool fitView() {
  * Ordered by urgency. First what the last press did: a failed save, which
  * ends at the next save or on leaving SETTINGS, then a setting the firmware
  * had to repair, because the user asked for something and did not get it,
- * which ends at the next change. RESET's note outranks UNSAVED:
+ * which ends at the next change. DEFAULTS' note outranks UNSAVED:
  * it is the same state, said with what undoes it. Last, with nothing
- * pending, a reset by an update before the plain saved or default state.
+ * pending, a reset or a carry-over by an update before the plain saved or
+ * default state.
  *
  * @param[out] col Colour to draw it in.
  * @return The text.
@@ -626,16 +763,20 @@ static const char *noteText(uint16_t *col) {
 		return "UNSAVED - HOLD SAVE TO KEEP";
 	}
 	if (s_saveOutcome == SaveOutcome::Ok) {
-		*col = C_LIME;
+		*col = UI_COL_SAFE;
 		return "SAVED";
 	}
 	if (settingsResetByUpdate()) {
 		*col = C_AMBER;
 		return "RESET BY UPDATE - CHECK AND SAVE";
 	}
+	if (settingsCarriedOver()) {
+		*col = C_AMBER;
+		return "CARRIED OVER BY UPDATE - CHECK, SAVE";
+	}
 	*col = C_DIM;
 	return settingsStored() ? "SAVED SETTINGS IN USE"
-	                        : "COMPILED DEFAULTS IN USE";
+	                        : "NOTHING SAVED: DEFAULTS IN USE";
 }
 
 /** @brief Repaint the live LINK row if its numbers moved. */
@@ -689,10 +830,22 @@ static void drawAll() {
 	// is the thing that reports.
 	bool holding = s_saveHold.holding;
 	uiHoldDrawBar(&s_saveHold, BTN_SAVE, FOOT_Y - 4, millis());
-	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_BLUE : C_PANEL,
+	// Every hold fills C_RED with C_ONACCENT text while held.
+	uiButton(BTN_SAVE, "HOLD TO SAVE", holding ? C_RED : C_PANEL,
 	         holding ? C_ONACCENT : C_TEXT, 1, holding);
-	uiButton(BTN_DEFAULTS, "RESET", C_PANEL, C_AMBER, 1,
-	         uiPressing(BTN_DEFAULTS, s_t));
+	// HOLD DEFAULTS' bar sits over its own button, as SAVE's does; its label
+	// takes two lines, centred, and moves 1 px down and right while held, as
+	// uiButton() moves a pressed label.
+	bool resetting = s_resetHold.holding;
+	uiHoldDrawBar(&s_resetHold, BTN_DEFAULTS, FOOT_Y - 4, millis());
+	uiButton(BTN_DEFAULTS, "", resetting ? C_RED : C_PANEL, C_AMBER, 1, resetting);
+	uint16_t fg = resetting ? C_ONACCENT : C_AMBER;
+	int d = resetting ? 1 : 0;
+	int y = BTN_DEFAULTS.y + d + (BTN_DEFAULTS.h - DEFAULTS_PITCH - 7) / 2;
+	gfxText(BTN_DEFAULTS.x + d + (BTN_DEFAULTS.w - gfxTextW(DEFAULTS_LINE1, 1)) / 2, y,
+	        DEFAULTS_LINE1, fg, 1);
+	gfxText(BTN_DEFAULTS.x + d + (BTN_DEFAULTS.w - gfxTextW(DEFAULTS_LINE2, 1)) / 2,
+	        y + DEFAULTS_PITCH, DEFAULTS_LINE2, fg, 1);
 }
 
 /**
@@ -709,7 +862,7 @@ static void applyLive() {
 
 	escTaskConfigure(s->dshotPin, s->dshotKbaud, s->kissEnable != 0, s->kissPin);
 	// Pure bookkeeping (the eRPM divisor), so it always follows the settings:
-	// RESET restores the pole count the RPM readout divides by.
+	// DEFAULTS restores the pole count the RPM readout divides by.
 	escSetPoles(s->poles);
 	themeSet(s->highContrast ? Theme::HighContrast : Theme::Dark);
 	st7789SetBacklight(themeBacklight(s->backlight));
@@ -728,6 +881,7 @@ void uiSettingsEnter() {
 	s_redraw = true;
 	s_changed = false;
 	uiHoldReset(&s_saveHold);
+	uiHoldReset(&s_resetHold);   // mirrors SAVE's: no hold carries into a visit
 	s_saveOutcome = SaveOutcome::None;
 	s_shownRate = -1;
 	s_shownErr = -1;
@@ -749,13 +903,13 @@ bool uiSettingsTick(const TouchState *t) {
 	if (uiHoldUpdate(&s_saveHold, BTN_SAVE, s_t, true, now)) {
 		// Refused while armed: erasing flash parks core1, which stops the
 		// DShot pump, and the ESC would cut a spinning motor. Unreachable,
-		// since MENU disarms, and checked anyway.
+		// since uiOpenTool() disarms, and checked anyway.
 		if (uiArmed()) {
 			s_saveOutcome = SaveOutcome::FailedArmed;
 		} else {
 			s_saveOutcome = settingsSave() ? SaveOutcome::Ok : SaveOutcome::Failed;
 		}
-		// Every completed hold ends RESET's note, whatever the outcome: a
+		// Every completed hold ends DEFAULTS' note, whatever the outcome: a
 		// save whose read-back failed has already erased and written the
 		// sector, so what the next boot loads is no longer known.
 		s_resetNote = false;
@@ -763,6 +917,11 @@ bool uiSettingsTick(const TouchState *t) {
 	} else if (wasHolding || s_saveHold.holding) {
 		s_redraw = true;
 	}
+	// --- hold for the defaults: the same rules. Not refused while armed, as the tap
+	//     before it was not: uiOpenTool() disarms, so SETTINGS never opens armed ---
+	bool wasResetting = s_resetHold.holding;
+	bool reset = uiHoldUpdate(&s_resetHold, BTN_DEFAULTS, s_t, true, now);
+	if (wasResetting || s_resetHold.holding) s_redraw = true;   // mirrors SAVE's redraw
 
 	// --- a press on a live control belongs to the control, any other press
 	//     in the viewport to the list ---
@@ -801,12 +960,16 @@ bool uiSettingsTick(const TouchState *t) {
 	if (uiBackTapped(s_t)) {
 		s_ctlPress = false;
 		return false;
-	} else if (uiTapped(BTN_DEFAULTS, s_t)) {
+	} else if (reset) {
 		// The compiled defaults into the live settings only. Flash is untouched
 		// until SAVE. Leaving the screen keeps the defaults live: the saved
 		// values load only at boot (settingsLoad() in setup()), so a restart
-		// without SAVE brings them back.
+		// without SAVE brings them back. The angle meter's fields, which
+		// SETTINGS does not show, keep their values.
+		Settings keep;
+		memcpy(&keep, settings(), sizeof(keep));
 		settingsDefaults(settings());
+		settingsCopyAngle(settings(), &keep);
 		s_saveOutcome = SaveOutcome::None;
 		s_changed = true;
 	}
@@ -824,9 +987,9 @@ bool uiSettingsTick(const TouchState *t) {
 		if (s_saveOutcome == SaveOutcome::Ok) s_saveOutcome = SaveOutcome::None;
 		s_redraw = true;
 	}
-	// RESET's note: set by the tap that loaded the defaults (BACK returned
+	// DEFAULTS' note: set by the hold that loaded the defaults (BACK returned
 	// above), ended by any change after it.
-	if (uiTapped(BTN_DEFAULTS, s_t)) {
+	if (reset) {
 		memcpy(&s_resetLive, settings(), sizeof(s_resetLive));
 		s_resetNote = true;
 	} else if (s_resetNote && memcmp(settings(), &s_resetLive, sizeof(Settings)) != 0) {
@@ -839,14 +1002,18 @@ bool uiSettingsTick(const TouchState *t) {
 	// with a finger involved repaints.
 	if (s_t->down || s_t->released) s_redraw = true;
 
-	// UPTIME is the one value that moves on its own: a repaint each second
-	// while its row shows.
+	// UPTIME and CLOCK are the values that move on their own: a repaint
+	// each second while UPTIME's row shows, each minute while CLOCK's does,
+	// and when the clock is set.
 	if (fitView()) s_redraw = true;
 	uint32_t up = diagUptimeSeconds();
-	if (up != s_shownUptime && uptimeInView()) s_redraw = true;
+	if (up != s_shownUptime && rowInView(&ROWS_DIAG[1])) s_redraw = true;
+	uint32_t clk = clockShown();
+	if (clk != s_shownClock && rowInView(&ROWS_BOARD[2])) s_redraw = true;
 
 	if (s_redraw) {
 		s_shownUptime = up;
+		s_shownClock = clk;
 		s_redraw = false;
 		drawAll();
 	} else {
@@ -881,7 +1048,7 @@ static uint8_t settingsControls(UiControl *out, uint8_t max) {
 		}
 	}
 	uiControlAdd(out, &n, max, UI_FIX(SettingsCtl::Save), BTN_SAVE, true);
-	uiControlAdd(out, &n, max, UI_FIX(SettingsCtl::Reset), BTN_DEFAULTS, true);
+	uiControlAdd(out, &n, max, UI_FIX(SettingsCtl::Defaults), BTN_DEFAULTS, true);
 	return n;
 }
 
@@ -893,14 +1060,15 @@ uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max) {
 
 /**
  * @brief SETTINGS' MENU status: UNSAVED while the live settings differ from
- *        flash; else UPDATED while an update's reset is not saved over
- *        (settingsResetByUpdate()); both amber.
+ *        flash; else UPDATED while an update's reset or carry-over is not
+ *        saved over (settingsResetByUpdate(), settingsCarriedOver()); both
+ *        amber.
  */
 static void settingsMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	if (settingsDirty()) {
 		snprintf(buf, n, "UNSAVED");
 		*col = C_AMBER;
-	} else if (settingsResetByUpdate()) {
+	} else if (settingsResetByUpdate() || settingsCarriedOver()) {
 		snprintf(buf, n, "UPDATED");
 		*col = C_AMBER;
 	} else {

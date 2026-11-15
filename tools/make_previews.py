@@ -38,20 +38,31 @@ PREVIEWS = {
         "shot_splash",
         "shot_tester_disarmed",
         "shot_tester_armed",
+        "shot_tester_kv",
         "shot_tester_stale",
     ],
-    # Three states of MENU that actually differ. shot_menu is the same screen
-    # with EDT off, so pairing it with shot_menu_edt_off published the same
-    # picture twice.
+    # Three states of MENU's EDT chip, and PROGRAMMER, the chooser its SERVO
+    # PROGRAMMER row opens. shot_menu is the same screen with EDT off, so
+    # pairing it with shot_menu_edt_off published the same picture twice.
     "menu-preview": [
         "shot_menu_edt_on",
         "shot_menu_edt_off",
-        "shot_menu_beep_flash",
+        "shot_menu_no_esc",
+        "shot_prog_chooser",
+    ],
+    # ESC COMMANDS: at rest, a beacon going out with every control drawn
+    # disabled, 3D ON sent with its amber lines, and no ESC answering.
+    "esccmd-preview": [
+        "shot_esccmd",
+        "shot_esccmd_sending",
+        "shot_esccmd_3d_on",
+        "shot_esccmd_no_esc",
     ],
     "log-preview": [
         "shot_log_nocard",
         "shot_log_ready",
         "shot_log_screen",
+        "shot_log_last",
     ],
     # The SETTINGS screen at the top of its list and scrolled to its end, the
     # same screen in high contrast, and MENU reading UNSAVED after it. The
@@ -80,6 +91,33 @@ PREVIEWS = {
         "shot_am32_hex",
         "shot_am32_written",
     ],
+    # ESC CONFIG, the chooser, then ESC SETTINGS after a Bluejay or
+    # BLHeli_S bootloader answered: the connect page while the escwire job
+    # reads, the read-only list, and the leave page BACK opens where no LEAVE
+    # goes out.
+    "esc-preview": [
+        "shot_esc_chooser",
+        "shot_am32_efm8",
+        "shot_efm8_list",
+        "shot_am32_leave",
+    ],
+    # A Bluejay or BLHeli_S page: a row's note, ESC HEX, an older layout
+    # read-only, and an empty page named on the connect page.
+    "efm8-preview": [
+        "shot_efm8_note",
+        "shot_efm8_hex",
+        "shot_efm8_readonly",
+        "shot_efm8_empty",
+    ],
+    # Writing a Bluejay page: an edit in the editor bar, ESC WRITE before the
+    # hold with its backup line, the verified result, and the answer lost
+    # after the erase.
+    "efm8-write-preview": [
+        "shot_efm8_edit",
+        "shot_efm8_write",
+        "shot_efm8_verified",
+        "shot_efm8_lost",
+    ],
     # The servo tester: SAFE before START, one servo driven by the horn, two
     # servos with REVERSE B, and SET holding a heli profile behind its
     # warning.
@@ -97,13 +135,49 @@ PREVIEWS = {
         "shot_kst_write",
         "shot_kst_files",
     ],
-    # HITEC SERVO: the family choice, an edit in the field list, the write
-    # page before the hold, and FILES after a save.
+    # HITEC SERVO: the wait for READ of a D series servo on its own supply,
+    # an edit in the field list, the write page before the hold, and FILES
+    # after a save.
     "hitec-preview": [
-        "shot_hitec_family",
+        "shot_hitec_read_wait",
         "shot_hitec_preview",
         "shot_hitec_write",
         "shot_hitec_files",
+    ],
+    # USB BRIDGE: waiting for the PC with the port closed, passthrough after
+    # a frame, a write waiting for its answer with BACK drawn disabled, and
+    # the leave page after a write with no RUN behind it.
+    "bridge-preview": [
+        "shot_bridge_waiting",
+        "shot_bridge_passthrough",
+        "shot_bridge_4way",
+        "shot_bridge_writing",
+        "shot_bridge_leave",
+    ],
+    # ANGLE METER: TOOLS, the chooser, the main view after a zero with
+    # LENGTH set and SIGN at INVERT, SETUP, and FLIP CAL with its result.
+    "angle-preview": [
+        "shot_tools_chooser",
+        "shot_angle_main",
+        "shot_angle_setup",
+        "shot_angle_flip",
+    ],
+    # S.BUS MONITOR: RX SIGNALS, the chooser, then the monitor with frames,
+    # in failsafe, and after the receiver stopped, the last frame dim.
+    "sbus-preview": [
+        "shot_rx_chooser",
+        "shot_sbus_live",
+        "shot_sbus_failsafe",
+        "shot_sbus_lost",
+    ],
+    # S.BUS OUTPUT: the bootloader probe before START is offered, SAFE with
+    # the two warnings, frames with the throttle at MAX THROTTLE's ceiling,
+    # and SET with its footer's warning.
+    "sbus-out-preview": [
+        "shot_sbus_out_checking",
+        "shot_sbus_out_safe",
+        "shot_sbus_out_running",
+        "shot_sbus_out_set",
     ],
 }
 

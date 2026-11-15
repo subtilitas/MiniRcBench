@@ -5,6 +5,7 @@
 
 #include "am32_backup.h"
 #include "am32_eeprom.h"
+#include "card_dir.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -54,6 +55,9 @@ size_t am32BackupFormat(const uint8_t *settings, const char *escType, uint16_t a
 	put(&b, "Layout revision: %u\n", (unsigned)layout);
 	put(&b, "Firmware: %u.%u\n", (unsigned)settings[AM32_OFF_MAIN_REVISION],
 	    (unsigned)settings[AM32_OFF_SUB_REVISION]);
+	// A layout the field table is not checked against: no field line, the
+	// byte lines alone (am32FieldShown()).
+	if (!am32LayoutKnown(settings)) put(&b, "Layout not known: fields not read, not verified\n");
 	char value[32];
 	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) {
 		const Am32Field *f = &AM32_FIELDS[i];
@@ -82,4 +86,15 @@ BackupResult am32BackupSave(const uint8_t *settings, const char *escType, uint16
 	size_t n = am32BackupFormat(settings, escType, address, text, sizeof(text));
 	if (n == 0) return BackupResult::WriteError;
 	return backupSave(BackupDevice::Am32, text, n, name);
+}
+
+BackupResult am32BackupNext(char *name) {
+	name[0] = '\0';
+	if (!cardMounted()) return BackupResult::NoCard;
+	CardDirScope in(BACKUP_DIR);
+	BackupNames k;
+	BackupResult r = backupNames(&k);
+	if (r != BackupResult::Ok) return r;
+	backupName(BackupDevice::Am32, backupNext(&k), name);
+	return BackupResult::Ok;
 }

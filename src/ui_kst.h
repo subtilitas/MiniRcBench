@@ -2,29 +2,31 @@
  * @file ui_kst.h
  * @brief KST SERVO: KST and Chaservo servo programming on the ESC pin.
  *
- * Entry: MENU → KST SERVO. The screen claims SIG (pin_claim.h); the KST job
+ * Entry: MENU → SERVO PROGRAMMER → KST / CHASERVO (ui_servo_prog.h). The
+ * screen claims SIG (pin_claim.h) on the tap's frame; the KST job
  * (kst_job.h) runs rcbench's session on core1, and this file sends it
  * commands and draws its status. The card is reached through kst_files.h, on
  * core0.
  *
  * | View | What it shows | Leaves it |
  * |---|---|---|
- * | Main | the claim, the search, the read | the read: List; BACK: Leave after a servo was found, else Unplug |
- * | List | the 27 fields, an editor bar, HOLD TO WRITE, REVERT, FILES | HOLD TO WRITE: Write; FILES: Files; BACK: Leave |
- * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE, the result | OK or BACK: List |
- * | Files | the card's files, SAVE AS, LOAD, HOLD TO RESTORE | LOAD: List; BACK: List |
- * | Leave | POWER THE SERVO OFF, LEAVE | LEAVE: Unplug; BACK: List, or Main after a loss |
- * | Unplug | UNPLUG THE SERVO, RESTART DSHOT | RESTART DSHOT: MENU; BACK: Main |
+ * | Main | the claim, the search, the read | the read: List; BACK: Leave after a servo was found, else Leave releasing |
+ * | List | the 27 fields, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
+ * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
+ * | Files | the card's files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
+ * | Leave | the leave page (ui_leave.h): the steps, STAY, HOLD TO REBOOT with the switched supply, LEAVE; then NEXT SERVO and RESTART DSHOT | STAY: List, or Main after a loss; LEAVE: the release; NEXT SERVO: Main, a new session; RESTART DSHOT: MENU; BACK is disabled |
  *
  * A loss of the servo, a read that answers nothing in the mode, returns
- * every view but Unplug and Leave to Main, where the search runs again. A
+ * every view but Leave to Main, where the search runs again. A
  * loss shows only when an operation runs: a servo powered off under an idle
  * field list leaves the list up until the next read or write. BACK on Main
  * during that search stops it and opens Leave.
  *
  * Without a switched supply the servo stays in programming mode until its
- * supply is off, so LEAVE asks the user to power it off. Step 5 of the
- * design adds the switched supply.
+ * supply is off, so the leave page's first step asks the user to power it
+ * off before LEAVE; with the switched supply LEAVE switches it off.
+ * RESTART DSHOT takes a press 1000 ms or more after the pin is let go
+ * (docs/design/menu-b.md, decision 21).
  *
  * @see docs/design/kst-programming.md, "Screens".
  */
@@ -51,7 +53,7 @@ void uiKstEnter();
 bool uiKstTick(const TouchState *t);
 
 /** @brief The KST views. @see the table in ui_kst.h */
-enum class KstView : uint8_t { Main, List, Write, Files, Leave, Unplug };
+enum class KstView : uint8_t { Main, List, Write, Files, Leave };
 
 /** @brief The view that is up. For the host tests. */
 KstView uiKstView();
@@ -64,20 +66,22 @@ enum class KstCtl : uint8_t {
 	Retry = 1,   /**< RETRY: after a bind failure, or a search that ended without a servo. */
 	StopSearch,  /**< STOP SEARCH. */
 	ReadAgain,   /**< READ AGAIN after a failed read. */
-	Write,       /**< The list's HOLD TO WRITE: opens the write page. */
+	Write,       /**< The list's WRITE...: a tap opens the write page. */
 	Revert,      /**< REVERT: drop the pending changes. */
 	Files,       /**< FILES. */
 	EditMinus,   /**< The editor bar's -, while an editable row is selected. */
 	EditPlus,    /**< The editor bar's +. */
-	WriteHold,   /**< The write page's HOLD TO WRITE. */
+	WriteHold,   /**< The write page's HOLD TO WRITE, or HOLD TO RESTORE: the write. */
 	WriteOk,     /**< OK under a result. */
 	SaveAs,      /**< SAVE AS KSTnnn. */
 	Load,        /**< LOAD the selected file. */
-	Restore,     /**< HOLD TO RESTORE the session's backup. */
+	Restore,     /**< RESTORE...: a tap opens the restore page of the session's backup. */
 	RetryMount,  /**< RETRY MOUNT with no card. */
-	Leave,       /**< LEAVE. */
-	Restart,     /**< RESTART DSHOT on the unplug page. */
+	Leave,       /**< LEAVE on the leave page, before the release. */
+	Restart,     /**< RESTART DSHOT in LEAVE's place, live 1000 ms after the pin is let go. */
 	Reboot,      /**< HOLD TO REBOOT on the leave page: switched supply only. */
+	Stay,        /**< STAY on the leave page: back to the list, or to the search. */
+	NextServo,   /**< NEXT SERVO on the leave page: the claim kept, a new session. */
 };
 
 struct UiControl;
@@ -91,5 +95,18 @@ struct UiControl;
 uint8_t uiKstControls(UiControl *out, uint8_t max);
 
 struct UiScreen;
+/**
+ * @brief The leave page's notes with the switch and no card, above HOLD TO
+ *        REBOOT: 32 and 7 characters at scale 1.
+ */
+#define KST_UI_REBOOT_LOSES_1 "NO CARD: REBOOT LOSES THE BACKUP"
+/** @brief ...and the second line. */
+#define KST_UI_REBOOT_LOSES_2 "IN RAM."
+/** @brief The leave page's note once the pin is let go, without the switch: 35 characters. */
+#define KST_UI_NEXT_POWER "NEXT SERVO: POWER IT AFTER THE TAP."
+static_assert(sizeof(KST_UI_REBOOT_LOSES_1) - 1 <= 37 && sizeof(KST_UI_REBOOT_LOSES_2) - 1 <= 37 &&
+                  sizeof(KST_UI_NEXT_POWER) - 1 <= 37,
+              "a leave note line is wider than a scale-1 line");
+
 /** @brief KST SERVO. */
 extern const UiScreen UI_KST;

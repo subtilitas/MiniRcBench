@@ -6,6 +6,7 @@
  */
 
 #include "usb_dev.h"
+#include "clock_line.h"
 #include "config.h"
 
 #include "tusb.h"
@@ -104,4 +105,48 @@ void usbDevInit() {
 	stdio_set_driver_enabled(&s_cdcDriver, true);
 }
 
-void usbDevTask() { tud_task(); }
+// ---------------------------------------------------------------------------
+// the clock's line command
+// ---------------------------------------------------------------------------
+
+/** @brief The clock's line as it arrives, and whether it is read at all. */
+static ClockLineIn s_clockLine;
+
+/** @brief One byte the host sent, or -1 when none waits. Never waits itself. */
+static int cdcGetByte() {
+	uint8_t c;
+	return tud_cdc_available() && tud_cdc_read(&c, 1) == 1 ? c : -1;
+}
+
+/**
+ * @brief The bytes the host sent, up to one line, and that line's answer,
+ *        dropped as printf() output is when the host does not read.
+ * @see clock_line.h
+ */
+static void cdcClockLine() {
+	char ans[CLOCK_ANSWER_BYTES];
+	size_t n = clockLinePoll(&s_clockLine, cdcGetByte, ans);
+	if (n) cdcOutChars(ans, (int)n);
+}
+
+void usbDevClockLineEnable(bool on) { clockLineEnable(&s_clockLine, on); }
+
+void usbDevTask() {
+	tud_task();
+	cdcClockLine();
+}
+
+// ---------------------------------------------------------------------------
+// the console's switch
+// ---------------------------------------------------------------------------
+
+/** @brief The stdio driver is enabled: usbDevInit() enables it. */
+static bool s_console = true;
+
+void usbDevConsole(bool on) {
+	if (on == s_console) return;
+	s_console = on;
+	stdio_set_driver_enabled(&s_cdcDriver, on);
+}
+
+bool usbDevConsoleOn() { return s_console; }

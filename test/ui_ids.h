@@ -19,6 +19,16 @@
 #include "fakes.h"
 #include "ui_screen.h"
 #include "ui_menu.h"
+#include "ui_registry.h"
+#include "ui_servo_prog.h"
+#include "ui_rx_signals.h"
+#include "ui_esc_config.h"
+#include "ui_tools.h"
+#include "ui_angle.h"
+#include "ui_sbus.h"
+#include "ui_sbus_out.h"
+#include "ui.h"
+#include "ui_leave.h"
 #include "gfx.h"
 #include "theme.h"
 
@@ -197,6 +207,49 @@ static inline UiControlId menuRow(const UiScreen *s) {
 	return UI_ROW(row, Row);
 }
 
+/**
+ * @brief The PROGRAMMER entry whose entry point is @p enter: its index in
+ *        `UI_PROGRAMMERS`, or -1, failing the test, when none has it.
+ */
+static inline int progEntryOf(void (*enter)()) {
+	for (int i = 0; i < UI_PROGRAMMERS_COUNT; i++)
+		if (UI_PROGRAMMERS[i].enter == enter) return i;
+	idFail("a PROGRAMMER entry runs the entry point");
+	return -1;
+}
+
+/**
+ * @brief From the tester, through MENU and its SERVO PROGRAMMER row, to
+ *        PROGRAMMER, the chooser.
+ */
+static inline void openChooser() {
+	tapId(UI_FIX(TesterCtl::Menu));
+	UI_IDS_FRAMES(1);
+	tapId(menuRow(&UI_SERVO_PROG));
+	UI_IDS_FRAMES(1);
+}
+
+/**
+ * @brief From the tester to the PROGRAMMER entry whose entry point is
+ *        @p enter, tapped: the tool opens and claims SIG on the tap's frame.
+ */
+static inline void openProgrammer(void (*enter)()) {
+	openChooser();
+	int i = progEntryOf(enter);
+	if (i >= 0) tapId(PROG_ENTRY(i));
+}
+
+/**
+ * @brief From MENU, through its ESC CONFIG row and the chooser, to ESC
+ *        SETTINGS: the entry's tap opens the screen, which claims SIG on
+ *        that frame.
+ */
+static inline void openEscSettings() {
+	tapId(menuRow(&UI_ESC_CONFIG));
+	UI_IDS_FRAMES(1);
+	tapId(UI_FIX(EscCfgCtl::Settings));
+}
+
 /** @brief How the header's BACK looks on the panel. */
 enum class BackLook : uint8_t {
 	Live,      /**< Panel fill, the label in C_TEXT, at rest or pressed. */
@@ -219,12 +272,26 @@ static inline BackLook backLook() {
 	return BackLook::Other;
 }
 
+/** @brief @p a and @p b are a tester readout and the pad or the track, either way round. */
+static inline bool readoutOverPad(UiControlId a, UiControlId b) {
+	if (uiCurrentScreen() != UiScreenId::Tester) return false;
+	auto readout = [](UiControlId c) {
+		return c == UI_FIX(TesterCtl::Poles) || c == UI_FIX(TesterCtl::Max);
+	};
+	auto surface = [](UiControlId c) {
+		return c == UI_FIX(TesterCtl::Pad) || c == UI_FIX(TesterCtl::Throttle);
+	};
+	return (readout(a) && surface(b)) || (readout(b) && surface(a));
+}
+
 /**
  * @brief The open screen's table on the current frame: ids unique, every
  *        rectangle inside the panel and not empty, no two controls
  *        overlapping, and BACK at uiBackRect() on every screen but the
  *        tester, drawn live where the table says it acts and disabled
- *        where it says it does not.
+ *        where it says it does not. The one overlap allowed is the tester's
+ *        readouts (`TesterCtl::Poles`, `TesterCtl::Max`) over the pad
+ *        and the track, never with both acting.
  * @param where Names the frame in the check's text.
  */
 static inline void checkControlTable(const char *where) {
@@ -242,7 +309,12 @@ static inline void checkControlTable(const char *where) {
 		for (uint8_t j = i + 1; j < n; j++) {
 			const UiRect &s = t[j].rect;
 			if (t[i].id == t[j].id) unique = false;
-			if (r.x < s.x + s.w && s.x < r.x + r.w && r.y < s.y + s.h && s.y < r.y + r.h)
+			// The tester's readouts lie in the throttle pad and the track's
+			// grab band, and act only while those do not: a readout may lie
+			// over the pad or the track while the two do not both act. Every
+			// other pair stays apart.
+			if (r.x < s.x + s.w && s.x < r.x + r.w && r.y < s.y + s.h && s.y < r.y + r.h &&
+			    !(readoutOverPad(t[i].id, t[j].id) && !(t[i].enabled && t[j].enabled)))
 				apart = false;
 		}
 	}
@@ -250,7 +322,7 @@ static inline void checkControlTable(const char *where) {
 	checkTrue(what, inside);
 	snprintf(what, sizeof(what), "%s: no id appears twice", where);
 	checkTrue(what, unique);
-	snprintf(what, sizeof(what), "%s: no two controls overlap", where);
+	snprintf(what, sizeof(what), "%s: no two controls overlap that may not", where);
 	checkTrue(what, apart);
 	if (uiCurrentScreen() != UiScreenId::Tester) {
 		UiControl b;
@@ -265,4 +337,52 @@ static inline void checkControlTable(const char *where) {
 			checkTrue(what, backLook() == (b.enabled ? BackLook::Live : BackLook::Disabled));
 		}
 	}
+}
+
+/**
+ * @brief Whether the leave page's step line at @p y reads @p text from
+ *        @ref UI_LEAVE_TEXT_X, with the step's number @p num at x 8 (0 for a
+ *        detail line): the current step in @ref UI_COL_WARN with its bar at
+ *        x 0, any other in `C_DIM` without one.
+ */
+static inline bool leaveStepIs(int y, char num, const char *text, bool current) {
+	uint16_t col = current ? UI_COL_WARN : C_DIM;
+	bool bar = gfxBuffer()[(y + 3) * GFX_W + 1] == UI_COL_WARN;
+	bool ok = bar == current && fakeTextIs(UI_LEAVE_TEXT_X, y, text, col, C_BG, 1);
+	if (num) {
+		char n[2] = { num, '\0' };
+		ok = ok && fakeTextIs(UI_MARGIN, y, n, col, C_BG, 1);
+	}
+	return ok;
+}
+
+/** @brief Whether the leave page's note line @p k reads @p text in @p col. */
+static inline bool leaveNoteIs(int k, const char *text, uint16_t col) {
+	return fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y + k * UI_LEAVE_LINE_H, text, col, C_BG, 1);
+}
+
+/** @brief Whether nothing is drawn on the leave page's note line @p k. */
+static inline bool leaveNoteBlank(int k) {
+	int y = UI_LEAVE_NOTE_Y + k * UI_LEAVE_LINE_H;
+	const uint16_t *fb = gfxBuffer();
+	for (int r = y; r < y + 7; r++)
+		for (int x = 0; x < GFX_W; x++)
+			if (fb[r * GFX_W + x] != C_BG) return false;
+	return true;
+}
+
+/** @brief Whether the leave page's wide button reads @p label, live or drawn disabled. */
+static inline bool leaveWideIs(const char *label, bool live) {
+	const UiRect &r = UI_LEAVE_WIDE;
+	int x = r.x + (r.w - gfxTextW(label, 2)) / 2, y = r.y + (r.h - 14) / 2;
+	return live ? fakeTextIs(x, y, label, C_TEXT, C_PANEL, 2)
+	            : fakeTextIs(x, y, label, C_GRID, C_BG, 2);
+}
+
+/** @brief Whether the leave page's left button reads @p label, live or drawn disabled. */
+static inline bool leaveLeftIs(const char *label, bool live) {
+	const UiRect &r = UI_LEAVE_LEFT;
+	int x = r.x + (r.w - gfxTextW(label, 1)) / 2, y = r.y + (r.h - 7) / 2;
+	return live ? fakeTextIs(x, y, label, C_TEXT, C_PANEL, 1)
+	            : fakeTextIs(x, y, label, C_GRID, C_BG, 1);
 }

@@ -16,7 +16,14 @@
 #include "ui_kst.h"
 #include "ui_settings.h"
 #include "ui_menu.h"
+#include "ui_esc_cmd.h"
 #include "ui_sdlog.h"
+#include "ui_bridge.h"
+#include "usb_bridge.h"
+#include "fake_cdc.h"
+#include "fake_bridge_line.h"
+#include "fake_escwire_port.h"
+#include "tusb.h"
 #include "ui_screen.h"
 #include "sd_log.h"
 #include "usb_msc.h"
@@ -25,9 +32,19 @@
 
 #include <string.h>
 
-/** @brief @p n UI frames of 25 ms, with core1's passes before each. */
+/**
+ * @brief @p n UI frames of 25 ms, with core1's passes before each, and the
+ *        USB bridge's pass as core0's loop runs it.
+ */
 static void idFrames(int n) {
-	for (int i = 0; i < n; i++) { fakeAdvance(25); fakePumpPoll(); core1JobPoll(); uiTick(); }
+	for (int i = 0; i < n; i++) {
+		fakeAdvance(25);
+		fakePumpPoll();
+		core1JobPoll();
+		tud_task();
+		usbBridgeTask();
+		uiTick();
+	}
 }
 #define UI_IDS_FRAMES(n) idFrames(n)
 #include "ui_ids.h"
@@ -104,20 +121,162 @@ static void testMenuSettingsLog() {
 	idFrames(1);
 	checkControlTable("MENU");
 	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
-	checkTrue("KST SERVO acts", ctlEnabled(menuRow(&UI_KST)));
+	checkTrue("SERVO PROGRAMMER acts", ctlEnabled(menuRow(&UI_SERVO_PROG)));
+	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
+	checkTrue("ESC COMMANDS acts", ctlEnabled(menuRow(&UI_ESC_CMD)));
+	checkTrue("TOOLS acts", ctlEnabled(menuRow(&UI_TOOLS)));
+
+	tapId(menuRow(&UI_ESC_CMD));
+	checkTrue("ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
+	idFrames(1);
+	checkControlTable("ESC COMMANDS");
+	{
+		bool all = true;
+		for (uint8_t c = (uint8_t)EscCmdCtl::Beep1; c <= (uint8_t)EscCmdCtl::On3d; c++)
+			all = all && ctlEnabled(UI_FIX(c));
+		checkTrue("its controls by id: BEEP 1 to 5 and the four holds act at Ready, no tenth",
+		          all && ctlEnabled(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(10)));
+		fakeSetCmdReady(EscCmdReady::NoAnswer);
+		idFrames(1);
+		bool none = true;
+		for (uint8_t c = (uint8_t)EscCmdCtl::Beep1; c <= (uint8_t)EscCmdCtl::On3d; c++)
+			none = none && ctlPresent(UI_FIX(c)) && !ctlEnabled(UI_FIX(c));
+		checkTrue("at NoAnswer none acts, BACK does", none && ctlEnabled(UI_FIX(UI_BACK)));
+		checkControlTable("ESC COMMANDS, no ESC");
+		fakeSetCmdReady(EscCmdReady::Ready);
+		idFrames(1);
+	}
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
+
+	tapId(menuRow(&UI_RX_SIGNALS));
+	checkTrue("RX SIGNALS opens", uiCurrentScreen() == UiScreenId::RxSignals);
+	idFrames(1);
+	checkControlTable("RX SIGNALS");
+	checkTrue("its entries by id: MONITOR and OUTPUT act",
+	          ctlEnabled(UI_FIX(RxCtl::Monitor)) && ctlEnabled(UI_FIX(RxCtl::Output)) &&
+	          !ctlPresent(UI_FIX(3)));
+	// No ESC on GP0: the bootloader probe hears nothing.
+	fakeEwReset(0xB2, true);
+	fakeEwSim()->dead = true;
+	tapId(UI_FIX(RxCtl::Output));
+	checkTrue("S.BUS OUTPUT opens by id and claims GP0's role",
+	          uiCurrentScreen() == UiScreenId::SbusOut && pinClaimHolder() == PinUser::SbusOut);
+	idFrames(20);
+	checkControlTable("S.BUS OUTPUT, before SAFE");
+	checkTrue("its table: BACK, HOLD TO START not acting, CH 9-16 and SET, no row",
+	          ctlEnabled(UI_FIX(UI_BACK)) && ctlPresent(UI_FIX(SbusOutCtl::Start)) &&
+	          !ctlEnabled(UI_FIX(SbusOutCtl::Start)) && ctlEnabled(UI_FIX(SbusOutCtl::Page)) &&
+	          ctlEnabled(UI_FIX(SbusOutCtl::Set)) && !ctlPresent(UI_FIX(SbusOutCtl::Row0)) &&
+	          !ctlPresent(UI_FIX(SbusOutCtl::Retry)));
+	tapId(UI_FIX(SbusOutCtl::Set));
+	checkControlTable("OUTPUT SET");
+	checkTrue("SET: five rows, no STOP while SAFE", ctlPresent(UI_ROW(0, Row)) &&
+	          !ctlPresent(UI_FIX(SbusOutCtl::Stop)));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	idFrames(1);
+	checkControlTable("S.BUS OUTPUT, leave page");
+	checkTrue("BACK: the leave page, BACK TO OUTPUT acting, RESTART DSHOT not yet",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(SbusOutCtl::BackToOutput)) &&
+	          ctlPresent(UI_FIX(SbusOutCtl::Restart)) && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)));
+	idFrames(44);
+	tapId(UI_FIX(SbusOutCtl::Restart));
+	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
+	checkTrue("Free", pinClaimState() == ClaimState::Free);
+	idFrames(1);
+
+	tapId(menuRow(&UI_ESC_CONFIG));
+	checkTrue("ESC CONFIG opens", uiCurrentScreen() == UiScreenId::EscConfig);
+	idFrames(1);
+	checkControlTable("ESC CONFIG");
+	checkTrue("its entries by id: ESC SETTINGS and USB BRIDGE act",
+	          ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) &&
+	          !ctlPresent(UI_FIX(3)));
+	fakeBridgeLineReset();
+	fakeCdcReset();
+	tapId(UI_FIX(EscCfgCtl::Bridge));
+	checkTrue("USB BRIDGE opens by id and claims SIG", uiCurrentScreen() == UiScreenId::Bridge &&
+	          pinClaimHolder() == PinUser::Bridge);
+	for (int k = 0; k < 20 && usbBridgeMode() == BridgeMode::Closed; k++) idFrames(1);
+	idFrames(1);
+	checkControlTable("USB BRIDGE");
+	checkTrue("its table: BACK acts, nothing else", ctlEnabled(UI_FIX(UI_BACK)) &&
+	          !ctlPresent(UI_FIX(BridgeCtl::Retry)) && !ctlPresent(UI_FIX(BridgeCtl::Bridge)) &&
+	          !ctlPresent(UI_FIX(BridgeCtl::Restart)));
+	tapId(UI_FIX(UI_BACK));
+	idFrames(1);
+	checkControlTable("USB BRIDGE, leave page");
+	checkTrue("BACK: the leave page, BRIDGE acting, RESTART DSHOT not yet",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(BridgeCtl::Bridge)) &&
+	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && !ctlEnabled(UI_FIX(BridgeCtl::Restart)));
+	idFrames(44);
+	tapId(UI_FIX(BridgeCtl::Restart));
+	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
+	idFrames(1);
+	checkTrue("Free, the console back", pinClaimState() == ClaimState::Free && fakeConsoleOn());
+
+	tapId(menuRow(&UI_TOOLS));
+	checkTrue("TOOLS opens", uiCurrentScreen() == UiScreenId::Tools);
+	idFrames(1);
+	checkControlTable("TOOLS");
+	checkTrue("its entry by id: ANGLE METER acts, no second",
+	          ctlEnabled(UI_FIX(ToolsCtl::Angle)) && !ctlPresent(UI_FIX(2)));
+	tapId(UI_FIX(ToolsCtl::Angle));
+	idFrames(1);
+	checkTrue("ANGLE METER opens on its main view",
+	          uiCurrentScreen() == UiScreenId::Angle && uiAngleView() == AngleView::Main);
+	idFrames(4);
+	checkControlTable("ANGLE METER");
+	checkTrue("its controls by id: ZERO, drawn disabled with no part answering, RESET MAX and SETUP act",
+	          ctlPresent(UI_FIX(AngleCtl::Zero)) && !ctlEnabled(UI_FIX(AngleCtl::Zero)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::ResetMax)) && ctlEnabled(UI_FIX(AngleCtl::Setup)) &&
+	          !ctlPresent(UI_FIX(AngleCtl::Along)) && !ctlPresent(UI_FIX(AngleCtl::Keep)));
+	tapId(UI_FIX(AngleCtl::Setup));
+	checkControlTable("ANGLE SETUP");
+	checkTrue("SETUP's controls: ALONG AXIS, LENGTH's - and +, SIGN, FLIP, all acting",
+	          ctlEnabled(UI_FIX(AngleCtl::Along)) && ctlEnabled(UI_FIX(AngleCtl::LenMinus)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::LenPlus)) && ctlEnabled(UI_FIX(AngleCtl::Sign)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::Flip)) && !ctlPresent(UI_FIX(AngleCtl::Zero)));
+	tapId(UI_FIX(AngleCtl::Flip));
+	checkControlTable("FLIP CAL");
+	checkTrue("FLIP CAL's controls: HOLD TO KEEP without a result does not act, AGAIN does",
+	          ctlPresent(UI_FIX(AngleCtl::Keep)) && !ctlEnabled(UI_FIX(AngleCtl::Keep)) &&
+	          ctlEnabled(UI_FIX(AngleCtl::Again)) && !ctlPresent(UI_FIX(AngleCtl::Flip)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("FLIP CAL's BACK: SETUP", uiAngleView() == AngleView::Setup);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("SETUP's BACK: the main view", uiAngleView() == AngleView::Main);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
+
+	tapId(menuRow(&UI_SERVO_PROG));
+	checkTrue("PROGRAMMER opens", uiCurrentScreen() == UiScreenId::ServoProg);
+	idFrames(1);
+	checkControlTable("PROGRAMMER");
+	checkTrue("its entries by id: KST / CHASERVO and HITEC D SERIES act, HITEC CLASSIC without the switch does not",
+	          ctlEnabled(PROG_ENTRY(0)) && ctlEnabled(PROG_ENTRY(1)) && ctlPresent(PROG_ENTRY(2)) &&
+	          !ctlEnabled(PROG_ENTRY(2)) && !ctlPresent(PROG_ENTRY(3)));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	idFrames(1);
 
 	tapId(menuRow(&UI_SETTINGS));
 	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
 	idFrames(1);
 	checkControlTable("SETTINGS at 0 px");
-	revealRow((int)SettingsRowId::KissPin);
-	checkControlTable("SETTINGS, KISS PIN in view");
+	revealRow((int)SettingsRowId::Aux);
+	checkControlTable("SETTINGS, AUX PIN in view");
 	bool kissOn = settings()->kissEnable != 0;
-	checkTrue("KISS PIN follows KISS TELEM",
-	          ctlEnabled(UI_ROW(SettingsRowId::KissPin, Plus)) == kissOn);
+	checkTrue("AUX PIN acts", ctlEnabled(UI_ROW(SettingsRowId::Aux, Plus)));
 	tapId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkTrue("KISS TELEM by id toggles it", (settings()->kissEnable != 0) != kissOn);
-	checkTrue("and KISS PIN follows", ctlEnabled(UI_ROW(SettingsRowId::KissPin, Plus)) != kissOn);
+	checkTrue("and AUX PIN acts either way", ctlEnabled(UI_ROW(SettingsRowId::Aux, Plus)));
 	checkControlTable("SETTINGS, KISS toggled");
 	revealRow((int)SettingsRowId::BuiltFor);
 	checkTrue("BUILT FOR shows and has no control", ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Row)) &&
@@ -158,9 +317,9 @@ static void testMenuSettingsLog() {
 	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
-/** @brief SERVO, its SET view and its unplug page by id. */
+/** @brief SERVO, its SET view and its leave page by id. */
 static void testServo() {
-	section("Control ids: SERVO, SET and the unplug page");
+	section("Control ids: SERVO, SET and the leave page");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_SERVO));
@@ -188,31 +347,33 @@ static void testServo() {
 	checkTrue("BACK from SET shows SERVO's buttons", ctlPresent(UI_FIX(ServoCtl::Min)));
 
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SERVO opens the unplug page", uiCurrentScreen() == UiScreenId::Servo &&
+	checkTrue("BACK from SERVO opens the leave page", uiCurrentScreen() == UiScreenId::Servo &&
 	          !ctlPresent(UI_FIX(ServoCtl::Min)));
-	checkTrue("the unplug page shows RESTART or a BACK that waits",
-	          ctlPresent(UI_FIX(ServoCtl::Restart)) || !ctlEnabled(UI_FIX(UI_BACK)));
-	for (int i = 0; i < 200 && !ctlPresent(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
-	checkControlTable("the unplug page");
+	checkTrue("the leave page: BACK TO SERVO, RESTART DSHOT, BACK disabled",
+	          ctlPresent(UI_FIX(ServoCtl::BackToServo)) && ctlPresent(UI_FIX(ServoCtl::Restart)) &&
+	          !ctlEnabled(UI_FIX(UI_BACK)));
+	checkControlTable("the leave page, releasing");
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
+	checkControlTable("the leave page");
 	tapId(UI_FIX(ServoCtl::Restart));
 	checkTrue("SERVO leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /**
- * @brief AM32 CONFIG: BACK alone while the claim drains the pump, then the
+ * @brief ESC SETTINGS: BACK alone while the claim drains the pump, then the
  *        list once the fake bootloader has answered.
  */
 static void testAm32() {
-	section("Control ids: AM32 CONFIG, the handover and the list");
+	section("Control ids: ESC SETTINGS, the handover and the list");
 	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
-	tapId(menuRow(&UI_AM32));
+	openEscSettings();
 	checkTrue("AM32 opens", uiCurrentScreen() == UiScreenId::Am32);
 	idFrames(1);  // its first paint, for the table check's BACK
 	UiControl t[UI_CONTROLS_MAX];
 	checkInt("during the handover, BACK is the only control", uiControls(t, UI_CONTROLS_MAX), 1);
 	checkControlTable("AM32, the handover");
-	idFrames(20);
+	idFrames(50);  // past the connect cycle's 1000 ms quiet phase
 	checkControlTable("AM32, the list");
 	checkTrue("the list shows its rows", ctlPresent(UI_ROW(0, Row)));
 	checkTrue("nothing to write yet: WRITE and REVERT are there and do not act",
@@ -248,10 +409,94 @@ static void testAm32() {
 	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
 }
 
+/** @brief Whether @p id's rectangle on the current frame is x, y, w, h. */
+static bool rectIs(UiControlId id, int x, int y, int w, int h) {
+	UiRect r = ctlRect(id);
+	return r.x == x && r.y == y && r.w == w && r.h == h;
+}
+
+/** @brief Whether @p label, scale @p sc in @p col on @p bg, is centred in @p id's rectangle. */
+static bool labelCentred(UiControlId id, const char *label, uint16_t col, uint16_t bg, int sc) {
+	UiRect r = ctlRect(id);
+	int w = gfxTextW(label, sc);
+	return w + 2 * 4 <= r.w &&
+	       fakeTextIs(r.x + (r.w - w) / 2, r.y + (r.h - 7 * sc) / 2, label, col, bg, sc);
+}
+
+/**
+ * @brief Decision 14 of docs/design/menu-b.md, the layout table, on SETTINGS,
+ *        SD LOG and SERVO SET: the button edge x 6 to x 234, the two-button
+ *        footer 6/150 and 162/72 at y 268, 46 px tall, the editor's 44 px
+ *        - and +, each label inside its button with 4 px each side.
+ */
+static void testLayoutTable() {
+	section("Control ids: the layout table on SETTINGS, SD LOG and SERVO SET");
+	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_SETTINGS));
+	idFrames(1);
+	checkTrue("SETTINGS: HOLD TO SAVE at 6/150, y 268, 46 px",
+	          rectIs(UI_FIX(SettingsCtl::Save), 6, 268, 150, 46));
+	checkTrue("HOLD DEFAULTS at 162/72, ending at the button edge, x 234",
+	          rectIs(UI_FIX(SettingsCtl::Defaults), 162, 268, 72, 46) &&
+	          162 + 72 == GFX_W - UI_EDGE);
+	checkTrue("HOLD TO SAVE's label inside its button",
+	          labelCentred(UI_FIX(SettingsCtl::Save), "HOLD TO SAVE", C_TEXT, C_PANEL, 1));
+	checkControlTable("SETTINGS, the footer");
+	tapId(UI_FIX(UI_BACK));
+
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	tapId(menuRow(&UI_SDLOG));
+	idFrames(1);
+	checkTrue("SD LOG: START from x 6 to x 234, y 240, 44 px",
+	          rectIs(UI_FIX(SdLogCtl::Toggle), 6, 240, 228, 44));
+	checkTrue("RETRY MOUNT 6/112 and USB DRIVE 122/112, y 288, 30 px",
+	          rectIs(UI_FIX(SdLogCtl::Retry), 6, 288, 112, 30) &&
+	          rectIs(UI_FIX(SdLogCtl::Usb), 122, 288, 112, 30));
+	checkTrue("START, RETRY MOUNT and USB DRIVE inside their buttons",
+	          labelCentred(UI_FIX(SdLogCtl::Toggle), "START", C_TEXT, C_PANEL, 2) &&
+	          labelCentred(UI_FIX(SdLogCtl::Retry), "RETRY MOUNT", C_TEXT, C_PANEL, 1) &&
+	          labelCentred(UI_FIX(SdLogCtl::Usb), "USB DRIVE", C_TEXT, C_PANEL, 1));
+	checkControlTable("SD LOG, the button edge");
+	fakeMscSet(MscState::Serving, 0); idFrames(1);
+	checkTrue("card held: EJECT keeps START's rectangle",
+	          rectIs(UI_FIX(SdLogCtl::Toggle), 6, 240, 228, 44));
+	fakeMscSet(MscState::Idle, 0); idFrames(1);
+	tapId(UI_FIX(UI_BACK));
+
+	tapId(menuRow(&UI_SERVO));
+	idFrames(20);
+	tapId(UI_FIX(ServoCtl::Set));
+	idFrames(1);
+	checkTrue("SERVO SET: HOLD TO APPLY at 6/150, y 268, 46 px",
+	          rectIs(UI_FIX(ServoCtl::Apply), 6, 268, 150, 46));
+	checkTrue("DEFAULTS at 162/72", rectIs(UI_FIX(ServoCtl::Defaults), 162, 268, 72, 46));
+	checkTrue("DEFAULTS' label inside its button",
+	          labelCentred(UI_FIX(ServoCtl::Defaults), "DEFAULTS", C_AMBER, C_PANEL, 1));
+	tapId(UI_ROW(2, Row));
+	checkTrue("the editor's - at x 6 and + ending at x 234, 44 x 44 px",
+	          rectIs(UI_FIX(ServoCtl::EditMinus), 6, 218, 44, 44) &&
+	          rectIs(UI_FIX(ServoCtl::EditPlus), 190, 218, 44, 44));
+	checkTrue("the hint centred between them, 140 px",
+	          fakeTextIs(50 + (140 - gfxTextW("SWIPE = COARSE", 1)) / 2, 218 + 34, "SWIPE = COARSE",
+	                     C_GRID, C_BG, 1));
+	checkControlTable("SERVO SET, the layout table");
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
+	tapId(UI_FIX(ServoCtl::Restart));
+	checkTrue("back at MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+}
+
 void runIdTests() {
 	testHelpersFail();
 	testHelpersReport();
 	testAm32();
 	testMenuSettingsLog();
 	testServo();
+	testLayoutTable();
 }

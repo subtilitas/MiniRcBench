@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char *const PREFIXES[(unsigned)BackupDevice::Count] = { "KST", "AM", "HT" };
+static const char *const PREFIXES[(unsigned)BackupDevice::Count] = { "KST", "AM", "HT", "BJ", "BH" };
 
 /** @brief The extension of every backup. */
 static const char EXT[] = ".TXT";

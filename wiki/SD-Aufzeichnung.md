@@ -18,22 +18,79 @@ Karten-Erkennungspin. Steck die Karte vor dem Einschalten ein, oder drück nach
 dem Einstecken `RETRY MOUNT` auf dem SD-LOG-Bildschirm.
 
 Die Dateien landen im Verzeichnis `LOGS` als `LOG00001.BFL`, `LOG00002.BFL`
-und so weiter. Jede neue Datei erhält die niedrigste freie Nummer von 00001
-bis 09999. Vorhandene Dateien werden nicht überschrieben. Logs, die eine
+und so weiter. Jede neue Datei erhält die Nummer nach der höchsten
+`LOGnnnnn.BFL` in `LOGS`, die höchste Nummer ist also die neueste
+Aufzeichnung: Liegen `LOG00001.BFL` bis `LOG00005.BFL` auf der Karte und ist
+`LOG00002.BFL` gelöscht, heißt die nächste Aufzeichnung `LOG00006.BFL`. Ein
+leeres oder neues `LOGS` beginnt mit `LOG00001.BFL`. Namen zählen in jeder
+Groß- und Kleinschreibung (`log00007.bfl` ist für die Karte `LOG00007.BFL`);
+andere Namen wie `LOG0007.BFL`, `LOG00007.TXT` oder ein umbenanntes Log
+zählen nicht. Vorhandene Logs werden nicht überschrieben. Logs, die eine
 frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
-mit.
+mit. Jede Datei trägt die Zeit der Echtzeituhr der Platine, sobald die Uhr
+seit dem Einschalten gestellt ist (siehe [Die Uhr](#die-uhr)). Davor tragen
+die Dateien das FAT-Datum und die Uhrzeit 0, die kein gültiges Datum sind;
+wie ein Computer sie zeigt, ist nicht geprüft.
 
-**Die höchste Nummer ist nicht immer die neueste Aufzeichnung.** Eine am
-Computer frei gewordene Nummer wird wieder vergeben: Liegen `LOG00001.BFL` bis
-`LOG00005.BFL` auf der Karte und ist `LOG00002.BFL` gelöscht, heißt die
-nächste Aufzeichnung `LOG00002.BFL`. Die Platine stellt keine Uhr, also geben
-auch die Datumsangaben der Dateien die Reihenfolge nicht an; welches Datum die
-Dateien tragen, ist nicht geprüft. Der SD-LOG-Bildschirm nennt die letzte
-Aufzeichnung der Sitzung (siehe `FILE` unten). Ob neue Aufzeichnungen nach der
-höchsten Datei nummeriert werden sollen, ist beim Eigentümer offen.
+Die Platine liest `LOGS` einmal, bei der ersten Aufzeichnung nach dem
+Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB DRIVE`,
+das neue Einbinden durch ein Werkzeug) und bei der ersten Aufzeichnung nach
+einem Kartenfehler, und zählt von dort weiter. Mit vielen Logs auf der
+Karte liest dieser erste Start mehr von der Karte: einen 512-Byte-Block je
+16 Dateien mit kurzen Namen. Der SD-LOG-Bildschirm nennt die letzte
+Aufzeichnung der Sitzung (siehe `FILE` unten).
+
+Nach `LOG99999.BFL` ist keine Nummer mehr frei: Keine Aufzeichnung beginnt,
+und der Hinweis lautet `NO LOG STARTED: LOG99999.BFL EXISTS`. Nimm die Karte
+heraus, verschieb die Logs am Computer von ihr (`USB DRIVE` ist
+schreibgeschützt), steck sie zurück und drück `RETRY MOUNT`.
 
 Die Platine liest die Karte über 4-Bit-SDIO (Secure Digital Input/Output) mit
 10 MHz.
+
+---
+
+## Die Uhr
+
+Die Echtzeituhr der Platine datiert die Logs, ihre Zusammenfassungen und die
+Sicherungen der Geräte auf der Karte. Die Platine hat keine Zelle in ihrem
+Uhrensockel J2, also geht die Uhr jedes Mal verloren, wenn die Platine ohne
+Strom ist: nach jedem Einschalten neu stellen. Auf dem Gerät gibt es keine
+Seite dafür. Die Platine mit ihrem USB-Kabel an einen Computer anschließen
+und im Quellordner der Firmware ausführen:
+
+```text
+python3 tools/set_clock.py
+```
+
+Es braucht Python 3 und das Paket pyserial (`python3 -m pip install
+pyserial`), unter Windows, Linux oder macOS. Es findet die Platine selbst am
+USB; findet es keine oder mehrere, sagt es das, und `--port` nennt eine,
+zum Beispiel `--port COM5` unter Windows oder `--port /dev/ttyACM0` unter
+Linux. `--list` nennt die gefundenen Platinen. Es antwortet mit der
+gestellten Zeit, `CLOCK SET 2026-11-14 15:42:07`. `--query` liest die Uhr,
+ohne sie zu stellen, und `--help` nennt die Optionen.
+
+Die Uhr übernimmt die Ortszeit des Computers: keine Zeitzone und keine
+Sommerzeit. Nach einer Umstellung auf oder von Sommerzeit neu stellen.
+
+SETTINGS → BOARD → `CLOCK` zeigt die Zeit auf die Minute, oder grau
+`NOT SET`; die Zeile darunter lautet `SET AT EACH POWER-UP` (bei jedem
+Einschalten stellen). Bis zum Stellen tragen Dateien das FAT-Datum 0, und
+eine Zusammenfassung lautet `Clock at start: not set`. Stellen während
+einer Aufzeichnung ist erlaubt: Die Aufzeichnung läuft weiter, und ihre
+Zusammenfassung ergänzt die Zeit am Ende um `(clock set during the log)`.
+
+Ein Terminalprogramm am seriellen Port der Platine kann dieselben Zeilen
+senden: `CLOCK 2026-11-14 15:42:07` stellt die Uhr, `CLOCK?` liest sie
+und wird mit `CLOCK NOW` und der Zeit beantwortet. Die Platine übergeht ihre
+eigenen Antworten, wenn ein Terminal sie zurückschickt.
+Eine falsche Zeile wird mit `CLOCK REFUSED: BAD LINE` beantwortet, ein
+Datum, das es nicht gibt, mit `CLOCK REFUSED: BAD DATE`, ein Uhrenchip, der
+nicht antwortet, mit `CLOCK REFUSED: RTC NOT ANSWERING`.
+
+Die Uhr ist auf der Platine noch nicht gelaufen: das Stellen, die Zeit, die
+sie hält, und die Daten auf einer Karte sind nicht geprüft.
 
 ---
 
@@ -52,18 +109,22 @@ während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 Scharf-Anzeige und `BOARD`, damit eine Aufzeichnung, die von selbst endete,
 auch im scharfen Zustand auffällt. SD LOG sagt, was geschah.
 
-Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder AM32 CONFIG
+Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder ESC SETTINGS
 öffnet: Das Werkzeug braucht die Karte für seine Sicherung. SD LOG zeigt dann
-`RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `AM32 CONFIG`). Nach dem
-Werkzeug startet `START` eine neue Aufzeichnung.
+`RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `ESC SETTINGS`). Nach dem
+Werkzeug startet `START` eine neue Aufzeichnung. Auch der Servotester beendet
+sie, bei `HOLD TO START` mit eingebautem Stromsensor, um seine eigene
+Aufzeichnung `LOGS/SRVnnnnn.CSV` zu schreiben
+([Servotester](Servotester#die-aufzeichnung-auf-der-karte)); SD LOG zeigt dann
+`RECORDING STOPPED BY SERVO TESTER`.
 
-**Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder
-die Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten,
-bis die obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der
-Aufzeichnung, gibt den ungenutzten Platz zurück und schließt die Datei. Eine
-Aufzeichnung, die ein Stromausfall oder eine gezogene Karte abschneidet, wird
-nicht geschlossen. Was sie enthält, hängt davon ab, wann sie abgeschnitten
-wurde:
+**Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder die
+Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten, bis die
+obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der Aufzeichnung, gibt
+den ungenutzten Platz zurück, schließt die Datei und schreibt die
+Zusammenfassung des Laufs daneben. Eine Aufzeichnung, die ein Stromausfall oder
+eine gezogene Karte abschneidet, wird nicht geschlossen. Was sie enthält, hängt
+davon ab, wann sie abgeschnitten wurde:
 
 - **In ihren ersten 2 s:** Sie liest sich als 0 Byte. Die Dateigröße auf
   der Karte wird während der Aufzeichnung alle 2 s geschrieben, das erste
@@ -86,19 +147,90 @@ Datei behandelt, ist nicht getestet.
 
 ---
 
+## Die Zusammenfassung des Laufs
+
+Jede sauber beendete Aufzeichnung bekommt daneben eine Textdatei mit
+derselben Nummer: `LOG00012.TXT` neben `LOG00012.BFL`. Jeder Texteditor
+öffnet sie. Das Beenden schreibt sie, sobald die Aufzeichnung geschlossen
+ist: `STOP`, das Entschärfen, das eine durch Scharfschalten begonnene
+Aufzeichnung beendet, und ein Werkzeug, das die Karte nimmt. Eine
+Aufzeichnung, die ein Kartenfehler beendete, bekommt keine. SD LOG zeigt die
+Zusammenfassung nach dem Beenden (siehe [Der letzte Lauf](#der-letzte-lauf)).
+
+Sie enthält einen Wert je Zeile:
+
+| Zeile | Inhalt |
+|---|---|
+| `Log`, `Firmware` | Der Dateiname der Aufzeichnung und die Firmware-Version |
+| `Clock at start`, `Clock at stop` | Die Uhr der Platine zu Beginn und am Ende der Aufzeichnung, als `2026-11-14 15:42:07`, oder `not set`, solange die Uhr nicht gestellt ist; nach dem Stellen während der Aufzeichnung ergänzt die Zeile am Ende `(clock set during the log)` ([Die Uhr](#die-uhr)) |
+| `Ended by` | `STOP`, `DISARM`, `KST SERVO`, `HITEC SERVO`, `ESC SETTINGS` oder `SERVO TESTER` |
+| `Duration`, `Armed` | Die Dauer der Aufzeichnung und die Zeit, die sie davon scharf war, in Sekunden |
+| `Max RPM` | Die höchste Drehzahl: DShot-eRPM (elektrische Drehzahl), oder KISS-eRPM in einer Aufzeichnung ohne DShot-eRPM, geteilt durch die Hälfte des Werts von `MOTOR POLES` beim Beenden |
+| `Max current`, `Max temperature` | Der höchste Strom und die höchste Temperatur des ESC (Electronic Speed Controller, Motorregler): KISS, solange KISS aktuell ist, EDT (Extended DShot Telemetry) in seinen Lücken; EDT allein, wenn KISS in jedem Frame 0 sandte, ein ESC ohne diesen Sensor |
+| `Min voltage` | Die niedrigste Spannung im scharfen Zustand, aus denselben Quellen; ein Wert von 0,00 V zählt nicht |
+| `Used, ESC counter` | Um wie viel der KISS-Zähler der Milliamperestunden (mAh) während der Aufzeichnung stieg |
+| `Used, from current` | Der Strom über die Zeit aufsummiert, mit der Zeit, in der er bekannt war |
+| `Frames` bis `Worst flush` | Die Zähler, die SD LOG während der Aufzeichnung zeigt |
+
+Ein Maximum oder Minimum zählt einen Wert erst, wenn drei neue Messwerte in
+Folge ihn erreichen, damit eine einzelne beschädigte Antwort keinen setzt.
+Der Wert `raw` in Klammern zählt jeden Messwert, so wie ihn ein Viewer in
+der `.BFL` findet. Jede Zeile nennt ihre Quelle, `DShot`, `KISS`, `EDT`
+oder `KISS and EDT`, wenn EDT Lücken in KISS füllte, und ihre Schrittweite.
+Ein Wert ohne Messung lautet `unknown`, mit dem Grund. `C` steht für Grad
+Celsius. Die Datei ist englisch. Ein Beispiel:
+
+```text
+MiniRcBench run summary, format 1
+Log: LOG00012.BFL
+Firmware: 0.1.0
+Clock at start: not set
+Clock at stop: not set
+Ended by: STOP
+Duration: 144.2 s
+Armed: 102.5 s
+Max RPM: 18450 RPM (DShot, eRPM 129150, 14 poles; raw 18460 RPM)
+Max current: 23.41 A (KISS, 0.01 A steps; raw 23.55 A)
+Max temperature: 51 C (KISS, 1 C steps; raw 51 C)
+Min voltage: 14.82 V (KISS, 0.01 V steps, while armed; raw 14.79 V)
+Used, ESC counter: 312 mAh (KISS, 1 mAh steps)
+Used, from current: 305 mAh (KISS, current known for 144.0 s of 144.2 s)
+Frames: 72100
+Dropped frames: 0 (0 bytes)
+Written: 1043 kB
+Buffer peak: 2048 of 8192 bytes
+Worst flush: 12 ms
+```
+
+Die `.TXT`-Dateien ändern die Nummern der Aufzeichnungen nicht: Nur Namen
+auf `.BFL` zählen. Eine `.TXT` mit der Nummer der neuen Aufzeichnung, die
+auf der Karte blieb, nachdem ihre Aufzeichnung am Computer gelöscht wurde,
+wird ersetzt.
+
+Lässt sich die Zusammenfassung nicht schreiben, weil die Karte voll ist
+oder ein Schreibvorgang fehlschlug, bleibt die Aufzeichnung vollständig auf
+der Karte, und `STATUS` bleibt `READY`. Es bleibt keine `.TXT` zurück, oder,
+nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. SD LOG
+zeigt dann `NOT SAVED` in der Zeile `SUMMARY`. Die Zusammenfassung und ihre
+Zeilen auf SD LOG sind mit den Host-Tests der Firmware geprüft, die Datei
+über der FatFs-Bibliothek auf einer simulierten Karte; an einer Karte und
+auf der Platine sind sie nicht getestet.
+
+---
+
 ## Den Bildschirm lesen
 
-Öffnen über **MENU → SD LOG**. SD LOG ist die siebte Zeile: Ziehe `MENU` um
-36 px nach oben, damit sie sichtbar wird. Die Zeile zeigt denselben Zustand:
-`NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein
-Computer die Karte hält.
+Öffnen über **MENU → SD LOG**, die siebte Zeile: Ziehe MENU um 34 px nach
+oben, um sie ganz zu sehen. Die Zeile zeigt denselben
+Zustand: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`,
+solange ein Computer die Karte hält.
 
 <img src="img/log-ready.png" width="240" alt="Karte eingebunden, bereit">
 
 | Zeile | Bedeutung |
 |---|---|
 | **STATUS** | `NO CARD`, `READY`, `RECORDING` oder `CARD ERROR` |
-| **FILE** | Die geöffnete Datei. Nach dem Ende einer Aufzeichnung ihre Datei mit `(LAST)`, zum Beispiel `LOG00012.BFL (LAST)`, neben ihren Zählern, bis zum nächsten `START` oder Einbinden. `--` vor der ersten Aufzeichnung nach dem Einschalten und nach einem Einbinden (`RETRY MOUNT`, das Ende von `USB DRIVE`, das neue Einbinden durch ein Werkzeug): Es kann eine andere Karte sein, daher werden Name und Zähler zurückgesetzt |
+| **FILE** | Die geöffnete Datei. Nach dem Ende einer Aufzeichnung ihre Datei mit `(LAST)`, zum Beispiel `LOG00012.BFL (LAST)`, bis zum nächsten `START` oder Einbinden. `--` vor der ersten Aufzeichnung nach dem Einschalten und nach einem Einbinden (`RETRY MOUNT`, das Ende von `USB DRIVE`, das neue Einbinden durch ein Werkzeug): Es kann eine andere Karte sein, daher werden Name und Zähler zurückgesetzt |
 | **FRAMES** | Bisher geschriebene Frames |
 | **WRITTEN** | Geschriebene Kilobyte |
 | **DROPPED FRAMES** | Frames, die der Puffer nicht halten konnte. **Sollte null sein.** Sonst rot |
@@ -114,11 +246,49 @@ Aufzeichnung hat bereits Lücken.
 
 Meist ist eine langsame Karte die Ursache. Probiere zuerst eine andere Karte.
 
-<img src="img/log-last.png" width="240" alt="FILE zeigt LOG00001.BFL (LAST) nach STOP">
+Die Zeilen von `FRAMES` bis `MOUNT` erscheinen während einer Aufzeichnung
+und immer dann, wenn keine Zusammenfassung angezeigt wird: vor der ersten
+Aufzeichnung, nach einem Einbinden und nach `USB DRIVE`. Nach dem Beenden
+tritt der Lauf der letzten Aufzeichnung an ihre Stelle.
+
+### Der letzte Lauf
+
+<img src="img/log-last.png" width="240" alt="SD LOG nach STOP: FILE zeigt LOG00001.BFL (LAST), die Zeilen darunter den Lauf">
+
+Sobald eine Aufzeichnung endet, zeigen die Zeilen unter `FILE` ihre
+Zusammenfassung, dieselben Werte wie ihre `.TXT`:
+
+| Zeile | Bedeutung |
+|---|---|
+| **MAX RPM** | Die höchste Drehzahl, geteilt durch die Hälfte des Werts von `MOTOR POLES` beim Beenden |
+| **MAX CURRENT** | Der höchste Strom, `23.41A` von KISS, ganze Ampere von EDT, `23A` |
+| **MAX TEMP** | Die höchste ESC-Temperatur. Rot ab 90 °C, wie auf dem Tester |
+| **MIN VOLTAGE** | Die niedrigste Spannung im scharfen Zustand |
+| **USED** | Um wie viel der KISS-Zähler stieg, in mAh |
+| **USED FROM CURRENT** | Statt `USED`, wenn der KISS-Zähler nicht stieg: der Strom über die Zeit aufsummiert |
+| **ARMED** | Die Zeit innerhalb der Aufzeichnung, in der der Tester scharf war, `H:MM:SS` |
+| **SUMMARY** | Der Name der `.TXT`, zum Beispiel `LOG00012.TXT`; in Rot `NOT SAVED: CARD FULL` oder `NOT SAVED: WRITE FAILED`, wenn sie nicht geschrieben wurde |
+
+Ein Maximum oder Minimum ist der Wert, der über drei neue Messwerte in
+Folge hielt, der Wert, den die `.TXT` zuerst nennt; `--`, wenn es keinen
+gibt. Das Wort neben einem Wert nennt seine Quelle: `KISS`, `EDT`, oder
+`MIXED`, wenn EDT Lücken in KISS füllte. Eine Drehzahl aus DShot hat keins.
+Eine Ladung über 99999 mAh lautet `>99999mAh`; die `.TXT` nennt den Wert.
+`FRAMES` bis `WORST FLUSH` stehen dann in der `.TXT`. `CARD` und `MOUNT`
+bleiben bis zum nächsten `START`, der eine Aufzeichnung öffnet, oder bis
+zum nächsten Einbinden ausgeblendet: Sie zählen, wenn keine Karte
+eingebunden wird, und dann erscheint kein Lauf.
+
+Nach einer Aufzeichnung, die ein Kartenfehler beendete, zeigen die Zeilen
+ihren Lauf bis zum Fehler, `SUMMARY` lautet `NOT SAVED`, und die Zeilen über
+`START` sagen, wie sie endete. Ein `START`, der fehlschlägt, behält den
+letzten Lauf, wie er `FILE` behält. Der Tester zeigt nichts vom Lauf: Nach
+einer Aufzeichnung, die Scharfschalten begann und Entschärfen beendete,
+SD LOG öffnen, um ihn zu sehen.
 
 ### Wie die letzte Aufzeichnung endete
 
-<img src="img/log-card-full.png" width="240" alt="SD LOG, nachdem ein Schreibvorgang die Karte voll fand">
+<img src="img/log-card-full.png" width="240" alt="SD LOG, nachdem ein Schreibvorgang die Karte voll fand: der Lauf, NOT SAVED: CARD FULL">
 
 Endet eine Aufzeichnung von selbst, oder nimmt ein Werkzeug die Karte, sagen
 Zeilen in Bernstein über `START`, wie, und was zu tun ist. Ein Entschärfen,
@@ -135,8 +305,10 @@ ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
 |---|---|---|
 | `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | Ein Schreibvorgang fand keinen freien Platz | Dateien am Computer löschen (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | Ein Schreibvorgang oder das abschließende Sichern oder Schließen schlug fehl: eine herausgezogene Karte oder ein Kartenfehler. Beides wird nicht unterschieden | Karte neu einstecken, `RETRY MOUNT` drücken |
-| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
-| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `AM32 CONFIG`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder lesen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
+| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
+| `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
+| `RECORDING STOPPED BY SERVO TESTER` | Der Servotester nahm die Karte für seine eigene Aufzeichnung | `START` für eine neue Aufzeichnung |
 
 Eine volle Karte unterscheidet sich von einem fehlgeschlagenen Schreibvorgang
 durch das, was das Dateisystem meldet: Ein Schreibvorgang, der keinen freien
@@ -174,9 +346,11 @@ Karte nicht eingebunden.
 <img src="img/log-usb-serving.png" width="240" alt="Die Karte als USB-Laufwerk">
 
 `USB DRIVE` auf dem SD-LOG-Bildschirm stellt die Karte dem Computer am
-USB-Kabel (Universal Serial Bus) als Wechsellaufwerk bereit. `.BFL`-Dateien
-herüberkopieren, das Laufwerk am Computer auswerfen, und der Tester nimmt die
-Karte zurück. Der Bildschirm zeigt die bisher gelesene Datenmenge.
+USB-Kabel (Universal Serial Bus) als Wechsellaufwerk bereit. `.BFL`-Dateien und
+ihre `.TXT`-Zusammenfassungen herüberkopieren, das Laufwerk am Computer
+auswerfen, und der Tester nimmt die Karte zurück. Der Bildschirm zeigt die
+bisher gelesene Datenmenge, zum Beispiel `3.0 MB READ`, in Hellgrün: ein
+laufender Messwert.
 
 Die Platine ist ohnehin ein USB-Gerät, für Strom und den seriellen Anschluss.
 Das Laufwerk ist eine zweite USB-Schnittstelle am selben Kabel.
@@ -246,11 +420,11 @@ Felder pro Frame:
 |---|---|
 | `loopIteration`, `time` | Frame-Zähler und Zeit |
 | `motor[0]` | Befohlenes Gas |
-| `eRPM[0]` | eRPM (elektrische Drehzahl) aus bidirektionalem DShot |
+| `eRPM[0]` | eRPM aus bidirektionalem DShot |
 | `eRPMkiss[0]` | eRPM aus KISS |
 | `vbatLatest`, `amperageLatest` | Spannung und Strom aus KISS; 0, solange KISS nicht aktiv ist |
-| `vbatEdt`, `amperageEdt` | Spannung und Strom aus EDT (Extended DShot Telemetry) |
-| `escTemperature[0]` | Temperatur des ESC (Electronic Speed Controller, Motorregler) |
+| `vbatEdt`, `amperageEdt` | Spannung und Strom aus EDT |
+| `escTemperature[0]` | Temperatur des ESC |
 | `escConsumption` | Verbrauchte mAh (nur KISS) |
 | `escStress` | EDT-Stresswert |
 

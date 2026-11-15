@@ -30,15 +30,23 @@ struct TouchState;
 
 /** @brief The screens. SERVO and its SET view are one screen. */
 enum class UiScreenId : uint8_t {
-	Tester,    /**< The root: throttle, ARM, HOLD, MENU. */
+	Tester,    /**< The root: throttle, ARM, LATCH, MENU, the two readouts. */
 	Menu,      /**< MENU, the list of tools and actions. */
 	Settings,  /**< SETTINGS, one list in sections. */
 	SdLog,     /**< SD LOG. */
-	Am32,      /**< AM32 CONFIG. */
-	Servo,     /**< SERVO, its SET view and its unplug page. */
+	Am32,      /**< ESC SETTINGS, opened from ESC CONFIG. */
+	Servo,     /**< SERVO, its SET view and its leave page. */
 	Kst,       /**< KST SERVO: the search, the field list, FILES, the write and leave pages. */
-	Hitec,     /**< HITEC SERVO: the family, the field list, FILES, the write and leave pages. */
-	Beep,      /**< BEEP THE ESC, an action on MENU: never open. */
+	Hitec,     /**< HITEC SERVO: the entry, the field list, FILES, the write and leave pages. */
+	EscCmd,    /**< ESC COMMANDS, MENU's first row: BEEP 1 to 5, direction and 3D mode. */
+	ServoProg, /**< PROGRAMMER, the chooser behind MENU's SERVO PROGRAMMER row. */
+	RxSignals, /**< RX SIGNALS, the chooser behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
+	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
+	SbusOut,   /**< S.BUS OUTPUT, its SET view and its leave page, opened from RX SIGNALS. */
+	EscConfig, /**< ESC CONFIG, the chooser behind MENU's ESC CONFIG row: ESC SETTINGS and USB BRIDGE. */
+	Bridge,    /**< USB BRIDGE and its leave page, opened from ESC CONFIG. */
+	Tools,     /**< TOOLS, the chooser behind MENU's TOOLS row: ANGLE METER. */
+	Angle,     /**< ANGLE METER, its SETUP and its FLIP CAL, opened from TOOLS. */
 	Count,     /**< How many screens; not a screen. */
 };
 
@@ -110,6 +118,13 @@ struct SettingsRow {
 	 *        the row has none, and its label is centred.
 	 */
 	void (*caption)(char *buf, size_t n, uint16_t *col);
+	/**
+	 * @brief Stepper: the connector pin under the value, scale 1, right to
+	 *        the value's end, such as `J5 PIN 2`: writes it to buf, at most n
+	 *        bytes; an empty string for none. Null: the row has none, and
+	 *        its value is centred in the row.
+	 */
+	void (*sub)(char *buf, size_t n);
 };
 
 /** @brief A captioned run of SETTINGS rows. */
@@ -141,11 +156,42 @@ struct UiScreen {
 	const SettingsSection *settings;
 	/**
 	 * @brief Opens only while the pin claim is Free, without claiming:
-	 *        SETTINGS, which changes the wiring a claim latched. A tool with
-	 *        a @ref pinUser waits for Free anyway.
+	 *        SETTINGS, which changes the wiring a claim latched;
+	 *        PROGRAMMER, RX SIGNALS and ESC CONFIG, whose entries open tools
+	 *        that claim; TOOLS, as the other choosers, and the angle meter,
+	 *        which saves to flash as SETTINGS does.
+	 *        A tool with a @ref pinUser waits for Free anyway.
 	 */
 	bool freePins;
 };
+
+/**
+ * @brief One entry of PROGRAMMER, the chooser (ui_servo_prog.h): a button
+ *        that opens a tool, with the lines under it. A new servo brand is one
+ *        line in `UI_PROGRAMMERS` (ui_registry.cpp).
+ */
+struct UiProgEntry {
+	const char     *label;     /**< Scale 2 on the button, at most 18 characters. */
+	const char     *models;    /**< Scale 1 under the button, `C_DIM`; null for none. */
+	const UiScreen *screen;    /**< The tool the tap opens. */
+	void          (*enter)();  /**< Run in place of the tool's own `enter`: it sets the family. */
+	bool          (*enabled)();  /**< Whether the entry acts; null: always. */
+	/** @brief The power line while SERVO SUPPLY is OWN, `C_DIM`; null for none. */
+	const char     *powerOwn;
+	/** @brief The power line with the switched supply, `C_DIM`, `%u` its enable GPIO. */
+	const char     *powerSwitchedFmt;
+	const char     *why[2];    /**< `C_AMBER` lines in place of the power line while disabled. */
+};
+
+/**
+ * @brief Open @p s from the open tool, as MENU opens its rows: after this
+ *        frame's tick the navigation opens @p s through uiOpenTool() in
+ *        ui.cpp, running @p enter in place of `s->enter`, and BACK or
+ *        RESTART DSHOT there return to MENU. PROGRAMMER's entries call it.
+ * @param s     The tool.
+ * @param enter Its entry point for this route; null runs `s->enter`.
+ */
+void uiChooseTool(const UiScreen *s, void (*enter)());
 
 /** @brief One MENU row. */
 struct UiMenuEntry {
@@ -153,6 +199,19 @@ struct UiMenuEntry {
 	uint8_t         statusWidest;  /**< Widest status, characters, for the fit check. */
 	const UiScreen *screen;
 };
+
+/**
+ * @brief @p s is refused while the pin claim is not Free: it claims pins
+ *        (@ref UiScreen::pinUser), or opens only while they are free
+ *        (@ref UiScreen::freePins). MENU refuses its row on it, and the
+ *        tester its readouts.
+ * @param s The screen.
+ * @return true while @p s may not open.
+ */
+inline bool uiPinsRefuse(const UiScreen *s) {
+	return (s->pinUser != PinUser::None || s->freePins) &&
+	       pinClaimState() != ClaimState::Free;
+}
 
 /** @brief The open screen. */
 UiScreenId uiCurrentScreen();

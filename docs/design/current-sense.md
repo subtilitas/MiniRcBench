@@ -1,12 +1,25 @@
 # Current sense and the bench converter
 
-Status: slice 1 built and host-tested, not tested on hardware; slices 2 to
-6 not built. The owner's decisions of 2026-11-13 are
-recorded under [decisions](#decisions). No INA219 has been on the board's
-bus, and no boost converter has been on GP28 or GP29: every figure below is
-from a datasheet, from rcbench's records or computed, and the ones that are
-not known are stated as unknown. The slices are at the end
-([slices](#slices)); each builds, passes the host suite and merges alone.
+Status: slices 1 to 6 built, slices 1, 3, 4, 5 and 6 host-tested and slice 2
+checked by `tools/make_wiring.py --check` ([slice 2 as
+built](#slice-2-as-built), [slice 3 as built](#slice-3-as-built), [slice 4 as
+built](#slice-4-as-built), [slice 5 as built](#slice-5-as-built), [slice 6 as
+built](#slice-6-as-built)), none tested on hardware. The owner's decisions of
+2026-11-13 and 2026-11-14 are recorded under [decisions](#decisions). On
+2026-11-14 the owner answered Q1 to Q5: one LiPo cell into a synchronous boost,
+the 0.1 Ω shunt as sold, the servo tester switching the supply always, rcbench's
+limit run as the protection, and the settings carried over from the older
+layouts. One point is open: the converter module
+([Q1](#q1-the-converter-module)); the 5 V boost board the owner modelled names
+no chip, and the owner does not know it, so its ratings come only from bench
+tests B6 and B7. Slices 3 to 6 rely on no rating of the module: the 500 ms
+start-up limit is this note's value until B6, and the cuts' thresholds are
+decision 13's and this note's. The settings carry-over of decision 14 is built
+and host-tested. No INA219 has been on the board's bus, and no boost converter
+has been on GP28 or GP29: every figure below is from a datasheet, from rcbench's
+records or computed, and the ones that are not known are stated as unknown. The
+slices are at the end ([slices](#slices)); each builds, passes the host suite
+and merges alone.
 
 Terms: INA219 is Texas Instruments' (TI) current and power monitor with an
 I2C (Inter-Integrated Circuit) interface; SDA is the I2C serial data line
@@ -163,17 +176,17 @@ never as a value, as rcbench's fake parts treat the end code
 source in reach; a 2512 resistor is commonly rated 1 W to 2 W. Adafruit
 states 2 W for its own INA219 module's shunt (to confirm on Adafruit's
 product page). At 3.2 A the dissipation reaches a 1 W rating, so a stall
-held for long is outside it; the stall cut holds it to 1000 ms
-([protection](#protection)). Neither the screw terminal's nor the module's
-trace current rating is known.
+held for long is outside it; the stall cut of the owner's limit run holds
+a current above 1.0 A to 400 ms ([protection](#protection)). Neither the
+screw terminal's nor the module's trace current rating is known.
 
 **Burden.** The shunt drops 0.10 V at 1 A and 0.30 V at 3 A. On a 5.0 V
 supply the servo sees 4.90 V at 1 A, 2 % low, and 4.70 V at 3 A, 6 % low
 and under the 4.8 V the servo tester's wiring range starts at
 ([pin-claim.md](pin-claim.md#wiring)). The leads and the terminal add an
 unknown drop. The bus voltage reading is taken behind the shunt, so it
-shows the voltage after the drop. A smaller shunt is the open question
-[Q2](#q2-shunt-value).
+shows the voltage after the drop. The owner kept the 0.1 Ω shunt as sold
+on 2026-11-14 ([decision 11](#decisions)).
 
 ### Bus voltage
 
@@ -221,7 +234,7 @@ What each use needs, against a read every UI frame, 25 ms:
 | Readout | a value every 100 ms to 250 ms that represents the period | the mean of each 17.02 ms block, read every 25 ms |
 | Protection | a stall seen within 100 ms; no gap a stall hides in | a step seen within one read and one cycle; a full step within about 60 ms (25 + 17.55 + 17.55 ms, computed) |
 | Switch-on and switch-off read-back | the bus voltage within 50 ms | one 532 µs bus sample per 17.55 ms cycle |
-| Move timing | rcbench's IOmcu samples at 1 kHz; its panel times moves from 10 readings a second | 40 readings a second: travel times are an upper bound, by up to one read and one cycle |
+| Move timing | rcbench's IOmcu samples at 1 kHz; its panel times moves from 10 readings a second | 40 readings a second: travel times are an upper bound on when the current shows the arrival, by up to one read and two cycles |
 | Log | 40 rows a second | one row per reading |
 
 The bench's configuration, written once at the probe:
@@ -363,8 +376,10 @@ charge; that limits the choice of input.
 
 ### Input
 
-The owner has not named the converter's input. The options and what each
-means, with an efficiency of 85 % assumed for the input current:
+The owner chose one LiPo cell, 3.0 V to 4.2 V, on 2026-11-14 ([decision
+10](#decisions)): the first row below. The module is not named yet
+([Q1](#q1-the-converter-module)). The options and what each means, with
+an efficiency of 85 % assumed for the input current:
 
 | Input | 5.0 V rail | Input current at 5.0 V, 3 A out | HV servo |
 |---|---|---|---|
@@ -374,8 +389,7 @@ means, with an efficiency of 85 % assumed for the input current:
 
 The cell's own protection, its charging and a fuse at the cell are outside
 the bench; a fuse is needed, since a LiPo cell delivers far more current
-than the converter's wiring takes. The open question
-[Q1](#q1-the-converters-input-and-module) asks the owner.
+than the converter's wiring takes.
 
 ### Output voltage and current
 
@@ -383,7 +397,7 @@ than the converter's wiring takes. The open question
   ([kst-programming.md](kst-programming.md#decisions), decision 16). The
   servo tester runs every servo at 5.0 V on this supply; an HV servo moves
   slower there than at its rating. A test at 7.4 V or 8.4 V uses
-  `SERVO SUPPLY` at `NONE` and a supply of the user's.
+  `SERVO SUPPLY` at `OWN` and a supply of the user's.
 - Rated for the servo's stall current: at least 3 A continuous at the
   lowest VIN used, which matches the INA219's range at /8. Below that, a
   stall drives the converter into its current limit, VOUT collapses, and
@@ -449,12 +463,17 @@ bench has nothing left to switch.
 
 ### I2C1 today
 
-`src/cst328.cpp` is the only client of I2C1. `touchInit()` runs on core0
+`src/cst328.cpp` is I2C1's first client. `touchInit()` runs on core0
 in `setup()`: `i2c_init()` at 400 kHz, the pads' pull-ups, the touch reset
 and a probe. `touchPoll()` runs on core0 from `uiTick()`, every 25 ms
 (`UI_PERIOD_MS`), with one 5-byte read of register D000h, a timeout of
-2000 µs per transfer (`I2C_TIMEOUT_US`). The IMU and the RTC are not
-used. Nothing on core1 touches I2C1.
+2000 µs per transfer (`I2C_TIMEOUT_US`). The other clients of the bus are
+the INA219 of this note ([the second client](#the-second-client)), the
+QMI8658 IMU, read while the angle meter is open
+([angle-meter.md](angle-meter.md#slice-2-as-built)), and the PCF85063 RTC,
+read once at start-up and written when the clock is set over USB
+([run-summary.md](run-summary.md#slice-4-as-built), slices 4 and 5).
+Nothing on core1 touches I2C1.
 
 ### The second client
 
@@ -534,8 +553,11 @@ and not counted.
 ### The reading on core1
 
 Built in slice 1: the sample, its lock and its age rule (`senseSample()`,
-`senseFresh()`). Planned for slices 3 and 4: the core1 job that copies it,
-described below; nothing on core1 reads it yet.
+`senseFresh()`). Built in slice 3: the servo job copies it on every pass and
+reads the bus voltage back after each switch-on and switch-off. Built in
+slice 4: the servo, KST and Hitec jobs cut the supply on its readings
+(`src/supply_guard.*`). Built in slice 5: the servo job times each step from
+its readings (`src/move_timer.*`).
 
 ```
 struct SenseSample {           // src/sense.h
@@ -635,10 +657,13 @@ HOLD TO START on the switched supply until it answers or the row is set to
 `NONE`.
 
 The row adds a field to the settings block, `currentSense`, and
-`SETTINGS_VERSION` goes from 4 to 5. A block of another version is
-discarded whole and the compiled defaults load once, every setting
-included ([pin-claim.md](pin-claim.md#settings)). The shunt is a build
-constant, `INA219_SHUNT_MOHM`, 100; the address is `INA219_ADDR`, 0x40.
+`SETTINGS_VERSION` goes from 4 to 5. By [decision 14](#decisions) a
+whole block of version 2, 3 or 4 loads into version 5 with every field it
+has, validated, and `currentSense` at 0, `NONE`, whatever the version 4
+padding byte holds (`settingsCarriedOver()`); only a block of a version
+the firmware does not know is discarded whole and the compiled defaults
+load once, every setting included. The shunt is a
+build constant, `INA219_SHUNT_MOHM`, 100; the address is `INA219_ADDR`, 0x40.
 The list grows by one 50 px row ([menu.md](menu.md#settings)).
 
 ## Uses
@@ -659,8 +684,11 @@ A reading older than 250 ms, or none, reads `-- A`.
 
 ### The servo tester on the switched supply
 
-Decision 20 of [servo-tester.md](servo-tester.md#decisions), built here:
-with `SERVO SUPPLY` at `GP28` or `GP29`:
+Decision 20 of [servo-tester.md](servo-tester.md#decisions), built here in
+slices 3, 4 and 6
+([slice 3 as built](#slice-3-as-built), [slice 4 as
+built](#slice-4-as-built), [slice 6 as built](#slice-6-as-built)): with
+`SERVO SUPPLY` at `GP28` or `GP29`:
 
 | State | Supply |
 |---|---|
@@ -680,34 +708,44 @@ with `SERVO SUPPLY` at `GP28` or `GP29`:
   WIRE.`, joins them.
 - The start-up time of each switch-on shows on SET, `SUPPLY UP IN 40 MS`,
   and goes into the log.
-- With `SERVO SUPPLY` at `NONE` the servo tester switches nothing, as
+- With `SERVO SUPPLY` at `OWN` the servo tester switches nothing, as
   today, and the readout works on whatever supply runs through the
   sensor.
 
 ### Protection
 
-Rules on core1, in a pure module `src/supply_guard.{h,cpp}` fed each new
-reading and the time. The values are recommendations; the open question
-[Q4](#q4-protection-thresholds) asks the owner.
+Rules on core1, in a pure module `src/supply_guard.{h,cpp}` fed each pass's
+sample and the time; it judges each new reading once. Built in slice 4
+([slice 4 as built](#slice-4-as-built)).
 
-| Cut | Condition | Constant |
-|---|---|---|
-| Hard | one reading at or above 3.0 A, or clipped | `GUARD_HARD_MA` 3000 |
-| Stall | readings above 2.0 A for 1000 ms, none at or below it between | `GUARD_STALL_MA` 2000, `GUARD_STALL_MS` 1000 |
-| Collapse | after start-up, readings under 4.0 V for 1000 ms | `GUARD_LOW_MV` 4000, `GUARD_LOW_MS` 1000 |
-| Sensor lost | with CURRENT SENSE at INA219: the part offline, the bus stuck, or no reading for 250 ms | `SENSE_STALE_MS` 250 |
+The servo tester's protection is rcbench's limit run, the owner's decision
+of 2026-11-14 ([decision 13](#decisions)): readings above 1.0 A for 400 ms
+and a hard cut at 3.0 A, not the stall rule this section recommended; the
+hard cut acts at once in the KST and Hitec claims, during an operation too.
+A known consequence, which this section warned of: the rule trips on many
+servos held against a stop at MIN or MAX, which draw stall current there in
+normal use. Bench test B8 checks it on the owner's servos.
 
-The stall rule is rcbench's automatic test's (`SERVO_TEST_STALL_ABORT_MS`,
-1000 ms; STALL AT's default, 2.00 A). rcbench's limit run uses 3000 mA
+| Cut | Condition | Constant | Applies |
+|---|---|---|---|
+| Hard | one reading at or above 3.0 A, either sign, or clipped | `GUARD_HARD_MA` 3000 | the servo tester; the KST and Hitec claims while the supply is on |
+| Stall | readings above 1.0 A, either sign, for 400 ms, none at or below it between (decision 13; designed as 2.0 A for 1000 ms) | `GUARD_STALL_MA` 1000, `GUARD_STALL_MS` 400 | the servo tester |
+| Collapse | after the start-up reading, readings under 4.0 V for 1000 ms, none at or above it between | `GUARD_LOW_MV` 4000, `GUARD_LOW_MS` 1000 | the servo tester on the switched supply; the KST and Hitec claims while the supply is on |
+| Sensor lost | with CURRENT SENSE at INA219: the part not online, the bus stuck, or no reading for 250 ms | `SENSE_STALE_MS` 250 | the servo tester on the switched supply |
+
+The stall rule as designed was rcbench's automatic test's
+(`SERVO_TEST_STALL_ABORT_MS`, 1000 ms; STALL AT's default, 2.00 A).
+rcbench's limit run uses 3000 mA
 hard and 1000 mA for 400 ms (`servo_limrun.h`), for a search that drives
 into a stop by design; the servo tester drives to MIN and MAX, where a
 servo against its mechanical stop draws stall current in normal use, so
-the tester's stall rule is the longer one.
+the tester's stall rule was the longer one. The owner chose the limit run's
+values (decision 13).
 
 What the bench does on a cut, in the servo tester: the supply off at once,
 level 0 on the pins, the sweep ended, the chip `OVERCURRENT`, `STALL`,
 `LOW SUPPLY` or `NO SENSOR` in `C_MAGENTA`, latched as `STALLED` is, until
-the next HOLD TO START. With `SERVO SUPPLY` at `NONE` there is no supply
+the next HOLD TO START. With `SERVO SUPPLY` at `OWN` there is no supply
 to cut: the cut ends the pulses, and what the servo does without pulses is
 the servo's own.
 
@@ -718,8 +756,10 @@ take the supply's loss as they take a lapse today: `kst_session_power_cycled()`,
 or the Hitec job's off path. The stall rule does not apply there: a
 programmed servo is at rest. Pin-claim decision 1, which lets a running
 operation finish on a heartbeat lapse, is about the UI stopping, not about
-a fault on the supply; whether the owner wants the cut there too is part of
-[Q4](#q4-protection-thresholds).
+a fault on the supply. The owner decided on 2026-11-14 that the hard cut
+acts there too, during an operation ([decision 13](#decisions)). The
+collapse rule's place in the claims is this note's choice; the owner has
+not decided it.
 
 Detection takes up to about 60 ms from a step of current
 ([the reading on core1](#the-reading-on-core1)). The cuts protect the
@@ -764,12 +804,18 @@ command, the holding level that end's last hold, or the idle level before
 one is known; the threshold is rcbench's,
 max(20 mA, 3 × the idle noise). The SET screen's last line shows
 `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`, and `LATE` or `UNSEEN` per
-rcbench's rules. The time is an upper bound: late by up to one read and
-one cycle, 42.6 ms, plus the wait for the next PWM frame, 20 ms at 50 Hz.
-rcbench's PD mini readings were late by a median of 0.31 s; this meter
-lags by about a seventh of that.
+rcbench's rules. The time is an upper bound on when the current shows the
+arrival: late by up to one read and two cycles, 60.1 ms, plus the wait for
+the next PWM frame, 20 ms at 50 Hz. rcbench's PD mini readings were late by
+a median of 0.31 s; this meter lags by about a fifth of that. Built in slice 5
+([slice 5 as built](#slice-5-as-built)), which settles what this paragraph
+leaves open: when a step is timed, the holding level, the hold and the line's
+place.
 
 ### Logging to the card
+
+Built in slice 6 ([slice 6 as built](#slice-6-as-built)), which settles what
+this section leaves open and differs from it where the cache is used.
 
 A servo tester run with the supply on writes `LOGS/SRVnnnnn.CSV`, one row
 per reading:
@@ -803,7 +849,7 @@ changes:
   name.
 - **Part C.** The converter box reads `BOOST`, `5 V out`, `output
   disconnect`; its input box reads the input the owner chooses
-  ([Q1](#q1-the-converters-input-and-module)). An INA219 box sits on the
+  (one LiPo cell, [decision 10](#decisions)). An INA219 box sits on the
   VOUT wire: VIN+ from VOUT, VIN- to the servo's plus. A J3 stub with four
   wires runs to its header. The panel title names the servo tester too.
   The address comes from `INA219_ADDR` in `src/sense.h`, read by the
@@ -821,7 +867,7 @@ changes:
 |---|---|---|
 | INA219 module, 0.1 Ω shunt, address 0x40 | current and voltage of the servo supply | Powered from J3 pin 3, 3.3 V. The servo's current through the screw terminal only |
 | JST-SH 1.0 mm cable, 4 pins | connector J3, to the INA219 | A pigtail to the module's header; not a Qwiic cable |
-| Boost converter with EN and output disconnect, 5 V, 3 A | the switched servo supply, every servo tool | Its input as decided in Q1; a 10 kΩ pull-down from EN to ground |
+| Boost converter with EN and output disconnect, 5 V, 3 A | the switched servo supply, every servo tool | Its input one LiPo cell, 3.0 V to 4.2 V (decision 10); the module is not named ([Q1](#q1-the-converter-module)); a 10 kΩ pull-down from EN to ground |
 
 The Hitec classic row of the tool table names the boost converter instead
 of "a buck converter or a type with output disconnect".
@@ -852,7 +898,7 @@ rules do not depend on current.
 |---|---|---|
 | Board off, converter input connected | the pull-down holds EN low; the converter is off, its output disconnected | IN+ and IN- at 0 V; VS 0 V; SDA and SCL at 0 V |
 | Board off, a converter without a disconnect (does not qualify) | low | IN+ and IN- at VIN less a diode, up to about 4 V on one cell, with VS at 0 V. The common-mode rating, -0.3 V to 26 V, is stated without reference to VS (to confirm); bench test B3 checks the leakage |
-| Board off, a servo supply of the user's through the sensor, `SERVO SUPPLY` at `NONE` | not wired | IN+ and IN- at that supply's voltage with VS at 0 V, as above |
+| Board off, a servo supply of the user's through the sensor, `SERVO SUPPLY` at `OWN` | not wired | IN+ and IN- at that supply's voltage with VS at 0 V, as above |
 | Board on, J3 lead out | as designed | the readings stop; sensor lost |
 | Board in reset or BOOTSEL | undriven; the pull-down holds it low; BOOTSEL is bench test B6, as for kst-programming.md step 7 | not addressed |
 
@@ -873,14 +919,15 @@ boost's EN as it does to every EN on part C.
   held at ±32000 beyond /8's range, and limited by each PG setting's range;
   the bus code at IN-, the converter's VOUT less I × R, 4 mV a code;
   conversion timing from the configuration when the test gives the part a
-  clock, as rcbench's `fake_ina.h` does for the INA3221.
+  clock, as rcbench's `fake_ina.h` does for the INA3221, and with a current
+  function the shunt code as its mean over the cycle's shunt conversion.
 - Faults: absent (NACK); the next n transactions failing with a chosen
   code; SDA or SCL held low; a POR mid-run; another part at 0x40 that
   reads 4127h after its reset.
 - A converter and servo model, after `test/kst_supply_sim.h`: the enable
   pin's fake level, a start-up time, a disconnect or none, a current
   limit; a servo whose current is idle, moving or stalled from rcbench's
-  `servo_sim.{c,h}` once slice 5 copies it, a fixed table before.
+  `servo_sim.{c,h}`, copied in slice 5, a fixed table before.
 - `cst328.cpp` built in the host suite against the same fake bus, with a
   CST328 model that answers D000h, so a test runs touch and sensor on one
   bus. The scripted touch of `test/fakes.cpp` stays for the screen tests.
@@ -906,21 +953,23 @@ boost's EN as it does to every EN on part C.
 - The sample: `seq`, its age, 250 ms stale and not at 249 ms, across a
   `millis()` wrap.
 - SETTINGS: the CURRENT SENSE row by control id, `NONE` and `INA219`,
-  saved, reset; version 5; a version 4 block discarded; nothing sent to
-  0x40 with `NONE`.
+  saved, reset; version 5; a version 4 block carried over with
+  `currentSense` at `NONE` (decision 14); nothing sent to 0x40 with
+  `NONE`. Built in `runSettingsTests`.
 - The servo tester on the switched supply: the enable pin low at bind,
   high at START, low at STOP, at the trip and at every cut, released after
   the quiet wait; pulses only after 4.5 V; did not come on after 500 ms;
   not off after 2000 ms; the start-up time shown; START refused with the
   sensor declared and not found.
 - The cuts at their boundaries: 2999 mA and 3000 mA; a clipped reading;
-  stall at 999 ms and 1000 ms; collapse likewise; sensor lost at 250 ms;
-  a stuck bus and a silent touch controller each switching the supply
-  off; KST and Hitec: the hard cut during a write, then the loss path.
+  stall at 399 ms and 400 ms above 1.0 A (decision 13); collapse likewise;
+  sensor lost at 250 ms; a stuck bus and a silent touch controller each
+  switching the supply off; KST and Hitec: the hard cut during a write,
+  then the loss path.
 - `servo_move` through the job: an MG90S-like move from `servo_sim`
-  timed within one read and one cycle; UNSEEN with no current change.
-- The log: rows per reading, the file closed at each end, a full queue
-  counted.
+  timed within one read and two cycles; UNSEEN with no current change.
+- The log: rows per reading, the file closed at each end, a full ring
+  counted ([slice 6 as built](#slice-6-as-built)).
 - `tools/make_wiring.py --check`: J3's roles and part C from the sources.
 
 ### Bench tests
@@ -942,14 +991,17 @@ Only hardware settles these. Each names what it records.
   3.5 A, beyond the range.
 - B5. Bus voltage against a multimeter at 5 V, idle and at 2 A.
 - B6. The converter: VOUT with EN low at the lowest and the highest VIN
-  (the disconnect); EN from reset, in BOOTSEL and with the board off; the
+  (the disconnect); the EN threshold, rising and falling, at 3.0 V and
+  4.2 V VIN; EN from reset, in BOOTSEL and with the board off; the
   start-up time from EN high to 4.5 V on a scope and from the 1 ms poll;
   the decay after the switch-off with a servo and with none.
 - B7. The converter at 1 A, 2 A and 3 A: VOUT, its current limit, its
   temperature after 1000 ms of stall.
 - B8. The owner's servos: idle, moving and holding current at 5.0 V, and
-  stall at an end stop; the shunt's temperature after a 1000 ms stall.
-- B9. The cuts: a servo held at its stop (stall at 1000 ms); a 1.5 Ω load
+  stall at an end stop; the shunt's temperature after a 1000 ms stall;
+  whether the limit run of decision 13, above 1.0 A for 400 ms, trips at
+  MIN and MAX against a stop, as the design expects on many servos.
+- B9. The cuts: a servo held at its stop (stall at 400 ms); a 1.5 Ω load
   (3.3 A, hard cut); the time from the step to EN low on a scope.
 - B10. A move timed by `servo_move` against a scope on SIG and the
   current, on an MG90S, beside rcbench's record of the same servo.
@@ -970,7 +1022,7 @@ copies from rcbench are counted apart and are unchanged.
 | 3 | The servo tester on the switched supply, decision 20: SAFE off, START on, STOP and the trip off, the read-back, the start-up time, the stuck-bus and silent-touch cuts, the screen texts | about 350 | about 500 | | 1 |
 | 4 | Protection: `src/supply_guard.*`, the cuts in the servo job, the hard and collapse cuts in the KST and Hitec jobs, the chips and texts | about 300 | about 550 | | 3 |
 | 5 | Move timing: the move measurement in the servo job, the SET line | about 200 | about 250 | `servo_move.{c,h}`, `servo_sim.{c,h}`, `test_servo_move.c`, 1,535 lines | 3 |
-| 6 | The log: `LOGS/SRVnnnnn.CSV`, the write cache on for a SERVO claim with a log | about 300 | about 350 | | 3 |
+| 6 | The log: `LOGS/SRVnnnnn.CSV`, the write cache on for a SERVO claim with a log. Built: `src/servo_log.*`, 469 lines with their comments, and about 210 more for the screen's line, the numbering per kind and the blackbox log's stop; tests about 1,390 lines, most in `test/servo_log_fatfs.cpp` over FatFs and the cache ([slice 6 as built](#slice-6-as-built)) | about 300 | about 350 | | 3 |
 
 Each slice updates this note's status line, its row in
 [README.md](README.md), [STATUS.md](../../STATUS.md) and the README
@@ -980,87 +1032,839 @@ INA226 line under "Not in this section" with a link here. Slices 1 to 3
 make the hardware usable; 4 to 6 can merge in any order after 3. Bring-up,
 bench tests B1 to B13, follows slice 3 and is no slice of its own.
 
+### Slice 2 as built
+
+- **The marker.** The connector table in
+  `src/board_rp2350_touch_lcd_2_8.h` marks J3's GP7 and GP6 with `^`, the
+  sensor's connector, and J4's with `*`, "do not use". `role()` in
+  `tools/make_wiring.py` takes the connector: on J3, `SCL` and `SDA`
+  "INA219 SCL, 0x40" and "INA219 SDA, 0x40", 3V3 "3.3 V out: INA219 VCC",
+  GND "ground: INA219 GND only"; J4 pins 7 and 8 "shared I2C: do not use".
+- **The script's checks.** `sensor()` stops the script when `^` is on no
+  connector or on more than one; when that connector carries anything but
+  `PIN_I2C_SCL`, `PIN_I2C_SDA`, 3V3 and GND; when a pin on SCL or SDA
+  elsewhere lacks `*`; when a marker sits on a pin off the bus; and when
+  `INA219_ADDR` is a reserved address or one of the board header's
+  `*_I2C_ADDR`. `define()` reads hex values with a `u` suffix.
+- **Part C.** The converter box reads `BOOST`, `5 V out`, `output
+  disconnect`, and its input box `one LiPo cell of its own, 3.0 V to
+  4.2 V`. The INA219 box, dashed as optional, sits on the output wire:
+  VIN+ from VOUT, VIN- to the servo's plus, its address from `INA219_ADDR`,
+  its shunt from `INA219_SHUNT_MOHM`. A J3 stub to its right carries the
+  four wires to the module's header, and the servo's minus comes from the
+  ground rail round the stub, at the servo's right, so no wire crosses
+  another. The caption under the converter reads `Needed: 5 V, at least
+  3 A, output disconnect, EN high at 3.3 V`: requirements, not ratings,
+  since no module is named ([Q1](#q1-the-converter-module)). The notes
+  give the disconnect, a fuse at the cell, the cell charged off the bench,
+  the pull-down rule on one cell (at most 0.135 times a pull-up at 4.2 V),
+  the pigtail from J3, the screw terminal, and VOUT straight to the servo
+  without the sensor.
+- **Differing from the list above.** The panel title does not name the
+  servo tester, and the note "The servo tester does not switch it" stays:
+  the servo tester drives no enable pin until slice 3 (`src/ui_servo.cpp`,
+  the supply line of its strip), so a title naming it would show a wiring
+  that leaves its servo unpowered. Slice 3 changes both. The Setup row for
+  the converter names KST and Hitec programming for the same reason.
+  With slice 3 the panel title names the servo tester, the note says when
+  EN is high in each tool, and the Setup rows name the servo tester.
+- **Documents.** README.md: the pin sketch with `^`, the wiring table's
+  part C, the script's checks, "Switched supply (optional)" with the
+  boost, the cell, the sensor and the unnamed module, and a pointer from
+  "Current sensor" to part C. Wiki: Wiring and Verdrahtung (the connector
+  row, part C, the converter, the pull-down on one cell), Setup and
+  Einrichtung (the boost converter, the INA219 and the J3 cable; the Hitec
+  classic row names the boost).
+- **Tests.** `python3 tools/make_wiring.py --check`, in the Docs CI job,
+  fails when `docs/wiring.svg` differs from the drawing, and when
+  `sensor()` takes one of the nine changed sources of `SENSOR_MUTANTS`:
+  the marker on no connector and on two, GP0 in place of J3's GND, an unmarked
+  bus pin on J4, a marker off the bus, another SCL pin, and the address at
+  0x1A, 0x78 and 0x07. Nothing of it is on hardware: no INA219 and no boost
+  converter has been wired to the board.
+
+### Slice 3 as built
+
+The servo tester on the switched supply, decision 20 of
+[servo-tester.md](servo-tester.md#decisions) and decision 12 above. With
+`SERVO SUPPLY` at `OWN` nothing of it applies: the job binds no enable pin,
+GP28 and GP29 keep the state they had, and START, STOP and the trip act as
+before.
+
+- **The rules.** `servoPowerStep()` in `src/servo_job.cpp`, pure, after
+  `servoCoreStep()` on every pass; `ServoPower` holds the phase, Off,
+  Starting or On, the latched fault, the read-back and the start-up time.
+  The job drives the enable pin from the phase (`drivePower()`) before it
+  writes the pulses, so at a switch-off EN goes low in the same pass as
+  level 0 on the pins.
+- **Every path off.** Not RUNNING is Off: STOP on SERVO and on SET, the
+  heartbeat trip, the cuts below, a refused rebind, which leaves the job
+  SAFE. The release switches off at its first pass, waits for the last
+  pulse, then makes the enable pin an undriven input (`servoSupplyRelease()`)
+  before it lets SIG and AUX go. A bind the PWM refuses never binds the
+  enable pin, and core1_job.cpp releases no job it did not bind. Boot and
+  reset are unchanged: GP28 and GP29 come up with their pull-down on and
+  their input off (kst-programming.md, "Off state"), and
+  `servoSupplyInit()` makes the configured pin an undriven input; the
+  converter's pull-down holds EN low until the job's bind.
+- **On.** START switches on in the pass that takes it. The pulses stay at
+  level 0, both outputs held at CENTRE and a sweep ended, until the supply
+  is up: with a sensor, the first fresh reading taken more than
+  `SUPPLY_READ_LAG_MS`, 18 ms, after the switch-on at or above
+  `SUPPLY_ON_MIN_MV`, 4500 mV, whose age at the
+  switch-on is the start-up time (`ServoStatus::upMs`); without one,
+  `SUPPLY_START_MAX_MS`, 500 ms, after the switch-on. With a sensor and no
+  such reading by 500 ms the pulses end, the supply goes off and the fault
+  is NoStart.
+- **The cuts of this slice.** While RUNNING, the touch controller's last
+  answer 250 ms old or older (`touchAnsweredMs()`, judged by `escUiAlive()`,
+  the heartbeat's rule) or the sample's state `Stuck` end the pulses, latch
+  the trip and record the cause, TouchSilent or BusStuck. Both refuse START
+  while they last, and so does CURRENT SENSE at INA219 with the part not
+  online: absent, another part, not probed yet, or offline
+  (`servoPowerStartBlock()`).
+- **The read-back after a switch-off,** with a sensor: Off at the first
+  fresh reading taken more than 18 ms after the switch-off at or below
+  `SUPPLY_OFF_MAX_MV`, 1000 mV; NotOff at a reading above
+  `SUPPLY_NOT_OFF_MV`, 2500 mV, taken `SUPPLY_NOT_OFF_MS`, 2000 ms, or more
+  after it, until a reading at or below 1000 mV. A warning only. The
+  read-back ends with the claim: after BACK nothing reads it.
+- **The touch stamp.** `touchAnsweredMs()` in `src/touch.h`: `cst328.cpp`
+  stamps `millis()` at a presence check that reads CACAh and at every finger
+  read that completes, a volatile word core0 writes and core1 reads, as
+  `escHeartbeatMs()`.
+- **The screen.** The strip's second line, amber, names the phase:
+  `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`, `GP28 SUPPLY ON`,
+  `GP28 SUPPLY NOT OFF`; each at most 28 characters, 4 px clear of the
+  widest chip. While SAFE the dial band's two notes read, by priority:
+  the trip's cause in magenta over `HOLD TO START AGAIN.`
+  (`STOPPED: SCREEN STALLED`, `STOPPED: TOUCH DID NOT ANSWER`,
+  `STOPPED: TOUCH BUS STUCK`); `SUPPLY NOT UP: NO 4.5 V IN 500 MS.` over
+  `CHECK THE CONVERTER ON GP28.`; `START WAITS FOR THE CURRENT SENSOR.` over
+  `NONE IN CURRENT SENSE SKIPS IT.`, with HOLD TO START drawn disabled; else
+  `PULSES ON GP0 ARE THROTTLE TO AN ESC,` over
+  `AND ITS BEC WIRE GETS THE SUPPLY.` in amber. While the supply comes up
+  MIN, CENTRE, MAX, SWEEP and the dial are disabled and STOP acts. SET's
+  note band shows `SUPPLY UP IN 25 MS`, dim, on its second line when that
+  line is free, from the last switch-on until START or a new visit.
+- **Differing from the design above.** The dial band has room for two
+  lines above the arc, not three: `THE BENCH POWERS THE SERVO AT START.`
+  is said by the strip's `GP28 SUPPLY ON AT START`, the throttle warning and
+  the KST search's BEC warning share the two lines, and
+  `THE SERVO MOVES TO CENTRE AT START.` is left out with the switch.
+  [menu-b.md](menu-b.md#decisions) decision 12's `GP28 SUPPLY STAYS OFF
+  HERE.` is replaced by the phase, as the line is false with the switch; that
+  decision carries a revision note. The start-up time does not go into a log;
+  the log is slice 6. The sensor-lost cut and its `NO SENSOR` chip are slice 4's
+  ([slice 4 as built](#slice-4-as-built)).
+- **Choices the note does not settle.** A supply that did not come up is no
+  trip: the chip reads SAFE, and the note stays until START or a new visit.
+  The touch and bus cuts apply with the switch only, as the table of
+  [safety and interlocks](#safety-and-interlocks) is headed; with `OWN`
+  neither stops the pulses. `SenseSample::takenMs` is when core0 read the
+  result, not when the INA219 measured it: the bus sample of a reading is
+  up to one conversion cycle, 17.55 ms, older than the read. A reading
+  therefore counts for the read-back only when taken more than
+  `SUPPLY_READ_LAG_MS`, 18 ms, after the switch command, so the output's
+  voltage from before the command never ends a start or a switch-off.
+  Unlike KST's close rule there is no 2000 ms off wait before DShot: the
+  table above gives BACK the quiet wait alone.
+- **Tests.** In `test/test_servo.cpp`: the rules alone
+  (`testPowerOwn()`, `testPowerStart()`, `testPowerNoStart()`,
+  `testPowerOff()`, `testPowerStartBlock()`, `testPowerReadBack()`), each
+  boundary at 499 ms and 500 ms, 4499 mV and 4500 mV, 1000 mV and 1001 mV,
+  2500 mV and 2501 mV, 1999 ms and 2000 ms, a reading taken 18 ms and 19 ms
+  after the switch command, a stale reading, a wrap; the job
+  through the job table on the fake pads (`testJobSupply()`,
+  `testJobSupplySensed()`): GP28 or GP29 low at the bind and never an output
+  while high, high at START, low at STOP, at STOP while starting, at the
+  heartbeat trip at 250 ms and not at 249 ms, at a silent touch controller
+  at 250 ms, at a stuck bus from SDA held, at BACK's first pass and at BACK
+  while the supply comes up, an undriven input after the quiet wait and
+  after DShot's restart; the order of the writes from the pin fake's
+  stamps: EN low before level 0 at STOP, the enable pin an input before SIG
+  leaves PWM; undriven after a
+  refused bind, low across a profile rebind; GP28 and GP29 untouched with
+  `OWN`; the screens (`testSupplyLineAndHint()`, `testSupplyScreenFaults()`)
+  with the fake INA219 following the enable pin, STOP replaced by HOLD TO
+  START at a cut while the supply comes up, and the notes of a START refused
+  by a stuck bus or a silent touch controller. In `test/test_sense.cpp`
+  the touch stamp. 83 mutants of `src/servo_job.cpp`, `src/ui_servo.cpp`
+  and `src/cst328.cpp`: 79 fail the suite, 4 are equivalent: the clamp of
+  the start-up time, reached only after a core1 stall of 65 s; the status's
+  start-up time before the first bind, which no screen shows unswitched;
+  `upNote()`'s switch test, since the time is none whenever the switch is
+  off but on the leave page; the dial's key of the notes' texts, whose every
+  reachable change also changes RUNNING, the trip or a colour. Nothing of it
+  is on hardware: the
+  enable pin's reset state and BOOTSEL, the start-up time and the decay are
+  bench test B6, the stuck bus B3, the trip with the supply on B11.
+
+### Slice 4 as built
+
+The cuts of [protection](#protection) and the sensor-lost cut of
+[safety and interlocks](#safety-and-interlocks), with CURRENT SENSE at
+`INA219`. With `NONE` nothing of it applies.
+
+- **The rules.** `supplyGuardStep()` in `src/supply_guard.cpp`, pure, takes
+  each pass's `SenseSample` and the time and returns the cut. It takes a
+  reading once: one whose `seq` it has not seen and that `senseFresh()`
+  calls fresh; the sample current at the arm (`supplyGuardArm()`) never
+  counts. The hard cut is a reading at or above `GUARD_HARD_MA`, 3000 mA,
+  either sign, or one with `SENSE_FLAG_CLIPPED`. The stall cut is a reading
+  above `GUARD_STALL_MA`, 1000 mA, either sign, taken `GUARD_STALL_MS`,
+  400 ms, or more after the first of a run of such readings. The collapse
+  cut is a reading under `GUARD_LOW_MV`, 4000 mV, taken `GUARD_LOW_MS`,
+  1000 ms, or more after the first of such a run, counted from the start-up
+  reading on: the first fresh reading taken more than `SUPPLY_READ_LAG_MS`,
+  18 ms, after the arm at or above `SUPPLY_ON_MIN_MV`, 4500 mV, the
+  read-back's rule (`supplyReadingAfter()`; both constants are in
+  `src/supply_guard.h`, which `src/servo_job.h` includes). A reading at or below
+  the stall's threshold ends that run, one at or above 4000 mV the collapse's.
+  The sensor-lost cut is a state but `Online`, or `SENSE_STALE_MS`, 250 ms,
+  since the later of the arm and the newest reading's time. In one pass:
+  lost, then hard, stall and collapse.
+- **The servo tester.** `servoPowerStep()` arms the guard at the first pass
+  RUNNING with a sensor declared, the switch-on's pass with the switch, and
+  disarms it at the first pass not RUNNING. With the switch, a silent touch
+  controller and a stuck bus come first, then every rule of the guard; with
+  `OWN`, the hard and the stall cut only. A cut ends the pulses and the
+  sweep, latches the trip and records `ServoPowerFault::Overcurrent`,
+  `Stall`, `LowSupply` or `NoSensor`; with the switch the supply goes off in
+  the same pass, and `drivePower()` takes the enable pin low before
+  `output()` writes level 0, as at STOP. START clears the fault, a rebind
+  keeps it, with `OWN` too, and a new screen session drops it.
+- **The KST and Hitec jobs.** `supplySet()` arms the guard at each
+  switch-on and disarms it at each switch-off; `guardPass()` runs first in
+  every pass and in each pass of the release, before a command is taken,
+  with the hard and the collapse rule. A cut switches the supply off in that
+  pass, latches `KstStatus::cut` or `HitecStatus::cut`, and refuses every
+  switch-on until a new search or entry (RETRY) or a new bind. KST:
+  `kst_session_power_cycled()`, as a lapse; a search is stopped
+  (`kstSeekStop()`); a search or an operation finishes the frame on the
+  wire, since `kst_session_abort()` never cuts one and the line driver has
+  no cut; then SearchEnded, at once when idle in the mode or in REBOOT's on
+  wait. The stall's flags of the screen are kept as at a lapse
+  (`keepStallFlags()`). Hitec: `hitecLineAbort()` cuts the transaction on
+  the line, a write's too and the write a leave lets finish; once the line
+  driver hands it back, in the same pass with the host fake, the session is
+  initialised again and the job is EntryEnded. The close rule counts from the
+  cut's switch-off.
+- **The screens.** SERVO TESTER: the chip `OVERCURRENT`, `STALL`,
+  `LOW SUPPLY` or `NO SENSOR` in `C_MAGENTA` in place of `STALLED`, and over
+  `HOLD TO START AGAIN.` in the dial band, magenta,
+  `STOPPED: CURRENT 3.0 A OR MORE`, `STOPPED: OVER 1.0 A FOR 400 MS`,
+  `STOPPED: UNDER 4.0 V FOR 1000 MS` or `CURRENT SENSOR LOST: SUPPLY OFF.`;
+  after any trip, `START WAITS FOR THE CURRENT SENSOR.` while the part is
+  not online. KST SERVO and HITEC SERVO, on the view with RETRY: the strip
+  `SIG GP0  SUPPLY OFF`, then in amber, wrapped at 37 characters,
+  `THE SERVO DREW 3.0 A OR MORE, SO THE BENCH SWITCHED ITS SUPPLY OFF.` or
+  `THE SUPPLY WAS UNDER 4.0 V FOR 1 S, SO THE BENCH SWITCHED IT OFF.`, and
+  `RETRY POWERS IT UP AND READS IT AGAIN.`; KST adds the stalled screen's
+  note of a write in doubt.
+- **Choices the note does not settle.**
+  - Either sign: the cuts read the current's size, so a reversed sensor
+    still cuts.
+  - With `OWN` the servo tester applies the hard and the stall cut: the
+    bench knows neither the user's supply voltage nor whether its current
+    runs through the sensor, and START is not refused for a missing sensor
+    there. The KST and Hitec claims apply the cuts with the switch only:
+    with `OWN` the bench cannot take the current away, and a cut write
+    would leave the servo in doubt for nothing.
+  - The collapse rule applies in the KST and Hitec claims, during an
+    operation too, as the protection section proposes. A supply that never
+    reaches 4.5 V arms no collapse rule; in the servo tester it is NoStart at
+    500 ms.
+  - The hard and the stall cut apply while the supply comes up too.
+  - A run of the stall or the collapse rule starts again at a reading taken
+    250 ms or more after the one before it: that reading had gone stale, so
+    the time between is not known to be above or below the threshold.
+  - The sensor-lost cut counts from the arm at the earliest, so a gap
+    before START cuts nothing at START, and with a signed difference, since
+    core0 can take a reading in the millisecond after core1 read its clock.
+    `senseFresh()` calls such a reading stale until the next pass, so it is
+    taken one pass late, never lost.
+  - The KST and Hitec texts are amber, as their stall texts; the servo
+    tester's chips are magenta, as the note gives.
+  - Beside a chip wider than RUNNING, `OVERCURRENT` (from x 155 px),
+    `LOW SUPPLY` (x 161 px) or `NO SENSOR` (x 167 px), the caption ends 4 px
+    before the chip: by its role alone, `SIG  50 HZ  1000-2000 US`, and at
+    333 Hz with one servo the travel goes too, `SIG  333 HZ`, decision 14's rule
+    of [menu-b.md](menu-b.md#decisions). At SAFE, RUNNING and STALLED the
+    caption is menu-b.md's. The strip's second line, at most
+    `GP29 SUPPLY NOT OFF` or `GP28 SUPPLY ON AT START` after a cut, ends by
+    x 145 px, clear of the chip.
+  - With `OWN`, while RUNNING with the declared sensor not online, the dial
+    band's second line reads `NO SENSOR READING: NO CURRENT CUTS.`, dim:
+    the hard and the stall cut get no reading, and `OWN` has no
+    sensor-lost cut. The KST and Hitec claims have no sensor-lost cut
+    either; there the strip's current reads `-- A`, and the wiki says that
+    the cuts then do not act.
+  - The chip's redraw key holds the fault: START and a new cut can both
+    fall between two screen frames, so the screen sees one trip follow
+    another without RUNNING between them.
+- **The Hitec job's stack.** CI's "Hitec job stack on core1" reads the call
+  graphs of `src/sense.cpp` and `src/supply_guard.cpp` too, 11 files.
+  The deepest chain from the job's three entry points is 1184 bytes of the
+  1792 allowed, in the strict build of this slice.
+- **Tests.** `test/test_supply_guard.cpp` (`runSupplyGuardTests`): each
+  rule at its boundary, 2999.999 and 3000 mA of either sign, a clipped
+  reading, 1000 and 1000.1 mA, 399 and 400 ms, 4499 and 4500 mV and 18 and
+  19 ms for the start-up reading, 3999 and 4000 mV, 999 and 1000 ms, 249 and
+  250 ms without a reading, a gap of 249 and 250 ms, a stale reading, a
+  reading seen twice, the reading at the arm, a reading from the next
+  millisecond, the clock's wrap. `test_servo.cpp`: the cuts in
+  `servoPowerStep()` with the switch and with `OWN`, the order behind touch
+  and the stuck bus; the job through the job table on the fake INA219, the
+  enable pin low and SIG at level 0 in the pass that reads 3.0 A and in that
+  order, 2.99 A, 3.6 A clipped, -3.6 A, the stall at the 17th reading of
+  1.2 A and none at 1.0 A, the collapse at the 41st reading of 3.9 V and none
+  at 4.0 V, a failed read and two failed reads in a row without a cut, no
+  reading for 249 and 250 ms, the part unplugged, `OWN`; the screen's chips,
+  notes and caption. `test_kst_job.cpp` and `test_hitec_job.cpp`: the hard
+  cut during a read, a write, a search's entry, REBOOT's on wait, a leave's
+  write and the release, the collapse at 1000 ms, 2.9 A for 1 s without a
+  cut, no switch-on until RETRY, the close 2000 ms after the cut, nothing
+  with `NONE`; on Hitec the transaction on the line cut.
+  `test_kst_ui.cpp` and `test_hitec_ui.cpp`: both texts and RETRY. KST with
+  `fakeKstFrameHold()`, which holds a frame on the wire: a cut while an
+  entry frame is out, alone and with BACK in the same pass, the supply never
+  on again; Hitec with `fakeHitecCutDelay()`, a cut transaction handed back
+  late. The servo screen: START and a cut between two frames, the chip
+  `OVERCURRENT` after `STALL`; the dim note with `OWN` and the sensor gone.
+  Mutation check: 137 mutants of `src/supply_guard.cpp`,
+  `src/servo_job.cpp`, `src/ui_servo.cpp`, `src/kst_job.cpp`,
+  `src/hitec_job.cpp`, `src/ui_kst.cpp` and `src/ui_hitec.cpp` as they
+  stand; 130 fail the suite and 7 do not. Equivalent: `>=` for `>` where
+  the sensor-lost rule takes a reading's time as its reference, since a
+  reading in the arm's millisecond gives the arm's time either way; `-ua`
+  for `-(int64_t)ua` in the current's size, which differs only at
+  `INT32_MIN`, undefined in C++ and the same value with GCC; Hitec's refusal
+  of a switch-on while a cut is latched, since only an entry's POWER step
+  switches on, and Enter clears the latch first. Not killed: KST's leave not
+  taking over a cut's drain, which differs only after a cut in REBOOT's
+  entry, whose frame ends long before the close 2000 ms later; Hitec's leave
+  stepping the session before it polls a cut transaction back, which the
+  session ends as cut either way in the fake; KST's note of a write in doubt
+  after a cut, which no screen test reaches; the servo screen's `OWN` note
+  shown with the switch too, which differs for at most one frame, since the
+  sensor-lost cut ends RUNNING in the pass the part leaves `Online`. KST's
+  refusal of a switch-on while a cut is latched is not equivalent: a leave
+  that drains a cut search steps it, and `syncSeek()` asks for the supply
+  the stopped search still wants; the test with `fakeKstFrameHold()` kills
+  it. Five mutants of the first run hit code that is not in the files, the
+  power cycle of a cut search and four paths of the Hitec cut in a leave;
+  they are not among the 137.
+- **Not on hardware.** No INA219 and no converter has been on the board:
+  the time from a step of current to EN low, about 60 ms computed, is bench
+  test B9; whether the stall cut trips at MIN and MAX on the owner's servos
+  is B8; the voltage at a stall, B13. Whether a Hitec servo takes a cut
+  transaction without harm, and how long the KST line driver's last frame
+  runs into an unpowered servo, are not measured.
+
+### Slice 5 as built
+
+The move timing of [rcbench's tests on current
+only](#rcbenchs-tests-on-current-only), "Move timing in the servo tester",
+with CURRENT SENSE at `INA219`. With `NONE` nothing of it applies: no step is
+timed and SET shows what it showed before.
+
+- **The copies.** rcbench's `servo_move.{c,h}` and `servo_sim.{c,h}` and
+  its test `test_servo_move.c`, 18 cases, at rcbench commit 5ef42efd,
+  unchanged, in `lib/rcbench/shared/servo/` and `test/rcbench/`, listed in
+  `lib/rcbench/README.md`. `servo_move.c` is built in the firmware
+  (`src/servo.cmake`); `servo_sim.c` in the host suite only.
+- **The rules.** `moveTimerStep()` in `src/move_timer.cpp`, pure, runs in
+  every pass of the servo job after `servoPowerStep()`, so it sees the
+  pulses every rule has decided; it reads the pass's `SenseSample` and the
+  pulses, and writes only its own state, published as `ServoStatus::move`.
+  A step is a Position command with `ServoCmd::step`, which MIN, CENTRE and
+  MAX set on SERVO TESTER (`servoStepCmd()`). It is timed when it changes
+  the pulses at SPEED 100 %, no move is under way, and the servo has been at
+  rest for `MOVE_REST_MS`, 500 ms: at rest from the reading that showed the
+  last timed move's arrival, from the end of its window, the command plus
+  3061 ms, when it went late or unseen, and otherwise
+  `servo_move_window_ms(MOVE_LAG_MS)`, 3061 ms, after any change of the
+  pulses: the pulses' start at START, a drag, a
+  sweep, a step at a lower SPEED, a step not timed. The level before is the
+  mean of the readings taken in the 500 ms before the command, at least
+  `MOVE_MIN_READINGS`, 10, of them, kept in a ring of 32; the threshold is
+  `servo_move_threshold_a()` of their standard deviation. The move is
+  rcbench's: `servo_move_begin()` with the command at the pass that takes
+  it, `filter_n` 1, `settle_n` 2, `SERVO_MOVE_BAND_A`, and a window of
+  `servo_move_window_ms(MOVE_LAG_MS)`, `MOVE_LAG_MS` 61 ms, one read of
+  25 ms and two cycles of 17.55 ms rounded up: a conversion that straddles
+  the arrival averages moving and holding current, the first one wholly
+  after it ends up to 17.55 and 17.02 ms later, and core0 reads it up to
+  25 ms after that; each new fresh reading of an
+  online sensor goes to `servo_move_sample()` at its `takenMs`, clipped
+  readings as `SERVO_MOVE_CLIP_HIGH` or `SERVO_MOVE_CLIP_LOW` at the
+  range's end.
+- **The holding level.** Each timed step stores its level before as the
+  holding level of the pulses it leaves, keyed by SIG's and AUX's pulse, in
+  9 slots, the oldest replaced. The destination's holding level is the one
+  stored for its pulses this run; while none is, the idle level, the level
+  before the last timed step that left the pulses the run started with,
+  CENTRE; while that is not known either, the level before. START forgets
+  them.
+- **The figures.** MOVE is `end_t` less the command: the reading back at
+  the level, or the first of the two of the settled rule. PEAK is
+  `servo_move_t::peak` when the move has valued readings, none clipped,
+  and is 0 mA or more. HOLD is the mean of the readings taken in the
+  `MOVE_HOLD_MS`, 500 ms, after the reading that ended the move, at least
+  10 of them, none clipped, 0 mA or more; it is closed by the first reading
+  500 ms or more after. A late move has a PEAK and no HOLD; an unseen one
+  neither.
+- **Void.** A step not at rest, with fewer than 10 readings, at a lower
+  SPEED, or with a level before below -20 mA (`MOVE_REVERSED_MA`, rcbench's
+  `SERVO_TEST_NEG_IDLE_A`, a reversed sensor) is not timed. A move under way
+  is void when the pulses end (STOP, a trip, a cut, BACK's first pass), when
+  another command changes them, and when the sensor leaves `Online` or no
+  reading comes for `SENSE_STALE_MS`, 250 ms, counted from the command at
+  the earliest; a hold under way is then not shown. A bind voids a move
+  under way; a profile's rebind and a new screen session drop the result.
+  With CURRENT SENSE at `NONE` no step is timed and a step leaves the result
+  as it is; the stale rule voids a move under way as lost and does not show
+  a hold under way, because `NONE` is not `Online`. The mode changes at boot
+  (`senseInit()`) and in SETTINGS (`applyLive()` in `src/ui_settings.cpp`).
+  SETTINGS opens only after SERVO is left, and the job's release passes no
+  pulses (`servoJobRelease()`), which voids a move as ended; opening SERVO
+  starts a new session (`servoJobNewSession()`). The case is not reachable
+  through the screens; the stale rule covers it.
+- **The screen.** SERVO SET's note band, second line, in `C_DIM`, when the
+  line is free (`moveNote()`): `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`,
+  `MOVE LATE  ...`, `MOVE UNSEEN  ...`, and `--` for each figure not shown,
+  so a step not timed or void reads `MOVE -- S  PEAK -- A  HOLD -- A`
+  (`moveTimerText()`). The time and the currents are rounded to 10 ms and
+  10 mA. At most 37 characters, 221 px at scale 1 from x 8, ending at x 228;
+  a `static_assert` in `src/ui_servo.cpp` holds it inside the 8 px margin.
+  Before the first step since the pulses started the line shows the
+  start-up time, `SUPPLY UP IN 25 MS`; a two-line note takes the line from
+  both. The result stays while SAFE, and goes at the pulses' start, at a
+  profile's rebind and with a new screen session.
+- **Choices the note does not settle.**
+  - "The SET screen's last line" is the note band's second line: SET has no
+    other free line, and menu-b.md's layout table fixes the rest.
+  - The holding level "of that end's last hold" is the level before the
+    last timed step that left the position: the readings of the 500 ms
+    before that step, taken while the servo held there. The HOLD shown is a
+    separate figure, the 500 ms after the arrival. "The idle level" is
+    CENTRE's, as rcbench's idle is the servo at rest at its centre.
+  - A first move to an end where the servo pushes on a stop, harder than at
+    CENTRE, is judged against CENTRE's level and reads LATE; rcbench's
+    automatic test places both ends first for this reason. The next move to
+    that end is timed.
+  - The rest after an untimed change is the window, 3061 ms: the bench
+    cannot see when an untimed move ends, and servo_move times no move
+    longer than that.
+  - The time is when the current shows the arrival, not when the horn
+    stops: a servo that eases its drive near the target can fall to its
+    holding current while the horn still creeps.
+  - A move ends only at a reading, never by the clock: core0 can take a
+    reading in the millisecond after core1 read its clock, and a tick at
+    that time could end a move whose arriving reading is still to come.
+    Without readings the 250 ms rule ends it.
+  - Two servos: the position is the pair of pulses, and the current their
+    sum, so a step of A with B held is timed from the total.
+  - A negative PEAK or HOLD reads `--`: it would be a reversed sensor or an
+    offset, and `-0.05 A` would not fit the line's 37 characters.
+- **Tests.** `test/test_move_timer.cpp` (`runMoveTimerTests`): the rest at
+  3560 and 3561 ms after a change, a step during a move, a step at a lower
+  SPEED; 9 and 10 readings, a reading 500 and 501 ms old; -21 and -20 mA;
+  the threshold from the noise; the ring's newest 32; AUX's pulse; arrival,
+  the peak, the hold closing at the reading 500 ms after the arrival, 9 and
+  10 hold readings, a clipped reading and a negative hold; a first visit to a
+  pushed end late, the level of the step that left it, the settled rule;
+  the idle level, the levels' slots and their eviction, START forgetting
+  them; late and unseen at 3060 and 3061 ms; void by a change, STOP, the
+  sensor offline, 249 and 250 ms without a reading from the last reading and
+  from the command; CURRENT SENSE at `NONE`; clipped readings high and low;
+  a negative peak; readings seen twice, stale, not online, and taken 8 ms
+  before core1's pass, which count at their time taken; a bind; the line's
+  texts, rounding and width; a hold closed by the reading taken 502 ms
+  after the arrival, passed 8 ms later, which a hold counted from core1's
+  pass does not close; NONE during a move, void as lost with dashes.
+  `test/test_servo.cpp`: `testJobMoveTiming()` through the job table on the
+  fake INA219 on its conversion clock, each reading the mean of rcbench's
+  servo model over the 17.02 ms shunt conversion, 0.95 A moving at 1.2 µs a
+  ms and 0.12 A at rest, driven by SIG's pulse from the core1 pass that
+  changes it (the PWM frame's wait is not modelled): a step 475 ms after
+  START not timed, CENTRE from MAX and MIN from CENTRE timed between 433 ms
+  and 478 ms, 16 ms to `MOVE_LAG_MS` after the model's 417 ms, since the
+  arrival reads near the holding level only in a conversion of at most 6 %
+  moving current (450 ms in the run), the peak and the hold within the
+  model's noise, a step at a lower SPEED, unseen at the first reading
+  3061 ms or more after the command, the stall cut at its 17th reading of
+  1.2 A during a timed move, as without one, START dropping the result, the
+  release, a step of AUX alone, a profile's rebind dropping the result;
+  `testMoveScreen()`, on the same model: SET's line through the screen,
+  the start-up time before the first step, the line while running and kept
+  while SAFE, gone at a profile's rebind, under a two-line note, gone at
+  START, dashes for a step too soon; `testMoveScreenNone()`: with CURRENT
+  SENSE at `NONE` two steps leave SET's second line free, no move and no
+  dashes; the
+  frame `shot_servo_set_move.ppm`. rcbench's `test_servo_move.c` runs as a
+  C11 program. Mutation check: 100 mutants of `src/move_timer.cpp`, the
+  timing's lines of `src/servo_job.cpp` and of `src/ui_servo.cpp`, run one
+  at a time against the whole suite: each use of a reading's `takenMs`
+  replaced by the pass's time (the ring, the move's sample, `finish()`, the
+  hold), `sensed` dropped from the slewed-step test and from the step test,
+  and the stale rule without its `Online` test, which is what voids a move
+  at `NONE`; 98 fail the suite, 2 do not, both equivalent: #43, `< 0` for
+  `<= 0` where the hold skips a reading taken in the arrival's millisecond,
+  which core0's one read a frame never gives; #61, `>= 0` for `> 0` where
+  the stale rule takes the later of the command and the newest reading, the
+  same time either way when they are equal.
+- **Not on hardware.** No INA219 and no converter has been on the board:
+  how far the time lies from the horn's arrival, against a scope on SIG and
+  on the current beside rcbench's record of an MG90S, is bench test B10;
+  the owner's servos' moving and holding currents, and whether a hold at an
+  end reads above its threshold, B8. `MOVE_MIN_READINGS`, the 500 ms of rest
+  and hold and the 20 mA floor and 50 mA band are rcbench's or this slice's
+  choices, not measured on this meter.
+
+### Slice 6 as built
+
+The log of [logging to the card](#logging-to-the-card), with CURRENT SENSE at
+`INA219` and a card mounted. With `NONE`, or without a card, nothing of it
+applies: no file, no cache, and a running blackbox log goes on.
+
+- **The module.** `src/servo_log.{h,cpp}`, core0 only. HOLD TO START on
+  SERVO TESTER calls `servoLogStart()` in one frame, then sends the Start
+  command in the next and hands its seq to `servoLogFollow()`; BACK calls
+  `servoLogBack()`. `servoLogPoll()` runs on every pass of `loop()` after
+  `cardCachePoll()`. Core1 calls nothing of it: the job, the cuts and the
+  move timing are as slice 5 left them.
+- **The columns, units and rate.** The note's header,
+  `ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags`, as the file's first
+  line, and one row per new reading (`SenseSample::seq`), 40 a second at
+  the UI frame of 25 ms: `ms` the reading's `takenMs` less the open's
+  `millis()`; the pulses `ServoStatus::outUs`, 0 for level 0 or no second
+  servo; `current_ma` the reading rounded to the nearest mA, half away from
+  zero, signed; `bus_mv` as read; `flags` `SenseSample::flags`, 1 clipped,
+  2 the first reading after a reset. A row is about 27 bytes in a run
+  (`123456,1500,1480,420,5020,0`), at most 42; about 1.1 kB/s. The last line
+  is `# end=STOP rows=2400 dropped=0 up_ms=40`: how the run ended, the
+  readings taken while the log wrote, those the ring had no room for, and
+  the supply's start-up time, the place "goes into the log" of
+  [the servo tester on the switched supply](#the-servo-tester-on-the-switched-supply)
+  takes; `up_ms=-` without one.
+- **The numbering.** Separate from `LOGnnnnn.BFL`, as the blackbox log
+  numbers its own: one above the highest `SRVnnnnn.CSV` in `LOGS/`, in any
+  letter case, read once per mount and kept between starts
+  (`sdLogNameNumberOf()` with `SD_LOG_KIND_SRV`, `sdLogOpenNext()` with a
+  kind, its own `SdLogNextCache`); created new, never over a file; none after
+  `SRV99999.CSV`. Neither kind moves the other's number.
+- **When it starts and ends.** HOLD TO START with a log to open
+  (`servoLogWanted()`: CURRENT SENSE at INA219 and a card mounted) does not send
+  the Start in its frame: that frame draws `PREPARING THE LOG...` over `THE
+  SERVO STARTS AFTER IT.`, dim, in the dial band, where SAFE's notes are, and
+  the frame is flushed to the panel. The next frame opens the log
+  (`servoLogStart()`), and the frame after it sends the Start
+  (`servoLogFollow()`). Each frame stamps the heartbeat and reads touch at its
+  start (`uiTick()`), so the Start reaches core1 with both fresh however long
+  the open held core0, and core1 judges it by the 250 ms rules as any other.
+  Without a log to open the Start goes out in the hold's frame, as before. BACK
+  between the open and the Start sends no Start and gives the log the job's last
+  seq, so it ends at once.
+- **The open.** The cache goes on (`cardCacheBegin(SdLogEnd::ByServo)`), which
+  first stops a running blackbox log; a mounted card on which the cache does not
+  start is `NO LOG: THE CARD DID NOT ANSWER`. The volume's serial number is read
+  once more and kept (`cardVolumeSerial()`), for the removal of an open given
+  up; a card that does not give it is OpenFailed, before any file exists. The
+  file is created, then its reserve allocated in one contiguous run
+  (f_expand()): `SERVO_LOG_PREALLOC_BYTES`, 4 MiB, about an hour of rows, 16
+  blocks of FAT written in each copy on FAT32 with clusters of 4 KiB; or
+  `SERVO_LOG_RESERVE_MIN_BYTES`, 64 KiB, on a card without the large run. The
+  free count, from FSINFO on FAT32, comes first: less than 64 KiB free is no log
+  at once, less than 4 MiB skips the large try, so a full card costs no search
+  of the FAT; a card with the room in pieces can cost two. An answer of
+  f_expand() but FR_DENIED is a card fault, OpenFailed. The reserve is mapped
+  for FatFs's fast seek (a cluster link map table of 8 words,
+  `f_lseek(CREATE_LINKMAP)`), the file synced, and the cache flushed one step at
+  a time until every block of the open is on the card: the FAT's blocks, FSINFO
+  and the entry with the reserve's size, before the Start. An open that reaches
+  `SERVO_LOG_OPEN_MAX_MS`, 2000 ms, is given up: `NO LOG: CARD TOO SLOW`, and
+  the run starts without a log. The limit is checked before the first search of
+  the FAT, between the 4 MiB try and the 64 KiB try, and at each step of the
+  flush. A single FatFs call is not cut short, and a running blackbox log's
+  stop, before the open, is not counted. An open given up, too slow or failed,
+  makes no further card call: its file stays open in FatFs, its queued blocks go
+  out one flush step a pass during the run, without a wait, and at the run's end
+  the queue is flushed, then the file is closed and removed and the cache turned
+  off. The swap check runs once a batch and stays passed until the queue
+  empties, so the end asks for a fresh check first (`cardCacheRecheck()`): the
+  next block waits for it, and a card swapped since the last check fails the
+  flush, which drops the queue and mounts the card again, with no close and no
+  removal. The removal needs the open's card: the serial number is read after
+  the flush, and on another card nothing is closed or removed there; the card
+  is mounted again, and the open's file stays on its own card, as after a power
+  loss. A file of the same number on the other card is that card's own. A
+  serial number that does not read, the flush done, removes nothing and mounts
+  nothing: the file is closed and stays on the card with the size the open
+  synced, a reserve and no rows. That holds for a read error that leaves the
+  card ready, a CRC or frame error; a fatal one marks the card not ready
+  (STA_NOINIT) and FatFs refuses the close. The host model fails the read once
+  without the fatal mark; the fatal case is not tested.
+- **The end.** It ends at the first pass after the Start's seq was given in
+  which the job has taken that Start, or a later command, and is not RUNNING
+  (`servoLogRunOver()`): STOP on SERVO or SET, BACK, a cut, a trip, a supply
+  that did not come up, or a START core1 refused. Core1 publishes not RUNNING in
+  the pass that takes the enable pin low, so the close runs with the supply off
+  and the pulses at level 0: fast seek off, the rest of the ring and the end
+  line, which may grow the file past the reserve, f_truncate(), f_close(), the
+  cache's flush, which may wait for the card, and the cache off. `end=` names a
+  trip by its cause first, then a supply that did not come up, then BACK, else
+  STOP.
+- **Every card access of core0 during the run.** Two calls a pass, after the
+  UI's frame:
+  - `cardCachePoll()`: one step of the flush (sd-write-cache.md, "The flush
+    step"), which never waits for the card: the swap check's read started
+    (CMD17), or one look at the receiver, a block's transfer, about 0.1 ms at 10
+    MHz, or one look at DAT0 and CMD13. The check's read is collected in a later
+    pass, so the 100 ms the SD specification allows a read is spent between
+    passes, not in one.
+  - `servoLogPoll()`: at most one f_write() of one whole 512-byte block, only
+    while the cache reads Idle, nothing queued and nothing in flight, and only
+    inside the reserve (`f_tell()` plus 512 within it). FatFs then takes the
+    block's cluster from the fast-seek table, not from the FAT; its file pointer
+    is on a block's boundary and the block whole, so it writes the block from
+    the ring (disk_write) and neither reads it nor touches its window: no read.
+    The cache queues the block in RAM: one of 32, the queue empty, so never a
+    flush on the spot.
+  - No f_sync() during the run: it reads the directory's block to write the
+    entry (move_window() in FatFs), from the read cache or from the card. The
+    entry the open put on the card already holds the reserve's size, so a sync
+    during the run would add only the modification time. Nothing else touches
+    the card: the blackbox log is stopped, SD LOG and USB DRIVE are not
+    reachable from SERVO TESTER, and the screen reads no file.
+  - Past the reserve no block is written during the run: the writing stops, and
+    the close writes the rest with fast seek off.
+  - The open's blocks are on the card before the Start; an open given up drains
+    its blocks during the run, one flush step a pass, the same steps as above.
+- **The run's writes.** The rows wait in a ring of 16384 bytes
+  (`SERVO_LOG_RING_BYTES`, about 15 s of rows); a row it has no room for is
+  dropped and counted. The note's design let the cache's 32 blocks absorb a slow
+  card; as built they hold one block at a time and the RAM ring absorbs it,
+  since the cache sends one block at a time either way.
+- **The bound on core0.** In the host model a pass spends at most 100 µs on the
+  card during a run, a block's transfer; no card read is waited for, on a card
+  that reads a block in 1 ms and on one at the SD specification's 100 ms with a
+  busy time of 511 ms. The hard cut after a step of current, 200 steps at every
+  phase: log off at most 25.01 ms, log on at most 24.96 ms, within one frame of
+  25 ms and a block's transfer. The longest gap between readings: log off 25.00
+  ms, log on at most 25.06 ms, longer by at most the block's transfer, which can
+  fall in the pass before a frame. A command the card does not answer costs its
+  pass `SDH_CMD_TIMEOUT_US`, 5 ms, and the model charges it: a card removed
+  during the run costs each try of the swap check's CMD17 its pass, 5 ms, in up
+  to 3 passes, and the cache is Failed after the third. A check read whose block
+  came whole with a CRC or frame error sends no CMD12, which a card back in the
+  transfer state would not answer; only a block that did not come in time does,
+  to a card still sending. The open: 558 ms the first time after a mount with a
+  blackbox log to stop and 121 ms the next on the 1 ms card; on the card at the
+  limits it was given up at 2.3 s and 2.1 s; core1 took every Start. A Start in
+  the open's own frame would have found the heartbeat 2.1 s old and been
+  refused. A real card's latency and busy time are not measured.
+- **A power loss during the run.** The open's blocks are on the card before the
+  Start: the entry with the reserve's size, 4 MiB or 64 KiB, the file's clusters
+  allocated in the FAT. The file then holds every block of rows that reached the
+  card, and after them whatever the card held in the reserve before, old data,
+  not part of the log, as a blackbox log cut by a power loss. The rows still in
+  the ring and in the cache's queue, up to about 16 KiB and one block, are lost.
+  During a run after an open given up, a power loss can leave that open's file,
+  empty or with its reserve, on the card, since its removal comes at the run's
+  end; so can a card swapped during that run, as the removal touches only the
+  card of the open.
+- **A full card, the limit, a card removed, a write error.** The 64 KiB reserve,
+  all the card had in one run, used up stops the writing: CardFull, `LOG
+  STOPPED: NO ROOM IN ONE PIECE`, true of a full card and of a fragmented one;
+  the run goes on, and the close writes the ring's rest and the end line where
+  the card still has room. The whole 4 MiB used stops the writing at its limit
+  (`ServoLogStatus::atLimit`), and the close writes the rest past it. A cache
+  that reads Failed, after the swap check found no card or another, or a block
+  the card did not take, is WRITE FAILED: the writing stops; at the run's end
+  the cache's queue is dropped and the card mounted again
+  (`cardCacheRecover()`), as after a failed batch of a backup claim, and no
+  close is tried. The file then holds the blocks written before, at its reserved
+  size, as after a power loss. A close or a last flush that fails is WRITE
+  FAILED too. The fault stays until the next HOLD TO START.
+
+- **SD LOG.** The servo log stops a running blackbox log as KST SERVO's
+  claim does: `SdLogEnd::ByServo`, `RECORDING STOPPED BY SERVO TESTER` on
+  SD LOG's note lines until the next start, a mount keeping it, and the run
+  summary's `Ended by: SERVO TESTER` (`RunSumEnd::ByServo`). SD LOG's
+  last-run rows stay the blackbox log's summary; the servo log has none
+  there, as the blackbox log's rows describe a `.BFL`. A recovery after a
+  failed write mounts the card again, which forgets that summary, as any
+  mount does.
+- **The screen.** While RUNNING the dial band's second line, where SAFE's notes
+  are, reads `LOGGING TO SRV00012.CSV`, dim; in amber `SRV00012.CSV: 12 ROWS
+  DROPPED`, `LOG STOPPED AT 4 MIB`, `LOG STOPPED: NO ROOM IN ONE PIECE`, `LOG
+  STOPPED: CARD WRITE FAILED`, `NO LOG: NO 64 KIB IN ONE PIECE`, `NO LOG: CARD
+  TOO SLOW`, `NO LOG: THE CARD DID NOT ANSWER`, `NO LOG: THE FILE DID NOT OPEN`
+  or `NO LOG: SRV99999.CSV EXISTS`, at most 37 characters; with no log, empty.
+  `NO SENSOR READING: NO CURRENT CUTS.` takes the line first. While HOLD TO
+  START waits for the open the notes read `PREPARING THE LOG...` and `THE SERVO
+  STARTS AFTER IT.`, dim; otherwise SAFE's notes are as before.
+
+- **Choices the note does not settle.**
+  - A log needs the sensor: its rows are readings. With `OWN` and the sensor
+    it logs too, the current of whatever supply runs through the sensor.
+  - The rows run from the open, before the Start, through the supply's
+    start-up, to the pass that sees the run over, so the start-up shows in
+    `bus_mv`.
+  - BACK is recorded only when no trip or cut ended the run first.
+  - The log takes the cache only while it runs; between runs, SAFE, the
+    cache is off, as outside the backup claims.
+  - No `.TXT` beside the `.CSV`: the end line carries what a summary would.
+  - The open's limit is 2000 ms: a heartbeat of 250 ms is no bound here, as the
+    Start goes out in a later frame with fresh stamps, so the limit only caps
+    the wait after HOLD TO START. A card at the specification's limits passes it
+    before the reserve is taken, given up at 2.3 s in the model, and gets no
+    log. The limit is checked between FatFs calls; one call is not cut short.
+    The blackbox log's stop runs before the clock starts, and the directory's
+    scan, the first after a mount, is one call: on a card that reads a block in
+    100 ms with 600 files in `LOGS/` the open holds core0 11.9 s before it is
+    given up, the servo still SAFE and the supply off.
+  - One search of the FAT, one f_expand() call, is not cut short either. A try
+    that finds no run reads the whole FAT once, a block at a time: 625 blocks on
+    the model's card of 39 MiB with clusters of 512 bytes, 0.66 s at 1 ms a
+    block and 62 s at the specification's 100 ms. On a card of 32 GB with
+    clusters of 32 KiB the FAT32 holds about 1,000,000 entries, 4 bytes each,
+    about 8,000 blocks: 8 s at 1 ms a block. The second try, 64 KiB, starts only
+    within the limit, so the open holds core0 at most one whole search past it;
+    the servo is SAFE and the supply off meanwhile.
+- **Tests.** `test/servo_log_fatfs.cpp` in `make -C test lognum`, over FatFs
+  R0.15 on FAT32 and exFAT, the logger, `card_cache.cpp` and `sd_cache.c` as
+  they ship, under them a card model with a read time, a transfer and a busy
+  time, the swap check's read started and polled as on the board, and a modelled
+  core0 loop with core1's supply guard and its 250 ms heartbeat and touch rules:
+  the row and end texts, rounding at ±499 and ±500 µA and at `INT32_MIN`, every
+  end's name and cause, the run's end across the seq's wrap, the open's limit at
+  1999 and 2000 ms and across the clock's wrap; the name sequence beside
+  `LOG00005.BFL`, a lower-case name, four and six digits, another extension, a
+  longer name, the number kept and read again after a mount, `SRV99999.CSV`; the
+  header, a row per reading byte for byte, a clipped and a reset reading, the
+  end line, the file truncated to its rows; every block of the open on the card
+  before the Start; no entry written and no card read waited for during the run;
+  a blackbox log stopped with its `.TXT`; STOP not yet taken; a START not yet
+  taken and a refused one; BACK and every cut and trip; no sensor, no card,
+  `servoLogWanted()` with each missing; a mounted card on which the cache does
+  not start; a FAT block that does not read during the reserve's search,
+  OpenFailed and tried once, not CARD FULL and not searched again for the small
+  reserve; exFAT's free count that does not read, OpenFailed; the open's flush
+  failing at the entry and at FSINFO, the card mounted again and the file
+  removed; an open given up and never followed by a Start's seq, ended by the
+  next open; 60 KiB free, no log and 3 blocks read, no search of the FAT; a 64
+  KiB reserve used up to its last block, 128 blocks, with room at the close and
+  without, and such a card then removed in the same run; the whole 4 MiB used,
+  with room after it and without, and the next START not at the limit; a card
+  removed; a block not taken; the directory's block unreadable, the run going on
+  and the close failing; the end line's block not taken at the close; the open's
+  time on both cards, 558 ms and 121 ms on the 1 ms card, given up at 2.3 s and
+  2.1 s on the slow one, the Start taken each time; a slow card with 600 files
+  in `LOGS/`, given up after the directory's scan of 11.9 s with no reserve
+  taken; a card with its free room in pieces of 1 MiB, the 64 KiB try after the
+  4 MiB try's search on the 1 ms card, and on the slow one given up after the
+  first search of 62 s with no reserve taken; the serial number that does not
+  read at the open, OpenFailed before any file; an open given up and the card
+  swapped during the run, while its blocks drain and with nothing queued, the
+  other card mounted and its own file of the same number kept; an open given up
+  with blocks queued and the serial number not read once at the run's end, the
+  file closed and left on the card with no remount, and the same with the
+  number read, the file removed; an open given up on a slow card with 20 blocks
+  queued and its batch already checked, then card B in the slot: none of the 19
+  blocks reaches card B, which keeps its own file; the same card with the end's
+  first block refused, the card mounted again and the file removed; a removed
+  card's pass at most 5 ms, one unanswered command; the cache on for the log
+  only, one block a call, never a flush on the spot, every block's batch checked
+  without a wait, at most 100 µs a pass, rows dropped and counted on the slow
+  card; the hard cut and the gap between readings on both cards with the log off
+  and on.
+  `test/test_sdio.cpp` (`testReadAsync()`): `sdh_read_start()` and
+  `sdh_read_poll()` on the simulated card with a data latency, the wait hook at
+  every look, CMD12 after a block that did not come, none and no time spent
+  after a CRC error, a CRC error tried again. `test/test_sd_cache.cpp`
+  (`testCheckAsync()`, `testWaitHook()`): the swap check over several polls; a
+  start the card does not answer, a timeout and a CRC error each tried 3 times;
+  a start refused as not ready, an error bit in the status and another serial
+  number failing at once; the count starting again each batch; `sdc_begin()`
+  collecting a read under way; the wait hook in `sdc_settle()`, `sdc_flush()`
+  and a full queue's wait; KST's card stamp no older than 1 ms across three
+  check reads that time out. `test/test_servo.cpp` (`testLogScreen()`,
+  `testLogStartOrder()`): the note in the hold's frame, the open in the next,
+  the Start in the one after with an open of 800 ms, with and without the
+  switch, core1 taking it with the heartbeat and touch fresh; BACK between the
+  open and the Start; the line's texts and colours, the widths; the frame
+  `shot_servo_log.ppm`. `test_ui.cpp`, `test_run_summary.cpp` and
+  `test/sd_log_fatfs.cpp`: SERVO TESTER's stop.
+- **Mutation check.** First: 90 mutants of `src/servo_log.cpp`, the slice's
+  lines of `src/ui_servo.cpp`, `src/sd_log.h`, `src/sd_log_next.cpp`,
+  `src/sd_log.cpp`, `src/run_summary.cpp` and `src/ui_sdlog.cpp`, 79 failing the
+  tests. Second, after the read path and the reserve: 76 mutants, 71 failing.
+  Third, after the start steps, the open's limit and flush and the check's
+  retries: 65 mutants, 6 of `src/sdio/sd_host.c`'s read, 13 of
+  `src/sdio/sd_cache.c`'s check, retries and waits, 13 of the start steps in
+  `src/ui_servo.cpp`, 33 of `src/servo_log.cpp`; 55 fail the tests, 10 do not.
+  Equivalent: the file's object closed after a recovery, where FatFs refuses the
+  old object by the volume's new id; a fast-seek map that fails, as the 8 words
+  hold a contiguous run's 4 and the reserve's FAT blocks are in FatFs's window
+  or the cache; the open's f_sync() failing, which needs a write to fail while
+  the queue holds the open's few blocks, a Failed cache the flush's check
+  catches the same way; the reserve kept at 4 MiB for the small one, where fast
+  seek refuses a write past the map as a short write, CARD FULL as well; the end
+  line tried after a drain that failed, which fails the same way; the close's
+  check of a Failed cache, where every FatFs write and the close fail too and
+  record WRITE FAILED; the poll's return once the writing has stopped, the close
+  catching a later failure the same way; the Start sent without the live()
+  check, and BACK without `startStepsDrop()`, each covered by the other: BACK
+  clears the step, and after BACK the claim is no longer running, so the Start
+  step gives the log the job's last seq as well; the step cleared again on
+  entering SERVO, which BACK has cleared already. Fourth, after the removal's
+  check of the card, the limit between the two tries and CMD12 only after a
+  block that did not come: 11 mutants, 9 failing the tests. Equivalent: the
+  close after a recovery, refused by FatFs as above, and a second recovery after
+  the first, which mounts the same card again. Fifth, after the end's fresh swap
+  check (`cardCacheRecheck()`, `sdc_recheck()`) and its unread serial number: 11
+  mutants of `src/servo_log.cpp` and `src/sdio/sd_cache.c`, 9 failing the tests:
+  the recheck call left out, the recheck a no-op, the batch kept checked, the
+  settle left out of `sdc_recheck()` (a block in flight), the check's try count
+  reset (a retrying check gets 2 more reads), the flush replaced by a check of
+  the state (a flush that fails first inside `cardCacheEnd()` drops the close
+  and the removal and leaves the file), a remount on a serial number that does
+  not read, no remount on one that differs, the removal on one that does not
+  read. Two survive and are equivalent: `sdc_recheck()` with no test for a
+  Failed cache and with no test for an empty queue, since a failed cache has
+  dropped its queue and an empty queue clears its mark itself.
+- **Not on hardware.** No card has taken the log on the board: its read
+  latency, its busy time, and the cuts' timing with the log on are not
+  measured (bench test B12, a 60 s log with the supply on, is still to
+  run).
+
 ## Open questions
 
-### Q1. The converter's input and module
+Q2 to Q5 and the input of Q1 are answered by the owner's decisions of
+2026-11-14 (decisions 10 to 14). One point is open.
 
-Options:
+### Q1. The converter module
 
-1. One LiPo cell, 3.0 V to 4.2 V, into a synchronous boost with load
-   disconnect, 5.0 V, at least 3 A out. A true boost over the whole
-   discharge; 5.3 A from the cell at 3.3 V; a fuse at the cell; HV servos
-   at 5.0 V only.
-2. USB 5 V from a source of its own. A boost cannot make 5.0 V from it, so
-   this means a converter above 5.25 V, which breaks decision 16's 5 V,
-   or a buck-boost instead of a boost.
-3. A 2S pack or a bench supply. Not a boost: a buck or a buck-boost, such
-   as the Pololu S13V30F5 the bench already documents.
-
-Recommendation: option 1, if "boost" is the requirement, with the module
-named by the owner after B6 and B7 on it. If "boost" stands for "the bench
-converter" rather than the topology, option 3 with the S13V30F5 covers
-every input up to 22 V with one part; its disconnect is still a B6 check.
-
-### Q2. Shunt value
-
-Options: 0.1 Ω as sold (3.2 A, 0.30 V at 3 A, 100 µA a code, 0.90 W at
-3 A); 0.05 Ω (6.4 A, 0.15 V at 3 A, 200 µA a code, 0.45 W at 3 A);
-0.02 Ω (16 A, 0.06 V at 3 A, 500 µA a code, 0.18 W at 3 A). A new shunt is
-a 2512 part soldered on the module, and `INA219_SHUNT_MOHM` changes with
-it.
-
-Recommendation: 0.1 Ω as sold while the converter is rated 3 A, since the
-range then matches the converter and the hard cut sits inside both. 0.05 Ω
-if B8 finds stall currents above 3 A on the owner's servos.
-
-### Q3. Whether the servo tester switches the supply
-
-Decision 20 says it does. With one converter for the whole bench the fork
-is how:
-
-1. Always, with `SERVO SUPPLY` at `GP28` or `GP29`: every servo on the
-   tester runs at 5.0 V from the bench.
-2. A choice per visit on SET, `SUPPLY BENCH` or `SUPPLY OWN`, for a servo
-   on a supply of its own, an HV servo at 8.4 V among them.
-3. Never; the converter stays the programmers'.
-
-Recommendation: option 1, as decision 20 reads. A servo that needs its own
-supply is tested with `SERVO SUPPLY` at `NONE`; a choice per visit adds a
-state in which the converter's output and a second supply can meet on one
-lead.
-
-### Q4. Protection thresholds
-
-Options for the servo tester:
-
-1. rcbench's automatic test: stall above 2.0 A for 1000 ms, a hard cut at
-   3.0 A or a clipped reading.
-2. rcbench's limit run: 1.0 A for 400 ms and 3.0 A hard; trips on many
-   servos that reach MIN or MAX against a stop.
-3. Values per servo class from B8.
-
-And for the KST and Hitec claims: the hard cut and the collapse rule
-during an operation, or only between operations.
-
-Recommendation: option 1 now, with the collapse rule at 4.0 V for
-1000 ms, revised after B8. In the KST and Hitec claims the hard cut acts
-at once, during an operation too.
-
-### Q5. A version 4 settings block
-
-Settings version 5 adds `currentSense` in the byte that was padding in
-version 4; the layout is otherwise byte for byte the same. Options:
-
-1. Discard a version 4 block, as built: the rule of `settingsLoad()` for
-   every version step, so every saved setting returns to its default once
-   after the update.
-2. Accept a version 4 block with `currentSense` at 0, `NONE`: the saved
-   settings survive the update.
-
-Recommendation: option 1 stays until the owner decides. Option 2 is the
-first migration in `settingsLoad()`, which has none by design; the byte it
-reads is the padding a version 4 build wrote, 0 from the `memset()` of
-`settingsDefaults()`, so `NONE` is what it would load.
+The owner chose the input and the topology: one LiPo cell, 3.0 V to 4.2 V,
+into a synchronous boost with load disconnect, 5.0 V, at least 3 A out
+([decision 10](#decisions)). The module is not named. The owner's
+mechanical model
+[boost_5v_en.step](../../hardware/mechanical/models/boost_5v_en.step) is a
+5 V boost board, 13.7 × 21.7 mm, with one pad besides its 4 corner pads,
+drawn as its enable. Its chip is not known: the owner does not know it
+(2026-11-15), and the board's print names none. So its input range, its
+output current, its current limit, whether it disconnects the load with EN
+low, and its EN threshold are unknown. Whether that board is the module of
+decision 10 is open. Whichever module is used is checked on the bench
+before it is relied on: B6, its
+disconnect with EN low at the lowest and the highest VIN, its EN from
+reset, in BOOTSEL and with the board off, its start-up time and its decay;
+B7, VOUT, its current limit and its temperature at 1 A, 2 A and 3 A. Its EN
+must also meet the rule of
+[enable and its pull-down](#enable-and-its-pull-down).
 
 ## Decisions
 
@@ -1088,3 +1892,34 @@ Choices made in this design; the owner has not decided them:
 8. **J3 is the sensor's connector,** and J4 pins 7 and 8 stay unused.
 9. **The servo current through the screw terminal only;** the module's
    header VIN pins stay unconnected, away from SDA.
+
+Decisions of the owner, 2026-11-14, answering Q1 to Q5:
+
+10. **The converter's input** (Q1). One LiPo cell, 3.0 V to 4.2 V, into a
+    synchronous boost with load disconnect, 5.0 V, at least 3 A out. The
+    module is not named yet: [Q1](#q1-the-converter-module).
+11. **The shunt** (Q2). 0.1 Ω as sold; `INA219_SHUNT_MOHM` stays 100.
+12. **The servo tester switches the supply** (Q3). Always, with `SERVO
+    SUPPLY` at a pin, `GP28` or `GP29`, as decision 20 of
+    [servo-tester.md](servo-tester.md#decisions) reads.
+13. **Protection on the servo tester** (Q4). rcbench's limit run: readings above
+    1.0 A for 400 ms, and a hard cut at 3.0 A (`SERVO_LIMRUN_STALL_MA` 1000,
+    `SERVO_LIMRUN_STALL_MS` 400 and `SERVO_LIMRUN_HARD_MA` 3000 in rcbench's
+    `servo_limrun.h` at 5ef42efd). The cut on a clipped reading is this note's
+    addition, as in its hard-cut row. In the KST and Hitec claims the hard cut
+    acts at once, during an operation too; the collapse rule's place there is
+    this note's choice, not decided by the owner. This is not the
+    recommendation, which was the automatic test's stall rule, 2.0 A for
+    1000 ms: the limit run trips on many servos that reach MIN or MAX
+    against a stop. That is a known consequence, checked on the bench in B8.
+    The [protection](#protection) section carries it, built in slice 4.
+14. **Settings carried over** (Q5). The firmware carries the settings over
+    from the older layouts it knows, versions 2, 3 and 4, into version 5,
+    with the new fields at their defaults. A block of a version it does not
+    know is discarded and announced as now (`settingsResetByUpdate()`).
+    This is the first migration in `settingsLoad()`. Built: each older
+    layout is a table of byte offsets in `src/settings.cpp`, recovered from
+    `src/settings.h` at 8a5eebb (version 2), 5af4ddf (3) and 3cc8798 (4);
+    version 3's SERVO SUPPLY of 1, an enable on GP0, loads as `NONE`. Flash
+    keeps the old block until a save lands. Host-tested, not tested on
+    hardware.

@@ -48,9 +48,11 @@
  *
  *     J4 (12P): 1=GND  2=VBUS 3=USB_N 4=USB_P 5=GND   6=3V3
  *               7=GP7* 8=GP6* 9=GP0   10=GP1  11=GP28 12=GP29
- *     J3  (4P): 1=GP7* 2=GP6* 3=3V3   4=GND
+ *     J3  (4P): 1=GP7^ 2=GP6^ 3=3V3   4=GND
  *     J5  (4P): 1=GP1  2=GP0  3=3V3   4=GND
- *                                     (* = on the shared I2C bus, do not reuse)
+ *         (^ = on the shared I2C bus: SCL and SDA of the optional INA219
+ *              current sensor, J3 its connector with its 3V3 and GND)
+ *         (* = on the shared I2C bus, do not use)
  *
  * @note TP_RST is its own net, separate from LCD_RST. The touch driver
  *       pulses it itself.
@@ -70,10 +72,11 @@
  * @brief GPIOs a user may assign to the ESC or telemetry wire, as a bitmask.
  *
  * Two of them: GP0 (J4 pin 9, J5 pin 2) and GP1 (J4 pin 10, J5 pin 1), UART0's
- * pins, which the firmware leaves unused. Both are 5 V tolerant ("Digital IO
- * (FT)", RP2350 datasheet Table 1674) while IOVDD is at 3.3 V. GP28 and GP29
- * are ADC pins and not 5 V tolerant: they carry only the switched servo
- * supply's enable, an output (servo_supply.h).
+ * pins. Only the S.BUS jobs use UART0: the monitor's receiver on GP1 and the
+ * output's transmitter on GP0 (sbus_job.h, sbus_out_job.h). Both are 5 V
+ * tolerant ("Digital IO (FT)", RP2350 datasheet Table 1674) while IOVDD is
+ * at 3.3 V. GP28 and GP29 are ADC pins and not 5 V tolerant: they carry
+ * only the switched servo supply's enable, an output (servo_supply.h).
  *
  * Two is enough for both wires, one each: the ESC starts on GP0
  * (@ref DSHOT_PIN_LCD_2_8) and the telemetry pad on GP1
@@ -112,17 +115,38 @@
 
 /**
  * @defgroup lcd28_pins_imu IMU — QMI8658C
- * @brief Present on the board but unused by this firmware.
+ * @brief Read on I2C1 by src/qmi8658.cpp while the angle meter is open
+ *        (docs/design/angle-meter.md). Its interrupt pins are not used and
+ *        GP8 and GP9 are not configured.
  * @{
  */
-#define PIN_IMU_INT1  8       /**< IMU interrupt 1. */
-#define PIN_IMU_INT2  9       /**< IMU interrupt 2. */
-#define QMI8658_I2C_ADDR 0x6B /**< 7-bit I2C address of the QMI8658C. */
+#define PIN_IMU_INT1  8       /**< IMU interrupt 1. Wired; not used. */
+#define PIN_IMU_INT2  9       /**< IMU interrupt 2. Wired; not used. */
+/**
+ * @brief 7-bit I2C address of the QMI8658: SA0 at GND in the schematic, 0x6B
+ *        by the QMI8658A datasheet and both Waveshare demos. Not seen on a
+ *        bus by this project.
+ */
+#define QMI8658_I2C_ADDR 0x6B
+
+/**
+ * @brief The chip's axes on the board: which chip axis lies along the board's
+ *        long edge, its short edge and its normal, in that order, as
+ *        1 for X, 2 for Y and 3 for Z, negative where the chip axis points
+ *        the other way.
+ *
+ * A placeholder, X, Y and Z in that order with no sign turned: the chip's
+ * orientation against the board's edges is not known. Bench test B3 of
+ * docs/design/angle-meter.md sets it. Each axis appears once
+ * (qmi8658AxesValid()). The angle model maps the chip's samples by it
+ * (angleSetupDefaults()).
+ */
+#define BOARD_IMU_AXES 1, 2, 3
 /** @} */
 
 /**
  * @defgroup lcd28_pins_rtc RTC — PCF85063ATL
- * @brief Present on the board but unused by this firmware.
+ * @brief Read once at boot by clock.h; its INT line is unused.
  * @{
  */
 #define PIN_RTC_INT   5        /**< RTC alarm / timer interrupt. */

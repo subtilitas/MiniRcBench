@@ -41,6 +41,16 @@ static void testRows() {
 	checkInt("no named field without a row", unnamed, 0);
 	checkInt("an unnamed field has no row", kstRowOf(KST_F_R06), -1);
 	checkTrue("a row out of range is not editable", !kstRowEditable(-1) && !kstRowEditable(27));
+
+	// The labels use the warnings' words, FAILSAFE and REVERSED.
+	checkStr("REVERSION's row", r[kstRowOf(KST_F_REVERSION)].label, "REVERSED");
+	checkStr("ALLOW UNCONT's row", r[kstRowOf(KST_F_ALLOW_UNCONT)].label, "FAILSAFE MOVE");
+	checkStr("UNCONT POS's row", r[kstRowOf(KST_F_UNCONT_POS)].label, "FAILSAFE POSITION");
+	checkStr("UNCONT TIME's row", r[kstRowOf(KST_F_UNCONT_TIME)].label, "FAILSAFE TIME");
+	size_t widest = 0;
+	for (int i = 0; i < n; i++)
+		if (strlen(r[i].label) > widest) widest = strlen(r[i].label);
+	checkInt("no label over 17 characters, 101 px at scale 1", (long)widest, 17);
 }
 
 static void valueIs(kst_field_id_t f, uint16_t raw, const char *want) {
@@ -102,7 +112,7 @@ static void testStepper() {
 	t = backup;
 	kstStep(&backup, &t, KST_F_UNCONT_POS, 4000);
 	uint16_t upper = kst_field_get(&t, KST_F_PULSE_UPPER);
-	checkTrue("UNCONTROLLED POS stops at PULSE UPPER",
+	checkTrue("FAILSAFE POSITION stops at PULSE UPPER",
 	          kst_field_get(&t, KST_F_UNCONT_POS) == upper && kstHardRules(&backup, &t) == 0);
 
 	// A hard rule the image already breaks does not stop another field.

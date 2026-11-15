@@ -82,43 +82,90 @@ jobs:
           # not this pipeline's job to prove it.
           arm-none-eabi-size "build/MiniRcBench-$SLUG.elf"
 
-      # The host job's PIO emulators assemble src/sdio/sd_pio.pio and
-      # src/backlight.pio with their own assembler. This build has the SDK's
-      # pioasm, so that assembler is held to it here: every instruction word,
-      # wrap point, public label and side-set setting has to match.
+      # The host job's PIO emulators assemble src/sdio/sd_pio.pio,
+      # src/backlight.pio, src/bridge_line.pio and src/pio_uart_rx.pio with
+      # their own assembler. This build has the SDK's pioasm, so that
+      # assembler is held to it here: every instruction word, wrap point,
+      # public label and side-set setting has to match.
       - name: The PIO emulator assembles as pioasm does
         run: |
           python3 test/pio_sdio_emu.py --asm-only \
                   --pioasm build/pioasm-install/pioasm/pioasm
           python3 test/pio_backlight_emu.py \
                   --pioasm build/pioasm-install/pioasm/pioasm
+          python3 test/pio_bridge_emu.py \
+                  --pioasm build/pioasm-install/pioasm/pioasm
 
-      # The host job's KST and Hitec line models run the words in
+      # The host job's KST, Hitec and escwire line models run the words in
       # test/rcbench/fixtures/*_line_words.txt. The firmware runs pioasm's
       # assembly of the same .pio files, so the fixtures are held to it here.
       - name: The line fixtures are pioasm's words
         run: |
           pioasm=build/pioasm-install/pioasm/pioasm
-          for p in kst hitec; do
-            "$pioasm" -o hex "lib/rcbench/protocols/$p/rp2350/${p}_line.pio" "build/${p}_line.hex"
-            diff -u "test/rcbench/fixtures/${p}_line_words.txt" "build/${p}_line.hex"
+          for p in kst:kst hitec:hitec escwire:ew; do
+            dir=${p%%:*} line=${p#*:}
+            "$pioasm" -o hex "lib/rcbench/protocols/$dir/rp2350/${line}_line.pio" "build/${line}_line.hex"
+            diff -u "test/rcbench/fixtures/${line}_line_words.txt" "build/${line}_line.hex"
           done
 
       # The Hitec job runs on core1, whose stack is 2 KB
       # (PICO_CORE1_STACK_SIZE). src/hitec.cmake builds the job, its line
-      # port and driver, the session, the register model and the supply with
+      # port and driver, the session, the register model, the supply, the
+      # current sensor's sample and the supply guard with
       # -fcallgraph-info=su at the Release flags. The deepest chain from the
       # job's three entry points may take 1792 bytes, which leaves 256 bytes
       # for loop1() and core1JobPoll() above them. A frame of no fixed size
       # or a recursion fails at once.
       - name: Hitec job stack on core1
         run: |
-          mapfile -t ci < <(find build -name 'hitec_*.ci' -o -name 'servo_supply.cpp.ci')
+          mapfile -t ci < <(find build -name 'hitec_*.ci' -o -name 'servo_supply.cpp.ci' \
+                                -o -name 'sense.cpp.ci' -o -name 'supply_guard.cpp.ci')
           printf '%s\n' "${ci[@]}"
-          [ "${#ci[@]}" -eq 9 ] || {
-            echo "::error::expected 9 call-graph files, found ${#ci[@]}"; exit 1; }
+          [ "${#ci[@]}" -eq 11 ] || {
+            echo "::error::expected 11 call-graph files, found ${#ci[@]}"; exit 1; }
           python3 tools/stack_depth.py --limit 1792 \
             --root hitecJobStep --root hitecJobRelease --root hitecJobBind "${ci[@]}"
+
+      # The ESC settings job runs on core1 too. src/escwire.cmake builds the
+      # job, its line port, the escwire core and its line driver with
+      # -fcallgraph-info=su; the same limit holds for the job's three entry
+      # points. The session calls its line driver through the function
+      # pointers of ew_driver_t, which the call graph has no edge for: the
+      # deepest of the five driver functions is added to each chain. SDK
+      # calls count 0 bytes, as in the Hitec step.
+      - name: ESC settings job stack on core1
+        run: |
+          mapfile -t ci < <(find build -name 'ew_*.ci' -o -name 'escwire_*.ci')
+          printf '%s\n' "${ci[@]}"
+          [ "${#ci[@]}" -eq 16 ] || {
+            echo "::error::expected 16 call-graph files, found ${#ci[@]}"; exit 1; }
+          python3 tools/stack_depth.py --limit 1792 \
+            --root escwireJobStep --root escwireJobRelease --root escwireJobBind \
+            --indirect ew_line_start --indirect ew_line_poll --indirect ew_line_abort \
+            --indirect ew_line_level --indirect ew_line_now_us "${ci[@]}"
+
+      # The S.BUS output job runs on core1 too. src/rx.cmake builds the job,
+      # rcbench's S.BUS module and the probe's classification and connect
+      # cycle with -fcallgraph-info=su, src/escwire.cmake the probe's line:
+      # its port, rcbench's driver and the parts of the escwire core the
+      # probe and the driver call. The same limit holds for the job's three
+      # entry points; the probe calls the driver through the pointers of
+      # ew_driver_t, so the deepest of the five is added, as in the ESC
+      # settings step. SDK calls count 0 bytes.
+      - name: S.BUS output job stack on core1
+        run: |
+          mapfile -t ci < <(find build -name 'sbus_out_job.cpp.ci' -o -name 'sbus.c.ci' \
+                                -o -name 'bl_answer.cpp.ci' -o -name 'greet_cycle.cpp.ci' \
+                                -o -name 'escwire_port.cpp.ci' -o -name 'escwire_job.cpp.ci' \
+                                -o -name 'ew_line.c.ci' -o -name 'ew_a.c.ci' \
+                                -o -name 'ew_wire.c.ci' -o -name 'ew_pio.c.ci')
+          printf '%s\n' "${ci[@]}"
+          [ "${#ci[@]}" -eq 10 ] || {
+            echo "::error::expected 10 call-graph files, found ${#ci[@]}"; exit 1; }
+          python3 tools/stack_depth.py --limit 1792 \
+            --root sbusOutJobStep --root sbusOutJobRelease --root sbusOutJobBind \
+            --indirect ew_line_start --indirect ew_line_poll --indirect ew_line_abort \
+            --indirect ew_line_level --indirect ew_line_now_us "${ci[@]}"
 
       # A ceiling, not a printout. The framebuffer alone is 150 kB of the
       # RP2350's 520 kB, and a regression that doubles a buffer otherwise passes
@@ -250,8 +297,9 @@ jobs:
       - uses: actions/checkout@v6
       # The default target: the device-only sources typechecked, the suite
       # built and run, the SDIO PIO programs run in test/pio_sdio_emu.py,
-      # a cycle-level model, against a card model, and the backlight PIO
-      # program in test/pio_backlight_emu.py. The blackbox round-trip it
+      # a cycle-level model, against a card model, the backlight PIO
+      # program in test/pio_backlight_emu.py, and the USB bridge's line in
+      # test/pio_bridge_emu.py. The blackbox round-trip it
       # also names skips here with a notice; the blackbox job runs it for
       # real.
       - name: Build and run
@@ -276,6 +324,12 @@ jobs:
       - name: KST and Hitec card phases match the design notes
         working-directory: test
         run: make kstcount
+      # The next blackbox log's file over the same FatFs: the scan of LOGS/,
+      # the number kept between starts, and a card swapped or edited between
+      # mounts read again (src/sd_log_next.cpp).
+      - name: Log numbering over FatFs
+        working-directory: test
+        run: make lognum
       # The wiki is only *published* on release, but its links and its
       # screenshots break on ordinary pushes -- renaming a page, or dropping a
       # fakeDumpFrame() call a manual page happens to show. Catching that here
@@ -373,9 +427,10 @@ jobs:
                     printf 'TX=%s JUMP=%s ROT=%s KISS=%s SD=%s ... ' \
                       "$tx" "$jump" "$rot" "$kiss" "$sd"
                     # lib/rcbench/ holds rcbench's headers that the servo,
-                    # KST and Hitec code and the current sensor include; none
-                    # of them reads config.h, so they are used from the
-                    # checkout rather than copied.
+                    # KST, Hitec and S.BUS code, the current sensor and the
+                    # angle meter include, and the escwire headers; none of
+                    # them reads config.h, so they are used from the checkout
+                    # rather than copied.
                     if g++ -std=gnu++17 -fsyntax-only -Wall -Wextra -Wshadow -Werror \
                            -Wno-unused-parameter \
                            -DKISS_TELEM_ENABLE=$kiss -DSD_LOG_ENABLE=$sd \
@@ -390,6 +445,10 @@ jobs:
                            -Ilib/rcbench/shared/bench/include \
                            -Ilib/rcbench/shared/link/include \
                            -Ilib/rcbench/shared/sense/include \
+                           -Ilib/rcbench/protocols/sbus/include \
+                           -Ilib/rcbench/protocols/escwire/include \
+                           -Ilib/rcbench/protocols/escwire/rp2350 \
+                           -Ilib/rcbench/protocols/witmotion/include \
                            "$work"/src/*.cpp; then
                       echo ok
                     else
@@ -421,6 +480,10 @@ jobs:
                  -Ilib/rcbench/shared/bench/include \
                  -Ilib/rcbench/shared/link/include \
                  -Ilib/rcbench/shared/sense/include \
+                 -Ilib/rcbench/protocols/sbus/include \
+                 -Ilib/rcbench/protocols/escwire/include \
+                 -Ilib/rcbench/protocols/escwire/rp2350 \
+                 -Ilib/rcbench/protocols/witmotion/include \
                  "$work"/src/*.cpp 2>"$work/err.txt"; then
             echo "landscape guard did NOT fire"; fail=1
           elif ! grep -q "static assertion failed: the UI layout assumes portrait" "$work/err.txt"; then
@@ -501,6 +564,11 @@ jobs:
       # drawing fails here.
       - name: Wiring diagram matches the pin sources
         run: python3 tools/make_wiring.py --check
+
+      # hardware/mechanical/models/*.step are written from the specs beside
+      # them. A dimension changed in a spec and not in its file fails here.
+      - name: STEP models match their specs
+        run: python3 hardware/mechanical/gen_models.py --check
 
       - name: Install doxygen
         run: |

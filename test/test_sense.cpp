@@ -374,20 +374,20 @@ static void testFaults() {
 
 	section("Sense: touch transfers noted");
 	p = online();
-	senseNoteTouch(PICO_ERROR_GENERIC, 2);
-	senseNoteTouch(PICO_ERROR_GENERIC, 2);
-	senseNoteTouch(PICO_ERROR_GENERIC, 2);
+	senseNote(PICO_ERROR_GENERIC, 2);
+	senseNote(PICO_ERROR_GENERIC, 2);
+	senseNote(PICO_ERROR_GENERIC, 2);
 	checkTrue("touch NACKs: not stuck", !senseBus()->stuck);
-	senseNoteTouch(PICO_ERROR_TIMEOUT, 2);
+	senseNote(PICO_ERROR_TIMEOUT, 2);
 	checkTrue("one touch timeout: not stuck", !senseBus()->stuck);
-	senseNoteTouch(PICO_ERROR_TIMEOUT, 5);
+	senseNote(PICO_ERROR_TIMEOUT, 5);
 	checkTrue("two: stuck, seen between sensor reads", senseBus()->stuck && state() == SenseState::Online);
 	uint32_t r1 = senseBus()->recoveries;
 	senseTick(millis());
 	checkTrue("the sensor's frame recovers it", !senseBus()->stuck && senseBus()->recoveries == r1 + 1);
-	senseNoteTouch(PICO_ERROR_TIMEOUT, 2);
-	senseNoteTouch(5, 5);
-	senseNoteTouch(PICO_ERROR_TIMEOUT, 2);
+	senseNote(PICO_ERROR_TIMEOUT, 2);
+	senseNote(5, 5);
+	senseNote(PICO_ERROR_TIMEOUT, 2);
 	checkTrue("a good touch read between ends the run", !senseBus()->stuck);
 	senseConfigure(0);
 }
@@ -647,20 +647,29 @@ static void testTouchAnswerRecord() {
 	fakeI2cReset();
 	fakeI2cAddCst328(CST328_I2C_ADDR);
 	fakeCst328WrongId(true);
+	uint32_t before = cst::touchAnsweredMs();
+	fakeAdvance(100);
 	checkTrue("another ID: touchInit() fails", !cst::touchInit());
 	checkTrue("and records no answer", !cst::touchAnswered());
+	checkInt("nor a stamp", cst::touchAnsweredMs(), before);
 	TouchState ts;
 	memset(&ts, 0, sizeof(ts));
 	cst::touchPoll(&ts);
 	checkTrue("a finger read that completes records one", cst::touchAnswered());
+	checkInt("and stamps the clock", cst::touchAnsweredMs(), millis());
 	fakeCst328WrongId(false);
+	fakeAdvance(100);
 	checkTrue("found: the probe reads CACAh", cst::touchInit());
 	checkTrue("the probe records an answer", cst::touchAnswered());
+	checkInt("and stamps the clock", cst::touchAnsweredMs(), millis());
+	uint32_t found = millis();
+	fakeAdvance(100);
 	fakeI2cRemove(CST328_I2C_ADDR);
 	checkTrue("no part: touchInit() fails", !cst::touchInit());
 	checkTrue("and starts the record again: no answer", !cst::touchAnswered());
 	cst::touchPoll(&ts);
 	checkTrue("a NACKed read records none", !cst::touchAnswered());
+	checkInt("the stamp stays at the last answer", cst::touchAnsweredMs(), found);
 	fakeI2cReset();
 }
 
@@ -676,21 +685,21 @@ static void testTouchAnswerTime() {
 	fakeI2cReset();
 	fakeI2cAddCst328(CST328_I2C_ADDR);
 	checkTrue("found", cst::touchInit());
-	checkTrue("the probe's time", cst::touchLastAnswerMs() == millis());
+	checkTrue("the probe's time", cst::touchAnsweredMs() == millis());
 	TouchState ts;
 	memset(&ts, 0, sizeof(ts));
 	fakeAdvance(25);
 	cst::touchPoll(&ts);
 	uint32_t ack = millis();
 	checkTrue("a finger read: now, no failures",
-	          cst::touchLastAnswerMs() == ack && cst::touchFailedReads() == 0);
+	          cst::touchAnsweredMs() == ack && cst::touchFailedReads() == 0);
 
 	fakeI2cRemove(CST328_I2C_ADDR);
 	for (int i = 1; i <= 5; i++) {
 		fakeAdvance(25);
 		cst::touchPoll(&ts);
 	}
-	checkTrue("NACKing: the time stays at the last ACK", cst::touchLastAnswerMs() == ack);
+	checkTrue("NACKing: the time stays at the last ACK", cst::touchAnsweredMs() == ack);
 	checkInt("five failed reads counted", cst::touchFailedReads(), 5);
 	for (int i = 0; i < 300; i++) cst::touchPoll(&ts);
 	checkInt("held at 255", cst::touchFailedReads(), 255);
@@ -699,7 +708,7 @@ static void testTouchAnswerTime() {
 	fakeAdvance(25);
 	cst::touchPoll(&ts);
 	checkTrue("back: the time moves, the count is 0",
-	          cst::touchLastAnswerMs() == millis() && cst::touchFailedReads() == 0);
+	          cst::touchAnsweredMs() == millis() && cst::touchFailedReads() == 0);
 	fakeI2cReset();
 }
 
@@ -725,7 +734,7 @@ static void testArbitrationLost() {
 	uint32_t reads0 = fakeCst328Reads();
 	fakeI2cHeldSdaCode(PICO_ERROR_GENERIC);
 	fakeI2cSdaReleaseAfter(5);
-	senseNoteTouch(PICO_ERROR_GENERIC, 2);
+	senseNote(PICO_ERROR_GENERIC, 2);
 	checkTrue("a touch abort with SDA low: the bus stuck, not a NACK", senseBus()->stuck);
 	int frames = 0;
 	while (frames < 200 && senseBus()->recoveries == r0) {
@@ -935,6 +944,47 @@ static void testShortCount() {
 	senseConfigure(0);
 }
 
+/**
+ * @brief The bus is shared with touch and the IMU, so a stuck bus is
+ *        recovered with CURRENT SENSE at NONE too, and nothing goes to the
+ *        sensor's address.
+ */
+static void testRecoveryAtNone() {
+	section("Sense: the bus recovered with CURRENT SENSE at NONE");
+	senseConfigure(0);
+	fakeI2cReset();
+	fakePwmReset();
+	senseNote(1, 1);
+	senseTick(millis());
+	checkInt("a free bus: no recovery", fakeI2cStats().sclPulses, 0);
+	checkTrue("the note returns the mapping: a timeout",
+	          senseNote(PICO_ERROR_TIMEOUT, 2) == SENSE_TIMEOUT);
+	checkTrue("and a NACK", senseNote(PICO_ERROR_GENERIC, 2) == SENSE_NACK);
+	checkTrue("and a byte count", senseNote(3, 3) == SENSE_OK);
+	senseNote(PICO_ERROR_TIMEOUT, 2);
+	senseNote(PICO_ERROR_TIMEOUT, 2);
+	checkTrue("two timeouts of another client: stuck", senseBus()->stuck);
+	uint32_t r0 = senseBus()->recoveries;
+	FakeI2cStats s0 = fakeI2cStats();
+	tick();
+	FakeI2cStats s1 = fakeI2cStats();
+	checkInt("NONE: a recovery at once", (long)(senseBus()->recoveries - r0), 1);
+	checkTrue("9 clocks on SCL, the block initialised again",
+	          s1.sclPulses - s0.sclPulses == 9 && s1.inits - s0.inits == 1);
+	checkInt("nothing sent to 0x40", fakeI2cTransactionsTo(INA219_ADDR), 0);
+	checkTrue("the state still NONE", state() == SenseState::None);
+	for (int i = 0; i < 3; i++) tick();
+	tick(24);
+	checkInt("still stuck, 99 ms on: no second", (long)(senseBus()->recoveries - r0), 1);
+	tick(1);
+	checkInt("100 ms: the second", (long)(senseBus()->recoveries - r0), 2);
+	checkTrue("a transfer that answers frees it", senseNote(5, 5) == SENSE_OK && !senseBus()->stuck);
+	tick();
+	checkInt("free: no more", (long)(senseBus()->recoveries - r0), 2);
+	checkInt("and still nothing to 0x40", fakeI2cTransactionsTo(INA219_ADDR), 0);
+	fakeI2cReset();
+}
+
 void runSenseTests() {
 	testCodec();
 	testProbe();
@@ -950,4 +1000,5 @@ void runSenseTests() {
 	testFrameTime();
 	testReadAbortStop();
 	testShortCount();
+	testRecoveryAtNone();
 }

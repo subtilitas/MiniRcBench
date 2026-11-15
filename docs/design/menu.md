@@ -6,9 +6,14 @@ a control table per screen (`src/ui_screen.h`) that the host tests tap by id,
 and, from slice C, MENU, SETTINGS and the screen registry. Slices A to C come
 before KST programming, slice 3 of [pin-claim.md](pin-claim.md), and
 [kst-programming.md](kst-programming.md) builds on them. [As built](#as-built)
-lists where the code differs from this note; the code wins. Line numbers in `src/`, `test/`, `tools/`, README.md and the
-wiki name 9c0f3b9, the tree the review read, not the tree with slice A; line
-numbers in STATUS.md and the design notes name 4c91db9.
+lists where the code differs from this note; the code wins.
+Menu structure B ([menu-b.md](menu-b.md)), slices 1 to 10 built, host tests
+only, revises this design: [The tree](#the-tree) and [MENU](#menu) describe
+MENU as structure B builds it, and paragraphs that begin "Revised by" mark
+the other places, decisions 1, 12 and 18 among them. Line numbers in `src/`,
+`test/`, `tools/`, README.md and the wiki name 9c0f3b9, the tree the review
+read, not the tree with slice A; line numbers in STATUS.md and the design
+notes name 4c91db9.
 
 Terms: UI is user interface, ESC electronic speed controller, DShot the
 digital ESC protocol the tester drives, EDT Extended DShot Telemetry, AM32 an
@@ -82,84 +87,116 @@ What does not scale:
 
 ## The tree
 
+The tree as menu structure B builds it; [menu-b.md](menu-b.md#navigation)
+lists what BACK does on every view.
+
 ```
-TESTER (root)   HOLD TO ARM | HOLD | MENU         MENU disarms, as CFG does
+TESTER (root)   HOLD TO ARM | LATCH | MENU        MENU disarms, LATCH off
+ │  14 POLES, MAX 20%: a tap while disarmed and the pins are free
+ │                     opens SETTINGS, with MENU's disarm
  └─ MENU: one list of registry entries; BACK ──> TESTER
-     ├─ BEEP THE ESC     action row: the DShot beacon, flash on the row
-     ├─ AM32 CONFIG      tool, claims SIG
-     ├─ SERVO TESTER     tool, claims SIG, and AUX for two servos
-     ├─ KST SERVO        tool, claims SIG; its registry line comes in slice 3
-     ├─ SD LOG           tool
-     └─ SETTINGS         tool: one list in sections
- Every tool: BACK ──> MENU. SERVO and KST pass the unplug page first.
+     ├─ ESC COMMANDS      tool, freePins: BEEP 1 to 5, direction, 3D mode
+     ├─ ESC CONFIG        a chooser, freePins: ESC SETTINGS claims SIG, USB BRIDGE
+     ├─ SERVO TESTER      tool, claims SIG, and AUX for two servos
+     ├─ SERVO PROGRAMMER  PROGRAMMER, a chooser; claims nothing
+     │   ├─ KST / CHASERVO   KST SERVO; the tap claims SIG
+     │   ├─ HITEC D SERIES   HITEC SERVO; the tap claims SIG
+     │   └─ HITEC CLASSIC    HITEC SERVO; disabled while SERVO SUPPLY is OWN
+     ├─ RX SIGNALS        RX SIGNALS, a chooser; claims nothing
+     │   ├─ MONITOR          S.BUS MONITOR; the tap claims GP1
+     │   └─ OUTPUT           S.BUS OUTPUT; the tap claims GP0
+     ├─ TOOLS             TOOLS, a chooser, freePins; claims nothing
+     │   └─ ANGLE METER      the meter; no claim
+     ├─ SD LOG            tool
+     └─ SETTINGS          tool: one list in sections
+ Every tool: BACK ──> MENU; SETTINGS opened on the tester: BACK ──> TESTER.
+ SERVO TESTER, KST SERVO, HITEC SERVO and S.BUS MONITOR pass the leave
+ page once they hold the pins, and its RESTART DSHOT returns to MENU.
 ```
 
-The tester changes in one word: CFG reads MENU. Opening MENU disarms, zeroes
-the throttle and turns HOLD off, as CFG does today. Each tool keeps its
-screens; AM32 CONFIG and SERVO keep their layouts, with the header and list
-changes below. A new tool is one registry line, and a seventh row makes MENU
-scroll. KST is that case: today's disabled KST button has no row in slice C,
-and slice 3 adds KST's line (decision 4).
+Opening MENU disarms, zeroes the throttle and turns LATCH off
+(`testerDisarm()` in `src/ui.cpp`). `uiOpenTool()` runs the same disarm
+before every tool it opens, from MENU's rows, PROGRAMMER's entries and the
+tester's two readouts. A new tool is one line of `UI_MENU` in
+`src/ui_registry.cpp`, a new servo programmer one line of `UI_PROGRAMMERS`
+there.
+
+Revised by [menu-b.md](menu-b.md#decisions) owner decisions 1, 2 and 4 and
+decisions 16, 19 and 31 to 35: slice C's tree, and slice 3's after it, gave
+KST SERVO and later HITEC SERVO a MENU row each, reached SETTINGS from MENU
+only, and passed SERVO and KST SERVO through an unplug page.
 
 ## MENU
 
+MENU as menu structure B builds it (`src/ui_menu.cpp`,
+`src/ui_registry.cpp`; [menu-b.md](menu-b.md#menu)):
+
 ```
 y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
-   40 | GP0  600 KBIT/S                  (EDT ON) |  strip: caption and chip
-   62 | BEEP THE ESC                    DISARMED  |  rows 40 px tall,
-  104 | AM32 CONFIG                          GP0  |  42 px pitch
-  146 | SERVO TESTER                       GP0+1  |
-  188 | KST SERVO                            GP0  |  from slice 3
-  230 | SD LOG                             READY  |
-  272 | SETTINGS                         UNSAVED  |  C_AMBER
-  312 |                                           |  sixth row ends at 311
-      |  slice C: five rows; SD LOG at 188, SETTINGS at 230
+   40 | SIG GP0  AUX GP1  DSHOT600     [EDT OFF]  |  strip: caption and chip
+   62 | ESC COMMANDS                              |  rows 40 px tall,
+  104 | ESC CONFIG                                |  42 px pitch
+  146 | SERVO TESTER                              |
+  188 | SERVO PROGRAMMER                          |  no status
+  230 | RX SIGNALS                                |  no status
+  272 | TOOLS                                     |  sixth row, ends at y 311
+  314 | SD LOG                           NO CARD  |  6 px at scroll 0
   320 +-------------------------------------------+
+  356   SETTINGS                         UNSAVED     below the fold at scroll 0
 ```
 
 | Item | Value |
 |---|---|
-| Viewport | y 62 to 319, 258 px |
-| Rows | 40 px tall (`ROW_H`) at a 42 px pitch (`ROW_PITCH`), x 8 to 231 |
-| Six rows | 252 px of content: no scroll |
-| Seven rows | 294 px: scroll range 0 px to 36 px |
+| Viewport | y 62 to 319, 258 px (`MENU_VIEW_H`) |
+| Rows | 40 px tall (`MENU_ROW_H`) at a 42 px pitch (`MENU_ROW_PITCH`), x 8 to 231 |
+| Eight rows | 336 px of content: scroll range 0 px to 78 px. TOOLS, the sixth, is whole at 0 px; SD LOG, the seventh, shows 6 px and is whole after a 34 px drag; SETTINGS, the eighth, shows nothing at 0 px, is whole after a 76 px drag, and sits at y 278 to 317 at the 78 px limit |
 | Label | scale 2 at x 16, 13 px below the row's top |
 | Status | scale 1, right-aligned to x 222, 16 px below the row's top, in the fact's colour |
 | Scroll bar | 3 px wide at x 235, drawn only while the list scrolls |
-| Strip | caption: the ESC pin and the DShot rate; chip: `EDT ON` in `C_GREEN` while EDT arrives, `EDT OFF` in `C_RED` while eRPM arrives without EDT, `NO ESC` in `C_GRID` while no eRPM arrives |
+| Strip | caption: `SIG GP0  AUX GP1  DSHOT600`, the two pins and the DShot rate; `DSHOT RESTARTING ON SIG GP0` in amber while the claim is not Free; after an AM32 session that reached the bootloader, a second line, `POWER-CYCLE THE ESC TO RUN IT` in amber. Chip: `EDT ON` on `C_GREEN` while EDT arrives, `EDT OFF` on `C_RED` while eRPM arrives without EDT, `NO ESC` on `C_GRID` while no eRPM arrives |
 
 | Row | Kind | Status | A tap |
 |---|---|---|---|
-| BEEP THE ESC | action | `DISARMED` in `C_DIM`; for 350 ms after a tap, `SENT` on a `C_INK` fill or `REFUSED` on a `C_AMBER` fill (`BEEP_FLASH_MS`) | `escRequestBeep(1)` |
-| AM32 CONFIG | tool, SIG | the SIG pin, `GP0`; `PINS BUSY` in `C_AMBER` while the claim is not Free | opens AM32 CONFIG |
-| SERVO TESTER | tool, SIG and AUX | `GP0+1`; `PINS BUSY` | opens SERVO |
-| KST SERVO, from slice 3 | tool, SIG | `GP0`; `PINS BUSY` | opens KST SERVO |
+| ESC COMMANDS | tool, `freePins` | none | opens ESC COMMANDS, which claims nothing ([esc-commands.md](esc-commands.md#slice-2-as-built)) |
+| ESC CONFIG | chooser, `freePins` | none | opens ESC CONFIG, which claims nothing; its ESC SETTINGS claims SIG on the tap, and USB BRIDGE opens the bridge, claiming SIG on the tap ([bluejay-blheli-s.md](bluejay-blheli-s.md)) |
+| SERVO TESTER | tool, SIG and AUX | none | opens SERVO TESTER |
+| SERVO PROGRAMMER | chooser, `freePins` | none | opens PROGRAMMER, which claims nothing; its entries open KST SERVO and HITEC SERVO and claim SIG on the tap |
+| RX SIGNALS | chooser, `freePins` | none | opens RX SIGNALS, which claims nothing; its MONITOR opens S.BUS MONITOR and claims GP1 on the tap; its OUTPUT opens S.BUS OUTPUT and claims GP0 on the tap ([rx-signals.md](rx-signals.md#menu)) |
+| TOOLS | chooser, `freePins` | none | opens TOOLS, which claims nothing; its ANGLE METER opens the meter ([angle-meter.md](angle-meter.md#slice-4-as-built)) |
 | SD LOG | tool | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a host holds the card, in the SD LOG screen's colours | opens SD LOG |
-| SETTINGS | tool | `UNSAVED` in `C_AMBER` while `settingsDirty()`, else none; `PINS BUSY` while the claim is not Free | opens SETTINGS |
+| SETTINGS | tool, `freePins` | `UNSAVED` in `C_AMBER` while `settingsDirty()`; else `UPDATED` in `C_AMBER` while an update's reset or carry-over is not saved over; else none | opens SETTINGS |
 
 Rows fire on release, as every button does, and a press that slides off
 cancels. A press that becomes a vertical drag scrolls once the list is longer
 than the viewport and never fires.
 
-`PINS BUSY` is reachable: RESTART DSHOT on the unplug page returns to MENU at
-once, and the claim stays Restoring until `escTaskSuspended()` turns false.
-A tap on SERVO TESTER in that time would open a screen whose claim is
-refused with Busy; MENU refuses it instead, from the row's `pinUser` and
-`pinClaimState()`.
+While the claim is not Free, each row whose screen claims pins or sets
+`freePins`, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
+SIGNALS, TOOLS and SETTINGS, is drawn disabled under its own status and a tap on
+it opens nothing (`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption
+reads `DSHOT RESTARTING ON SIG GP0` in amber and says why. The state is
+reachable: RESTART DSHOT on the leave page returns to MENU at once, and the
+claim stays Restoring until `escTaskSuspended()` turns false. SD LOG acts in
+every claim state.
 
-BEEP's refusal is unreachable through the UI. `escRequestBeep()` refuses only
-while armed (`esc_task.cpp:231`), and opening MENU disarms. The flash stays
-as the backstop, and the test forces it with `escSetArmed(true)`, as
-`test_ui.cpp:617` does today. The caption `BEEP NEEDS THE ESC DISARMED` under
-today's BEEP button goes; the row's status says it.
+Revised by slice 2 of [esc-commands.md](esc-commands.md#slice-2-as-built):
+ESC COMMANDS takes BEEP THE ESC's place, and BEEP THE ESC, its flash and
+`escRequestBeep()` are gone; `UI_MENU` holds no action row.
 
 **Fit.** The registry holds each row's label and its widest status in
-characters, and `ui_registry.cpp` checks every line at build time: x 16 plus
-the label at scale 2, plus 8 px, ends before x 222 minus the widest status at
-scale 1. Text width is `gfxTextW()`'s rule, (6 × characters − 1) × scale.
-SERVO TESTER is 142 px and ends at x 157; `PINS BUSY` is 53 px and starts at
-x 169. `KST PROGRAMMER`, 166 px, would end at x 181 and run into `PINS BUSY`
-at x 169, so the row reads `KST SERVO`, the title of the KST screen.
+characters, and `menuRowsFit()` in `ui_registry.cpp` checks every line at
+build time: x 16 plus the label at scale 2, plus 8 px, ends at or before x 222
+minus the widest status at scale 1. Text width is `gfxTextW()`'s rule,
+(6 × characters − 1) × scale. SERVO PROGRAMMER is 190 px and ends at x 206;
+with the 8 px gap, 8 px are left before x 222, too few for a pin status such
+as `GP0`, 17 px. The tool rows therefore show no status, and the strip names
+both pins. RX SIGNALS is 118 px and ends at x 134, with no status.
+
+Revised by [menu-b.md](menu-b.md#decisions) decisions 15 f and j, 16, 18
+and 32 to 35: slice C's MENU, and slice 3's after it, gave the tool rows a
+pin status, `GP0` and `GP0+1`, read `PINS BUSY` in amber on a refused row,
+showed the caption `GP0  600 KBIT/S`, had six rows that did not scroll in
+the design and seven with KST SERVO and HITEC SERVO as built.
 
 ## SETTINGS
 
@@ -223,7 +260,7 @@ In content coordinates, 0 px at the top of the list:
 | Item | Value |
 |---|---|
 | Viewport | y 40 to 239, 200 px (`VIEW_Y0`, `VIEW_H`); y 40 to 227, 188 px (`VIEW_H_PIN`) while the ESC pin's warning shows at y 230 (`PIN_Y`). SETTINGS has no strip |
-| Section caption | 20 px (`CAP_H`); its name at scale 1 in `C_CYAN` at x 8, 8 px below its top; takes no press |
+| Section caption | 20 px (`CAP_H`); its name at scale 1 in `C_TEXT` at x 8, 8 px below its top; takes no press |
 | Rows | 44 px tall (`ROW_H`) at a 50 px pitch (`ROW_PITCH`) |
 | Content | slice C: 4 captions and 9 rows, 530 px; slice 3: 5 captions and 10 rows, 600 px |
 | Scroll range | slice C: 0 px to 330 px; slice 3: 0 px to 400 px (`MAX_SCROLL_PX`, content minus 200 px); now 0 px to 620 px, and 632 px while the ESC pin's warning shows (content minus 188 px) |
@@ -237,6 +274,10 @@ In content coordinates, 0 px at the top of the list:
 | Note line | y 254, fixed: `UNSAVED - HOLD SAVE TO KEEP` and the other notes |
 | Save progress | y 264, 3 px, across HOLD TO SAVE |
 | Footer | y 268, 48 px tall: HOLD TO SAVE at x 8, RESET at x 162 |
+
+Revised by [menu-b.md](menu-b.md#decisions) decision 14: the footer is
+46 px tall, HOLD TO SAVE 150 px from x 6 and HOLD DEFAULTS, the RESET of
+this note, 72 px from x 162.
 
 A label at scale 2 is 12 px a character: `MAX THROTTLE` would be 142 px and
 leave 82 px for the value and both controls. So labels stay at scale 1, and
@@ -267,6 +308,13 @@ legal values only, ESC PIN and KISS PIN step past each other's pin
 the compiled defaults, pole count and ceiling included, into the live
 settings only.
 
+Revised by [menu-b.md](menu-b.md#decisions) decisions 9, 10, 14 and 15 e
+and j: WIRING's pin rows read SIG PIN and AUX PIN, both live whether KISS
+is on or off, and a step of either swaps the two pins; DSHOT KBAUD reads
+DSHOT; SERVO SUPPLY is a core section after WIRING, its values `OWN`,
+`GP28` and `GP29`; RESET is HOLD DEFAULTS, which loads the defaults after a
+1 s hold (the owner's decision of 2026-11-14, STATUS.md item 24).
+
 Touch targets:
 
 | Target | Today | SETTINGS |
@@ -277,6 +325,9 @@ Touch targets:
 | HOLD TO SAVE | 150 × 40 px | 150 × 48 px |
 | RESET | 70 × 40 px | 70 × 48 px |
 | BACK | 50 × 22 px | 64 × 32 px, shared by every screen |
+
+Revised by [menu-b.md](menu-b.md#decisions) decision 14: HOLD TO SAVE is
+150 × 46 px and RESET is HOLD DEFAULTS, 72 × 46 px.
 
 Gestures, on `ui_list` ([gestures](#gestures)):
 
@@ -357,6 +408,13 @@ The servo dial band fits with 1 px between the second note and the arc. If
 a later change needs more, the notes move into the strip, which the servo
 screen fills with one caption and a chip.
 
+Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and
+decisions 5 and 13: SERVO
+is titled SERVO TESTER, 142 px at scale 2, the widest title, ending at x 150,
+20 px before BACK; its unplug page, and KST SERVO's and HITEC SERVO's, is
+the leave page (`src/ui_leave.*`) under the screen's header, whose BACK is
+drawn disabled there.
+
 ## Touch targets
 
 The panel's 2.8 in diagonal spans 400 px, so a pixel is about 0.178 mm,
@@ -375,7 +433,9 @@ Two floors, in `ui_widgets.h`:
   and SET 32 px tall, RETRY 100 × 30 px). Two buttons that are neither list
   rows nor row controls stay as they are and go with that change: SD LOG's
   RETRY and USB DRIVE, 104 × 30 px, and AM32's OK on the write result,
-  100 × 36 px.
+  100 × 36 px. Revised by [menu-b.md](menu-b.md#decisions) decision 14:
+  RETRY and USB DRIVE are 112 × 30 px from x 6, and AM32's OK is the wide
+  footer button, 228 × 46 px at y 268.
 
 AM32 and SERVO SET use one list idiom, so they move together (decision 16).
 Slice A puts both on `ui_list` with their 26 px rows and their press rule,
@@ -553,6 +613,15 @@ from the tester to MENU, and it disarms. A tool's `tick()` returning false
 returns to MENU and invalidates every cached region, as leaving SETUP does
 today. No tool opens another.
 
+Revised by [menu-b.md](menu-b.md#decisions) decisions 16, 17, 19 and 32 to
+35: `UI_MENU` holds seven lines, BEEP THE ESC, AM32 CONFIG, SERVO TESTER,
+SERVO PROGRAMMER, RX SIGNALS, SD LOG and SETTINGS, the tool rows with a
+widest status of 0; `UI_PROGRAMMERS` beside it holds PROGRAMMER's three
+entries, and `UI_RX_ENTRIES` RX SIGNALS' two. `uiOpenTool()` in `ui.cpp` is
+the one route from a screen to a tool: MENU's rows, the choosers' entries
+and the tester's readouts use it, and it keeps the level the tool was opened
+from, so BACK from SETTINGS opened on the tester returns to the tester.
+
 **Settings from tools.** A tool's `UiScreen` may point at one section of
 persisted rows (decision 8). SETTINGS shows the core sections, ESC TESTER
 and WIRING, then each tool's section in registry order, then DISPLAY and
@@ -581,6 +650,13 @@ static const PinUserInfo PIN_USERS[] = {
 `pinClaimCheck()` stays a pure function and takes the user's row,
 `pinUserInfo(who)`, in place of the user. A new pin user is one enum value
 and one line here. Slice C adds no user.
+
+Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and decision
+34: `unplug`
+marks the users whose screen shows the leave page before DShot restarts;
+`PIN_USERS` in `pin_claim.h` has rows for `None` and `Hitec` too, and a
+fifth member, `deferJob`, with which HITEC SERVO's claim starts no job until
+READ (`pinClaimStartJob()`).
 
 ## As built
 
@@ -631,6 +707,16 @@ Slice C is built. The code differs from the sketches above in these places:
   tool's `tick()` returning false returns to MENU.
 - SETTINGS shows no tool section yet, since no registry entry has one.
 
+Revised by [menu-b.md](menu-b.md#decisions): the registry's rows are those
+of [MENU](#menu), SD LOG the seventh and SETTINGS the eighth, whole after
+drags of 34 px and 76 px (decisions 32 and 33, and the eight rows of
+menu-b.md's revision of 2026-11-15); a row refused while the claim is not Free
+is drawn disabled under its own status, and `PINS BUSY` is gone (decision
+15 f); `SettingsCtl::Reset` is `Defaults` (decision 14); `UiScreenId` adds
+`ServoProg` and `RxSignals` (decisions 19 and 35), and `Hitec` came with
+HITEC SERVO; SERVO SUPPLY is a core section, so
+SETTINGS still shows no tool section (decision 9).
+
 ## Interlocks
 
 | Interlock | Where | Through the UI |
@@ -641,6 +727,12 @@ Slice C is built. The code differs from the sketches above in these places:
 | No flash write while armed | the SETTINGS hold (`ui_setup.cpp:407`, moved) | unreachable: MENU disarms |
 | No arming while a USB host holds the card | `handleMainTouch()` (`ui.cpp:1359`), unchanged | SD LOG BACK goes to MENU; the tester stays reachable through MENU's BACK |
 | A tool returns to MENU | the navigation in `ui.cpp` | a test walks the registry and checks it |
+
+Revised by [menu-b.md](menu-b.md#decisions) decisions 15 f, 19 and 20:
+MENU draws a refused row disabled under the strip's
+`DSHOT RESTARTING ON SIG GP0`, in place of `PINS BUSY`; `uiOpenTool()` runs
+the disarm for MENU's rows, PROGRAMMER's entries and the tester's readouts,
+which open SETTINGS only while disarmed and while the claim is Free.
 
 ## Tests by control id
 
@@ -701,6 +793,12 @@ Tests slice C adds:
   RESET restores them.
 - The header: BACK by id on every screen; the SD LOG rows clear the note
   line; the SERVO notes and the dial's hit area at 122 px.
+
+Revised by [menu-b.md](menu-b.md#decisions): the registry walk passes the
+leave page, not the unplug page (owner decision 3); the refused rows are drawn
+disabled under the restarting caption in place of `PINS BUSY` (decision
+15 f); RESET is HOLD DEFAULTS (decision 14). The built registry has eight
+rows; the scroll test keeps its test-only registries of six and seven.
 
 ## Slices
 
@@ -823,6 +921,13 @@ is accepted.
    actions as full-width rows from a registry, `ui_registry.cpp`, one line
    per tool, scrolling once more than six rows exist. CFG on the tester reads
    MENU; opening MENU disarms, as CFG does.
+   Revised by [menu-b.md](menu-b.md#decisions) owner decisions 2 and 4 and
+   decisions 19 and 33: one row, SERVO PROGRAMMER, opens a chooser of the
+   servo programmers in place of a row per programmer; MENU has seven rows
+   and scrolls 36 px; the tester's pole count and MAX open SETTINGS too,
+   through `uiOpenTool()`, which disarms as opening MENU does.
+   Revised again by menu-b.md's decisions of 2026-11-15: MENU has eight
+   rows and scrolls 78 px.
 2. **BEEP.** An action row on MENU, with the sent or refused flash on the
    row.
 3. **Poles and ceiling.** Motor poles and throttle ceiling move to the top
@@ -846,6 +951,13 @@ is accepted.
     rows name it.
 11. **SD LOG BACK.** Goes to MENU, with a test that pins it.
 12. **Names.** MENU and SETTINGS.
+    Revised by [menu-b.md](menu-b.md#decisions) decision 13: MENU and
+    SETTINGS keep their names; a tool's main view carries its MENU label or
+    the chooser's tool title, SERVO TESTER, AM32 CONFIG, KST SERVO, HITEC
+    SERVO; a sub-view adds a word, SERVO SET, AM32 HEX, AM32 WRITE, KST
+    WRITE, KST RESTORE, KST FILES, HITEC WRITE, HITEC RESTORE, HITEC FILES;
+    the chooser reads
+    PROGRAMMER.
 13. **One SETTINGS list.** One list in sections, ESC TESTER, WIRING, SERVO
     SUPPLY (from slice 3), DISPLAY and BOARD, and no hub of sections, until
     about 20 rows.
@@ -881,5 +993,13 @@ owner has not decided them:
     every tool's `UiScreen` sits in a file of its own and `ui.cpp` holds only
     the tester and the navigation. BEEP's `UiScreen` sits in `ui_menu.cpp`
     with MENU, since BEEP is an action on MENU and has no screen.
+    Revised by [menu-b.md](menu-b.md#decisions) owner decision 2 and
+    decisions 15 f, 18 and 32 to 35: no MENU row reads KST SERVO; the
+    SERVO PROGRAMMER row opens PROGRAMMER, whose KST / CHASERVO entry opens
+    the screen titled KST SERVO and whose HITEC D SERIES and HITEC CLASSIC
+    entries open HITEC SERVO; `PINS BUSY` is gone and the tool rows show no
+    status; the strip reads `SIG GP0  AUX GP1  DSHOT600` beside the EDT
+    chip. RX SIGNALS' row opens its chooser, `ui_rx_signals.cpp`
+    (rx-signals.md, slice 3).
 19. **Section order and BOARD.** Tool sections sit between WIRING and
     DISPLAY in registry order. The BOARD section's row reads `BUILT FOR`.

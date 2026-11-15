@@ -45,15 +45,15 @@
 #define C_INK      (g_theme[TC_INK])      /**< Strongest mark against the background. */
 #define C_PAPER    (g_theme[TC_PAPER])    /**< Text drawn on a bright fill. */
 #define C_ONACCENT (g_theme[TC_ONACCENT]) /**< Text drawn on a saturated fill. */
-#define C_GREEN    (g_theme[TC_GREEN])    /**< Muted green (SAFE badge). */
-#define C_LIME     (g_theme[TC_LIME])     /**< Live values, throttle fill. */
-#define C_AMBER    (g_theme[TC_AMBER])    /**< Warning. */
-#define C_RED      (g_theme[TC_RED])      /**< Error / ARMED. */
+#define C_GREEN    (g_theme[TC_GREEN])    /**< Safe, done (`UI_COL_SAFE`). */
+#define C_LIME     (g_theme[TC_LIME])     /**< A live reading (`UI_COL_LIVE`). */
+#define C_AMBER    (g_theme[TC_AMBER])    /**< Warning (`UI_COL_WARN`). */
+#define C_RED      (g_theme[TC_RED])      /**< Output on, failure (`UI_COL_ON`). */
 #define C_REDDARK  (g_theme[TC_REDDARK])  /**< Dead-telemetry digit. */
 #define C_GHOST    (g_theme[TC_GHOST])    /**< Unlit leading seven-segment digits. */
-#define C_BLUE     (g_theme[TC_BLUE])     /**< HOLD button active. */
-#define C_CYAN     (g_theme[TC_CYAN])     /**< Informational accent. */
-#define C_MAGENTA  (g_theme[TC_MAGENTA])  /**< ESC alert state. */
+#define C_BLUE     (g_theme[TC_BLUE])     /**< Latched (`UI_COL_LATCHED`). */
+#define C_CYAN     (g_theme[TC_CYAN])     /**< Changed, not written (`UI_COL_CHANGED`). */
+#define C_MAGENTA  (g_theme[TC_MAGENTA])  /**< Alert (`UI_COL_ALERT`). */
 /** @} */
 
 /** @brief Clear the framebuffer and mark the whole screen dirty. */

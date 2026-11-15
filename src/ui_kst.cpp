@@ -22,8 +22,10 @@
 #include "sense.h"
 #include "settings.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
+#include "ui_leave.h"
 #include "ui_list.h"
 #include "ui_screen.h"
 #include "ui_widgets.h"
@@ -52,12 +54,12 @@
 #define KL_EDIT_Y    218              /**< The editor bar. */
 #define KL_EDIT_H    44
 #define KL_STEP_W    UI_EDIT_BTN_W    /**< - and +, 44 px. */
-#define KL_FOOT_Y    UI_FOOT_Y        /**< HOLD TO WRITE, REVERT, FILES; the wide button. */
+#define KL_FOOT_Y    UI_FOOT_Y        /**< WRITE..., REVERT, FILES; the wide button. */
 #define KL_FOOT_H    UI_FOOT_H
 #define KF_LIST_Y1   229              /**< Last row of the file list. */
 #define KF_SAVE_Y    234              /**< SAVE AS, or RETRY MOUNT. */
 #define KF_BTN_H     40
-#define KF_LOAD_Y    278              /**< LOAD and HOLD TO RESTORE. */
+#define KF_LOAD_Y    278              /**< LOAD and `RESTORE...`. */
 #define KS_SPIN_Y    236              /**< The search's spinner, its centre. */
 #define KS_SPIN_R    20
 /** @brief Files the FILES page lists at most; the strip names the rest. */
@@ -75,9 +77,21 @@ static const UiRect BTN_WIDE    = { 6, KL_FOOT_Y, 228, KL_FOOT_H };
 static const UiRect BTN_SAVE    = { 6, KF_SAVE_Y, 228, KF_BTN_H };
 static const UiRect BTN_LOAD    = { 6, KF_LOAD_Y, 110, KF_BTN_H };
 static const UiRect BTN_RESTORE = { 122, KF_LOAD_Y, 112, KF_BTN_H };
-static const UiRect BTN_RESTART = { 40, 200, 160, 40 };
-static const UiRect BTN_REBOOT  = { 6, 214, 228, 46 };
 
+/**
+ * @defgroup kst_leave_text The leave page's KST lines
+ * @{
+ */
+#define KST_LEAVE_OFF_1 "POWER THE SERVO OFF, THEN LEAVE."   /**< Step 1 without the switch. */
+#define KST_LEAVE_OFF_2 "IT STAYS IN PROGRAMMING MODE UNTIL" /**< Its first detail line. */
+#define KST_LEAVE_OFF_3 "ITS SUPPLY IS OFF."                  /**< Its second detail line. */
+#define KST_LEAVE_DOUBT "THE SERVO IS IN DOUBT: RESTORE FIRST." /**< The note of a write in doubt. */
+/** @} */
+static_assert(sizeof(KST_UI_NEXT_POWER) - 1 <= UI_LEAVE_NOTE_CHARS &&
+                  sizeof(KST_LEAVE_OFF_1) - 1 <= UI_LEAVE_STEP_CHARS &&
+                  sizeof(KST_LEAVE_OFF_2) - 1 <= UI_LEAVE_STEP_CHARS &&
+                  sizeof(KST_LEAVE_DOUBT) - 1 <= UI_LEAVE_NOTE_CHARS,
+              "a leave line runs past x 232");
 static_assert(KL_LIST_Y1 < KL_EDIT_Y, "the field list overlaps the editor bar");
 static_assert(KL_EDIT_Y + KL_EDIT_H + UI_HOLD_BAR_H < KL_FOOT_Y,
               "the editor bar overlaps the footer's hold bar");
@@ -137,6 +151,7 @@ static UiList       s_list;              /**< The fields. */
 static int          s_sel = -1;          /**< Selected row of the field list. */
 static Repeat       s_repeat;            /**< The editor bar's held repeat. */
 static UiHold       s_hold;              /**< The hold of the view that is up. */
+static UiLeave      s_leave;             /**< The leave page: its phase and its presses. */
 static bool         s_writing = false;   /**< The write page's operation runs. */
 static bool         s_flushing = false;  /**< The write waits for the backup's flush to the card. */
 static bool         s_restoring = false; /**< The write page is a restore. */
@@ -148,7 +163,8 @@ static uint8_t      s_resultPlan = 0;
 static KstRefusal   s_resultRefused = KstRefusal::None; /**< The job refused the write. */
 static KstRefusal   s_readRefused = KstRefusal::None;   /**< The job refused the read. */
 static const char  *s_cardNote = nullptr; /**< The card refused the first write's files. */
-static bool         s_leaveQueued = false;
+/** @brief The last hold, or the write after its flush, met the BOARD voltage red: nothing was written. */
+static bool s_boardLow = false;
 static char         s_preset[KST_STORE_PRESET_MAX]; /**< The KSTnnn SAVE AS takes in KST/. */
 static bool         s_saveFull = false;  /**< KST/ holds KST_FILES_SAVE_MAX files: SAVE AS refuses. */
 static char         s_backupNext[BACKUP_NAME_MAX]; /**< The backup's name in BACKUP/, for the backup line. */
@@ -186,14 +202,22 @@ static bool running() {
 }
 
 /**
- * @brief Whether BACK acts on this frame: everywhere but on the unplug page
- *        before the job has let the pin go (pinClaimUnplugDue()), where
- *        pinClaimKeep() would refuse. The control table reports it, the tap
- *        is gated on it, the frame key holds it and the header draws it.
- *        The unplug page draws its header and reports its table from its own
- *        one read of pinClaimUnplugDue(), which this equals on that page.
+ * @brief Whether BACK acts on this frame: everywhere but on the leave page,
+ *        in every phase, where each way on is a labelled button, and on the
+ *        write page while the write runs or waits for the card's flush
+ *        (docs/design/menu-b.md, decision 5): BACK never leaves a servo half
+ *        written. The control table reports it, the tap is gated on it, the
+ *        frame key holds it and the header draws it.
  */
-static bool backActs() { return s_view != KstView::Unplug || pinClaimUnplugDue(); }
+static bool backActs() {
+	if (s_view == KstView::Write && (s_writing || s_flushing)) return false;
+	return s_view != KstView::Leave;
+}
+
+/** @brief The leave page's claim has ended: LEAVE was tapped, or it opened releasing. */
+static bool claimEnded() {
+	return s_view == KstView::Leave && s_leave.phase != UiLeavePhase::Before;
+}
 
 /** @brief The seq of the last command sent, an operation or a card phase's. */
 static uint16_t s_sentSeq = 0;
@@ -323,6 +347,7 @@ static bool cardHeldByUsb() { return mscHoldsCard(mscGetState()); }
 
 /** @brief Go to @p v, with its hold and its press state fresh. */
 static void go(KstView v) {
+	s_boardLow = false;
 	// A write that waited for its backup's flush does not follow the page.
 	if (v != KstView::Write) s_flushing = false;
 	s_view = v;
@@ -350,7 +375,7 @@ static void forgetFirst() {
 	s_firstVolumeRead = false;
 }
 
-/** @brief A new session: the claim's first frame, or after BACK on the unplug page. */
+/** @brief A new session: the claim's first frame, or after NEXT SERVO on the leave page. */
 static void newSession() {
 	KstCardPhase phase;
 	s_opOpen = false;
@@ -361,7 +386,6 @@ static void newSession() {
 	forgetFirst();
 	s_lockedSeen = false;
 	s_wroteSeen = false;
-	s_leaveQueued = false;
 	s_cardNote = nullptr;
 	s_prevJob = KstJobState::Closed;
 	forgetServo();
@@ -436,10 +460,6 @@ static void opEnd() {
 		s_recordFound = kstFilesMounted() && kstFilesRecordPresent();
 		s_target = s_st.image;
 	}
-	if (s_leaveQueued) {
-		s_leaveQueued = false;
-		go(KstView::Leave);
-	}
 }
 
 /** @brief The job's state, read each frame, moves the views. */
@@ -504,11 +524,9 @@ static void follow() {
 	// shows no result: the session is gone with the servo.
 	bool searchState = s_st.job == KstJobState::Searching || s_st.job == KstJobState::SearchEnded;
 	// The leave page stays: it is where BACK from the search goes.
-	if (searchState && s_view != KstView::Main && s_view != KstView::Unplug &&
-	    s_view != KstView::Leave) {
+	if (searchState && s_view != KstView::Main && s_view != KstView::Leave) {
 		forgetServo();
 		s_opOpen = false;
-		s_leaveQueued = false;
 		go(KstView::Main);
 	}
 	if (opEnded()) opEnd();
@@ -527,7 +545,7 @@ static void follow() {
 struct MainText {
 	char        strip[40];
 	uint16_t    stripCol;
-	const char *big[2];       /**< Scale 2, C_LIME. */
+	const char *big[2];       /**< Scale 2, UI_COL_WARN: the current step. */
 	const char *line[6];      /**< Scale 1. */
 	uint16_t    lineCol[6];
 	char        rx[48];       /**< A refused reply, C_AMBER. */
@@ -561,7 +579,7 @@ static void stallNote(MainText *m) {
 	bool wrote = s_wroteSeen || s_st.stallWrote;
 	bool locked = s_lockedSeen || s_st.stallLocked;
 	if (!kstFilesMounted()) {
-		if (wrote) addLine(m, "NO CARD: THE BACKUP IN MEMORY IS LOST.", C_AMBER);
+		if (wrote) addLine(m, UI_NO_CARD_RAM_LOST, C_AMBER);
 		return;
 	}
 	if (!locked) return;
@@ -570,7 +588,7 @@ static void stallNote(MainText *m) {
 	snprintf(name, sizeof(name), "%.10s", s_first.backupName);
 	char *dot = strrchr(name, '.');
 	if (dot) *dot = '\0';
-	snprintf(doubt, sizeof(doubt), "THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD %s IN FILES AND HOLD TO WRITE.",
+	snprintf(doubt, sizeof(doubt), "THE LAST WRITE IS IN DOUBT. AFTER THE READ, LOAD %s IN FILES, TAP WRITE... AND HOLD.",
 	         name[0] ? name : "THE BACKUP");
 	addWrapped(m, doubt, C_AMBER, 3);
 }
@@ -583,31 +601,31 @@ static void mainBody(MainText *m) {
 	if (!s_claimed) {
 		switch (s_refusal) {
 			case ClaimRefusal::EscAnswering:
-				snprintf(a, sizeof(a), "AN ESC ANSWERS ON GP%u.", sig);
+				snprintf(a, sizeof(a), "AN ESC ANSWERS ON SIG GP%u.", sig);
 				addLine(m, a, C_AMBER);
 				addLine(m, "UNPLUG IT: KST FRAMES MAY READ", C_AMBER);
 				addLine(m, "AS THROTTLE.", C_AMBER);
-				snprintf(m->strip, sizeof(m->strip), "CHECKING GP%u FOR AN ESC", sig);
+				snprintf(m->strip, sizeof(m->strip), "CHECKING SIG GP%u FOR AN ESC", sig);
 				return;
 			case ClaimRefusal::Armed: addLine(m, "DISARM FIRST", C_AMBER); return;
-			default:                  addLine(m, "PINS BUSY", C_AMBER);    return;
+			default:                  addLine(m, UI_WAIT_RESTART_TEXT, C_AMBER); return;
 		}
 	}
 	ClaimState cs = pinClaimState();
 	if (cs == ClaimState::Stopping) {
-		snprintf(m->strip, sizeof(m->strip), "RELEASING GP%u", sig);
+		snprintf(m->strip, sizeof(m->strip), "RELEASING SIG GP%u", sig);
 		return;
 	}
 	uint8_t err = pinClaimJobError();
 	if (err) {
 		static const char *const WHY[] = {"", "REFUSED", "PWM", "PIO", "DMA", "CLOCK"};
-		snprintf(a, sizeof(a), "GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
+		snprintf(a, sizeof(a), "SIG GP%u COULD NOT BE TAKEN (%s)", sig, WHY[err < 6 ? err : 1]);
 		addLine(m, a, C_AMBER);
 		m->button = "RETRY"; m->ctl = KstCtl::Retry; m->enabled = true;
 		return;
 	}
 	if (cs != ClaimState::Running) {
-		snprintf(m->strip, sizeof(m->strip), "TAKING GP%u", sig);
+		snprintf(m->strip, sizeof(m->strip), "TAKING SIG GP%u", sig);
 		return;
 	}
 	switch (s_st.job) {
@@ -616,10 +634,10 @@ static void mainBody(MainText *m) {
 				// TRY is the attempt under way: in an off phase, the next one.
 				unsigned tri = (unsigned)s_st.attempts + (s_st.supplyOn ? 0u : 1u);
 				if (s_st.supplyOn) {
-					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY ON", sig, tri);
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  TRY %u  SUPPLY ON", sig, tri);
 					senseAppendCurrent(m->strip, sizeof(m->strip));
 				} else
-					snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %u  SUPPLY OFF %u.%u S", sig, tri,
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  TRY %u  SUPPLY OFF %u.%u S", sig, tri,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 				m->big[0] = "SWITCHED SUPPLY";
 				addLine(m, "THE BENCH SWITCHES THE SERVO OFF FOR", C_DIM);
@@ -635,7 +653,7 @@ static void mainBody(MainText *m) {
 				return;
 			}
 			unsigned ds = s_st.searchMs / 100;
-			snprintf(m->strip, sizeof(m->strip), "GP%u  TRY %lu  %u.%u S", sig,
+			snprintf(m->strip, sizeof(m->strip), "SIG GP%u  TRY %lu  %u.%u S", sig,
 			         (unsigned long)s_st.attempts, ds / 10, ds % 10);
 			m->big[0] = "POWER UP";
 			m->big[1] = "THE SERVO NOW";
@@ -651,6 +669,16 @@ static void mainBody(MainText *m) {
 		}
 		case KstJobState::SearchEnded:
 			m->button = "RETRY"; m->ctl = KstCtl::Retry; m->enabled = true;
+			// A cut of the current sensor's guard outranks how the search
+			// ended: the supply went off for it.
+			if (s_st.cut != GuardCut::None) {
+				snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF", sig);
+				addWrapped(m, s_st.cut == GuardCut::Hard ? UI_CUT_HARD_TEXT : UI_CUT_LOW_TEXT,
+				           C_AMBER);
+				addLine(m, UI_CUT_RETRY, C_AMBER);
+				stallNote(m);
+				return;
+			}
 			switch (s_st.seek) {
 				case KstSeek::TimedOut:
 					if (s_st.supplyFitted) {
@@ -660,7 +688,7 @@ static void mainBody(MainText *m) {
 						snprintf(conv, sizeof(conv), "CHECK THE CONVERTER ON GP%u, ITS WIRING AND THE SIGNAL.",
 						         (unsigned)servoSupplyPin());
 						addWrapped(m, conv, C_TEXT);
-						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT NONE.",
+						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT OWN.",
 						           C_TEXT);
 						return;
 					}
@@ -670,11 +698,11 @@ static void mainBody(MainText *m) {
 					return;
 				case KstSeek::NoUi:
 					if (s_st.supplyFitted) {
-						snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF", sig);
+						snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF", sig);
 						addWrapped(m, "THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.",
 						           C_AMBER);
 						// 38 characters: 227 px from x 8, inside the panel.
-						addLine(m, "RETRY POWERS IT UP AND READS IT AGAIN.", C_AMBER);
+						addLine(m, UI_CUT_RETRY, C_AMBER);
 						stallNote(m);
 						return;
 					}
@@ -721,24 +749,24 @@ static void mainBody(MainText *m) {
 		case KstJobState::Rebooting:
 			switch (s_st.reboot) {
 				case KstReboot::Off:
-					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY OFF %u.%u S", sig,
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY OFF %u.%u S", sig,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 					addLine(m, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER);
 					return;
 				case KstReboot::On:
-					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON %u.%u S", sig,
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY ON %u.%u S", sig,
 					         s_st.supplyLeftDs / 10, s_st.supplyLeftDs % 10);
 					senseAppendCurrent(m->strip, sizeof(m->strip));
 					addLine(m, "REBOOT: DO NOT UNPLUG THE SERVO.", C_AMBER);
 					return;
 				default:
-					snprintf(m->strip, sizeof(m->strip), "GP%u  SUPPLY ON", sig);
+					snprintf(m->strip, sizeof(m->strip), "SIG GP%u  SUPPLY ON", sig);
 					senseAppendCurrent(m->strip, sizeof(m->strip));
 					addLine(m, "READING 32 REGISTERS", C_TEXT);
 					return;
 			}
 		default:
-			snprintf(m->strip, sizeof(m->strip), "STARTING THE SEARCH ON GP%u", sig);
+			snprintf(m->strip, sizeof(m->strip), "STARTING THE SEARCH ON SIG GP%u", sig);
 			return;
 	}
 }
@@ -781,7 +809,7 @@ static void drawMain() {
 	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
 	int y = 70;
 	for (int i = 0; i < 2; i++)
-		if (m.big[i]) { gfxTextCenter(y, m.big[i], C_LIME, 2); y += 18; }
+		if (m.big[i]) { gfxTextCenter(y, m.big[i], UI_COL_WARN, 2); y += 18; }
 	y = m.big[1] ? 112 : m.big[0] ? 100 : 80;
 	for (int i = 0; i < 6 && m.line[i]; i++) {
 		gfxText(UI_MARGIN, y, m.line[i], m.lineCol[i], 1);
@@ -810,24 +838,27 @@ static const KstRow &rowAt(int i) {
 	return kstRows(&n)[i];
 }
 
+/**
+ * @brief The value state of a row: read-only, changed from the servo as read,
+ *        or plain (docs/design/menu-b.md, decision 8).
+ */
+static UiValue rowValue(bool editable, bool changed) {
+	if (!editable) return UiValue::ReadOnly;
+	return changed ? UiValue::Changed : UiValue::Plain;
+}
+
 static void drawFieldRow(int i, int y, void *) {
 	const KstRow &r = rowAt(i);
 	bool editable = kstRowEditable(i);
-	bool sel = i == s_sel;
 	uint16_t now = kst_field_get(&s_st.image, r.field);
 	uint16_t want = kst_field_get(&s_target, r.field);
 	bool changed = now != want;
-	gfxRect(0, y, GFX_W, KL_ROW_H - 1, sel ? C_PANEL : C_BG);
-	gfxText(UI_MARGIN, y + 11, r.group, C_GRID, 1);
-	gfxText(UI_MARGIN, y + 21, r.label, editable ? (sel ? C_TEXT : C_DIM) : C_GRID, 1);
 	char v[24];
 	kstValueText(r.field, want, v, sizeof(v));
-	int sc = gfxTextW(v, 2) <= 104 ? 2 : 1;
-	uint16_t col = !editable ? C_GRID : (changed ? C_LIME : C_TEXT);
-	gfxText(GFX_W - UI_MARGIN - gfxTextW(v, sc), y + (KL_ROW_H - 1 - 7 * sc + 1) / 2, v, col, sc);
-	// A change that breaks a soft rule: an amber mark at the row's edge.
-	if (changed && fieldRules(r.field)) gfxRect(0, y, 3, KL_ROW_H - 1, C_AMBER);
-	gfxHLine(0, y + KL_ROW_H - 1, GFX_W, C_PANEL);
+	// A change has a cyan bar, amber when it breaks a soft rule.
+	UiEdge edge = !changed ? UiEdge::None : fieldRules(r.field) ? UiEdge::Rule : UiEdge::Changed;
+	UiField f = { r.group, r.label, v, rowValue(editable, changed), edge, i == s_sel };
+	uiListDrawField(y, KL_ROW_H, f);
 }
 
 /** @brief kstCanStep() for one direction, kept until its inputs change. */
@@ -864,10 +895,12 @@ static void drawList() {
 	if (s_first.backupName[0])
 		snprintf(strip, sizeof(strip), "%s  GP%u  BACKUP %.6s", type, sigGpio(), s_first.backupName);
 	else
-		snprintf(strip, sizeof(strip), "%s  GP%u  BACKUP IN MEMORY", type, sigGpio());
+		snprintf(strip, sizeof(strip), "%s  GP%u  " UI_BACKUP_RAM, type, sigGpio());
 	uiStripText(strip, C_DIM);
-	if (s_st.locked) uiChip("IN DOUBT", C_AMBER);
-	else             uiChip("MODE", C_GREEN);
+	// In the mode: latched until LEAVE. In doubt: a write whose outcome is
+	// not known, a failure (docs/design/menu-b.md, decision 11).
+	if (s_st.locked) uiChip("IN DOUBT", UI_COL_ON);
+	else             uiChip(UI_CHIP_PROG_MODE, UI_COL_LATCHED);
 	uiListDraw(&s_list, drawFieldRow, nullptr);
 
 	gfxRect(0, KL_LIST_Y1 + 1, GFX_W, KL_FOOT_Y - KL_LIST_Y1 - 1, C_BG);
@@ -895,7 +928,8 @@ static void drawList() {
 		if (rules) {
 			snprintf(top, sizeof(top), "%s %s", r.label, want);
 			if (gfxTextW(top, 1) > cw) snprintf(top, sizeof(top), "%s", want);
-			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top, C_LIME, 1);
+			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top,
+			        uiListValueColour(rowValue(editable, changed)), 1);
 			char lines[3][48];
 			int n = kstWrap(kstRuleText(firstRule(rules)), cw / 6, lines, 3);
 			for (int i = 0; i < n; i++)
@@ -912,18 +946,18 @@ static void drawList() {
 			gfxText(cx + (cw - gfxTextW(top, 1)) / 2, KL_EDIT_Y + 2, top, C_DIM, 1);
 			int sc = gfxTextW(want, 2) <= cw ? 2 : 1;
 			gfxText(cx + (cw - gfxTextW(want, sc)) / 2, KL_EDIT_Y + 16, want,
-			        editable ? C_LIME : C_GRID, sc);
+			        uiListValueColour(rowValue(editable, changed)), sc);
 		}
 	}
 
 	gfxRect(0, KL_FOOT_Y - 4, GFX_W, GFX_H - KL_FOOT_Y + 4, C_BG);
+	// WRITE... opens the write page on a tap; only that page holds
+	// (docs/design/menu-b.md, decision 6).
 	bool w = writeAllowed();
-	uiHoldDrawBar(&s_hold, BTN_WRITE, KL_FOOT_Y - 4, millis());
-	const char *wl = !s_st.fingerprintOk ? "READ ONLY" : (s_st.locked ? "IN DOUBT" : "HOLD TO WRITE");
-	uiButton(BTN_WRITE, wl, s_hold.holding ? C_RED : C_PANEL, s_hold.holding ? C_ONACCENT : C_TEXT,
-	         1, s_hold.holding, w);
+	const char *wl = !s_st.fingerprintOk ? "READ ONLY" : (s_st.locked ? "IN DOUBT" : "WRITE...");
+	uiButton(BTN_WRITE, wl, C_PANEL, C_TEXT, 1, w && pressing(BTN_WRITE), w);
 	bool rv = pending() != 0;
-	uiButton(BTN_REVERT, "REVERT", C_PANEL, C_TEXT, 1, rv && pressing(BTN_REVERT), rv);
+	uiButton(BTN_REVERT, "REVERT", C_PANEL, UI_COL_WARN, 1, rv && pressing(BTN_REVERT), rv);
 	uiButton(BTN_FILES, "FILES", C_PANEL, C_TEXT, 1, pressing(BTN_FILES));
 }
 
@@ -934,7 +968,9 @@ static void stepSel(int steps, int factor) {
 }
 
 static void listTouch() {
-	if (uiHoldUpdate(&s_hold, BTN_WRITE, s_t, writeAllowed(), millis())) {
+	// WRITE...: a tap, on release, opens the write page. Its hold starts
+	// fresh there (go()), so the tap's press is never timed.
+	if (writeAllowed() && tapped(BTN_WRITE)) {
 		s_result = false;
 		s_confirm = false;
 		s_restoring = false;
@@ -997,6 +1033,11 @@ static bool firstWriteFiles() {
 
 /** @brief Send the write or the restore to the job. */
 static void sendWrite() {
+	// Asked again here: the write may have waited for a flush since the hold.
+	// Refused now, the backup and the record are on the card; no frame goes
+	// out.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
 	// The card calls block core0, up to seconds on a slow card; the job
 	// takes no write while the heartbeat has lapsed.
 	escHeartbeat();
@@ -1048,19 +1089,20 @@ static void startWrite();
  *        write failed or the card in the slot changed (sd_cache.h), so a
  *        full card does not end here; it ends in CARD_TOOK_NO_FILE. The
  *        card is mounted again and the first write forgotten, so the next
- *        hold saves the backup again. Three lines of 38 characters.
+ *        write saves the backup again. Three lines of 38 characters under
+ *        OK, which returns to the list.
  */
 static const char *const FLUSH_FAILED =
-	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE THE BACKUP (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.";
 /** @brief As FLUSH_FAILED, for a batch that held another file. */
 static const char *const FLUSH_FAILED_FILE =
-	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD DID NOT TAKE A FILE (REMOVED OR SWAPPED?). NOTHING WENT TO THE SERVO. TAP OK, WRITE AGAIN.";
 /**
  * @brief The write page's text when FatFs refused the first write's files:
  *        among the causes a full card and a card that is gone.
  */
 static const char *const CARD_TOOK_NO_FILE =
-	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, HOLD AGAIN.";
+	"THE CARD TOOK NO FILE (FULL OR REMOVED?). NOTHING WENT TO THE SERVO. CHECK THE CARD, TAP OK, WRITE AGAIN.";
 
 /**
  * @brief While the write waits for the flush: send it once the card has
@@ -1093,11 +1135,18 @@ static void flushStep() {
 static void startWrite() {
 	s_cardNote = nullptr;
 	s_result = false;
-	// A batch that failed off this page, after BACK during the flush or a
-	// removal of the record: the first write starts over.
+	// The BOARD voltage red: no file goes to the card and no frame to the
+	// servo. A write already running is not stopped: cut off, it would leave
+	// the servo partly written and unverified.
+	s_boardLow = uiBoardWriteRefused();
+	if (s_boardLow) return;
+	// A batch that failed off this page, after a stall during the flush or
+	// a removal of the record: the first write starts over. A servo
+	// unplugged during the flush ends nothing: the job notices it only when
+	// an operation ends, so the write goes out after the flush and fails.
 	if (cardCacheState() == CardCache::Failed) recoverFlush();
-	// A batch still queued, the first write's after BACK during its flush or
-	// a removal of the record: the page waits for it, and the swap check
+	// A batch still queued, the first write's after a stall during its flush
+	// or a removal of the record: the page waits for it, and the swap check
 	// runs as it ends (flushStep()), so a read that fails drops no batch.
 	s_checkAfterFlush = false;
 	if (s_firstOnCard && cardCacheState() == CardCache::Flushing) {
@@ -1144,7 +1193,7 @@ static void drawWrite() {
 		// The page lists what it writes from where the servo stood when it
 		// opened, so the result still names the fields.
 		kst_field_set_t ch = kstChanged(&s_pageFrom, &s_pageTo);
-		snprintf(buf, sizeof(buf), "%d FIELD%s", bits(ch), bits(ch) == 1 ? "" : "S");
+		snprintf(buf, sizeof(buf), "%d CHANGE%s", bits(ch), bits(ch) == 1 ? "" : "S");
 		uiStripText(buf, C_DIM);
 		int shown = 0, rows;
 		const KstRow *all = kstRows(&rows);
@@ -1164,7 +1213,7 @@ static void drawWrite() {
 			// Values that would meet the label go to the line below it.
 			int vy = UI_MARGIN + gfxTextW(all[i].label, 1) + 6 > GFX_W - UI_MARGIN - gfxTextW(buf, 1)
 			             ? y + 10 : y;
-			gfxText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), vy, buf, C_LIME, 1);
+			uiChangeText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), vy, a, b);
 			y += 20;
 			shown++;
 		}
@@ -1208,7 +1257,6 @@ static void drawWrite() {
 		if (s_st.planning) snprintf(buf, sizeof(buf), "PLANNING THE ORDER OF THE WRITES");
 		else               snprintf(buf, sizeof(buf), "FRAMES SENT: %lu", (unsigned long)s_st.frames);
 		gfxText(UI_MARGIN, 210, buf, C_TEXT, 1);
-		if (s_leaveQueued) gfxText(UI_MARGIN, 252, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
 		return;
 	}
 	if (s_result || s_cardNote) {
@@ -1219,6 +1267,9 @@ static void drawWrite() {
 		for (int k = 0; k < n; k++) gfxText(UI_MARGIN, 196 + 12 * k, wl[k], c, 1);
 		uiButton(BTN_WIDE, "OK", C_PANEL, C_TEXT, 2, pressing(BTN_WIDE));
 		return;
+	} else if (s_boardLow) {
+		gfxText(UI_MARGIN, 196, UI_BOARD_LOW_1, C_AMBER, 1);
+		gfxText(UI_MARGIN, 208, UI_BOARD_LOW_2, C_AMBER, 1);
 	} else if (s_confirm) {
 		gfxText(UI_MARGIN, 196, "THE PLANNER DID NOT CHECK THIS", C_AMBER, 1);
 		gfxText(UI_MARGIN, 208, "RESTORE. HOLD AGAIN TO RUN IT.", C_AMBER, 1);
@@ -1363,10 +1414,9 @@ static void drawFiles() {
 	}
 	bool l = loadOk();
 	uiButton(BTN_LOAD, "LOAD", C_PANEL, C_TEXT, 1, l && pressing(BTN_LOAD), l);
+	// RESTORE... opens the restore page on a tap; that page holds.
 	bool r = restoreAllowed();
-	uiHoldDrawBar(&s_hold, BTN_RESTORE, KF_LOAD_Y - 4, millis());
-	uiButton(BTN_RESTORE, "HOLD TO RESTORE", s_hold.holding ? C_RED : C_PANEL,
-	         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, r);
+	uiButton(BTN_RESTORE, "RESTORE...", C_PANEL, C_TEXT, 1, r && pressing(BTN_RESTORE), r);
 }
 
 /** @brief Characters of the strip, x 8 to 232. */
@@ -1497,7 +1547,9 @@ static void saveAs() {
 }
 
 static void filesTouch() {
-	if (uiHoldUpdate(&s_hold, BTN_RESTORE, s_t, restoreAllowed(), millis())) {
+	// RESTORE...: a tap, on release, opens the restore page, whose HOLD TO
+	// RESTORE runs it (docs/design/menu-b.md, decision 6).
+	if (restoreAllowed() && tapped(BTN_RESTORE)) {
 		s_restoring = true;
 		s_result = false;
 		s_confirm = false;
@@ -1511,7 +1563,6 @@ static void filesTouch() {
 		s_pageFrom = s_st.image;
 		s_pageTo = s_st.backup;
 		go(KstView::Write);
-		startWrite();
 		return;
 	}
 	if (!kstFilesMounted()) {
@@ -1533,12 +1584,75 @@ static void filesTouch() {
 }
 
 // ---------------------------------------------------------------------------
-// the leave page and the unplug page
+// the leave page
 // ---------------------------------------------------------------------------
 
 /** @brief HOLD TO REBOOT acts: a switch, the servo in the mode, nothing running. */
 static bool rebootAllowed() {
 	return s_st.supplyFitted && idleMode() && !s_writing;
+}
+
+/** @brief LEAVE acts: no write runs or waits for its flush (decision 5 of menu-b.md). */
+static bool leaveOk() { return !s_writing && !s_flushing; }
+
+/** @brief HOLD TO REBOOT is on the page: before LEAVE, with the switched supply. */
+static bool rebootShown() {
+	return s_leave.phase == UiLeavePhase::Before && s_st.supplyFitted;
+}
+
+/** @brief Open the leave page in @p phase. */
+static void openLeave(UiLeavePhase phase) {
+	go(KstView::Leave);
+	uiLeaveOpen(&s_leave, phase, UI_HOLD_MS);
+}
+
+/** @brief What the leave page shows on this frame. */
+static void leaveText(UiLeaveText *tx) {
+	// Static: the page draws from them after this returns.
+	static char dshot[40], changes[40], supply[40];
+	memset(tx, 0, sizeof(*tx));
+	int first = 0;
+	if (s_leave.before) {
+		if (s_st.supplyFitted) {
+			// A servo without power is in no mode: the bench switches it off.
+			tx->step[0][0] = UI_LEAVE_SWITCHED;
+		} else {
+			tx->step[0][0] = KST_LEAVE_OFF_1;
+			tx->step[0][1] = KST_LEAVE_OFF_2;
+			tx->step[0][2] = KST_LEAVE_OFF_3;
+		}
+		first = 1;
+	}
+	uiLeaveUnplugSteps(tx, first, sigGpio(), dshot, sizeof(dshot));
+	tx->next = "NEXT SERVO";
+	int k = 0;
+	if (s_leave.phase == UiLeavePhase::Before) {
+		int n = bits(pending());
+		if (n) {
+			snprintf(changes, sizeof(changes), "%d CHANGE%s NOT WRITTEN.", n, n == 1 ? "" : "S");
+			tx->note[k++] = changes;
+		}
+		if (s_st.locked) tx->note[k++] = KST_LEAVE_DOUBT;
+		// REBOOT reads the servo as it is: the hold confirms the loss of a
+		// backup that exists only in RAM.
+		if (s_st.supplyFitted && !kstFilesMounted()) {
+			tx->note[k++] = KST_UI_REBOOT_LOSES_1;
+			tx->note[k++] = KST_UI_REBOOT_LOSES_2;
+		}
+	} else if (s_leave.phase == UiLeavePhase::Releasing) {
+		// The close rule: a servo the bench powered is off for 2 s first.
+		if (s_st.supplyUsed && s_st.supplyLeftDs) {
+			uiLeaveSupplyNote(supply, sizeof(supply), KST_SUPPLY_OFF_MS, s_st.supplyLeftDs);
+			tx->note[k++] = supply;
+		} else {
+			tx->note[k++] = UI_LEAVE_RELEASING;
+		}
+	} else if (!servoSupplyFitted()) {
+		// The setting, not the job: no job runs before NEXT SERVO.
+		// KST enters the mode at power-up: the next servo is powered once
+		// its search runs.
+		tx->note[k++] = KST_UI_NEXT_POWER;
+	}
 }
 
 static void drawLeave() {
@@ -1547,89 +1661,76 @@ static void drawLeave() {
 	char strip[32];
 	// The type is the servo's that was read; after a loss there is none.
 	if (s_haveTarget)
-		snprintf(strip, sizeof(strip), "%s  GP%u", kst_type_name(kst_type(&s_st.image)), sigGpio());
+		snprintf(strip, sizeof(strip), "%s  SIG GP%u", kst_type_name(kst_type(&s_st.image)), sigGpio());
 	else
-		snprintf(strip, sizeof(strip), "GP%u", sigGpio());
+		snprintf(strip, sizeof(strip), "SIG GP%u", sigGpio());
 	uiStripText(strip, C_DIM);
-	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
-	int y = 124;
-	if (s_st.supplyFitted) {
-		// A servo without power is in no mode: the bench switches it off.
-		gfxText(UI_MARGIN, 76, "LEAVE SWITCHES THE SERVO'S SUPPLY OFF.", C_AMBER, 1);
-		y = 96;
-	} else {
-		gfxText(UI_MARGIN, 76, "POWER THE SERVO OFF.", C_AMBER, 1);
-		gfxText(UI_MARGIN, 92, "IT STAYS IN PROGRAMMING MODE UNTIL", C_TEXT, 1);
-		gfxText(UI_MARGIN, 104, "ITS SUPPLY IS OFF.", C_TEXT, 1);
-	}
-	char buf[48];
-	int n = bits(pending());
-	if (n) {
-		snprintf(buf, sizeof(buf), "%d CHANGE%s NOT WRITTEN.", n, n == 1 ? "" : "S");
-		gfxText(UI_MARGIN, y, buf, C_TEXT, 1);
-		y += 14;
-	}
-	if (s_st.locked) {
-		gfxText(UI_MARGIN, y, "THE SERVO IS IN DOUBT: RESTORE FIRST.", C_AMBER, 1);
-		y += 14;
-	}
-	if (s_result) {
-		KstResultText r = resultText();
-		char wl[2][48];
-		int k = kstWrap(r.text, 38, wl, 2);
-		for (int i = 0; i < k; i++, y += 12) gfxText(UI_MARGIN, y, wl[i], C_DIM, 1);
-	}
-	if (s_leaveQueued && s_writing) gfxText(UI_MARGIN, y, "LEAVING AFTER THE WRITE ENDS.", C_AMBER, 1);
-	if (s_st.supplyFitted) {
-		// REBOOT reads the servo as it is: the hold confirms the loss of a
-		// backup that exists only in memory.
-		if (!kstFilesMounted()) {
-			gfxText(UI_MARGIN, 186, "NO CARD: REBOOT LOSES THE BACKUP", C_AMBER, 1);
-			gfxText(UI_MARGIN, 198, "IN MEMORY.", C_AMBER, 1);
-		}
+	UiLeaveText tx;
+	leaveText(&tx);
+	uiLeaveDraw(&s_leave, tx, s_t, millis());
+	if (rebootShown()) {
 		bool rok = rebootAllowed();
-		uiHoldDrawBar(&s_hold, BTN_REBOOT, BTN_REBOOT.y - 4, millis());
-		uiButton(BTN_REBOOT, "HOLD TO REBOOT", s_hold.holding ? C_RED : C_PANEL,
-		         s_hold.holding ? C_ONACCENT : C_TEXT, 2, s_hold.holding, rok);
+		uiHoldDrawBar(&s_hold, UI_LEAVE_RIGHT, UI_LEAVE_RIGHT.y - 4, millis());
+		uiButton(UI_LEAVE_RIGHT, "HOLD TO REBOOT", s_hold.holding ? C_RED : C_PANEL,
+		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, rok);
 	}
-	bool ok = !s_writing;
-	uiButton(BTN_WIDE, "LEAVE", C_PANEL, C_TEXT, 2, ok && pressing(BTN_WIDE), ok);
 }
 
-static void drawUnplug() {
-	// One read decides both: core1 can change it between two.
-	bool due = pinClaimUnplugDue();
-	uiHeader("KST SERVO", s_t, due);
-	gfxRect(0, UI_STRIP_Y, GFX_W, GFX_H - UI_STRIP_Y, C_BG);
-	if (!due) {
-		// The close rule: a servo the bench powered is off for 2 s first.
-		if (s_st.supplyUsed && s_st.supplyLeftDs) {
-			char w[48];
-			snprintf(w, sizeof(w), "SUPPLY OFF FOR 2.0 S: %u.%u S LEFT.", s_st.supplyLeftDs / 10,
-			         s_st.supplyLeftDs % 10);
-			gfxTextCenter(120, w, C_AMBER, 1);
-		} else {
-			gfxTextCenter(120, "RELEASING THE PIN", C_DIM, 1);
-		}
-		return;
-	}
-	gfxTextCenter(100, "UNPLUG THE SERVO.", C_AMBER, 2);
-	char b[48];
-	snprintf(b, sizeof(b), "DSHOT RESTARTS ON GP%u AND READS AS", sigGpio());
-	gfxTextCenter(140, b, C_TEXT, 1);
-	gfxTextCenter(154, "A 970 US PULSE AT 1000 HZ.", C_TEXT, 1);
-	uiButton(BTN_RESTART, "RESTART DSHOT", C_PANEL, C_TEXT, 1, pressing(BTN_RESTART));
-}
-
-/** @brief End the claim; the unplug page follows. @return false when the screen left at once. */
+/**
+ * @brief End the claim; the leave page's release follows.
+ * @return false when the screen left at once: the claim was not held, or
+ *         DShot resumes without a release.
+ */
 static bool endClaim() {
 	KstCardPhase phase;
 	if (!s_claimed) return false;
 	cardCacheEnd();
 	pinClaimEnd(PinUser::Kst);
 	ClaimState cs = pinClaimState();
-	if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
-	go(KstView::Unplug);
+	return cs != ClaimState::Free && cs != ClaimState::Restoring;
+}
+
+/** @brief One frame of the leave page's touch. @return false when the screen left. */
+static bool leaveTouch() {
+	uint32_t now = millis();
+	uiLeavePoll(&s_leave, pinClaimUnplugDue(), now);
+	s_leave.leaveEnabled = leaveOk();
+	if (rebootShown() && uiHoldUpdate(&s_hold, UI_LEAVE_RIGHT, s_t, rebootAllowed(), now)) {
+		sendOp(KstOp::Reboot);
+		s_rebootSent = true;
+		go(KstView::Main);
+		return true;
+	}
+	switch (uiLeaveTouch(&s_leave, s_t, now)) {
+		case UiLeaveEv::Stay:
+			go(s_haveTarget ? KstView::List : KstView::Main);
+			break;
+		case UiLeaveEv::Leave:
+			// The servo leaves in a known state: no write is open, so the
+			// session's record goes. The page is releasing now.
+			if (s_st.job == KstJobState::InMode && !s_st.locked) {
+				KstCardPhase phase;
+				kstFilesRecordRemove(&s_first);
+			}
+			if (!endClaim()) return false;
+			s_drawnKey = 0;
+			break;
+		case UiLeaveEv::Next:
+			// pinClaimKeep() acts only while the pin is let go.
+			if (!pinClaimUnplugDue()) break;
+			pinClaimKeep(PinUser::Kst);
+			// endClaim() turned the cache off; the kept claim turns it on.
+			cardCacheBegin(SdLogEnd::ByKst);
+			newSession();
+			go(KstView::Main);
+			break;
+		case UiLeaveEv::Restart:
+			if (!pinClaimUnplugDue()) break;
+			pinClaimRestart(PinUser::Kst);
+			return false;
+		case UiLeaveEv::None:
+			break;
+	}
 	return true;
 }
 
@@ -1642,13 +1743,6 @@ KstView uiKstView() { return s_view; }
 uint8_t uiKstControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	switch (s_view) {
-		case KstView::Unplug: {
-			// One read decides both: core1 can change it between two.
-			bool due = pinClaimUnplugDue();
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), due);
-			if (due) uiControlAdd(out, &n, max, UI_FIX(KstCtl::Restart), BTN_RESTART, true);
-			return n;
-		}
 		case KstView::Main: {
 			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
 			static MainText m;
@@ -1688,9 +1782,17 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 		}
 		case KstView::Leave:
 			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
-			if (s_st.supplyFitted)
-				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Reboot), BTN_REBOOT, rebootAllowed());
-			uiControlAdd(out, &n, max, UI_FIX(KstCtl::Leave), BTN_WIDE, !s_writing);
+			if (s_leave.phase == UiLeavePhase::Before) {
+				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Stay), UI_LEAVE_LEFT, true);
+				if (rebootShown())
+					uiControlAdd(out, &n, max, UI_FIX(KstCtl::Reboot), UI_LEAVE_RIGHT, rebootAllowed());
+				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Leave), UI_LEAVE_WIDE, s_leave.leaveEnabled);
+			} else {
+				uiControlAdd(out, &n, max, UI_FIX(KstCtl::NextServo), UI_LEAVE_LEFT,
+				             s_leave.phase == UiLeavePhase::Released);
+				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Restart), UI_LEAVE_WIDE,
+				             uiLeaveRestartLive(&s_leave, millis()));
+			}
 			return n;
 	}
 	return n;
@@ -1741,9 +1843,10 @@ static uint32_t frameKey() {
 		h = mix(h, ((uint32_t)s_flushing << 24) | ((uint32_t)cc << 16) | left);
 	}
 	h = mix(h, ((uint32_t)s_writing << 0) | ((uint32_t)s_result << 1) | ((uint32_t)s_confirm << 2) |
-	           ((uint32_t)s_readFailed << 3) | ((uint32_t)s_leaveQueued << 4) |
+	           ((uint32_t)s_readFailed << 3) |
 	           ((uint32_t)s_recordFound << 5) | ((uint32_t)kstFilesMounted() << 6) |
-	           ((uint32_t)cardHeldByUsb() << 7) | ((uint32_t)s_haveTarget << 8));
+	           ((uint32_t)cardHeldByUsb() << 7) | ((uint32_t)s_haveTarget << 8) |
+	           ((uint32_t)s_boardLow << 9));
 	h = mix(h, ((uint32_t)s_resultSes << 8) | s_resultPlan);
 	h = mixBytes(h, s_fileNote, strlen(s_fileNote));
 	h = mixBytes(h, s_preset, strlen(s_preset));
@@ -1753,6 +1856,10 @@ static uint32_t frameKey() {
 	h = mix(h, ((uint32_t)s_fileCount << 16) ^ (uint32_t)s_fileTotal);
 	h = mix(h, (uint32_t)(uintptr_t)s_cardNote);
 	h = mix(h, (uint32_t)uiHoldPercent(&s_hold, millis()));
+	if (s_view == KstView::Leave)
+		h = mix(h, ((uint32_t)s_leave.phase << 8) | ((uint32_t)s_leave.before << 4) |
+		           ((uint32_t)s_leave.leaveEnabled << 3) | ((uint32_t)s_leave.leavePress << 2) |
+		           ((uint32_t)s_leave.restartPress << 1) | (uint32_t)uiLeaveRestartLive(&s_leave, millis()));
 	if (s_view == KstView::Main && s_st.job == KstJobState::Searching) h = mix(h, millis() / 150);
 	if (s_view == KstView::Main) {
 		// The main view's strip as composed: the current counts only in the
@@ -1774,20 +1881,23 @@ bool uiKstTick(const TouchState *t) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
 	kstJobStatus(&s_st);
+	// From LEAVE on the claim is ending: no claim is asked for, and the job's
+	// state moves no view.
 	if (s_claimed) pinClaimPoll();
-	else if (s_view != KstView::Unplug) claimPin();
-	if (s_view != KstView::Unplug) follow();
+	else if (!claimEnded()) claimPin();
+	if (!claimEnded()) follow();
 	s_prevJob = s_st.job;
 
-	// BACK on the unplug page waits for the job to let the pin go: backActs().
+	// BACK on the leave page is drawn disabled and does nothing: backActs().
 	bool back = backActs() && uiBackTapped(s_t);
 	if (back) {
 		switch (s_view) {
 			case KstView::Main:
 				// BACK during REBOOT closes as LEAVE does: the supply off,
-				// then the unplug page 2 s after the switch-off.
+				// and the leave page releasing, 2 s from the switch-off.
 				if (running() && s_st.job == KstJobState::Rebooting) {
 					if (!endClaim()) return false;
+					openLeave(UiLeavePhase::Releasing);
 				} else if (running() && (s_everFound || s_st.job == KstJobState::InMode ||
 				                  s_st.job == KstJobState::Busy)) {
 					// BACK during a read aborts it; the leave page follows.
@@ -1800,25 +1910,23 @@ bool uiKstTick(const TouchState *t) {
 					// BACK during a search after a loss stops it: no servo
 					// enters the mode behind the leave page.
 					if (s_st.job == KstJobState::Searching) sendOp(KstOp::StopSearch);
-					go(KstView::Leave);
-				} else if (!endClaim()) {
-					return false;
+					openLeave(UiLeavePhase::Before);
+				} else {
+					// No servo was found: nothing to power off, the page
+					// opens releasing.
+					if (!endClaim()) return false;
+					openLeave(UiLeavePhase::Releasing);
 				}
 				break;
-			case KstView::List:  go(KstView::Leave); break;
+			case KstView::List:  openLeave(UiLeavePhase::Before); break;
 			case KstView::Files: go(KstView::List); break;
 			case KstView::Write:
-				if (s_writing) s_leaveQueued = true;
-				else { s_result = false; s_cardNote = nullptr; go(KstView::List); }
+				// Not while the write runs or waits for its flush: backActs().
+				s_result = false;
+				s_cardNote = nullptr;
+				go(KstView::List);
 				break;
-			case KstView::Leave: go(s_haveTarget ? KstView::List : KstView::Main); break;
-			case KstView::Unplug:
-				pinClaimKeep(PinUser::Kst);
-				// endClaim() turned the cache off; the kept claim turns it on.
-				cardCacheBegin(SdLogEnd::ByKst);
-				newSession();
-				go(KstView::Main);
-				break;
+			case KstView::Leave: break;  // drawn disabled: backActs()
 		}
 		s_drawnKey = 0;
 	}
@@ -1839,28 +1947,7 @@ bool uiKstTick(const TouchState *t) {
 		case KstView::Write: writeTouch(); break;
 		case KstView::Files: filesTouch(); break;
 		case KstView::Leave:
-			if (s_st.supplyFitted &&
-			    uiHoldUpdate(&s_hold, BTN_REBOOT, s_t, rebootAllowed(), millis())) {
-				sendOp(KstOp::Reboot);
-				s_rebootSent = true;
-				go(KstView::Main);
-				break;
-			}
-			if (!s_writing && tapped(BTN_WIDE)) {
-				// The servo leaves in a known state: no write is open, so
-				// the session's record goes.
-				if (s_st.job == KstJobState::InMode && !s_st.locked) {
-					KstCardPhase phase;
-					kstFilesRecordRemove(&s_first);
-				}
-				if (!endClaim()) return false;
-			}
-			break;
-		case KstView::Unplug:
-			if (pinClaimUnplugDue() && tapped(BTN_RESTART)) {
-				pinClaimRestart(PinUser::Kst);
-				return false;
-			}
+			if (!leaveTouch()) return false;
 			break;
 	}
 	uint32_t key = frameKey();
@@ -1872,62 +1959,12 @@ bool uiKstTick(const TouchState *t) {
 			case KstView::Write:  drawWrite(); break;
 			case KstView::Files:  drawFiles(); break;
 			case KstView::Leave:  drawLeave(); break;
-			case KstView::Unplug: drawUnplug(); break;
 		}
 	}
 	return true;
 }
 
-/** @brief KST SERVO's MENU status: the signal pin it claims, from the settings. */
-static void kstMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
-	snprintf(buf, n, "GP%u", (unsigned)settings()->dshotPin);
-	*col = C_DIM;
-}
-
-// ---------------------------------------------------------------------------
-// SETTINGS: the SERVO SUPPLY section
-// ---------------------------------------------------------------------------
-
-/** @brief NONE, GP28 or GP29: the switched supply's enable pin. */
-static void supplyValue(char *b, size_t n, uint16_t *c) {
-	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
-	if (pin == SERVO_SUPPLY_NO_PIN) snprintf(b, n, "NONE");
-	else                            snprintf(b, n, "GP%u", (unsigned)pin);
-	*c = C_TEXT;
-}
-/** @brief - and + step NONE, GP28, GP29, and stop at the ends. */
-static void supplyStep(int dir) {
-	int m = (int)settings()->servoSupply + (dir < 0 ? -1 : 1);
-	if (m < 0 || m > (int)SERVO_SUPPLY_MODE_MAX) return;
-	settings()->servoSupply = (uint8_t)m;
-}
-
-/** @brief NONE or INA219: the current sensor on J3. */
-static void senseValue(char *b, size_t n, uint16_t *c) {
-	snprintf(b, n, "%s", settings()->currentSense ? "INA219" : "NONE");
-	*c = C_TEXT;
-}
-static bool senseOn() { return settings()->currentSense != 0; }
-/** @brief NONE and INA219, in turn. */
-static void senseToggle() {
-	settings()->currentSense = settings()->currentSense ? (uint8_t)SenseMode::None
-	                                                    : (uint8_t)SenseMode::Ina219;
-}
-/** @brief FOUND, NOT FOUND or OTHER PART under the label; none with NONE. */
-static void senseCaptionText(char *b, size_t n, uint16_t *c) {
-	const char *cap = senseCaption();
-	snprintf(b, n, "%s", cap ? cap : "");
-	*c = cap && strcmp(cap, "FOUND") == 0 ? C_LIME : C_AMBER;
-}
-
-static constexpr SettingsRow ROWS_SUPPLY[] = {
-	{ "SERVO SUPPLY", SettingsKind::Stepper, 4, supplyValue, nullptr, supplyStep, nullptr, nullptr, nullptr },
-	{ "CURRENT SENSE", SettingsKind::Toggle, 6, senseValue, nullptr, nullptr, senseToggle, senseOn,
-	  senseCaptionText },
-};
-static constexpr SettingsSection SEC_SUPPLY = { "SERVO SUPPLY", ROWS_SUPPLY, 2 };
-
 const UiScreen UI_KST = {
-	UiScreenId::Kst, "KST SERVO", PinUser::Kst, kstMenuStatus,
-	uiKstEnter, uiKstTick, nullptr, uiKstControls, &SEC_SUPPLY, false,
+	UiScreenId::Kst, "KST SERVO", PinUser::Kst, nullptr,
+	uiKstEnter, uiKstTick, nullptr, uiKstControls, nullptr, false,
 };

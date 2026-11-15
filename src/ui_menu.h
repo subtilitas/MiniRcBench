@@ -3,14 +3,18 @@
  * @brief MENU: one list of tools and actions, from the registry.
  *
  * Reached from the tester's MENU button, which disarms. Each row is a
- * registry entry (ui_registry.h): a tool opens its screen, an action row,
- * BEEP THE ESC, acts on the row. A row fires on release, a press that
- * slides off cancels, and a vertical drag scrolls once the rows do not fit.
- * BACK returns to the tester.
+ * registry entry (ui_registry.h): a tool opens its screen, and an action
+ * row, a screen with `action` set, would act on the row; `UI_MENU` holds
+ * none. A row fires on release, a press that slides off cancels, and a
+ * vertical drag scrolls once the rows do not fit: eight rows at a 42 px
+ * pitch scroll 78 px. BACK returns to the tester.
  *
- * A tool that claims the signal pins is refused while the pin claim is not
- * Free: its row reads `PINS BUSY` and a tap opens nothing. That state is
- * reachable for the time Restoring takes after RESTART DSHOT.
+ * A tool that claims the signal pins, or one that opens only while they are
+ * free (SETTINGS, ESC COMMANDS, and the choosers ESC CONFIG, PROGRAMMER,
+ * RX SIGNALS and TOOLS), is refused while the pin claim is not Free: its row
+ * is drawn disabled under its own status, a tap opens nothing, and the strip
+ * reads `DSHOT RESTARTING ON SIG GP0`. That state is reachable for the time
+ * Restoring takes after RESTART DSHOT.
  *
  * @see docs/design/menu.md, "MENU"
  */
@@ -30,8 +34,18 @@ struct TouchState;
 /** @brief Least space between a MENU label and its widest status, px. */
 #define UI_MENU_LABEL_GAP 8
 
-/** @brief The status of a row refused while the pin claim is not Free. */
-#define UI_MENU_BUSY_TEXT "PINS BUSY"
+/**
+ * @brief The strip's caption, with SIG's GPIO, AUX's GPIO and the DShot rate
+ *        in kbit/s for the three `%u`: `SIG GP0  AUX GP1  DSHOT600`, 26
+ *        characters; `SIG GP1  AUX GP0  DSHOT1200` at its widest, 27, 161 px.
+ */
+#define UI_MENU_CAPTION_FMT "SIG GP%u  AUX GP%u  DSHOT%u"
+/**
+ * @brief The strip's caption while the pin claim is not Free, with SIG's
+ *        GPIO for `%u`: 27 characters, 161 px. The rows that claim or change
+ *        the wiring are drawn disabled meanwhile.
+ */
+#define UI_MENU_RESTARTING_FMT "DSHOT RESTARTING ON SIG GP%u"
 
 /**
  * @defgroup ui_menu_chip The strip's EDT chip
@@ -86,5 +100,3 @@ void uiMenuUseRegistry(const UiMenuEntry *e, uint8_t n);
 
 /** @brief MENU itself. */
 extern const UiScreen UI_MENU_SCREEN;
-/** @brief BEEP THE ESC: the DShot beacon, an action row on MENU. */
-extern const UiScreen UI_BEEP;

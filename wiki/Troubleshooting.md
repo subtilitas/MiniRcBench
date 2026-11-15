@@ -36,7 +36,7 @@ lines.
 
 <img src="img/splash-reset-no-touch.png" width="240" alt="The splash with SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS and TOUCH CONTROLLER NOT FOUND above the name">
 
-Without touch the board cannot be operated: arming, `DISARM`, `HOLD` and
+Without touch the board cannot be operated: arming, `DISARM`, `LATCH` and
 `MENU` all need it. The idle interlock disarms 30 s after the last contact
 the controller reports. A wet screen, or something lying on the glass,
 counts as a contact and keeps an armed tester armed. To stop a motor,
@@ -64,11 +64,12 @@ after a restart, report it as described under [Still stuck](#still-stuck).
 Nothing answers on the signal wire, and the chip under the title on the
 `MENU` screen reads `NO ESC`. Check in this order:
 
-1. **The ESC has not been power-cycled since AM32 CONFIG.** Leaving that
+1. **The ESC has not been power-cycled since ESC SETTINGS.** Leaving that
    screen sends the bootloader no command to start the ESC firmware, and
    what the ESC does then is not recorded. Power-cycle the ESC before you
    test it: [AM32 Configuration](AM32-Configuration#leaving).
-2. **Wrong pin.** Compare **MENU → SETTINGS → ESC PIN** with where the wire is.
+2. **Wrong pin.** Compare **MENU → SETTINGS → SIG PIN** with where the wire
+   is; the J5 pin is shown under the value.
    The `LINK` row on that screen is live. A packet rate above zero means the
    pin is correct.
 3. **No common ground.** The ESC ground and the board ground must be
@@ -76,7 +77,7 @@ Nothing answers on the signal wire, and the chip under the title on the
 4. **The ESC has no power.** It runs from its own battery, not from the board.
 5. **The ESC does not support bidirectional DShot**, or it is disabled in the
    ESC's settings. Unidirectional DShot sends nothing back.
-6. **The wire is too long or picks up noise.** Set **DSHOT KBAUD** to 300 and
+6. **The wire is too long or picks up noise.** Set **DSHOT** to 300 and
    watch `LINK`.
 
 ---
@@ -127,8 +128,8 @@ missing. The cause is unknown. No workaround is known.
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
 
 The throttle bar reads `EJECT THE USB DRIVE TO ARM`: a computer holds the SD
-card over USB (**MENU → SD LOG → USB DRIVE**; drag `MENU` up 36 px to reach
-SD LOG), and arming is refused until it lets go. Eject the drive on the
+card over USB (**MENU → SD LOG → USB DRIVE**), and arming is refused until
+it lets go. Eject the drive on the
 computer, or press `EJECT` on SD LOG. See [SD Logging](SD-Logging).
 
 A computer that unconfigures the drive also gives the card back. Pulling the
@@ -150,8 +151,9 @@ Four interlocks stop the motor, and each one shows on screen:
   dims briefly when it disarms.
 - **Opening `MENU`.** Opening it always disarms.
 - **Touch not answering.** Four failed reads of the touch controller in
-  a row, over 100 ms or more, disarm an armed tester. `TOUCH NOT
-  ANSWERING` shows in amber under the RPM readout until it answers again.
+  a row, over 100 ms or more, disarm an armed tester.
+  `TOUCH NOT ANSWERING` shows in amber under the RPM readout until it
+  answers again.
   A loose flex cable to the panel or a stuck I2C (Inter-Integrated
   Circuit) bus can cause it; which one is not told apart.
 - **Heartbeat backstop.** If the display firmware stops, the second core sets
@@ -188,7 +190,7 @@ ESC sends the status over EDT; the ESC firmware defines what each one means.
 
 The error rate is amber above 5 %. The usual cause is the signal wire: length,
 routing, or a missing ground. Shorten it, route it away from the motor phase
-wires, then lower **DSHOT KBAUD**.
+wires, then lower **DSHOT**.
 
 Failed packets are frames the ESC did not act on, even while the RPM readout
 works.
@@ -230,11 +232,35 @@ screen does not work.
 
 - **`REPLY NOT UNDERSTOOD`**: the link works and the framing does not. Possible
   cause: the ESC does not run AM32.
+- **`EFM8 E8B2 ANSWERED: READING.`**: a Bluejay or BLHeli_S ESC answered,
+  and the screen reads its settings; Bluejay 0.21 and BLHeli_S 16.3 to 16.7
+  can be written. `BACK` from its
+  list sends LEAVE, which starts the ESC; `BACK` before the list opens a
+  leave page: unplug the ESC battery, `LEAVE`, `RESTART DSHOT`, then plug
+  it in ([AM32 Configuration](AM32-Configuration#efm8-escs)).
+- **`HALF WRITTEN: KEEP THE ESC POWERED.`** or
+  **`NO ANSWER IN THE WRITE: KEEP POWER.`**: a Bluejay or BLHeli_S write was
+  cut after the ESC's page was erased. Do not unplug the ESC battery: fix
+  the signal wire, `READ AGAIN`, then write, or `REVERT` and write the page
+  as read. A power cycle first loses the ESC's tags
+  ([AM32 Configuration](AM32-Configuration#efm8-escs)). With
+  `SESSION ENDED: RESTORE ON A COMPUTER.` under it the session ended (the
+  line driver, the heartbeat) and no later session writes the page: keep
+  the ESC powered and restore it on a computer. The old page is in the
+  backup on the card and, until you leave ESC SETTINGS, under `OLD PAGE` on
+  the connect page.
+- **`ESC LOST ITS TAGS: READ-ONLY.`**: the ESC's page was erased and the ESC
+  restarted; it runs on its defaults. Only a firmware flash for that ESC on a
+  computer brings the tags back; the backup on the card names them.
+- **`THE ESC ANSWERED, THEN STOPPED.`**: the ESC answered and then stopped
+  answering before its page was read; the search runs again. Check the
+  signal wire and keep the ESC powered.
 - **`NO VALID SETTINGS`**: the ESC answered, and the settings block failed the
   plausibility check. Do not write anything.
-- **`LAYOUT n NOT KNOWN`**: the ESC stores a settings layout the tester does
-  not know; it shows `THE TESTER KNOWS LAYOUTS 2 TO 4.` and writes nothing.
-  Use the AM32 configurator for this ESC.
+- **`LAYOUT n NOT KNOWN: READ-ONLY.`**: the screen connected, and the ESC
+  stores a settings layout the tester does not know. The screen shows the
+  bytes, saves the backup and writes nothing. Use the AM32 configurator to
+  change this ESC.
 - **`READ FAILED (...)`**: the handshake worked and the settings read did not.
   Check the signal wire and ground.
 
@@ -242,26 +268,50 @@ screen does not work.
 
 ## My settings reset themselves
 
-They were not saved, or new firmware changed the settings layout. Pole
-count and throttle ceiling are edited on **MENU → SETTINGS**, and
+They were not saved, or new firmware could not read the settings layout in
+flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
-`UNSAVED` on its `SETTINGS` row.
+`UNSAVED` on its `SETTINGS` row, the last: drag `MENU` up 76 px to see it.
 
-Firmware whose settings layout differs from the one in flash starts from its
-defaults. Updating from earlier firmware to firmware with settings layout
-version 4 returns every saved setting to its default once, the ESC pin
-included: the ESC pin is then GP0, KISS is off and SERVO SUPPLY is `NONE`.
-Version 5 adds CURRENT SENSE, so updating from version 4 to version 5 does
-the same once more: every saved setting returns to its default, and
-CURRENT SENSE is `NONE`. Set them again and save with `HOLD TO SAVE`.
+The firmware stores its settings in layout version 6. Settings an earlier
+firmware saved in layout version 2, 3, 4 or 5, DshotDisplay 2.x's among them,
+are carried over: every setting the old layout has keeps its value, checked
+by the same rules as saved settings, and every newer setting starts at its
+default. So:
 
-Such a reset is shown: the splash reads `SETTINGS RESET BY UPDATE` and
+- pole count, `MAX THROTTLE`, `DSHOT`, KISS, backlight and contrast
+  keep their values; a value out of range is adjusted, as on a save;
+- an ESC pin this board does not free, such as GP28 or GP29 from firmware
+  before version 4, returns to the default (GP0), and KISS on such a pin is
+  switched off, its pin back to the default (GP1);
+- a KISS pin on the ESC pin moves to the other free pin, whether KISS is on
+  or off, and KISS keeps its setting: SIG and AUX never share a pin;
+- CURRENT SENSE is `NONE` after version 2, 3 or 4; after version 5 it keeps
+  its value. SERVO SUPPLY is `OWN` after version 2 or 3, since version 3's
+  switch on GP0 sits on the ESC wire's pin; after version 4 or 5 it
+  keeps `GP28` or `GP29`;
+- the angle meter's ALONG AXIS, LENGTH, SIGN and calibration are at their
+  defaults: `LONG`, `OFF`, `NORMAL` and none.
+
+A carry-over is shown: the splash reads
+`SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETTINGS, THEN SAVE`,
+MENU's `SETTINGS` row reads `UPDATED`, and the note line in SETTINGS reads
+`CARRIED OVER BY UPDATE - CHECK, SAVE`. Check the values and save with
+`HOLD TO SAVE`; the save writes even with nothing changed. Until then flash
+keeps the old block and every boot carries it over again.
+
+<img src="img/splash-carried.png" width="240" alt="The splash with SETTINGS CARRIED OVER FROM AN UPDATE and CHECK MENU > SETTINGS, THEN SAVE above the name">
+
+Settings of a layout the firmware does not know, version 1 or a later
+firmware's, are discarded: every setting returns to its default, the ESC pin
+included. Set them again and save with `HOLD TO SAVE`. Such a reset is
+shown: the splash reads `SETTINGS RESET BY UPDATE` and
 `CHECK MENU > SETTINGS`, MENU's `SETTINGS` row reads `UPDATED`, and the note
 line in SETTINGS reads `RESET BY UPDATE - CHECK AND SAVE` until a save
 lands. A block that is damaged, rather than written by another version, is
 discarded without these notes; the note line then reads
-`COMPILED DEFAULTS IN USE`.
+`NOTHING SAVED: DEFAULTS IN USE`.
 
 ---
 
@@ -269,8 +319,18 @@ discarded without these notes; the note line then reads
 
 The recording ended without `STOP`. **MENU → SD LOG** says how above
 `START`: a full card, a failed write, a file that did not open, or the tool
-(KST SERVO, HITEC SERVO, AM32 CONFIG) that took the card. See
+(KST SERVO, HITEC SERVO, ESC SETTINGS) that took the card. See
 [SD Logging](SD-Logging#how-the-last-log-ended).
+
+---
+
+## A write says `BOARD VOLTAGE IS RED: NOT WRITTEN.`
+
+KST SERVO, HITEC SERVO and ESC SETTINGS write nothing, and restore nothing,
+while the BOARD voltage on the tester is red: below 3.30 V, until it rises
+to 3.35 V. Charge the board's cell, then hold again. The edits stay. With
+USB power and no cell the reading is not measured; if it reads red there,
+fit a charged cell.
 
 ---
 
@@ -282,13 +342,23 @@ The board has two free GPIOs (general-purpose input/output pins), GP0 and
 GP1, and the ESC signal starts on GP0. KISS defaults to off so that the
 spare pin is not used for a wire that may not be fitted.
 
-Turning KISS on moves the KISS pin to the other free pin if it coincides with
-the ESC pin. The pin stepper skips the ESC pin. The receiver is a PIO
-(programmable I/O) state machine and works on either pin.
+KISS listens on AUX, which is never the ESC's pin, SIG: a step of
+**SIG PIN** or **AUX PIN** swaps the two, and turning KISS on moves no pin.
+The receiver is a PIO (programmable I/O) state machine and works on either
+pin. Check that the KISS wire is on the pin **AUX PIN** names, with its J5
+pin under the value.
 
-If KISS switches itself off with `KISS OFF: NEEDS A PIN OF ITS OWN`, the
-stored KISS pin was not free or was the ESC pin. Move the ESC signal to the
-other pin first, then turn KISS on.
+---
+
+## The servo tester stops with `STALL` at MIN or MAX
+
+With the current sensor the servo tester stops when it reads more than
+1.0 A for 400 ms. Many servos driven against their own end stop draw stall
+current there, so `MIN` or `MAX` past the servo's travel trips it. Narrow
+MIN and MAX on the SET screen until the servo stops short of its end stop.
+`OVERCURRENT` is one reading of 3.0 A or more: check the servo and its
+wiring for a short before the next start. See
+[Servo Tester](Servo-Tester#the-cuts). Not tested on hardware.
 
 ---
 

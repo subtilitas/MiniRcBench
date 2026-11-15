@@ -22,8 +22,11 @@
  * The swap check. The board has no card-detect line. Before the first block
  * of every batch, 4 bytes of one sector, the volume's serial number in its
  * boot sector, are read past the cache and compared with what sdc_begin()
- * read. A difference or a failed read drops the queue and the read cache and
- * sets SDC_FAILED: no block of one card's directory reaches another card.
+ * read. The read is started in one sdc_poll() and collected in a later one,
+ * as a block write is: the flush step never waits for the card. A
+ * difference, or a read that fails or times out, drops the queue and the
+ * read cache and sets SDC_FAILED: no block of one card's directory reaches
+ * another card.
  *
  * Errors. A block is tried up to 3 times on a CRC (cyclic redundancy check),
  * frame, timeout or no-response error. A block that still fails ends the batch
@@ -63,6 +66,10 @@ typedef struct {
 	sd_err_t (*write_start)(void *ctx, uint32_t lba, const uint8_t *buf);
 	/** One look at the block in flight (sdh_write_poll()). */
 	sd_err_t (*write_poll)(void *ctx, bool *done);
+	/** Start a read of one block into @p buf, 4-byte aligned, and return (sdh_read_start()). */
+	sd_err_t (*read_start)(void *ctx, uint32_t lba, uint8_t *buf);
+	/** One look at the read started; its result once @p done (sdh_read_poll()). */
+	sd_err_t (*read_poll)(void *ctx, bool *done);
 } sdc_dev_t;
 
 /** @brief Where the queue stands. */
@@ -81,7 +88,10 @@ typedef enum {
  */
 sd_err_t sdc_begin(const sdc_dev_t *dev, uint32_t check_lba, uint32_t check_off);
 
-/** @brief Turn the cache off. Call it with the queue empty: sdc_flush() first. */
+/**
+ * @brief Turn the cache off. Call it with the queue empty: sdc_flush() first.
+ *        A swap check's read under way is collected first.
+ */
 void sdc_end(void);
 
 /** @brief Whether the cache is on. */
@@ -101,22 +111,41 @@ sd_err_t sdc_read(uint32_t lba, uint32_t n, uint8_t *buf);
  */
 sd_err_t sdc_write(uint32_t lba, uint32_t n, const uint8_t *buf);
 
-/** @brief One step of the flush: start a block, or look at the one in flight. */
+/**
+ * @brief One step of the flush, never a wait on the card: at a batch's
+ *        first block, start the swap check's read, or look at it once and
+ *        compare it when it is in; else start a block, or look at the one
+ *        in flight.
+ */
 void sdc_poll(void);
 
 /** @brief The queue's state; @p left, when not NULL, the blocks still to go. */
 sdc_state_t sdc_state(uint16_t *left);
 
 /**
- * @brief Poll until no block is in flight, core0 blocking: a programming
- *        card takes no read command. The queue's other blocks stay queued.
+ * @brief Poll until no block and no swap check's read is in flight, core0
+ *        blocking: a programming or sending card takes no read command. The
+ *        queue's other blocks stay queued.
  */
 void sdc_settle(void);
+
+/**
+ * @brief Make the next block wait for a fresh swap check. A batch is checked
+ *        once and stays checked until the queue empties, so a card swapped
+ *        after that check, with blocks still queued, would take them. After
+ *        this call the next poll checks the card first: another card fails
+ *        the batch. A block or a check in flight ends first (sdc_settle());
+ *        nothing with the queue empty or the cache off or failed.
+ */
+void sdc_recheck(void);
 
 /** @brief Flush until SDC_IDLE or SDC_FAILED, core0 blocking. */
 sdc_state_t sdc_flush(void);
 
-/** @brief Drop the queue and the read cache and leave SDC_FAILED for SDC_IDLE. */
+/**
+ * @brief Drop the queue and the read cache and leave SDC_FAILED for SDC_IDLE.
+ *        A swap check's read under way is collected first, core0 blocking.
+ */
 void sdc_drop(void);
 
 #ifdef __cplusplus
