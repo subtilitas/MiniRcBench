@@ -99,11 +99,11 @@
 /** @brief The IMU as the angle meter sees it. */
 enum class ImuState : uint8_t {
 	Closed,    /**< The meter is closed: nothing is sent to the IMU. */
-	Starting,  /**< Probing, resetting, configuring or warming up. */
+	Starting,  /**< Probing, resetting, configuring, warming up, or before the first frame that answers. */
 	Absent,    /**< No answer, or the configuration did not read back: `NO IMU`. */
 	WrongId,   /**< WHO_AM_I read another value: `NOT A QMI8658`, nothing written. */
-	Online,    /**< Configured; samples are read every frame. */
-	Offline,   /**< Was online; @ref QMI8658_FAILS failed transactions in a row. */
+	Online,    /**< Configured and answering: the burst and the time stamp are read every frame. */
+	Offline,   /**< Configured, then @ref QMI8658_FAILS failed transactions in a row. */
 };
 
 /** @brief One sample of the accelerometer, as the burst gives it. */

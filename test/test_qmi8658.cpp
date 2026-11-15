@@ -20,6 +20,8 @@
 #include "board_desc.h"
 #include "board_pins.h"
 #include "plat.h"
+#include "ui.h"
+#include "core1_job.h"
 
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
@@ -178,6 +180,34 @@ static void testProbe() {
 	checkTrue("then B0h to RESET, one byte", q->log[2].write && q->log[2].reg == 0x60 &&
 	          q->log[2].val == 0xB0 && q->log[2].len == 1 && q->resets == 1);
 	checkInt("counted", (long)qmi8658Counts()->resets, 1);
+
+	section("IMU: the probe failing after WHO_AM_I");
+	freshBus();
+	q = fakeI2cAddQmi8658(IMU);
+	qmi8658Start(millis());
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 2);
+	frame(0);
+	checkTrue("REVISION_ID not answered: NO IMU, no reset",
+	          state() == ImuState::Absent && q->resets == 0 && writesFrom(q) == 0);
+	checkInt("one failure counted", (long)qmi8658Counts()->fails, 1);
+	frame(1000);
+	checkTrue("1000 ms on: found and reset", q->resets == 1 && state() == ImuState::Starting);
+
+	freshBus();
+	q = fakeI2cAddQmi8658(IMU);
+	qmi8658Start(millis());
+	uint32_t at = millis();
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 4);
+	frame(0);
+	checkTrue("the reset's write not answered: NO IMU", state() == ImuState::Absent &&
+	          q->resets == 0);
+	frame(1000);
+	checkInt("1000 ms on: no probe, the reset counts from its attempt", (long)q->logN, 2);
+	frame(QMI8658_RESET_GAP_MS - 1001);
+	checkInt("1999 ms: none", (long)q->logN, 2);
+	frame(1);
+	checkTrue("2000 ms: probed and reset", q->resets == 1 &&
+	          q->log[q->logN - 1].ms - at == QMI8658_RESET_GAP_MS);
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +289,7 @@ static void testResetC() {
 	checkTrue("15 ms: dQY_L not answered, the bus not stuck",
 	          fakeI2cTransactionsTo(IMU) == t0 + 1 && !senseBus()->stuck &&
 	          state() == ImuState::Starting);
+	checkInt("counted as a failure", (long)qmi8658Counts()->fails, 1);
 	for (int i = 0; i < 69; i++) frame();
 	checkInt("up to 1740 ms: nothing sent", fakeI2cTransactionsTo(IMU), t0 + 1);
 	frame(10);
@@ -311,6 +342,14 @@ static void testMismatch() {
 	frame(QMI8658_WARMUP_MS);
 	checkTrue("then online", state() == ImuState::Online);
 
+	section("IMU: a read-back not answered");
+	q = started();
+	fakeI2cFailNext(1, PICO_ERROR_GENERIC, 3);
+	frame(QMI8658_RESET_A_MS);
+	checkTrue("CTRL1's read-back NACKed: NO IMU, CTRL2 not written",
+	          state() == ImuState::Absent && fakeQmiCount(q, true, 0x03) == 0);
+	checkInt("one failure counted", (long)qmi8658Counts()->fails, 1);
+
 	section("IMU: closed and opened again, the reset still waits for 2000 ms");
 	q = started();
 	resetMs = q->log[2].ms;
@@ -326,6 +365,18 @@ static void testMismatch() {
 	checkInt("2000 ms: the second", (long)q->resets, 2);
 	checkInt("2000 ms after the first",
 	         (long)(q->log[firstOp(q, true, 0x60, 3)].ms - resetMs), 2000);
+
+	section("IMU: opened again 1999 ms after the reset");
+	q = started();
+	resetMs = q->log[2].ms;
+	qmi8658Stop();
+	frame(QMI8658_RESET_GAP_MS - 1);
+	qmi8658Start(millis());
+	frame(0);
+	checkInt("1999 ms: no probe", (long)q->logN, 3);
+	frame(1);
+	checkTrue("2000 ms: probed and reset", q->resets == 2 &&
+	          q->log[q->logN - 1].ms - resetMs == QMI8658_RESET_GAP_MS);
 }
 
 // ---------------------------------------------------------------------------
@@ -407,6 +458,22 @@ static void testFaults() {
 	frame(QMI8658_RESET_A_MS);
 	frame(QMI8658_WARMUP_MS);
 	checkTrue("and online", state() == ImuState::Online);
+
+	section("IMU: back from offline, the first sample taken whatever its stamp");
+	q = online();
+	for (int i = 0; i < 80; i++) frame();
+	q->stamp = 2;
+	frame(32);
+	checkInt("a sample with time stamp 3", (long)qmi8658Latest()->stamp, 3);
+	fakeI2cRemove(IMU);
+	for (int i = 0; i < 3; i++) frame();
+	q = fakeI2cAddQmi8658(IMU);
+	frame(1000);
+	frame(QMI8658_RESET_A_MS);
+	uint32_t seq0 = qmi8658Latest()->seq;
+	frame(QMI8658_WARMUP_MS);
+	checkTrue("a new part's third sample, time stamp 3 again, taken",
+	          state() == ImuState::Online && q->stamp == 3 && qmi8658Latest()->seq == seq0 + 1);
 
 	section("IMU: a failure and a good frame start the count again");
 	q = online();
@@ -529,6 +596,28 @@ static void testStop() {
 	t = fakeI2cTransactionsTo(IMU);
 	qmi8658Stop();
 	checkInt("no IMU", fakeI2cTransactionsTo(IMU), t);
+
+	section("IMU: a second start while open changes nothing");
+	q = online();
+	uint32_t seq = qmi8658Latest()->seq;
+	uint32_t resets = q->resets;
+	qmi8658Start(millis());
+	frame();
+	frame(32);
+	checkTrue("still online, the samples counted on, no new reset",
+	          state() == ImuState::Online && qmi8658Latest()->seq > seq && q->resets == resets);
+
+	section("IMU: a stop after a new reset, before CTRL7, sends nothing");
+	q = online();
+	for (int i = 0; i < 80; i++) frame();
+	fakeI2cRemove(IMU);
+	for (int i = 0; i < 3; i++) frame();
+	q = fakeI2cAddQmi8658(IMU);
+	frame(1000);
+	checkTrue("offline, probed, reset again", q->resets == 1 && state() == ImuState::Starting);
+	t = fakeI2cTransactionsTo(IMU);
+	qmi8658Stop();
+	checkInt("stopped before CTRL7: nothing sent", fakeI2cTransactionsTo(IMU), t);
 
 	section("IMU: a stop while the bus is stuck sends nothing");
 	q = online();
@@ -746,6 +835,35 @@ static void testFrameTime() {
 	freshBus();
 }
 
+/** @brief @p n UI frames of 25 ms, with core1's passes before each. */
+static void uiFrames(int n) {
+	for (int i = 0; i < n; i++) {
+		fakeAdvance(25);
+		fakePumpPoll();
+		core1JobPoll();
+		uiTick();
+	}
+}
+
+/** @brief uiTick() ticks the IMU: nothing while closed, the reads once opened. */
+static void testUiTick() {
+	section("IMU: uiTick() runs the driver's tick");
+	uiInit();
+	freshBus();
+	FakeQmi8658 *q = fakeI2cAddQmi8658(IMU);
+	uiFrames(80);
+	checkInt("closed: nothing to 0x6B in 80 frames", fakeI2cTransactionsTo(IMU), 0);
+	qmi8658Start(millis());
+	uiFrames(10);
+	checkTrue("opened: reset, configured, online, samples",
+	          q->resets == 1 && state() == ImuState::Online && qmi8658Counts()->samples > 0);
+	qmi8658Stop();
+	uint32_t t = fakeI2cTransactionsTo(IMU);
+	uiFrames(20);
+	checkTrue("closed again: CTRL7 00h, nothing after it",
+	          q->reg[0x08] == 0 && fakeI2cTransactionsTo(IMU) == t);
+}
+
 void runQmi8658Tests() {
 	testCodec();
 	testClosed();
@@ -758,5 +876,6 @@ void runQmi8658Tests() {
 	testStop();
 	testSharedBus();
 	testFrameTime();
+	testUiTick();
 	freshBus();
 }

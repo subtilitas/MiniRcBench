@@ -99,7 +99,10 @@ static sense_err_t writeReg(uint8_t reg, uint8_t v) {
 	                 2);
 }
 
-/** @brief A failure on the wire, counted; SENSE_STUCK sent nothing and is not one. */
+/**
+ * @brief Whether @p e is a failure on the wire, counted. SENSE_OK is none,
+ *        and SENSE_STUCK is none either: nothing was sent.
+ */
 static bool failed(sense_err_t e) {
 	if (e == SENSE_OK || e == SENSE_STUCK) return false;
 	s_counts.fails++;
@@ -127,27 +130,33 @@ static void startFailed(uint32_t nowMs, ImuState st) {
 	s_probeAt = probeFrom(nowMs + QMI8658_RETRY_MS);
 }
 
+/**
+ * @brief A step of the start that did not answer: `NO IMU` and a new start
+ *        for a failure on the wire; nothing for a stuck bus, whose step is
+ *        tried again on the next frame.
+ * @return true when the step goes on: @p e is SENSE_OK.
+ */
+static bool startStep(sense_err_t e, uint32_t nowMs) {
+	if (e == SENSE_OK) return true;
+	if (failed(e)) startFailed(nowMs, ImuState::Absent);
+	return false;
+}
+
 /** @brief WHO_AM_I, REVISION_ID, then the reset. */
 static void probe(uint32_t nowMs) {
 	uint8_t v = 0;
-	sense_err_t e = readReg(QMI8658_REG_WHO_AM_I, &v, 1);
-	if (e == SENSE_STUCK) return;
-	if (failed(e)) return startFailed(nowMs, ImuState::Absent);
+	if (!startStep(readReg(QMI8658_REG_WHO_AM_I, &v, 1), nowMs)) return;
 	s_who = v;
 	// Another part at the address gets nothing but the register address.
 	if (v != QMI8658_WHO_AM_I_VALUE) return startFailed(nowMs, ImuState::WrongId);
-	e = readReg(QMI8658_REG_REVISION, &v, 1);
-	if (e == SENSE_STUCK) return;
-	if (failed(e)) return startFailed(nowMs, ImuState::Absent);
+	if (!startStep(readReg(QMI8658_REG_REVISION, &v, 1), nowMs)) return;
 	s_rev = v;
 	// The reset counts from its attempt: a write that failed may still have
 	// reached the part.
 	s_resetAt = nowMs;
 	s_resetEver = true;
 	s_counts.resets++;
-	e = writeReg(QMI8658_REG_RESET, QMI8658_RESET_CMD);
-	if (e == SENSE_STUCK) return;
-	if (failed(e)) return startFailed(nowMs, ImuState::Absent);
+	if (!startStep(writeReg(QMI8658_REG_RESET, QMI8658_RESET_CMD), nowMs)) return;
 	s_accelMayBeOn = false;
 	s_state = ImuState::Starting;
 	s_phase = Phase::ResetWait;
@@ -165,13 +174,10 @@ static const uint8_t CONFIG[4][2] = {
 static void configure(uint32_t nowMs) {
 	for (const auto &c : CONFIG) {
 		if (c[0] == QMI8658_REG_CTRL7) s_accelMayBeOn = true;
-		sense_err_t e = writeReg(c[0], c[1]);
-		if (e == SENSE_STUCK) return;
-		if (failed(e)) return startFailed(nowMs, ImuState::Absent);
+		if (!startStep(writeReg(c[0], c[1]), nowMs)) return;
 		uint8_t v = 0;
-		e = readReg(c[0], &v, 1);
-		if (e == SENSE_STUCK) return;
-		if (failed(e) || v != c[1]) return startFailed(nowMs, ImuState::Absent);
+		if (!startStep(readReg(c[0], &v, 1), nowMs)) return;
+		if (v != c[1]) return startFailed(nowMs, ImuState::Absent);
 	}
 	s_enAt = nowMs;
 	s_fails = 0;
@@ -179,23 +185,24 @@ static void configure(uint32_t nowMs) {
 	s_phase = Phase::Warmup;
 }
 
-/** @brief A failed transaction of the online part: offline after @ref QMI8658_FAILS. */
-static void runFailed(uint32_t nowMs) {
-	if (++s_fails < QMI8658_FAILS) return;
-	s_fails = 0;
-	startFailed(nowMs, ImuState::Offline);
+/**
+ * @brief A transaction of the online part that did not answer: counted, and
+ *        offline after @ref QMI8658_FAILS in a row; nothing for a stuck bus.
+ * @return true when the frame goes on: @p e is SENSE_OK.
+ */
+static bool runStep(sense_err_t e, uint32_t nowMs) {
+	if (e == SENSE_OK) return true;
+	if (failed(e) && ++s_fails >= QMI8658_FAILS) startFailed(nowMs, ImuState::Offline);
+	return false;
 }
 
 /** @brief The burst, the time stamp again, and the sample taken when it is new and whole. */
 static void readFrame(uint32_t nowMs) {
 	uint8_t b[QMI8658_BURST_BYTES], t[QMI8658_STAMP_BYTES];
-	sense_err_t e = readReg(QMI8658_REG_TIMESTAMP_L, b, sizeof(b));
-	if (e == SENSE_STUCK) return;
-	if (failed(e)) return runFailed(nowMs);
-	e = readReg(QMI8658_REG_TIMESTAMP_L, t, sizeof(t));
-	if (e == SENSE_STUCK) return;
-	if (failed(e)) return runFailed(nowMs);
+	if (!runStep(readReg(QMI8658_REG_TIMESTAMP_L, b, sizeof(b)), nowMs)) return;
+	if (!runStep(readReg(QMI8658_REG_TIMESTAMP_L, t, sizeof(t)), nowMs)) return;
 	s_fails = 0;
+	s_state = ImuState::Online;
 	uint32_t stamp = qmi8658Stamp(b);
 	if (qmi8658Stamp(t) != stamp) {
 		// A new sample arrived during the burst: its bytes may mix two.
@@ -223,8 +230,6 @@ void qmi8658Start(uint32_t nowMs) {
 	memset(&s_counts, 0, sizeof(s_counts));
 	s_who = 0;
 	s_rev = 0;
-	s_fails = 0;
-	s_haveStamp = false;
 	s_state = ImuState::Starting;
 	s_phase = Phase::Probe;
 	s_probeAt = probeFrom(nowMs);
@@ -232,16 +237,17 @@ void qmi8658Start(uint32_t nowMs) {
 
 void qmi8658Stop() {
 	if (s_phase == Phase::Closed) return;
-	if (s_accelMayBeOn && !stuck()) {
-		failed(writeReg(QMI8658_REG_CTRL7, QMI8658_CTRL7_OFF));
-		s_accelMayBeOn = false;
-	}
+	// One write, its result noted and counted; a stuck bus sends nothing,
+	// and the next opening's reset turns the accelerometer off.
+	if (s_accelMayBeOn) failed(writeReg(QMI8658_REG_CTRL7, QMI8658_CTRL7_OFF));
+	s_accelMayBeOn = false;
 	s_phase = Phase::Closed;
 	s_state = ImuState::Closed;
 }
 
 void qmi8658Tick(uint32_t nowMs) {
-	if (stuck()) return;
+	// While the bus is stuck each step's first transfer returns SENSE_STUCK
+	// unsent, and the step is tried again on the next frame.
 	switch (s_phase) {
 		case Phase::Closed:
 			return;
@@ -267,9 +273,7 @@ void qmi8658Tick(uint32_t nowMs) {
 		case Phase::BootWait: {
 			if (nowMs - s_resetAt < QMI8658_RESET_C_MS) return;
 			uint8_t v = 0;
-			sense_err_t e = readReg(QMI8658_REG_WHO_AM_I, &v, 1);
-			if (e == SENSE_STUCK) return;
-			if (failed(e)) return startFailed(nowMs, ImuState::Absent);
+			if (!startStep(readReg(QMI8658_REG_WHO_AM_I, &v, 1), nowMs)) return;
 			s_who = v;
 			if (v != QMI8658_WHO_AM_I_VALUE) return startFailed(nowMs, ImuState::WrongId);
 			s_phase = Phase::Configure;
@@ -281,7 +285,6 @@ void qmi8658Tick(uint32_t nowMs) {
 			return;
 		case Phase::Warmup:
 			if (nowMs - s_enAt < QMI8658_WARMUP_MS) return;
-			s_state = ImuState::Online;
 			s_phase = Phase::Run;
 			readFrame(nowMs);
 			return;
