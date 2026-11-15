@@ -59,7 +59,8 @@ static uint64_t g_us = 0;
 void fakeAdvance(uint32_t ms) { g_us += (uint64_t)ms * 1000u; }
 void fakeAdvanceUs(uint32_t us) { g_us += us; }
 void fakeClockAlign(uint32_t periodMs) {
-	uint64_t ms = g_us / 1000u;
+	if (periodMs == 0) return;
+	uint64_t ms = (g_us + 999u) / 1000u;   // never back: round a part ms up
 	while ((uint32_t)ms % periodMs) ms++;
 	g_us = ms * 1000u;
 }

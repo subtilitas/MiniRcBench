@@ -33,7 +33,8 @@ void fakeAdvanceUs(uint32_t us);
  *
  * A screen that animates from millis() (a 12-dot spinner steps every 150 ms,
  * so a period of 1800 ms) draws the same picture whatever ran before. Call it
- * before the frames of the shot. The move is under @p periodMs.
+ * before the frames of the shot. The move is under @p periodMs; a period of
+ * 0 moves nothing.
  */
 void fakeClockAlign(uint32_t periodMs);
 
@@ -52,10 +53,10 @@ constexpr uint64_t FAKE_SHOT_UPTIME_MS = 10000ull * 3600u * 1000u;
  *
  * A screen that prints the time since boot (SETTINGS' UPTIME) reads the same
  * text whatever ran before. The clock never moves back, so a time already
- * past is refused: the call returns false and the test fails on it. Call it
- * before the frames of the shot.
+ * past is refused and the call returns false, which the caller checks. Call
+ * it before the frames of the shot.
  */
-bool fakeClockSetMs(uint64_t ms);
+__attribute__((warn_unused_result)) bool fakeClockSetMs(uint64_t ms);
 
 /*
  * Deviation from the SDK: sleep_us() moves the clock by whole milliseconds
