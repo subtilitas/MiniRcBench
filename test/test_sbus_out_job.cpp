@@ -1641,20 +1641,27 @@ static void listSources(const std::string &dir, std::vector<std::string> *out) {
  * Caught: a cast to PinUser or Core1Job, a pointer or reference to one
  * included, C-style, functional, braced, `static_cast` or
  * `reinterpret_cast`, a `const` among them; and any use of the user rows or
- * the job table, `PIN_USERS` or `s_ops`, an index or a range-for over them
- * that picks a row by its fields. A name match alone misses
+ * the job table, `PIN_USERS` or, in core1_job.cpp where it is static,
+ * `s_ops`, an index or a range-for over them that picks a row by its fields.
+ * Another file's own `s_ops` (bridge_4way.cpp) is not the job table. A name match alone misses
  * `(PinUser)((int)PinUser::Count - 1)`, which is SbusOut.
  *
  * Not caught: a value of the enum made without a cast, through `memcpy()`,
  * a union, a template's deduction or bytes read from storage; a cast hidden
  * behind a macro or a typedef of another name. Review has to find those.
  */
-static bool byNumber(const std::string &line) {
+static bool byNumber(const std::string &line, const std::string &file) {
+	static const std::regex OPS("\\bs_ops\\b");
+	static const std::string TABLE = "/core1_job.cpp";
+	if (file.size() >= TABLE.size() &&
+	    file.compare(file.size() - TABLE.size(), TABLE.size(), TABLE) == 0 &&
+	    std::regex_search(line, OPS))
+		return true;
 	static const std::regex CAST(
 		"\\(\\s*(const\\s+)?(PinUser|Core1Job)\\s*(const\\s*)?[*&]?\\s*\\)|"
 		"\\b(PinUser|Core1Job)\\s*[({]|"
 		"\\b(static|reinterpret|const)_cast\\s*<\\s*(const\\s+)?(PinUser|Core1Job)\\b|"
-		"\\bPIN_USERS\\b|\\bs_ops\\b");
+		"\\bPIN_USERS\\b");
 	return std::regex_search(line, CAST);
 }
 
@@ -1726,7 +1733,7 @@ static void testUnreachable() {
 			std::string line = trim(code.substr(pos, nl - pos));
 			pos = nl + 1;
 			lineNo++;
-			bool names = byNumber(line);
+			bool names = byNumber(line, f);
 			for (const char *n : NAMES) names |= line.find(n) != std::string::npos;
 			if (!names) continue;
 			bool ok = false;
@@ -1766,7 +1773,7 @@ static void testUnreachable() {
 		"for (const Core1JobOps *o : s_ops) o->bind(0, 1);",
 	};
 	bool all = true;
-	for (const char *l : BY_NUMBER) all &= byNumber(l);
+	for (const char *l : BY_NUMBER) all &= byNumber(l, "../src/core1_job.cpp");
 	checkTrue("each cast and index to a user or a job is caught", all);
 	static const char *const BY_NAME[] = {
 		"static constexpr const PinUserInfo &pinUserInfo(PinUser who) {",
@@ -1778,8 +1785,11 @@ static void testUnreachable() {
 		"uint8_t n = (uint8_t)job;",
 	};
 	bool none = true;
-	for (const char *l : BY_NAME) none &= !byNumber(l);
+	for (const char *l : BY_NAME) none &= !byNumber(l, "../src/core1_job.cpp");
 	checkTrue("a type named, a parameter or a loop is not", none);
+	checkTrue("another file's own s_ops is not the job table",
+	          !byNumber("const Op *o = &s_ops[s_op];", "../src/bridge_4way.cpp") &&
+	          byNumber("const Op *o = &s_ops[s_op];", "../src/core1_job.cpp"));
 }
 
 void runSbusOutJobTests() {
