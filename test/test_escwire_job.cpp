@@ -376,6 +376,391 @@ static void testRelease() {
 	fakePumpPoll();
 }
 
+/** @brief Start, enter, read: InMode with the whole page. */
+static bool startRead(uint8_t sig, bool bluejay) {
+	if (!startInMode(sig, bluejay)) return false;
+	uint16_t seq = escwireJobCommand(EwJobOp::Read);
+	return taken(seq) && until(EwJobState::InMode, 3000) && status().haveRead;
+}
+
+/** @brief The simulated ESC's settings page. */
+static uint8_t *simPage() { return fakeEwSim()->flash + fakeEwSim()->base; }
+
+/** @brief The page as read, with @p off set to @p v. */
+static const uint8_t *draftOf(uint8_t off, uint8_t v) {
+	static uint8_t d[EW_PAGE_MAX];
+	memcpy(d, status().page, sizeof(d));
+	d[off] = v;
+	return d;
+}
+
+/** @brief Send Write of @p draft and run it to its end, at most @p maxMs. */
+static EwJobStatus writeRun(const uint8_t *draft, uint32_t maxMs = 6000) {
+	uint16_t n = status().id.len;
+	uint16_t seq = escwireJobWrite(draft, n);
+	taken(seq);
+	for (uint32_t i = 0; i < maxMs && status().job == EwJobState::Busy; i++) passes(1);
+	return status();
+}
+
+/** @brief The first byte of each transaction from @p from on: the commands, in order. */
+static bool commandsAre(int from, const uint8_t *cmds, int n) {
+	sim_t *e = fakeEwSim();
+	if (e->starts - from != n) return false;
+	for (int i = 0; i < n; i++)
+		if (e->log[from + i].b[0] != cmds[i]) return false;
+	return true;
+}
+
+/** @brief Passes until the simulated ESC has started @p n transactions, at most 20 s. */
+static bool untilStarts(int n) {
+	for (int i = 0; i < 20000 && fakeEwSim()->starts < n; i++) passes(1);
+	return fakeEwSim()->starts == n;
+}
+
+static void testWrite() {
+	section("ESC settings job: Bluejay 208 written and read back");
+	checkTrue("read", startRead(0xB2, true));
+	sim_t *e = fakeEwSim();
+	uint8_t draft[EW_PAGE_MAX];
+	memcpy(draft, status().page, sizeof(draft));
+	draft[0x15] = 2;   // TIMING MEDIUM LOW
+	draft[0x0B] = 2;   // DIRECTION REVERSED
+	int from = e->starts;
+	uint16_t seq = escwireJobWrite(draft, 255);
+	checkTrue("Write taken: Busy", taken(seq) && status().job == EwJobState::Busy &&
+	          status().lastOp == EwJobOp::Write && status().refused == EwJobRefusal::None);
+	checkTrue("ends: InMode, verified", until(EwJobState::InMode, 6000) && status().result == EW_SES_OK);
+	EwJobStatus st = status();
+	checkTrue("the page the ESC holds is the draft", memcmp(simPage(), draft, 255) == 0);
+	checkTrue("and the status's page with it", memcmp(st.page, draft, 255) == 0 && !st.dirty);
+	checkTrue("the tags as read", memcmp(simPage() + 0x40, "#BOARD_NAME_TWO#", 16) == 0 &&
+	          memcmp(simPage() + 0x60, "Bluejay (.1 RC1)", 16) == 0);
+	static const uint8_t ORDER[] = {
+		EW_A_CMD_ADDRESS, EW_A_CMD_READ, EW_A_CMD_ADDRESS, EW_A_CMD_ERASE, EW_A_CMD_ADDRESS,
+		EW_A_CMD_ANNOUNCE, EW_A_CMD_PROGRAM, EW_A_CMD_ADDRESS, EW_A_CMD_READ,
+	};
+	checkTrue("rcbench's order: re-read, erase, data, program, read-back", commandsAre(from, ORDER, 9));
+	checkInt("one erase", e->erases, 1);
+	checkInt("one program", e->programs, 1);
+	checkTrue("nothing but the settings page erased or programmed", fakeEwOnlySettingsPage());
+	checkTrue("no invalid transaction, none on a parked line, no line() in one",
+	          e->invalid == 0 && e->parked_tx == 0 && e->line_in_xfer == 0);
+	checkTrue("the ESC still in mode: LEAVE goes", status().inMode);
+	seq = escwireJobCommand(EwJobOp::Leave);
+	checkTrue("left", taken(seq) && until(EwJobState::Ended, 2000) && status().left);
+	finish();
+
+	section("ESC settings job: BLHeli_S 33 written");
+	checkTrue("read", startRead(0xB1, false));
+	e = fakeEwSim();
+	st = writeRun(draftOf(0x1F, 3));  // DEMAG HIGH
+	checkTrue("verified, 112 bytes: the ESC's DEMAG HIGH", st.result == EW_SES_OK && simPage()[0x1F] == 3 &&
+	          st.id.len == 112);
+	checkTrue("one erase, one program, the settings page only",
+	          e->erases == 1 && e->programs == 1 && fakeEwOnlySettingsPage());
+	finish();
+
+	section("ESC settings job: Bluejay on EFM8BB51, its page at 0x3000");
+	checkTrue("read", startRead(0xB5, true));
+	e = fakeEwSim();
+	st = writeRun(draftOf(0x1B, 100));  // BEEP STRENGTH
+	checkTrue("verified", st.result == EW_SES_OK && simPage()[0x1B] == 100 && e->base == 0x3000);
+	checkTrue("the settings page only", e->erases == 1 && fakeEwOnlySettingsPage());
+	finish();
+
+	section("ESC settings job: a draft equal to the page sends nothing");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	int n = e->starts;
+	st = writeRun(status().page);
+	checkTrue("OK at once, nothing sent", st.result == EW_SES_OK && st.lastOp == EwJobOp::Write &&
+	          e->starts == n && st.job == EwJobState::InMode);
+	finish();
+}
+
+static void testWriteGuard() {
+	section("ESC settings job: the guard refuses a draft, nothing sent");
+	checkTrue("read", startRead(0xB2, true));
+	sim_t *e = fakeEwSim();
+	int n = e->starts;
+	EwJobStatus st = writeRun(draftOf(0x45, 'X'));
+	checkTrue("a layout tag changed: refused", st.result == EW_SES_ERR_REFUSED &&
+	          st.refuse == EW_REF_CHANGED_BYTE && st.badOff == 0x45);
+	st = writeRun(draftOf(0x65, 'x'));
+	checkTrue("the name tag changed: refused", st.result == EW_SES_ERR_REFUSED && st.badOff == 0x65);
+	st = writeRun(draftOf(0x0D, 0x00));
+	checkTrue("the marker changed: refused", st.result == EW_SES_ERR_REFUSED && st.badOff == 0x0D);
+	st = writeRun(draftOf(0x02, 207));
+	checkTrue("the layout revision changed: refused", st.result == EW_SES_ERR_REFUSED && st.badOff == 0x02);
+	st = writeRun(draftOf(0x0A, 24));
+	checkTrue("PWM INDICATOR, shown only: refused", st.result == EW_SES_ERR_REFUSED && st.badOff == 0x0A);
+	st = writeRun(draftOf(0x0B, 9));
+	checkTrue("DIRECTION 9, no value of its own: refused", st.result == EW_SES_ERR_REFUSED &&
+	          st.refuse == EW_REF_VALUE);
+	st = writeRun(draftOf(0x80, 0));
+	checkTrue("a melody byte: refused", st.result == EW_SES_ERR_REFUSED && st.badOff == 0x80);
+	checkTrue("nothing sent, the ESC still in mode", e->starts == n && st.inMode &&
+	          st.job == EwJobState::InMode);
+	uint16_t seq = escwireJobWrite(status().page, 112);
+	checkTrue("a draft of another length: refused, nothing sent",
+	          taken(seq) && status().refused == EwJobRefusal::State && e->starts == n);
+	finish();
+
+	section("ESC settings job: BLHeli_S' throttle bytes are shown only");
+	checkTrue("read", startRead(0xB1, false));
+	st = writeRun(draftOf(0x19, 40));
+	checkTrue("MIN THROTTLE: refused", st.result == EW_SES_ERR_REFUSED && st.badOff == 0x19);
+	checkTrue("nothing erased", fakeEwSim()->erases == 0);
+	finish();
+
+	section("ESC settings job: read-only pages are never written");
+	struct Ro {
+		const char *what;
+		bool bluejay;
+		uint8_t off, v;
+	};
+	static const Ro RO[] = {
+		{ "Bluejay layout 206", true, 0x02, 206 },
+		{ "BLHeli_S layout 32", false, 0x02, 32 },
+		{ "lost tags", false, 0x40, 0xFF },
+		{ "a wrong marker", true, 0x0E, 0x00 },
+	};
+	for (const Ro &r : RO) {
+		start(0xB2, r.bluejay);
+		if (r.off == 0x40) memset(simPage() + 0x40, 0xFF, 48);
+		else simPage()[r.off] = r.v;
+		if (r.off == 0x02 && r.bluejay) simPage()[0x01] = 19;
+		fakeEwSnapshot();
+		uint16_t s0 = escwireJobCommand(EwJobOp::Enter);
+		taken(s0);
+		until(EwJobState::InMode, 3000);
+		s0 = escwireJobCommand(EwJobOp::Read);
+		taken(s0);
+		until(EwJobState::InMode, 3000);
+		e = fakeEwSim();
+		n = e->starts;
+		char what[80];
+		snprintf(what, sizeof(what), "%s: read, not writable", r.what);
+		checkTrue(what, status().haveRead && !status().id.writable);
+		st = writeRun(draftOf(0x15, 2));
+		snprintf(what, sizeof(what), "%s: a write refused, nothing sent", r.what);
+		checkTrue(what, st.result == EW_SES_ERR_NOT_WRITABLE && e->starts == n && e->erases == 0 &&
+		          e->programs == 0 && fakeEwOnlySettingsPage());
+		finish();
+	}
+
+	section("ESC settings job: no write before a read");
+	checkTrue("in mode", startInMode(0xB2, true));
+	n = fakeEwSim()->starts;
+	uint8_t page[EW_PAGE_MAX];
+	memcpy(page, simPage(), sizeof(page));
+	st = writeRun(page);
+	checkTrue("refused: no read, nothing sent", st.result == EW_SES_ERR_NO_READ && fakeEwSim()->starts == n);
+	finish();
+
+	section("ESC settings job: Write before Enter");
+	start(0xB2, true);
+	seq = escwireJobWrite(simPage(), 255);
+	checkTrue("refused, nothing sent", taken(seq) && status().refused == EwJobRefusal::State &&
+	          fakeEwSim()->starts == 0);
+	finish();
+}
+
+static void testWriteFaults() {
+	section("ESC settings job: a write the ESC changed under");
+	checkTrue("read", startRead(0xB2, true));
+	sim_t *e = fakeEwSim();
+	simPage()[0x1B] = 41;  // the page moved since the read
+	fakeEwSnapshot();
+	EwJobStatus st = writeRun(draftOf(0x15, 2));
+	checkTrue("ESC PAGE CHANGED: nothing erased", st.result == EW_SES_ERR_CHANGED && e->erases == 0 &&
+	          e->programs == 0 && !st.dirty && st.inMode);
+	uint16_t seq = escwireJobCommand(EwJobOp::Read);
+	checkTrue("read again: the page as it is now", taken(seq) && until(EwJobState::InMode, 3000) &&
+	          status().page[0x1B] == 41);
+	st = writeRun(draftOf(0x15, 2));
+	checkTrue("then written", st.result == EW_SES_OK && simPage()[0x15] == 2 && simPage()[0x1B] == 41);
+	finish();
+
+	section("ESC settings job: the ESC gone before the erase");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	sim_script(e, F_DEAD, 0, 1, 0);
+	st = writeRun(draftOf(0x15, 2), 8000);
+	checkTrue("READ FAILED: nothing erased, the page as read", st.result == EW_SES_ERR_READ && e->erases == 0 &&
+	          e->programs == 0 && !st.dirty && memcmp(simPage(), st.page, 255) == 0);
+	finish();
+
+	section("ESC settings job: the ESC's power cut after the erase");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	uint8_t orig[EW_PAGE_MAX];
+	memcpy(orig, status().page, sizeof(orig));
+	// From the data on: transactions 0 to 3 are the re-read and the erase.
+	sim_script(e, F_DEAD, 5, 1, 0);
+	st = writeRun(draftOf(0x15, 2), 8000);
+	checkTrue("NO ANSWER IN THE WRITE: lost, half written", st.result == EW_SES_ERR_LOST && st.dirty &&
+	          !st.reread && st.inMode);
+	checkTrue("the page erased, the tags gone with it", e->erases == 1 && simPage()[0x40] == 0xFF);
+	checkTrue("the status keeps the page as first read", memcmp(st.page, orig, 255) == 0);
+	checkTrue("nothing else erased", fakeEwOnlySettingsPage());
+	seq = escwireJobCommand(EwJobOp::Leave);
+	checkTrue("LEAVE refused: the page is half written", taken(seq) &&
+	          status().refused == EwJobRefusal::State && status().inMode);
+	e->dead = false;
+	st = writeRun(draftOf(0x15, 2));
+	checkTrue("a write comes after a read only", st.result == EW_SES_ERR_MUST_READ && st.dirty);
+	seq = escwireJobCommand(EwJobOp::Read);
+	checkTrue("read: half written, read since", taken(seq) && until(EwJobState::InMode, 3000) &&
+	          status().result == EW_SES_OK && status().dirty && status().reread);
+	checkTrue("the status still keeps the page as first read", memcmp(status().page, orig, 255) == 0);
+	uint8_t other[EW_PAGE_MAX];
+	memcpy(other, orig, sizeof(other));
+	other[0x1B] = 99;
+	seq = escwireJobWrite(other, 255);
+	checkTrue("a third page: refused while half written", taken(seq) &&
+	          status().refused == EwJobRefusal::State);
+	st = writeRun(orig);
+	checkTrue("the page as read: written back, tags included", st.result == EW_SES_OK && !st.dirty &&
+	          memcmp(simPage(), orig, 255) == 0);
+	checkTrue("still the settings page only", fakeEwOnlySettingsPage());
+	finish();
+
+	section("ESC settings job: a program that does not take, 3 times: half written");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	memcpy(orig, status().page, sizeof(orig));
+	sim_script(e, F_NO_TAKE, 0, 40, 0);
+	uint8_t draft[EW_PAGE_MAX];
+	memcpy(draft, draftOf(0x15, 2), sizeof(draft));
+	st = writeRun(draft, 10000);
+	checkTrue("TORN: neither page, read back", st.result == EW_SES_ERR_TORN && st.dirty && st.reread);
+	checkInt("3 procedures: 3 erases", e->erases, 3);
+	checkInt("3 programs", e->programs, 3);
+	e->fail = F_NONE;
+	st = writeRun(draft);
+	checkTrue("the draft at once: written", st.result == EW_SES_OK && memcmp(simPage(), draft, 255) == 0);
+	checkTrue("the settings page only", fakeEwOnlySettingsPage());
+	finish();
+
+	section("ESC settings job: a corrupt byte once: the procedure again");
+	checkTrue("read", startRead(0xB1, false));
+	e = fakeEwSim();
+	sim_script(e, F_CORRUPT, 6, 1, 0x1F);
+	st = writeRun(draftOf(0x1F, 3), 10000);
+	checkTrue("verified on the second procedure", st.result == EW_SES_OK && simPage()[0x1F] == 3 &&
+	          e->erases == 2 && e->programs == 2);
+	finish();
+
+	section("ESC settings job: erases the ESC never hears: the page as read");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	memcpy(orig, status().page, sizeof(orig));
+	int base = e->starts;
+	seq = escwireJobWrite(draftOf(0x15, 2), 255);
+	// Each procedure: address, erase, address, data, program; a failed erase
+	// reads the page back, address and read, and starts again.
+	static const int ERASES[] = { 3, 7, 11 };
+	for (int k : ERASES) {
+		untilStarts(base + k);
+		sim_script(e, F_SILENT, 0, 1, 0);
+	}
+	for (int i = 0; i < 20000 && status().job == EwJobState::Busy; i++) passes(1);
+	st = status();
+	checkTrue("WRITE FAILED: the page as read", st.result == EW_SES_ERR_WRITE_FAILED && !st.dirty &&
+	          memcmp(simPage(), orig, 255) == 0 && e->erases == 0 && e->programs == 0);
+	finish();
+
+	section("ESC settings job: a driver that fails in the write");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	sim_script(e, F_STUCK, 4, 1, 0);
+	st = writeRun(draftOf(0x15, 2), 8000);
+	checkTrue("the driver's failure after the erase: the session ended, half written",
+	          st.result == EW_SES_ERR_DRIVER && st.dirty && !st.inMode && st.job == EwJobState::Ended);
+	checkTrue("the line parked", e->line == EW_LINE_PARK);
+	finish();
+}
+
+static void testWriteHeartbeat() {
+	section("ESC settings job: a lapse after the erase: the write runs to its read-back");
+	checkTrue("read", startRead(0xB2, true));
+	sim_t *e = fakeEwSim();
+	uint8_t draft[EW_PAGE_MAX];
+	memcpy(draft, draftOf(0x15, 2), sizeof(draft));
+	uint16_t seq = escwireJobWrite(draft, 255);
+	taken(seq);
+	for (int i = 0; i < 3000 && e->erases == 0; i++) passes(1);
+	checkTrue("erased: writing", e->erases == 1 && status().writing && status().dirty);
+	g_alive = false;
+	passes(UI_HEARTBEAT_TIMEOUT_MS + 5);
+	checkTrue("lapsed: the write runs on", status().job == EwJobState::Busy && status().stalled);
+	for (int i = 0; i < 4000 && status().job == EwJobState::Busy; i++) passes(1);
+	EwJobStatus st = status();
+	checkTrue("read back and verified", st.result == EW_SES_OK && memcmp(simPage(), draft, 255) == 0 &&
+	          !st.dirty);
+	checkTrue("then the session ended, the line parked", st.job == EwJobState::Ended && !st.inMode &&
+	          e->line == EW_LINE_PARK);
+	checkInt("one procedure", e->programs, 1);
+	finish();
+
+	section("ESC settings job: a lapse before the erase stops the write");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	sim_script(e, F_STUCK, 1, 1, 0);
+	seq = escwireJobWrite(draftOf(0x15, 2), 255);
+	taken(seq);
+	g_alive = false;
+	passes(UI_HEARTBEAT_TIMEOUT_MS + 3);
+	st = status();
+	checkTrue("stopped, nothing erased, the page as read", st.result == EW_SES_ERR_STOPPED &&
+	          st.job == EwJobState::Ended && e->erases == 0 && e->programs == 0 && !st.dirty);
+	finish();
+
+	section("ESC settings job: a lapse in a write that ends half written");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	sim_script(e, F_NO_TAKE, 0, 40, 0);
+	seq = escwireJobWrite(draftOf(0x15, 2), 255);
+	taken(seq);
+	for (int i = 0; i < 3000 && e->erases == 0; i++) passes(1);
+	g_alive = false;
+	for (int i = 0; i < 8000 && status().job == EwJobState::Busy; i++) passes(1);
+	st = status();
+	checkTrue("no second procedure: TORN after one, parked", st.result == EW_SES_ERR_TORN &&
+	          e->erases == 1 && e->programs == 1 && st.job == EwJobState::Ended && e->line == EW_LINE_PARK);
+	finish();
+
+	section("ESC settings job: the release in a write after its erase");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	memcpy(draft, draftOf(0x15, 2), sizeof(draft));
+	seq = escwireJobWrite(draft, 255);
+	taken(seq);
+	for (int i = 0; i < 3000 && e->erases == 0; i++) passes(1);
+	core1JobStop();
+	passes(1);
+	checkTrue("the job stays until the write ends", core1JobPhase() == Core1JobPhase::Stopping && fakeEwOpen());
+	for (int i = 0; i < 4000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
+	checkTrue("verified, then closed", core1JobPhase() == Core1JobPhase::Idle && !fakeEwOpen() &&
+	          memcmp(simPage(), draft, 255) == 0 && status().result == EW_SES_OK);
+	escTaskResume();
+	fakePumpPoll();
+
+	section("ESC settings job: the release before the erase cuts the write");
+	checkTrue("read", startRead(0xB2, true));
+	e = fakeEwSim();
+	seq = escwireJobWrite(draftOf(0x15, 2), 255);
+	taken(seq);
+	core1JobStop();
+	passes(1);
+	checkTrue("closed in one pass, nothing erased", core1JobPhase() == Core1JobPhase::Idle && e->erases == 0 &&
+	          status().result == EW_SES_ERR_STOPPED);
+	escTaskResume();
+	fakePumpPoll();
+}
+
 void runEscwireJobTests() {
 	testBind();
 	testEnterReadLeave();
@@ -384,4 +769,8 @@ void runEscwireJobTests() {
 	testSilent();
 	testHeartbeat();
 	testRelease();
+	testWrite();
+	testWriteGuard();
+	testWriteFaults();
+	testWriteHeartbeat();
 }

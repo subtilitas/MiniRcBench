@@ -9,7 +9,14 @@
  */
 
 #include "check.h"
+#include "efm8_backup.h"
 #include "efm8_view.h"
+#include "fakes.h"
+#include "fake_fatfs.h"
+#include "card_dir.h"
+#include "ew_file.h"
+#include "sd_log.h"
+#include "usb_msc.h"
 #include "gfx.h"
 #include "ui_am32.h"
 #include "ui_widgets.h"
@@ -315,10 +322,109 @@ static void testNotes() {
 	checkTrue("no field: none", !efm8RowNote(nullptr, 0, &l1, &l2));
 }
 
+/** @brief Whether @p text holds the line @p line, its line feed included. */
+static bool hasLine(const char *text, size_t n, const char *line) {
+	size_t k = strlen(line);
+	for (size_t i = 0; i + k + 1 <= n; i++)
+		if ((i == 0 || text[i - 1] == '\n') && memcmp(text + i, line, k) == 0 && text[i + k] == '\n') return true;
+	return false;
+}
+
+static void testBackup() {
+	section("EFM8 backup: rcbench's text of a Bluejay page");
+	static char text[EW_FILE_MAX];
+	uint8_t page[256];
+	ew_contact_t c;
+	ew_ident_t id;
+	sim_bj_page(page);
+	ident(0xB2, page, &c, &id);
+	checkTrue("Bluejay: BJ, BLHeli_S: BH, AM32: none", efm8BackupDevice(EW_FW_BJ) == BackupDevice::Bluejay &&
+	          efm8BackupDevice(EW_FW_S) == BackupDevice::BlheliS &&
+	          efm8BackupDevice(EW_FW_AM) == BackupDevice::Count);
+	size_t n = efm8BackupFormat(&c, &id, page, text, sizeof(text));
+	checkTrue("formatted", n > 0 && n < sizeof(text));
+	checkTrue("its header", hasLine(text, n, "ESC settings backup, format 1") &&
+	          hasLine(text, n, "Firmware: Bluejay") && hasLine(text, n, "Layout: 208") &&
+	          hasLine(text, n, "Processor: EFM8") && hasLine(text, n, "Signature: E8B2"));
+	checkTrue("a field line: DIRECTION = NORMAL", hasLine(text, n, "DIRECTION = NORMAL"));
+	checkTrue("the bytes: 255", hasLine(text, n, "bytes 255"));
+	checkTrue("the layout tag's line, 0x40", hasLine(text, n,
+	          "40: 23 42 4F 41 52 44 5F 4E 41 4D 45 5F 54 57 4F 23"));
+	ew_file_t f;
+	unsigned line = 0;
+	checkTrue("rcbench reads it back: verified, the page whole",
+	          ew_file_parse(text, n, &f, &line) == EW_FILE_OK && f.kind == EW_FILE_VERIFIED &&
+	          f.fw == EW_FW_BJ && f.len == 255 && memcmp(f.page, page, 255) == 0 && f.signature == 0xE8B2);
+	text[n / 2] ^= 0x01;
+	checkTrue("a changed byte: the checksum refuses it", ew_file_parse(text, n, &f, &line) == EW_FILE_ERR_CHECKSUM ||
+	          ew_file_parse(text, n, &f, &line) == EW_FILE_ERR_MALFORMED);
+	checkInt("too small a buffer: nothing", (long)efm8BackupFormat(&c, &id, page, text, 100), 0);
+
+	section("EFM8 backup: BLHeli_S, and the read-only pages");
+	sim_s_page(page);
+	ident(0xB1, page, &c, &id);
+	n = efm8BackupFormat(&c, &id, page, text, sizeof(text));
+	checkTrue("BLHeli_S 33: 112 bytes", n > 0 && hasLine(text, n, "Firmware: BLHeli_S") &&
+	          hasLine(text, n, "bytes 112") && hasLine(text, n, "Signature: E8B1"));
+	memset(page + 0x40, 0xFF, 48);
+	ident(0xB1, page, &c, &id);
+	n = efm8BackupFormat(&c, &id, page, text, sizeof(text));
+	checkTrue("lost tags: saved, the tags as 0xFF", id.why == EW_WHY_RESET_PAGE && n > 0 &&
+	          hasLine(text, n, "40: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF"));
+	sim_bj_page(page);
+	page[0x01] = 19;
+	page[0x02] = 206;
+	ident(0xB2, page, &c, &id);
+	n = efm8BackupFormat(&c, &id, page, text, sizeof(text));
+	checkTrue("Bluejay layout 206: saved", !id.writable && n > 0 && hasLine(text, n, "Layout: 206"));
+	sim_bj_page(page);
+	page[0x0E] = 0;
+	ident(0xB2, page, &c, &id);
+	n = efm8BackupFormat(&c, &id, page, text, sizeof(text));
+	checkTrue("a wrong marker: saved", id.why == EW_WHY_MARKER && n > 0);
+	memset(page, 0xFF, 256);
+	ident(0xB2, page, &c, &id);
+	checkInt("a page not taken: no text", (long)efm8BackupFormat(&c, &id, page, text, sizeof(text)), 0);
+
+	section("EFM8 backup: saved into the ring");
+	fakeFatReset(1u << 22);
+	SdLogStatus st;
+	memset(&st, 0, sizeof(st));
+	st.state = SdLogState::Idle;
+	fakeSdLogSet(&st);
+	fakeMscSet(MscState::Idle, 0);
+	sim_bj_page(page);
+	ident(0xB2, page, &c, &id);
+	char name[BACKUP_NAME_MAX];
+	checkTrue("the next: BJ001.TXT", efm8BackupNext(EW_FW_BJ, name) == BackupResult::Ok &&
+	          strcmp(name, "BJ001.TXT") == 0);
+	checkTrue("saved as BJ001.TXT", efm8BackupSave(&c, &id, page, name) == BackupResult::Ok &&
+	          strcmp(name, "BJ001.TXT") == 0);
+	size_t got = 0;
+	static char back[EW_FILE_MAX];
+	n = efm8BackupFormat(&c, &id, page, text, sizeof(text));
+	checkTrue("its bytes are the text", backupLoad(name, back, sizeof(back), &got) == BackupResult::Ok &&
+	          got == n && memcmp(back, text, n) == 0);
+	checkTrue("BLHeli_S' next: BH002.TXT", efm8BackupNext(EW_FW_S, name) == BackupResult::Ok &&
+	          strcmp(name, "BH002.TXT") == 0);
+	checkTrue("AM32 has no EFM8 backup", efm8BackupNext(EW_FW_AM, name) == BackupResult::NotFound && !name[0]);
+	memset(page, 0xFF, 256);
+	ew_ident_t none = id;
+	none.fw = EW_FW_NONE;
+	checkTrue("a page with no text: refused, nothing saved",
+	          efm8BackupSave(&c, &none, page, name) == BackupResult::WriteError && !name[0]);
+	st.state = SdLogState::NoCard;
+	fakeSdLogSet(&st);
+	sim_bj_page(page);
+	checkTrue("no card: NoCard", efm8BackupSave(&c, &id, page, name) == BackupResult::NoCard &&
+	          efm8BackupNext(EW_FW_BJ, name) == BackupResult::NoCard);
+}
+
 void runEfm8ViewTests() {
 	testRows();
 	testValues();
 	testStrip();
 	testRefusals();
 	testNotes();
+	testBackup();
 }

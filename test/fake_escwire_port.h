@@ -46,6 +46,18 @@ bool fakeEwOpen();
 /** @brief time_us_32() at the last close of an open line. */
 uint32_t fakeEwClosedUs();
 
+/** @brief Take the simulated ESC's whole flash as the one fakeEwOnlySettingsPage() compares with. */
+void fakeEwSnapshot();
+
+/**
+ * @brief Whether the simulated ESC's flash outside its settings page, the
+ *        bootloader's area and the firmware among it, is byte for byte as
+ *        at the last fakeEwReset() or fakeEwSnapshot(), and whether every
+ *        erase and program frame the ESC saw stood on the settings page's
+ *        address: nothing but the settings page was erased or programmed.
+ */
+bool fakeEwOnlySettingsPage();
+
 /**
  * @brief Whether transaction @p index sent a leave: 0x00 0x01 and their CRC.
  * @param index The transaction, from 0 since fakeEwReset().
