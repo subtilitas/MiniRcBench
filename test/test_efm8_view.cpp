@@ -211,6 +211,9 @@ static void testStrip() {
 	efm8ReadOnlyLines(&id, page, Efm8Backup::Failed, "", l1, l2);
 	checkStr("the card refused it", l2, "SHOWN ONLY. BACKUP FAILED.");
 	checkTrue("26 characters, 155 px", w1(l2) == 155);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::Usb, "", l1, l2);
+	checkStr("a USB host holds the card", l2, "SHOWN ONLY. USB DRIVE: NO BACKUP.");
+	checkTrue("33 characters", strlen(l2) == 33);
 	page[0] = 255;
 	page[1] = 255;
 	efm8ReadOnlyLines(&id, page, Efm8Backup::NoCard, "", l1, l2);
@@ -237,6 +240,8 @@ static void testStrip() {
 	efm8ReadOnlyLines(&id, page, Efm8Backup::Failed, "", l1, l2);
 	checkStr("the card refused it", l2, "REFLASH ON A COMPUTER. BACKUP FAILED.");
 	checkTrue("37 characters, 221 px", w1(l2) == 221);
+	efm8ReadOnlyLines(&id, page, Efm8Backup::Usb, "", l1, l2);
+	checkStr("a USB host holds the card", l2, "REFLASH ON A COMPUTER. USB DRIVE.");
 	// The marker.
 	sim_bj_page(page);
 	page[0x0E] = 0x00;
@@ -449,15 +454,15 @@ static void testResults() {
 		{ EW_SES_ERR_MUST_READ, true, true, EFM8_UI_TORN_1, EFM8_UI_LOST_2, false, true },
 		{ EW_SES_ERR_MUST_READ, false, true, EFM8_UI_REFUSED_W, EFM8_UI_LOST_2, false, true },
 		{ EW_SES_ERR_STOPPED, false, false, EFM8_UI_STOPPED_1, EFM8_UI_ENDED_2, false, false },
-		{ EW_SES_ERR_STOPPED, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_STOPPED, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_DIRTY_2, false, false },
 		{ EW_SES_ERR_DRIVER, false, false, EFM8_UI_DRIVER_1, EFM8_UI_ENDED_2, false, false },
-		{ EW_SES_ERR_DRIVER, true, false, EFM8_UI_LOST_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_DRIVER, true, false, EFM8_UI_LOST_1, EFM8_UI_ENDED_DIRTY_2, false, false },
 		{ EW_SES_ERR_REFUSED, false, true, EFM8_UI_REFUSED_W, nullptr, false, false },
-		{ EW_SES_ERR_REFUSED, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_REFUSED, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_DIRTY_2, false, false },
 		{ EW_SES_ERR_NOT_WRITABLE, false, true, EFM8_UI_REFUSED_W, nullptr, false, false },
 		{ EW_SES_OK, false, false, nullptr, EFM8_UI_ENDED_2, true, false },
-		{ EW_SES_ERR_TORN, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_2, false, false },
-		{ EW_SES_ERR_LOST, true, false, EFM8_UI_LOST_1, EFM8_UI_ENDED_2, false, false },
+		{ EW_SES_ERR_TORN, true, false, EFM8_UI_TORN_1, EFM8_UI_ENDED_DIRTY_2, false, false },
+		{ EW_SES_ERR_LOST, true, false, EFM8_UI_LOST_1, EFM8_UI_ENDED_DIRTY_2, false, false },
 	};
 	for (const Want &w : W) {
 		Efm8Result r = efm8WriteResult(w.r, w.dirty, w.inMode);
@@ -487,7 +492,8 @@ static void testResults() {
 		checkTrue(what, w1(f.s) == f.px);
 	}
 	static const char *const MINE[] = {
-		EFM8_UI_STOPPED_1, EFM8_UI_DRIVER_1, EFM8_UI_REFUSED_W, EFM8_UI_ENDED_2, EFM8_UI_DIRTY_READ,
+		EFM8_UI_STOPPED_1, EFM8_UI_DRIVER_1, EFM8_UI_REFUSED_W, EFM8_UI_ENDED_2, EFM8_UI_ENDED_DIRTY_2,
+		EFM8_UI_KEPT_ONLY, EFM8_UI_KEPT_1, EFM8_UI_KEPT_SCREEN, "ALSO ON THE CARD: BACKUP BJ001", EFM8_UI_DIRTY_READ,
 		EFM8_UI_DIRTY_WRITE, EFM8_UI_BAR_EDIT, EFM8_UI_BAR_SHOWN,
 	};
 	for (const char *m : MINE) {
@@ -576,8 +582,26 @@ static void testBackup() {
 	n = efm8BackupFormat(&c, &id, page, text, sizeof(text));
 	checkTrue("its bytes are the text", backupLoad(name, back, sizeof(back), &got) == BackupResult::Ok &&
 	          got == n && memcmp(back, text, n) == 0);
-	checkTrue("BLHeli_S' next: BH002.TXT", efm8BackupNext(EW_FW_S, name) == BackupResult::Ok &&
-	          strcmp(name, "BH002.TXT") == 0);
+	checkTrue("the same page again, skipSame: no new file, the latest named",
+	          efm8BackupSave(&c, &id, page, name, true) == BackupResult::Ok && strcmp(name, "BJ001.TXT") == 0 &&
+	          efm8BackupNext(EW_FW_BJ, name) == BackupResult::Ok && strcmp(name, "BJ002.TXT") == 0);
+	page[0x1B] = 41;
+	checkTrue("another page, skipSame: BJ002.TXT", efm8BackupSave(&c, &id, page, name, true) == BackupResult::Ok &&
+	          strcmp(name, "BJ002.TXT") == 0);
+	page[0x1B] = 40;
+	checkTrue("the first page again, skipSame: not the latest, so BJ003.TXT",
+	          efm8BackupSave(&c, &id, page, name, true) == BackupResult::Ok && strcmp(name, "BJ003.TXT") == 0);
+	checkTrue("without skipSame the same page again: BJ004.TXT",
+	          efm8BackupSave(&c, &id, page, name) == BackupResult::Ok && strcmp(name, "BJ004.TXT") == 0);
+	ew_contact_t cs;
+	ew_ident_t ids;
+	uint8_t spage[256];
+	sim_s_page(spage);
+	ident(0xB1, spage, &cs, &ids);
+	checkTrue("a BLHeli_S page after it, skipSame: BH005.TXT, the latest being Bluejay's",
+	          efm8BackupSave(&cs, &ids, spage, name, true) == BackupResult::Ok && strcmp(name, "BH005.TXT") == 0);
+	checkTrue("BLHeli_S' next: BH006.TXT", efm8BackupNext(EW_FW_S, name) == BackupResult::Ok &&
+	          strcmp(name, "BH006.TXT") == 0);
 	checkTrue("AM32 has no EFM8 backup", efm8BackupNext(EW_FW_AM, name) == BackupResult::NotFound && !name[0]);
 	memset(page, 0xFF, 256);
 	ew_ident_t none = id;

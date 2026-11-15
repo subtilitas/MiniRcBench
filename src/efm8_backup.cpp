@@ -24,12 +24,31 @@ size_t efm8BackupFormat(const ew_contact_t *c, const ew_ident_t *id, const uint8
 	return ew_file_format(&f, out, cap);
 }
 
-BackupResult efm8BackupSave(const ew_contact_t *c, const ew_ident_t *id, const uint8_t *page, char *name) {
+/** @brief Whether the ring's latest backup is @p d's and holds @p n bytes of @p text; @p name takes its name. */
+static bool latestHolds(BackupDevice d, const char *text, size_t n, char *name) {
+	static char prev[EW_FILE_MAX];
+	BackupNames k;
+	if (backupNames(&k) != BackupResult::Ok || !k.latest) return false;
+	if (!(k.devices[k.latest - 1] & (1u << (unsigned)d))) return false;
+	char file[BACKUP_NAME_MAX];
+	backupName(d, k.latest, file);
+	size_t got = 0;
+	if (backupLoad(file, prev, sizeof(prev), &got) != BackupResult::Ok || got != n ||
+	    memcmp(prev, text, n) != 0)
+		return false;
+	memcpy(name, file, BACKUP_NAME_MAX);
+	return true;
+}
+
+BackupResult efm8BackupSave(const ew_contact_t *c, const ew_ident_t *id, const uint8_t *page, char *name,
+                            bool skipSame) {
 	static char text[EW_FILE_MAX];
 	name[0] = '\0';
 	size_t n = efm8BackupFormat(c, id, page, text, sizeof(text));
 	if (n == 0) return BackupResult::WriteError;
-	return backupSave(efm8BackupDevice(id->fw), text, n, name);
+	BackupDevice d = efm8BackupDevice(id->fw);
+	if (skipSame && cardMounted() && latestHolds(d, text, n, name)) return BackupResult::Ok;
+	return backupSave(d, text, n, name);
 }
 
 BackupResult efm8BackupNext(uint8_t fw, char *name) {

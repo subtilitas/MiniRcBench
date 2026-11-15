@@ -294,6 +294,7 @@ enum class Am32Ctl : uint8_t {
 	Leave,                    /**< LEAVE on the leave page: the transport lets go of SIG. */
 	Restart,                  /**< RESTART DSHOT in LEAVE's place, live 1000 ms after SIG is let go. */
 	ReadAgain,                /**< READ AGAIN in WRITE...'s place on the EFM8 list, after a write that needs a read. */
+	OldPage,                  /**< OLD PAGE on the connect page: the page kept from a session that ended half written. */
 };
 
 struct UiControl;

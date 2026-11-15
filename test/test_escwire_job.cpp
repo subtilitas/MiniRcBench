@@ -761,6 +761,58 @@ static void testWriteHeartbeat() {
 	fakePumpPoll();
 }
 
+/** @brief Append a frame of @p n bytes to the simulated ESC's log, as if it went out. */
+static void logFrame(const uint8_t *f, size_t n) {
+	sim_t *e = fakeEwSim();
+	e->log[e->starts].n = (uint16_t)n;
+	memcpy(e->log[e->starts].b, f, n);
+	e->starts++;
+}
+
+static void testRegionCheck() {
+	section("ESC settings job: the settings-page check itself");
+	fakeEwReset(0xB2, true);
+	sim_t *e = fakeEwSim();
+	bool noFF = true;
+	for (uint32_t a = 0; a < SIM_FLASH; a++)
+		if ((a < e->base || a >= (uint32_t)e->base + e->page) && e->flash[a] == 0xFF) noFF = false;
+	checkTrue("no 0xFF outside the settings page: firmware and bootloader patterned", noFF);
+	checkTrue("a fresh ESC passes", fakeEwOnlySettingsPage());
+	uint8_t f[EW_TX_MAX];
+	e->contacted = true;
+	size_t n = ew_a_address(f, 0x1C00);
+	sim_frame(e, f, n);
+	n = ew_a_short(f, EW_A_CMD_ERASE, 0x01);
+	sim_frame(e, f, n);
+	checkTrue("an erase of the bootloader's page, done on the sim: caught by the bytes", !fakeEwOnlySettingsPage());
+	fakeEwReset(0xB2, true);
+	e = fakeEwSim();
+	n = ew_a_address(f, 0x0000);
+	logFrame(f, n);
+	n = ew_a_short(f, EW_A_CMD_ERASE, 0x01);
+	logFrame(f, n);
+	checkTrue("an erase frame after an address other than the page: caught by the log", !fakeEwOnlySettingsPage());
+	fakeEwReset(0xB2, true);
+	e = fakeEwSim();
+	n = ew_a_address(f, e->base);
+	logFrame(f, n);
+	n = ew_a_read(f, 255);
+	logFrame(f, n);
+	n = ew_a_short(f, EW_A_CMD_PROGRAM, 0x01);
+	logFrame(f, n);
+	checkTrue("a program after a read with no address frame between: caught", !fakeEwOnlySettingsPage());
+	fakeEwReset(0xB2, true);
+	e = fakeEwSim();
+	n = ew_a_address(f, e->base);
+	logFrame(f, n);
+	n = ew_a_short(f, EW_A_CMD_ERASE, 0x01);
+	logFrame(f, n);
+	checkTrue("an erase right after the page's address: passes", fakeEwOnlySettingsPage());
+	e->starts = (int)SIM_LOG_MAX + 1;
+	checkTrue("more transactions than the log holds: fails", !fakeEwOnlySettingsPage());
+	fakeEwReset(0xB2, true);
+}
+
 void runEscwireJobTests() {
 	testBind();
 	testEnterReadLeave();
@@ -773,4 +825,5 @@ void runEscwireJobTests() {
 	testWriteGuard();
 	testWriteFaults();
 	testWriteHeartbeat();
+	testRegionCheck();
 }

@@ -97,6 +97,8 @@ bool efm8ReadOnlyLines(const ew_ident_t *id, const uint8_t *page, Efm8Backup b, 
 		snprintf(l2, EFM8_LINE_CHARS + 1, "%s" EFM8_UI_RO_SAVED "%.5s", head, name);
 	else if (b == Efm8Backup::Failed)
 		snprintf(l2, EFM8_LINE_CHARS + 1, "%s" EFM8_UI_RO_FAILED, head);
+	else if (b == Efm8Backup::Usb)
+		snprintf(l2, EFM8_LINE_CHARS + 1, "%s%s", head, tags ? EFM8_UI_RO_USB_TAGS : EFM8_UI_RO_USB);
 	else
 		snprintf(l2, EFM8_LINE_CHARS + 1, "%s%s", head, tags ? EFM8_UI_RO_NO_CARD_TAGS : EFM8_UI_RO_NO_CARD);
 	if (tags) {
@@ -191,8 +193,10 @@ Efm8Result efm8WriteResult(uint8_t result, bool dirty, bool inMode) {
 			break;
 	}
 	if (!inMode) {
-		// Nothing more goes on this session: OK greets the ESC again.
-		r.l2 = EFM8_UI_ENDED_2;
+		// Nothing more goes on this session: OK greets the ESC again. A
+		// half-written page reads as empty or with lost tags to the next
+		// session, which writes neither.
+		r.l2 = dirty ? EFM8_UI_ENDED_DIRTY_2 : EFM8_UI_ENDED_2;
 		r.mustRead = false;
 	}
 	return r;

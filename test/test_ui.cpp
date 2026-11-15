@@ -6419,6 +6419,198 @@ static void testEfm8Write() {
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
+	section("ESC WRITE: a driver failure after the erase, no card: the old page kept on the screen");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	// Transactions 0 to 3 are the re-read and the erase; the address before
+	// the data never ends.
+	sim_script(e, F_STUCK, 4, 1, 0);
+	checkTrue("held", efm8HoldWrite() && efm8UntilDone());
+	checkTrue("erased, the session ended: NO ANSWER IN THE WRITE / SESSION ENDED: RESTORE ON A COMPUTER.",
+	          e->erases == 1 && s_ewEnded &&
+	          ewResultIs(EFM8_UI_LOST_1, UI_COL_WARN, EFM8_UI_ENDED_DIRTY_2, UI_COL_WARN));
+	checkTrue("37 characters, 221 px", gfxTextW(EFM8_UI_ENDED_DIRTY_2, 1) == 221);
+	checkTrue("the backup line: NO BACKUP: OLD PAGE ON THIS SCREEN., amber",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, EFM8_UI_KEPT_ONLY, UI_COL_WARN, C_BG, 1));
+	checkTrue("the old page kept", s_ewKeptLen == 255 && memcmp(s_ewKept, orig, 255) == 0 && !s_ewKeptOnCard);
+	fakeDumpFrame("shot_efm8_ended.ppm");
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	frames(1);
+	checkTrue("OLD PAGE on the connect page", ctlEnabled(UI_FIX(Am32Ctl::OldPage)) &&
+	          fakeTextIs(BTN_HEX.x + (BTN_HEX.w - gfxTextW(EFM8_UI_KEPT_BUTTON, 1)) / 2,
+	                     BTN_HEX.y + (BTN_HEX.h - 7) / 2, EFM8_UI_KEPT_BUTTON, C_TEXT, C_PANEL, 1));
+	checkControlTable("ESC SETTINGS, the connect page with OLD PAGE");
+	tapId(UI_FIX(Am32Ctl::OldPage));
+	{
+		char line0[40];
+		snprintf(line0, sizeof(line0), "00 %02X %02X %02X %02X %02X %02X %02X %02X ", orig[0], orig[1], orig[2],
+		         orig[3], orig[4], orig[5], orig[6], orig[7]);
+		checkTrue("OLD PAGE: ESC HEX of the old page, amber", s_state == S_EW_KEPT &&
+		          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE_HEX, C_TEXT, C_PANEL, 2) &&
+		          fakeTextIs(UI_MARGIN, LIST_Y0, line0, UI_COL_WARN, C_BG, 1));
+	}
+	checkTrue("the strip: OLD PAGE, BEFORE THE CUT WRITE: / ON THIS SCREEN ONLY: COPY IT.",
+	          stripNoteIs(EFM8_UI_KEPT_1, EFM8_UI_KEPT_SCREEN));
+	checkTrue("32 lines, the list scrolls", s_list.rows == 32 && uiListMaxScroll(&s_list) > 0);
+	checkControlTable("ESC SETTINGS, the old page");
+	fakeDumpFrame("shot_efm8_oldpage.ppm");
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the connect page again", s_state == S_CONNECT);
+	// The ESC, still powered in its bootloader, answers the next greeting.
+	e->fail = F_NONE;
+	e->contacted = false;
+	e->dead = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("its answer: a new session", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	for (int i = 0; i < 120 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
+	frames(1);
+	checkTrue("the erased page named: SETTINGS PAGE EMPTY, OLD PAGE still there",
+	          strcmp(s_status, "EFM8 E8B2: SETTINGS PAGE EMPTY") == 0 && ctlEnabled(UI_FIX(Am32Ctl::OldPage)) &&
+	          s_ewKeptLen == 255 && memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::OldPage));
+	checkTrue("OLD PAGE from the session's page", s_state == S_EW_KEPT);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the session's page", s_state == S_EW);
+	resumes = fakeResumeCount();
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+	          fakeResumeCount() == resumes + 1);
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a heartbeat lapse in a write that ends half written, a card in");
+	am32Card();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_NO_TAKE, 0, 40, 0);
+	pressId(UI_FIX(Am32Ctl::WriteHold));
+	holdId(UI_FIX(Am32Ctl::WriteHold), 45);
+	fakeRelease();
+	for (int i = 0; i < 400 && e->erases == 0; i++) frames(1);
+	for (int ms = 0; ms < 3000; ms++) {
+		fakeAdvance(1);
+		core1JobPoll();
+	}
+	checkTrue("half written after one procedure, the session ended",
+	          efm8UntilDone() && e->programs == 1 && s_ewEnded && s_ewDirty &&
+	          ewResultIs(EFM8_UI_TORN_1, UI_COL_WARN, EFM8_UI_ENDED_DIRTY_2, UI_COL_WARN));
+	checkTrue("the backup line names the backup", fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP: BACKUP/BJ001.TXT",
+	                                                         C_DIM, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("OK: the cycle greets again", untilState(S_CONNECT, 80));
+	tapId(UI_FIX(Am32Ctl::OldPage));
+	checkTrue("OLD PAGE: ALSO ON THE CARD: BACKUP BJ001",
+	          s_state == S_EW_KEPT && stripNoteIs(EFM8_UI_KEPT_1, "ALSO ON THE CARD: BACKUP BJ001") &&
+	          efm8BackupHolds("BACKUP/BJ001.TXT", 0xB2, orig));
+	tapId(UI_FIX(UI_BACK));
+	// A page put back by other means: the next session opens a list, and its
+	// ESC HEX shows the old page under its own.
+	memcpy(efm8Page(), orig, 255);
+	e->fail = F_NONE;
+	e->contacted = false;
+	fakeAm32Garble(EFM8_ANSWER, sizeof(EFM8_ANSWER));
+	checkTrue("a new session", untilState(S_EW, 120));
+	fakeAm32Garble(nullptr, 0);
+	checkTrue("the list", untilState(S_EW_LIST, 160));
+	tapId(UI_FIX(Am32Ctl::Hex));
+	checkTrue("ESC HEX: 32 lines, the heading, 32 lines of the old page", s_list.rows == 32 + 1 + 32);
+	uiListScrollTo(&s_list, 32 * HEX_ROW_H);
+	s_redraw = true;
+	frames(1);
+	checkTrue("the heading in amber under the page's lines",
+	          fakeTextIs(UI_MARGIN, LIST_Y0, EFM8_UI_KEPT_1, UI_COL_WARN, C_BG, 1));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: READ AGAIN on a half-written page that ends the session; the guard's abort");
+	am32NoCard();
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held: lost, the session goes on", efm8HoldWrite() && efm8UntilDone() && !s_ewEnded &&
+	          s_ewKeptLen == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	e->dead = false;
+	sim_script(e, F_STUCK, 1, 1, 0);
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN whose driver fails: the old page kept, the cycle greets again",
+	          efm8UntilDone() && untilState(S_CONNECT, 80) && s_ewKeptLen == 255 &&
+	          memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, true);
+	memcpy(orig, efm8Page(), sizeof(orig));
+	checkTrue("a fresh visit: no old page", efm8Read() && s_ewKeptLen == 0);
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	tapId(UI_FIX(Am32Ctl::Write));
+	sim_script(e, F_DEAD, 5, 1, 0);
+	checkTrue("held: lost", efm8HoldWrite() && efm8UntilDone() && s_ewDirty);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the guard's second BACK: the old page kept", s_state == S_LEAVE && s_ewKeptLen == 255 &&
+	          memcmp(s_ewKept, orig, 255) == 0);
+	tapId(UI_FIX(Am32Ctl::Stay));
+	checkTrue("STAY: the cycle greets again, OLD PAGE offered", untilState(S_CONNECT, 60) &&
+	          ctlEnabled(UI_FIX(Am32Ctl::OldPage)));
+	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(Am32Ctl::Leave));
+	frames(45);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
+	section("ESC WRITE: a page changed and read again gets its own backup");
+	am32Card();
+	efm8Esc(0xB2, true);
+	checkTrue("the list", efm8Read());
+	e = fakeEwSim();
+	checkTrue("TIMING edited", ewEditRow("TIMING", -1));
+	efm8Page()[0x1B] = 41;
+	fakeEwSnapshot();
+	uint8_t moved[EW_PAGE_MAX];
+	memcpy(moved, efm8Page(), sizeof(moved));
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("held: changed, BJ001 of the first read saved", efm8HoldWrite() && efm8UntilDone() &&
+	          s_ewMustRead && fakeFatExists("BACKUP/BJ001.TXT"));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	tapId(UI_FIX(Am32Ctl::ReadAgain));
+	checkTrue("READ AGAIN", efm8UntilDone() && !s_ewMustRead);
+	tapId(UI_FIX(Am32Ctl::Write));
+	checkTrue("the backup line: BACKUP FIRST: BACKUP/BJ002.TXT",
+	          fakeTextIs(UI_MARGIN, WP_BACKUP_Y, "BACKUP FIRST: BACKUP/BJ002.TXT", C_DIM, C_BG, 1));
+	checkTrue("written, BJ002 holds the page read again", efm8HoldWrite() && efm8UntilDone() && s_verified &&
+	          efm8BackupHolds("BACKUP/BJ002.TXT", 0xB2, moved));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+
 	section("ESC WRITE: read-only lists save their backup and never write");
 	am32Card();
 	efm8Esc(0xB2, false);
@@ -6429,6 +6621,16 @@ static void testEfm8Write() {
 	frames(1);
 	checkTrue("REFLASH ON A COMPUTER. BACKUP BH001", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. BACKUP BH001"));
 	checkTrue("BH001.TXT holds the page as read", efm8BackupHolds("BACKUP/BH001.TXT", 0xB2, orig));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	efm8Esc(0xB2, false);
+	memset(efm8Page() + 0x40, 0xFF, 48);
+	checkTrue("the same page opened again", efm8Read());
+	frames(1);
+	checkTrue("no second copy: BACKUP BH001 named, no BH002",
+	          stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. BACKUP BH001") &&
+	          !fakeFatExists("BACKUP/BH002.TXT"));
 	checkTrue("the bar: SHOWN ONLY: NOTHING IS WRITTEN.",
 	          fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_SHOWN, C_GRID, C_BG, 1));
 	checkTrue("DIRECTION selected: no -, no +", ewTapRow("DIRECTION") && !ctlPresent(UI_FIX(Am32Ctl::EditMinus)));
@@ -6464,6 +6666,17 @@ static void testEfm8Write() {
 	checkTrue("lost tags, no card: the list", efm8Read());
 	frames(1);
 	checkTrue("REFLASH ON A COMPUTER. NO CARD.", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. NO CARD."));
+	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	frames(2);
+	tapId(UI_FIX(UI_BACK));
+	fakeMscSet(MscState::Serving, 0);
+	efm8Esc(0xB2, true);
+	efm8Page()[0x0E] = 0;
+	checkTrue("a wrong marker, USB holding the card: the list", efm8Read());
+	frames(1);
+	checkTrue("SHOWN ONLY. USB DRIVE: NO BACKUP.", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y,
+	                                                         "SHOWN ONLY. USB DRIVE: NO BACKUP.", UI_COL_WARN, C_BG, 1));
+	fakeMscSet(MscState::Idle, 0);
 	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));

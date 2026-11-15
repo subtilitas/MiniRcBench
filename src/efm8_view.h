@@ -50,6 +50,10 @@
 #define EFM8_UI_RO_NO_CARD_TAGS " NO CARD."
 /** @brief ...or this: the card did not take the backup. */
 #define EFM8_UI_RO_FAILED " BACKUP FAILED."
+/** @brief ...or this, after SHOWN ONLY.: a USB host holds the card. */
+#define EFM8_UI_RO_USB " USB DRIVE: NO BACKUP."
+/** @brief ...or this, after REFLASH ON A COMPUTER.: a USB host holds the card. */
+#define EFM8_UI_RO_USB_TAGS " USB DRIVE."
 
 /**
  * @defgroup efm8_write The write's texts
@@ -88,6 +92,25 @@
 #define EFM8_UI_REFUSED_W "NOT WRITTEN: REFUSED, NOTHING SENT."
 /** @brief Under a write whose session ended: OK greets the ESC again. 36 characters. */
 #define EFM8_UI_ENDED_2 "THE SESSION ENDED. TAP OK TO SEARCH."
+/**
+ * @brief Under a write or read that ended the session with the page half
+ *        written: no session here can write it again. 37 characters.
+ */
+#define EFM8_UI_ENDED_DIRTY_2 "SESSION ENDED: RESTORE ON A COMPUTER."
+/**
+ * @brief ESC WRITE's backup line after a half-written page's session ended
+ *        with no backup on a card: the old page is kept on this screen
+ *        only. Amber. 35 characters.
+ */
+#define EFM8_UI_KEPT_ONLY "NO BACKUP: OLD PAGE ON THIS SCREEN."
+/** @brief The old page's view and the hex dump's heading over it: 31 characters. */
+#define EFM8_UI_KEPT_1 "OLD PAGE, BEFORE THE CUT WRITE:"
+/** @brief The old page's view, second strip line with no backup on a card: 29 characters. */
+#define EFM8_UI_KEPT_SCREEN "ON THIS SCREEN ONLY: COPY IT."
+/** @brief ...or this and the backup's five characters: it is on the card too. */
+#define EFM8_UI_KEPT_CARD "ALSO ON THE CARD: BACKUP "
+/** @brief The connect page's button to the old page, at scale 1: 8 characters. */
+#define EFM8_UI_KEPT_BUTTON "OLD PAGE"
 /** @brief The strip of a half-written list that needs a read first: 23 characters. */
 #define EFM8_UI_DIRTY_READ "READ AGAIN, THEN WRITE."
 /** @brief The strip of a half-written list that was read since: 33 characters. */
@@ -109,6 +132,7 @@ enum class Efm8Backup : uint8_t {
 	NoCard,  /**< No card, or the card held by a USB host: none saved. */
 	Saved,   /**< On the card. */
 	Failed,  /**< The card did not take it. */
+	Usb,     /**< A USB host holds the card: none saved. */
 };
 
 /** @brief What ESC WRITE says of a write that ended. */
@@ -256,7 +280,9 @@ int efm8Changes(const Efm8Row *rows, int n, const uint8_t *from, const uint8_t *
  * @param result An `ew_ses_t`.
  * @param dirty  The session holds the page half written.
  * @param inMode The session goes on: false when a stop, the driver or a
- *               frame's refusal ended it, and the second line then says so.
+ *               frame's refusal ended it, and the second line then says so:
+ *               @ref EFM8_UI_ENDED_DIRTY_2 for a half-written page, which no
+ *               later session writes, else @ref EFM8_UI_ENDED_2.
  */
 Efm8Result efm8WriteResult(uint8_t result, bool dirty, bool inMode);
 

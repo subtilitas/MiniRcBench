@@ -24,7 +24,8 @@ sim_t *fakeEwSim();
 /**
  * @brief A fresh EFM8 ESC with signature 0xE8 @p sig, Bluejay 0.21's page
  *        when @p bluejay, else BLHeli_S 16.7's (ew_sim.h); the line closed,
- *        the counts at 0, opens accepted.
+ *        the counts at 0, opens accepted. Every byte outside the settings
+ *        page holds a pattern with no 0xFF, and the flash is snapshotted.
  */
 void fakeEwReset(uint8_t sig, bool bluejay);
 
@@ -53,8 +54,10 @@ void fakeEwSnapshot();
  * @brief Whether the simulated ESC's flash outside its settings page, the
  *        bootloader's area and the firmware among it, is byte for byte as
  *        at the last fakeEwReset() or fakeEwSnapshot(), and whether every
- *        erase and program frame the ESC saw stood on the settings page's
- *        address: nothing but the settings page was erased or programmed.
+ *        erase and program frame the ESC saw came after an address frame
+ *        naming the settings page with no read between: nothing but the
+ *        settings page was erased or programmed. False as well when the ESC
+ *        saw more transactions than its log holds (`SIM_LOG_MAX`).
  */
 bool fakeEwOnlySettingsPage();
 

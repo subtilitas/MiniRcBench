@@ -54,9 +54,14 @@ size_t efm8BackupFormat(const ew_contact_t *c, const ew_ident_t *id, const uint8
  * @param id       As efm8BackupFormat().
  * @param page     As efm8BackupFormat().
  * @param[out] name The file name saved, `BACKUP_NAME_MAX` bytes; empty unless Ok.
+ * @param skipSame When the ring's latest backup is this device's and holds
+ *                 the same text byte for byte, save nothing and name it:
+ *                 a read-only list opened again on the same ESC does not
+ *                 push older backups out of the ring.
  * @return backupSave()'s result; WriteError for a page with no text.
  */
-BackupResult efm8BackupSave(const ew_contact_t *c, const ew_ident_t *id, const uint8_t *page, char *name);
+BackupResult efm8BackupSave(const ew_contact_t *c, const ew_ident_t *id, const uint8_t *page, char *name,
+                            bool skipSame = false);
 
 /**
  * @brief The name the next backup of @p fw takes, for the write page's

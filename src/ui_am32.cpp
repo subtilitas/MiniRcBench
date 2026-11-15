@@ -230,6 +230,11 @@ enum Am32Screen : uint8_t {
 	S_EW_PAGE,
 	/** ESC WRITE of the EFM8 list: the backup, the job's write, then its result. */
 	S_EW_WRITING,
+	/**
+	 * ESC HEX of the old page kept from a session that ended with its page
+	 * half written; BACK returns to s_keptFrom.
+	 */
+	S_EW_KEPT,
 	/** BACK from the EFM8 list: LEAVE goes out, then DShot returns. BACK is drawn disabled. */
 	S_EW_EXIT,
 	/**
@@ -374,6 +379,18 @@ static bool        s_ewMustRead = false; /**< READ AGAIN in WRITE...'s place unt
 static bool        s_ewEnded = false;
 /** @brief Where the read-only list's backup went as it opened. */
 static Efm8Backup  s_ewRoBackup = Efm8Backup::NoCard;
+/**
+ * @brief The old page, the session's first read, kept for the rest of the
+ *        visit once a session ended with the page half written: no later
+ *        session writes that page, and without a card this is its one copy.
+ *        Its bytes are on ESC HEX (S_EW_KEPT, and under an EFM8 list's dump).
+ */
+static uint8_t     s_ewKept[EW_PAGE_MAX];
+static uint16_t    s_ewKeptLen = 0;      /**< Its bytes; 0 for none kept. */
+static bool        s_ewKeptOnCard = false; /**< Its backup reached a card, as s_ewKeptName. */
+static char        s_ewKeptName[BACKUP_NAME_MAX] = "";
+/** @brief Where BACK on the old page's view returns to. */
+static Am32Screen  s_keptFrom = S_CONNECT;
 /** @} */
 
 /** @brief A handshake succeeded, or an EFM8 bootloader answered, since the restart: MENU's cue stands. */
@@ -440,6 +457,30 @@ static bool ewRunning() { return s_ewOpRun && (s_state == S_EW_WRITING || s_stat
  *        it is drawn disabled (menu-b.md, decision 25).
  */
 static bool backLive() { return !writing() && !ewRunning() && s_state != S_LEAVE && s_state != S_EW_EXIT; }
+
+/**
+ * @brief A session ended with its page half written: keep the session's
+ *        first read for the rest of the visit, with where its backup went.
+ */
+static void ewKeepOldPage() {
+	memcpy(s_ewKept, s_ewEntry, sizeof(s_ewKept));
+	s_ewKeptLen = s_ewEntryId.len;
+	s_ewKeptOnCard = s_backupDone;
+	memcpy(s_ewKeptName, s_backupName, sizeof(s_ewKeptName));
+}
+
+/** @brief Lines of the old page's dump: 8 bytes each. */
+static int ewKeptLines() { return (s_ewKeptLen + 7) / 8; }
+
+/** @brief The old page's dump: the offset and up to 8 bytes, amber. */
+static void drawKeptLine(int index, int y) {
+	int base = index * 8;
+	char line[64];
+	int n = snprintf(line, sizeof(line), "%02X ", base);
+	for (int i = 0; i < 8 && base + i < s_ewKeptLen; i++)
+		n += snprintf(line + n, sizeof(line) - n, "%02X ", s_ewKept[base + i]);
+	gfxText(UI_MARGIN, y, line, UI_COL_WARN, 1);
+}
 
 /**
  * @brief The write page's HOLD TO WRITE acts: there are edits, and the page
@@ -620,7 +661,7 @@ static bool listNote(const char **l1, const char **l2) {
  *        and the leave page are the main view's: ESC SETTINGS. @see am32_titles
  */
 static const char *title() {
-	if ((s_state == S_LIST || s_state == S_EW_LIST) && s_hexView) return AM32_UI_TITLE_HEX;
+	if (((s_state == S_LIST || s_state == S_EW_LIST) && s_hexView) || s_state == S_EW_KEPT) return AM32_UI_TITLE_HEX;
 	if (s_state == S_PAGE || s_state == S_WRITING || s_state == S_EW_PAGE || s_state == S_EW_WRITING)
 		return AM32_UI_TITLE_WRITE;
 	return AM32_UI_TITLE;
@@ -666,6 +707,11 @@ static void drawHeader() {
 		} else {
 			uiStripText(buf, C_DIM);
 		}
+	} else if (s_state == S_EW_KEPT) {
+		static char l2[EFM8_LINE_CHARS + 1];
+		if (s_ewKeptOnCard) snprintf(l2, sizeof(l2), EFM8_UI_KEPT_CARD "%.5s", s_ewKeptName);
+		else snprintf(l2, sizeof(l2), EFM8_UI_KEPT_SCREEN);
+		uiStripTwoLines(EFM8_UI_KEPT_1, UI_COL_WARN, l2, UI_COL_WARN);
 	} else if (s_state == S_EW_PAGE || s_state == S_EW_WRITING) {
 		// The write page's count, from the page it opened on.
 		int n = efm8Changes(s_ewRows, s_ewRowCount, s_ewFrom, s_ewTo);
@@ -713,6 +759,9 @@ static void drawHeader() {
 		uiStripText(s_status, C_DIM);
 	}
 }
+
+/** @brief OLD PAGE on the connect page: an old page is kept, and the page greets or reads. */
+static bool oldPageLive() { return s_ewKeptLen > 0 && (s_state == S_CONNECT || s_state == S_EW); }
 
 static void drawConnect() {
 	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
@@ -762,6 +811,8 @@ static void drawConnect() {
 	}
 	if (n1) gfxTextCenter(196, n1, C_AMBER, 1);
 	if (n2) gfxTextCenter(210, n2, C_AMBER, 1);
+	if (oldPageLive())
+		uiButton(BTN_HEX, EFM8_UI_KEPT_BUTTON, C_PANEL, C_TEXT, 1, uiPressing(BTN_HEX, s_frameTouch));
 
 	// A spinner beats a static screen: it shows we are still retrying. Under
 	// a note it shrinks and moves down, clear of the note's lines.
@@ -920,14 +971,24 @@ static void drawEwRow(int index, int y, void *) {
 	uiListDrawField(y, ROW_H, row);
 }
 
-/** @brief Lines of the EFM8 hex dump: 8 bytes each, 14 or 32. */
-static int ewHexLines() { return (s_ewId.len + 7) / 8; }
+/** @brief Lines of the page's own hex dump: 8 bytes each, 14 or 32. */
+static int ewPageLines() { return (s_ewId.len + 7) / 8; }
+
+/** @brief Lines of the EFM8 hex dump: the page's, then a kept old page's under its heading. */
+static int ewHexLines() { return ewPageLines() + (s_ewKeptLen ? 1 + ewKeptLines() : 0); }
 
 /**
  * @brief Line @p index of the EFM8 hex dump: the offset and 8 bytes, or
- *        fewer on the last line of a 255-byte page.
+ *        fewer on the last line of a 255-byte page; under them a kept old
+ *        page, in amber under @ref EFM8_UI_KEPT_1.
  */
 static void drawEwHexLine(int index, int y, void *) {
+	if (index >= ewPageLines()) {
+		int k = index - ewPageLines();
+		if (k == 0) gfxText(UI_MARGIN, y, EFM8_UI_KEPT_1, UI_COL_WARN, 1);
+		else drawKeptLine(k - 1, y);
+		return;
+	}
 	int base = index * 8;
 	char line[64];
 	int n = snprintf(line, sizeof(line), "%02X ", base);
@@ -986,7 +1047,12 @@ static void drawEwList() {
 static const char *backupLine(uint16_t *col) {
 	static char b[48];
 	*col = C_DIM;
-	if (s_backupDone) {
+	if (s_state == S_EW_WRITING && s_ewEnded && s_ewDirty && !s_backupDone) {
+		// The page is half written and its session ended: the old page is
+		// on this screen only (OLD PAGE).
+		*col = UI_COL_WARN;
+		snprintf(b, sizeof(b), EFM8_UI_KEPT_ONLY);
+	} else if (s_backupDone) {
 		snprintf(b, sizeof(b), "BACKUP: BACKUP/%s", s_backupName);
 	} else if (!cardMounted()) {
 		*col = UI_COL_WARN;
@@ -1237,6 +1303,7 @@ void uiAm32Enter() {
 	s_ewOpRun = s_ewStartDue = false;
 	s_ewDirty = s_ewReread = s_ewMustRead = s_ewEnded = false;
 	s_ewRoBackup = Efm8Backup::NoCard;
+	s_ewKeptLen = 0;
 	memset(&s_ewId, 0, sizeof(s_ewId));
 	s_leaveFrom = S_CONNECT;
 	s_editRepeat = Repeat{};
@@ -1458,9 +1525,10 @@ static void openEw() {
 	// A read-only list saves its backup as it opens, as AM32's read-only
 	// view does: no write follows to save it.
 	if (efm8ViewOf(&s_ewId) == Efm8View::ReadOnly) {
-		s_ewRoBackup = Efm8Backup::NoCard;
+		s_ewRoBackup = mscHoldsCard(mscGetState()) ? Efm8Backup::Usb : Efm8Backup::NoCard;
 		if (cardMounted()) {
-			BackupResult b = ewSave(s_backupName);
+			// A list opened again on the same page saves no second copy.
+			BackupResult b = efm8BackupSave(&s_ewEntryContact, &s_ewEntryId, s_ewEntry, s_backupName, true);
 			if (b == BackupResult::Ok && cardCacheFlush() == CardCache::Failed) b = BackupResult::WriteError;
 			if (cardCacheState() == CardCache::Failed) cardCacheRecover();
 			s_ewRoBackup = b == BackupResult::Ok ? Efm8Backup::Saved : Efm8Backup::Failed;
@@ -1607,6 +1675,7 @@ static void ewReadPoll() {
 	s_ewOpRun = false;
 	s_redraw = true;
 	if (!s_ew.inMode) {
+		if (s_ew.dirty || s_ewDirty) ewKeepOldPage();
 		regreet();
 		return;
 	}
@@ -1620,7 +1689,18 @@ static void ewReadPoll() {
 		}
 		memcpy(s_ewPage, s_ew.page, sizeof(s_ewPage));
 		memcpy(s_ewDraft, draft, sizeof(s_ewDraft));
+		if (memcmp(s_ewPage, s_ewEntry, sizeof(s_ewEntry)) != 0) {
+			// Another page than the one backed up: the next write saves a
+			// backup of it first.
+			memcpy(s_ewEntry, s_ewPage, sizeof(s_ewEntry));
+			s_ewEntryId = s_ew.id;
+			resetBackup();
+		}
 	}
+	// The identification the session holds, and its rows.
+	s_ewId = s_ew.id;
+	s_ewRowCount = efm8Rows(s_ewId.fw, s_ewId.layout, s_ewRows, EFM8_ROWS_MAX);
+	if (s_ewSel >= s_ewRowCount) s_ewSel = -1;
 	s_ewDirty = s_ew.dirty;
 	s_ewReread = s_ew.reread;
 	s_ewMustRead = false;
@@ -1737,6 +1817,17 @@ static void ewStartWrite() {
 		s_ewOpRun = false;
 		return;
 	}
+	if (uiBoardWriteRefused()) {
+		// Asked again after the backup's flush, as KST does: the backup
+		// stays on the card, and nothing goes to the ESC. The flush runs on
+		// the spot and the board's cell is judged once a frame (ui.cpp),
+		// so today this sees what ewWriteRefused() saw; it guards a flush
+		// that one day spans frames.
+		snprintf(s_status, sizeof(s_status), UI_BOARD_LOW_1);
+		s_nextStep = AM32_UI_BOARD_LOW_2;
+		s_ewOpRun = false;
+		return;
+	}
 	memcpy(s_ewSent, s_ewTo, sizeof(s_ewSent));
 	// The backup's flush may have held core0 past the heartbeat.
 	escHeartbeat();
@@ -1769,6 +1860,7 @@ static void ewWritePoll() {
 	s_ewReread = s_ew.reread;
 	s_ewMustRead = r.mustRead;
 	s_ewEnded = !s_ew.inMode;
+	if (s_ewEnded && s_ewDirty) ewKeepOldPage();
 	s_verified = r.verified;
 	s_nextStep = r.l2;
 	if (r.verified) {
@@ -2079,6 +2171,25 @@ static void handleListGesture(const TouchState *t) {
 	if (uiSwipeApply(e.steps, coarseFactor(f), swipeStep, (void *)f)) s_redraw = true;
 }
 
+/**
+ * @brief OLD PAGE tapped on the connect page: ESC HEX of the old page.
+ * @return true when the view opened.
+ */
+static bool oldPageTapped(const TouchState *t) {
+	if (!oldPageLive() || !uiTapped(BTN_HEX, t)) return false;
+	s_keptFrom = s_state;
+	s_state = S_EW_KEPT;
+	uiListInit(&s_list, LIST_VIEW, HEX_ROW_H, ewKeptLines());
+	s_redraw = true;
+	return true;
+}
+
+/** @brief ESC HEX of the old page: its bytes in amber; BACK its one control. */
+static void drawKept() {
+	gfxRect(0, LIST_Y0, GFX_W, GFX_H - LIST_Y0, C_BG);
+	uiListDraw(&s_list, [](int index, int y, void *) { drawKeptLine(index, y); }, nullptr);
+}
+
 uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	// BACK is drawn disabled while the write runs and on the leave page (backLive()).
@@ -2105,6 +2216,10 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	}
 	if (s_state == S_EW_PAGE) {
 		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::WriteHold), BTN_OK, ewPageWritable());
+		return n;
+	}
+	if (oldPageLive()) {
+		uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::OldPage), BTN_HEX, true);
 		return n;
 	}
 	if (s_state == S_EW_WRITING) {
@@ -2182,6 +2297,9 @@ bool uiAm32Tick(const TouchState *t) {
 				s_redraw = true;
 			} else if (s_state == S_EW_PAGE || s_state == S_EW_WRITING) {
 				ewLeavePage(false);
+			} else if (s_state == S_EW_KEPT) {
+				s_state = s_keptFrom;
+				s_redraw = true;
 			} else if (s_state == S_PAGE || s_state == S_WRITING) {
 				s_okPress = false;
 				uiHoldReset(&s_writeHold);
@@ -2195,6 +2313,7 @@ bool uiAm32Tick(const TouchState *t) {
 			// The guard's second BACK on a half-written page: the session is
 			// aborted with no LEAVE, which the page refuses, and SIG goes
 			// back only from the leave page (decision 8 of that note).
+			ewKeepOldPage();
 			ewSend(EwJobOp::Stop);
 			openLeave(S_EW);
 		} else if (back && s_state == S_EW_LIST) {
@@ -2225,6 +2344,7 @@ bool uiAm32Tick(const TouchState *t) {
 			break;
 
 		case S_CONNECT:
+			if (oldPageTapped(t)) break;
 			// The connect cycle: a burst of greetings, one a frame, about
 			// 40 ms each, then a quiet phase with nothing sent (greet_cycle.h).
 			if (greetCyclePhase(&s_cycle, millis()) == GreetPhase::Greet) {
@@ -2237,9 +2357,16 @@ bool uiAm32Tick(const TouchState *t) {
 			break;
 
 		case S_EW:
+			if (oldPageTapped(t)) break;
 			ewTick();
 			s_redraw = true;
 			break;
+
+		case S_EW_KEPT: {
+			UiListEvent e = uiListTouch(&s_list, t);
+			if (e.kind == UiListEv::Scrolled) s_redraw = true;
+			break;
+		}
 
 		case S_REGREET:
 			regreetTick();
@@ -2337,6 +2464,7 @@ bool uiAm32Tick(const TouchState *t) {
 			case S_EW_LIST:  drawEwList();  break;
 			case S_EW_PAGE:
 			case S_EW_WRITING: drawEwWritePage(); break;
+			case S_EW_KEPT:  drawKept();    break;
 			case S_LIST:     drawList();    break;
 			case S_PAGE:
 			case S_WRITING:  drawWritePage(); break;
