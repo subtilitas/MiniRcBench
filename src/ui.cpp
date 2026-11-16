@@ -1039,8 +1039,8 @@ static void testerStop() {
 
 /**
  * @brief Push @p s over the open screen. Every route that opens a screen
- *        comes here, so none passes @ref UI_NAV_MAX: the tester pushes MENU
- *        or SETTINGS, MENU a row, a hub one of its entries.
+ *        comes here, so none passes @ref UI_NAV_MAX screens. The tester
+ *        pushes MENU or SETTINGS, MENU a row, a hub one of its entries.
  * @return false, with nothing pushed, when the stack is full.
  */
 static bool navPush(const UiScreen *s) {

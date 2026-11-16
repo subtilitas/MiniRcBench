@@ -115,7 +115,7 @@ mode, the wait for `READ` included, opens the leave page at
 family; for a D series servo on `OWN` it always returns to the wait for
 `READ`, so the next servo too is powered after the tap. While the driver
 still stops, or while the screen has not taken the pin, `BACK` returns to
-`MENU`.
+PROGRAMMER.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber">
 
@@ -127,8 +127,8 @@ still stops, or while the screen has not taken the pin, `BACK` returns to
   taken: an ESC connected after that is not detected.
 - While the tester is armed, the screen reads `DISARM FIRST`. While the
   pins are still in use, it reads `WAIT: DSHOT RESTARTING`. Neither is
-  reachable through the screens: opening `MENU` disarms, and
-  `SERVO PROGRAMMER` opens only while the pins are free.
+  reachable through the screens: opening `MENU` disarms, and PROGRAMMER
+  draws its entries disabled while the pins are in use.
 
 While the job binds, the strip reads `TAKING SIG GP0`.
 
@@ -525,7 +525,7 @@ the pin and starts a session for the next servo. With `OWN` the page reads
 `NEXT SERVO: POWER IT AFTER THE TAP.`: the screen returns to the wait for
 `READ`. With the switched supply the entry starts at once.
 **`RESTART DSHOT`** acts 1 s after
-that: the ESC driver takes the pin back and `MENU` returns. A double tap on
+that: the ESC driver takes the pin back and PROGRAMMER returns. A double tap on
 `LEAVE` lands while `RESTART DSHOT` is grey and restarts nothing, and a
 press that landed while it was grey does nothing when it lifts.
 

@@ -64,9 +64,11 @@ controls by id (`src/ui_screen.h`), and the host tests tap them by id.
 Slice C is built: MENU, a list from the registry in `src/ui_registry.cpp`,
 and SETTINGS, one sectioned list with pole count and throttle ceiling at its
 top (`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
-36 px tall and every tool's BACK returns to MENU, but SETTINGS opened from the
-tester's readouts, whose BACK returns to the tester (slice 7 of menu
-structure B).
+36 px tall. BACK returns to the screen that opened the one on show: a MENU
+row's tool to MENU, a chooser's tool to that chooser, by BACK and by the
+leave page's RESTART DSHOT (slice 2 of
+[menu-c.md](docs/design/menu-c.md#slice-2-as-built)), and SETTINGS opened
+from the tester's readouts to the tester (slice 7 of menu structure B).
 The S.BUS (Futaba's serial bus for receiver channels) monitor of
 [rx-signals.md](docs/design/rx-signals.md) is built in its slices 2 and 3,
 host tests only, not on hardware. Its core1 job (`src/sbus_job.h`): during
@@ -208,9 +210,12 @@ ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, SD LOG and
 SETTINGS. The four choosers, PROGRAMMER, ESC CONFIG, RX SIGNALS and TOOLS,
 run on one widget, the hub (`src/ui_hub.*`): each is a table of `UiHubEntry`
 in `src/ui_registry.cpp`, checked at build time by `hubEntriesFit()`. It is
-slice 1 of menu structure C, a proposed note, `docs/design/menu-c.md` on the
-branch `ccr-menu-rcb`; the slice changes no screen, and its later slices are
-not built. The pin
+slice 1 of menu structure C, a proposed note,
+[menu-c.md](docs/design/menu-c.md); the slice changes no screen. Slice 2 is
+built: the screens form a stack of at most three over the tester (MENU, a
+chooser, its tool) in `src/ui.cpp`, a chooser's tool returns to it, and the
+choosers open whatever the pin claim's state and draw each entry disabled
+while `uiPinsRefuse()` refuses its tool. The later slices are not built. The pin
 claim both features share is built (slice 1): the AM32 editor and the servo
 tester run on it. For the ESC, the board is the throttle source. It sends
 bidirectional DShot (a digital ESC protocol in which the ESC answers each
@@ -491,6 +496,7 @@ record either way.
 | Menu structure B, slice 9: MENU's seven rows and PROGRAMMER, owner decisions 1 and 2 and decisions 15 d, 16, 18, 19, 23 and 31 to 35 of [menu-b.md](docs/design/menu-b.md#slice-9-as-built) (`src/ui_registry.*`, `src/ui_menu.*`, `src/ui_servo_prog.*`, `src/ui_screen.h`, `src/ui.cpp`, `src/ui_hitec.*`, `src/ui_kst.*`, `src/ui_am32.cpp`, `src/ui_servo.cpp`) | the seven rows in their order, the tool rows without a status, SD LOG whole at 0 px and SETTINGS whole after a 36 px drag; RX SIGNALS drawn disabled under `NOT BUILT` while the claim is Free, Stopping, Held and Restoring, a tap and a press doing nothing, the strip's caption kept while Free; SERVO PROGRAMMER drawn disabled while the claim restores; PROGRAMMER claiming nothing, DShot running on SIG while it shows, its title, strip, three entries and their lines with OWN, GP28 and GP29, HITEC CLASSIC drawn disabled and inert without the switch, a press drawn pressed and a slide-off opening nothing, BACK to MENU, the control table; each entry opening its screen and claiming SIG on the tap's frame; HITEC SERVO's `RELEASING SIG GP0 FROM DSHOT`, the READ wait with no job, no line opened and no write before READ, READ starting the job, BACK there opening the leave page releasing and NEXT SERVO returning to the wait, the ESC refusal asked again every frame with BACK to MENU, BACK while DShot drains to MENU with DShot resumed, the job starting after the claim with the switched supply and for CLASSIC, the supply off at the bind, NEXT SERVO keeping the classic family, NEXT SERVO after a D series read returning to the READ wait with no line opened and nothing written, `pinClaimKeep()` leaving HITEC's job unasked and SERVO's wanted, the note `NEXT SERVO: POWER IT AFTER THE TAP.`, READ ignoring a press that landed while DShot drained, RESTART DSHOT to MENU; the classic entry opened by hand without the switch starting its job and refused by it; 51 mutations, 49 failing the suite and two equivalent, listed in the note | host only |
 | Menu structure B, slice 10: the documentation no slice owned, [slice 10 as built](docs/design/menu-b.md#slice-10-as-built) (`docs/design/`, README.md, rule 9 of `test/check_docs.py`) | rule 9 against the tree: no removed screen text, view, MENU path or image in README.md, `wiki/*.md`, a `fakeDumpFrame()` call or `tools/make_previews.py`; each kind added to README.md, a German wiki page, `tools/make_previews.py` and `test/test_menu.cpp` fails it, 20 lines | no firmware change |
 | Menu structure C, slice 1: the hub, one widget under the four choosers (`src/ui_hub.*`, the tables and `hubEntriesFit()` in `src/ui_registry.cpp`, `src/ui_servo_prog.*`, `src/ui_esc_config.*`, `src/ui_rx_signals.*`, `src/ui_tools.*`); the note, `docs/design/menu-c.md`, is proposed and on the branch `ccr-menu-rcb` | the chooser cases of `test_menu.cpp`, `test_ids.cpp`, `test_kst_ui.cpp`, `test_hitec_ui.cpp`, `test_sbus_ui.cpp`, `test_sbus_out_ui.cpp`, `test_bridge_ui.cpp` and `test_angle_ui.cpp` unchanged; `runHubTests`, 161 checks: the four control tables, HITEC CLASSIC disabled and inert at OWN, the lines under an entry by gate and supply, the repaints, each rule of `hubEntriesFit()` at its limit; every frame the suite draws on the four screens compared with main at cff09ae, 1381 frames, equal byte for byte, 37 distinct with the default pins and 45 with SIG and AUX swapped, and all 182 `shot_*.ppm` equal; 63 mutations, 62 failing the suite or the build, one equivalent | host only; no screen changes, so nothing new to test on hardware |
+| Menu structure C, slice 2: the navigation stack, a chooser's tool returning to its chooser, the gate at the entry ([menu-c.md](docs/design/menu-c.md#slice-2-as-built); `src/ui.cpp`, `src/ui_screen.h`, `src/ui_hub.*`, the four choosers' `freePins`) | each of the eight chooser entries left by BACK and by the leave page's last button where it has one, the stack read with `uiNavDepth()` and `uiNavAt()` (`test_ui.cpp`, `test_kst_ui.cpp`, `test_hitec_ui.cpp`, `test_sbus_ui.cpp`, `test_sbus_out_ui.cpp`, `test_bridge_ui.cpp`, `test_angle_ui.cpp`); SETTINGS from a readout back to the tester; the four choosers opened while another claim holds, every entry disabled and inert, the busy strip, and a fourth screen refused (`test_hub.cpp`); six mutations, each failing the suite | host only; not run on hardware |
 | Control tables (`src/ui_screen.h`; slice B of [menu.md](docs/design/menu.md)) | every screen's table on each view the host suite reaches, the ids, rectangles and enabled flags, `uiCurrentScreen()` after each navigation; the UI tests tap by id | host only: the firmware does not call the tables |
 | Serial telemetry dump | none | not recorded |
 | `tools/sdtest`, SD bring-up firmware | none, not built in CI | hardware use recorded in f16a70f and e9c9d9a, the 2.8" board with the previous SDIO driver among them; nothing is recorded for the current build |

@@ -42,7 +42,7 @@ geblieben. Lies Werte nur ab, solange es angezeigt wird.
   antwortet.
 - **RESET MAX** löscht MAX.
 - **SETUP** öffnet SETUP.
-- **BACK** schaltet den Sensor ab und führt zu `MENU`. Nullpunkt und MAX
+- **BACK** schaltet den Sensor ab und führt zu TOOLS. Nullpunkt und MAX
   sind dann weg: Der nächste Besuch beginnt bei der Waagerechten, da sich
   das Modell inzwischen bewegt haben kann.
 
