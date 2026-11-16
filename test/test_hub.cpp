@@ -1,11 +1,12 @@
 /**
  * @file test_hub.cpp
  * @brief The hub, `ui_hub`, the one widget under PROGRAMMER, ESC CONFIG, RX
- *        SIGNALS and TOOLS (docs/design/menu-c.md, slice 1).
+ *        SIGNALS and TOOLS: slice 1 of menu structure C.
  *
  * Through the real UI: each of the four screens reports BACK and then one
  * control per entry of its table, at the entry's rectangle and enabled as
- * the hub draws it; HITEC CLASSIC, the one entry with a gate, reports
+ * the hub draws it, is drawn again when it opens a second time, and only
+ * PROGRAMMER's frame follows SERVO SUPPLY; HITEC CLASSIC, the one entry with a gate, reports
  * disabled without the switched supply and takes no tap, and with it reports
  * enabled and takes a press.
  *
@@ -155,9 +156,49 @@ static void testHubTables() {
 			checkTrue(what, acts == (c.hub->entries[i].enabled == nullptr));
 		}
 		checkControlTable(c.name);
+
+		// Only PROGRAMMER's entries carry a power line: the other three
+		// screens draw the same frame whatever SERVO SUPPLY is.
+		bool power = false;
+		for (int i = 0; i < c.hub->count; i++)
+			power = power || c.hub->entries[i].powerOwn || c.hub->entries[i].powerSwitchedFmt;
+		snprintf(what, sizeof(what), "%s: %s", c.name,
+		         c.id == UiScreenId::ServoProg ? "its entries carry a power line" : "no entry carries a power line");
+		checkTrue(what, power == (c.id == UiScreenId::ServoProg));
+		const uint32_t own = fakeRegionHash(0, 0, GFX_W, GFX_H);
+		setSupply(1);
+		hubFrames(1);
+		snprintf(what, sizeof(what), "%s: with SERVO SUPPLY at GP28 the frame %s", c.name,
+		         power ? "changes" : "is the same");
+		checkTrue(what, (fakeRegionHash(0, 0, GFX_W, GFX_H) != own) == power);
+		setSupply(0);
+		hubFrames(1);
+		snprintf(what, sizeof(what), "%s: back at OWN, the first frame again", c.name);
+		checkTrue(what, fakeRegionHash(0, 0, GFX_W, GFX_H) == own);
+
 		tapId(UI_FIX(UI_BACK));
 		snprintf(what, sizeof(what), "%s: BACK returns to MENU", c.name);
 		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
+		// The four screens share the widget's repaint key: the same hub
+		// opened again, with nothing changed, is drawn again over MENU.
+		hubFrames(1);
+		tapId(menuRow(c.screen));
+		hubFrames(1);
+		snprintf(what, sizeof(what), "%s: opened again, it is drawn again, the same frame", c.name);
+		checkTrue(what, uiCurrentScreen() == c.id && fakeRegionHash(0, 0, GFX_W, GFX_H) == own);
+		// A tap that starts and ends between two frames leaves through BACK
+		// with no pressed frame drawn, so the repaint key is the frame's
+		// own: the screen's entry point forces the next repaint.
+		fakePress(back.x + back.w / 2, back.y + back.h / 2);
+		fakeRelease();
+		hubFrames(2);
+		snprintf(what, sizeof(what), "%s: a tap within one frame on BACK returns to MENU", c.name);
+		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
+		tapId(menuRow(c.screen));
+		hubFrames(1);
+		snprintf(what, sizeof(what), "%s: opened after it, the same frame is drawn", c.name);
+		checkTrue(what, uiCurrentScreen() == c.id && fakeRegionHash(0, 0, GFX_W, GFX_H) == own);
+		tapId(UI_FIX(UI_BACK));
 	}
 }
 
@@ -230,12 +271,13 @@ static void testStrip(char *buf, size_t n) { snprintf(buf, n, "%s", s_strip); }
 
 /**
  * @brief Three entries: two plain lines; one line, a gate, a power line and
- *        one line that says why; one line, a gate and two lines that say why.
+ *        one line that says why, in the second place; one line, a gate and
+ *        two lines that say why.
  */
 static constexpr UiHubEntry T_ENTRIES[] = {
 	{ "ALPHA", { "FIRST PLAIN LINE", "SECOND PLAIN LINE" }, &UI_ANGLE, nullptr, nullptr,
 	  { nullptr, nullptr }, nullptr, nullptr },
-	{ "BRAVO", { "BRAVO MODELS", nullptr }, &UI_ANGLE, nullptr, gate, { "BRAVO WHY", nullptr },
+	{ "BRAVO", { "BRAVO MODELS", nullptr }, &UI_ANGLE, nullptr, gate, { nullptr, "BRAVO WHY" },
 	  "POWER AT OWN.", "SWITCHED ON GP%u." },
 	{ "CHARLIE", { "CHARLIE MODELS", nullptr }, &UI_ANGLE, nullptr, gate,
 	  { "CHARLIE WHY ONE", "CHARLIE WHY TWO" }, nullptr, nullptr },

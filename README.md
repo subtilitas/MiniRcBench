@@ -597,7 +597,10 @@ bench. A tool row shows no state: the strip names the pins.
 
 The SERVO PROGRAMMER row opens PROGRAMMER (`src/ui_servo_prog.cpp`), a
 chooser of three entries, 228 x 46 px at y 62, 142 and 222, from
-`UI_PROGRAMMERS` in `src/ui_registry.cpp`. The chooser claims nothing:
+`UI_PROGRAMMERS` in `src/ui_registry.cpp`. PROGRAMMER, ESC CONFIG, RX
+SIGNALS and TOOLS are drawn and run by one widget, the hub
+(`src/ui_hub.h`): each is a table of `UiHubEntry`, checked at build time
+by `hubEntriesFit()`. The chooser claims nothing:
 DShot runs on SIG while it shows. A tap on an entry opens its tool through
 `uiOpenTool()`, and the tool claims SIG on that frame. **BACK** returns to
 MENU, and so do the tools' RESTART DSHOT and their BACK before a claim
@@ -3571,14 +3574,15 @@ src/
     dshot.h, dshot_{frame,telem,edt}.c  frame, reply decode, EDT schedule (pure C)
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
   ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
-  ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry, UiProgEntry and the control ids
-  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER, RX SIGNALS and ESC CONFIG entry, and the checks that their texts fit
+  ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry and the control ids
+  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER, RX SIGNALS, ESC CONFIG and TOOLS entry, and the checks that their texts fit
+  ui_hub.{h,cpp}        the hub: the one widget under the four choosers, UiHubEntry, UiHub and hubEntriesFit()
   ui_menu.{h,cpp}       MENU
   ui_esc_cmd.{h,cpp}    ESC COMMANDS: BEEP 1 to 5, direction and 3D mode, through the command slot
   esc_3d.{h,cpp}        the tester's 3D note, which ESC SETTINGS and ESC COMMANDS set
-  ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers
-  ui_rx_signals.{h,cpp} RX SIGNALS: the chooser of MONITOR and OUTPUT
-  ui_esc_config.{h,cpp} ESC CONFIG: the chooser of ESC SETTINGS and USB BRIDGE
+  ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers, a hub
+  ui_rx_signals.{h,cpp} RX SIGNALS: the chooser of MONITOR and OUTPUT, a hub
+  ui_esc_config.{h,cpp} ESC CONFIG: the chooser of ESC SETTINGS and USB BRIDGE, a hub
   ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
   diag.{h,cpp}          the restart reason, decoded from the reset registers, and the uptime
   ui_sdlog.{h,cpp}      SD LOG screen
@@ -3625,7 +3629,7 @@ src/
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
   angle_model.{h,cpp}   the angle meter's model: frames, calibration, theta and tilt, ZERO, MAX, the flip (pure)
   ui_angle.{h,cpp}      ANGLE METER: the reading, ZERO, MAX, SETUP and FLIP CAL; opens and closes the IMU driver
-  ui_tools.{h,cpp}      TOOLS, the chooser behind MENU's TOOLS row
+  ui_tools.{h,cpp}      TOOLS, the chooser behind MENU's TOOLS row, a hub
   servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
@@ -3803,7 +3807,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 15,952 of 16,214 lines in 96 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 15,867 of 16,129 lines in 98 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
