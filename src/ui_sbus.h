@@ -28,8 +28,8 @@
  * once, and the page opens releasing, as SERVO TESTER's does. Its step names
  * where DShot restarts; BACK TO MONITOR keeps the claim and binds the job
  * again, with every count at 0; RESTART DSHOT, live 1000 ms after the pin is
- * let go, returns to MENU. BACK before a claim held, or during Stopping,
- * returns to MENU with DShot resumed.
+ * let go, returns to RX SIGNALS. BACK before a claim held, or during
+ * Stopping, returns to RX SIGNALS with DShot resumed.
  *
  * @see docs/design/rx-signals.md, "Screen"
  */

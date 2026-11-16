@@ -1256,7 +1256,8 @@ static void testAm32Screen() {
 	         escTaskDshotPin());
 	checkTrue("no core1 job", core1JobRunning() == Core1Job::None);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from AM32 returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from AM32 returns to ESC CONFIG, its opener",
+	          uiCurrentScreen() == UiScreenId::EscConfig);
 	checkTrue("BACK gives DShot the pin, no unplug page",
 	          fakePinReturned() && !pinClaimUnplugDue());
 	checkTrue("the transport let go before DShot was asked back",
@@ -1269,6 +1270,8 @@ static void testAm32Screen() {
 	// Out to the tester and into AM32 again, with no claim call from the test
 	// in between: only the screens' own calls see Restoring end.
 	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK from ESC CONFIG returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from MENU returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
@@ -1278,9 +1281,11 @@ static void testAm32Screen() {
 	checkTrue("AM32 opened again takes the pin again",
 	          !fakePinReturned() && escTaskSuspended());
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the second AM32 returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from the second AM32 returns to ESC CONFIG",
+	          uiCurrentScreen() == UiScreenId::EscConfig);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from MENU returns to the tester again", uiCurrentScreen() == UiScreenId::Tester);
 	frames(2);
@@ -1313,33 +1318,37 @@ static void testAm32Screen() {
 	checkTrue("and takes the pin on the first frame more than 250 ms after it",
 	          pinClaimState() == ClaimState::Held && waited > 250 && waited <= 275);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the drained AM32 returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from the drained AM32 returns to ESC CONFIG",
+	          uiCurrentScreen() == UiScreenId::EscConfig);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
-	// Another claim holds. MENU refuses AM32 while the claim is not Free:
-	// the row is drawn disabled, does not act, and a tap opens nothing. Once
-	// the claim is Free, the row opens AM32, which claims at once.
+	// Another claim holds. ESC CONFIG refuses AM32 while the claim is not
+	// Free: the entry is drawn disabled, does not act, and a tap opens
+	// nothing. Once the claim is Free, the entry opens AM32, which claims at
+	// once.
 	checkTrue("a SERVO claim holds",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	frames(1);
-	checkControlTable("MENU, the pins busy");
-	checkTrue("MENU: AM32 drawn disabled, the strip DSHOT RESTARTING", busyShown(menuRow(&UI_ESC_CONFIG)));
-	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_ESC_CONFIG)));
-	tapId(menuRow(&UI_ESC_CONFIG), IdExpect::Disabled);
-	checkTrue("a tap on it opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+	checkControlTable("ESC CONFIG, the pins busy");
+	const UiControlId entry = UI_FIX(EscCfgCtl::Settings);
+	checkTrue("ESC CONFIG: ESC SETTINGS drawn disabled, the strip DSHOT RESTARTING", busyShown(entry));
+	checkTrue("and its entry does not act", !ctlEnabled(entry));
+	tapId(entry, IdExpect::Disabled);
+	frames(1);
+	checkTrue("a tap on it opens nothing", uiCurrentScreen() == UiScreenId::EscConfig);
 	checkTrue("and leaves the other claim alone", pinClaimHolder() == PinUser::Servo);
 	toFree();
 	frames(1);
-	checkTrue("the other claim gone: the row acts again",
-	          ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !busyShown(menuRow(&UI_ESC_CONFIG)));
-	openEscSettings();
+	checkTrue("the other claim gone: the entry acts again", ctlEnabled(entry) && !busyShown(entry));
+	tapId(entry);
 	checkTrue("AM32 opens, and claims on the tap",
 	          uiCurrentScreen() == UiScreenId::Am32 && pinClaimHolder() == PinUser::Am32);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the last AM32 returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from the last AM32 returns to ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from MENU returns to the tester at the end", uiCurrentScreen() == UiScreenId::Tester);
 	frames(2);

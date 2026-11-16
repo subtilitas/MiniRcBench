@@ -23,11 +23,11 @@
  *
  * | View | What it shows | Leaves it |
  * |---|---|---|
- * | Main | the claim, READ for D SERIES on OWN, the entry, the read, a stall | the read: List; BACK: Leave in the mode; Leave releasing once SIG was taken; MENU while the claim is refused or Stopping |
+ * | Main | the claim, READ for D SERIES on OWN, the entry, the read, a stall | the read: List; BACK: Leave in the mode; Leave releasing once SIG was taken; PROGRAMMER while the claim is refused or Stopping |
  * | List | the parameters, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
  * | Files | the record, the backups, FACTORY VALUES, the files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
- * | Leave | the leave page (ui_leave.h): the steps, STAY, READ AGAIN, LEAVE; then the 2 s off wait, NEXT SERVO and RESTART DSHOT | STAY: List, or Main; READ AGAIN: the read; LEAVE: the release; NEXT SERVO: Main, a new session in the same family; RESTART DSHOT: MENU; BACK is disabled |
+ * | Leave | the leave page (ui_leave.h): the steps, STAY, READ AGAIN, LEAVE; then the 2 s off wait, NEXT SERVO and RESTART DSHOT | STAY: List, or Main; READ AGAIN: the read; LEAVE: the release; NEXT SERVO: Main, a new session in the same family; RESTART DSHOT: PROGRAMMER; BACK is disabled |
  *
  * CLASSIC needs SERVO SUPPLY at GP28 or GP29: its entry switches the
  * servo's supply. The classic servo drives SIG to its supply, 5 V nominal;

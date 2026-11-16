@@ -26,6 +26,7 @@
 #include "ui_sbus.h"
 #include "ui_sbus_out.h"
 #include "ui_menu.h"
+#include "ui_hub.h"
 #include "ui_sdlog.h"
 #include "ui_settings.h"
 #include "ui_input.h"
@@ -230,23 +231,18 @@ static_assert(BTN_ROW_Y + BTN_ROW_H - 1 <= Z_BTN_Y1,
 static bool     s_armed = false;
 /** @brief LATCH is on: the throttle stays where the finger leaves it. */
 static bool     s_latch = false;
-/** @brief Which level of the navigation owns the panel. */
-enum class Level : uint8_t {
-	Tester,  /**< The tester, the root. */
-	Menu,    /**< MENU. */
-	Tool,    /**< A tool, `s_tool`, opened from MENU or a readout: `s_toolFrom`. */
-};
-static Level           s_level = Level::Tester;
-static const UiScreen *s_tool = nullptr;  /**< The open tool at Level::Tool. */
 /**
- * @brief Where the open tool was opened from, and where its BACK returns:
- *        Level::Menu, or Level::Tester for SETTINGS opened from a readout
- *        (docs/design/menu-b.md, decision 17).
+ * @brief The navigation stack (docs/design/menu-c.md, "Navigation"), bottom
+ *        first: at most @ref UI_NAV_MAX screens over the tester, the root.
+ *        Depth 0 is the tester. A screen pushes the one it opens and BACK
+ *        pops it: MENU over the tester, a hub or a tool over MENU, a hub's
+ *        tool over its hub, SETTINGS over the tester from a readout.
  */
-static Level           s_toolFrom = Level::Menu;
+static const UiScreen *s_nav[UI_NAV_MAX] = {};
+static uint8_t         s_navDepth = 0;
 /**
- * @brief A tool the open tool chose on this frame (uiChooseTool()), opened
- *        after its tick; null for none.
+ * @brief A tool the open screen chose on this frame (uiChooseTool()),
+ *        pushed after its tick; null for none.
  */
 static const UiScreen *s_chosen = nullptr;
 /** @brief The entry point the chosen tool opens with; null: its own `enter`. */
@@ -1041,10 +1037,44 @@ static void testerStop() {
 	invalidateAll();
 }
 
+/**
+ * @brief Push @p s over the open screen. Every route that opens a screen
+ *        comes here, so none passes @ref UI_NAV_MAX: the tester pushes MENU
+ *        or SETTINGS, MENU a row, a hub one of its entries.
+ * @return false, with nothing pushed, when the stack is full.
+ */
+static bool navPush(const UiScreen *s) {
+	if (s_navDepth >= UI_NAV_MAX) return false;
+	s_nav[s_navDepth++] = s;
+	return true;
+}
+
+/** @brief The screen on top of the stack; null for the tester. */
+static const UiScreen *navTop() { return s_navDepth ? s_nav[s_navDepth - 1] : nullptr; }
+
+/**
+ * @brief BACK: pop the open screen and show the one under it, the screen
+ *        that opened it (menu-c.md owner decision 7). The tester redraws
+ *        every region; MENU opens again, as it did before the stack; a hub
+ *        resumes as it was left (uiHubResume()), the entry that opened the
+ *        tool where it was. Only a hub opens a tool over itself, through
+ *        uiChooseTool(), so a screen under a tool is MENU or a hub.
+ *        SETTINGS, the theme, and the pin can change under a tool, so every
+ *        cached region is invalidated.
+ */
+static void navPop() {
+	if (s_navDepth) s_nav[--s_navDepth] = nullptr;
+	const UiScreen *top = navTop();
+	if (top == &UI_MENU_SCREEN) uiMenuEnter();
+	else if (top) uiHubResume();
+	invalidateAll();
+	gfxFill(C_BG);
+}
+
 /** @brief The route from the tester to MENU: it disarms first. */
 static void uiOpenMenu() {
 	testerDisarm();
-	s_level = Level::Menu;
+	if (!navPush(&UI_MENU_SCREEN)) return;
 	uiMenuEnter();
 	gfxFill(C_BG);
 }
@@ -1052,22 +1082,19 @@ static void uiOpenMenu() {
 /**
  * @brief The one route from a screen to a tool (docs/design/menu-b.md,
  *        decision 19): from MENU's rows, from the tester's readouts and from
- *        PROGRAMMER's entries. It runs uiOpenMenu()'s disarm, then opens the
- *        tool, whose BACK returns to @p from. The caller refuses a tool the
- *        pin claim refuses first: MENU for its rows, readoutsAct() for the
- *        readouts; PROGRAMMER opens only while the claim is Free, and claims
- *        nothing.
+ *        a hub's entries. It runs uiOpenMenu()'s disarm, then pushes the
+ *        tool, whose BACK pops it to the screen that opened it. The caller
+ *        refuses a tool the pin claim refuses first: MENU for its rows,
+ *        readoutsAct() for the readouts, the hub for its entries
+ *        (uiHubEntryActs()).
  * @param s     The tool.
- * @param from  Level::Menu or Level::Tester.
- * @param enter The entry point to run in place of `s->enter`, for
- *              PROGRAMMER's Hitec entries, which set the family; null runs
+ * @param enter The entry point to run in place of `s->enter`, for the
+ *              hub's Hitec entries, which set the family; null runs
  *              `s->enter`.
  */
-static void uiOpenTool(const UiScreen *s, Level from, void (*enter)() = nullptr) {
+static void uiOpenTool(const UiScreen *s, void (*enter)() = nullptr) {
 	testerDisarm();
-	s_level = Level::Tool;
-	s_tool = s;
-	s_toolFrom = from;
+	if (!navPush(s)) return;
 	gfxFill(C_BG);
 	(enter ? enter : s->enter)();
 }
@@ -1225,7 +1252,7 @@ static void handleMainTouch() {
 		// A readout: SETTINGS, and BACK there returns here. Inert while
 		// armed, where the pad and the track take the press, and while the
 		// claim refuses SETTINGS. @see ui_readouts
-		uiOpenTool(&UI_SETTINGS, Level::Tester);
+		uiOpenTool(&UI_SETTINGS);
 	}
 }
 
@@ -1292,9 +1319,14 @@ static constexpr bool screensComplete() {
 static_assert(screensComplete(), "a screen has no entry in SCREENS, or two");
 
 UiScreenId uiCurrentScreen() {
-	if (s_level == Level::Tool && s_tool) return s_tool->id;
-	if (s_level == Level::Menu) return UiScreenId::Menu;
-	return UiScreenId::Tester;
+	const UiScreen *top = navTop();
+	return top ? top->id : UiScreenId::Tester;
+}
+
+uint8_t uiNavDepth() { return s_navDepth; }
+
+UiScreenId uiNavAt(uint8_t i) {
+	return i < s_navDepth ? s_nav[i]->id : UiScreenId::Tester;
 }
 
 uint8_t uiControls(UiControl *out, uint8_t max) {
@@ -1372,9 +1404,8 @@ void uiInit() {
 	// boot, from a cold start -- and in the test suite meant a case that left
 	// MENU up handed it to whatever ran next, where taps landed
 	// on a screen the test did not think it was looking at.
-	s_level = Level::Tester;
-	s_tool = nullptr;
-	s_toolFrom = Level::Menu;
+	memset(s_nav, 0, sizeof(s_nav));
+	s_navDepth = 0;
 	s_chosen = nullptr;
 	s_chosenEnter = nullptr;
 	s_armed = false;
@@ -1454,25 +1485,20 @@ void uiTick() {
 	}
 
 	// A tool owns the whole screen, and the pins it claims, while it runs.
-	// SETTINGS can change the pin the pump drives and the palette everything
-	// is rendered in, so leaving any tool invalidates every cached region: a
-	// theme swap is invisible to caches that only remember values. A tool
-	// returns false once it has left, and BACK takes it to where it was
-	// opened from: MENU, or the tester for SETTINGS opened from a readout.
-	// A tool chosen on PROGRAMMER opens after the chooser's tick, with
-	// MENU as its origin, so its BACK and RESTART DSHOT return to MENU.
-	if (s_level == Level::Tool) {
-		if (!s_tool->tick(&s_touch)) {
+	// A tool returns false once it has left, by BACK or by the leave page's
+	// last button, and the stack pops it to the screen that opened it:
+	// MENU, the hub it was chosen on, or the tester for SETTINGS opened
+	// from a readout (navPop()). A tool chosen on a hub is pushed after the
+	// hub's tick, over the hub.
+	const UiScreen *top = navTop();
+	if (top && top != &UI_MENU_SCREEN) {
+		if (!top->tick(&s_touch)) {
 			s_chosen = nullptr;
-			s_level = s_toolFrom == Level::Tester ? Level::Tester : Level::Menu;
-			s_tool = nullptr;
-			if (s_level == Level::Menu) uiMenuEnter();
-			invalidateAll();
-			gfxFill(C_BG);
+			navPop();
 		} else if (s_chosen) {
 			const UiScreen *c = s_chosen;
 			s_chosen = nullptr;
-			uiOpenTool(c, Level::Menu, s_chosenEnter);
+			uiOpenTool(c, s_chosenEnter);
 		}
 		st7789FlushDirty();
 		return;
@@ -1493,15 +1519,13 @@ void uiTick() {
 	// back over a cleared frame, and whatever it leaves on a row the incoming
 	// screen's regions do not cover stays there. The residue was invisible for
 	// as long as the palette was dark on black; it is not in high contrast.
-	if (s_level == Level::Menu) {
+	if (top == &UI_MENU_SCREEN) {
 		const UiScreen *open = nullptr;
 		UiMenuResult r = uiMenuTick(&s_touch, &open);
 		if (r == UiMenuResult::Back) {
-			s_level = Level::Tester;
-			invalidateAll();
-			gfxFill(C_BG);
+			navPop();
 		} else if (r == UiMenuResult::Open) {
-			uiOpenTool(open, Level::Menu);
+			uiOpenTool(open);
 		}
 	} else {
 		handleMainTouch();
@@ -1522,7 +1546,7 @@ void uiTick() {
 
 		// MENU and a readout leave the tester from handleMainTouch(), over a
 		// cleared frame: the tester is not painted back over it.
-		if (s_level == Level::Tester) {
+		if (!navTop()) {
 			drawStatusBar();
 			drawRpm();
 			drawTelemetry();

@@ -1087,6 +1087,8 @@ static void testLogEndNotes() {
 	checkTrue("ESC SETTINGS' claim stopped the log", !sdLogActive());
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
+	tapId(UI_FIX(UI_BACK));                               // ESC CONFIG to MENU
+	frames(2);
 	tapId(menuRow(&UI_SDLOG));
 	frames(2);
 	checkTrue("SD LOG names the tool",
@@ -4187,21 +4189,21 @@ static void testMenuDestinations() {
 	// A refused row is drawn disabled, an outline with the background
 	// inside, under its own status, none for a tool: no word for the claim
 	// on the row.
-	checkTrue("ESC CONFIG, whose ESC SETTINGS claims, drawn disabled, no status",
-	          pixelIn(&UI_ESC_CONFIG) == C_BG && statusBlank(&UI_ESC_CONFIG, C_BG));
+	checkTrue("ESC CONFIG, a hub, drawn live, no status: it gates its entries",
+	          pixelIn(&UI_ESC_CONFIG) == C_PANEL && statusBlank(&UI_ESC_CONFIG, C_PANEL));
 	checkTrue("SERVO drawn disabled, no status", pixelIn(&UI_SERVO) == C_BG && statusBlank(&UI_SERVO, C_BG));
 	char restarting[40];
 	snprintf(restarting, sizeof(restarting), "DSHOT RESTARTING ON SIG GP%u",
 	         (unsigned)settings()->dshotPin);
 	checkTrue("the strip says why, in amber",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, restarting, C_AMBER, C_BG, 1));
-	checkTrue("both rows are gated",
-	          !ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !ctlEnabled(menuRow(&UI_SERVO)));
-	checkTrue("SERVO PROGRAMMER, whose entries claim, drawn disabled and gated",
-	          pixelIn(&UI_SERVO_PROG) == C_BG && !ctlEnabled(menuRow(&UI_SERVO_PROG)));
-	checkTrue("and RX SIGNALS, whose MONITOR claims",
-	          pixelIn(&UI_RX_SIGNALS) == C_BG && statusBlank(&UI_RX_SIGNALS, C_BG) &&
-	          !ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("SERVO is gated, ESC CONFIG acts",
+	          ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !ctlEnabled(menuRow(&UI_SERVO)));
+	checkTrue("SERVO PROGRAMMER, a hub, drawn live and acting",
+	          pixelIn(&UI_SERVO_PROG) == C_PANEL && ctlEnabled(menuRow(&UI_SERVO_PROG)));
+	checkTrue("and RX SIGNALS, a hub",
+	          pixelIn(&UI_RX_SIGNALS) == C_PANEL && statusBlank(&UI_RX_SIGNALS, C_PANEL) &&
+	          ctlEnabled(menuRow(&UI_RX_SIGNALS)));
 	checkTrue("ESC COMMANDS, which needs DShot on SIG, drawn disabled and gated",
 	          pixelIn(&UI_ESC_CMD) == C_BG && statusBlank(&UI_ESC_CMD, C_BG) &&
 	          !ctlEnabled(menuRow(&UI_ESC_CMD)));
@@ -4222,9 +4224,14 @@ static void testMenuDestinations() {
 	frames(1);
 	checkTrue("a tap on SERVO opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("nor claims a pin", pinClaimHolder() == PinUser::Am32);
-	tapId(menuRow(&UI_ESC_CONFIG), IdExpect::Disabled);
+	tapId(menuRow(&UI_ESC_CONFIG));
 	frames(1);
-	checkTrue("nor does a tap on ESC CONFIG", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("a tap on ESC CONFIG opens the hub, its entries drawn disabled",
+	          uiCurrentScreen() == UiScreenId::EscConfig && !ctlEnabled(UI_FIX(EscCfgCtl::Settings)) &&
+	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)));
+	tapId(UI_FIX(UI_BACK));
+	frames(1);
+	checkTrue("whose BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	pinClaimEnd(PinUser::Am32);
 	frames(2);
 	checkTrue("the claim ends: the pins are Free", pinClaimState() == ClaimState::Free);
@@ -5089,15 +5096,17 @@ static void enterAm32(int n) {
 }
 
 /**
- * @brief BACK from ESC SETTINGS to MENU, then from MENU to the tester: from
- *        ESC HEX or ESC WRITE through the list, and a second BACK where the
- *        guard arms on edits not written.
+ * @brief BACK from ESC SETTINGS to ESC CONFIG, its opener, then to MENU and
+ *        the tester: from ESC HEX or ESC WRITE through the list, and a
+ *        second BACK where the guard arms on edits not written.
  */
 static void leaveAm32ToTester() {
 	for (int i = 0; i < 4 && uiCurrentScreen() == UiScreenId::Am32; i++) {
 		tapId(UI_FIX(UI_BACK));
 		frames(2);
 	}
+	checkTrue("BACK from ESC SETTINGS: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
@@ -5935,13 +5944,15 @@ static void testAm32Guard() {
 	checkControlTable("ESC SETTINGS, the guard armed");
 	fakeDumpFrame("shot_am32_discard.ppm");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("the second BACK: MENU, nothing written, the ESC as it was",
-	          uiCurrentScreen() == UiScreenId::Menu && fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc);
+	checkTrue("the second BACK: ESC CONFIG, nothing written, the ESC as it was",
+	          uiCurrentScreen() == UiScreenId::EscConfig && fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 	enterAm32(6);
 	checkTrue("back in: the list as read", s_state == S_LIST && !anyDirty() && !s_guard.armed);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("no edits: one BACK leaves", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("no edits: one BACK leaves", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 	enterAm32(6);
 	checkTrue("POLES steps", am32Step("POLES"));
@@ -5949,7 +5960,8 @@ static void testAm32Guard() {
 	tapId(UI_FIX(Am32Ctl::Revert));
 	checkTrue("REVERT under the armed guard: disarmed, nothing pending", !s_guard.armed && !anyDirty());
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("then one BACK leaves", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("then one BACK leaves", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
@@ -6042,7 +6054,11 @@ static bool ewTapRow(const char *name) {
 	return s_ewSel == r;
 }
 
-/** @brief BACK from the EFM8 list: LEAVE, then MENU. True when DShot came back once, with no leave page. */
+/**
+ * @brief BACK from the EFM8 list: LEAVE, then ESC CONFIG, then BACK to MENU.
+ *        True when ESC CONFIG followed the LEAVE and DShot came back once,
+ *        with no leave page.
+ */
 static bool efm8Exit(int *leaveFrame) {
 	sim_t *e = fakeEwSim();
 	int resumes = fakeResumeCount();
@@ -6057,8 +6073,11 @@ static bool efm8Exit(int *leaveFrame) {
 	*leaveFrame = -1;
 	for (int i = before; i < e->starts; i++)
 		if (fakeEwSentLeave(i)) *leaveFrame = i;
-	return exiting && !sawLeavePage && uiCurrentScreen() == UiScreenId::Menu &&
-	       fakeResumeCount() == resumes + 1;
+	bool ok = exiting && !sawLeavePage && uiCurrentScreen() == UiScreenId::EscConfig &&
+	          fakeResumeCount() == resumes + 1;
+	// On to MENU, where the callers go on.
+	if (uiCurrentScreen() == UiScreenId::EscConfig) tapId(UI_FIX(UI_BACK));
+	return ok;
 }
 
 /** @brief ESC WRITE's hold, held past its 1000 ms; true once the write page's write began. */
@@ -6223,7 +6242,7 @@ static void testEfm8Write() {
 	          !fakeFatExists("BACKUP/BJ002.TXT"));
 	tapId(UI_FIX(Am32Ctl::Ok));
 	int leaveAt = -1;
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt == e->starts - 1);
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt == e->starts - 1);
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6246,7 +6265,7 @@ static void testEfm8Write() {
 	checkTrue("held", efm8HoldWrite() && efm8UntilDone() && s_verified);
 	checkTrue("the note cleared", !esc3dNote());
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6278,7 +6297,7 @@ static void testEfm8Write() {
 	checkTrue("then written", efm8HoldWrite() && efm8UntilDone() && s_verified &&
 	          fakeFatExists("BACKUP/BJ001.TXT") && efm8Page()[0x15] == 3);
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6313,6 +6332,8 @@ static void testEfm8Write() {
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
 	frames(2);
+	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	efm8Esc(0xB2, true);
 	checkTrue("the list again", efm8Read());
@@ -6337,7 +6358,7 @@ static void testEfm8Write() {
 	checkTrue("then written", efm8HoldWrite() && efm8UntilDone() && s_verified && efm8Page()[0x15] == 3 &&
 	          efm8Page()[0x1B] == 41);
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6406,7 +6427,7 @@ static void testEfm8Write() {
 	checkTrue("no second backup", !fakeFatExists("BACKUP/BJ002.TXT"));
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("no DShot all along", fakeResumeCount() == resumes);
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6439,7 +6460,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Write));
 	checkTrue("held: verified, the note cleared", efm8HoldWrite() && efm8UntilDone() && s_verified && !esc3dNote());
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6471,8 +6492,9 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
-	checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot back once", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot back once", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeResumeCount() == resumes + 1);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	bool left = false;
 	for (int i = 0; i < e->starts; i++) left = left || fakeEwSentLeave(i);
 	checkTrue("no LEAVE frame went to the half-written page", !left);
@@ -6510,7 +6532,8 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
-	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6543,7 +6566,7 @@ static void testEfm8Write() {
 	}
 	checkTrue("asked again: verified", efm8UntilDone() && s_verified && efm8Page()[0x15] == 3);
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6581,7 +6604,7 @@ static void testEfm8Write() {
 	checkTrue("written with its own backup, BJ002", efm8HoldWrite() && efm8UntilDone() && s_verified &&
 	          strcmp(s_status, "WRITE VERIFIED. BACKUP BJ002") == 0 && fakeFatExists("BACKUP/BJ002.TXT"));
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6610,7 +6633,8 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
-	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6678,8 +6702,9 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
-	checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeResumeCount() == resumes + 1);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6729,7 +6754,7 @@ static void testEfm8Write() {
 	checkTrue("the heading in amber under the page's lines",
 	          fakeTextIs(UI_MARGIN, LIST_Y0, EFM8_UI_KEPT_1, UI_COL_WARN, C_BG, 1));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6756,6 +6781,8 @@ static void testEfm8Write() {
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
 	frames(2);
+	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	efm8Esc(0xB2, true);
 	memcpy(orig, efm8Page(), sizeof(orig));
@@ -6778,6 +6805,8 @@ static void testEfm8Write() {
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
 	frames(2);
+	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
 	section("ESC WRITE: a torn page that reads as writable does not replace the kept old page");
@@ -6825,6 +6854,8 @@ static void testEfm8Write() {
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Restart));
 	frames(2);
+	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
 	section("ESC WRITE: a page changed and read again gets its own backup");
@@ -6849,7 +6880,7 @@ static void testEfm8Write() {
 	checkTrue("written, BJ002 holds the page read again", efm8HoldWrite() && efm8UntilDone() && s_verified &&
 	          efm8BackupHolds("BACKUP/BJ002.TXT", 0xB2, moved));
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 
@@ -6863,7 +6894,7 @@ static void testEfm8Write() {
 	frames(1);
 	checkTrue("REFLASH ON A COMPUTER. BACKUP BH001", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. BACKUP BH001"));
 	checkTrue("BH001.TXT holds the page as read", efm8BackupHolds("BACKUP/BH001.TXT", 0xB2, orig));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	efm8Esc(0xB2, false);
@@ -6878,7 +6909,7 @@ static void testEfm8Write() {
 	checkTrue("DIRECTION selected: no -, no +", ewTapRow("DIRECTION") && !ctlPresent(UI_FIX(Am32Ctl::EditMinus)));
 	tapId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
 	checkTrue("WRITE... does nothing", s_state == S_EW_LIST && e->erases == 0 && e->programs == 0);
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	efm8Esc(0xB2, true);
@@ -6888,7 +6919,7 @@ static void testEfm8Write() {
 	frames(1);
 	checkTrue("SHOWN ONLY. BACKUP BJ002", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "SHOWN ONLY. BACKUP BJ002",
 	                                                  UI_COL_WARN, C_BG, 1));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	fakeFatWriteProtect(true);
@@ -6899,7 +6930,7 @@ static void testEfm8Write() {
 	checkTrue("SHOWN ONLY. BACKUP FAILED.", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "SHOWN ONLY. BACKUP FAILED.",
 	                                                    UI_COL_WARN, C_BG, 1));
 	fakeFatWriteProtect(false);
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	am32NoCard();
@@ -6908,7 +6939,7 @@ static void testEfm8Write() {
 	checkTrue("lost tags, no card: the list", efm8Read());
 	frames(1);
 	checkTrue("REFLASH ON A COMPUTER. NO CARD.", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. NO CARD."));
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	fakeMscSet(MscState::Serving, 0);
@@ -6919,7 +6950,7 @@ static void testEfm8Write() {
 	checkTrue("SHOWN ONLY. USB DRIVE: NO BACKUP.", fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y,
 	                                                         "SHOWN ONLY. USB DRIVE: NO BACKUP.", UI_COL_WARN, C_BG, 1));
 	fakeMscSet(MscState::Idle, 0);
-	checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 }
@@ -6945,7 +6976,8 @@ static void testAm32Efm8() {
 		checkTrue("the claim has no leave page", pinClaimHolder() == PinUser::Am32 && !pinClaimLeavePage());
 		int resumes = fakeResumeCount();
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("BACK: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		checkInt("DShot asked back within BACK", fakeResumeCount(), resumes + 1);
 		checkTrue("no leave page is due", !pinClaimUnplugDue());
 		fakeAm32Silent(false);
@@ -7123,7 +7155,8 @@ static void testAm32Efm8() {
 		for (int i = 0; i < e->starts; i++)
 			if (fakeEwSentLeave(i)) leaveAt = i;
 		checkTrue("LEAVE went out: 00 01 and its CRC, the last frame", leaveAt >= 0 && leaveAt == e->starts - 1);
-		checkTrue("then MENU, with no leave page", uiCurrentScreen() == UiScreenId::Menu && !page);
+		checkTrue("then ESC CONFIG, with no leave page", uiCurrentScreen() == UiScreenId::EscConfig && !page);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		checkTrue("300 ms of low line first", millis() - t0 >= 300);
 		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
 		checkTrue("the job idle when DShot was asked back", fakeResumeJobIdle());
@@ -7154,7 +7187,7 @@ static void testAm32Efm8() {
 		checkTrue("ESC HEX: 14 lines, no scroll", s_list.rows == 14 && uiListMaxScroll(&s_list) == 0);
 		tapId(UI_FIX(UI_BACK));
 		int leaveAt = -1;
-		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 		frames(2);
@@ -7163,7 +7196,7 @@ static void testAm32Efm8() {
 		efm8Esc(0xB1, false);
 		checkTrue("the same ESC at NORMAL: the list", efm8Read());
 		checkTrue("the note cleared", !esc3dNote());
-		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt));
+		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -7186,7 +7219,7 @@ static void testAm32Efm8() {
 		checkTrue("a selected row's note outranks it", ewTapRow("POWER RATING") &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_RATING_1, UI_COL_WARN, C_BG, 1));
 		int leaveAt = -1;
-		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 
@@ -7197,7 +7230,7 @@ static void testAm32Efm8() {
 		checkTrue("ESC LOST ITS TAGS: READ-ONLY.",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_LOST_TAGS, UI_COL_WARN, C_BG, 1) &&
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_REFLASH, UI_COL_WARN, C_BG, 1));
-		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 
@@ -7209,7 +7242,7 @@ static void testAm32Efm8() {
 		checkTrue("SETTINGS MARKER WRONG: READ-ONLY.",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, EFM8_UI_MARKER, UI_COL_WARN, C_BG, 1));
 		checkTrue("the tester's 3D note left as it was", !esc3dNote());
-		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -7301,7 +7334,8 @@ static void testAm32Efm8() {
 		          leaveWideIs("RESTART DSHOT", true));
 		checkTrue("the run cue still stands", uiAm32RunCue(0));
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
 		frames(2);
 		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
@@ -7329,7 +7363,8 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -7347,7 +7382,7 @@ static void testAm32Efm8() {
 		checkTrue("STAY: the session page", s_state == S_EW);
 		checkTrue("the read goes on: the list", untilState(S_EW_LIST, 120));
 		int leaveAt = -1;
-		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 
@@ -7363,8 +7398,9 @@ static void testAm32Efm8() {
 		          !fakeEwOpen() && core1JobPhase() == Core1JobPhase::Idle && fakeResumeCount() == resumes);
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          fakeResumeCount() == resumes + 1);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		bool sent = false;
 		for (int i = 0; i < fakeEwSim()->starts; i++) sent = sent || fakeEwSentLeave(i);
 		checkTrue("no LEAVE frame went", !sent);
@@ -7426,8 +7462,9 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
-		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		checkTrue("the claim ends, the cue cleared", pinClaimState() == ClaimState::Free && !s_blReached);
 		tapId(UI_FIX(UI_BACK));
@@ -7456,8 +7493,9 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("LEAVE, then RESTART DSHOT: MENU, DShot asked back once",
-		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot asked back once",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
@@ -7481,8 +7519,9 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          fakeResumeCount() == resumes + 1);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -7513,9 +7552,10 @@ static void testAm32Efm8() {
 			frames(1);
 			page = page || s_state == S_LEAVE;
 		}
-		checkTrue("asked again: LEAVE went out, MENU, no leave page",
-		          fakeEwSentLeave(n) && uiCurrentScreen() == UiScreenId::Menu && !page &&
+		checkTrue("asked again: LEAVE went out, ESC CONFIG, no leave page",
+		          fakeEwSentLeave(n) && uiCurrentScreen() == UiScreenId::EscConfig && !page &&
 		          fakeResumeCount() == resumes + 1);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -7537,7 +7577,8 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -7567,8 +7608,9 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("LEAVE, then RESTART DSHOT: MENU, the cue cleared",
-		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 && !s_blReached);
+		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, the cue cleared",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1 && !s_blReached);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeAm32Silent(false);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
@@ -7594,8 +7636,9 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("LEAVE, then RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu &&
+		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          fakeResumeCount() == resumes + 1);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEwRefuse(0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
@@ -7615,7 +7658,8 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Restart));
-		checkTrue("BACK, LEAVE, RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("BACK, LEAVE, RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEwRefuse(0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
@@ -7633,7 +7677,7 @@ static void testAm32Efm8() {
 		checkTrue("the session page, the leave page set", s_state == S_EW && pinClaimLeavePage());
 		checkTrue("the list", untilState(S_EW_LIST, 120));
 		int leaveAt = -1;
-		checkTrue("BACK: LEAVE, MENU", efm8Exit(&leaveAt) && leaveAt >= 0);
+		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
 		tapId(UI_FIX(UI_BACK));
 	}
@@ -7644,8 +7688,9 @@ static void testAm32Efm8() {
 		checkTrue("an AM32 answer: the list", s_state == S_LIST && !pinClaimLeavePage());
 		int resumes = fakeResumeCount();
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK: MENU, DShot asked back within BACK",
-		          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1);
+		checkTrue("BACK: ESC CONFIG, DShot asked back within BACK",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		// The AM32 handshake set the cue; an eRPM frame after an EFM8
 		// answer clears it as after a handshake.
 		s_blReachedMs = millis();
@@ -7724,6 +7769,9 @@ static void testAm32Guidance() {
 		// The burst after the next quiet second.
 		frames(45);
 		checkTrue("a good read opens the list", s_state == S_LIST);
+		tapId(UI_FIX(UI_BACK));
+		frames(2);
+		checkTrue("BACK: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));
 		frames(2);
 		checkTrue("MENU: " AM32_UI_RUN_CUE " in amber under the caption", menuRunCueShown());
@@ -9286,7 +9334,8 @@ void runUiTests() {
 		fakeDumpFrame("shot_am32_hex.ppm");
 		tapId(UI_FIX(Am32Ctl::Hex));                     // back to fields
 		tapId(UI_FIX(UI_BACK));                   // leave AM32, back to MENU
-		checkTrue("BACK from AM32 reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("BACK from AM32 reaches ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		checkTrue("DShot pin handed back", fakePinReturned());
 		// And back to the main screen, which is what the sections after this
 		// one assume. It used to be left on the settings screen and get away

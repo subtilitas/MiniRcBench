@@ -68,7 +68,7 @@ static bool claimBusy() { return pinClaimState() != ClaimState::Free; }
 /**
  * @brief A tool that claims pins, or changes the wiring a claim latched, is
  *        refused while the claim is not Free: Restoring outlasts RESTART
- *        DSHOT's return to MENU.
+ *        DSHOT's return to the screen that opened the tool.
  */
 static bool pinsBusy(const UiScreen *s) { return uiPinsRefuse(s); }
 

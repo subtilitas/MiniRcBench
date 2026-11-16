@@ -412,14 +412,19 @@ static void drag(int i, int dx) {
 /** @brief The frame last loaded on the line. */
 static sbus_frame_t sent() { return jobSt().sent; }
 
-/** @brief BACK, the leave page released, RESTART DSHOT after its wait: MENU, Free. */
+/**
+ * @brief BACK, the leave page released, RESTART DSHOT after its wait: RX
+ *        SIGNALS, the opener, and Free; then BACK to MENU.
+ */
 static bool leaveToMenu() {
 	if (uiCurrentScreen() != UiScreenId::SbusOut) return false;
 	if (ctlEnabled(UI_FIX(UI_BACK))) tapId(UI_FIX(UI_BACK));
 	for (int k = 0; k < 80 && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)); k++) soFrames(1);
 	tapId(UI_FIX(SbusOutCtl::Restart));
 	soFrames(4);
-	return uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Free;
+	bool hub = uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free;
+	if (hub) tapId(UI_FIX(UI_BACK));
+	return hub && uiCurrentScreen() == UiScreenId::Menu;
 }
 
 /** @brief The entry, the claim, the probe and the gate, SAFE, START at 1000 ms. */
@@ -1088,8 +1093,9 @@ static void testLeave() {
 	checkTrue("1000 ms: it acts", ctlEnabled(UI_FIX(SbusOutCtl::Restart)));
 	int resumes = fakeResumeCount();
 	tapId(UI_FIX(SbusOutCtl::Restart));
-	checkTrue("RESTART DSHOT: MENU, DShot resumed with the job idle",
-	          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 && fakeResumeJobIdle());
+	checkTrue("RESTART DSHOT: RX SIGNALS, DShot resumed with the job idle",
+	          uiCurrentScreen() == UiScreenId::RxSignals && fakeResumeCount() == resumes + 1 && fakeResumeJobIdle());
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	soFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
@@ -1179,9 +1185,10 @@ static void testBootloader() {
 	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)); k++) soFrames(1);
 	tapId(UI_FIX(SbusOutCtl::Restart));
 	soFrames(4);
-	checkTrue("RESTART DSHOT: MENU, the mark and the cue gone",
-	          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Free &&
+	checkTrue("RESTART DSHOT: RX SIGNALS, the mark and the cue gone",
+	          uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free &&
 	          !sbusOutProbeEfm8() && !sbusOutRunCue(0));
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 
 	// An AM32 bootloader: the same lines; BACK opens the plain page.
@@ -1248,7 +1255,8 @@ static void testUnavailable() {
 		if (ctlEnabled(UI_FIX(SbusOutCtl::Restart))) tapId(UI_FIX(SbusOutCtl::Restart));
 	}
 	soFrames(4);
-	checkTrue("back at MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("back at RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 
 	// GP0 is AUX, KISS live on it.
@@ -1267,8 +1275,9 @@ static void testUnavailable() {
 	          gfxTextW(SBOUT_UI_KISS_3, 1) == 179);
 	fakeDumpFrame("shot_sbus_out_kiss.ppm");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK before a claim: MENU, nothing claimed",
-	          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Free);
+	checkTrue("BACK before a claim: RX SIGNALS, nothing claimed",
+	          uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 
 	// GP0 is AUX, an ESC answers on SIG GP1.
@@ -1306,7 +1315,8 @@ static void testUnavailable() {
 	          messageIs(SBOUT_UI_NO_GP0_1, SBOUT_UI_NO_GP0_2, nullptr, UI_COL_WARN) &&
 	          gfxTextW(SBOUT_UI_NO_GP0_2, 1) == 173);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 
 	// The clock refused, RETRY.
@@ -1401,8 +1411,9 @@ static void testUnavailable() {
 	fakeAdvance(25);
 	core1JobPoll();
 	uiTick();
-	checkTrue("BACK while Stopping: MENU, DShot resumed", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("BACK while Stopping: RX SIGNALS, DShot resumed", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          fakePinReturned());
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	soFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
@@ -1441,8 +1452,9 @@ static void testLateMark() {
 	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)); k++) soFrames(1);
 	tapId(UI_FIX(SbusOutCtl::Restart));
 	soFrames(4);
-	checkTrue("RESTART DSHOT on the plain page: MENU, the mark and the cue kept",
-	          uiCurrentScreen() == UiScreenId::Menu && sbusOutProbeEfm8() && sbusOutRunCue(0));
+	checkTrue("RESTART DSHOT on the plain page: RX SIGNALS, the mark and the cue kept",
+	          uiCurrentScreen() == UiScreenId::RxSignals && sbusOutProbeEfm8() && sbusOutRunCue(0));
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbusOutProbeRestart();
 	checkTrue("cleared for the next test", !sbusOutProbeEfm8() && !sbusOutRunCue(0));
 	tapId(UI_FIX(UI_BACK));

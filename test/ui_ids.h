@@ -250,6 +250,20 @@ static inline void openEscSettings() {
 	tapId(UI_FIX(EscCfgCtl::Settings));
 }
 
+/**
+ * @brief BACK from a hub or MENU down the navigation stack to the tester:
+ *        one tap per screen, each on a live BACK. A tool's own BACK, which
+ *        may open a leave page, is the test's to tap first.
+ * @return true on the tester.
+ */
+static inline bool backToTester() {
+	for (int i = 0; i < UI_NAV_MAX && uiCurrentScreen() != UiScreenId::Tester; i++) {
+		tapId(UI_FIX(UI_BACK));
+		UI_IDS_FRAMES(1);
+	}
+	return uiCurrentScreen() == UiScreenId::Tester;
+}
+
 /** @brief How the header's BACK looks on the panel. */
 enum class BackLook : uint8_t {
 	Live,      /**< Panel fill, the label in C_TEXT, at rest or pressed. */

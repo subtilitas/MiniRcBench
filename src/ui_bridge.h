@@ -25,10 +25,10 @@
  *
  * | When | BACK |
  * |---|---|
- * | no claim: refused, USB DRIVE | to MENU |
- * | Stopping, or Held after a failed bind | pinClaimEnd(): DShot resumes at once; to MENU, whose run cue stands from the claim's begin |
+ * | no claim: refused, USB DRIVE | to ESC CONFIG |
+ * | Stopping, or Held after a failed bind | pinClaimEnd(): DShot resumes at once; to ESC CONFIG, and MENU's run cue stands from the claim's begin |
  * | a write-class frame waits for its answer, at most 3000 ms | drawn disabled (decision 7) |
- * | Held, the line binding | pinClaimEnd(), to MENU: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
+ * | Held, the line binding | pinClaimEnd(), to ESC CONFIG: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
  * | Running | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page, as the servo tools give it (decision 10 as revised): the ESC may wait in its bootloader whatever the tool sent |
  *
  * Nothing is sent at BACK, no RUN among it (decision 6). The leave page is
@@ -40,7 +40,8 @@
  * unfinished write stays, and the next BACK's page carries the note until a
  * RUN. RESTART DSHOT, live 1000 ms after the line is let go, clears MENU's
  * run cue (usbBridgeRunCueClear()) and the unfinished write
- * (usbBridgeWriteUnfinishedClear()), ends the claim and returns to MENU: the
+ * (usbBridgeWriteUnfinishedClear()), ends the claim and returns to ESC
+ * CONFIG, the screen that opened the bridge: the
  * next entry starts with no note.
  * BACK on the page is drawn disabled. A claim that has had the page keeps it
  * until it is Free.

@@ -219,12 +219,17 @@ static bool backToPage() {
 	       ctlEnabled(UI_FIX(BridgeCtl::Bridge));
 }
 
-/** @brief BACK, then through the leave page if it opened, until Free. */
+/**
+ * @brief BACK, then through the leave page if it opened, until Free; then
+ *        BACK from ESC CONFIG, the opener, to MENU.
+ */
 static void leaveBridge() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	if (uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart))) restartFromPage();
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	checkTrue("the bridge left: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));
 }
 
 // ---------------------------------------------------------------------------
@@ -288,8 +293,9 @@ static void testLayout() {
 	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
 	          !fakeConsoleOn());
 	restartFromPage();
-	checkTrue("RESTART DSHOT: MENU, Free, the console back", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("RESTART DSHOT: ESC CONFIG, Free, the console back", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          pinClaimState() == ClaimState::Free && fakeConsoleOn() && !escTaskSuspended());
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -418,7 +424,8 @@ static void testWriteAndLeave() {
 	brFrames(43);
 	checkTrue("1000 ms after the line was let go: RESTART DSHOT live", ctlEnabled(UI_FIX(BridgeCtl::Restart)));
 	tapId(UI_FIX(BridgeCtl::Restart));
-	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
 	brFrames(1);
 	checkTrue("Free, DShot up, the console back", pinClaimState() == ClaimState::Free &&
@@ -509,9 +516,10 @@ static void testBackStates() {
 	framesNoPump(1);
 	fakeRelease();
 	framesNoPump(1);
-	checkTrue("BACK while Stopping: MENU, DShot asked back at once",
-	          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 &&
+	checkTrue("BACK while Stopping: ESC CONFIG, DShot asked back at once",
+	          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1 &&
 	          fakeBridgeLineOpens() == 0);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	brFrames(4);
 	checkTrue("Free, the console never switched", pinClaimState() == ClaimState::Free &&
 	          fakeConsoleSwitches() == 0);
@@ -559,8 +567,9 @@ static void testBackStates() {
 	const int r2 = fakeResumeCount();
 	fakeAdvance(600);   // the stamp is stale on MENU: NO ESC, the cue's line shows
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from a failed bind: MENU, DShot asked back", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("BACK from a failed bind: ESC CONFIG, DShot asked back", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeResumeCount() == r2 + 1);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	brFrames(4);
 	checkTrue("  the bind never ran, an eRPM frame from before the claim: the cue stands, MENU warns",
 	          usbBridgeRunCue(tel.lastRpmMs) &&
@@ -607,8 +616,9 @@ static void testBackStates() {
 	tapId(UI_FIX(EscCfgCtl::Bridge));
 	brFrames(2);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK with no claim: MENU, Free", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("BACK with no claim: ESC CONFIG, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	fakeMscSet(MscState::Idle, 0);
 	tapId(UI_FIX(UI_BACK));
 
@@ -620,8 +630,11 @@ static void testBackStates() {
 	brFrames(1);
 	usbBridgeRunCueClear();
 	pinClaimBegin(PinUser::Am32, PIN_SIG);
-	tapId(UI_FIX(EscCfgCtl::Bridge));
 	brFrames(1);
+	checkTrue("a claim held: ESC CONFIG gates USB BRIDGE", !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)));
+	// Opened by hand past the hub's gate: the screen's own refusal.
+	uiChooseTool(&UI_BRIDGE, nullptr);
+	brFrames(2);
 	checkTrue("a claim held: WAIT: DSHOT RESTARTING, amber", msgIs(0, UI_WAIT_RESTART_TEXT, C_AMBER) &&
 	          pinClaimHolder() == PinUser::Am32);
 	checkTrue("  the refused claim (Busy) sets no cue", !usbBridgeRunCue(0));
@@ -720,8 +733,9 @@ static void testReadOnly() {
 		brFrames(44);
 		tapId(UI_FIX(BridgeCtl::Restart));
 		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
-		checkTrue("RESTART DSHOT: MENU, Free, the cue gone", uiCurrentScreen() == UiScreenId::Menu &&
+		checkTrue("RESTART DSHOT: ESC CONFIG, Free, the cue gone", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free && !usbBridgeRunCue(0));
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		tapId(UI_FIX(UI_BACK));
 	}
 	g_efm8 = false;
@@ -798,8 +812,9 @@ static void testReadOnly() {
 		brFrames(44);
 		tapId(UI_FIX(BridgeCtl::Restart));
 		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
-		checkTrue("RESTART DSHOT: MENU, Free", uiCurrentScreen() == UiScreenId::Menu &&
+		checkTrue("RESTART DSHOT: ESC CONFIG, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free);
+		tapId(UI_FIX(UI_BACK));  // to MENU
 		tapId(UI_FIX(UI_BACK));
 	}
 }

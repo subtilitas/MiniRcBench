@@ -204,8 +204,8 @@ static void testTools() {
 	          r.y == 272 && r.h == 40 &&
 	          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_TOOLS_TITLE, C_TEXT, C_PANEL, 2) &&
 	          allOf(r.x + 100, r.y + 4, r.w - 104, r.h - 8, C_PANEL));
-	checkTrue("the chooser opens only while the claim is Free and claims nothing",
-	          UI_TOOLS.freePins && UI_TOOLS.pinUser == PinUser::None && !UI_TOOLS.status &&
+	checkTrue("the chooser opens whatever the claim's state and claims nothing",
+	          !UI_TOOLS.freePins && UI_TOOLS.pinUser == PinUser::None && !UI_TOOLS.status &&
 	          UI_TOOLS.id == UiScreenId::Tools);
 	checkTrue("the meter claims nothing either, and opens only while the claim is Free",
 	          UI_ANGLE.pinUser == PinUser::None && UI_ANGLE.freePins && !UI_ANGLE.status);
@@ -274,7 +274,8 @@ static void testOpenAndBack() {
 	frames(60);
 	checkTrue("zeroed on this visit", reading().zeroed);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK returns to TOOLS", uiCurrentScreen() == UiScreenId::Tools);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	checkTrue("CTRL7 00h: the accelerometer off", s_q->reg[0x08] == 0x00 &&
 	          qmi8658State() == ImuState::Closed);
 	uint32_t t = fakeI2cTransactionsTo(IMU);
@@ -423,7 +424,8 @@ static void testNoImu() {
 	          qmi8658State() == ImuState::Offline && chipIs("NO IMU", C_AMBER) &&
 	          lineIs(80, UI_ANGLE_NO_ANSWER, C_AMBER));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK leaves", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK leaves", uiCurrentScreen() == UiScreenId::Tools);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -646,14 +648,14 @@ static void testSetup() {
 	          lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) && settings()->angleAlong == 0 &&
 	          uiAngleModel()->set.along == AngleAlong::Long);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("CTRL7 00h on BACK from the main view", s_q->reg[0x08] == 0x00);
+	checkTrue("CTRL7 00h on BACK from the main view, which returns to TOOLS",
+	          s_q->reg[0x08] == 0x00 && uiCurrentScreen() == UiScreenId::Tools);
 	// The next visit takes the setup from the live settings.
-	tapId(menuRow(&UI_TOOLS));
 	tapId(UI_FIX(ToolsCtl::Angle));
 	checkTrue("the next visit: LENGTH 40, INVERT, LONG", uiAngleModel()->set.lengthMm == 40 &&
 	          uiAngleModel()->set.invert && uiAngleModel()->set.along == AngleAlong::Long);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	backToTester();
 	settingsLoad();
 	checkTrue("a restart: what flash holds, SHORT, the failed save's LONG lost",
 	          settings()->angleAlong == 1 && settings()->angleLengthMm == 40);
@@ -678,7 +680,6 @@ static void testSetup() {
 	fakeFlashSetWritable(true);
 	checkTrue("LONG not saved: the hint", lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) && settingsAngleDirty());
 	tapId(UI_FIX(UI_BACK));
-	tapId(menuRow(&UI_TOOLS));
 	tapId(UI_FIX(ToolsCtl::Angle));
 	frames(1);
 	checkTrue("a new visit: still LONG, the hint still there",
@@ -702,6 +703,7 @@ static void testSetup() {
 	fakeFlashSetWritable(true);
 	checkTrue("SHORT not saved", settingsAngleDirty());
 	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));                  // TOOLS to MENU
 	tapId(menuRow(&UI_SETTINGS));
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 41);
@@ -799,8 +801,9 @@ static void testOnlyExit() {
 	checkTrue("12 s on: still the meter, still reading", uiCurrentScreen() == UiScreenId::Angle &&
 	          qmi8658State() == ImuState::Online);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("the main view's BACK leaves, CTRL7 00h", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("the main view's BACK leaves, CTRL7 00h", uiCurrentScreen() == UiScreenId::Tools &&
 	          qmi8658State() == ImuState::Closed && s_q->reg[0x08] == 0x00);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -975,7 +978,6 @@ static void testFlip() {
 
 	// The next visit takes the calibration from the live settings: the one
 	// applied, not saved; after a restart the one flash holds.
-	tapId(menuRow(&UI_TOOLS));
 	tapId(UI_FIX(ToolsCtl::Angle));
 	frames(1);
 	checkTrue("the next visit: the calibration applied, X's offset 60 mg",
@@ -991,7 +993,7 @@ static void testFlip() {
 	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b));
 	               return fabs(b.s.angleCalOffG[0] - 0.06) < 0.001; }());
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	backToTester();
 	settingsLoad();
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_TOOLS));

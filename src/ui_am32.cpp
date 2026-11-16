@@ -2272,7 +2272,7 @@ bool uiAm32Tick(const TouchState *t) {
 	// every state. Doing it here rather than per-state stops it being a button
 	// that is visible but inert on whichever screen forgot to check for it.
 	// On release, like every navigation tap. It goes one level up: ESC HEX
-	// and ESC WRITE to the list, the list through its guard to MENU. While
+	// and ESC WRITE to the list, the list through its guard to ESC CONFIG. While
 	// the write runs it is drawn disabled and does nothing (backLive()).
 	if (backLive()) {
 		bool back = false;

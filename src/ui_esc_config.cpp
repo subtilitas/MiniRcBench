@@ -27,5 +27,5 @@ uint8_t uiEscConfigControls(UiControl *out, uint8_t max) { return uiHubControls(
 
 const UiScreen UI_ESC_CONFIG = {
 	UiScreenId::EscConfig, UI_ESC_CFG_TITLE, PinUser::None, nullptr,
-	uiEscConfigEnter, uiEscConfigTick, nullptr, uiEscConfigControls, nullptr, true,
+	uiEscConfigEnter, uiEscConfigTick, nullptr, uiEscConfigControls, nullptr, false,
 };
