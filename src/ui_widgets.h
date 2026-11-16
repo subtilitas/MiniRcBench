@@ -17,9 +17,9 @@
  *   no habit. @see UI_BACK_X
  * - **A pressed button is drawn additively** — a brighter frame and the label
  *   nudged — never a swapped fill. Buttons here pick a label colour to suit
- *   their own fill (`C_ONACCENT` on red, text on panel, background on a flash), so a
- *   pressed state that replaced the fill would have to know about all of them
- *   to stay legible. Adding to what is there cannot break any pairing.
+ *   their own fill (`C_ONACCENT` on red, text on panel, background on a
+ *   flash), so a pressed state that replaced the fill would have to know
+ *   about all of them to stay legible. Adding to what is there cannot break any pairing.
  * - **Touch targets have a floor.** @ref UI_TAP_MIN is what a fingertip needs;
  *   the 18 px BACK strips this replaces were below it.
  * - **A control that is drawn unavailable does not act.** Pass `enabled=false`

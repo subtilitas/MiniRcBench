@@ -1,6 +1,9 @@
 # UI theme after rcbench's
 
-Status: proposed, not built. The owner decided its five questions on 2026-11-15.
+Status: slices 7 and 8 of [the build plan](menu-c.md#build-plan), the palette
+and the neutral fills, are built, host tests only
+([Slices 7 and 8 as built](#slices-7-and-8-as-built)). Slices 9 to 14 are
+proposed, not built. The owner decided its five questions on 2026-11-15.
 The two questions the answers raised, and the colours of two buttons of the
 DShot lifetime, are settled by the developer's calls of 2026-11-16, pending the
 owner's review ([Decisions](#decisions)). Every colour is computed and not seen
@@ -944,7 +947,7 @@ red one, `NO ESC` the neutral one.
 
 Rendered by the host suite from a scratch copy of the tree at cff09ae with
 the proposal applied by `ui_theme.py --patch DIR --radius`, then tiled by
-`ui_theme.py --sheet`. Nothing in `src/` is changed on this branch. Each
+`ui_theme.py --sheet`. They show the scratch copy, not `src/`. Each
 screen is 240 x 320 px, shown at twice its size. The screens are those of
 cff09ae: the structure and the names of menu-c.md are not built, so a
 title reads SETTINGS where the proposal has SETUP, and PROGRAMMER stands
@@ -1068,8 +1071,9 @@ review:
 
 Decisions the theme revises, with the line that stands under each now,
 marked "Not built", with "pending the owner's review" for each part that
-comes from a developer's call. Slice 14 of
-[the build plan](menu-c.md#build-plan) marks the lines built.
+comes from a developer's call. A slice that builds a line marks it "Built",
+with its number, here and in the note the line stands in. Slice 14 of
+[the build plan](menu-c.md#build-plan) marks the lines that are left.
 
 1. **[menu-b.md](menu-b.md#decisions) decision 8,** "Changed is cyan, with
    a bar", and decision 26, the owner's choice of `C_CYAN`.
@@ -1119,23 +1123,23 @@ comes from a developer's call. Slice 14 of
 
    > Revised by [ui-theme.md](ui-theme.md#widgets): a chip with no state to
    > report, `NO ESC`, `PORT CLOSED` and `MOVING`, is a 1 px `C_GRID` frame on
-   > `C_BG` with a `C_DIM` label, square and 12 px tall. Not built.
+   > `C_BG` with a `C_DIM` label, square and 12 px tall. Built: slice 8.
 
 6. **menu-b.md decision 11,** the row "servo SPEED fill: `C_DIM`".
 
    > Revised by [ui-theme.md](ui-theme.md#widgets): a slider's fill is `C_GRID`.
-   > Not built.
+   > Built: slice 8.
 
 7. **menu-b.md, "The field lists",** the drawing's line "`SWIPE = COARSE`:
    `C_GRID`".
 
-   > Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`. Not
-   > built.
+   > Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`. Built:
+   > slice 8.
 
 8. **menu-b.md, "Slice 2 as built",** the chip block: the label on a fill.
    Not a decision; the build updates the paragraph and
    [rx-signals.md](rx-signals.md), which records the same rule: `C_ONACCENT`
-   is dark in the Dark theme ([decision 3](#decisions)).
+   is dark in the Dark theme ([decision 3](#decisions)). Built: slice 7.
 
 Decisions the theme leaves as they are:
 
@@ -1159,8 +1163,8 @@ tests and its dependence on the DShot slices, D1 to D5. None needs hardware
 
 | Slice of the plan | What |
 |---|---|
-| 7 | Palette |
-| 8 | Neutral fills: the edit buttons, the neutral chip, the header's rule, the hints, the slider's fill |
+| 7 | Palette. Built: [Slices 7 and 8 as built](#slices-7-and-8-as-built) |
+| 8 | Neutral fills: the edit buttons, the neutral chip, the header's rule, the hints, the slider's fill. Built with slice 7 |
 | 9 | Radius |
 | 10 | Cyan |
 | 11 | Green on the tools |
@@ -1192,6 +1196,105 @@ Notes on the slices:
   [The build plan](menu-c.md#build-plan) lists the same dependencies.
 - **Flash and RAM.** The palette is 34 bytes of the same size. The radius
   adds a loop per corner row; the frame cost is not measured.
+
+## Slices 7 and 8 as built
+
+Slice 7, the palette, and slice 8, the neutral fills, of
+[the build plan](menu-c.md#build-plan), in one pull request, with host tests
+in `test/test_widgets.cpp`, `test/test_ui.cpp`, `test/test_ids.cpp`,
+`test/test_servo.cpp`, `test/test_kst_ui.cpp`, `test/test_hitec_ui.cpp`,
+`test/test_sbus_out_ui.cpp`, `test/test_angle_ui.cpp` and
+`test/test_bridge_ui.cpp`. Not seen on the panel: every colour of both
+slices is computed, and the suite reads RGB565 words, not light.
+
+| Block | Where | What it draws |
+|---|---|---|
+| The Dark table | `THEME_DARK`, `src/theme.cpp` | the 17 values of [The Dark table, proposed](#the-dark-table-proposed), each an `rgb()` triple; High contrast's table is not touched |
+| Dark ink on a fill | `TC_ONACCENT`, `src/theme.{h,cpp}` | 4, 8, 14, word 0x0041, in Dark ([decision 3](#decisions)); white in High contrast. `theme.h`'s table and the entries' meanings say so |
+| Edit buttons | `drawEditBar()` in `ui_am32.cpp`; `drawList()` in `ui_kst.cpp` and `ui_hitec.cpp`; `drawSet()` in `ui_servo.cpp` and `ui_sbus_out.cpp` | `-` and `+` on `C_PANEL` with a `C_TEXT` label; Hitec's REPAIR the same |
+| Neutral chip | `uiChip()`, `ui_widgets.{h,cpp}` | with `C_GRID`: a 1 px `C_GRID` frame, `C_BG` inside, the label in `C_DIM`; `NO ESC` on MENU and ESC COMMANDS, `PORT CLOSED` on USB BRIDGE, `MOVING` on ANGLE METER |
+| Header rule | `uiHeader()`, `UI_HDR_RULE_Y`, `ui_widgets.{h,cpp}` | 1 px of `C_GRID` at y 35 from x 0 to x 239, on every screen with a header |
+| Hints | the editor bars of the five field lists; `ui_sdlog.cpp`; `drawRpm()` in `ui.cpp` | `C_DIM`, as listed below |
+| Slider fill | the callers of `uiSliderDraw()`: `drawSpeed()` in `ui_servo.cpp`, the channel rows of `ui_sbus_out.cpp` | `C_GRID`; the thumb stays `C_TEXT`, `C_DIM` while dimmed |
+
+The tests the plan names, and where they are:
+
+- **Values.** `testPaletteValues()`: each Dark word equals its triple
+  through `rgb()` and the word of the note's table; each High contrast word
+  equals the word of [the table at cff09ae](#palette-and-themes).
+- **Distinct words.** `testPaletteDistinct()`: of Dark's 136 pairs one is
+  equal, `TC_PAPER` and `TC_BG`.
+- **Contrast.** `testPaletteContrast()`: the 29 rows of
+  [the contrast table](#contrast), computed as `ui_theme.py` computes them,
+  in both themes, each to two decimals. A text pair is 4.5 or more but the
+  named exceptions, and each exception is under 4.5; a label on a fill is
+  4.5 or more with no exception.
+- **Slice 8.** Each edit button's fill and label by control id on ESC
+  SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR;
+  the neutral chip in `testChipNeutral()` and through `chipIs()` and
+  `menuChipIs()` on its three screens; the rule in `testHeaderRule()` and
+  in `checkControlTable()` of `test/ui_ids.h`, which 158 frames of screens
+  with a header pass through; each hint by its text and `C_DIM`; SPEED's
+  fill and a running channel's fill.
+
+Readings of the note where the code asked for a choice:
+
+- **Distinct words in High contrast.** The plan asks that every entry but
+  `TC_PAPER` differ from every other in both themes. High contrast keeps
+  its values, and four of its pairs are equal: `TC_BG`, `TC_PAPER` and
+  `TC_ONACCENT` are white, and `TC_TEXT` and `TC_INK` black. The test holds
+  those four pairs and no other. A probe cannot tell white ink on a fill
+  from the screen's white there, as at cff09ae.
+- **The contrast exceptions.** Dark: `GRID` on `BG`, 3.57, the disabled
+  label and the group captions; `RED` on `PANEL`, 4.03, `ERROR` in the ESC
+  STATUS tile. High contrast, unchanged: `AMBER` on `PANEL`, 3.42, and
+  `LIME` on `PANEL`, 3.82.
+- **Which texts are hints.** Every line that tells the user what a touch
+  does and was `C_GRID`: `SWIPE = COARSE`, `TAP A ROW TO EDIT IT`, `TAP A
+  SETTING TO EDIT` and `SWIPE IT SIDEWAYS FOR COARSE` in the editor bars;
+  the bar's lines of a list that is shown only, `SHOWN ONLY: NOTHING IS
+  WRITTEN.`, `TAP A SETTING TO EDIT` and `BACK SENDS LEAVE: THE ESC
+  STARTS.` on a Bluejay or BLHeli_S list, `THE BYTES AS READ. THE FIELD
+  TABLE` and `IS NOT CHECKED FOR THIS LAYOUT.` on AM32's read-only view,
+  `NOTHING IS WRITTEN TO THIS SERVO` on KST SERVO; `EJECT ON THE COMPUTER
+  FIRST,` and `OR PRESS EJECT BELOW` on SD LOG; and the tester's `SWIPE =
+  THROTTLE` while disarmed, which stays `C_TEXT` while armed.
+- **What stays `C_GRID` as text.** Disabled labels, group captions,
+  read-only values and their labels, the source tags of the file lists,
+  SETUP's read-only values, the tester's `NOSD` and the splash's board and
+  version lines. Slice 13 walks them.
+- **The neutral chip by its colour.** `uiChip()` keeps its two parameters:
+  a caller that passes `C_GRID` gets the neutral chip. No other entry has
+  `C_GRID`'s word in either theme.
+- **The neutral chip and the rule in High contrast.** Both are 1 px, as in
+  Dark; the 2 px frames of High contrast are `gfxRoundFrame()`'s, which a
+  chip and a rule do not use.
+- **Edit buttons' label scale.** As before: 1 on ESC SETTINGS and for
+  REPAIR, 2 on the other four.
+- **A slider while dimmed** drew `C_GRID` before and still does; S.BUS
+  OUTPUT's channels while SAFE look as they did but for the palette.
+- **Revision 8.** [menu-b.md](menu-b.md#slice-2-as-built)'s chip row and
+  [rx-signals.md](rx-signals.md)'s chip paragraph name `C_ONACCENT` as
+  dark in the Dark theme.
+
+Mutations, each run against the suite and restored:
+
+| Mutation | Failing checks |
+|---|---|
+| `TC_GRID`'s green 106 to 110 | 6: the value, the note's word, four ratios |
+| `TC_ONACCENT` white in Dark | 12: the value, the equal pair `TC_INK`, the six labels on fills |
+| High contrast's `TC_AMBER` green 88 to 92 | 4: the word, three ratios |
+| The edit buttons and REPAIR back on `C_GRID` with `C_ONACCENT` | 8, on all five screens and REPAIR |
+| `uiChip()` fills with `C_GRID` | 20: the widget in both themes, MENU, ANGLE METER, USB BRIDGE |
+| The rule not drawn | 162: the widget's four and 158 control-table frames |
+| Every hint back to `C_GRID` | 18 |
+| Both sliders' fill back to `C_DIM` | 4: SPEED and a running channel |
+
+Left to the slices that follow: the radius (slice 9), cyan (slice 10),
+green (slices 11 and 12), the walk over every screen's pairs (slice 13),
+and "grey" in README and the wiki where slice 8 did not change the thing
+named (slice 14). The previews under `docs/` and `wiki/img/` are rendered
+with the palette of these slices and the widgets of cff09ae otherwise.
 
 ## Open questions
 

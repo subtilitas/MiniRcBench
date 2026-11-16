@@ -1241,6 +1241,44 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: the Dark theme takes rcbench's dark palette, slices 7
+  and 8 of the build plan in
+  [menu-c.md](docs/design/menu-c.md#build-plan), recorded in
+  [ui-theme.md](docs/design/ui-theme.md#slices-7-and-8-as-built). By the
+  owner's decision of 2026-11-15, 0.1.0 waits for the menu, the look and the
+  DShot lifetime, of which these are the first two slices of the look. The 17
+  entries of `THEME_DARK` in `src/theme.cpp` hold the note's values as
+  `rgb()` triples: the screen 2, 5, 9, word 0x0021, in place of black; the
+  control face 26, 40, 58; frames and disabled labels 72, 106, 134; labels
+  132, 172, 202; text 232, 248, 255; and rcbench's accents. A label on a
+  coloured fill, `C_ONACCENT`, is 4, 8, 14 in place of white (the owner's
+  decision 3 there): `ARMED`, `STOP`, `DISARM`, `PROG MODE`, a toggle that is
+  on, LATCH on, a held hold. Before, white on the lime, green, blue, magenta
+  and red fills had contrast ratios of 1.37 to 3.53; dark ink on the new
+  fills has 5.45 or more. High contrast keeps its values. With the palette
+  go the neutral fills: the editor bars' `-` and `+` on ESC SETTINGS, KST
+  SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and Hitec's `REPAIR`, are
+  neutral buttons, `C_PANEL` with a `C_TEXT` label, in place of `C_GRID`
+  fills, on which dark ink would be 3.51; a chip with no state to report,
+  `NO ESC` on MENU and ESC COMMANDS, `PORT CLOSED` on USB BRIDGE and `MOVING`
+  on ANGLE METER, is a 1 px `C_GRID` frame with `C_BG` inside and a `C_DIM`
+  label (`uiChip()` with `C_GRID`); every header ends in a 1 px `C_GRID` rule
+  at y 35 (`UI_HDR_RULE_Y`); the hints are `C_DIM` in place of `C_GRID`:
+  `SWIPE = COARSE`, `TAP A ROW TO EDIT IT`, `TAP A SETTING TO EDIT`, `SWIPE
+  IT SIDEWAYS FOR COARSE`, the bar's lines under a list that is shown only,
+  SD LOG's two lines on how to eject, and the tester's `SWIPE = THROTTLE`
+  while disarmed; and a slider's fill, SPEED's and a running S.BUS channel's,
+  is `C_GRID` in place of `C_DIM`. No rectangle and no text moves. Not seen
+  on the panel: every colour is computed for sRGB, and the panel's gamma,
+  primaries and backlight are not measured. Host tests, mutation-checked:
+  `testPaletteValues()`, `testPaletteDistinct()` and `testPaletteContrast()`,
+  which holds the 29 pairs of the note's contrast table in both themes,
+  `testHeaderRule()` and `testChipNeutral()` in `test/test_widgets.cpp`; the
+  rule on every frame `checkControlTable()` reads; the buttons, chips, hints
+  and fills on their screens. The previews under `docs/` are rendered again.
+  README.md and the wiki pages The Screens, Telemetry, Servo Tester, USB
+  Bridge and Angle Meter, in both languages, describe the palette and the
+  changed widgets.
 - After v0.1.0-rc1: the release notes gain a "Hardware testing" section: no
   MiniRcBench image has run on hardware. They name the image by its tag and
   the ESC pin setting as SIG PIN. The README's "Prebuilt image" and the wiki's

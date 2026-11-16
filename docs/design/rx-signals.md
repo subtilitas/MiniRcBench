@@ -388,7 +388,9 @@ the other screens have.
 
 A chip on `C_AMBER` has its label in `C_PAPER`, on `C_GREEN` and `C_RED` in
 `C_ONACCENT`: `uiChip()` takes `C_PAPER` over the two fills that are bright
-in one theme and dark in the other, as `theme.h` names them. `FRAME LOST`
+in one theme and dark in the other, as `theme.h` names them. `C_ONACCENT`
+is dark in the Dark theme and white in High contrast
+([ui-theme.md](ui-theme.md#decisions) decision 3). `FRAME LOST`
 holds for 250 ms (`SBUS_VIEW_LOST_HOLD_MS`) from the UI frame that sees
 `lostFrames` rise, which is at most one UI frame, 25 ms, after the frame
 arrived.
