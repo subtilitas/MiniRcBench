@@ -14,6 +14,8 @@
 #define PADS_BANK0_GPIO0_IE_BITS  0x00000040u
 #define PADS_BANK0_GPIO0_PUE_BITS 0x00000008u
 #define PADS_BANK0_GPIO0_PDE_BITS 0x00000004u
+#define PADS_BANK0_GPIO0_DRIVE_BITS 0x00000030u
+#define PADS_BANK0_GPIO0_DRIVE_LSB  4u
 
 /** @brief GPIOx's pad register. */
 struct fake_pad_reg { uint32_t value; };

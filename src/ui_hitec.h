@@ -41,6 +41,8 @@
 
 #include <stdint.h>
 
+#include "ui_screen.h"
+
 struct TouchState;
 
 /**
@@ -160,4 +162,7 @@ struct UiScreen;
  *        uiHitecEnterD() or uiHitecEnterClassic(). Its own `enter` is the
  *        D series entry, which needs no switched supply.
  */
-extern const UiScreen UI_HITEC;
+inline constexpr const UiScreen UI_HITEC = {
+	UiScreenId::Hitec, "HITEC SERVO", PinUser::Hitec, nullptr,
+	uiHitecEnterD, uiHitecTick, nullptr, uiHitecControls, nullptr, false,
+};

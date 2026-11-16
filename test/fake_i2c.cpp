@@ -486,8 +486,11 @@ extern "C" bool gpio_get(uint32_t gpio) {
 	return fakePin(gpio).high;
 }
 
+// As pico-sdk 2.1.1 does (hardware_gpio/gpio.c): the direction in, the
+// output value 0, then the SIO function.
 extern "C" void gpio_init(uint32_t gpio) {
 	gpio_set_dir(gpio, GPIO_IN);
+	gpio_put(gpio, 0);
 	gpio_set_function(gpio, GPIO_FUNC_SIO);
 }
 

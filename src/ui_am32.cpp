@@ -2040,7 +2040,6 @@ static void doWrite() {
 	else snprintf(s_status, sizeof(s_status), ST_VERIFIED);
 }
 
-
 /** @brief The card for the backup line: 2 mounted, 1 held by a USB host, 0 none. */
 static uint8_t cardSeen() {
 	if (cardMounted()) return 2;
@@ -2491,7 +2490,3 @@ bool uiAm32RunCue(uint32_t lastRpmMs) {
 	return s_blReached;
 }
 
-const UiScreen UI_AM32 = {
-	UiScreenId::Am32, AM32_UI_TITLE, PinUser::Am32, nullptr,
-	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr, false,
-};

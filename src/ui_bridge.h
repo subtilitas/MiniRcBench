@@ -55,6 +55,8 @@
 
 #include <stdint.h>
 
+#include "ui_screen.h"
+
 struct TouchState;
 struct UiControl;
 struct UiScreen;
@@ -166,4 +168,7 @@ bool uiBridgeTick(const TouchState *t);
 uint8_t uiBridgeControls(UiControl *out, uint8_t max);
 
 /** @brief USB BRIDGE. */
-extern const UiScreen UI_BRIDGE;
+inline constexpr const UiScreen UI_BRIDGE = {
+	UiScreenId::Bridge, BRIDGE_UI_TITLE, PinUser::Bridge, nullptr,
+	uiBridgeEnter, uiBridgeTick, nullptr, uiBridgeControls, nullptr, false,
+};

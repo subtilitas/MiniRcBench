@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 
+#include "ui_screen.h"
+
 struct TouchState;
 
 
@@ -109,4 +111,7 @@ static_assert(sizeof(KST_UI_REBOOT_LOSES_1) - 1 <= 37 && sizeof(KST_UI_REBOOT_LO
               "a leave note line is wider than a scale-1 line");
 
 /** @brief KST SERVO. */
-extern const UiScreen UI_KST;
+inline constexpr const UiScreen UI_KST = {
+	UiScreenId::Kst, "KST SERVO", PinUser::Kst, nullptr,
+	uiKstEnter, uiKstTick, nullptr, uiKstControls, nullptr, false,
+};

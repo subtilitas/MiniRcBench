@@ -28,8 +28,8 @@
  * their tables are in ui_registry.cpp, each checked by hubEntriesFit() at
  * build time.
  *
- * The hub is slice 1 of menu structure C (docs/design/menu-c.md, "The hub",
- * a note on the branch `ccr-menu-rcb`). The geometry is PROGRAMMER's.
+ * The hub is slice 1 of menu structure C (docs/design/menu-c.md, "The hub").
+ * The geometry is PROGRAMMER's.
  *
  * @see docs/design/menu-b.md, "PROGRAMMER, the chooser"
  */

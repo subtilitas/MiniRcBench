@@ -60,6 +60,8 @@
 
 #include <stdint.h>
 
+#include "ui_screen.h"
+
 struct TouchState;
 struct UiControl;
 struct UiScreen;
@@ -179,4 +181,7 @@ bool uiSbusOutTick(const TouchState *t);
 uint8_t uiSbusOutControls(UiControl *out, uint8_t max);
 
 /** @brief S.BUS OUTPUT. */
-extern const UiScreen UI_SBUS_OUT;
+inline constexpr const UiScreen UI_SBUS_OUT = {
+	UiScreenId::SbusOut, SBOUT_UI_TITLE, PinUser::SbusOut, nullptr,
+	uiSbusOutEnter, uiSbusOutTick, nullptr, uiSbusOutControls, nullptr, false,
+};

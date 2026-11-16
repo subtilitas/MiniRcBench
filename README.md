@@ -587,8 +587,8 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 programmers' chooser.*
 
 MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
-at scale 2 on the left and its state right-aligned. **BACK** returns to the
-tester. **BACK** returns to the screen that opened the one on show: a
+at scale 2 on the left and its state right-aligned. MENU's **BACK** returns
+to the tester. **BACK** returns to the screen that opened the one on show: a
 tool opened from a MENU row returns to MENU, a tool opened from a chooser
 to that chooser, and SETTINGS opened from the tester's pole count or
 ceiling to the tester. The screens form a stack of at most three over the
@@ -3165,8 +3165,8 @@ GP0 is let go and returns to RX SIGNALS. After a Bluejay or BLHeli_S
 bootloader answered, BACK stops the frames and opens the page with ESC
 SETTINGS' first step, `UNPLUG THE ESC BATTERY, THEN LEAVE.`, STAY and LEAVE,
 and a last step `THEN PLUG THE ESC BACK IN.`: the bootloader waits for
-commands and may read DShot as one. **BACK** before the claim holds returns to RX SIGNALS with
-DShot running.
+commands and may read DShot as one. **BACK** before the claim holds returns
+to RX SIGNALS with DShot running.
 
 Not verified:
 
@@ -3881,7 +3881,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 15,908 of 16,170 lines in 98 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 15,976 of 16,238 lines in 98 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

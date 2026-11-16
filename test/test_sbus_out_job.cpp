@@ -1792,7 +1792,7 @@ static void testOnlyPath() {
 		{ "../src/ui_sbus_out.cpp", "pinClaimRestart(PinUser::SbusOut);", 1 },
 		{ "../src/ui_sbus_out.cpp", "pinClaimKeep(PinUser::SbusOut);", 1 },
 		{ "../src/ui_sbus_out.cpp", "if (retry && tapped(BTN_RETRY)) pinClaimRetry(PinUser::SbusOut);", 1 },
-		{ "../src/ui_sbus_out.cpp", "UiScreenId::SbusOut, SBOUT_UI_TITLE, PinUser::SbusOut, nullptr,", 1 },
+		{ "../src/ui_sbus_out.h", "UiScreenId::SbusOut, SBOUT_UI_TITLE, PinUser::SbusOut, nullptr,", 1 },
 		{ "../src/ui_sbus_out.cpp", "sbusOutJobCommand(&c);", 1 },
 		{ "../src/ui_sbus_out.cpp", "send(SbusOutCmdKind::Start);", 1 },
 	};

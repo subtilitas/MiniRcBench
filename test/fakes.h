@@ -204,8 +204,8 @@ uint16_t fakeThrottle();
 bool fakeArmed();
 
 /**
- * @brief True while no suspend is requested: DShot has the pin or rebuilds
- *        on the next pass.
+ * @brief True while Run is asked for: DShot has the pin or binds on the next
+ *        pass.
  */
 bool fakePinReturned();
 
@@ -222,17 +222,23 @@ FakeWiring fakeWiring();
 
 /**
  * @brief One pass of the fake DShot pump on core1: escTaskPoll()'s handover
- *        and one frame decision on the shipped rules.
+ *        and one frame decision on the shipped rules, and the pads of a park.
  *
- * Not modelled: the PIO, the reply fold, the frame timing, the heartbeat
- * (uiAlive is true), the beacon request and the KISS receiver.
+ * Not modelled: the PIO and its pad writes, the reply fold, the frame timing,
+ * the heartbeat (uiAlive is true), the beacon request and the KISS receiver.
  */
 void fakePumpPoll();
 
 /** @brief EscPump::lastThrottleMs of the fake pump. */
 uint32_t fakeLastThrottleMs();
 
-/** @brief How many times escTaskResume() has been called. */
+/** @brief Frames the fake pump has sent, drain frames included. */
+int fakeFrameCount();
+
+/** @brief The last frame the fake pump sent. */
+EscFrame fakeLastFrame();
+
+/** @brief How many times escTaskStart() has been called. */
 int fakeResumeCount();
 
 /** @brief How many times the fake pump has bound. */
@@ -241,7 +247,22 @@ int fakeRebuildCount();
 /** @brief The wiring the fake pump's last bind used. */
 FakeWiring fakeResumeWiring();
 
-/** @brief Whether the core1 job was idle at the last escTaskResume(). */
+/**
+ * @brief Call @p hook inside each fake bind, where out_dshot_bind() runs:
+ *        after the wiring is read, before the bind is reported.
+ * @param hook The hook; nullptr for none.
+ */
+void fakeSetBindHook(void (*hook)());
+
+/**
+ * @brief Put core1's side of the fake pump back to its power-on state, as
+ *        esc_task.cpp's static initialisers leave it: no bind, Run wanted
+ *        and reached, the bind stamp 0, nothing held, no rebuild pending.
+ *        The wiring is left as configured.
+ */
+void fakePumpPowerOn();
+
+/** @brief Whether the core1 job was idle at the last escTaskStart(). */
 bool fakeResumeJobIdle();
 
 /** @brief GPIO the AM32 transport was last handed by am32BlBegin(). */
@@ -532,6 +553,14 @@ void fakePwmBreakSliceMap(bool on);
 
 /** @brief The record of one GPIO. @param gpio GPIO. @return The record. */
 FakePin fakePin(unsigned gpio);
+
+/**
+ * @brief Call @p hook after each GPIO write of the fake: gpio_put(),
+ *        gpio_set_dir(), gpio_set_function(), a pull, the input buffer and
+ *        the drive. Off while the hook runs.
+ * @param hook The hook, given the GPIO written; nullptr for none.
+ */
+void fakeSetGpioHook(void (*hook)(uint32_t gpio));
 
 /** @brief The record of one slice. @param slice Slice. @return The record. */
 FakeSlice fakeSlice(unsigned slice);

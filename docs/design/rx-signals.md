@@ -829,7 +829,7 @@ S.BUS output's row, `SbusOut`, is designed in
   START and STOP, BACK or a trip. The claim ends only through BACK, and no
   other screen is reachable while it holds. The monitor drives no pin.
 - **What the claim must guarantee before DShot returns.** The monitor is an
-  input, but the receiver on GP1 is an output. Before `escTaskResume()`:
+  input, but the receiver on GP1 is an output. Before `escTaskStart()`:
   the job is idle, UART0 is off, GP1 has no input inversion and is a plain
   input. In the default wiring DShot restarts on GP0 and the receiver's
   line meets at most the KISS receiver's pull-up on GP1. When GP1 is SIG,

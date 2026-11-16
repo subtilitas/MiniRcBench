@@ -6,3 +6,5 @@ extern "C" {
 uint32_t save_and_disable_interrupts();
 void restore_interrupts(uint32_t);
 }
+/** @brief A data memory barrier; on the host a compiler barrier. */
+static inline void __dmb(void) { __asm__ volatile("" ::: "memory"); }

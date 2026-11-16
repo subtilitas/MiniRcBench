@@ -1918,7 +1918,3 @@ bool uiHitecTick(const TouchState *t) {
 }
 
 // No MENU row opens it: PROGRAMMER's entries name their entry point.
-const UiScreen UI_HITEC = {
-	UiScreenId::Hitec, "HITEC SERVO", PinUser::Hitec, nullptr,
-	uiHitecEnterD, uiHitecTick, nullptr, uiHitecControls, nullptr, false,
-};

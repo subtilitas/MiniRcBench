@@ -11,6 +11,7 @@
 #include <string.h>
 #include <pico/critical_section.h>
 #include <hardware/gpio.h>
+#include <hardware/sync.h>
 
 /**
  * @file esc_task.cpp
@@ -46,8 +47,23 @@ static_assert(sizeof(dshot_bidir_tx_program_instructions) / sizeof(uint16_t) +
  * @defgroup esc_pump Pin driver state (core1 only)
  * @{
  */
-static bool    s_pumpUp  = false; /**< Bound since the last teardown, or refused. */
+/** Bound since the last teardown, or refused. Core0 reads it. */
+static volatile bool s_pumpUp = false;
 static uint8_t s_pumpPin = 0;     /**< GPIO the driver was bound to. */
+/**
+ * The mode core1 last reached; Run with the pump down before the first bind
+ * and after a teardown. Core0 reads it. @see escModeReported()
+ */
+static volatile EscPinMode s_reached = EscPinMode::Run;
+/**
+ * millis() at the end of the last bind that succeeded, 0 made 1; 0 while the
+ * pump is down. Core0 reads it. @see escTaskBoundMs()
+ */
+static volatile uint32_t s_boundMs = 0;
+/** SIG the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
+static uint8_t s_heldSig = ESC_NO_GPIO;
+/** AUX the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
+static uint8_t s_heldAux = ESC_NO_GPIO;
 /** @} */
 
 /** @brief Guards @ref s_tel against concurrent access from core0. */
@@ -288,23 +304,34 @@ static void publishCommand(bool taken, uint8_t readGen) {
 bool escEdtRequested() { return s_edtRequested; }
 
 /**
- * @defgroup esc_suspend Pin handover
- * @brief Frees both pins for the pin claim. @see pin_claim.h
+ * @defgroup esc_suspend Pin modes
+ * @brief Run, Park and Release: core0 asks, core1 reaches and reports.
+ * @see pin_claim.h, escHandoverStep()
  * @{
  */
-static volatile bool s_suspendReq = false;
-static volatile bool s_suspended  = false;
+/** The mode core0 asks for. Run from boot. */
+static volatile EscPinMode s_want = EscPinMode::Run;
 
 void escTaskSuspend() {
 	escSetArmed(false);
-	s_suspendReq = true;
+	s_want = EscPinMode::Release;
 }
 
-void escTaskResume() {
-	s_suspendReq = false;
+void escTaskPark() {
+	escSetArmed(false);
+	s_want = EscPinMode::Park;
 }
 
-bool escTaskSuspended() { return s_suspended; }
+void escTaskStart() {
+	s_want = EscPinMode::Run;
+}
+
+bool escTaskSuspended() {
+	return escModeReported(s_reached, s_pumpUp, EscPinMode::Release);
+}
+bool escTaskParked() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Park); }
+bool escTaskRunning() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Run); }
+uint32_t escTaskBoundMs() { return s_boundMs; }
 /** @} */
 
 void escSnapshot(EscTelemetry *out) {
@@ -345,6 +372,9 @@ void escTaskConfigure(uint8_t dshotPin, uint16_t dshotKbaud,
 	s_dshotKbaud = dshotKbaud;
 	s_kissEnable = kissEnable ? 1u : 0u;
 	s_kissPin    = kissPin;
+	// The wiring stores land before the request: core1 clears the request,
+	// takes its own barrier and then reads the wiring. @see pumpBind()
+	__dmb();
 	s_rebuildReq = true;
 }
 
@@ -376,83 +406,171 @@ static void applyTelemetry(dshot_reply_t reply, const dshot_telem_t *t) {
 	critical_section_exit(&s_cs);
 }
 
+/**
+ * @brief Tear the pump down: stop and release the driver, end the KISS
+ *        receiver, clear `initError`. Core1 only.
+ */
+static void pumpTeardown() {
+	if (s_pumpUp) {
+		// Stop first, cutting any frame in flight (out_dshot_stop() leaves
+		// the line at its idle level), then release. The release hands the
+		// pad back as a plain input with the pulls off. The pull-up goes
+		// back on, so the line holds the bidirectional idle level until its
+		// next owner takes it: a claim's user, the park, or nothing after a
+		// pin change.
+		// The stamp first: core0 never reads a bind stamp for a pump
+		// that is going down.
+		s_boundMs = 0;
+		__dmb();
+		out_dshot_stop(s_pumpPin);
+		out_dshot_release(s_pumpPin);
+		gpio_pull_up(s_pumpPin);
+		s_pumpUp = false;  // reported as no mode until the next one is reached
+		// A sequence going out stops here, and core0 reads NoAnswer
+		// until the next bind has an ESC answering, rather than the
+		// last readiness for as long as the pin is away. A request
+		// still waiting expires: it does not start on the next bind.
+		critical_section_enter_blocking(&s_cs);
+		EscCmdRequest req = s_cmdReq;
+		uint8_t reqGen = s_cmdGen;
+		escTelTeardown(&s_tel);
+		critical_section_exit(&s_cs);
+		publishCommand(escPumpTeardown(&s_pump, &req), reqGen);
+	}
+#if KISS_TELEM_ENABLE
+	// Whoever owns the pin next, it is not us. A receiver left running
+	// would accumulate noise into a decoder with no way to tell it from a
+	// reply.
+	kissUartEnd();
+#endif
+}
+
+/**
+ * @brief Bind the driver from the latched wiring, and the KISS receiver with
+ *        it. Core1 only.
+ */
+static void pumpBind() {
+	// The request is cleared before the wiring is read, so a configure that
+	// lands during the bind leaves it set, and the next pass rebuilds on the
+	// new wiring. @see esc_wiring
+	s_rebuildReq = false;
+	__dmb();
+	// Latch the wiring once, here. A configure that lands during these reads
+	// can be latched half-applied for this one pass, with the ESC disarmed;
+	// it leaves the request set, and the next pass rebuilds on its wiring.
+	uint8_t  pin   = s_dshotPin;
+	uint16_t kbaud = s_dshotKbaud;
+	uint8_t  aux   = s_kissPin;
+	bool     kiss  = s_kissEnable != 0;
+	// Out of Park the pads go back first: SIG on its pull-up at 4 mA, from
+	// where the bind takes it, and a GPIO the old wiring held to EscPad::Off.
+	// No mode is reported while they change: core0 never reads "parked"
+	// with SIG no longer driven low. @see escParkPlan()
+	EscPinMode from = s_reached;
+	if (from == EscPinMode::Park) {
+		s_reached = EscPinMode::Run;
+		__dmb();
+		EscPadPlan plan = escParkPlan(from, EscPinMode::Run, s_heldSig, s_heldAux,
+		                              pin, aux);
+		escPadApply(&plan);
+	}
+	// Bidirectional, and refused rather than degraded: a bind that cannot
+	// get two adjacent state machines in one block fails here, and
+	// `initError` puts DSERR in the status bar. The pump still runs its
+	// slots, so the link counters show an ESC that never answers.
+	bool bound = out_dshot_bind(pin, kbaud, true);
+	s_pumpPin = pin;
+	// Run before the pump is up, so core0 never reads Park with the pump up.
+	s_reached = EscPinMode::Run;
+	s_pumpUp  = true;
+	s_heldSig = pin;
+	s_heldAux = aux;
+	// A rebuild is a new ESC as far as this pump is concerned: it starts
+	// disarmed, and its first frames are the EDT enable. An ESC that kept
+	// EDT on across the rebuild is read correctly from its first reply,
+	// because every reply is read with EDT decoding on.
+	// @see escPumpBind(), ESC_EDT_DECODE, escEdtBind()
+	escPumpBind(&s_pump, &s_armed, &s_throttle);
+	s_edtRequested = s_pump.edt.sent;
+	s_nextSendUs = time_us_32();
+#if KISS_TELEM_ENABLE
+	if (kiss && aux != pin) kissUartBegin(aux);
+#else
+	(void)kiss;
+#endif
+	critical_section_enter_blocking(&s_cs);
+	s_tel.initError = !bound;
+	critical_section_exit(&s_cs);
+	// The bind stamp last, once everything it stands for is in place.
+	// @see escTaskBoundMs()
+	uint32_t stamp = millis();
+	__dmb();
+	s_boundMs = bound ? (stamp ? stamp : 1u) : 0u;
+}
+
+/**
+ * @brief Set the pads for Park or Release from the latched wiring, and
+ *        report the mode. Core1 only.
+ *
+ * Release touches the pads only out of Park: from Run the teardown left them
+ * in today's handover state, and before anything was held they are in the
+ * pad's reset state. While the pads change no mode is reported, so core0
+ * never reads "parked" or "released" for pads on their way.
+ *
+ * @param to EscPinMode::Park or EscPinMode::Release.
+ */
+static void padsTo(EscPinMode to) {
+	EscPinMode from = s_reached;
+	if (to == EscPinMode::Park || from == EscPinMode::Park) {
+		// Cleared before the wiring is read, as in pumpBind(): a configure
+		// that lands during the park parks again on the next pass.
+		s_rebuildReq = false;
+		s_reached = EscPinMode::Run;
+		__dmb();
+		uint8_t sig = s_dshotPin;
+		uint8_t aux = s_kissPin;
+		EscPadPlan plan = escParkPlan(from, to, s_heldSig, s_heldAux, sig, aux);
+		escPadApply(&plan);
+		s_heldSig = sig;
+		s_heldAux = aux;
+		// The pads are set before the mode that names them is published.
+		__dmb();
+	}
+	s_reached = to;
+}
+
 void escTaskPoll() {
-	// Handle a handover or a reconfigure before anything touches the driver.
-	// Release and bind both happen here so the PIO state machines are released
-	// and re-claimed by the core that owns them.
+	// Handle a mode change or a reconfigure before anything touches the
+	// driver. Release, park and bind all happen here so the PIO state
+	// machines are released and re-claimed by the core that owns them.
 	//
-	// The teardown runs on the *request* rather than on the pump being up. A
-	// suspend arriving before core1 has ever bound the pin must still set
-	// `s_suspended`, or the claim waits on a handover that cannot complete.
-	//
-	// It waits for the drain first: zero frames until more than
-	// ARM_ZERO_THROTTLE_MS have passed since the last throttle frame, so an
-	// ESC never goes from a throttle straight to silence. The decision is
-	// escHandoverStep(), pure and in the header with the rest of the rules;
-	// this function does the I/O on it.
-	EscHandover handover = escHandoverStep(s_suspendReq, s_rebuildReq, s_pumpUp,
+	// A bound pump leaving Run waits for the drain first: zero frames until
+	// more than ARM_ZERO_THROTTLE_MS have passed since the last throttle
+	// frame, so an ESC never goes from a throttle straight to silence. A
+	// pump that is down has sent nothing and drains nothing: a release
+	// asked before core1 has ever bound the pin reports suspended at once.
+	// The decision is escHandoverStep(), pure and in the header with the
+	// rest of the rules; this function does the I/O on it.
+	EscPinMode want = s_want;
+	EscHandover handover = escHandoverStep(want, s_reached, s_rebuildReq, s_pumpUp,
 	                                       s_pump.lastThrottleMs, millis());
 	if (handover == EscHandover::Teardown) {
-		if (s_pumpUp) {
-			// Stop first, cutting any frame in flight (out_dshot_stop() leaves
-			// the line at its idle level), then release. The release hands the
-			// pad back as a plain input with the pulls off. The pull-up goes
-			// back on, so the line holds the bidirectional idle level until its
-			// next owner takes it: a claim's user, or nothing after a pin
-			// change.
-			out_dshot_stop(s_pumpPin);
-			out_dshot_release(s_pumpPin);
-			gpio_pull_up(s_pumpPin);
-			s_pumpUp = false;
-			// A sequence going out stops here, and core0 reads NoAnswer
-			// until the next bind has an ESC answering, rather than the
-			// last readiness for as long as the pin is away. A request
-			// still waiting expires: it does not start on the next bind.
-			critical_section_enter_blocking(&s_cs);
-			EscCmdRequest req = s_cmdReq;
-			uint8_t reqGen = s_cmdGen;
-			critical_section_exit(&s_cs);
-			publishCommand(escPumpTeardown(&s_pump, &req), reqGen);
-		}
-#if KISS_TELEM_ENABLE
-		// Whoever owns the pin next, it is not us. A receiver left running
-		// would accumulate noise into a decoder with no way to tell it from a
-		// reply.
-		kissUartEnd();
-#endif
-		s_rebuildReq = false;
-		if (s_suspendReq) {
-			s_suspended = true;
-			return;
-		}
+		pumpTeardown();
+		handover = escHandoverStep(want, s_reached, false, false, 0, 0);
 	}
-	if (!s_suspendReq && !s_pumpUp) {
-		// Latch the wiring once, here, so a pin change cannot be observed
-		// half-applied. @see esc_wiring
-		uint8_t  pin   = s_dshotPin;
-		uint16_t kbaud = s_dshotKbaud;
-		// Bidirectional, and refused rather than degraded: a bind that cannot
-		// get two adjacent state machines in one block fails here, and
-		// `initError` puts DSERR in the status bar. The pump still runs its
-		// slots, so the link counters show an ESC that never answers.
-		bool bound = out_dshot_bind(pin, kbaud, true);
-		s_pumpPin = pin;
-		s_pumpUp  = true;
-		// A rebuild is a new ESC as far as this pump is concerned: it starts
-		// disarmed, and its first frames are the EDT enable. An ESC that kept
-		// EDT on across the rebuild is read correctly from its first reply,
-		// because every reply is read with EDT decoding on.
-		// @see escPumpBind(), ESC_EDT_DECODE, escEdtBind()
-		escPumpBind(&s_pump, &s_armed, &s_throttle);
-		s_edtRequested = s_pump.edt.sent;
-		s_nextSendUs = time_us_32();
-#if KISS_TELEM_ENABLE
-		if (s_kissEnable && s_kissPin != pin) kissUartBegin(s_kissPin);
-#endif
-		critical_section_enter_blocking(&s_cs);
-		s_tel.initError = !bound;
-		critical_section_exit(&s_cs);
-		s_suspended = false;
+	switch (handover) {
+		case EscHandover::Bind:
+			pumpBind();
+			break;
+		case EscHandover::Park:
+		case EscHandover::Release:
+			padsTo(handover == EscHandover::Park ? EscPinMode::Park
+			                                     : EscPinMode::Release);
+			return;
+		case EscHandover::Hold:
+			return;
+		default:
+			break;
 	}
 	if (!s_pumpUp) return;
 
