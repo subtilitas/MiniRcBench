@@ -568,7 +568,7 @@ static void testNullTouch() {
 	checkTrue("uiPressing(), uiTapped(), uiBackTapped(): false",
 	          !uiPressing(r, nullptr) && !uiTapped(r, nullptr) && !uiBackTapped(nullptr));
 	uiHeader("NULL", nullptr);
-	checkTrue("uiHeader() draws BACK unpressed", px(UI_BACK_X + 3, UI_BACK_Y + UI_BACK_H / 2) == C_PANEL);
+	checkTrue("uiHeader() draws BACK unpressed", px(UI_BACK_X + 3, UI_BACK_Y + UI_BACK_H / 2) == C_CYAN);
 	gfxFill(C_BG);
 }
 
@@ -591,7 +591,7 @@ static void testHeaderBackDisabled() {
 	// The reference: the live header with BACK drawn over it disabled.
 	gfxFill(C_RED);
 	uiHeader("UNPLUG", idle());
-	uiButton(b, "BACK", C_PANEL, C_TEXT, 1, false, false);
+	uiButton(b, "BACK", C_CYAN, C_ONACCENT, 1, false, false);
 	headerCopy(ref);
 	checkTrue("disabled: the band matches the live header with a disabled uiButton() BACK",
 	          memcmp(off, ref, sizeof(off)) == 0);
@@ -605,13 +605,84 @@ static void testHeaderBackDisabled() {
 	checkTrue("only inside BACK's rectangle", sameOutside);
 	checkTrue("an outline with C_BG inside",
 	          off[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_BG && off[b.y * GFX_W + b.x + b.w / 2] == C_GRID);
-	checkTrue("the default is live", live[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_PANEL);
+	checkTrue("the default is live", live[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_CYAN);
 
 	gfxFill(C_RED);
 	uiHeader("UNPLUG", press(b.x + b.w / 2, b.y + b.h / 2), false);
 	headerCopy(live);
 	checkTrue("a finger on a disabled BACK draws no pressed look", memcmp(live, off, sizeof(off)) == 0);
 	idle();
+	gfxFill(C_BG);
+}
+
+/** @brief How many pixels of the header band, rows 0 to 35, hold @p col. */
+static int bandCount(uint16_t col) {
+	int n = 0;
+	for (int i = 0; i < GFX_W * UI_HDR_H; i++) n += gfxBuffer()[i] == col;
+	return n;
+}
+
+/**
+ * @brief BACK is the home tag (slice 10 of menu-c.md's build plan,
+ *        ui-theme.md decision 1): `C_CYAN` with a `C_ONACCENT` label at rest
+ *        and pressed, uiButton()'s disabled look when it would do nothing,
+ *        and nothing at the root, in both themes.
+ */
+static void testHeaderHomeTag() {
+	section("Widgets: uiHeader() draws BACK as the cyan home tag");
+
+	const UiRect b = uiBackRect();
+	const int lx = b.x + (b.w - gfxTextW("BACK", 1)) / 2, ly = b.y + (b.h - 7) / 2;
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *name = th ? "high contrast" : "dark";
+		char what[96];
+
+		gfxFill(C_BG);
+		uiHeader("TITLE", idle());
+		snprintf(what, sizeof(what), "%s: BACK on C_CYAN, 64 x 32 px at x 170, its label C_ONACCENT", name);
+		checkTrue(what, b.x == 170 && b.w == 64 && b.h == 32 && px(b.x + 4, b.y + b.h / 2) == C_CYAN &&
+		                px(b.x + b.w - 5, b.y + 4) == C_CYAN && fakeTextIs(lx, ly, "BACK", C_ONACCENT, C_CYAN, 1));
+		snprintf(what, sizeof(what), "%s: its frame C_GRID, no C_PANEL inside it", name);
+		bool noPanel = true;
+		for (int y = b.y + 3; y < b.y + b.h - 3; y++)
+			for (int x = b.x + 3; x < b.x + b.w - 3; x++)
+				if (px(x, y) == C_PANEL) noPanel = false;
+		checkTrue(what, px(b.x + b.w / 2, b.y) == C_GRID && noPanel);
+		snprintf(what, sizeof(what), "%s: the title stays C_TEXT on the band", name);
+		checkTrue(what, fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "TITLE", C_TEXT, C_PANEL, 2));
+		snprintf(what, sizeof(what), "%s: no cyan in the band outside BACK", name);
+		bool outside = true;
+		for (int y = 0; y < UI_HDR_H; y++)
+			for (int x = 0; x < GFX_W; x++) {
+				bool in = x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
+				if (!in && px(x, y) == C_CYAN) outside = false;
+			}
+		checkTrue(what, outside);
+
+		gfxFill(C_BG);
+		uiHeader("TITLE", press(b.x + b.w / 2, b.y + b.h / 2));
+		snprintf(what, sizeof(what), "%s: pressed: still C_CYAN, a C_INK frame, the label moved 1 px", name);
+		checkTrue(what, px(b.x + 6, b.y + b.h / 2) == C_CYAN && px(b.x + b.w / 2, b.y) == C_INK &&
+		                fakeTextIs(lx + 1, ly + 1, "BACK", C_ONACCENT, C_CYAN, 1));
+		idle();
+
+		gfxFill(C_BG);
+		uiHeader("TITLE", idle(), false);
+		snprintf(what, sizeof(what), "%s: disabled: C_BG inside, a C_GRID label, and no cyan pixel in the band", name);
+		checkTrue(what, px(b.x + 4, b.y + b.h / 2) == C_BG && fakeTextIs(lx, ly, "BACK", C_GRID, C_BG, 1) &&
+		                bandCount(C_CYAN) == 0);
+
+		gfxFill(C_BG);
+		uiHeaderRoot("MENU");
+		bool blank = true;
+		for (int y = b.y; y < b.y + b.h; y++)
+			for (int x = b.x; x < b.x + b.w; x++)
+				if (px(x, y) != C_PANEL) blank = false;
+		snprintf(what, sizeof(what), "%s: the root: BACK's rectangle is the band, no cyan pixel", name);
+		checkTrue(what, blank && bandCount(C_CYAN) == 0);
+	}
+	themeSet(Theme::Dark);
 	gfxFill(C_BG);
 }
 
@@ -1331,6 +1402,15 @@ static bool valueIs(const char *v, uint16_t col, uint16_t bg) {
 	return fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(v, sc), FY + (FH - 1 - 7 * sc + 1) / 2, v, col, bg, sc);
 }
 
+/** @brief Left edge of the value "2.2 US" at scale 2, right-aligned to x 231. */
+static const int VX = GFX_W - UI_MARGIN - 70;
+
+/** @brief Whether the row's value @p v shows as a changed one, on its rectangle, over @p ground. */
+static bool changedIs(const char *v, uint16_t ground) {
+	int sc = gfxTextW(v, 2) <= UI_FIELD_VALUE_W2 ? 2 : 1;
+	return fakeChangedIs(GFX_W - UI_MARGIN - gfxTextW(v, sc), FY + (FH - 1 - 7 * sc + 1) / 2, v, ground, sc);
+}
+
 static void testListDrawField() {
 	section("List: uiListDrawField() draws one field row");
 
@@ -1352,23 +1432,63 @@ static void testListDrawField() {
 	checkTrue("the label C_TEXT", fakeTextIs(UI_MARGIN, FY + 21, "DEAD BAND", C_TEXT, C_PANEL, 1));
 	checkTrue("the value's colour unchanged", valueIs("2.2 US", C_TEXT, C_PANEL));
 
+	f.state = UiValue::Setting;
+	uiListDrawField(FY, FH, f);
+	checkTrue("Setting: the value C_CYAN text on the row, selected, and no fill behind it",
+	          valueIs("2.2 US", C_CYAN, C_PANEL) && px(VX - 2, FY + 12) == C_PANEL && px(1, FY + 5) == C_PANEL);
+	f.selected = false;
+	uiListDrawField(FY, FH, f);
+	checkTrue("not selected: C_CYAN on C_BG", valueIs("2.2 US", C_CYAN, C_BG) && px(VX - 2, FY + 12) == C_BG);
+
+	f.selected = true;
 	f.state = UiValue::Changed;
 	f.edge = UiEdge::Changed;
 	uiListDrawField(FY, FH, f);
-	checkTrue("Changed: the value C_CYAN, UI_COL_CHANGED, selected",
-	          valueIs("2.2 US", C_CYAN, C_PANEL));
+	checkTrue("Changed: C_ONACCENT ink on a C_CYAN rectangle, selected, the text where it was",
+	          changedIs("2.2 US", C_PANEL) && !valueIs("2.2 US", C_CYAN, C_PANEL));
+	checkTrue("the rectangle: 3 px beyond the text at each side, x 159 to x 234; 2 px above and below, y 111 to y 128",
+	          VX == 162 && px(VX - 3, FY + 11) == C_CYAN && px(VX - 4, FY + 11) == C_PANEL &&
+	          px(234, FY + 28) == C_CYAN && px(235, FY + 28) == C_PANEL &&
+	          px(200, FY + 10) == C_PANEL && px(200, FY + 29) == C_PANEL);
 	checkTrue("the bar C_CYAN, 3 px at x 0, as tall as the fill",
 	          px(0, FY) == C_CYAN && px(2, FY + 38) == C_CYAN && px(3, FY + 5) == C_PANEL &&
 	          px(0, FY + 39) == C_PANEL);
+	checkTrue("the rectangle starts 4 px or more after the label",
+	          VX - UI_FIELD_FILL_DX - (UI_MARGIN + gfxTextW("DEAD BAND", 1)) >= 4);
 	f.selected = false;
 	uiListDrawField(FY, FH, f);
-	checkTrue("not selected: the value and the bar still C_CYAN",
-	          valueIs("2.2 US", C_CYAN, C_BG) && px(1, FY + 5) == C_CYAN);
+	checkTrue("not selected: the rectangle and the bar still C_CYAN, on C_BG",
+	          changedIs("2.2 US", C_BG) && px(1, FY + 5) == C_CYAN);
 
 	f.edge = UiEdge::Rule;
 	uiListDrawField(FY, FH, f);
-	checkTrue("Rule: the bar amber, the value still C_CYAN",
-	          px(1, FY + 5) == C_AMBER && valueIs("2.2 US", C_CYAN, C_BG));
+	checkTrue("Rule: the bar amber, the value still on its C_CYAN rectangle",
+	          px(1, FY + 5) == C_AMBER && changedIs("2.2 US", C_BG));
+
+	// A value over 104 px at scale 2 is drawn at scale 1, and its rectangle
+	// is the smaller one.
+	f.edge = UiEdge::Changed;
+	f.value = "123456789";
+	uiListDrawField(FY, FH, f);
+	checkTrue("Changed at scale 1: the rectangle 2 px above and below 7 px of text, y 114 to y 124",
+	          fakeChangedIs(232 - gfxTextW("123456789", 1), FY + 16, "123456789", C_BG, 1) &&
+	          px(232 - 53 - 3, FY + 14) == C_CYAN && px(232 - 53 - 3, FY + 13) == C_BG &&
+	          px(234, FY + 24) == C_CYAN && px(234, FY + 25) == C_BG);
+	f.value = "2.2 US";
+
+	themeSet(Theme::HighContrast);
+	uiListDrawField(FY, FH, f);
+	checkTrue("high contrast: Changed is white ink on the dark cyan rectangle",
+	          C_ONACCENT == 0xFFFF && changedIs("2.2 US", C_BG));
+	f.state = UiValue::Setting;
+	f.edge = UiEdge::None;
+	uiListDrawField(FY, FH, f);
+	checkTrue("high contrast: Setting is dark cyan text on white, no fill",
+	          valueIs("2.2 US", C_CYAN, C_BG) && px(VX - 2, FY + 12) == C_BG);
+	themeSet(Theme::Dark);
+	f.state = UiValue::Changed;
+	f.edge = UiEdge::Rule;
+	uiListDrawField(FY, FH, f);
 
 	f.state = UiValue::ReadOnly;
 	f.edge = UiEdge::None;
@@ -1400,6 +1520,127 @@ static void testListDrawField() {
 	uiListDrawField(FY, FH, f);
 	checkTrue("8 characters, 94 px: scale 2", gfxTextW("12345678", 2) == 94 && valueIs("12345678", C_TEXT, C_BG) &&
 	          fakeTextIs(232 - 94, FY + 13, "12345678", C_TEXT, C_BG, 2));
+	gfxFill(C_BG);
+}
+
+/** @brief An 8-bit sRGB colour. */
+struct Rgb8 { int r, g, b; };
+
+/** @brief An RGB565 word as the 8-bit colour it stands for, by bit replication. */
+static Rgb8 shownRgb(uint16_t w) {
+	int r5 = (w >> 11) & 31, g6 = (w >> 5) & 63, b5 = w & 31;
+	return Rgb8{ (r5 << 3) | (r5 >> 2), (g6 << 2) | (g6 >> 4), (b5 << 3) | (b5 >> 2) };
+}
+
+/**
+ * @brief @p c as view @p v sees it: 0 normal vision, 1 protanopia, 2
+ *        deuteranopia, 3 tritanopia, by the matrices of Machado, Oliveira
+ *        and Fernandes (2009) at full severity on linear RGB, as
+ *        docs/design/ui_theme.py's simulate().
+ */
+static Rgb8 cvdView(Rgb8 c, int v) {
+	static const double M[3][3][3] = {
+		{ { 0.152286, 1.052583, -0.204868 }, { 0.114503, 0.786281, 0.099216 }, { -0.003882, -0.048116, 1.051998 } },
+		{ { 0.367322, 0.860646, -0.227968 }, { 0.280085, 0.672501, 0.047413 }, { -0.011820, 0.042940, 0.968881 } },
+		{ { 1.255528, -0.076749, -0.178779 }, { -0.078411, 0.930809, 0.147602 }, { 0.004733, 0.691367, 0.303900 } },
+	};
+	if (v == 0) return c;
+	const double lin[3] = { channelLinear(c.r), channelLinear(c.g), channelLinear(c.b) };
+	int out[3];
+	for (int i = 0; i < 3; i++) {
+		double s = M[v - 1][i][0] * lin[0] + M[v - 1][i][1] * lin[1] + M[v - 1][i][2] * lin[2];
+		if (s < 0.0) s = 0.0;
+		if (s > 1.0) s = 1.0;
+		double g = s <= 0.0031308 ? 12.92 * s : 1.055 * pow(s, 1.0 / 2.4) - 0.055;
+		out[i] = (int)lround(g * 255.0);
+	}
+	return Rgb8{ out[0], out[1], out[2] };
+}
+
+/** @brief WCAG 2 relative luminance of word @p w in view @p v. */
+static double viewLuminance(uint16_t w, int v) {
+	Rgb8 c = cvdView(shownRgb(w), v);
+	return 0.2126 * channelLinear(c.r) + 0.7152 * channelLinear(c.g) + 0.0722 * channelLinear(c.b);
+}
+
+/** @brief WCAG 2 contrast ratio of two words in view @p v, times 100 and rounded. */
+static long viewContrast100(uint16_t a, uint16_t b, int v) {
+	double la = viewLuminance(a, v), lb = viewLuminance(b, v);
+	if (la < lb) { double t = la; la = lb; lb = t; }
+	return lround((la + 0.05) / (lb + 0.05) * 100.0);
+}
+
+/**
+ * @brief "Changed" against an unchanged cyan value (slice 10 of menu-c.md's
+ *        build plan; ui-theme.md, "The cues of the decisions"). The words
+ *        are read from a drawn row: the ink and the ground of a setting as
+ *        it stands and of a changed one, on the row and on the selected row.
+ *        Each cue's luminance contrast is the note's, for normal vision and
+ *        through the three simulations; the two states differ by which of
+ *        ink and ground is the lighter in every view, in both themes.
+ */
+static void testChangedCue() {
+	section("List: changed against an unchanged cyan value, by contrast and through the CVD simulation");
+
+	static const char *const VIEW[4] = { "normal", "protan", "deutan", "tritan" };
+	// The note's table, times 100: the fill against the row, against the
+	// selected row, and the ink on the fill. Dark, then High contrast.
+	static const long WANT[2][3][4] = {
+		{ { 1495, 1671, 1382, 1600 }, { 1089, 1187, 1023, 1162 }, { 1470, 1642, 1359, 1571 } },
+		{ {  773,  708,  825,  716 }, {  530,  491,  562,  492 }, {  773,  708,  825,  716 } },
+	};
+	const int vy = FY + 13, inkY = vy, groundX = VX - 2, groundY = vy - 1;
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *name = th ? "high contrast" : "dark";
+		char what[112];
+		// "2.2 US": the 2's top row is ink from its second column on.
+		uint16_t ink[2][2], ground[2][2];  // [changed][selected]
+		for (int ch = 0; ch < 2; ch++)
+			for (int sel = 0; sel < 2; sel++) {
+				UiField f = { nullptr, "DEAD BAND", "2.2 US", ch ? UiValue::Changed : UiValue::Setting,
+				              ch ? UiEdge::Changed : UiEdge::None, sel != 0 };
+				gfxFill(C_BG);
+				uiListDrawField(FY, FH, f);
+				ink[ch][sel] = px(VX + 2, inkY);
+				ground[ch][sel] = px(groundX, groundY);
+			}
+		snprintf(what, sizeof(what), "%s: a setting is C_CYAN ink on the row's fill, C_BG or C_PANEL", name);
+		checkTrue(what, ink[0][0] == C_CYAN && ground[0][0] == C_BG && ink[0][1] == C_CYAN &&
+		                ground[0][1] == C_PANEL);
+		snprintf(what, sizeof(what), "%s: a changed value is C_ONACCENT ink on C_CYAN, selected or not", name);
+		checkTrue(what, ink[1][0] == C_ONACCENT && ground[1][0] == C_CYAN && ink[1][1] == C_ONACCENT &&
+		                ground[1][1] == C_CYAN);
+
+		long least = 100000;
+		for (int v = 0; v < 4; v++) {
+			long row = viewContrast100(ground[1][0], ground[0][0], v);
+			long sel = viewContrast100(ground[1][1], ground[0][1], v);
+			long onFill = viewContrast100(ink[1][0], ground[1][0], v);
+			snprintf(what, sizeof(what), "%s, %s: the fill against the row", name, VIEW[v]);
+			checkInt(what, row, WANT[th][0][v]);
+			snprintf(what, sizeof(what), "%s, %s: the fill against the selected row", name, VIEW[v]);
+			checkInt(what, sel, WANT[th][1][v]);
+			snprintf(what, sizeof(what), "%s, %s: the ink on the fill", name, VIEW[v]);
+			checkInt(what, onFill, WANT[th][2][v]);
+			if (row < least) least = row;
+			if (sel < least) least = sel;
+			if (onFill < least) least = onFill;
+			// The cue: the changed value's ground is on the other side of
+			// its ink than the setting's ground is of its ink.
+			bool setLightInk = viewLuminance(ink[0][0], v) > viewLuminance(ground[0][0], v);
+			bool setLightInkSel = viewLuminance(ink[0][1], v) > viewLuminance(ground[0][1], v);
+			bool chLightInk = viewLuminance(ink[1][0], v) > viewLuminance(ground[1][0], v);
+			snprintf(what, sizeof(what), "%s, %s: ink and ground change places between the two states", name,
+			         VIEW[v]);
+			checkTrue(what, setLightInk == setLightInkSel && setLightInk != chLightInk);
+		}
+		snprintf(what, sizeof(what), "%s: the least of the three cues in any view", name);
+		checkInt(what, least, th ? 491 : 1023);
+		snprintf(what, sizeof(what), "%s: every cue 4.5 or more in every view", name);
+		checkTrue(what, least >= 450);
+	}
+	themeSet(Theme::Dark);
 	gfxFill(C_BG);
 }
 
@@ -1726,6 +1967,7 @@ void runWidgetTests() {
 	testHoldBar();
 	testNullTouch();
 	testHeaderBackDisabled();
+	testHeaderHomeTag();
 	testHeaderRule();
 	testDisabledFrame();
 	testButtonRadius();
@@ -1741,6 +1983,7 @@ void runWidgetTests() {
 	testBackGuard();
 	testBackGuardDraw();
 	testListDrawField();
+	testChangedCue();
 	testLeavePhases();
 	testLeaveRestartWait();
 	testLeaveSupplyNote();

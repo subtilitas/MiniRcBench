@@ -52,7 +52,7 @@
 #define C_REDDARK  (g_theme[TC_REDDARK])  /**< Dead-telemetry digit. */
 #define C_GHOST    (g_theme[TC_GHOST])    /**< Unlit leading seven-segment digits. */
 #define C_BLUE     (g_theme[TC_BLUE])     /**< Latched (`UI_COL_LATCHED`). */
-#define C_CYAN     (g_theme[TC_CYAN])     /**< Changed, not written (`UI_COL_CHANGED`). */
+#define C_CYAN     (g_theme[TC_CYAN])     /**< The accent; as a fill, changed (`UI_COL_CHANGED`). */
 #define C_MAGENTA  (g_theme[TC_MAGENTA])  /**< Alert (`UI_COL_ALERT`). */
 /** @} */
 

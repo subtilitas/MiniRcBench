@@ -174,9 +174,23 @@ uint16_t uiListValueColour(UiValue v) {
 		case UiValue::Changed:  return UI_COL_CHANGED;
 		case UiValue::ReadOnly: return C_GRID;
 		case UiValue::Odd:      return UI_COL_WARN;
+		case UiValue::Setting:  return C_CYAN;
 		case UiValue::Plain:    break;
 	}
 	return C_TEXT;
+}
+
+void uiListDrawValue(int x, int y, const char *value, UiValue state, int scale) {
+	uint16_t col = uiListValueColour(state);
+	if (state == UiValue::Changed) {
+		// Dark ink in a cyan box against cyan ink on the row: an unchanged
+		// setting has no fill, so the two differ by which of ink and ground
+		// is light, not by hue.
+		gfxRect(x - UI_FIELD_FILL_DX, y - UI_FIELD_FILL_DY, gfxTextW(value, scale) + 2 * UI_FIELD_FILL_DX,
+		        7 * scale + 2 * UI_FIELD_FILL_DY, UI_COL_CHANGED);
+		col = C_ONACCENT;
+	}
+	gfxText(x, y, value, col, scale);
 }
 
 void uiListDrawField(int y, int h, const UiField &f) {
@@ -185,9 +199,8 @@ void uiListDrawField(int y, int h, const UiField &f) {
 	bool ro = f.state == UiValue::ReadOnly;
 	if (f.group) gfxText(UI_MARGIN, y + 11, f.group, C_GRID, 1);
 	gfxText(UI_MARGIN, y + 21, f.label, ro ? C_GRID : (f.selected ? C_TEXT : C_DIM), 1);
-	uint16_t col = uiListValueColour(f.state);
 	int sc = gfxTextW(f.value, 2) <= UI_FIELD_VALUE_W2 ? 2 : 1;
-	gfxText(GFX_W - UI_MARGIN - gfxTextW(f.value, sc), y + (fillH - 7 * sc + 1) / 2, f.value, col, sc);
+	uiListDrawValue(GFX_W - UI_MARGIN - gfxTextW(f.value, sc), y + (fillH - 7 * sc + 1) / 2, f.value, f.state, sc);
 	if (f.edge != UiEdge::None)
 		gfxRect(0, y, UI_FIELD_EDGE_W, fillH, f.edge == UiEdge::Rule ? UI_COL_WARN : UI_COL_CHANGED);
 	gfxHLine(0, y + fillH, GFX_W, C_PANEL);

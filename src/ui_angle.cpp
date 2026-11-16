@@ -513,7 +513,7 @@ static void setupFrame() {
 		int y = rowY(1);
 		gfxRect(0, y, GFX_W, ROW_H, C_BG);
 		gfxText(UI_MARGIN, y + (ROW_H - 7) / 2, "LENGTH, MM", C_DIM, 1);
-		gfxText(VAL_R - gfxTextW(v, 2), y + VAL_SUB_DY, v, C_TEXT, 2);
+		gfxText(VAL_R - gfxTextW(v, 2), y + VAL_SUB_DY, v, C_CYAN, 2);
 		gfxText(VAL_R - gfxTextW("HINGE TO EDGE", 1), y + SUB_DY, "HINGE TO EDGE", C_DIM, 1);
 		uiButton(minusRect(), "-", C_PANEL, C_TEXT, 2, uiPressing(minusRect(), s_t));
 		uiButton(plusRect(), "+", C_PANEL, C_TEXT, 2, uiPressing(plusRect(), s_t));

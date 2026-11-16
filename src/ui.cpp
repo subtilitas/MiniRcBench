@@ -1021,7 +1021,9 @@ static void drawButtons() {
 	        s_armed ? 2 : 1, cardFree && pressing(BTN_ARM, s_touch), cardFree != 0);
 	uiButton(BTN_LATCH, "LATCH", s_latch ? C_BLUE : C_PANEL,
 	        s_latch ? C_ONACCENT : C_DIM, 1, pressing(BTN_LATCH, s_touch));
-	uiButton(BTN_MENU, "MENU", C_PANEL, C_DIM, 1, pressing(BTN_MENU, s_touch));
+	// The tester has no header: MENU is its home tag, the way back, and
+	// cyan as BACK is (docs/design/ui-theme.md, decision 15).
+	uiButton(BTN_MENU, "MENU", C_CYAN, C_ONACCENT, 1, pressing(BTN_MENU, s_touch));
 }
 
 /** @} */

@@ -78,7 +78,7 @@ static const uint16_t THEME_HIGH_CONTRAST[TC_COUNT] = {
 	rgb(244, 190, 190), /* TC_REDDARK  dead digits: pale, not dark */
 	rgb(238, 241, 245), /* TC_GHOST    unlit ghost 8s: barely there  */
 	rgb(  0,  58, 168), /* TC_BLUE     latched, takes white        */
-	rgb(  0,  88, 122), /* TC_CYAN     changed, not written        */
+	rgb(  0,  88, 122), /* TC_CYAN     the accent                  */
 	rgb(150,   0, 140), /* TC_MAGENTA  alert                       */
 };
 

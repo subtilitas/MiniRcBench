@@ -245,7 +245,7 @@ static void j5Text(char *b, size_t n, uint8_t gpio) {
 	else   b[0] = '\0';
 }
 
-static void polesValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->poles); *c = C_TEXT; }
+static void polesValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->poles); *c = C_CYAN; }
 static void polesStep(int dir) {
 	int p = (int)settings()->poles + 2 * dir;
 	if (p < MIN_MOTOR_POLES || p > MAX_MOTOR_POLES) return;
@@ -255,7 +255,7 @@ static void polesStep(int dir) {
 
 static void maxValue(char *b, size_t n, uint16_t *c) {
 	snprintf(b, n, "%u%%", (unsigned)((uint32_t)settings()->maxThrottle * 100 / 2000));
-	*c = C_TEXT;
+	*c = C_CYAN;
 }
 static void maxStep(int dir) {
 	int t = (int)settings()->maxThrottle + MAX_THROTTLE_STEP * dir;
@@ -264,11 +264,11 @@ static void maxStep(int dir) {
 	s_changed = true;
 }
 
-static void sigValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_TEXT; }
+static void sigValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->dshotPin); *c = C_CYAN; }
 static void sigStep(int dir) { stepPinSwapping(&settings()->dshotPin, &settings()->kissPin, dir); }
 static void sigSub(char *b, size_t n) { j5Text(b, n, settings()->dshotPin); }
 
-static void speedValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->dshotKbaud); *c = C_TEXT; }
+static void speedValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->dshotKbaud); *c = C_CYAN; }
 static void speedStep(int dir) {
 	Settings *s = settings();
 	if (dir < 0) s->dshotKbaud = (uint16_t)(s->dshotKbaud <= 150 ? 1200 : s->dshotKbaud / 2);
@@ -276,7 +276,7 @@ static void speedStep(int dir) {
 	s_changed = true;
 }
 
-static void kissValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->kissEnable ? "ON" : "OFF"); *c = C_TEXT; }
+static void kissValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->kissEnable ? "ON" : "OFF"); *c = C_CYAN; }
 static bool kissOn() { return settings()->kissEnable != 0; }
 static void kissToggle() {
 	// KISS listens on AUX, which is never SIG's GPIO (settingsValidate()).
@@ -288,7 +288,7 @@ static void kissToggle() {
  * @brief AUX PIN's value, whatever KISS is: KISS listens on it, and the
  *        servo tester drives servo B on it.
  */
-static void auxValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_TEXT; }
+static void auxValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "GP%u", settings()->kissPin); *c = C_CYAN; }
 static void auxStep(int dir) { stepPinSwapping(&settings()->kissPin, &settings()->dshotPin, dir); }
 static void auxSub(char *b, size_t n) { j5Text(b, n, settings()->kissPin); }
 
@@ -300,7 +300,7 @@ static void supplyValue(char *b, size_t n, uint16_t *c) {
 	uint8_t pin = servoSupplyPinOf(settings()->servoSupply);
 	if (pin == SERVO_SUPPLY_NO_PIN) snprintf(b, n, "OWN");
 	else                            snprintf(b, n, "GP%u", (unsigned)pin);
-	*c = C_TEXT;
+	*c = C_CYAN;
 }
 /** @brief - and + step OWN, GP28, GP29, and stop at the ends. */
 static void supplyStep(int dir) {
@@ -322,7 +322,7 @@ static void supplySub(char *b, size_t n) {
 /** @brief NONE or INA219: the current sensor on J3. */
 static void senseValue(char *b, size_t n, uint16_t *c) {
 	snprintf(b, n, "%s", settings()->currentSense ? "INA219" : "NONE");
-	*c = C_TEXT;
+	*c = C_CYAN;
 }
 static bool senseOn() { return settings()->currentSense != 0; }
 /** @brief NONE and INA219, in turn. */
@@ -337,14 +337,14 @@ static void senseCaptionText(char *b, size_t n, uint16_t *c) {
 	*c = cap && strcmp(cap, "FOUND") == 0 ? C_LIME : C_AMBER;
 }
 
-static void contrastValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->highContrast ? "HIGH" : "NORMAL"); *c = C_TEXT; }
+static void contrastValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%s", settings()->highContrast ? "HIGH" : "NORMAL"); *c = C_CYAN; }
 static bool contrastOn() { return settings()->highContrast != 0; }
 static void contrastToggle() {
 	settings()->highContrast = settings()->highContrast ? 0 : 1;
 	s_changed = true;
 }
 
-static void backlightValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->backlight); *c = C_TEXT; }
+static void backlightValue(char *b, size_t n, uint16_t *c) { snprintf(b, n, "%u", settings()->backlight); *c = C_CYAN; }
 static void backlightStep(int dir) {
 	Settings *s = settings();
 	uint8_t b;
@@ -648,7 +648,7 @@ static void drawItem(uint8_t i) {
 	const Item &it = s_items[i];
 	int y = topOf(it);
 	if (!it.row) {
-		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_TEXT, 1);
+		gfxText(UI_MARGIN, y + 8, it.sec->caption, C_CYAN, 1);
 		return;
 	}
 	const SettingsRow &r = *it.row;
@@ -663,7 +663,7 @@ static void drawItem(uint8_t i) {
 		gfxText(UI_MARGIN, y + (ROW_H - 7) / 2, r.label, C_DIM, 1);
 	}
 	char v[32];
-	uint16_t col = C_TEXT;
+	uint16_t col = C_CYAN;
 	r.value(v, sizeof(v), &col);
 	bool en = rowEnabled(r);
 	switch (r.kind) {

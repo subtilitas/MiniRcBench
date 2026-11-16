@@ -626,10 +626,10 @@ static void setValueText(int i, char *buf, size_t n) {
 	else snprintf(buf, n, "%s", s_flag[i - 1] ? "ON" : "OFF");
 }
 
-/** @brief SET row @p i's state: ReadOnly where SET locks it, else Plain. */
+/** @brief SET row @p i's state: ReadOnly where SET locks it, else Setting. */
 static UiValue setValue(int i) {
 	bool locked = i == ROW_CHANNEL ? s_st.running : !s_st.running;
-	return locked ? UiValue::ReadOnly : UiValue::Plain;
+	return locked ? UiValue::ReadOnly : UiValue::Setting;
 }
 
 /** @brief Draw SET row @p i with its top at @p y. */

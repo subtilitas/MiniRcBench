@@ -1200,13 +1200,14 @@ static const char *moveNote() {
  * @brief The value state of SET row @p i (docs/design/menu-b.md, decision 8):
  *        a PULSE row while RUNNING locks it is ReadOnly; a PULSE row whose
  *        edit waits for HOLD TO APPLY and differs from the applied profile is
- *        Changed; every other row is Plain, since its edit applies at once.
+ *        Changed; every other row is Setting, a setting of the bench as it
+ *        stands, since its edit applies at once.
  */
 static UiValue setValue(int i) {
 	const SetRow &r = ROWS[i];
-	if (!r.pulse) return UiValue::Plain;
+	if (!r.pulse) return UiValue::Setting;
 	if (s_st.running) return UiValue::ReadOnly;
-	if (!s_pending) return UiValue::Plain;
+	if (!s_pending) return UiValue::Setting;
 	const ServoProfile &e = s_edit, &p = s_profile;
 	bool differs = false;
 	switch ((ServoField)r.field) {
@@ -1218,7 +1219,7 @@ static UiValue setValue(int i) {
 		case ServoField::Max:      differs = e.maxUs != p.maxUs; break;
 		case ServoField::ReverseB: differs = e.reverseB != p.reverseB; break;
 	}
-	return differs ? UiValue::Changed : UiValue::Plain;
+	return differs ? UiValue::Changed : UiValue::Setting;
 }
 
 /**
@@ -1289,7 +1290,7 @@ static void drawSet(int holdPct) {
 	struct { int sel; ServoProfile p; sweep_cfg_t w; bool m, pl, cm, cp; UiValue st; } ke;
 	memset(&ke, 0, sizeof(ke));
 	ke.sel = s_sel; ke.p = s_edit; ke.w = s_sweep;
-	ke.st = s_sel >= 0 ? setValue(s_sel) : UiValue::Plain;
+	ke.st = s_sel >= 0 ? setValue(s_sel) : UiValue::Setting;
 	if (s_sel >= 0) {
 		ke.cm = canStep(s_sel, -1); ke.cp = canStep(s_sel, +1);
 		ke.m = ke.cm && pressing(BTN_MINUS); ke.pl = ke.cp && pressing(BTN_PLUS);
@@ -1309,7 +1310,9 @@ static void drawSet(int holdPct) {
 			valueText(s_sel, v, sizeof(v));
 			int sc = gfxTextW(v, 2) <= cw ? 2 : 1;
 			UiValue st = setValue(s_sel);
-			gfxText(cx + (cw - gfxTextW(v, sc)) / 2, SET_EDIT_Y + 16, v, uiListValueColour(st), sc);
+			// A waiting value takes the row's fill here too: the bar has no
+			// `old ->`, and a setting as it stands is cyan text beside it.
+			uiListDrawValue(cx + (cw - gfxTextW(v, sc)) / 2, SET_EDIT_Y + 16, v, st, sc);
 			gfxText(cx + (cw - gfxTextW("SWIPE = COARSE", 1)) / 2, SET_EDIT_Y + 34,
 			        "SWIPE = COARSE", C_DIM, 1);
 		}

@@ -3502,11 +3502,38 @@ static bool setValueHas(int row, uint16_t c) {
 }
 
 /**
+ * @brief Whether SET row @p row shows its value as a setting as it stands,
+ *        `C_CYAN` text on the row, or as a waiting one, `C_ONACCENT` on its
+ *        `C_CYAN` rectangle; @p selected names the row's fill.
+ */
+static bool setValueShows(int row, bool waiting, bool selected) {
+	char v[24];
+	valueText(row, v, sizeof(v));
+	UiRect r = ctlRect(UI_ROW(row, Row));
+	int sc = gfxTextW(v, 2) <= UI_FIELD_VALUE_W2 ? 2 : 1;
+	int x = GFX_W - UI_MARGIN - gfxTextW(v, sc), y = r.y + (SET_ROW_H - 1 - 7 * sc + 1) / 2;
+	uint16_t ground = selected ? C_PANEL : C_BG;
+	return waiting ? fakeChangedIs(x, y, v, ground, sc) : fakeTextIs(x, y, v, C_CYAN, ground, sc);
+}
+
+/** @brief Whether SET's editor bar shows the selected row's value, as setValueShows(). */
+static bool setBarShows(bool waiting) {
+	char v[24];
+	valueText(s_sel, v, sizeof(v));
+	int cx = BTN_MINUS.x + BTN_MINUS.w, cw = BTN_PLUS.x - cx;
+	int sc = gfxTextW(v, 2) <= cw ? 2 : 1;
+	int x = cx + (cw - gfxTextW(v, sc)) / 2, y = SET_EDIT_Y + 16;
+	return waiting ? fakeChangedIs(x, y, v, C_BG, sc) : fakeTextIs(x, y, v, C_CYAN, C_BG, sc);
+}
+
+/**
  * @brief The colour roles on SERVO TESTER and SERVO SET (docs/design/menu-b.md,
- *        decisions 8 and 11): command labels in the text colour, SPEED's fill
- *        `C_GRID` (docs/design/ui-theme.md, "Widgets"), servo B blue; a pending row cyan with a cyan bar until HOLD TO
- *        APPLY, a selected row's value never lime, the PULSE rows grey while
- *        RUNNING.
+ *        decisions 8 and 11, as docs/design/ui-theme.md revises them):
+ *        command labels in the text colour, SPEED's fill `C_GRID`, servo B
+ *        blue; a setting's value cyan text; a waiting row dark on a cyan
+ *        rectangle with a cyan bar until HOLD TO APPLY, in the list and in
+ *        the editor bar; a selected row's value never lime, the PULSE rows
+ *        faint while RUNNING.
  */
 static void testColourRoles() {
 	section("Servo screen: the colour roles");
@@ -3531,26 +3558,91 @@ static void testColourRoles() {
 	selectRow(1);   // TYPE
 	uiFrames(1);
 	UiRect r = ctlRect(UI_ROW(1, Row));
-	checkTrue("TYPE selected, as applied: the value in the text colour, never lime; no bar",
-	          setValueHas(1, C_TEXT) && !setValueHas(1, C_LIME) && pixel(1, r.y + 5) == C_PANEL);
-	checkTrue("the editor bar's value in the text colour",
-	          someOf(52, SET_EDIT_Y + 16, 136, 14, C_TEXT) && !someOf(52, SET_EDIT_Y + 16, 136, 14, C_LIME));
+	checkTrue("TYPE selected, as applied: a setting's value, cyan text and no rectangle; never lime or the text colour; no bar",
+	          setValueShows(1, false, true) && !setValueHas(1, C_TEXT) && !setValueHas(1, C_LIME) &&
+	          !setValueHas(1, C_ONACCENT) && pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("RATE under it, not selected: cyan text on C_BG", setValueShows(2, false, false));
+	checkTrue("the editor bar's value cyan text, no rectangle",
+	          setBarShows(false) && !someOf(52, SET_EDIT_Y + 14, 136, 18, C_ONACCENT) &&
+	          !someOf(52, SET_EDIT_Y + 16, 136, 14, C_LIME));
 	stepSel(+1, 3);
 	uiFrames(1);
 	r = ctlRect(UI_ROW(1, Row));
-	checkTrue("HELI CYCLIC pending: the value cyan, a 3 px cyan bar",
-	          s_pending && setValueHas(1, C_CYAN) && !setValueHas(1, C_TEXT) &&
+	checkTrue("HELI CYCLIC pending: the value dark on its cyan rectangle, a 3 px cyan bar",
+	          s_pending && setValueShows(1, true, true) && !setValueHas(1, C_TEXT) &&
 	          pixel(0, r.y + 5) == C_CYAN && pixel(2, r.y + 5) == C_CYAN && pixel(3, r.y + 5) == C_PANEL);
-	checkTrue("the editor bar's value cyan", someOf(52, SET_EDIT_Y + 16, 136, 14, C_CYAN));
+	// HELI CYCLIC is the widest value at scale 2, 130 px of the bar's 140:
+	// its rectangle is 136 px wide and ends 2 px before - and +.
+	checkTrue("the editor bar's value dark on a cyan rectangle too, 2 px clear of - and +",
+	          setBarShows(true) && !someOf(BTN_MINUS.x + BTN_MINUS.w, SET_EDIT_Y + 12, 2, 22, C_CYAN) &&
+	          !someOf(BTN_PLUS.x - 2, SET_EDIT_Y + 12, 2, 22, C_CYAN) &&
+	          pixel(BTN_MINUS.x + BTN_MINUS.w + 2, SET_EDIT_Y + 14) == C_CYAN);
 	UiRect rr = ctlRect(UI_ROW(2, Row));
-	checkTrue("RATE, loaded with the type, pending too: cyan",
-	          setValueHas(2, C_CYAN) && pixel(1, rr.y + 5) == C_CYAN);
+	checkTrue("RATE, loaded with the type, pending too: its rectangle and its bar, not selected",
+	          setValueShows(2, true, false) && pixel(1, rr.y + 5) == C_CYAN);
+	{
+		int walked = fakeChangedWalked();
+		checkControlTable("SERVO SET, two PULSE rows waiting");
+		checkTrue("the walk met the changed value", fakeChangedWalked() > walked);
+	}
 	holdApply();
 	uiFrames(1);
 	r = ctlRect(UI_ROW(1, Row));
-	checkTrue("applied: the value in the text colour again, the bar gone",
-	          !s_pending && setValueHas(1, C_TEXT) && !setValueHas(1, C_CYAN) && pixel(1, r.y + 5) == C_PANEL);
-	checkTrue("and the editor bar's value", !someOf(52, SET_EDIT_Y + 16, 136, 14, C_CYAN));
+	checkTrue("applied: the value cyan text again, the rectangle and the bar gone",
+	          !s_pending && setValueShows(1, false, true) && !setValueHas(1, C_ONACCENT) &&
+	          pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("and the editor bar's value", setBarShows(false) && !someOf(52, SET_EDIT_Y + 14, 136, 18, C_ONACCENT));
+
+	// One row waiting among rows as they stand: where a waiting value and a
+	// setting's cyan text share the list.
+	selectRow(2);   // RATE
+	stepSel(ctlEnabled(UI_FIX(ServoCtl::EditPlus)) ? +1 : -1, 1);
+	uiFrames(1);
+	checkTrue("RATE alone waits: its rectangle and its bar",
+	          s_pending && setValue(2) == UiValue::Changed && setValue(3) == UiValue::Setting &&
+	          setValueShows(2, true, true) && pixel(1, ctlRect(UI_ROW(2, Row)).y + 5) == C_CYAN);
+	checkTrue("MIN under it, as it stands: cyan text with no rectangle and no bar",
+	          setValueShows(3, false, false) && !setValueHas(3, C_ONACCENT) &&
+	          pixel(1, ctlRect(UI_ROW(3, Row)).y + 5) == C_BG);
+	{
+		int walked = fakeChangedWalked();
+		checkControlTable("SERVO SET, RATE waiting");
+		checkTrue("the walk met the changed value", fakeChangedWalked() > walked);
+	}
+	holdApply();
+	uiFrames(1);
+	checkTrue("applied: nothing waits", !s_pending && setValueShows(2, false, true));
+
+	// Every PULSE row can wait: the widest value of each beside its label.
+	{
+		int worst = 1000;
+		char worstAt[48] = "";
+		auto gapOf = [&](const char *label, const char *v) {
+			int sc = gfxTextW(v, 2) <= UI_FIELD_VALUE_W2 ? 2 : 1;
+			int gap = (GFX_W - UI_MARGIN - gfxTextW(v, sc) - UI_FIELD_FILL_DX) - (UI_MARGIN + gfxTextW(label, 1));
+			if (gap < worst) {
+				worst = gap;
+				snprintf(worstAt, sizeof(worstAt), "%s %s", label, v);
+			}
+		};
+		gapOf("SERVOS", "ONE"); gapOf("SERVOS", "TWO");
+		for (int t = 0; t < SERVO_TYPE_COUNT; t++) gapOf("TYPE", servoTypeInfo((ServoType)t)->name);
+		gapOf("RATE", "333 HZ"); gapOf("MIN", "2500 US"); gapOf("CENTRE", "2500 US"); gapOf("MAX", "2500 US");
+		gapOf("REVERSE B", "OFF");
+		printf("  the narrowest: %s\n", worstAt);
+		checkTrue("a waiting value's rectangle starts 4 px or more after its label on every PULSE row",
+		          worst >= 4);
+		// The editor bar: 140 px between - and +, and the rectangle 6 px
+		// wider than the value.
+		int cw = BTN_PLUS.x - (BTN_MINUS.x + BTN_MINUS.w);
+		bool fits = cw == 140;
+		for (int t = 0; t < SERVO_TYPE_COUNT; t++) {
+			const char *v = servoTypeInfo((ServoType)t)->name;
+			int sc = gfxTextW(v, 2) <= cw ? 2 : 1;
+			if (gfxTextW(v, sc) + 2 * UI_FIELD_FILL_DX > cw - 4) fits = false;   // 2 px at each side
+		}
+		checkTrue("the bar's rectangle fits the 140 px between - and + for every type's name", fits);
+	}
 	backFromSet();
 	leaveServo();
 	backFromMenu();

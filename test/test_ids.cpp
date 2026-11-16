@@ -551,6 +551,60 @@ static void testCornerWalk() {
 	gfxFill(C_BG);
 }
 
+/**
+ * @brief The walk over a table's changed values (changedFillsClear()): it
+ *        finds the rectangle of a changed row and of none other, and reports
+ *        a label that ends less than 4 px before the rectangle.
+ */
+static void testChangedWalk() {
+	section("Control ids: the walk over a table's changed values");
+	const UiControl t[] = {
+		{ UI_ROW(0, Row), { 0, 100, GFX_W, 40 }, true },
+		{ UI_ROW(1, Row), { 0, 142, GFX_W, 40 }, true },
+		{ UI_FIX(1), { 6, 268, 110, 46 }, true },
+	};
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *tn = th ? "high contrast" : "dark";
+		char what[112];
+		gfxFill(C_BG);
+		UiField a = { "PULSE", "TYPE", "STANDARD", UiValue::Setting, UiEdge::None, false };
+		UiField b = { "PULSE", "RATE", "50 HZ", UiValue::Setting, UiEdge::None, true };
+		uiListDrawField(100, 40, a);
+		uiListDrawField(142, 40, b);
+		// A cyan button is not a row and is not taken for a changed value.
+		uiButton(t[2].rect, "BACK", C_CYAN, C_ONACCENT, 2, false, true);
+		snprintf(what, sizeof(what), "%s: two settings as they stand: no rectangle", tn);
+		checkInt(what, changedFillsClear(t, 3), 0);
+		a.state = UiValue::Changed; a.edge = UiEdge::Changed;
+		b.state = UiValue::Changed; b.edge = UiEdge::Rule;
+		uiListDrawField(100, 40, a);
+		uiListDrawField(142, 40, b);
+		snprintf(what, sizeof(what), "%s: both changed, one selected: two rectangles, each clear", tn);
+		checkInt(what, changedFillsClear(t, 3), 2);
+		// 23 characters at scale 1 end at x 145; STANDARD's rectangle starts
+		// at x 135.
+		a.label = "LABEL OF 23 CHARACTERS.";
+		uiListDrawField(100, 40, a);
+		snprintf(what, sizeof(what), "%s: a label that runs under the rectangle is reported", tn);
+		checkInt(what, changedFillsClear(t, 3), -1);
+		// 21 characters end at x 132: 2 px before the rectangle.
+		a.label = "LABEL OF 21 CHARACTER";
+		uiListDrawField(100, 40, a);
+		snprintf(what, sizeof(what), "%s: a label that ends 2 px before the rectangle is reported", tn);
+		checkInt(what, changedFillsClear(t, 3), -1);
+		snprintf(what, sizeof(what), "%s: that label's end, 2 px before the rectangle's x 135", tn);
+		checkInt(what, 8 + gfxTextW(a.label, 1) + 2, GFX_W - UI_MARGIN - gfxTextW("STANDARD", 2) - UI_FIELD_FILL_DX);
+		// 20 characters end at x 126: 8 px before it.
+		a.label = "LABEL OF 20 CHARACTE";
+		uiListDrawField(100, 40, a);
+		snprintf(what, sizeof(what), "%s: a label that ends 8 px before the rectangle passes", tn);
+		checkInt(what, changedFillsClear(t, 3), 2);
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
 void runIdTests() {
 	testHelpersFail();
 	testHelpersReport();
@@ -559,4 +613,5 @@ void runIdTests() {
 	testServo();
 	testLayoutTable();
 	testCornerWalk();
+	testChangedWalk();
 }
