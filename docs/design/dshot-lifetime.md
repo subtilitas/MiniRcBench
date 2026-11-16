@@ -833,13 +833,22 @@ Host tests:
     rectangle from y 260 to 281 holds only `C_BG`.
   - On ESC COMMANDS, a 1500 ms hold on 3D ON above START DSHOT, x 178,
     y 200: no command is queued or sent, no bind happens, START DSHOT does
-    not act, and 3D ON's rectangle from y 192 to 213 holds only `C_BG`.
+    not act, and 3D ON's rectangle from y 192 to 213 holds no pixel of
+    the 3D ON button's fill or label (the step's note lines may reach
+    y 200).
   - `uiDshotWanted()` for the stack ESC TESTER under SETUP, with the cue
     standing and START DSHOT not tapped: false.
 - Decision 13, on the host fakes (`test/fake_bridge_line.h`, core1's side
-  run by `core1JobPoll()` as in `test/test_bridge_ui.cpp`). After each
-  case ESC TESTER is opened to read the cue: running when it is clear, on
-  the start step when it stands.
+  run by `core1JobPoll()` as in `test/test_bridge_ui.cpp`). Each case
+  reads `usbBridgeRunCue()` first. Then it taps BACK through `uiTick()`
+  until ESC PROGRAM shows, and opens ESC TESTER: running when the cue is
+  clear, on the start step when it stands. Cases (b) and (c) call
+  `uiBridgeTick()` directly, which returns false and skips `src/ui.cpp`'s
+  tool dispatch, so their next `uiTick()` reaches ESC PROGRAM by that
+  BACK: `back()` returns false once the claim is neither Held nor Running.
+  Case (a) needs a frame loop that runs the pump pass and not
+  `core1JobPoll()`; `test/test_bridge_ui.cpp` gains it beside `brFrames()`
+  and `framesNoPump()`.
   - (a) The claim Held, its start pending with core1's pass held back,
     BACK: no bind, no leave page, the cue is clear.
   - (b) The race: the claim Held, its start pending; the test calls
@@ -850,8 +859,8 @@ Host tests:
     that tick is `pinClaimPoll()`'s read of the job's phase, and the hook
     runs `core1JobPoll()`, which binds. The line opened once
     (`fakeBridgeLineOpens()` 1), `bridgeWireBinds()` moved, nothing went
-    on the wire (`fakeBridgeLineWireCount()` 0), no leave page, the screen
-    ESC PROGRAM: the cue is clear.
+    on the wire (`fakeBridgeLineWireCount()` 0), `uiBridgeTick()` returned
+    false, no leave page: the cue is clear.
   - (c) The race of (b), after the first claim of (e), so 500 received
     and 400 sent are left over. The hook also puts one byte on the wire
     from the model ESC unasked (`fakeBridgeLineInject()`, new) and runs
