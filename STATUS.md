@@ -957,7 +957,10 @@ criteria; none has run.
     pixels of each corner undrawn. Every button, drawn by `uiButton()`, is
     rounded in both themes; chips, the tester's badge and its `SDERR` chip
     are square. Not looked at on the panel: how a 3 px corner reads at
-    0.178 mm a pixel.
+    0.178 mm a pixel. With it, SERVO TESTER's `STOP SWEEP`, 59 px, fits its
+    button: `SWEEP` is 69 px wide, `MIN` and `MAX` 47 px, `CENTRE` 49 px,
+    held by `static_assert`s in `src/ui_servo.cpp` and `testColourRoles()`
+    in `test/test_servo.cpp`.
 26. **Run summary per log, the owner's choice of 2026-11-14,** from the
     feature survey (item 28). Designed in
     [run-summary.md](docs/design/run-summary.md), slices 1 to 5 built: a

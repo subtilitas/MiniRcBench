@@ -1430,9 +1430,22 @@ Readings of the note where the code asked for a choice:
   not changed: a label that fits between a square button's frame fits
   between a rounded one's.
 - **A label wider than its button.** Not a matter of the radius, found
-  by the walk: SERVO TESTER's `STOP SWEEP`, 59 px at scale 1, is drawn
-  on a button 53 px wide and crosses its frame by 3 px at each side, with
-  square corners as with rounded ones. Not changed here.
+  by the walk: SERVO TESTER's `STOP SWEEP`, 59 px at scale 1, was drawn
+  on a button 53 px wide and crossed its frame by 3 px at each side, with
+  square corners as with rounded ones. The label stays, because a shorter
+  one that fits 53 px is `STOP`, which the screen's red `STOP` already
+  is. The row's widths change in place of it: `MIN` and `MAX` 47 px,
+  `CENTRE` 49 px and `SWEEP` 69 px, at x 8, 59, 112 and 163, 4 px apart,
+  from x 8 to x 231 as before. `STOP SWEEP` lies 5 px inside each side
+  of its button. `SV_LABEL_FITS()` and four `static_assert`s in
+  `src/ui_servo.cpp` hold each of the view's twelve button labels 4 px
+  or more inside each side of its button, at rest and with the 1 px
+  offset of a press; the calls of `uiButton()` take the same literals.
+  `testColourRoles()` in `test/test_servo.cpp` reads the drawn button:
+  the label centred, the frame whole, 4 px of fill at each side, and
+  nothing past x 231. The row's touch rectangles are the drawn ones;
+  the layout table of [menu-b.md](menu-b.md#decisions) decision 14 does
+  not name the row's widths.
 - **The radius of a chip.** `uiChip()` draws with `gfxRect()`, as before.
   [menu-b.md](menu-b.md#slice-2-as-built) records that a chip drawn
   through `gfxRoundRect()` passed the suite; it fails it now.
@@ -1454,7 +1467,7 @@ Mutations, each run against the suite and restored:
 | Mutation | Failing checks |
 |---|---|
 | The solver put back: every inset 0 | 213: `testRound()`'s 14, the widgets' 23, and the walk on every screen |
-| The solver's bound `(r - 1) * (r - 1)` in place of `r * r - r` | 44: `testRound()`, the widgets, the walk's own cases |
+| The solver's bound `(r - 1) * (r - 1)` in place of `r * r - r` | 46: `testRound()`, the widgets, the walk's own cases |
 | The frame's first corner rows not joined to the straight edge | 28 |
 | A frame's corner row does not reach the row above it | 2: the 12 px frame at 1 px and at 2 px. At 5 px the two are the same |
 | The frame 1 px thick in High contrast too | 23, a slider's hollow thumb among them |
@@ -1468,6 +1481,9 @@ Mutations, each run against the suite and restored:
 | The `SDERR` chip back to `gfxRoundRect()`, 2 px | 0: equivalent, a radius of 2 px insets no row |
 | The `SDERR` chip through `gfxRoundRect()`, 3 px | 1 |
 | The throttle fill not clipped, its radius clamped to half its width | 1: the pixels outside the track's left corners |
+| `STOP SWEEP` a character longer, `STOP SWEEPS` | the build: "SWEEP or STOP SWEEP does not fit its button" |
+| SERVO TESTER's button row back to 4 x 53 px | the build, the same `static_assert` |
+| The row back to 4 x 53 px and that `static_assert` removed | 5: `testColourRoles()`'s label, its 4 px, the frame, the fill and x 231 |
 | The throttle fill 10 px wide at the least, not clipped | 1: no fill under 10 px wide is drawn |
 
 Left to the slices that follow: cyan (slice 10), green (slices 11 and

@@ -75,12 +75,11 @@ such as `STALLED`. Cyan is a value changed and not yet written or applied, with
 a cyan bar at its row's left edge. Blue is a setting that stays on: `LATCH`, a
 toggle that is on, `PROG MODE`, servo B. Labels, captions and the buttons that
 open or command something are in the text colour or grey. A button has
-rounded corners. A chip on the strip
-under a title is square, so it does not look like a button; the tester's
-arm badge and its `SDERR` chip are square too. Not every use
-follows the table: lime also marks states such as SD LOG's `READY` and the
-card served over USB, and many failures are amber or in the text colour, for
-example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
+rounded corners. A chip on the strip under a title is square, so it does not
+look like a button; the tester's arm badge and its `SDERR` chip are square
+too. Not every use follows the table: lime also marks states such as SD LOG's
+`READY` and the card served over USB, and many failures are amber or in the
+text colour, for example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
 
 **The normal theme takes its colours from rcbench,** the larger bench of the
 same owner: a near-black screen with a blue cast and blue-grey neutrals. A

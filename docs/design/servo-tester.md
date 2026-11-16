@@ -233,7 +233,7 @@ y   0 +------------------------------------------+
   184 |                  (shaft)                 |
   200 |               1500 US                    |  readout, scale 2
   227 | SPEED [=======O-----------------]  100%  |  slider, track 150 x 22 px
-  254 | [ MIN ] [CENTRE] [ MAX ] [ SWEEP ]       |  4 x 53 px, 30 px tall
+  254 | [ MIN ] [CENTRE] [ MAX ] [  SWEEP  ]     |  47, 49, 47, 69 px; 30 px tall
   287 | [   HOLD TO START    ]       [  SET  ]   |  150 px and 72 px, 32 px tall
   320 +------------------------------------------+
 ```
@@ -260,7 +260,10 @@ Two-servo readout row, 200..223:
   itself (`servo_screen.c` turns it on for the same reason).
 - MIN, CENTRE, MAX fire on release, like every MiniRcBench button, and are
   drawn disabled while SAFE. SWEEP reads `SWEEP`, or `STOP SWEEP` while one
-  runs; a stopped sweep leaves the servo where the curve was. A sweep starts
+  runs; a stopped sweep leaves the servo where the curve was. The row runs
+  from x 8 to x 231 with 4 px between two buttons: MIN and MAX are 47 px
+  wide, CENTRE 49 px and SWEEP 69 px, so that `STOP SWEEP`, 59 px at scale
+  1, lies 5 px inside each side of its button. A sweep starts
   its curve at the centre, so a servo held elsewhere moves to the centre
   first, at SPEED.
 - HOLD TO START becomes `STOP` while RUNNING, in `C_RED`, and acts on press.

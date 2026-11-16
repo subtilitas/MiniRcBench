@@ -905,9 +905,11 @@ A button has rounded corners with a radius of 5 px (`UI_RADIUS`), in both
 themes: its fill and its frame leave out three pixels at each corner, and
 the screen under them shows. A press counts on the whole rectangle, the
 corners included. A chip is square: the chips on the strip, the tester's
-arm badge and its `SDERR` chip. The tester's throttle track, the sliders
-and the servo dial's shaft are round as before. No label moves: a label is
-centred and ends 3 px or more from a button's top and bottom edge.
+arm badge and its `SDERR` chip. The tester's throttle track, the sliders,
+SERVO TESTER's selected horn tip and the dial's shaft are round too. At
+rest a label is centred and ends 3 px or more from a button's top and
+bottom edge. A pressed button draws its label 1 px lower and 1 px to the
+right.
 
 **The Dark theme**
 
@@ -2113,7 +2115,7 @@ applies.
 | `STOP` | Acts on touch. The pulses end from the next PWM frame; the last one ends within one frame, 20 ms at 50 Hz |
 | The horn | Press on the dial and drag: the servo goes to the angle under the finger, −90° MIN, +90° MAX. Release holds. Refused while SAFE; a press that starts off the dial never drags |
 | `MIN` `CENTRE` `MAX` | Act on release, while RUNNING |
-| `SWEEP` / `STOP SWEEP` | A square, sine or triangle about the centre, run on core1; a stopped sweep leaves the servo where the curve was |
+| `SWEEP` / `STOP SWEEP` | A square, sine or triangle about the centre, run on core1; a stopped sweep leaves the servo where the curve was. The button is 69 px wide, `MIN` and `MAX` 47 px and `CENTRE` 49 px: `STOP SWEEP`, 59 px, lies 5 px inside each side |
 | `SPEED` | A slew, 10 % to 100 %: at 10 % a full MIN to MAX travel takes 5 s; 100 % is no slew |
 | `A` `B` `AB` | Two servos: what the horn and the buttons drive. With `AB`, REVERSE B mirrors B. A's horn and letter are lime, B's blue |
 | `SET` | Profile, rate, range, servo count, REVERSE B and the sweep |

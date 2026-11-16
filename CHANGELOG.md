@@ -1328,10 +1328,11 @@ protocol.
   entries, the editor bars' `-` and `+`, SETTINGS' steppers and toggles,
   HOLD DEFAULTS and the other hold buttons, the leave page and the tester's
   button row. A press counts on the whole rectangle as before; no rectangle
-  and no label moves. Chips stay square: `uiChip()`, and the tester's arm
-  badge and its `SDERR` chip, which were passed a radius and are drawn with
-  `gfxRect()`. In High contrast a disabled button keeps its dashed frame on
-  the straight edges, and its rounded corners are whole. What was round by
+  and no label moves but SERVO TESTER's button row, below. Chips stay
+  square: `uiChip()`, and the tester's arm badge and its `SDERR` chip, which
+  were passed a radius and are drawn with `gfxRect()`. In High contrast a
+  disabled button keeps its dashed frame on the straight edges, and its
+  rounded corners are whole. What was round by
   intent is round now: the tester's throttle track, the sliders' tracks,
   fills and thumbs, SERVO TESTER's selected horn tip and the dial's shaft.
   The tester's throttle fill follows the track's corner at every width: a
@@ -1345,6 +1346,14 @@ protocol.
   `test/test_ids.cpp`. The previews under `docs/` and `wiki/img/` are
   rendered again. README.md and the wiki pages The Screens and Die
   Bildschirme describe the corners.
+- After v0.1.0-rc1: SERVO TESTER's `STOP SWEEP` fits its button. The label
+  is 59 px wide at scale 1 and was drawn on a button 53 px wide, 3 px over
+  the frame at each side. `SWEEP` is 69 px wide, `MIN` and `MAX` 47 px and
+  `CENTRE` 49 px, at x 8, 59, 112 and 163; the row runs from x 8 to x 231 as
+  before, and a press counts on the new rectangles. `static_assert`s in
+  `src/ui_servo.cpp` hold every button label of the view 4 px or more inside
+  each side of its button, pressed too. Host test, mutation-checked:
+  `testColourRoles()` in `test/test_servo.cpp`.
 - After v0.1.0-rc1: a tool chosen on a chooser returns to that chooser, slice
   2 of [menu-c.md](docs/design/menu-c.md#slice-2-as-built), by owner decision
   7 of 2026-11-15. ESC SETTINGS and USB BRIDGE return to ESC CONFIG, KST

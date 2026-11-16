@@ -959,6 +959,8 @@ static void drawThrottle() {
 		gfxSetClip(THR_TRACK_X, THR_TRACK_Y, fillW, THR_TRACK_H);
 		gfxRoundRect(THR_TRACK_X, THR_TRACK_Y, fillW < 2 * 5 ? 2 * 5 : fillW, THR_TRACK_H, 5,
 		             s_armed ? C_LIME : C_GRID);
+		// drawThrottle() runs with no clip set, so clearing the clip puts
+		// back what its caller had.
 		gfxClearClip();
 	}
 	// With LATCH on the bar is a relative control, so give it a grab handle to
