@@ -1103,7 +1103,7 @@ Decisions the theme leaves as they are:
 The slices of the look are slices 7 to 14 of
 [the build plan in menu-c.md](menu-c.md#build-plan), which orders them
 with the structure's, names the model each suits and gives each one's host
-tests and its dependence on the DShot slices. None needs hardware
+tests and its dependence on the DShot slices, D1 to D5. None needs hardware
 ([decision 5](#decisions)).
 
 | Slice of the plan | What |
