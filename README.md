@@ -986,12 +986,13 @@ PIN or AUX PIN swaps the two, so DShot runs on the wire the ESC's KISS pad
 was on until the wires are swapped as well: while SIG is off the pin
 `settingsLoad()` put live (`settingsBootDshotPin()`), parked or running, the
 line reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` instead
-(`SETTINGS_SWAP_NOTE`, 36 characters, 215 px). The note line keeps its own order: SAVE FAILED and NOT
-WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF, until the
-next change (KISS OFF follows a KISS pin the board does not free, which no
-SETUP row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
-SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
-FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
+(`SETTINGS_SWAP_NOTE`, 36 characters, 215 px). The note line keeps its own
+order: SAVE FAILED and NOT WHILE ARMED, until the next save or leaving;
+ADJUSTED and KISS OFF, until the next change (KISS OFF follows a KISS pin the
+board does not free, which no SETUP row sets: the steppers offer free pins
+only); DEFAULTS LOADED; UNSAVED; SAVED; the reset by an update; then the set
+in use. SAVED is green, SAVE FAILED and NOT WHILE ARMED red, and the other
+notes but the set in use amber.
 
 **Buttons and chips**
 
@@ -4104,7 +4105,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,257 of 16,517 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,264 of 16,524 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver
