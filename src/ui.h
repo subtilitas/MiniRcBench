@@ -11,6 +11,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum class UiScreenId : uint8_t;
+
 /**
  * @brief Reset UI state, seed the ADC, clear the screen, and open MENU, the
  *        first screen after the splash (docs/design/menu-c.md, slice 3).
@@ -64,6 +66,38 @@ void uiSplashTick();
  * @return true while it did not answer at the last frame.
  */
 bool uiTouchLost();
+
+/**
+ * @brief The rule of the DShot lifetime, pure (docs/design/dshot-lifetime.md,
+ *        "The rule"): DShot runs while ESC TESTER or ESC COMMANDS is on top
+ *        of the navigation stack, and while SETUP is on top of ESC TESTER
+ *        (decision 6). Everywhere else it is parked.
+ * @param stack    The screens on the stack, bottom first: uiNavAt().
+ * @param depth    How many: uiNavDepth().
+ * @param cueHolds MENU's run cue stands and START DSHOT was not tapped since
+ *                 the screen opened: false until slice D3, which builds the
+ *                 start step of decision 8.
+ * @return true while DShot is wanted.
+ */
+bool uiDshotRule(const UiScreenId *stack, uint8_t depth, bool cueHolds);
+
+/**
+ * @brief uiDshotRule() for the stack as it stands. uiTick() hands it to
+ *        pinClaimDshot() once a frame, before the screen's tick, so a tap
+ *        that changes the stack takes effect at the next frame.
+ * @return true while DShot is wanted.
+ */
+bool uiDshotWanted();
+
+/**
+ * @brief Whether the tester's arm gate holds: core1's bind stamp,
+ *        escTaskBoundMs(), is 0 or less than @ref ARM_GATE_MS old. HOLD TO
+ *        ARM is drawn disabled and takes no timed press meanwhile.
+ * @param boundMs escTaskBoundMs().
+ * @param nowMs   millis().
+ * @return true while arming is refused.
+ */
+bool uiArmGated(uint32_t boundMs, uint32_t nowMs);
 
 /**
  * @brief Run one UI frame.
@@ -181,9 +215,26 @@ enum class TesterCtl : uint8_t {
 #define UI_TESTER_CARD_TEXT "EJECT THE USB DRIVE TO ARM"
 
 /**
- * @brief The splash's warning, with the ESC pin's GPIO number for `%u`:
- *        DShot runs on that pin from the end of the splash, and a servo
- *        on it moves.
+ * @brief The track's text while the arm gate holds, in place of ARM TO
+ *        ENABLE: DShot was bound less than @ref ARM_GATE_MS ago, or not yet,
+ *        and HOLD TO ARM is drawn disabled (docs/design/dshot-lifetime.md,
+ *        decisions 10 and 12). 26 characters, the card text's length.
+ */
+#define UI_TESTER_GATE_TEXT "DSHOT STARTING: WAIT 1.5 S"
+
+/**
+ * @brief The track's text after the DShot driver refused the bind
+ *        (EscTelemetry::initError, DSERR in the status bar), in place of
+ *        @ref UI_TESTER_GATE_TEXT. The bind stamp stays 0, so HOLD TO ARM
+ *        stays disabled until a later bind succeeds. 21 characters, 125 px.
+ */
+#define UI_TESTER_REFUSED_TEXT "DSHOT COULD NOT START"
+
+/**
+ * @brief SETUP's pin note, with the ESC pin's GPIO number for `%u`: a SIG PIN
+ *        change moves the pin ESC TESTER's DShot runs on, and a servo there
+ *        moves. The splash draws it no more: no DShot frame leaves the board
+ *        at power-up (docs/design/dshot-lifetime.md, slice D2).
  */
 #define UI_SPLASH_PIN_FMT "UNPLUG ANY SERVO FROM GP%u NOW"
 

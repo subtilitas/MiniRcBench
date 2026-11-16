@@ -47,6 +47,7 @@ void runWidgetTests();
 void runIdTests();
 void runMenuTests();
 void runHubTests();
+void runDshotLifeTests();
 void runEscCmdUiTests();
 void runBackupTests();
 void runSdCacheTests();
@@ -104,6 +105,7 @@ int main() {
 	runSdCacheTests();
 	runMenuTests();
 	runHubTests();
+	runDshotLifeTests();
 	runEscCmdUiTests();
 	runAngleUiTests();
 	runDiagTests();

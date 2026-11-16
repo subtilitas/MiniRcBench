@@ -23,11 +23,12 @@
  * WRITE saves the backup of the page as first read (`BJnnn.TXT`,
  * `BHnnn.TXT`) and then has the job write the draft, verified by reading
  * back. BACK from the list sends LEAVE, `00 01`, which starts the ESC's
- * firmware, and gives SIG back to DShot; the cue stays until an eRPM frame.
+ * firmware, and parks SIG low; the cue stays until an eRPM frame.
  * BACK on a half-written page is guarded: the second aborts the session
  * with no LEAVE. Every other BACK after an EFM8 answer, or after a reply
  * that holds a piece of one, opens the leave page of decision 8 of that
- * note, whose RESTART DSHOT gives SIG back to DShot and clears the cue.
+ * note, whose last button, the hub's title, parks SIG low and clears the
+ * cue.
  *
  * @see am32_bl.h for the transport, am32_eeprom.h for the settings layout.
  */
@@ -46,9 +47,9 @@ struct TouchState;
 void uiAm32Enter();
 
 /**
- * @brief Leave config mode and end the claim, which resumes DShot within
- *        the call unless an EFM8 bootloader answered: then the claim waits
- *        in Leaving for RESTART DSHOT, which only the screen's leave page
+ * @brief Leave config mode and end the claim, which parks the pins unless
+ *        an EFM8 bootloader answered: then the claim waits in Leaving for
+ *        the leave page's last button, which only the screen's leave page
  *        offers, so the screen leaves through that page instead.
  */
 void uiAm32Exit();
@@ -228,8 +229,8 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_EXIT_HEAD "LEAVING"
 /** @brief Under it, first line: 30 characters. */
 #define AM32_UI_EXIT_1 "THE ESC STARTS ITS FIRMWARE ON"
-/** @brief Second line: 26 characters. */
-#define AM32_UI_EXIT_2 "LEAVE, THEN DSHOT RETURNS."
+/** @brief Second line: 31 characters. ESC TESTER's DShot runs it, not the leave. */
+#define AM32_UI_EXIT_2 "LEAVE. ESC TESTER THEN RUNS IT."
 /** @brief Third line: 23 characters. */
 #define AM32_UI_EXIT_3 "KEEP THE PROPELLER OFF."
 /** @brief The status while LEAVE runs: 20 characters. */
@@ -251,8 +252,14 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_LEAVE_1A "ITS BOOTLOADER WAITS FOR COMMANDS"
 /** @brief Step 1's second detail line: 26 characters, 155 px. */
 #define AM32_UI_LEAVE_1B "AND MAY READ DSHOT AS ONE."
-/** @brief Step 2: 31 characters, 185 px. */
-#define AM32_UI_LEAVE_2 "PLUG IT IN AFTER RESTART DSHOT."
+/**
+ * @brief Step 2, with the title of the hub ESC SETTINGS returns to in
+ *        place of the format's string: PLUG IT IN ONCE ESC CONFIG SHOWS.,
+ *        33 characters. SIG is parked
+ *        low by then, where an EFM8 does not enter its bootloader (from
+ *        source, not measured).
+ */
+#define AM32_UI_LEAVE_2 "PLUG IT IN ONCE %s SHOWS."
 /** @} */
 
 /** @brief The connect page's last line under a reply it could not parse. */
@@ -273,8 +280,8 @@ bool uiAm32Tick(const TouchState *t);
  *
  * Set when a handshake with the bootloader succeeds, and when an EFM8
  * bootloader answers the greeting. Cleared by an eRPM frame that arrived
- * after that answer, which only the ESC's firmware sends, and by RESTART
- * DSHOT on the leave page, whose steps power-cycle the ESC; a restart of the
+ * after that answer, which only the ESC's firmware sends, and by the leave
+ * page's last button, whose steps power-cycle the ESC; a restart of the
  * board clears it as well, since it is not stored. LEAVE's `00 01` leaves it:
  * LEAVE has no answer, so only an eRPM frame after it shows that the firmware
  * started. A reply that holds a piece of an EFM8 answer sets it too.
@@ -294,7 +301,7 @@ enum class Am32Ctl : uint8_t {
 	WriteHold,                /**< ESC WRITE's HOLD TO WRITE, 1000 ms: the write. */
 	Stay,                     /**< STAY on the leave page, before LEAVE: back to the screen. */
 	Leave,                    /**< LEAVE on the leave page: the transport lets go of SIG. */
-	Restart,                  /**< RESTART DSHOT in LEAVE's place, live 1000 ms after SIG is let go. */
+	Release,                  /**< The hub's title in LEAVE's place: parks the pins and returns to the hub, live 1000 ms after SIG is let go. */
 	ReadAgain,                /**< READ AGAIN in WRITE...'s place on the EFM8 list, after a write that needs a read. */
 	OldPage,                  /**< OLD PAGE on the connect page: the page kept from a session that ended half written. */
 };

@@ -83,10 +83,10 @@ also jederzeit anstecken oder neu starten.
 Der Startbildschirm steht 3 s lang, dann erscheint `MENU`, die Liste der
 Werkzeuge. Der Startbildschirm nennt die Platine, für die die Firmware gebaut
 ist, RP2350-TOUCH-LCD-2.8, und die Firmware-Version, zum Beispiel
-`VERSION 0.1.0`. Seine letzte Zeile nennt in Bernstein den ESC-Pin:
-`UNPLUG ANY SERVO FROM GP0 NOW`. DShot startet am Ende des Startbildschirms auf
-diesem Pin, und ein dort vergessenes Servo liest die Frames als Impulse und
-fährt an ein Ende seines Wegs.
+`VERSION 0.1.0`. Beim Einschalten verlässt kein DShot-Frame die Platine: Ab
+dem Start, vor dem Startbildschirm, liegt der ESC-Pin auf Low, und nichts
+wird gesendet, auch nicht während des Startbildschirms und auf `MENU`.
+DShot startet erst, wenn du `ESC TESTER` oder `ESC COMMANDS` öffnest.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
@@ -121,8 +121,15 @@ Zeile verschwindet, sobald der Controller antwortet. Steht sie noch, wenn
 `BACK`: Dahinter liegt nichts. Tippe auf seine erste Zeile, `ESC TESTER`,
 um den Tester zu öffnen. Der Tester öffnet entschärft, mit Gas 0 und
 `LATCH` aus; seine Schaltfläche `MENU` unten rechts führt zu `MENU` zurück.
-DShot läuft schon auf dem ESC-Pin, während `MENU` zu sehen ist, der ESC
-hört also ab dem Ende des Startbildschirms Frames mit Gas 0.
+DShot startet, wenn der Tester öffnet: Der ESC hört zuerst die Freigabe der
+Telemetrie, dann Frames mit Gas 0. `MENU` beendet DShot wieder, nach
+mindestens 250 ms Frames mit Gas 0, und legt den ESC-Pin auf Low. Was ein
+ESC tut, wenn die Frames ausbleiben, bestimmt seine Firmware; auf dieser
+Platine ist das nicht gemessen.
+
+> **Zieh jedes Servo vom ESC-Pin ab, bevor du den Tester öffnest.** Ein Servo
+> dort liest DShot als Impuls von etwa 970 µs mit 1000 Hz und fährt an ein
+> Ende seines Wegs.
 
 <img src="img/menu.png" width="240" alt="MENU nach dem Startbildschirm: ESC TESTER ist die erste Zeile">
 
@@ -147,6 +154,11 @@ nicht der des ESC; die Spannung des ESC steht in der Kachel `VOLTAGE`.
 <img src="img/tester-idle.png" width="240" alt="Der Tester entschärft: SAFE in Grün, ARM TO ENABLE im Gasbalken">
 
 Entschärft zeigt das Feld `SAFE`, und der Gasbalken zeigt `ARM TO ENABLE`.
+In den ersten 1,5 s nach dem Öffnen des Testers zeigt er stattdessen
+`DSHOT STARTING: WAIT 1.5 S` in Bernstein, und `HOLD TO ARM` ist als Umriss
+gezeichnet: Der ESC muss DShot sehen, bevor er scharf werden kann. Ein Druck
+in dieser Zeit bewirkt nichts; loslassen und erneut drücken, sobald die
+Schaltfläche bedienbar ist.
 
 1. Prüfe, dass der Propeller ab ist.
 2. `HOLD TO ARM` drücken und 1 s **halten**. Währenddessen füllt sich ein
@@ -226,11 +238,11 @@ Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `UNSAVED - HOLD SAVE TO KEEP`, und `MENU` zeigt `UNSAVED` in der Zeile
 `SETTINGS`.
 
-`SIG PIN`, weiter unten, legt DShot sofort auf den anderen Pin. Solange es
-nicht der Pin ist, den der Startbildschirm nannte, wiederholt eine eigene
-Zeile über `LINK` dessen Warnung für den neuen Pin in Bernstein,
-`UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter sagt weiter, ob die
-Einstellungen gespeichert sind.
+`SIG PIN`, weiter unten, legt den ESC-Pin sofort auf den anderen GPIO: Über dem
+Tester wechselt DShot mit, von `MENU` aus nimmt ihn der nächste Tester. Solange
+es nicht der Pin ist, der beim Einschalten galt, zeigt eine eigene Zeile über
+`LINK` in Bernstein `UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter
+sagt weiter, ob die Einstellungen gespeichert sind.
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 

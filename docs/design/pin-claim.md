@@ -775,7 +775,8 @@ numbers stay, so the references above keep pointing at them.
    [dshot-lifetime.md](dshot-lifetime.md#decisions) decisions 7 and 11,
    pending the owner's review: in place of the lost check the hubs SERVO and
    RECEIVER draw `NO ESC CHECK: UNPLUG ANY ESC FIRST.` before any entry is
-   tapped. Not built.
+   tapped. Built (D2); the built hubs read SERVO and RX SIGNALS until slice 5
+   of [menu-c.md](menu-c.md#build-plan).
 4. **Unplug page.** A tap dismisses it. The page guards against forgetting,
    not against a slip of the finger, and BACK beside it undoes nothing
    dangerous.
@@ -790,7 +791,7 @@ numbers stay, so the references above keep pointing at them.
    the tool's hub, and DShot starts again only with ESC TESTER or ESC
    COMMANDS. Revised by [dshot-lifetime.md](dshot-lifetime.md#decisions)
    decisions 5 and 9, pending the owner's review: the button parks SIG,
-   driven low, and reads the hub's title. Not built.
+   driven low, and reads the hub's title. Built (D2).
 
 Revision of 2026-10-18, after the owner's menu decisions
 ([menu.md](menu.md#decisions)): decision 2 is superseded. The MENU list of

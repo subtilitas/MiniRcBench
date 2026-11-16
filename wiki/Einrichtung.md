@@ -70,11 +70,12 @@ Lötkolben und Schrumpfschlauch oder Crimpkontakte.
 >   Versorgung. Die Minusader geht außerdem an einen GND-Pin der Platine:
 >   J5 Pin 4 oder J4 Pin 1 oder 5.
 
-> **Kein Servo an SIG, während die Platine startet.** Außerhalb der
-> Servobildschirme führt SIG DShot, vom Ende des 3 s langen Startbildschirms an.
-> Ein Servo liest das als Impuls und fährt in Richtung eines Endes seines Wegs,
-> mit einer Framerate, die ein analoges Servo überhitzt. Stecke das Servo erst
-> an, wenn sein Bildschirm offen ist; bei den KST- und Hitec-Programmierern
+> **Kein Servo an SIG, wenn du ESC TESTER oder ESC COMMANDS öffnest.** Diese
+> beiden Bildschirme treiben SIG mit DShot; überall sonst, vom Einschalten
+> an, liegt SIG auf Low, und nichts wird gesendet. Ein Servo liest DShot als
+> Impuls und fährt in Richtung eines Endes seines Wegs, mit einer Framerate,
+> die ein analoges Servo überhitzt. Stecke das Servo erst an, wenn sein
+> Bildschirm offen ist; bei den KST- und Hitec-Programmierern
 > nach dem Tippen auf ihren Eintrag in SERVO. Bei HITEC SERVO mit einem
 > Servo an eigener Versorgung warte auf
 > `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.`, schalte dann das Servo ein und

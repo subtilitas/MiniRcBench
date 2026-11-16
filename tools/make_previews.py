@@ -41,16 +41,14 @@ PREVIEWS = {
         "shot_tester_kv",
         "shot_tester_stale",
     ],
-    # Three states of MENU's EDT chip, and SERVO, the hub its SERVO row
-    # opens, at scroll 0 and at its end. shot_menu is the same screen with
-    # EDT off, so pairing it with shot_menu_edt_off published the same
-    # picture twice.
+    # MENU with DShot parked and no chip (docs/design/dshot-lifetime.md,
+    # slice D2), SERVO, the hub its SERVO row opens, at scroll 0 and at its
+    # end, and RX SIGNALS, each hub with its NO ESC CHECK line.
     "menu-preview": [
-        "shot_menu_edt_on",
-        "shot_menu_edt_off",
-        "shot_menu_no_esc",
+        "shot_menu",
         "shot_servo_hub",
         "shot_servo_hub_scrolled",
+        "shot_rx_chooser",
     ],
     # ESC COMMANDS: at rest, a beacon going out with every control drawn
     # disabled, 3D ON sent with its amber lines, and no ESC answering.

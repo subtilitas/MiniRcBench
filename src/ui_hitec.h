@@ -27,7 +27,7 @@
  * | List | the parameters, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
  * | Files | the record, the backups, FACTORY VALUES, the files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
- * | Leave | the leave page (ui_leave.h): the steps, STAY, READ AGAIN, LEAVE; then the 2 s off wait, NEXT SERVO and RESTART DSHOT | STAY: List, or Main; READ AGAIN: the read; LEAVE: the release; NEXT SERVO: Main, a new session in the same family; RESTART DSHOT: PROGRAMMER; BACK is disabled |
+ * | Leave | the leave page (ui_leave.h): the steps, STAY, READ AGAIN, LEAVE; then the 2 s off wait, NEXT SERVO and SERVO, the hub's title | STAY: List, or Main; READ AGAIN: the read; LEAVE: the release; NEXT SERVO: Main, a new session in the same family; SERVO: Parking, then the hub SERVO; BACK is disabled |
  *
  * CLASSIC needs SERVO SUPPLY at GP28 or GP29: its entry switches the
  * servo's supply. The classic servo drives SIG to its supply, 5 V nominal;
@@ -64,7 +64,8 @@ void uiHitecEnterClassic();
 /**
  * @brief Run one frame of the screen.
  * @param t Touch state for this frame.
- * @return false once the screen has left: after RESTART DSHOT, or after
+ * @return false once the screen has left: after the leave page's last
+ *         button, or after
  *         BACK before a claim held the pin.
  */
 bool uiHitecTick(const TouchState *t);
@@ -89,8 +90,8 @@ HitecView uiHitecView();
 #define HITEC_UI_POWER_READ "POWER THE SERVO UP, THEN TAP READ."
 /** @brief The main view's first line while an ESC answers on SIG: amber. */
 #define HITEC_UI_ESC_FMT "AN ESC ANSWERS ON SIG GP%u: UNPLUG IT."
-/** @brief The line under it. */
-#define HITEC_UI_ESC_2 "DSHOT STAYS ON THE PIN UNTIL THEN."
+/** @brief The line under it: 27 characters. */
+#define HITEC_UI_ESC_2 "NOTHING IS SENT UNTIL THEN."
 /**
  * @brief The editor bar's note while the D series ID draft is not 0: three
  *        lines of 22 characters. Whether a servo with another ID answers
@@ -141,7 +142,7 @@ enum class HitecCtl : uint8_t {
 	RetryMount,  /**< RETRY MOUNT with no card. */
 	LeaveRead,   /**< READ AGAIN on the leave page, before LEAVE. */
 	Leave,       /**< LEAVE on the leave page, before the release. */
-	Restart,     /**< RESTART DSHOT in LEAVE's place, live 1000 ms after the pin is let go. */
+	Release,     /**< The hub's title in LEAVE's place: parks the pins and returns to the hub, live 1000 ms after the pin is let go. */
 	Stay,        /**< STAY on the leave page: back to the list, or to the main view. */
 	NextServo,   /**< NEXT SERVO on the leave page: the claim kept, a new session. */
 };

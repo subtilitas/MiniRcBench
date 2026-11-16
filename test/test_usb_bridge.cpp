@@ -71,6 +71,12 @@ static void run(uint32_t ms, bool core0 = true) {
 
 /** @brief The pump bound on SIG GP0, no ESC answering. */
 static void freshPump() {
+	// Run not wanted, so a claim is not Busy (docs/design/dshot-lifetime.md).
+	// The pump itself runs, as a claim found it before slice D2: the job's
+	// own pad writes are under test here, and the fake's teardown writes no
+	// pad. A claim from the parked pump is tested in test_claim.cpp.
+	pinClaimDshot(false);
+	escTaskStart();
 	escTaskConfigure(0, 600, true, 1);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -102,7 +108,7 @@ static void endBridge(uint32_t ms = 400) {
 static void fresh(FakeEscReply r) {
 	for (int k = 0; k < 2000 && pinClaimState() != ClaimState::Free; k++) {
 		pinClaimEnd(PinUser::Bridge);
-		pinClaimRestart(PinUser::Bridge);
+		pinClaimRelease(PinUser::Bridge);
 		pass();
 	}
 	// Ends the claim, then clears the unfinished write as the screen's
@@ -948,7 +954,7 @@ static void testLeavePageConsole() {
 	checkTrue("BACK again: the page, the console off, still unfinished",
 	          pinClaimUnplugDue() && !fakeConsoleOn() && usbBridgeWriteUnfinished());
 	// RESTART DSHOT, as the screen does it (ui_bridge.cpp).
-	pinClaimRestart(PinUser::Bridge);
+	pinClaimRelease(PinUser::Bridge);
 	usbBridgeRunCueClear();
 	usbBridgeWriteUnfinishedClear();
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) pass();
@@ -1147,7 +1153,7 @@ static void testRefusedBind() {
 	pinClaimEnd(PinUser::Sbus);
 	for (int k = 0; k < 100 && pinClaimState() != ClaimState::Free; k++) {
 		pass();
-		pinClaimRestart(PinUser::Sbus);
+		pinClaimRelease(PinUser::Sbus);
 	}
 	checkInt("no PC byte on the wire outside the claim", g_strayBytes, 0);
 }

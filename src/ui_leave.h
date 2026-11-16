@@ -1,11 +1,15 @@
 /**
  * @file ui_leave.h
  * @brief The leave page: one page for leaving a tool that holds the signal
- *        pins, from the last step on the device to DShot running again
- *        (docs/design/menu-b.md, "The leave page").
+ *        pins, from the last step on the device to the pins parked and the
+ *        hub that opened the tool (docs/design/menu-b.md, "The leave page";
+ *        docs/design/dshot-lifetime.md, decision 9).
  *
- * KST SERVO, HITEC SERVO and SERVO TESTER fill it; it is the one page between
- * a servo on SIG and DShot restarting there. The page has three phases:
+ * KST SERVO, HITEC SERVO and SERVO TESTER fill it, and the S.BUS tools, ESC
+ * SETTINGS and USB BRIDGE; it is the one page between a servo on SIG and the
+ * next ESC TESTER or ESC COMMANDS, whose DShot a servo left there reads as
+ * pulses. Its last button parks the pins and starts no DShot. The page has
+ * three phases:
  *
  * - **Before LEAVE.** The first step is current. The left button reads STAY
  *   and the wide button LEAVE. A tap on LEAVE moves the page to Releasing.
@@ -18,9 +22,10 @@
  *   under the finger.
  * - **Releasing.** The pin is being let go. The step after the first is
  *   current. The left button reads the screen's next label, NEXT SERVO or
- *   BACK TO SERVO, and the wide button RESTART DSHOT, both drawn disabled.
+ *   BACK TO MONITOR, and the wide button the title of the hub the tool
+ *   returns to (@ref UiLeaveText::hub), both drawn disabled.
  * - **Released**, from the frame the screen reports pinClaimUnplugDue(). The
- *   left button is live. RESTART DSHOT takes only a press that lands
+ *   left button is live. The wide button takes only a press that lands
  *   @ref UiLeave::waitMs or more after this phase began, and is drawn
  *   disabled until then. A press that landed earlier draws no pressed look.
  *
@@ -81,11 +86,11 @@ struct TouchState;
 #define UI_LEAVE_BTN_H      46
 /** @} */
 
-/** @brief The left button: STAY, then NEXT SERVO or BACK TO SERVO. */
+/** @brief The left button: STAY, then NEXT SERVO or BACK TO MONITOR. */
 constexpr UiRect UI_LEAVE_LEFT  = { UI_EDGE, UI_LEAVE_BTN_Y, 110, UI_LEAVE_BTN_H };
 /** @brief The screen's right-hand button, before LEAVE only. */
 constexpr UiRect UI_LEAVE_RIGHT = { 122, UI_LEAVE_BTN_Y, 112, UI_LEAVE_BTN_H };
-/** @brief LEAVE, then RESTART DSHOT, at scale 2. */
+/** @brief LEAVE, then the hub's title, at scale 2. */
 constexpr UiRect UI_LEAVE_WIDE  = { UI_EDGE, UI_FOOT_Y, 240 - 2 * UI_EDGE, UI_FOOT_H };
 
 static_assert(UI_LEAVE_NOTE_Y + (UI_LEAVE_NOTES - 1) * UI_LEAVE_LINE_H + 7 < UI_LEAVE_BTN_Y - 4,
@@ -104,12 +109,19 @@ static_assert(UI_LEAVE_BTN_Y + UI_LEAVE_BTN_H < UI_LEAVE_WIDE.y,
  */
 /** @brief The step that unplugs the servo. */
 #define UI_LEAVE_UNPLUG      "UNPLUG THE SERVO."
-/** @brief Its first detail line, with SIG's GPIO. */
-#define UI_LEAVE_DSHOT_FMT   "DSHOT RESTARTS ON SIG GP%u AND READS"
+/**
+ * @brief Its first detail line, with SIG's GPIO: the next ESC TESTER or ESC
+ *        COMMANDS sends DShot on SIG. 35 characters, the step's limit.
+ */
+#define UI_LEAVE_DSHOT_FMT   "ESC TESTER'S DSHOT ON SIG GP%u READS"
 /** @brief Its second detail line: what DShot looks like to a servo. */
 #define UI_LEAVE_PULSE       "AS A 970 US PULSE AT 1000 HZ."
-/** @brief The last step. */
-#define UI_LEAVE_RESTART     "RESTART DSHOT."
+/**
+ * @brief The last step, with the title of the hub the tool returns to:
+ *        BACK TO SERVO., BACK TO RX SIGNALS. or BACK TO ESC CONFIG., 19
+ *        characters at most (docs/design/dshot-lifetime.md, decision 9).
+ */
+#define UI_LEAVE_BACK_FMT    "BACK TO %s."
 /** @brief The first step with a switched supply, KST and Hitec. */
 #define UI_LEAVE_SWITCHED    "LEAVE SWITCHES THE SUPPLY OFF."
 /** @brief The note while the job lets the pin go. */
@@ -122,6 +134,14 @@ static_assert(UI_LEAVE_BTN_Y + UI_LEAVE_BTN_H < UI_LEAVE_WIDE.y,
 #define UI_LEAVE_STEP_CHARS  35
 /** @brief Characters a note line holds from x 8. */
 #define UI_LEAVE_NOTE_CHARS  37
+/**
+ * @brief Characters of a hub's title the wide button holds at scale 2:
+ *        12 make 142 px in the 228 px button; @ref UI_LEAVE_BACK_FMT with
+ *        that title fits a step line.
+ */
+#define UI_LEAVE_HUB_CHARS   12
+static_assert(sizeof(UI_LEAVE_BACK_FMT) - 1 - 2 + UI_LEAVE_HUB_CHARS <= UI_LEAVE_STEP_CHARS,
+              "the last step runs past x 232");
 
 // SIG's GPIO is one digit: ui_leave.cpp holds the board to it.
 static_assert(sizeof(UI_LEAVE_DSHOT_FMT) - 1 - 2 + 1 <= UI_LEAVE_STEP_CHARS &&
@@ -145,8 +165,8 @@ enum class UiLeaveEv : uint8_t {
 	None,     /**< Nothing for the screen to act on. */
 	Stay,     /**< STAY: back to the tool. */
 	Leave,    /**< LEAVE: end the claim. The page is now Releasing. */
-	Next,     /**< NEXT SERVO or BACK TO SERVO: keep the claim. */
-	Restart,  /**< RESTART DSHOT: give the pins back to DShot. */
+	Next,     /**< NEXT SERVO or BACK TO MONITOR: keep the claim. */
+	Release,  /**< The last button, the hub's title: park the pins and return to the hub. */
 };
 
 /** @brief The page's state. Set it up with uiLeaveOpen(). */
@@ -156,9 +176,9 @@ struct UiLeave {
 	bool         leaveEnabled;  /**< LEAVE is live. uiLeaveOpen() sets it; the screen clears
 	                                 it while it writes and sets it again after. */
 	bool         leavePress;    /**< The press under way landed while LEAVE was enabled. */
-	bool         restartPress;  /**< The press under way landed while RESTART DSHOT was live. */
+	bool         releasePress;  /**< The press under way landed while the wide button was live after LEAVE. */
 	uint32_t     releasedMs;    /**< millis() when Released began. */
-	uint32_t     waitMs;        /**< RESTART DSHOT's wait after Released began, ms. */
+	uint32_t     waitMs;        /**< The wide button's wait after Released began, ms. */
 };
 
 /** @brief What the page shows, filled by the screen for each draw. */
@@ -169,8 +189,15 @@ struct UiLeaveText {
 	/** The notes; a null line ends them. */
 	const char *note[UI_LEAVE_NOTES];
 	/** The left button from the tap on LEAVE on: NEXT SERVO or BACK TO
-	    SERVO; null draws none. */
+	    MONITOR; null draws none. */
 	const char *next;
+	/** The wide button's label from the tap on LEAVE on: the title of the
+	    hub the tool returns to (uiLeaveBackStep()). */
+	const char *hub;
+	/** Room for the last step, `BACK TO ` and the hub's title. The step
+	    points into it: a text filled by uiLeaveBackStep() is drawn where
+	    it was filled, not copied. */
+	char back[UI_LEAVE_STEP_CHARS + 1];
 };
 
 /**
@@ -178,7 +205,7 @@ struct UiLeaveText {
  * @param[out] l The page.
  * @param phase  @ref UiLeavePhase::Before, or Releasing for a page with no
  *               step before LEAVE; Released opens it as Releasing.
- * @param waitMs RESTART DSHOT's wait, ms; 0 makes it live with the released
+ * @param waitMs The wide button's wait after LEAVE, ms; 0 makes it live with the released
  *               phase. The screens pass @ref UI_HOLD_MS, 1000 ms, by owner
  *               decision 30 of the note.
  */
@@ -201,12 +228,12 @@ void uiLeavePoll(UiLeave *l, bool due, uint32_t nowMs);
 int uiLeaveCurrent(const UiLeave *l);
 
 /**
- * @brief Whether RESTART DSHOT is live.
+ * @brief Whether the wide button is live after LEAVE: the hub's title.
  * @param l     The page.
  * @param nowMs Current millis().
  * @return true once Released has lasted @ref UiLeave::waitMs.
  */
-bool uiLeaveRestartLive(const UiLeave *l, uint32_t nowMs);
+bool uiLeaveReleaseLive(const UiLeave *l, uint32_t nowMs);
 
 /**
  * @brief Feed one frame of touch to the page.
@@ -218,17 +245,31 @@ bool uiLeaveRestartLive(const UiLeave *l, uint32_t nowMs);
 UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs);
 
 /**
- * @brief Fill the two steps every leave ends with: UNPLUG THE SERVO., with
- *        DShot's restart on SIG and the pulse it reads as, then
- *        RESTART DSHOT.
+ * @brief Fill the last step and the wide button: `BACK TO ` and the hub's
+ *        title, and the title alone on the button (decision 9 of
+ *        docs/design/dshot-lifetime.md).
+ * @param[out] text The page's text; step @p i, @ref UiLeaveText::hub and
+ *                  @ref UiLeaveText::back.
+ * @param i         The index of the last step.
+ * @param hub       The title of the hub the tool returns to, as the hub
+ *                  draws it: uiNavOpenerTitle().
+ */
+void uiLeaveBackStep(UiLeaveText *text, int i, const char *hub);
+
+/**
+ * @brief Fill the two steps every servo leave ends with: UNPLUG THE SERVO.,
+ *        with ESC TESTER's DShot on SIG and the pulse it reads as, then
+ *        uiLeaveBackStep().
  * @param[out] text  The page's text; steps @p first and @p first + 1.
  * @param first      The index of the unplug step: 1 after a step before
  *                   LEAVE, 0 on a page opened releasing.
  * @param sig        SIG's GPIO.
+ * @param hub        The title of the hub the tool returns to.
  * @param buf        Room for the DShot line; it must outlive the draw.
  * @param n          Size of @p buf, 40 bytes or more.
  */
-void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, char *buf, size_t n);
+void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, const char *hub,
+                        char *buf, size_t n);
 
 /**
  * @brief The note while a switched supply stays off before the pin goes.
@@ -251,8 +292,8 @@ void uiLeaveSupplyNote(char *buf, size_t n, uint32_t offMs, unsigned leftDs);
  * It clears the whole body, y 62 to y 319, the right button's place and its
  * hold bar included, so the screen draws its right button and hold bar after
  * it. Feed the frame's touch to uiLeaveTouch() first: the pressed look of
- * LEAVE follows @ref UiLeave::leavePress, that of RESTART DSHOT
- * @ref UiLeave::restartPress.
+ * LEAVE follows @ref UiLeave::leavePress, that of the hub's title
+ * @ref UiLeave::releasePress.
  * @param l     The page.
  * @param text  What it shows.
  * @param t     This frame's touch, for the pressed look; may be null.

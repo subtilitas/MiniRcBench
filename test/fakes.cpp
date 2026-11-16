@@ -250,6 +250,12 @@ void fakePwmReset() {
 	for (fake_pad_reg &r : g_fakePadsBank0.io) r.value = PAD_RESET;
 	memset(g_pullTouched, 0, sizeof(g_pullTouched));
 }
+void fakePinsReset() {
+	for (FakePin &p : g_pins) p = FakePin{};
+	g_ctrlLog.clear();
+	for (fake_pad_reg &r : g_fakePadsBank0.io) r.value = PAD_RESET;
+	memset(g_pullTouched, 0, sizeof(g_pullTouched));
+}
 void fakePwmBreakSliceMap(bool on) { g_sliceMapBroken = on; }
 FakePin fakePin(unsigned gpio) {
 	if (gpio >= FAKE_GPIOS) return FakePin{};
@@ -889,7 +895,7 @@ const char *am32BlEscTypeName() { return "F051"; }
 // ---------------------------------------------------------------------------
 static uint16_t g_throttle = 0;
 static bool     g_armed = false;
-static EscPinMode g_want = EscPinMode::Run;
+static EscPinMode g_want = EscPinMode::Park;
 static EscPinMode g_reached = EscPinMode::Run;
 static bool     g_rebuildReq = false;
 static EscTelemetry g_tel;
@@ -993,6 +999,11 @@ void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 // suspend, a drain and a rebuild each take as many passes as a test gives them.
 static EscPump    g_pump;
 static bool       g_pumpUp = false;
+// The wiring, seeded to a pin the board does not offer: see escTaskConfigure().
+static uint8_t  g_dshotPin = 255;
+static uint16_t g_dshotKbaud = DSHOT_SPEED_KBAUD;
+static bool     g_kissEnable = false;
+static uint8_t  g_kissPin = 255;
 static int        g_resumes = 0;
 static int        g_rebuilds = 0;
 static FakeWiring g_rebuildWiring = {};
@@ -1005,16 +1016,23 @@ static EscFrame   g_lastFrame = {};
 static uint32_t   g_boundMs = 0;
 static void     (*g_bindHook)() = nullptr;
 
+static bool       g_bindRefused = false;   // binds fail from now on
+static bool       g_lastRefused = false;   // escTaskBindRefused()
+
 void fakeSetBindHook(void (*hook)()) { g_bindHook = hook; }
+void fakeSetBindRefused(bool refused) { g_bindRefused = refused; }
+bool escTaskBindRefused() { return g_lastRefused; }
 uint32_t escTaskBoundMs() { return g_boundMs; }
 
 void fakePumpPowerOn() {
 	g_pump = EscPump{};
 	g_pumpUp = false;
-	g_want = EscPinMode::Run;
+	g_want = EscPinMode::Park;
 	g_reached = EscPinMode::Run;
 	g_rebuildReq = false;
 	g_boundMs = 0;
+	g_bindRefused = false;
+	g_lastRefused = false;
 	g_heldSig = ESC_NO_GPIO;
 	g_heldAux = ESC_NO_GPIO;
 }
@@ -1040,8 +1058,10 @@ static void fakePumpBind() {
 	escPumpBind(&g_pump, &g_armed, &g_throttle);
 	g_rebuilds++;
 	g_rebuildWiring = w;
+	g_tel.initError = g_bindRefused;
 	uint32_t stamp = millis();
-	g_boundMs = stamp ? stamp : 1u;
+	g_lastRefused = g_bindRefused;
+	g_boundMs = g_bindRefused ? 0u : stamp ? stamp : 1u;
 }
 
 // padsTo(): the same order, no mode reported while the pads change.
@@ -1066,7 +1086,8 @@ void fakePumpPoll() {
 	EscHandover h = escHandoverStep(want, g_reached, g_rebuildReq, g_pumpUp,
 	                                g_pump.lastThrottleMs, ms);
 	if (h == EscHandover::Teardown) {
-		// pumpTeardown(): the stamp first.
+		// pumpTeardown(): the refused flag, then the stamp.
+		g_lastRefused = false;
 		g_boundMs = 0;
 		g_pumpUp = false;
 		escTelTeardown(&g_tel);
@@ -1098,10 +1119,16 @@ int fakeFrameCount() { return g_frames; }
 EscFrame fakeLastFrame() { return g_lastFrame; }
 bool escTaskParked() { return escModeReported(g_reached, g_pumpUp, EscPinMode::Park); }
 bool escTaskRunning() { return escModeReported(g_reached, g_pumpUp, EscPinMode::Run); }
+static int g_parks = 0;
+static bool g_parkJobIdle = true;
 void escTaskPark() {
 	escSetArmed(false);
 	g_want = EscPinMode::Park;
+	g_parks++;
+	g_parkJobIdle = core1JobPhase() == Core1JobPhase::Idle;
 }
+int fakeParkCount() { return g_parks; }
+bool fakeParkJobIdle() { return g_parkJobIdle; }
 
 uint32_t fakeLastThrottleMs() { return g_pump.lastThrottleMs; }
 
@@ -1129,6 +1156,21 @@ void escTaskStart() {
 	g_resumeJobIdle = core1JobPhase() == Core1JobPhase::Idle;
 }
 int fakeResumeCount() { return g_resumes; }
+
+// escTaskInit()'s part that is the pump's: the wiring from the stored
+// settings, Park asked for, and the pads parked on core0, as esc_task.cpp
+// does before core1 starts. The critical section and the telemetry block
+// have no fake.
+void escTaskInit() {
+	const Settings *cfg = settings();
+	g_dshotPin = cfg->dshotPin;
+	g_dshotKbaud = cfg->dshotKbaud;
+	g_kissEnable = cfg->kissEnable;
+	g_kissPin = cfg->kissPin;
+	g_rebuildReq = false;
+	g_want = EscPinMode::Park;
+	fakePadsTo(EscPinMode::Park);
+}
 int fakeRebuildCount() { return g_rebuilds; }
 FakeWiring fakeResumeWiring() { return g_rebuildWiring; }
 bool fakeResumeJobIdle() { return g_resumeJobIdle; }
@@ -1144,10 +1186,7 @@ bool fakeResumeJobIdle() { return g_resumeJobIdle; }
 // units. Every test enters through uiInit(), which configures this
 // before anything reads it; 255 is what a test that forgot would see, and it is
 // unmistakable. @see cfg_pin_defaults
-static uint8_t  g_dshotPin = 255;
-static uint16_t g_dshotKbaud = DSHOT_SPEED_KBAUD;
-static bool     g_kissEnable = false;
-static uint8_t  g_kissPin = 255;
+
 static int      g_configures = 0;
 int fakeConfigureCount() { return g_configures; }
 uint16_t fakeDshotKbaud() { return g_dshotKbaud; }

@@ -154,6 +154,7 @@ static void testRowAndOpen() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK returns to ESC CONFIG, the hub that opened it", navIsHub(UiScreenId::EscConfig));
 
+	testerToMenu();
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	ecFrames(2);

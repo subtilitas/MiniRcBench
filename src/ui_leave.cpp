@@ -15,7 +15,7 @@ void uiLeaveOpen(UiLeave *l, UiLeavePhase phase, uint32_t waitMs) {
 	l->phase = l->before ? UiLeavePhase::Before : UiLeavePhase::Releasing;
 	l->leaveEnabled = true;
 	l->leavePress = false;
-	l->restartPress = false;
+	l->releasePress = false;
 	l->releasedMs = 0;
 	l->waitMs = waitMs;
 }
@@ -30,19 +30,19 @@ int uiLeaveCurrent(const UiLeave *l) {
 	return l->phase != UiLeavePhase::Before && l->before ? 1 : 0;
 }
 
-bool uiLeaveRestartLive(const UiLeave *l, uint32_t nowMs) {
+bool uiLeaveReleaseLive(const UiLeave *l, uint32_t nowMs) {
 	return l->phase == UiLeavePhase::Released && (uint32_t)(nowMs - l->releasedMs) >= l->waitMs;
 }
 
 UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs) {
 	if (!t) return UiLeaveEv::None;
-	// LEAVE and RESTART DSHOT count a press by when it landed. A press that
-	// landed while LEAVE was disabled never leaves; one that landed while
-	// RESTART DSHOT waited, or on LEAVE, never restarts DShot. uiTapped()
+	// LEAVE and the hub's title count a press by when it landed. A press
+	// that landed while LEAVE was disabled never leaves; one that landed
+	// while the hub's title waited, or on LEAVE, never ends the claim. uiTapped()
 	// below holds the press to the button it landed on.
 	if (t->pressed) {
 		l->leavePress = l->phase == UiLeavePhase::Before && l->leaveEnabled;
-		l->restartPress = uiLeaveRestartLive(l, nowMs);
+		l->releasePress = uiLeaveReleaseLive(l, nowMs);
 	}
 	if (l->phase == UiLeavePhase::Before) {
 		if (uiTapped(UI_LEAVE_LEFT, t)) return UiLeaveEv::Stay;
@@ -53,21 +53,28 @@ UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs) {
 	}
 	if (l->phase != UiLeavePhase::Released) return UiLeaveEv::None;
 	if (uiTapped(UI_LEAVE_LEFT, t)) return UiLeaveEv::Next;
-	if (l->restartPress && uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::Restart;
+	if (l->releasePress && uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::Release;
 	return UiLeaveEv::None;
 }
 
 // UI_LEAVE_DSHOT_FMT fits with a one-digit GPIO: SIG is one of GP0 to GP9.
 static_assert(BOARD_FREE_GPIO_MASK <= 0x3FFu, "SIG's GPIO has two digits: the DShot step runs past x 232");
 
-void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, char *buf, size_t n) {
+void uiLeaveBackStep(UiLeaveText *text, int i, const char *hub) {
+	text->hub = hub;
+	snprintf(text->back, sizeof(text->back), UI_LEAVE_BACK_FMT, hub);
+	text->step[i][0] = text->back;
+	text->step[i][1] = nullptr;
+	text->step[i][2] = nullptr;
+}
+
+void uiLeaveUnplugSteps(UiLeaveText *text, int first, unsigned sig, const char *hub,
+                        char *buf, size_t n) {
 	snprintf(buf, n, UI_LEAVE_DSHOT_FMT, sig);
 	text->step[first][0] = UI_LEAVE_UNPLUG;
 	text->step[first][1] = buf;
 	text->step[first][2] = UI_LEAVE_PULSE;
-	text->step[first + 1][0] = UI_LEAVE_RESTART;
-	text->step[first + 1][1] = nullptr;
-	text->step[first + 1][2] = nullptr;
+	uiLeaveBackStep(text, first + 1, hub);
 }
 
 void uiLeaveSupplyNote(char *buf, size_t n, uint32_t offMs, unsigned leftDs) {
@@ -112,11 +119,11 @@ void uiLeaveDraw(const UiLeave *l, const UiLeaveText &text, const TouchState *t,
 	if (left)
 		uiButton(UI_LEAVE_LEFT, left, C_PANEL, C_TEXT, 1,
 		         leftLive && uiPressing(UI_LEAVE_LEFT, t), leftLive);
-	bool wideLive = before ? l->leaveEnabled : uiLeaveRestartLive(l, nowMs);
+	bool wideLive = before ? l->leaveEnabled : uiLeaveReleaseLive(l, nowMs);
 	// The wide button looks pressed only under a press that counts: one that
-	// landed while LEAVE was disabled, or during RESTART DSHOT's wait, does
-	// nothing on its lift.
-	bool counts = before ? l->leavePress : l->restartPress;
-	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : "RESTART DSHOT", C_PANEL, C_TEXT, 2,
+	// landed while LEAVE was disabled, or during the hub title's wait, does
+	// nothing on its lift. After LEAVE it reads where it leads: the hub.
+	bool counts = before ? l->leavePress : l->releasePress;
+	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : (text.hub ? text.hub : ""), C_PANEL, C_TEXT, 2,
 	         wideLive && counts && uiPressing(UI_LEAVE_WIDE, t), wideLive);
 }

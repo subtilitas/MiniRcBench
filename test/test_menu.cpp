@@ -67,6 +67,13 @@ static void menuFrames(int n) {
 /** @brief A pixel of the frame. */
 static uint16_t pixel(int x, int y) { return gfxBuffer()[y * GFX_W + x]; }
 
+/** @brief Pixels of @p c from row @p y0 to the panel's foot: the hub's body, under the strip. */
+static int colourBelow(uint16_t c, int y0) {
+	int n = 0;
+	for (int i = y0 * GFX_W; i < GFX_W * GFX_H; i++) n += gfxBuffer()[i] == c;
+	return n;
+}
+
 /** @brief Whether every pixel of the rectangle is @p c. */
 static bool allOf(int x, int y, int w, int h, uint16_t c) {
 	for (int j = y; j < y + h; j++)
@@ -166,10 +173,10 @@ static void testEveryEntry() {
 		tapId(s == &UI_TESTER ? UI_FIX(TesterCtl::Menu) : UI_FIX(UI_BACK));
 		// SERVO TESTER passes the leave page once its job has held the
 		// pins: RESTART DSHOT acts 1000 ms after the release.
-		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(ServoCtl::Restart)) == false &&
+		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(ServoCtl::Release)) == false &&
 		                uiCurrentScreen() == UiScreenId::Servo; k++)
 			menuFrames(1);
-		if (uiCurrentScreen() == UiScreenId::Servo) tapId(UI_FIX(ServoCtl::Restart));
+		if (uiCurrentScreen() == UiScreenId::Servo) tapId(UI_FIX(ServoCtl::Release));
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 		snprintf(what, sizeof(what), "BACK from %s lands on MENU", e[i].label);
 		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
@@ -257,6 +264,8 @@ static void testMenuRoot() {
 	menuFrames(1);
 	checkTrue("it opens disarmed, at throttle 0, LATCH off",
 	          !uiArmed() && !fakeArmed() && uiThrottle() == 0 && latchOffShown());
+	// The arm gate: 1500 ms after core1's bind (docs/design/dshot-lifetime.md).
+	for (int k = 0; k < 100 && uiArmGated(escTaskBoundMs(), millis()); k++) menuFrames(1);
 
 	// Armed, LATCH on, a throttle standing: the MENU button clears all three.
 	pressId(UI_FIX(TesterCtl::Arm));
@@ -319,20 +328,23 @@ static void testPinsBusy() {
 	menuFrames(4);
 	checkTrue("its claim runs", pinClaimState() == ClaimState::Running);
 	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); k++) menuFrames(1);
-	pressId(UI_FIX(ServoCtl::Restart));
+	for (int k = 0; k < 200 && !ctlEnabled(UI_FIX(ServoCtl::Release)); k++) menuFrames(1);
+	pressId(UI_FIX(ServoCtl::Release));
 	fakeRelease();
 	// The release frame leaves for SERVO, the hub. Without the pump's pass
-	// the claim stays Restoring, the state RESTART DSHOT leaves it in.
+	// the claim stays Parking, the state the leave page's SERVO leaves it in.
 	framesNoPump(2);
 	bool busySeen = uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() != ClaimState::Free;
-	checkTrue("RESTART DSHOT returns to SERVO, the hub, while the claim restores", busySeen);
+	checkTrue("SERVO, the last button, returns to SERVO, the hub, while the claim parks", busySeen);
 	if (busySeen) {
 		char want[40];
-		snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)settings()->dshotPin);
+		snprintf(want, sizeof(want), "SETTING SIG GP%u LOW", (unsigned)settings()->dshotPin);
 		UiControl c;
-		checkTrue("the hub's strip says why: DSHOT RESTARTING ON SIG GP0, amber",
-		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1));
+		checkTrue("the hub's strip says why on its second line: SETTING SIG GP0 LOW, amber, "
+		          "in the NO ESC CHECK line's place",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, want, C_AMBER, C_BG, 1) &&
+		          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, UI_HUB_NO_ESC_CHECK, C_AMBER, C_BG, 1) &&
+		          gfxTextW(want, 1) == 113);
 		checkTrue("SERVO TESTER, which claims the pins, is drawn disabled and does not act",
 		          ctlFind(HUB_ENTRY(0), &c) && !c.enabled && pixel(c.rect.x + 4, c.rect.y + c.rect.h / 2) == C_BG);
 		checkTrue("nor ANGLE METER, which opens only while the pins are free", !ctlEnabled(HUB_ENTRY(1)));
@@ -341,15 +353,15 @@ static void testPinsBusy() {
 		fakeRelease();
 		framesNoPump(1);
 		checkTrue("a tap on SERVO TESTER while busy opens nothing",
-		          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Restoring);
-		// BACK to MENU, with no pump pass, so the claim stays Restoring.
+		          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Parking);
+		// BACK to MENU, with no pump pass, so the claim stays Parking.
 		const UiRect b = uiBackRect();
 		fakePress(b.x + b.w / 2, b.y + b.h / 2);
 		framesNoPump(2);
 		fakeRelease();
 		framesNoPump(2);
-		checkTrue("BACK: MENU, the claim still restoring",
-		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Restoring);
+		checkTrue("BACK: MENU, the claim still parking",
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Parking);
 		// The six rows are whole at scroll 0: no drag reaches a row.
 		const UiControlId testerRow = UI_ROW(uiMenuRowOf(&UI_TESTER), Row);
 		checkTrue("ESC TESTER, whose DShot needs the pin, does not act",
@@ -361,7 +373,7 @@ static void testPinsBusy() {
 			          fakeTextIs(UI_MENU_LABEL_X, tr.y + 13, UI_TESTER_LABEL, C_DIM, C_BG, 2) &&
 			          allOf(tr.x + 160, tr.y + 4, tr.w - 164, tr.h - 8, C_BG));
 		}
-		checkTrue("MENU's strip says why: DSHOT RESTARTING ON SIG GP0, amber",
+		checkTrue("MENU's strip says why: SETTING SIG GP0 LOW, amber",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1));
 		checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
 		checkTrue("SERVO acts, though its entries claim", ctlEnabled(menuRow(&UI_SERVO_HUB_SCREEN)));
@@ -377,21 +389,21 @@ static void testPinsBusy() {
 		checkInt("SETTINGS' row is whole", ctlRect(settingsRow).h, 40);
 		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
 		          !ctlEnabled(settingsRow));
-		fakeDumpFrame("shot_menu_restarting.ppm");
+		fakeDumpFrame("shot_menu_parking.ppm");
 		ctlFind(settingsRow, &c);
 		fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
 		framesNoPump(2);
 		fakeRelease();
 		framesNoPump(1);
 		checkTrue("a tap on SETTINGS while the claim restores opens nothing",
-		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Restoring);
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Parking);
 		ctlFind(testerRow, &c);
 		fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
 		framesNoPump(2);
 		fakeRelease();
 		framesNoPump(1);
 		checkTrue("nor does a tap on ESC TESTER while the claim restores",
-		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Restoring);
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Parking);
 	}
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	if (uiCurrentScreen() != UiScreenId::Menu) tapId(UI_FIX(UI_BACK));
@@ -625,8 +637,8 @@ static void testRxSignalsRow() {
 	checkTrue("claim Free again: it acts", rxLive());
 	tapId(row);
 	checkTrue("a tap opens RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
-	checkTrue("which claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free &&
-	          !escTaskSuspended() && fakePinReturned());
+	checkTrue("which claims nothing: DShot parked", pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended() && !fakePinReturned());
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("its BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	openTester();
@@ -667,8 +679,8 @@ static void testServoProg() {
 	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
 	menuFrames(1);
 	checkTrue("SERVO opens SERVO, the hub", uiCurrentScreen() == UiScreenId::ServoHub);
-	checkTrue("it claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free &&
-	          !escTaskSuspended() && fakePinReturned());
+	checkTrue("it claims nothing: DShot parked", pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended() && !fakePinReturned());
 	menuFrames(20);
 	checkTrue("half a second on, still nothing claimed", pinClaimState() == ClaimState::Free &&
 	          !escTaskSuspended());
@@ -681,7 +693,10 @@ static void testServoProg() {
 		snprintf(own, sizeof(own), "SIG GP%u  AUX GP%u  SERVO SUPPLY OWN", (unsigned)settings()->dshotPin,
 		         (unsigned)settings()->kissPin);
 		checkTrue("the strip: SIG GP0  AUX GP1  SERVO SUPPLY OWN, dim",
-		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, own, C_DIM, C_BG, 1));
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, own, C_DIM, C_BG, 1));
+		checkTrue("its second line: NO ESC CHECK: UNPLUG ANY ESC FIRST., amber, 35 characters, 209 px",
+		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, "NO ESC CHECK: UNPLUG ANY ESC FIRST.", C_AMBER,
+		                     C_BG, 1) && gfxTextW(UI_HUB_NO_ESC_CHECK, 1) == 209);
 	}
 	checkInt("five entries", UI_SERVO_ENTRIES_COUNT, 5);
 	const int kst = progEntryOf(uiKstEnter), d = progEntryOf(uiHitecEnterD),
@@ -771,7 +786,7 @@ static void testServoProg() {
 		snprintf(want, sizeof(want), "SIG GP%u  AUX GP%u  SERVO SUPPLY GP%u", (unsigned)settings()->dshotPin,
 		         (unsigned)settings()->kissPin, gp);
 		snprintf(what, sizeof(what), "GP%u: the strip %s, 209 px", gp, want);
-		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_DIM, C_BG, 1) &&
+		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_DIM, C_BG, 1) &&
 		                gfxTextW(want, 1) == 209);
 		hubScrollEnd();
 		snprintf(want, sizeof(want), "THE BENCH SWITCHES IT ON GP%u.", gp);
@@ -779,7 +794,7 @@ static void testServoProg() {
 		checkTrue(what, hubLineIs(126, want, C_DIM) && hubLineIs(218, want, C_DIM) && hubLineIs(298, want, C_DIM));
 		snprintf(what, sizeof(what), "GP%u: CLASSIC acts, its amber lines gone", gp);
 		checkTrue(what, ctlEnabled(HUB_ENTRY(cl)) && allOf(0, 306, 235, 14, C_BG) &&
-		                fakeCountColour(C_AMBER) == 0);
+		                colourBelow(C_AMBER, UI_BODY_Y) == 0);
 		snprintf(what, sizeof(what), "SERVO, GP%u", gp);
 		checkControlTable(what);
 		if (mode == 1) fakeDumpFrame("shot_servo_hub_switched.ppm");
@@ -845,7 +860,7 @@ static void testEscConfig() {
 		pinClaimEnd(PinUser::Servo);
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) {
 			menuFrames(1);
-			pinClaimRestart(PinUser::Servo);
+			pinClaimRelease(PinUser::Servo);
 		}
 		menuFrames(1);
 		checkTrue("Free again: it acts", ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_PANEL);
@@ -853,8 +868,8 @@ static void testEscConfig() {
 	tapId(menuRow(&UI_ESC_CONFIG));
 	menuFrames(1);
 	checkTrue("ESC CONFIG opens the chooser", uiCurrentScreen() == UiScreenId::EscConfig);
-	checkTrue("it claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free &&
-	          !escTaskSuspended() && fakePinReturned());
+	checkTrue("it claims nothing: DShot parked", pinClaimState() == ClaimState::Free &&
+	          !escTaskSuspended() && !fakePinReturned());
 	menuFrames(20);
 	checkTrue("half a second on, still nothing claimed", pinClaimState() == ClaimState::Free);
 	checkTrue("the title reads ESC CONFIG, ending 4 px or more before BACK",
@@ -907,7 +922,7 @@ static void testEscConfig() {
 	if (uiCurrentScreen() == UiScreenId::Bridge) {
 		// The bridge ran: its leave page; RESTART DSHOT once live.
 		menuFrames(44);
-		tapId(UI_FIX(BridgeCtl::Restart));
+		tapId(UI_FIX(BridgeCtl::Release));
 	}
 	checkTrue("USB BRIDGE's BACK, or its RESTART DSHOT, returns to the hub, its opener",
 	          uiCurrentScreen() == UiScreenId::EscConfig);
@@ -1646,10 +1661,10 @@ static void testResetByUpdate() {
 	          !fakeInkExtent(72, 32, C_BG, &x0, &x1));
 	char pinLine[48];
 	snprintf(pinLine, sizeof(pinLine), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
-	checkTrue("the name, the version and the warning in place",
+	checkTrue("the name and the version in place, no pin line",
 	          fakeTextCentredIs(104, "MINIRC", C_LIME, C_BG, 4) &&
 	          fakeTextCentredIs(260, "VERSION " FW_VERSION_STRING, C_GRID, C_BG, 1) &&
-	          fakeTextCentredIs(288, pinLine, C_AMBER, C_BG, 1));
+	          !fakeTextCentredIs(288, pinLine, C_AMBER, C_BG, 1) && !fakeInkExtent(268, 52, C_BG, &x0, &x1));
 	fakeDumpFrame("shot_splash_reset_no_touch.ppm");
 	fakeTouchAnswers(true);
 	touchInit();
@@ -2046,6 +2061,7 @@ static void testMenuScrollResets() {
 static void testAm32WaitsBesideAClaim() {
 	section("ESC SETTINGS: opened beside another claim, it waits");
 	freshTester();
+	testerToMenu();
 	checkTrue("SERVO takes the pins", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	static const TouchState none = {};
 	fakeAm32Reset();
@@ -2064,7 +2080,7 @@ static void testAm32WaitsBesideAClaim() {
 	bool claimed = false;
 	for (int i = 0; i < 200 && !claimed; i++) {
 		fakeAdvance(25); fakePumpPoll(); core1JobPoll();
-		if (pinClaimState() == ClaimState::Leaving) pinClaimRestart(PinUser::Servo);
+		if (pinClaimState() == ClaimState::Leaving) pinClaimRelease(PinUser::Servo);
 		uiAm32Tick(&none);
 		claimed = pinClaimHolder() == PinUser::Am32;
 	}
@@ -2144,12 +2160,12 @@ static void testToolSectionsWalkHubs() {
 	                                    nullptr, nullptr, nullptr, false };
 	// B stands behind two entries, as HITEC SERVO does behind two of SERVO's.
 	static const UiHubEntry entries[] = {
-		{ "PLAIN", { nullptr, nullptr }, &plain, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
-		{ "B ONE", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
-		{ "A", { nullptr, nullptr }, &a, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
-		{ "B TWO", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
+		{ "PLAIN", { nullptr, nullptr }, &plain, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
+		{ "B ONE", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
+		{ "A", { nullptr, nullptr }, &a, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
+		{ "B TWO", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 	};
-	static const UiHub hub = { "HUB", noStrip, entries, 4 };
+	static const UiHub hub = { "HUB", noStrip, entries, 4, nullptr };
 	static const UiMenuEntry rows[] = {
 		{ "P", 0, &plain }, { "HUB", 0, &hubScreen }, { "C", 0, &c }, { "A", 0, &a },
 	};
@@ -2182,11 +2198,11 @@ static void testToolSectionsWalkHubs() {
 /**
  * @brief MENU repaints its strip when AUX moves or the claim changes, also
  *        with a registry whose rows claim nothing, and the tools' refusal
- *        reads WAIT: DSHOT RESTARTING.
+ *        reads WAIT: THE PINS ARE BUSY.
  */
 static void testMenuStripRepaints() {
 	section("MENU: the strip follows AUX and the claim");
-	checkStr("the tools' refusal", UI_WAIT_RESTART_TEXT, "WAIT: DSHOT RESTARTING");
+	checkStr("the tools' refusal", UI_WAIT_RESTART_TEXT, "WAIT: THE PINS ARE BUSY");
 	static const UiMenuEntry quiet[] = {
 		{ "ESC COMMANDS", 0, &UI_ESC_CMD }, { "SD LOG", 10, &UI_SDLOG },
 	};
@@ -2209,8 +2225,8 @@ static void testMenuStripRepaints() {
 	menuFrames(1);
 	checkTrue("a claim taken", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	framesNoPump(1);
-	snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)sig);
-	checkTrue("no row claims: the strip still says DShot restarts", captionIs(C_AMBER));
+	snprintf(want, sizeof(want), "RELEASING SIG GP%u", (unsigned)sig);
+	checkTrue("no row claims: the strip still reads RELEASING SIG GP0", captionIs(C_AMBER));
 	pinClaimEnd(PinUser::Am32);
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	uiMenuUseRegistry(nullptr, 0);

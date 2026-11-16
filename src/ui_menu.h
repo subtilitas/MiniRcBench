@@ -21,15 +21,21 @@
  * A screen that opens only while the signal pins are free (the tester and
  * SETTINGS) is refused while the pin claim is not Free: its row is drawn
  * disabled under its own status, a tap opens nothing, and the strip reads
- * `DSHOT RESTARTING ON SIG GP0`. That state is reachable for the time
- * Restoring takes after RESTART DSHOT. The hubs' rows are never refused:
- * each hub gates its own entries (ui_hub.h).
+ * the busy caption (uiBusyCaption()): `RELEASING SIG GP0` while the USB
+ * bridge lets the pin go, `SETTING SIG GP0 LOW` while the claim parks the
+ * pins after the leave page. The hubs' rows are never refused: each hub
+ * gates its own entries (ui_hub.h).
+ *
+ * MENU draws no EDT chip: DShot is parked on MENU
+ * (docs/design/dshot-lifetime.md, slice D2), and ESC COMMANDS keeps the
+ * chip.
  *
  * @see docs/design/menu-c.md, "MENU"; docs/design/menu.md, "MENU"
  */
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include "ui_screen.h"
@@ -58,16 +64,33 @@ struct TouchState;
  */
 #define UI_MENU_CAPTION_FMT "SIG GP%u  AUX GP%u  DSHOT%u"
 /**
- * @brief The strip's caption while the pin claim is not Free, with SIG's
- *        GPIO for `%u`: 27 characters, 161 px. The rows that claim or change
- *        the wiring are drawn disabled meanwhile.
+ * @defgroup ui_busy The busy captions
+ * @brief MENU's and the hubs' caption while the pin claim is not Free, with
+ *        SIG's GPIO for `%u`, in @ref UI_COL_WARN. The rows and entries that
+ *        claim or change the wiring are drawn disabled meanwhile
+ *        (docs/design/dshot-lifetime.md, "States").
+ * @{
  */
-#define UI_MENU_RESTARTING_FMT "DSHOT RESTARTING ON SIG GP%u"
+/** @brief While the claim is Leaving, or any state but Parking: 17 characters, 101 px. */
+#define UI_BUSY_RELEASING_FMT "RELEASING SIG GP%u"
+/** @brief While the claim is Parking: core1 drives SIG low. 19 characters, 113 px. */
+#define UI_BUSY_PARKING_FMT   "SETTING SIG GP%u LOW"
+/** @} */
 
 /**
- * @defgroup ui_menu_chip The strip's EDT chip
- * @brief Its three texts: green while EDT frames arrive, red while eRPM
- *        arrives without them, dim while no eRPM arrives at all.
+ * @brief The busy caption for the claim's state: @ref UI_BUSY_PARKING_FMT
+ *        while Parking, else @ref UI_BUSY_RELEASING_FMT, with SIG's GPIO.
+ * @param[out] buf Room for the caption.
+ * @param n        Size of @p buf, 24 bytes or more.
+ */
+void uiBusyCaption(char *buf, size_t n);
+
+/**
+ * @defgroup ui_menu_chip The EDT chip's texts
+ * @brief ESC COMMANDS' chip (ui_esc_cmd.h); MENU draws none since slice D2
+ *        of docs/design/dshot-lifetime.md. Green while EDT frames arrive,
+ *        red while eRPM arrives without them, dim while no eRPM arrives at
+ *        all.
  * @{
  */
 #define UI_MENU_EDT_ON  "EDT ON"   /**< On `C_GREEN`. */

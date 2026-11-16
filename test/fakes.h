@@ -244,6 +244,12 @@ int fakeResumeCount();
 /** @brief How many times the fake pump has bound. */
 int fakeRebuildCount();
 
+/** @brief How many times escTaskPark() has been called. */
+int fakeParkCount();
+
+/** @brief Whether the core1 job was idle at the last escTaskPark(). */
+bool fakeParkJobIdle();
+
 /** @brief The wiring the fake pump's last bind used. */
 FakeWiring fakeResumeWiring();
 
@@ -255,10 +261,19 @@ FakeWiring fakeResumeWiring();
 void fakeSetBindHook(void (*hook)());
 
 /**
+ * @brief Make each later fake bind fail as a refused out_dshot_bind() does
+ *        in pumpBind(): `initError` and escTaskBindRefused() set and the
+ *        bind stamp 0; the pump is still up. fakePumpPowerOn() clears it.
+ *        False makes binds succeed again.
+ * @param refused Whether binds fail.
+ */
+void fakeSetBindRefused(bool refused);
+
+/**
  * @brief Put core1's side of the fake pump back to its power-on state, as
- *        esc_task.cpp's static initialisers leave it: no bind, Run wanted
- *        and reached, the bind stamp 0, nothing held, no rebuild pending.
- *        The wiring is left as configured.
+ *        esc_task.cpp's static initialisers leave it: no bind, Park
+ *        wanted, Run reached with nothing bound, the bind stamp 0, nothing
+ *        held, no rebuild pending. The wiring is left as configured.
  */
 void fakePumpPowerOn();
 
@@ -575,6 +590,12 @@ uint32_t fakePad(unsigned gpio);
 void fakePwmBreakSliceMap(bool on);
 
 /** @brief The record of one GPIO. @param gpio GPIO. @return The record. */
+/**
+ * @brief Forget every pin's record and pad register, as fakePwmReset() does,
+ *        and keep the slices: a job test that wants only its job's writes
+ *        calls it once the pump has parked or bound the pads.
+ */
+void fakePinsReset();
 FakePin fakePin(unsigned gpio);
 
 /**

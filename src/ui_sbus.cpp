@@ -130,7 +130,7 @@ static bool live() { return s_claimed && pinClaimState() == ClaimState::Running;
 
 /**
  * @brief Whether BACK acts on this frame: everywhere but on the leave page,
- *        where BACK TO MONITOR and RESTART DSHOT are the ways on
+ *        where BACK TO MONITOR and the last button are the ways on
  *        (docs/design/menu-b.md, decision 5).
  */
 static bool backActs() { return s_view != View::Leave; }
@@ -340,15 +340,15 @@ static void drawMessage(const char *l1, const char *l2, const char *l3, uint16_t
 static void drawLeave() {
 	uint32_t now = millis();
 	struct {
-		bool    back, left, wide, live, restartPress, released;
+		bool    back, left, wide, live, releasePress, released;
 		uint8_t sig, roles;
 	} k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.left = uiPressing(UI_LEAVE_LEFT, s_t);
 	k.wide = uiPressing(UI_LEAVE_WIDE, s_t);
-	k.live = uiLeaveRestartLive(&s_leave, now);
-	k.restartPress = s_leave.restartPress;
+	k.live = uiLeaveReleaseLive(&s_leave, now);
+	k.releasePress = s_leave.releasePress;
 	k.released = s_leave.phase == UiLeavePhase::Released;
 	k.sig = pinClaimGpio(PIN_SIG) != PIN_CLAIM_NO_GPIO ? pinClaimGpio(PIN_SIG) : escTaskDshotPin();
 	k.roles = s_roles;
@@ -370,7 +370,7 @@ static void drawLeave() {
 		snprintf(dshot, sizeof(dshot), SBUS_UI_RESTART_FMT, (unsigned)k.sig);
 		tx.step[0][1] = dshot;
 	}
-	tx.step[1][0] = UI_LEAVE_RESTART;
+	uiLeaveBackStep(&tx, 1, uiNavOpenerTitle());
 	tx.next = SBUS_UI_BACK_TO;
 	if (!k.released) tx.note[0] = UI_LEAVE_RELEASING;
 	uiLeaveDraw(&s_leave, tx, s_t, now);
@@ -386,8 +386,8 @@ uint8_t uiSbusControls(UiControl *out, uint8_t max) {
 	if (s_view == View::Leave) {
 		uiControlAdd(out, &n, max, UI_FIX(SbusCtl::BackToMonitor), UI_LEAVE_LEFT,
 		             s_leave.phase == UiLeavePhase::Released);
-		uiControlAdd(out, &n, max, UI_FIX(SbusCtl::Restart), UI_LEAVE_WIDE,
-		             uiLeaveRestartLive(&s_leave, millis()));
+		uiControlAdd(out, &n, max, UI_FIX(SbusCtl::Release), UI_LEAVE_WIDE,
+		             uiLeaveReleaseLive(&s_leave, millis()));
 		return n;
 	}
 	const char *l1, *l2, *l3;
@@ -417,27 +417,27 @@ bool uiSbusTick(const TouchState *t) {
 	else if (s_view != View::Leave) claimPin();
 
 	// BACK: before a claim held, or while Stopping, back to the chooser's
-	// origin with DShot resumed; once a job has held GP1, the leave page.
+	// origin with the pins parked; once a job has held GP1, the leave page.
 	if (backActs() && uiBackTapped(s_t)) {
 		if (!s_claimed) return false;
 		pinClaimEnd(PinUser::Sbus);
 		ClaimState cs = pinClaimState();
-		// Restoring: core1 suspended the pump between pinClaimPoll() and
-		// pinClaimEnd().
-		if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
+		// Parking: the claim was still Stopping at pinClaimEnd(), so the
+		// pins park with no leave page.
+		if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
 		s_view = View::Leave;
 		s_full = true;
-		// RESTART DSHOT waits 1000 ms after the pin is let go, which the job
-		// does at once, so a double tap restarts nothing.
+		// The last button waits 1000 ms after the pin is let go, which the
+		// job does at once, so a double tap parks nothing early.
 		uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 	}
 
 	if (s_view == View::Leave) {
 		uiLeavePoll(&s_leave, pinClaimUnplugDue(), millis());
 		UiLeaveEv ev = uiLeaveTouch(&s_leave, s_t, millis());
-		// pinClaimKeep() and pinClaimRestart() act only while the pin is let go.
-		if (ev == UiLeaveEv::Restart && pinClaimUnplugDue()) {
-			pinClaimRestart(PinUser::Sbus);
+		// pinClaimKeep() and pinClaimRelease() act only while the pin is let go.
+		if (ev == UiLeaveEv::Release && pinClaimUnplugDue()) {
+			pinClaimRelease(PinUser::Sbus);
 			return false;
 		}
 		if (ev == UiLeaveEv::Next && pinClaimUnplugDue()) {

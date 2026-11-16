@@ -61,15 +61,16 @@ static uint32_t           s_drawnKey = 0;
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Whether the claim is not Free: the strip says DShot restarts, and
- *        every row that claims or changes the wiring is drawn disabled.
+ * @brief Whether the claim is not Free: the strip says what the pins are
+ *        doing (uiBusyCaption()), and every row that claims or changes the
+ *        wiring is drawn disabled.
  */
 static bool claimBusy() { return pinClaimState() != ClaimState::Free; }
 
 /**
  * @brief A tool that claims pins, or changes the wiring a claim latched, is
- *        refused while the claim is not Free: Restoring outlasts RESTART
- *        DSHOT's return to the screen that opened the tool.
+ *        refused while the claim is not Free: Parking outlasts the leave
+ *        page's return to the hub that opened the tool.
  */
 static bool pinsBusy(const UiScreen *s) { return uiPinsRefuse(s); }
 
@@ -126,23 +127,16 @@ static void drawRow(int i, int y, void *) {
 
 static uint32_t mix(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
 
-/** @brief What the strip's chip says. */
-enum class MenuEdt : uint8_t {
-	NoEsc,  /**< No eRPM frame within ESC_LINK_STALE_MS: NO ESC, dim. */
-	Off,    /**< eRPM arrives and EDT does not: EDT OFF, red. */
-	On,     /**< EDT arrives: EDT ON, green. */
-};
-
 /** @brief Everything a frame draws, hashed: a change repaints. */
-static uint32_t frameKey(MenuEdt edt, bool runCue) {
+static uint32_t frameKey(bool runCue) {
 	uint32_t h = 2166136261u;
 	h = mix(h, (uint32_t)s_list.scrollPx);
-	h = mix(h, (uint32_t)edt);
 	h = mix(h, runCue);
 	h = mix(h, settings()->dshotPin);
 	h = mix(h, settings()->kissPin);
 	h = mix(h, settings()->dshotKbaud);
 	h = mix(h, claimBusy());
+	h = mix(h, (uint32_t)pinClaimState());
 	for (int i = 0; i < s_count; i++) {
 		char st[24];
 		uint16_t col, fill;
@@ -156,29 +150,25 @@ static uint32_t frameKey(MenuEdt edt, bool runCue) {
 }
 
 /**
- * @brief The run cue's line under the caption, x 8 to 180, ends left of the
- *        NO ESC chip, which starts at x 185 (6 px a character at scale 1).
- *        The chip beside the cue reads NO ESC: the cue goes with the first
- *        eRPM frame after the AM32 handshake, and the handshake needs the ESC
- *        powered up again, which takes longer than the 500 ms an older frame
- *        keeps EDT ON or EDT OFF up.
+ * @brief The run cue, the caption at its widest on this board, whose signal
+ *        pins are GP0 and GP1, and the busy captions each fit the strip's
+ *        line, x 8 to 228: 37 characters. MENU draws no chip
+ *        (docs/design/menu-c.md, decision 12): with DShot parked on MENU an
+ *        EDT chip would read nothing.
  */
-static_assert(UI_MARGIN + 6 * (int)(sizeof(AM32_UI_RUN_CUE) - 1) - 1 <
-              GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_NO_ESC) - 1) - 1 + 12),
-              "MENU's run cue runs under the NO ESC chip");
+static_assert(sizeof(AM32_UI_RUN_CUE) - 1 <= 37 &&
+              sizeof("SIG GP1  AUX GP0  DSHOT1200") - 1 <= 37 &&
+              sizeof(UI_BUSY_RELEASING_FMT) - 1 - 2 + 1 <= 37 &&
+              sizeof(UI_BUSY_PARKING_FMT) - 1 - 2 + 1 <= 37,
+              "MENU's strip runs off the panel");
 
-/**
- * @brief The caption at its widest on this board, whose signal pins are GP0
- *        and GP1, and the restarting caption, each end 4 px before the
- *        widest chip, EDT OFF, which starts at x 179.
- */
-static_assert(UI_MARGIN + 6 * (int)(sizeof("SIG GP1  AUX GP0  DSHOT1200") - 1) - 1 + 4 <=
-                  GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_EDT_OFF) - 1) - 1 + 12) &&
-              UI_MARGIN + 6 * (int)(sizeof("DSHOT RESTARTING ON SIG GP1") - 1) - 1 + 4 <=
-                  GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_MENU_EDT_OFF) - 1) - 1 + 12),
-              "MENU's caption runs under the EDT chip");
+void uiBusyCaption(char *buf, size_t n) {
+	unsigned sig = (unsigned)settings()->dshotPin;
+	if (pinClaimState() == ClaimState::Parking) snprintf(buf, n, UI_BUSY_PARKING_FMT, sig);
+	else snprintf(buf, n, UI_BUSY_RELEASING_FMT, sig);
+}
 
-static void drawMenu(MenuEdt edt, bool runCue) {
+static void drawMenu(bool runCue) {
 	gfxFill(C_BG);
 	// The root: no BACK (docs/design/menu-c.md decision 10).
 	uiHeaderRoot("MENU");
@@ -187,7 +177,7 @@ static void drawMenu(MenuEdt edt, bool runCue) {
 	uint16_t capCol = C_DIM;
 	if (claimBusy()) {
 		// Why the rows that claim or change the wiring are drawn disabled.
-		snprintf(cap, sizeof(cap), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+		uiBusyCaption(cap, sizeof(cap));
 		capCol = UI_COL_WARN;
 	} else {
 		snprintf(cap, sizeof(cap), UI_MENU_CAPTION_FMT, (unsigned)settings()->dshotPin,
@@ -198,15 +188,6 @@ static void drawMenu(MenuEdt edt, bool runCue) {
 	// usbBridgeRunCue(), sbusOutRunCue()
 	if (runCue) uiStripTwoLines(cap, capCol, AM32_UI_RUN_CUE, UI_COL_WARN);
 	else uiStripText(cap, capCol);
-	// Read-only: the firmware enables EDT for each ESC as it appears, and
-	// arriving frames are the only evidence that it is delivering. Red is for
-	// an ESC that answers without EDT; with no ESC on the pin there is nothing
-	// wrong to flag, so the chip says that, dim.
-	switch (edt) {
-		case MenuEdt::On:    uiChip(UI_MENU_EDT_ON, C_GREEN);  break;
-		case MenuEdt::Off:   uiChip(UI_MENU_EDT_OFF, C_RED);   break;
-		case MenuEdt::NoEsc: uiChip(UI_MENU_NO_ESC, C_GRID);   break;
-	}
 	uiListDraw(&s_list, drawRow, nullptr);
 	uiListDrawBar(&s_list, MENU_BAR_X);
 }
@@ -243,20 +224,15 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 	if (r == UiMenuResult::Stay) {
 		EscTelemetry tel;
 		escSnapshot(&tel);
-		EscReading rd;
-		escMerge(&tel, millis(), KISS_STALE_MS, EDT_STALE_MS, &rd);
-		MenuEdt edt = rd.edtFresh ? MenuEdt::On
-		            : escFieldFresh(tel.lastRpmMs, millis(), ESC_LINK_STALE_MS) ? MenuEdt::Off
-		                                                                        : MenuEdt::NoEsc;
 		// ESC SETTINGS' cue, the USB bridge's (usb_bridge.h) or the S.BUS
 		// output's probe's (sbus_out_job.h): each is a bootloader that
 		// answered and was not told to run.
 		bool runCue = uiAm32RunCue(tel.lastRpmMs) | usbBridgeRunCue(tel.lastRpmMs) |
 		              sbusOutRunCue(tel.lastRpmMs);
-		uint32_t key = frameKey(edt, runCue);
+		uint32_t key = frameKey(runCue);
 		if (key != s_drawnKey) {
 			s_drawnKey = key;
-			drawMenu(edt, runCue);
+			drawMenu(runCue);
 		}
 	}
 	return r;

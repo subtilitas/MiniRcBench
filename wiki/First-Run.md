@@ -75,10 +75,10 @@ power-cycled at any time.
 
 The splash screen shows for 3 s, then `MENU` appears, the list of tools. The
 splash names the board the firmware is built for, RP2350-TOUCH-LCD-2.8, and the
-firmware version, for example `VERSION 0.1.0`. Its last line, in amber, names
-the ESC pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot starts on that pin when the
-splash ends, and a servo left on it reads the frames as pulses and moves to one
-end of its travel.
+firmware version, for example `VERSION 0.1.0`. No DShot frame leaves the
+board at power-up: the ESC pin is driven low from start-up, before the
+splash screen, and nothing is sent, through the splash and on `MENU`. DShot
+starts only when you open `ESC TESTER` or `ESC COMMANDS`.
 
 <img src="img/splash.png" width="240" alt="Splash screen">
 
@@ -111,9 +111,15 @@ touch does not work; see
 `MENU` is where every tool starts. Its header has no `BACK`: nothing lies
 behind it. Tap its first row, `ESC TESTER`, to open the tester. The tester
 opens disarmed, at throttle 0, with `LATCH` off; its `MENU` button at the
-bottom right returns to `MENU`. DShot already runs on the ESC pin while
-`MENU` shows, so the ESC hears zero-throttle frames from the end of the
-splash on.
+bottom right returns to `MENU`. DShot starts when the tester opens: the ESC
+first hears the telemetry enable, then zero-throttle frames. `MENU` stops
+DShot again, after zero-throttle frames for at least 250 ms, and holds the
+ESC pin low. An ESC that loses the frames does what its firmware does on
+signal loss; that is not measured on this board.
+
+> **Unplug any servo from the ESC pin before you open the tester.** A servo
+> there reads DShot as a pulse of about 970 µs at 1000 Hz and moves to one
+> end of its travel.
 
 <img src="img/menu.png" width="240" alt="MENU after the splash: ESC TESTER is the first row">
 
@@ -138,6 +144,10 @@ If the ESC is powered and wired and this does not change, see
 <img src="img/tester-idle.png" width="240" alt="The tester disarmed: SAFE in green, ARM TO ENABLE in the throttle bar">
 
 Disarmed, the badge reads `SAFE` and the throttle bar reads `ARM TO ENABLE`.
+For the first 1.5 s after the tester opens it reads
+`DSHOT STARTING: WAIT 1.5 S` in amber instead, and `HOLD TO ARM` is drawn as
+an outline: the ESC needs to see DShot before it can arm. A press made then
+does nothing; lift and press again once the button is live.
 
 1. Check that the propeller is off.
 2. Press and **hold** `HOLD TO ARM` for 1 s. A green bar fills along the bottom of
@@ -213,10 +223,11 @@ with `HOLD TO SAVE` under the list. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` until then, and `MENU` shows `UNSAVED` on its
 `SETTINGS` row.
 
-`SIG PIN`, further down, moves DShot to the other pin at once. While it is
-not the pin the splash named, a line of its own above `LINK` repeats the
-splash's warning for the new pin in amber, `UNPLUG ANY SERVO FROM GP1 NOW`;
-the note line under it still says whether the settings are saved.
+`SIG PIN`, further down, moves the ESC pin to the other GPIO at once: over
+the tester DShot moves with it, from `MENU` the next tester uses it. While it
+is not the pin in use at power-up, a line of its own above `LINK` reads in
+amber `UNPLUG ANY SERVO FROM GP1 NOW`; the note line under it still says
+whether the settings are saved.
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 

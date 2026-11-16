@@ -65,6 +65,15 @@ static void hubFrames(int n) {
 #define UI_IDS_FRAMES(n) hubFrames(n)
 #include "ui_ids.h"
 
+/** @brief Whether any pixel of the rectangle is not `C_BG`. */
+static bool inkIn(int x, int y, int w, int h) {
+	const uint16_t *fb = gfxBuffer();
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (fb[j * GFX_W + i] != C_BG) return true;
+	return false;
+}
+
 /** @brief The tester, from a fresh boot with the compiled defaults. */
 static void freshTester() {
 	// A claim outlives uiInitTester(); let the last test's claim end first.
@@ -312,13 +321,13 @@ static void testStrip(char *buf, size_t n) { snprintf(buf, n, "%s", s_strip); }
  */
 static constexpr UiHubEntry T_ENTRIES[] = {
 	{ "ALPHA", { "FIRST PLAIN LINE", "SECOND PLAIN LINE" }, &UI_ANGLE, nullptr, nullptr,
-	  { nullptr, nullptr }, nullptr, nullptr },
+	  { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 	{ "BRAVO", { "BRAVO MODELS", nullptr }, &UI_ANGLE, nullptr, gate, { nullptr, "BRAVO WHY" },
-	  "POWER AT OWN.", "SWITCHED ON GP%u." },
+	  "POWER AT OWN.", "SWITCHED ON GP%u.", nullptr, nullptr },
 	{ "CHARLIE", { "CHARLIE MODELS", nullptr }, &UI_ANGLE, nullptr, gate,
-	  { "CHARLIE WHY ONE", "CHARLIE WHY TWO" }, nullptr, nullptr },
+	  { "CHARLIE WHY ONE", "CHARLIE WHY TWO" }, nullptr, nullptr, nullptr, nullptr },
 };
-static constexpr UiHub T_HUB = { "TEST HUB", testStrip, T_ENTRIES, 3 };
+static constexpr UiHub T_HUB = { "TEST HUB", testStrip, T_ENTRIES, 3, nullptr };
 static_assert(hubEntriesFit(T_HUB), "the test hub does not fit");
 
 /** @brief One frame of the test hub, with no touch. */
@@ -430,26 +439,26 @@ static void testHubLines() {
 
 /** @brief A plain entry labelled @p label with the lines @p a and @p b. */
 static constexpr UiHubEntry plain(const char *label, const char *a, const char *b) {
-	return UiHubEntry{ label, { a, b }, &UI_ANGLE, nullptr, nullptr, NONE2, nullptr, nullptr };
+	return UiHubEntry{ label, { a, b }, &UI_ANGLE, nullptr, nullptr, NONE2, nullptr, nullptr, nullptr, nullptr };
 }
 
 /** @brief Whether a hub of the one entry @p e fits. */
 static constexpr bool fits1(const UiHubEntry &e) {
 	const UiHubEntry t[1] = { e };
-	return hubEntriesFit(UiHub{ "T", nullptr, t, 1 });
+	return hubEntriesFit(UiHub{ "T", nullptr, t, 1, nullptr });
 }
 
 /** @brief Whether a hub of @p e and then a plain entry fits: @p e has an entry under it. */
 static constexpr bool fits2(const UiHubEntry &e) {
 	const UiHubEntry t[2] = { e, plain("LAST", nullptr, nullptr) };
-	return hubEntriesFit(UiHub{ "T", nullptr, t, 2 });
+	return hubEntriesFit(UiHub{ "T", nullptr, t, 2, nullptr });
 }
 
 /** @brief Whether a hub of @p n plain entries fits. */
 static constexpr bool fitsN(int n) {
 	const UiHubEntry e = plain("A", "X", "Y");
 	const UiHubEntry t[9] = { e, e, e, e, e, e, e, e, e };
-	return hubEntriesFit(UiHub{ "T", nullptr, t, (uint8_t)n });
+	return hubEntriesFit(UiHub{ "T", nullptr, t, (uint8_t)n, nullptr });
 }
 
 static bool yes() { return true; }
@@ -473,28 +482,28 @@ static void testHubFit() {
 	checkTrue("an entry with no label, or an empty one, does not fit",
 	          !fits1(plain(nullptr, nullptr, nullptr)) && !fits1(plain("", nullptr, nullptr)));
 	checkTrue("an entry with no screen does not fit",
-	          !fits1(UiHubEntry{ "A", NONE2, nullptr, nullptr, nullptr, NONE2, nullptr, nullptr }));
+	          !fits1(UiHubEntry{ "A", NONE2, nullptr, nullptr, nullptr, NONE2, nullptr, nullptr, nullptr, nullptr }));
 	checkTrue("a first line of 37 characters fits, of 38 not",
 	          fits1(plain("A", L37, nullptr)) && !fits1(plain("A", L37 "X", nullptr)));
 	checkTrue("a second line of 37 characters fits, of 38 not",
 	          fits1(plain("A", "X", L37)) && !fits1(plain("A", "X", L37 "X")));
 	checkTrue("a second line with no first does not fit", !fits1(plain("A", nullptr, "X")));
 
-	const UiHubEntry why37 = { "A", NONE2, &UI_ANGLE, nullptr, yes, { L37, L37 }, nullptr, nullptr };
-	const UiHubEntry why38a = { "A", NONE2, &UI_ANGLE, nullptr, yes, { L37 "X", nullptr }, nullptr, nullptr };
-	const UiHubEntry why38b = { "A", NONE2, &UI_ANGLE, nullptr, yes, { "X", L37 "X" }, nullptr, nullptr };
+	const UiHubEntry why37 = { "A", NONE2, &UI_ANGLE, nullptr, yes, { L37, L37 }, nullptr, nullptr, nullptr, nullptr };
+	const UiHubEntry why38a = { "A", NONE2, &UI_ANGLE, nullptr, yes, { L37 "X", nullptr }, nullptr, nullptr, nullptr, nullptr };
+	const UiHubEntry why38b = { "A", NONE2, &UI_ANGLE, nullptr, yes, { "X", L37 "X" }, nullptr, nullptr, nullptr, nullptr };
 	checkTrue("why lines of 37 characters fit, a first or a second of 38 not",
 	          fits1(why37) && !fits1(why38a) && !fits1(why38b));
-	const UiHubEntry gateNoWhy = { "A", NONE2, &UI_ANGLE, nullptr, yes, NONE2, nullptr, nullptr };
-	const UiHubEntry gateWhy2 = { "A", NONE2, &UI_ANGLE, nullptr, yes, { nullptr, "X" }, nullptr, nullptr };
+	const UiHubEntry gateNoWhy = { "A", NONE2, &UI_ANGLE, nullptr, yes, NONE2, nullptr, nullptr, nullptr, nullptr };
+	const UiHubEntry gateWhy2 = { "A", NONE2, &UI_ANGLE, nullptr, yes, { nullptr, "X" }, nullptr, nullptr, nullptr, nullptr };
 	checkTrue("a gate with no line that says why does not fit; with one, in either place, it does",
 	          !fits1(gateNoWhy) && fits1(gateWhy2));
 
-	const UiHubEntry pow37 = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, L37, L37 };
-	const UiHubEntry powOwn38 = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, L37 "X", L37 };
-	const UiHubEntry powSw38 = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, L37, L37 "X" };
-	const UiHubEntry powOwnOnly = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, "X", nullptr };
-	const UiHubEntry powSwOnly = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, nullptr, "X" };
+	const UiHubEntry pow37 = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, L37, L37, nullptr, nullptr };
+	const UiHubEntry powOwn38 = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, L37 "X", L37, nullptr, nullptr };
+	const UiHubEntry powSw38 = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, L37, L37 "X", nullptr, nullptr };
+	const UiHubEntry powOwnOnly = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, "X", nullptr, nullptr, nullptr };
+	const UiHubEntry powSwOnly = { "A", NONE2, &UI_ANGLE, nullptr, nullptr, NONE2, nullptr, "X", nullptr, nullptr };
 	checkTrue("power lines of 37 characters fit, either of 38 not",
 	          fits1(pow37) && !fits1(powOwn38) && !fits1(powSw38));
 	checkTrue("a power line at OWN needs one for the switched supply, not the reverse",
@@ -504,12 +513,12 @@ static void testHubFit() {
 	// under its top, the next entry starts at 80, and the content ends
 	// 84 px under the last entry's top.
 	const UiHubEntry two = plain("A", "X", "Y");
-	const UiHubEntry onePower = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, nullptr, NONE2, "P", "P" };
-	const UiHubEntry twoPower = { "A", { "X", "Y" }, &UI_ANGLE, nullptr, nullptr, NONE2, "P", "P" };
-	const UiHubEntry oneWhy2 = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, yes, { "W", "W" }, nullptr, nullptr };
-	const UiHubEntry oneWhy2Power = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, yes, { "W", "W" }, nullptr, "P" };
-	const UiHubEntry oneWhy1Power = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, yes, { "W", nullptr }, "P", "P" };
-	const UiHubEntry twoWhy2 = { "A", { "X", "Y" }, &UI_ANGLE, nullptr, yes, { "W", "W" }, nullptr, nullptr };
+	const UiHubEntry onePower = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, nullptr, NONE2, "P", "P", nullptr, nullptr };
+	const UiHubEntry twoPower = { "A", { "X", "Y" }, &UI_ANGLE, nullptr, nullptr, NONE2, "P", "P", nullptr, nullptr };
+	const UiHubEntry oneWhy2 = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, yes, { "W", "W" }, nullptr, nullptr, nullptr, nullptr };
+	const UiHubEntry oneWhy2Power = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, yes, { "W", "W" }, nullptr, "P", nullptr, nullptr };
+	const UiHubEntry oneWhy1Power = { "A", { "X", nullptr }, &UI_ANGLE, nullptr, yes, { "W", nullptr }, "P", "P", nullptr, nullptr };
+	const UiHubEntry twoWhy2 = { "A", { "X", "Y" }, &UI_ANGLE, nullptr, yes, { "W", "W" }, nullptr, nullptr, nullptr, nullptr };
 	checkTrue("two lines fit over another entry: plain, or one and the power line",
 	          fits2(two) && fits2(onePower) && fits2(oneWhy1Power));
 	checkTrue("three lines do not fit over another entry", !fits2(twoPower) && !fits2(oneWhy2) &&
@@ -521,7 +530,7 @@ static void testHubFit() {
 		const UiHubEntry t[3] = { two, two, oneWhy2 };
 		const UiHubEntry u[3] = { two, oneWhy2, two };
 		checkTrue("three lines under the third entry fit, under the second not",
-		          hubEntriesFit(UiHub{ "T", nullptr, t, 3 }) && !hubEntriesFit(UiHub{ "T", nullptr, u, 3 }));
+		          hubEntriesFit(UiHub{ "T", nullptr, t, 3, nullptr }) && !hubEntriesFit(UiHub{ "T", nullptr, u, 3, nullptr }));
 	}
 	{
 		// The last of five, a list: its third line ends 81 px under its
@@ -529,14 +538,14 @@ static void testHubFit() {
 		const UiHubEntry t[5] = { two, two, two, two, oneWhy2 };
 		const UiHubEntry u[5] = { two, two, two, oneWhy2, two };
 		checkTrue("three lines under the fifth entry of a list fit, under the fourth not",
-		          hubEntriesFit(UiHub{ "T", nullptr, t, 5 }) && !hubEntriesFit(UiHub{ "T", nullptr, u, 5 }));
+		          hubEntriesFit(UiHub{ "T", nullptr, t, 5, nullptr }) && !hubEntriesFit(UiHub{ "T", nullptr, u, 5, nullptr }));
 	}
 	{
 		// A fourth line would end 93 px under the last entry's top, past
 		// the content's 84 px: a scrolling hub could not show it.
 		const UiHubEntry t[3] = { two, two, twoWhy2 };
 		checkTrue("four lines fit under no entry, the last among them",
-		          !fits1(twoWhy2) && !fits2(twoWhy2) && !hubEntriesFit(UiHub{ "T", nullptr, t, 3 }));
+		          !fits1(twoWhy2) && !fits2(twoWhy2) && !hubEntriesFit(UiHub{ "T", nullptr, t, 3, nullptr }));
 	}
 }
 
@@ -566,9 +575,9 @@ static void testHubClaimGate() {
 		snprintf(what, sizeof(what), "%s opens: MENU, %s", c.name, c.name);
 		checkTrue(what, navIsHub(c.id) && pinClaimState() != ClaimState::Free);
 		char busy[40];
-		snprintf(busy, sizeof(busy), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
-		snprintf(what, sizeof(what), "%s: the strip reads %s, amber", c.name, busy);
-		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, busy, UI_COL_WARN, C_BG, 1));
+		uiBusyCaption(busy, sizeof(busy));
+		snprintf(what, sizeof(what), "%s: the strip's second line reads %s, amber", c.name, busy);
+		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, busy, UI_COL_WARN, C_BG, 1));
 		for (int i = 0; i < c.hub->count; i++) {
 			const UiHubEntry &e = c.hub->entries[i];
 			snprintf(what, sizeof(what), "%s: %s is refused by uiPinsRefuse()", c.name, e.label);
@@ -611,7 +620,13 @@ static void testHubClaimGate() {
 		char strip[48];
 		c.hub->strip(strip, sizeof(strip));
 		snprintf(what, sizeof(what), "%s: the strip its own again, dim", c.name);
-		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		checkTrue(what, fakeTextIs(UI_MARGIN, c.hub->warn ? UI_STRIP_LINE1_Y : UI_STRIP_Y + 4, strip,
+		                           C_DIM, C_BG, 1));
+		snprintf(what, sizeof(what), "%s: the second line %s", c.name,
+		         c.hub->warn ? "NO ESC CHECK: UNPLUG ANY ESC FIRST., amber" : "blank");
+		checkTrue(what, c.hub->warn ? fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, UI_HUB_NO_ESC_CHECK, C_AMBER,
+		                                         C_BG, 1)
+		                            : !inkIn(0, UI_STRIP_LINE2_Y, GFX_W, 7));
 		checkTrue("BACK: MENU, then the tester", backToTester());
 	}
 	setSupply(0);
@@ -641,7 +656,7 @@ static void testNavDepth() {
 	tapId(UI_FIX(UI_BACK));
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) {
 		if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));
-		if (ctlEnabled(UI_FIX(KstCtl::Restart))) tapId(UI_FIX(KstCtl::Restart));
+		if (ctlEnabled(UI_FIX(KstCtl::Release))) tapId(UI_FIX(KstCtl::Release));
 		hubFrames(1);
 	}
 	checkTrue("KST SERVO left: SERVO", navIsHub(UiScreenId::ServoHub));
@@ -653,14 +668,6 @@ static void testNavDepth() {
 // SERVO, the hub that scrolls (docs/design/menu-c.md, slice 4)
 // ---------------------------------------------------------------------------
 
-/** @brief Whether any pixel of the rectangle is not `C_BG`. */
-static bool inkIn(int x, int y, int w, int h) {
-	const uint16_t *fb = gfxBuffer();
-	for (int j = y; j < y + h; j++)
-		for (int i = x; i < x + w; i++)
-			if (fb[j * GFX_W + i] != C_BG) return true;
-	return false;
-}
 
 /** @brief Whether the hub's line at @p y reads @p text from x 8 in @p col. */
 static bool hubLine(int y, const char *text, uint16_t col) {
@@ -689,6 +696,13 @@ static void scrollHubTo(int px) {
 	}
 }
 
+/** @brief Pixels of @p c from row @p y0 to the panel's foot: the hub's body, under the strip. */
+static int colourBelow(uint16_t c, int y0) {
+	int n = 0;
+	for (int i = y0 * GFX_W; i < GFX_W * GFX_H; i++) n += gfxBuffer()[i] == c;
+	return n;
+}
+
 /**
  * @brief SERVO: five entries, 404 px of content in the 258 px under the
  *        strip, a range of 146 px. At scroll 0 three entries are whole and
@@ -715,7 +729,7 @@ static void testServoScroll() {
 	char own[48];
 	snprintf(own, sizeof(own), "SIG GP%u  AUX GP%u  SERVO SUPPLY OWN", (unsigned)settings()->dshotPin,
 	         (unsigned)settings()->kissPin);
-	checkTrue("the strip at OWN: SIG GP0  AUX GP1  SERVO SUPPLY OWN, dim", hubLine(UI_STRIP_Y + 4, own, C_DIM));
+	checkTrue("the strip at OWN: SIG GP0  AUX GP1  SERVO SUPPLY OWN, dim", hubLine(UI_STRIP_LINE1_Y, own, C_DIM));
 	checkTrue("the strip at its widest, 35 characters, 209 px, ends at x 217",
 	          strlen("SIG GP0  AUX GP1  SERVO SUPPLY GP28") == 35 &&
 	          gfxTextW("SIG GP0  AUX GP1  SERVO SUPPLY GP28", 1) == 209 && UI_MARGIN + 209 == 217);
@@ -828,7 +842,7 @@ static void testServoScroll() {
 	}
 	checkTrue("the header and the strip stay: the list is clipped under them",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO", C_TEXT, C_PANEL, 2) &&
-	          hubLine(UI_STRIP_Y + 4, own, C_DIM));
+	          hubLine(UI_STRIP_LINE1_Y, own, C_DIM));
 	checkControlTable("SERVO at 146 px");
 	fakeDumpFrame("shot_servo_hub_scrolled.ppm");
 	tapId(HUB_ENTRY(4), IdExpect::Disabled);
@@ -843,7 +857,7 @@ static void testServoScroll() {
 	tapId(UI_FIX(UI_BACK));
 	for (int k = 0; k < 200 && (uiCurrentScreen() == UiScreenId::Kst || pinClaimState() != ClaimState::Free); k++) {
 		if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));
-		if (ctlEnabled(UI_FIX(KstCtl::Restart))) tapId(UI_FIX(KstCtl::Restart));
+		if (ctlEnabled(UI_FIX(KstCtl::Release))) tapId(UI_FIX(KstCtl::Release));
 		hubFrames(1);
 	}
 	hubFrames(1);
@@ -874,12 +888,12 @@ static void testServoScroll() {
 		char strip[48];
 		snprintf(strip, sizeof(strip), "SIG GP%u  AUX GP%u  SERVO SUPPLY GP%u", (unsigned)settings()->dshotPin,
 		         (unsigned)settings()->kissPin, (unsigned)servoSupplyPinOf(1));
-		checkTrue("the strip names the supply's pin", hubLine(UI_STRIP_Y + 4, strip, C_DIM));
+		checkTrue("the strip names the supply's pin", hubLine(UI_STRIP_LINE1_Y, strip, C_DIM));
 	}
 	revealEntry(4);
 	checkTrue("HITEC CLASSIC with the supply: whole, live, its power line in the why lines' place",
 	          ctlEnabled(HUB_ENTRY(4)) && buttonIs(uiHubEntryRect(4), "HITEC CLASSIC", true) &&
-	          fakeCountColour(C_AMBER) == 0);
+	          colourBelow(C_AMBER, UI_BODY_Y) == 0);
 	checkTrue("BACK: MENU, then the tester", backToTester());
 
 	// The two hubs that fill the page do not scroll.
@@ -959,20 +973,20 @@ static void testHubOpens() {
 	} WANT[] = {
 		{ &UI_ESC_CONFIG, UiScreenId::EscConfig, 0, "ESC COMMANDS", &UI_ESC_CMD, nullptr, -1, -1 },
 		{ &UI_ESC_CONFIG, UiScreenId::EscConfig, 1, "ESC SETTINGS", &UI_AM32, nullptr,
-		  (int)Am32Ctl::Leave, (int)Am32Ctl::Restart },
-		{ &UI_ESC_CONFIG, UiScreenId::EscConfig, 2, "USB BRIDGE", &UI_BRIDGE, nullptr, -1, (int)BridgeCtl::Restart },
+		  (int)Am32Ctl::Leave, (int)Am32Ctl::Release },
+		{ &UI_ESC_CONFIG, UiScreenId::EscConfig, 2, "USB BRIDGE", &UI_BRIDGE, nullptr, -1, (int)BridgeCtl::Release },
 		{ &UI_SERVO_HUB_SCREEN, UiScreenId::ServoHub, 0, "SERVO TESTER", &UI_SERVO, nullptr, -1,
-		  (int)ServoCtl::Restart },
+		  (int)ServoCtl::Release },
 		{ &UI_SERVO_HUB_SCREEN, UiScreenId::ServoHub, 1, "ANGLE METER", &UI_ANGLE, nullptr, -1, -1 },
 		{ &UI_SERVO_HUB_SCREEN, UiScreenId::ServoHub, 2, "KST / CHASERVO", &UI_KST, uiKstEnter,
-		  (int)KstCtl::Leave, (int)KstCtl::Restart },
+		  (int)KstCtl::Leave, (int)KstCtl::Release },
 		{ &UI_SERVO_HUB_SCREEN, UiScreenId::ServoHub, 3, "HITEC D SERIES", &UI_HITEC, uiHitecEnterD,
-		  (int)HitecCtl::Leave, (int)HitecCtl::Restart },
+		  (int)HitecCtl::Leave, (int)HitecCtl::Release },
 		{ &UI_SERVO_HUB_SCREEN, UiScreenId::ServoHub, 4, "HITEC CLASSIC", &UI_HITEC, uiHitecEnterClassic,
-		  (int)HitecCtl::Leave, (int)HitecCtl::Restart },
-		{ &UI_RX_SIGNALS, UiScreenId::RxSignals, 0, "MONITOR", &UI_SBUS, nullptr, -1, (int)SbusCtl::Restart },
+		  (int)HitecCtl::Leave, (int)HitecCtl::Release },
+		{ &UI_RX_SIGNALS, UiScreenId::RxSignals, 0, "MONITOR", &UI_SBUS, nullptr, -1, (int)SbusCtl::Release },
 		{ &UI_RX_SIGNALS, UiScreenId::RxSignals, 1, "OUTPUT", &UI_SBUS_OUT, nullptr,
-		  (int)SbusOutCtl::Leave, (int)SbusOutCtl::Restart },
+		  (int)SbusOutCtl::Leave, (int)SbusOutCtl::Release },
 	};
 	checkTrue("the tables hold ten entries: 3, 5 and 2",
 	          UI_ESC_CFG_ENTRIES_COUNT == 3 && UI_SERVO_ENTRIES_COUNT == 5 && UI_RX_ENTRIES_COUNT == 2);

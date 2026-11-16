@@ -31,7 +31,8 @@ static bool           s_ready = false;           /**< It is whole and waits for 
 static uint8_t        s_rx[256];                 /**< Bytes from the ring on their way to the PC. */
 static bool           s_dtr = false;             /**< DTR at the last pass. */
 static bool           s_portClosed = false;
-static bool           s_unfinished = false;      /**< A write-class frame, no RUN and no RESTART DSHOT since. */
+/** A write-class frame, and no RUN and no leave page's last button since. */
+static bool           s_unfinished = false;
 static bool           s_runPending = false;      /**< A RUN handed over, not yet taken by core1. */
 static uint32_t       s_runFrame = 0;            /**< Its number among the frames handed over since the open. */
 static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */
@@ -173,7 +174,7 @@ static void openBridge() {
 	// never went out: the bind zeroed the wire's counts.
 	s_runPending = false;
 	// The ESC may wait in its bootloader from now on, whatever the tool
-	// sends: MENU's cue until an eRPM frame or RESTART DSHOT.
+	// sends: MENU's cue until an eRPM frame or the leave page's last button.
 	s_cue = true;
 	s_cueMs = millis();
 	s_writeWait = false;
@@ -411,7 +412,8 @@ static void protoPass(uint32_t now) {
 		}
 		if (ev.write) {
 			// As a write-class frame in passthrough: BACK disabled, the note
-			// to flash the ESC again until a RUN or RESTART DSHOT.
+			// to flash the ESC again until a RUN or the leave page's last
+			// button.
 			s_unfinished = true;
 			s_runPending = false;
 			s_writeWait = true;

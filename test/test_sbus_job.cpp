@@ -380,6 +380,12 @@ static void testHelpers() {
 
 /** @brief The wiring, the pump bound and past any drain, no ESC, no KISS. */
 static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
+	// Run not wanted, so a claim is not Busy (docs/design/dshot-lifetime.md).
+	// The pump itself runs, as a claim found it before slice D2: the job's
+	// own pad writes are under test here, and the fake's teardown writes no
+	// pad. A claim from the parked pump is tested in test_claim.cpp.
+	pinClaimDshot(false);
+	escTaskStart();
 	escTaskConfigure(sig, 600, kiss, aux);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -387,6 +393,8 @@ static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
 	fakePumpPoll();
 	fakeAdvance(1000);
 	fakePumpPoll();
+	// The pads the pump's park or bind wrote are not the job's.
+	fakePinsReset();
 }
 
 /** @brief An S.BUS claim with @p roles through to the job's bind. */
@@ -415,7 +423,7 @@ static bool claimEnd() {
 	core1JobPoll();
 	pinClaimPoll();
 	bool due = pinClaimUnplugDue();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	return due && pinClaimState() == ClaimState::Free;
 }
@@ -436,6 +444,22 @@ static bool gp1Plain() {
 	FakePin p = fakePin(SBUS_GPIO);
 	return p.function == GPIO_FUNC_SIO && p.inover == GPIO_OVERRIDE_NORMAL &&
 	       p.pull == FakePull::Down && !p.output && p.puts == 0;
+}
+
+/**
+ * @brief Whether GP1 is parked as AUX: an SIO input, the pull-down on, the
+ *        input buffer off, not an output (docs/design/dshot-lifetime.md).
+ */
+static bool gp1ParkedAux() {
+	FakePin p = fakePin(SBUS_GPIO);
+	return p.function == GPIO_FUNC_SIO && p.inover == GPIO_OVERRIDE_NORMAL &&
+	       p.pull == FakePull::Down && p.inputOff && !p.output;
+}
+
+/** @brief Whether GP1 is parked as SIG: an SIO output driving low. */
+static bool gp1ParkedSig() {
+	FakePin p = fakePin(SBUS_GPIO);
+	return p.function == GPIO_FUNC_SIO && p.inover == GPIO_OVERRIDE_NORMAL && p.output && !p.high;
 }
 
 /** @brief Two records of a pin are equal, field by field. */
@@ -550,10 +574,10 @@ static void testJob() {
 	checkTrue("the status after the release reads empty",
 	          st.frames == 0 && st.bytes == 0 && st.parityErr == 0 && st.lostFrames == 0 &&
 	          st.failsafeFrames == 0 && !st.failsafe && st.channel[0] == 0 && st.lastFrameMs == 0);
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
-	checkTrue("the job was idle before DShot resumed", fakeResumeJobIdle());
+	checkTrue("the job was idle before the park", fakeParkJobIdle());
 
 	// A new visit starts its counts at 0.
 	freshPump(0, 1);
@@ -567,7 +591,7 @@ static void testJob() {
 	sbusJobStatus(&st);
 	checkTrue("and it decodes", st.frames == 2 && st.channel[0] == 400);
 	checkTrue("back to free", claimEnd());
-	checkTrue("GP1 plain again", gp1Plain());
+	checkTrue("GP1 parked again: AUX on its pull-down, the buffer off", gp1ParkedAux());
 }
 
 /** @brief Drains late: up to 1000 us splits nothing, a pass 2000 us late mid-frame does. */
@@ -697,7 +721,7 @@ static void testJobWirings() {
 	sbusJobStatus(&st);
 	checkInt("and decodes", st.frames, 3);
 	checkTrue("back to free", claimEnd());
-	checkTrue("GP1 plain", gp1Plain());
+	checkTrue("GP1, SIG here, parked: driven low", gp1ParkedSig());
 
 	// ESC GP1, KISS GP1, KISS off.
 	fakePwmReset();
@@ -719,7 +743,7 @@ static void testJobWirings() {
 	          samePin(fakePin(1), gp1Before) && fakeUart().inits == 0);
 	pinClaimEnd(PinUser::Sbus);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
 
@@ -738,7 +762,7 @@ static void testJobWirings() {
 	checkTrue("neither pin touched", gp0Untouched(gp0) && samePin(p1, gp1));
 	pinClaimEnd(PinUser::Sbus);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
 
@@ -767,7 +791,7 @@ static void testJobWirings() {
 	fakeClockSet(clk_peri, 150000000u);
 	pinClaimEnd(PinUser::Sbus);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
 }

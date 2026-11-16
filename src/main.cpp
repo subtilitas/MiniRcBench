@@ -132,6 +132,7 @@ void setup() {
 	servoSupplyInit();
 
 	// Before anything can call escSnapshot(), and before core1 is launched.
+	// It parks SIG low and AUX on its pull-down on this core.
 	escTaskInit();
 	core1JobInit();
 
@@ -148,9 +149,10 @@ void setup() {
 	clockInit();
 	uiInit();
 
-	// The splash, while the ESC finishes booting. Core1 is not running yet:
-	// main() launches it after setup() returns, so DShot starts on the ESC
-	// pin once the splash has ended and the card is mounted.
+	// The splash. Core1 is not running yet: main() launches it after
+	// setup() returns. escTaskInit() parked SIG low: no DShot frame leaves
+	// the board until ESC TESTER or ESC COMMANDS opens
+	// (docs/design/dshot-lifetime.md).
 	// The touch line follows the controller while the splash is up: a
 	// controller that answers late clears it.
 	uiDrawSplash();

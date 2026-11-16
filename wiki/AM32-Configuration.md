@@ -20,8 +20,8 @@ Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
 
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS and USB BRIDGE">
 
-`ESC CONFIG` is a hub, a list of the three ESC tools. It takes nothing from
-the signal pin: DShot keeps running until you tap `ESC SETTINGS`.
+`ESC CONFIG` is a hub, a list of the three ESC tools. It takes no pin, and
+DShot is off while it shows: the signal pin is held low.
 `ESC COMMANDS` sends DShot commands: see
 [The Screens](The-Screens#esc-commands). `USB BRIDGE` lets a desktop ESC
 tool reach the ESC through the board: see [USB Bridge](USB-Bridge). `BACK`
@@ -29,10 +29,11 @@ returns to MENU. The screen is titled `ESC SETTINGS` for every ESC
 firmware; it reads and writes AM32, Bluejay and BLHeli_S: see
 [EFM8 ESCs](#efm8-escs) for the last two.
 
-The screen hands the signal pin from the DShot driver to the bootloader link
-(19200 baud, one wire, half-duplex), then starts searching. Before DShot lets
-go, it sends throttle zero for at least 250 ms after the last throttle
-command, so an ESC that was running sees a stop before the line goes quiet.
+The screen takes the signal pin, held low until then, for the bootloader
+link (19200 baud, one wire, half-duplex), then starts searching. Opened
+within 250 ms of leaving ESC TESTER with the motor driven, it first lets the
+tester's zero-throttle frames run out, so an ESC that was running sees a stop
+before the line goes quiet.
 
 **Then power-cycle the ESC.** Unplug the ESC battery and plug it back in
 while this screen is open. By the AM32 bootloader's source, the bootloader
@@ -244,12 +245,14 @@ from `BACK`: that ESC's bootloader may wait too. Its strip reads
 
 **Leaving the list.** `BACK` from the list sends the bootloader LEAVE,
 which starts the ESC's firmware: the page reads `LEAVING` and
-`KEEP THE PROPELLER OFF.` in amber. About a third of a second later DShot
-returns on the signal pin and the screen returns to ESC CONFIG. LEAVE has no
-answer: whether the ESC started is not seen, and not verified on an ESC.
-MENU's `POWER-CYCLE THE ESC TO RUN IT` stays until the ESC sends eRPM.
+`KEEP THE PROPELLER OFF.` in amber. About a third of a second later the
+signal pin is held low and the screen returns to ESC CONFIG; DShot runs only
+once ESC TESTER or ESC COMMANDS opens. LEAVE has no answer: whether the ESC
+started is not seen, and not verified on an ESC. MENU's
+`POWER-CYCLE THE ESC TO RUN IT` stays until the ESC sends eRPM on ESC TESTER
+or ESC COMMANDS.
 
-<img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE, THEN DSHOT RETURNS. KEEP THE PROPELLER OFF.">
+<img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE. ESC TESTER THEN RUNS IT. KEEP THE PROPELLER OFF.">
 
 If the ESC stops answering before its page is read, the page shows
 `THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` and greets again.
@@ -263,21 +266,22 @@ So `BACK` opens a leave page instead of returning to ESC CONFIG at once:
 
 1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR
    COMMANDS` / `AND MAY READ DSHOT AS ONE.`
-2. `PLUG IT IN AFTER RESTART DSHOT.`
+2. `PLUG IT IN ONCE ESC CONFIG SHOWS.`
 
 <img src="img/am32-leave.png" width="240" alt="The leave page: step 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
 
 `STAY` returns to the screen. While the leave page is open the tester's
 greeting and its first look at the page run on, and the read of the whole
 page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
-`RESTART DSHOT` takes LEAVE's place and acts 1 s later; it starts DShot on
-the signal pin and returns to ESC CONFIG. Plug the battery back in after
-that.
-`BACK` is grey on this page. RESTART DSHOT clears MENU's
-`POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the ESC. The
-tester cannot see
-the battery: RESTART DSHOT with the ESC still powered, or a restart of the
-tester while the ESC waits, sends DShot into its bootloader.
+`ESC CONFIG`, the hub's title, takes LEAVE's place and acts 1 s later; it
+holds the signal pin low, starts no DShot and returns to ESC CONFIG. Plug the
+battery back in once ESC CONFIG shows: on a low line a Bluejay or BLHeli_S
+ESC starts its firmware rather than its bootloader (read from the firmwares'
+source, not measured). `BACK` is grey on this page. The last button clears
+MENU's `POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the
+ESC. The tester cannot see the battery: an ESC left powered whose bootloader
+still waits meets DShot at the next ESC TESTER or ESC COMMANDS, and so does
+one that waits across a restart of the tester.
 
 ---
 
@@ -568,7 +572,7 @@ list.
 
 ## Leaving
 
-`BACK` on the list hands the signal pin back to the DShot driver and returns
+`BACK` on the list holds the signal pin low again, with no DShot, and returns
 to ESC CONFIG, the hub it was opened from; with changes not written it
 asks first, as under
 [Editing](#editing). The tester is disarmed.
@@ -582,8 +586,9 @@ After a Bluejay or BLHeli_S answer, `BACK` from its list sends LEAVE, and
 
 After a session in which the bootloader answered, MENU shows
 `POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. It goes
-when an eRPM frame arrives, which only the ESC's firmware sends, on RESTART
-DSHOT of the leave page, or when the board restarts. LEAVE from a Bluejay
+when an eRPM frame arrives on ESC TESTER or ESC COMMANDS, which only the
+ESC's firmware sends, on the leave page's last button, or when the board
+restarts. LEAVE from a Bluejay
 or BLHeli_S list leaves it, as LEAVE has no answer.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU with POWER-CYCLE THE ESC TO RUN IT in amber under the strip's caption">

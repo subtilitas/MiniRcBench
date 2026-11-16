@@ -17,6 +17,7 @@
 
 #include "check.h"
 #include "fakes.h"
+#include "esc_task.h"
 #include "ui_screen.h"
 #include "ui_menu.h"
 #include "ui_registry.h"
@@ -217,6 +218,26 @@ static inline UiControlId menuRow(const UiScreen *s) {
 static inline void openTester() {
 	tapId(menuRow(&UI_TESTER));
 	UI_IDS_FRAMES(1);
+	// DShot binds on the next frames, and the arm gate holds 1500 ms after
+	// the bind (docs/design/dshot-lifetime.md, decision 12): a case that
+	// arms waits it out here. openTesterGated() opens without the wait.
+	for (int k = 0; k < 200 && uiArmGated(escTaskBoundMs(), millis()); k++) UI_IDS_FRAMES(1);
+}
+
+/**
+ * @brief From the tester to MENU, where Run is no longer wanted: a case that
+ *        claims the pins by hand starts here, since a claim is Busy while
+ *        the tester is open (docs/design/dshot-lifetime.md).
+ */
+static inline void testerToMenu() {
+	if (uiCurrentScreen() == UiScreenId::Tester) tapId(UI_FIX(TesterCtl::Menu));
+	UI_IDS_FRAMES(1);
+}
+
+/** @brief The tester through its row, the arm gate still holding. */
+static inline void openTesterGated() {
+	tapId(menuRow(&UI_TESTER));
+	UI_IDS_FRAMES(1);
 }
 
 /**
@@ -229,6 +250,17 @@ static inline void uiInitTester() {
 	// uiInit(), so let the last case's claim end first.
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) UI_IDS_FRAMES(1);
 	openTester();
+}
+
+/**
+ * @brief uiInit(), which opens MENU, and frames until the last case's claim
+ *        has ended and the pump is parked: the start of a case that begins
+ *        on MENU with DShot parked (docs/design/dshot-lifetime.md).
+ */
+static inline void uiInitMenu() {
+	uiInit();
+	for (int k = 0; k < 200 && (pinClaimState() != ClaimState::Free || !escTaskParked()); k++)
+		UI_IDS_FRAMES(1);
 }
 
 /** @brief Whether the open screen is one of the three hubs. */

@@ -19,6 +19,8 @@ void uiRxSignalsStrip(char *buf, size_t n) {
 	snprintf(buf, n, UI_RX_STRIP_FMT, (unsigned)escTaskDshotPin(), (unsigned)escTaskKissPin());
 }
 
+bool uiRxSigIsGp1() { return escTaskDshotPin() == 1; }
+
 void uiRxSignalsEnter() { uiHubEnter(UI_RX_HUB); }
 
 bool uiRxSignalsTick(const TouchState *t) { return uiHubTick(UI_RX_HUB, t); }

@@ -305,9 +305,10 @@ bool settingsResetByUpdate();
 bool settingsCarriedOver();
 
 /**
- * @brief The ESC pin settingsLoad() put live: the pin the splash names, and
- *        the one DShot starts on at boot. The compiled default's before a
- *        load. SETTINGS warns while the live pin differs from it.
+ * @brief The ESC pin settingsLoad() put live: the pin SIG is parked low on
+ *        at boot, and the one ESC TESTER first starts DShot on. The
+ *        compiled default's before a load. SETTINGS warns while the live pin
+ *        differs from it.
  * @return GPIO number.
  */
 uint8_t settingsBootDshotPin();

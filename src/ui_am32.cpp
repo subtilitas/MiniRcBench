@@ -167,7 +167,7 @@ static_assert(UI_MARGIN + 12 * (int)(sizeof(AM32_UI_TITLE) - 1) - 2 + 4 <= UI_BA
 static_assert(sizeof(AM32_UI_LEAVE_1) - 1 <= UI_LEAVE_STEP_CHARS &&
               sizeof(AM32_UI_LEAVE_1A) - 1 <= UI_LEAVE_STEP_CHARS &&
               sizeof(AM32_UI_LEAVE_1B) - 1 <= UI_LEAVE_STEP_CHARS &&
-              sizeof(AM32_UI_LEAVE_2) - 1 <= UI_LEAVE_STEP_CHARS,
+              sizeof(AM32_UI_LEAVE_2) - 1 - 2 + UI_LEAVE_HUB_CHARS <= UI_LEAVE_STEP_CHARS,
               "a leave step runs past x 232");
 // The read-only view's lines: the layout is one digit (am32Plausible() takes
 // 1 to 8), "%u" two characters; the backup's name five characters.
@@ -212,7 +212,7 @@ enum Am32Screen : uint8_t {
 	/**
 	 * The leave page, after an EFM8 bootloader answered: BACK from any
 	 * other state but the EFM8 list opens it. STAY returns to s_leaveFrom;
-	 * LEAVE lets go of SIG; RESTART DSHOT gives it back to DShot.
+	 * LEAVE lets go of SIG; the last button parks it low.
 	 */
 	S_LEAVE,
 	/**
@@ -235,7 +235,10 @@ enum Am32Screen : uint8_t {
 	 * half written; BACK returns to s_keptFrom.
 	 */
 	S_EW_KEPT,
-	/** BACK from the EFM8 list: LEAVE goes out, then DShot returns. BACK is drawn disabled. */
+	/**
+	 * BACK from the EFM8 list: LEAVE goes out, then the pins park. BACK is
+	 * drawn disabled.
+	 */
 	S_EW_EXIT,
 	/**
 	 * The session ended without the page: the job lets SIG go, and the
@@ -1196,16 +1199,21 @@ static uint8_t cardSeen();
 
 /**
  * @brief The leave page of decision 8 of docs/design/bluejay-blheli-s.md:
- *        unplug the ESC's battery, then LEAVE; plug it in after RESTART
- *        DSHOT. No left button after LEAVE: there is no next device.
+ *        unplug the ESC's battery, then LEAVE; plug it in once the hub
+ *        shows, the pins parked. The wide button reads the hub's title
+ *        (docs/design/dshot-lifetime.md, decision 9). No left button after
+ *        LEAVE: there is no next device.
  */
 static void drawLeave() {
+	static char plug[UI_LEAVE_STEP_CHARS + 1];
 	UiLeaveText tx;
 	memset(&tx, 0, sizeof(tx));
 	tx.step[0][0] = AM32_UI_LEAVE_1;
 	tx.step[0][1] = AM32_UI_LEAVE_1A;
 	tx.step[0][2] = AM32_UI_LEAVE_1B;
-	tx.step[1][0] = AM32_UI_LEAVE_2;
+	tx.hub = uiNavOpenerTitle();
+	snprintf(plug, sizeof(plug), AM32_UI_LEAVE_2, tx.hub);
+	tx.step[1][0] = plug;
 	tx.next = nullptr;
 	if (s_leave.phase == UiLeavePhase::Releasing) tx.note[0] = UI_LEAVE_RELEASING;
 	uiLeaveDraw(&s_leave, tx, s_frameTouch, millis());
@@ -1227,7 +1235,7 @@ static void openLeave(Am32Screen from) {
 /**
  * @brief One frame of the leave page.
  * @param t This frame's touch.
- * @return false once RESTART DSHOT gave SIG back to DShot: the screen leaves.
+ * @return false once the hub's title parked SIG: the screen leaves.
  */
 static bool leaveTick(const TouchState *t) {
 	uint32_t now = millis();
@@ -1237,12 +1245,12 @@ static bool leaveTick(const TouchState *t) {
 			s_state = s_leaveFrom;
 			break;
 		case UiLeaveEv::Leave:
-			// The claim has the leave page: DShot waits for RESTART DSHOT.
+			// The claim has the leave page: the park waits for its last button.
 			endClaim();
 			break;
-		case UiLeaveEv::Restart:
+		case UiLeaveEv::Release:
 			if (!pinClaimUnplugDue()) break;
-			pinClaimRestart(PinUser::Am32);
+			pinClaimRelease(PinUser::Am32);
 			// The steps power-cycled the ESC: MENU's cue goes.
 			s_blReached = false;
 			s_state = S_HANDOVER;
@@ -1251,7 +1259,7 @@ static bool leaveTick(const TouchState *t) {
 		case UiLeaveEv::None:
 			break;
 	}
-	// RESTART DSHOT turns live by the clock: the page repaints every frame,
+	// The hub's title turns live by the clock: the page repaints every frame,
 	// as the connect page does.
 	s_redraw = true;
 	return true;
@@ -1324,8 +1332,8 @@ void uiAm32Enter() {
 
 /**
  * @brief The transport lets go of the pin, the card's queued writes end,
- *        and the claim ends: DShot resumes within the call, or, once an EFM8
- *        bootloader answered, the claim waits for RESTART DSHOT.
+ *        and the claim ends: the pins park, or, once an EFM8 bootloader
+ *        answered, the claim waits for the leave page's last button.
  */
 static void endClaim() {
 	am32BlEnd();
@@ -1334,9 +1342,9 @@ static void endClaim() {
 }
 
 void uiAm32Exit() {
-	// The transport lets go of the pin before DShot takes it back. An AM32
-	// claim no EFM8 bootloader answered has started no core1 job and has no
-	// leave page, so pinClaimEnd() resumes the pump within the call.
+	// The transport lets go of the pin before core1 parks it. An AM32 claim
+	// no EFM8 bootloader answered has started no core1 job and has no leave
+	// page, so pinClaimEnd() moves the claim to Parking within the call.
 	endClaim();
 	s_state = S_HANDOVER;
 }
@@ -1609,12 +1617,12 @@ static void startExit() {
 
 /**
  * @brief S_EW_EXIT: LEAVE's `00 01` starts the ESC's firmware, so once it
- *        went out the claim gives SIG back to DShot without the leave page's
+ *        went out the claim parks SIG low without the leave page's
  *        steps (decision 3 of bluejay-blheli-s.md). LEAVE has no answer, so
  *        MENU's run cue stays until an eRPM frame after it shows the firmware
  *        runs (bench item B11). A LEAVE that did not go out opens the leave
  *        page.
- * @return false once DShot is on its way back: the screen leaves.
+ * @return false once the claim is Parking: the screen leaves.
  */
 static bool exitTick() {
 	pinClaimPoll();
@@ -1635,9 +1643,9 @@ static bool exitTick() {
 		snprintf(s_status, sizeof(s_status), AM32_UI_EXIT_SENT);
 		endClaim();
 	}
-	// The job lets SIG go first; DShot restarts once it is idle.
+	// The job lets SIG go first; the pins park once it is idle.
 	if (!pinClaimUnplugDue()) return true;
-	pinClaimRestart(PinUser::Am32);
+	pinClaimRelease(PinUser::Am32);
 	s_state = S_HANDOVER;
 	return false;
 }
@@ -2203,8 +2211,8 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Stay), UI_LEAVE_LEFT, true);
 			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Leave), UI_LEAVE_WIDE, s_leave.leaveEnabled);
 		} else {
-			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Restart), UI_LEAVE_WIDE,
-			             uiLeaveRestartLive(&s_leave, millis()));
+			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Release), UI_LEAVE_WIDE,
+			             uiLeaveReleaseLive(&s_leave, millis()));
 		}
 		return n;
 	}
@@ -2321,12 +2329,13 @@ bool uiAm32Tick(const TouchState *t) {
 			ewSend(EwJobOp::Stop);
 			openLeave(S_EW);
 		} else if (back && s_state == S_EW_LIST) {
-			// The page was read: LEAVE starts the ESC's firmware, then DShot
-			// returns (docs/design/bluejay-blheli-s.md, decision 3).
+			// The page was read: LEAVE starts the ESC's firmware, then the
+			// pins park (docs/design/bluejay-blheli-s.md, decision 3).
 			startExit();
 		} else if (back && s_efm8Seen) {
-			// An EFM8 bootloader answered and no LEAVE went: SIG goes back to
-			// DShot only from the leave page (decision 8 of that note).
+			// An EFM8 bootloader answered and no LEAVE went: the pins park
+			// only from the leave page's last button (decision 8 of that
+			// note).
 			openLeave(s_state);
 		} else if (back) {
 			s_leaving = true;

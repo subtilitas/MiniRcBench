@@ -19,9 +19,12 @@
 static_assert(UI_HUB_ENTRY_Y == UI_BODY_Y, "a hub's first entry is not at the body's top");
 static_assert(UI_EDGE + UI_HUB_ENTRY_W == GFX_W - UI_EDGE, "a hub's entries are not the wide button");
 static_assert(UI_HUB_ENTRY_H >= UI_TAP_MIN, "a hub entry is smaller than a fingertip");
-// The busy strip with a one-digit GPIO: this board's signal pins are GP0 and GP1.
-static_assert(sizeof(UI_MENU_RESTARTING_FMT) - 1 - 2 + 1 <= UI_HUB_LINE_CHARS,
-              "the hub's busy strip runs off the panel");
+// The busy captions with a one-digit GPIO: this board's signal pins are GP0 and GP1.
+static_assert(sizeof(UI_BUSY_RELEASING_FMT) - 1 - 2 + 1 <= UI_HUB_LINE_CHARS &&
+              sizeof(UI_BUSY_PARKING_FMT) - 1 - 2 + 1 <= UI_HUB_LINE_CHARS,
+              "the hub's busy caption runs off the panel");
+static_assert(sizeof(UI_HUB_NO_ESC_CHECK) - 1 <= UI_HUB_LINE_CHARS,
+              "the hubs' NO ESC CHECK line runs off the panel");
 static_assert(UI_MARGIN + 6 * UI_HUB_LINE_CHARS - 1 <= GFX_W, "a hub line runs off the panel");
 static_assert(UI_HUB_ENTRY_Y + (UI_HUB_PAGE_ENTRIES - 1) * UI_HUB_ENTRY_PITCH + UI_HUB_ENTRY_H <= GFX_H,
               "a hub's last button runs off the panel");
@@ -92,15 +95,18 @@ static uint32_t mix(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
  * @brief Everything a frame of @p hub draws, hashed: a change repaints. The
  *        strip's text carries the pins, and the supply's pin the power lines.
  */
-static uint32_t frameKey(const UiHub &hub, const char *strip) {
+static uint32_t frameKey(const UiHub &hub, const char *strip, const char *second) {
 	uint32_t h = 2166136261u;
 	for (const char *p = strip; *p; p++) h = mix(h, (uint8_t)*p);
+	h = mix(h, 0x1Fu);
+	for (const char *p = second; p && *p; p++) h = mix(h, (uint8_t)*p);
 	h = mix(h, servoSupplyPin());
 	h = mix(h, claimBusy());
 	h = mix(h, (uint32_t)s_list.scrollPx);
 	for (int i = 0; i < hub.count; i++) {
 		bool acts = uiHubEntryActs(hub, i);
 		h = mix(h, acts);
+		h = mix(h, hub.entries[i].noteWhen && hub.entries[i].noteWhen());
 		h = mix(h, acts && entryPressing(i));
 	}
 	h = mix(h, uiPressing(uiBackRect(), s_t));
@@ -118,6 +124,10 @@ static void drawLines(const UiHubEntry &e, const UiRect &r, bool own) {
 	for (const char *l : e.lines) {
 		if (!l) break;
 		gfxText(UI_MARGIN, y, l, C_DIM, 1);
+		y += UI_HUB_LINE_H;
+	}
+	if (e.note && e.noteWhen && e.noteWhen()) {
+		gfxText(UI_MARGIN, y, e.note, C_AMBER, 1);
 		y += UI_HUB_LINE_H;
 	}
 	if (!own) {
@@ -144,11 +154,17 @@ static void drawEntry(int i, int y, void *ctx) {
 	drawLines(hub.entries[i], r, entryOwnGate(hub, i));
 }
 
-static void draw(const UiHub &hub, const char *strip) {
+/**
+ * @brief The strip: the hub's own line, and under it the busy caption in
+ *        @ref UI_COL_WARN while the claim is not Free, else the hub's
+ *        warning in `C_AMBER` (@ref UiHub::warn), if it has one.
+ */
+static void draw(const UiHub &hub, const char *strip, const char *second) {
 	gfxFill(C_BG);
 	uiHeader(hub.title, s_t);
 	uiStripClear();
-	uiStripText(strip, claimBusy() ? UI_COL_WARN : C_DIM);
+	if (!second) uiStripText(strip, C_DIM);
+	else uiStripTwoLines(strip, C_DIM, second, claimBusy() ? UI_COL_WARN : C_AMBER);
 	// The list clips to the 258 px under the strip: an entry cut by the
 	// panel's edge shows that the list goes on.
 	uiListDraw(&s_list, drawEntry, (void *)&hub);
@@ -199,15 +215,20 @@ bool uiHubTick(const UiHub &h, const TouchState *t) {
 	}
 	char strip[HUB_TEXT_MAX];
 	strip[0] = '\0';
+	h.strip(strip, sizeof(strip));
 	// While the claim is not Free, why the refused entries are drawn
-	// disabled, in MENU's words: Restoring outlasts the leave page's last
-	// button, which returns here.
-	if (claimBusy()) snprintf(strip, sizeof(strip), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
-	else h.strip(strip, sizeof(strip));
-	uint32_t key = frameKey(h, strip);
+	// disabled, in MENU's words, in the warning's place: Parking outlasts
+	// the leave page's last button, which returns here.
+	char busy[HUB_TEXT_MAX];
+	const char *second = h.warn;
+	if (claimBusy()) {
+		uiBusyCaption(busy, sizeof(busy));
+		second = busy;
+	}
+	uint32_t key = frameKey(h, strip, second);
 	if (key != s_drawnKey) {
 		s_drawnKey = key;
-		draw(h, strip);
+		draw(h, strip, second);
 	}
 	return true;
 }

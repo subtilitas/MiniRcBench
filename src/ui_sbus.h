@@ -26,10 +26,10 @@
  *
  * BACK leaves through the leave page (ui_leave.h): the job lets GP1 go at
  * once, and the page opens releasing, as SERVO TESTER's does. Its step names
- * where DShot restarts; BACK TO MONITOR keeps the claim and binds the job
- * again, with every count at 0; RESTART DSHOT, live 1000 ms after the pin is
- * let go, returns to RX SIGNALS. BACK before a claim held, or during
- * Stopping, returns to RX SIGNALS with DShot resumed.
+ * the hub it returns to; BACK TO MONITOR keeps the claim and binds the job
+ * again, with every count at 0; the last button, live 1000 ms after the pin
+ * is let go, parks the pins and returns to RX SIGNALS. BACK before a claim
+ * held, or during Stopping, returns to RX SIGNALS with the pins parked.
  *
  * @see docs/design/rx-signals.md, "Screen"
  */
@@ -94,10 +94,16 @@ struct UiScreen;
 #define SBUS_UI_UNPLUG_3    "ONCE THE LINK CHIP SHOWS."
 /** @brief The leave page's step that unplugs the receiver: 20 characters. */
 #define SBUS_UI_UNPLUG      "UNPLUG THE RECEIVER."
-/** @brief Its detail line, SIG's GPIO for `%u`, when GP1 is AUX: 26 characters. */
-#define SBUS_UI_RESTART_FMT "DSHOT RESTARTS ON SIG GP%u."
-/** @brief Its detail lines when GP1 is SIG: 32 characters... */
-#define SBUS_UI_RESTART_GP1_1 "DSHOT RESTARTS ON SIG GP1, WHERE"
+/**
+ * @brief Its detail line, SIG's GPIO for `%u`, when GP1 is AUX: what the
+ *        next ESC TESTER or ESC COMMANDS sends on SIG. 34 characters.
+ */
+#define SBUS_UI_RESTART_FMT "ESC TESTER SENDS DSHOT ON SIG GP%u."
+/**
+ * @brief Its detail lines when GP1 is SIG: the parked SIG is driven low,
+ *        against a receiver that drives it. 26 characters...
+ */
+#define SBUS_UI_RESTART_GP1_1 "SIG GP1 IS HELD LOW, WHERE"
 /** @brief ...and 29. */
 #define SBUS_UI_RESTART_GP1_2 "THE RECEIVER DRIVES THE LINE."
 /** @brief The leave page's left button after the tap on BACK: 15 characters, 89 px. */
@@ -108,7 +114,7 @@ struct UiScreen;
 enum class SbusCtl : uint8_t {
 	Retry = 1,      /**< RETRY, the wide button, after a failed bind. */
 	BackToMonitor,  /**< BACK TO MONITOR on the leave page: the claim kept, the job bound again. */
-	Restart,        /**< RESTART DSHOT on the leave page, live 1000 ms after the pin is let go. */
+	Release,        /**< The hub's title on the leave page: parks the pins and returns to the hub, live 1000 ms after the pin is let go. */
 };
 
 /**
@@ -120,14 +126,14 @@ void uiSbusEnter();
 /**
  * @brief Run one frame of the screen.
  * @param t Touch state for this frame.
- * @return false once the screen has left: after RESTART DSHOT on the leave
- *         page, or after BACK when no job had run.
+ * @return false once the screen has left: after the leave page's last
+ *         button, or after BACK when no job had run.
  */
 bool uiSbusTick(const TouchState *t);
 
 /**
  * @brief The controls on the current frame: BACK; RETRY under a failed bind;
- *        BACK TO MONITOR and RESTART DSHOT on the leave page.
+ *        BACK TO MONITOR and the last button on the leave page.
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.

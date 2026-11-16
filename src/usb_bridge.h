@@ -63,15 +63,15 @@
  * ERASE and a payload are write-class: from the handover until the
  * frame's answer, a byte received beyond its echo, or
  * @ref BRIDGE_WRITE_WAIT_MS, BACK is drawn disabled (decision 7); and from
- * then until a RUN or the leave page's RESTART DSHOT, the leave page carries
+ * then until a RUN or the leave page's last button, the leave page carries
  * `FLASH THE ESC AGAIN BEFORE USE.`, after BRIDGE's reopen too. A RUN counts
  * once core1 has taken it from the slot: one handed over shortly before BACK
  * is never sent, and the note stays.
  * BACK on a Running bridge always opens the leave page (decision 10 as
  * revised, ui_bridge.h): an ESC can sit in its bootloader with no frame of
  * the PC's answered. MENU shows the run cue from the claim's begin and
- * the open until RESTART DSHOT or an eRPM frame. The frames themselves are
- * forwarded unchanged.
+ * the open until the leave page's last button or an eRPM frame. The frames
+ * themselves are forwarded unchanged.
  * In the 4-way interface the same rules hold for its write-class bootloader
  * frames, the data after SET BUFFER, PROGRAM and ERASE: BACK disabled from
  * the handover until the 4-way command's answer, at most
@@ -225,25 +225,26 @@ BridgeLast usbBridgeLast();
 bool usbBridgeWriteWaiting();
 
 /**
- * @brief A write-class frame went to the wire, and no RUN and no RESTART
- *        DSHOT after it: the leave page carries its note to flash the ESC
- *        again (ui_bridge.h). Kept through the close, the leave page and
- *        BRIDGE's reopen, which leave the ESC's flash as cut as it was.
+ * @brief A write-class frame went to the wire, and no RUN and no leave
+ *        page's last button after it: the leave page carries its note to
+ *        flash the ESC again (ui_bridge.h). Kept through the close, the
+ *        leave page and BRIDGE's reopen, which leave the ESC's flash as cut
+ *        as it was.
  *        While the board runs it is cleared only by a RUN that core1 took
  *        from the slot, `cmd_DeviceReset`'s among them, and by
- *        usbBridgeWriteUnfinishedClear() at RESTART DSHOT, which ends the
- *        claim: the next claim starts with none. A RUN handed over and not
- *        taken when BACK comes is never sent and clears nothing; a write
- *        after a RUN still pending keeps it set.
+ *        usbBridgeWriteUnfinishedClear() at the leave page's last button,
+ *        which ends the claim: the next claim starts with none. A RUN
+ *        handed over and not taken when BACK comes is never sent and clears
+ *        nothing; a write after a RUN still pending keeps it set.
  *
  * It is held in RAM only: a board reset or a power loss in the middle of a
- * flash restarts the board with DShot on SIG and no note.
+ * flash restarts the board with SIG parked low and no note.
  * @return True after such a frame.
  */
 bool usbBridgeWriteUnfinished();
 
 /**
- * @brief RESTART DSHOT on the leave page, after which the user was told to
+ * @brief The leave page's last button, after which the user was told to
  *        flash the ESC again: the claim ends, and its unfinished write with
  *        it.
  */
@@ -263,10 +264,10 @@ bool usbBridgeMotorRefused();
  *
  * Set when the claim begins, usbBridgeRunCueSet(), and at every open: from
  * then on the ESC may wait in its bootloader, whatever the tool sends, or
- * nothing. Cleared only by usbBridgeRunCueClear() at RESTART DSHOT and by an
- * eRPM frame stamped after the claim's begin or the open: the firmware runs
- * again. A RUN does not clear it, as a
- * garbled frame could read as one. Kept across the close.
+ * nothing. Cleared only by usbBridgeRunCueClear() at the leave page's last
+ * button and by an eRPM frame stamped after the claim's begin or the open:
+ * the firmware runs again. A RUN does not clear it, as a garbled frame could
+ * read as one. Kept across the close.
  * @param lastRpmMs EscTelemetry::lastRpmMs.
  * @return True while the cue shows.
  */
@@ -276,14 +277,14 @@ bool usbBridgeRunCue(uint32_t lastRpmMs);
  * @brief Set MENU's run cue when the screen's claim begins.
  *
  * From the claim's begin DShot is off SIG. BACK while Stopping or after a
- * failed bind returns DShot at once, and while the line binds once the job
+ * failed bind parks the pins at once, and while the line binds once the job
  * is idle (ui_bridge.h), with no leave page; an AM32 ESC can enter its
  * bootloader on its own after about 2 s without a signal. The cue then stands
  * until an eRPM frame stamped after this call or usbBridgeRunCueClear().
  */
 void usbBridgeRunCueSet();
 
-/** @brief RESTART DSHOT on the leave page, whose steps power the ESC off: the cue goes. */
+/** @brief The leave page's last button, whose steps power the ESC off: the cue goes. */
 void usbBridgeRunCueClear();
 
 /** @brief DTR is set: `PORT OPEN` on the screen. @return tud_cdc_connected(). */

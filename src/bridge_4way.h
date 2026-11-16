@@ -63,7 +63,7 @@
  * as in passthrough (usb_bridge.h): the step that hands one over reports it,
  * and the bridge holds BACK disabled until the command's answer, at most
  * 3000 ms after the last such frame, and gives the leave page its note to
- * flash the ESC again until a RUN or RESTART DSHOT.
+ * flash the ESC again until a RUN or the leave page's last button.
  *
  * **The 3D note** (decision 12). With an ARM device whose signature's high
  * byte is an AM32 family (bl_answer.h), a Read or a Write that starts at its

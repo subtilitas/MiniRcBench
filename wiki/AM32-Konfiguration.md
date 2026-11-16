@@ -21,20 +21,21 @@ Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS und USB BRIDGE">
 
-`ESC CONFIG` ist eine Auswahl, eine Liste der drei ESC-Werkzeuge. Sie nimmt
-dem Signalpin nichts weg: DShot läuft weiter, bis du `ESC SETTINGS`
-antippst. `ESC COMMANDS` sendet DShot-Befehle: siehe
+`ESC CONFIG` ist eine Auswahl, eine Liste der drei ESC-Werkzeuge. Sie
+belegt keinen Pin, und DShot ist aus, solange sie zu sehen ist: Der
+Signalpin liegt auf Low. `ESC COMMANDS` sendet DShot-Befehle: siehe
 [Die Bildschirme](Die-Bildschirme#esc-commands). Über `USB BRIDGE` erreicht
 ein ESC-Programm auf dem Computer den ESC durch die Platine: siehe
 [USB-Brücke](USB-Bruecke). `BACK` führt zu MENU zurück. Der Bildschirm
 heißt für jede ESC-Firmware `ESC SETTINGS`; er liest und schreibt AM32,
 Bluejay und BLHeli_S: zu den letzten beiden siehe [EFM8-ESCs](#efm8-escs).
 
-Der Bildschirm übergibt den Signalpin vom DShot-Treiber an die
-Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann zu
-suchen. Vorher sendet DShot den Gaswert null, bis 250 ms seit dem letzten
-Gasbefehl vergangen sind. Ein laufender ESC sieht so einen Stopp, bevor die
-Leitung still wird.
+Der Bildschirm nimmt den Signalpin, der bis dahin auf Low liegt, für die
+Bootloader-Verbindung (19200 Baud, ein Draht, halbduplex) und beginnt dann
+zu suchen. Innerhalb von 250 ms nach dem Verlassen des ESC TESTER mit
+laufendem Motor geöffnet, lässt er zuerst die Gas-null-Frames des Testers
+auslaufen. Ein laufender ESC sieht so einen Stopp, bevor die Leitung still
+wird.
 
 **Dann den ESC neu starten.** Zieh den ESC-Akku ab und steck ihn wieder an,
 während dieser Bildschirm offen ist. Laut dem Quelltext des AM32-Bootloaders
@@ -272,13 +273,13 @@ ohne ein solches Stück nicht.
 **Die Liste verlassen.** `BACK` aus der Liste sendet dem Bootloader LEAVE,
 das die ESC-Firmware startet: Die Seite zeigt `LEAVING` und in Bernstein
 `KEEP THE PROPELLER OFF.` (Propeller ab lassen). Etwa eine Drittelsekunde
-später kehrt DShot auf den Signalpin zurück und der Bildschirm zu ESC
-CONFIG.
+später liegt der Signalpin auf Low, und der Bildschirm kehrt zu ESC CONFIG
+zurück; DShot läuft erst, wenn ESC TESTER oder ESC COMMANDS öffnet.
 LEAVE hat keine Antwort: Ob der ESC gestartet ist, sieht der Tester nicht;
 an keinem ESC geprüft. MENUs `POWER-CYCLE THE ESC TO RUN IT` bleibt, bis der
-ESC eRPM sendet.
+ESC auf ESC TESTER oder ESC COMMANDS eRPM sendet.
 
-<img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE, THEN DSHOT RETURNS. KEEP THE PROPELLER OFF.">
+<img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE. ESC TESTER THEN RUNS IT. KEEP THE PROPELLER OFF.">
 
 Antwortet der ESC nicht mehr, bevor seine Seite gelesen ist, zeigt die
 Seite `THE ESC ANSWERED, THEN STOPPED.` / `SEARCHING AGAIN.` (geantwortet,
@@ -294,21 +295,25 @@ Verlassenseite, statt sofort zu ESC CONFIG zurückzukehren:
 
 1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` (ESC-Akku abziehen, dann LEAVE) /
    `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.`
-2. `PLUG IT IN AFTER RESTART DSHOT.` (nach RESTART DSHOT wieder anstecken)
+2. `PLUG IT IN ONCE ESC CONFIG SHOWS.` (wieder anstecken, sobald ESC CONFIG
+   zu sehen ist)
 
 <img src="img/am32-leave.png" width="240" alt="Die Verlassenseite: Schritt 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
 
 `STAY` kehrt zum Bildschirm zurück. Solange die Verlassenseite offen ist,
 laufen der Gruß des Testers und sein erster Blick auf die Seite weiter, und
 das Lesen der ganzen Seite wartet auf `STAY`. Zieh den ESC-Akku ab, dann
-tippe `LEAVE`. `RESTART DSHOT` tritt an die Stelle von LEAVE und wirkt 1 s
-später; es startet DShot auf dem Signalpin und kehrt zu ESC CONFIG zurück.
-Steck den Akku danach wieder an. `BACK` ist auf dieser Seite grau. RESTART DSHOT
-nimmt MENUs `POWER-CYCLE THE ESC TO RUN IT` weg, da die Schritte den ESC
-neu gestartet haben.
-Den Akku sieht der Tester nicht: RESTART DSHOT bei noch eingestecktem ESC,
-oder ein Neustart des Testers, während der ESC wartet, schickt DShot in
-seinen Bootloader.
+tippe `LEAVE`. `ESC CONFIG`, der Titel der Auswahl, tritt an die Stelle von
+LEAVE und wirkt 1 s später; es legt den Signalpin auf Low, startet kein
+DShot und kehrt zu ESC CONFIG zurück. Steck den Akku wieder an, sobald ESC
+CONFIG zu sehen ist: An einer Leitung auf Low startet ein Bluejay- oder
+BLHeli_S-ESC seine Firmware statt seines Bootloaders (aus dem Quelltext der
+Firmwares gelesen, nicht gemessen). `BACK` ist auf dieser Seite grau. Die
+letzte Taste nimmt MENUs `POWER-CYCLE THE ESC TO RUN IT` weg, da die
+Schritte den ESC neu gestartet haben. Den Akku sieht der Tester nicht: Ein
+eingesteckt gebliebener ESC, dessen Bootloader noch wartet, trifft beim
+nächsten ESC TESTER oder ESC COMMANDS auf DShot, ebenso einer, der über einen
+Neustart des Testers hinweg wartet.
 
 ---
 
@@ -624,7 +629,7 @@ anbietet, oder siehst, was eine Änderung auf Byte-Ebene bewirkt hat.
 
 ## Verlassen
 
-`BACK` auf der Liste gibt den Signalpin an den DShot-Treiber zurück und
+`BACK` auf der Liste legt den Signalpin wieder auf Low, ohne DShot, und
 kehrt zu ESC CONFIG zurück, der Auswahl, aus der es geöffnet wurde; mit
 ungeschriebenen Änderungen fragt es zuerst, wie
 unter [Ändern](#ändern). Der Tester ist entschärft.
@@ -639,9 +644,9 @@ BLHeli_S sendet `BACK` aus deren Liste LEAVE, und `BACK` von überall sonst
 Nach einer Sitzung, in der der Bootloader geantwortet hat, zeigt MENU
 `POWER-CYCLE THE ESC TO RUN IT` in Bernstein unter der Zeile des Streifens.
 Der Hinweis verschwindet, sobald ein eRPM-Frame eintrifft, den nur die
-ESC-Firmware sendet, mit RESTART DSHOT der Verlassenseite, oder wenn die
-Platine neu startet. LEAVE aus einer Bluejay- oder BLHeli_S-Liste lässt ihn
-stehen, da LEAVE keine Antwort hat.
+ESC-Firmware sendet, auf ESC TESTER oder ESC COMMANDS, mit der letzten Taste
+der Verlassenseite, oder wenn die Platine neu startet. LEAVE aus einer
+Bluejay- oder BLHeli_S-Liste lässt ihn stehen, da LEAVE keine Antwort hat.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU mit POWER-CYCLE THE ESC TO RUN IT in Bernstein unter der Zeile des Streifens">
 

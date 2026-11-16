@@ -200,6 +200,14 @@ inline bool uiPinsRefuse(const UiScreen *s) {
 UiScreenId uiCurrentScreen();
 
 /**
+ * @brief The title of the screen under the open one: the hub a tool returns
+ *        to, as the hub draws it. The leave page's last step and button
+ *        name it (docs/design/dshot-lifetime.md, decision 9).
+ * @return The title; `MENU` with nothing under the open screen.
+ */
+const char *uiNavOpenerTitle();
+
+/**
  * @brief Most screens on the navigation stack, MENU, the root, among them:
  *        MENU; a hub, the tester, SD LOG or SETTINGS; a hub's tool, or
  *        SETTINGS over the tester (docs/design/menu-c.md, "Navigation").

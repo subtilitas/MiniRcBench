@@ -182,9 +182,9 @@ static void testMenuSettingsLog() {
 	checkControlTable("S.BUS OUTPUT, leave page");
 	checkTrue("BACK: the leave page, BACK TO OUTPUT acting, RESTART DSHOT not yet",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(SbusOutCtl::BackToOutput)) &&
-	          ctlPresent(UI_FIX(SbusOutCtl::Restart)) && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)));
+	          ctlPresent(UI_FIX(SbusOutCtl::Release)) && !ctlEnabled(UI_FIX(SbusOutCtl::Release)));
 	idFrames(44);
-	tapId(UI_FIX(SbusOutCtl::Restart));
+	tapId(UI_FIX(SbusOutCtl::Release));
 	checkTrue("RESTART DSHOT: RX SIGNALS, the opener", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
@@ -208,15 +208,15 @@ static void testMenuSettingsLog() {
 	checkControlTable("USB BRIDGE");
 	checkTrue("its table: BACK acts, nothing else", ctlEnabled(UI_FIX(UI_BACK)) &&
 	          !ctlPresent(UI_FIX(BridgeCtl::Retry)) && !ctlPresent(UI_FIX(BridgeCtl::Bridge)) &&
-	          !ctlPresent(UI_FIX(BridgeCtl::Restart)));
+	          !ctlPresent(UI_FIX(BridgeCtl::Release)));
 	tapId(UI_FIX(UI_BACK));
 	idFrames(1);
 	checkControlTable("USB BRIDGE, leave page");
 	checkTrue("BACK: the leave page, BRIDGE acting, RESTART DSHOT not yet",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && ctlEnabled(UI_FIX(BridgeCtl::Bridge)) &&
-	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && !ctlEnabled(UI_FIX(BridgeCtl::Restart)));
+	          ctlPresent(UI_FIX(BridgeCtl::Release)) && !ctlEnabled(UI_FIX(BridgeCtl::Release)));
 	idFrames(44);
-	tapId(UI_FIX(BridgeCtl::Restart));
+	tapId(UI_FIX(BridgeCtl::Release));
 	checkTrue("RESTART DSHOT: ESC CONFIG, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
@@ -354,12 +354,12 @@ static void testServo() {
 	checkTrue("BACK from SERVO opens the leave page", uiCurrentScreen() == UiScreenId::Servo &&
 	          !ctlPresent(UI_FIX(ServoCtl::Min)));
 	checkTrue("the leave page: BACK TO SERVO, RESTART DSHOT, BACK disabled",
-	          ctlPresent(UI_FIX(ServoCtl::BackToServo)) && ctlPresent(UI_FIX(ServoCtl::Restart)) &&
+	          ctlPresent(UI_FIX(ServoCtl::NextServo)) && ctlPresent(UI_FIX(ServoCtl::Release)) &&
 	          !ctlEnabled(UI_FIX(UI_BACK)));
 	checkControlTable("the leave page, releasing");
-	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Release)); i++) idFrames(1);
 	checkControlTable("the leave page");
-	tapId(UI_FIX(ServoCtl::Restart));
+	tapId(UI_FIX(ServoCtl::Release));
 	checkTrue("SERVO TESTER leaves to SERVO, the hub that opened it", uiCurrentScreen() == UiScreenId::ServoHub);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("whose BACK reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -504,8 +504,8 @@ static void testLayoutTable() {
 	checkControlTable("SERVO SET, the layout table");
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
-	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
-	tapId(UI_FIX(ServoCtl::Restart));
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Release)); i++) idFrames(1);
+	tapId(UI_FIX(ServoCtl::Release));
 	checkTrue("back at SERVO, the hub", uiCurrentScreen() == UiScreenId::ServoHub);
 	for (int i = 0; i < 200 && pinClaimState() != ClaimState::Free; i++) idFrames(1);
 	checkTrue("then MENU and the tester", backToTester());

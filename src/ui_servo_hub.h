@@ -14,15 +14,15 @@
  * HITEC D SERIES shows 18 px, which is listed and takes no press; it is
  * whole from 28 px of scroll and HITEC CLASSIC from 108 px.
  *
- * SERVO claims nothing: DShot runs on SIG while it shows. A tap on an entry
+ * SERVO claims nothing; no DShot runs while it shows. A tap on an entry
  * opens the entry's tool through uiChooseTool(), whose own entry point runs
  * on that frame and claims its pins there. BACK returns to MENU. The tools'
- * BACK before a claim held and their RESTART DSHOT return here, to SERVO at
- * the scroll it was left at.
+ * BACK before a claim held and their leave page's last button return here,
+ * to SERVO at the scroll it was left at.
  *
  * The screen opens whatever the pin claim's state. While the claim is not
- * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
- * (uiHubEntryActs()).
+ * Free it draws its entries disabled under the busy caption,
+ * `SETTING SIG GP0 LOW` while the pins park (uiHubEntryActs()).
  *
  * @see docs/design/menu-c.md, "The hub"
  */

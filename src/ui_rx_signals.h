@@ -5,17 +5,17 @@
  *
  * RX SIGNALS is a hub (ui_hub.h): one 228 x 46 px button per tool at an
  * 80 px pitch, with its lines under it. It claims
- * nothing: DShot runs on SIG while it shows. A tap on MONITOR opens S.BUS
+ * nothing; no DShot runs while it shows. A tap on MONITOR opens S.BUS
  * MONITOR (ui_sbus.h), a tap on OUTPUT S.BUS OUTPUT (ui_sbus_out.h), each
  * through uiChooseTool(); the tool's own entry point asks for the pin claim
  * on that frame. OUTPUT's lines carry the output's warning,
  * `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`.
- * BACK returns to MENU. The tools' BACK before a claim held and their
- * RESTART DSHOT return here, to RX SIGNALS.
+ * BACK returns to MENU. The tools' BACK before a claim held and their leave
+ * page's last button return here, to RX SIGNALS.
  *
  * The screen opens whatever the pin claim's state. While the claim is not
- * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
- * (uiHubEntryActs()).
+ * Free it draws its entries disabled under the busy caption,
+ * `SETTING SIG GP0 LOW` while the pins park (uiHubEntryActs()).
  *
  * @see docs/design/rx-signals.md, "MENU"
  */
@@ -33,6 +33,13 @@ struct TouchState;
 #define UI_RX_TITLE "RX SIGNALS"
 /** @brief The strip, `C_DIM`, with SIG's and AUX's GPIO: `SIG GP0  AUX GP1`, 16 characters. */
 #define UI_RX_STRIP_FMT "SIG GP%u  AUX GP%u"
+/**
+ * @brief MONITOR's amber line while SIG is GP1 (uiRxSigIsGp1()): the parked
+ *        SIG is driven low until the tap claims it and gives the pad to the
+ *        monitor's input. 34 characters, 203 px
+ *        (docs/design/dshot-lifetime.md, "What it costs").
+ */
+#define UI_RX_MONITOR_GP1 "GP1 IS SIG: PLUG IN AFTER THE TAP."
 
 /** @brief RX SIGNALS' controls besides BACK. */
 enum class RxCtl : uint8_t {
@@ -54,6 +61,13 @@ extern const UiHub UI_RX_HUB;
  * @param n   Room in @p buf.
  */
 void uiRxSignalsStrip(char *buf, size_t n);
+
+/**
+ * @brief Whether SIG is GP1, the monitor's other wiring: MONITOR draws
+ *        @ref UI_RX_MONITOR_GP1 then.
+ * @return true while escTaskDshotPin() is 1.
+ */
+bool uiRxSigIsGp1();
 
 /** @brief Open the hub. */
 void uiRxSignalsEnter();

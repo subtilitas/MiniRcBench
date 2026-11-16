@@ -1,6 +1,8 @@
 # DShot lifetime
 
-Status: proposed, not built. The developer settled its six questions on
+Status: slices D1 and D2 built, host tests only ([D1 as
+built](#d1-as-built), [D2 as built](#d2-as-built)); D3 to D5 not built. The
+developer settled its six questions on
 2026-11-16, and made four further calls the reviews of the note raised, each
 pending the owner's review ([Decisions](#decisions)). It builds on
 [menu-c.md](menu-c.md), whose slice 3 makes MENU the root, and answers
@@ -594,7 +596,7 @@ lines (menu-b.md owner decision 27). The order against
 | Slice | After | What | Model |
 |---|---|---|---|
 | D1 | anything; before or with menu-c.md slice 1. Built in pull request #119 (branch `ccr-pump-modes`), with the amendments [D1](#d1-the-pumps-three-modes-opus) lists ([D1 as built](#d1-as-built)) | the pump's three modes and core1's bind stamp, no caller changes | Opus |
-| D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 as amended; #49 is on `main` as 3b36588 | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
+| D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 as amended; #49 is on `main` as 3b36588. Built on branch `ccr-dshot-d2` ([D2 as built](#d2-as-built)) | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
 | D3 | D2 | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
 | D4 | D2 and menu-c.md slice 5 (the rename) | SETUP's pin note and LINK; the comments of the boot order | Opus |
 | D5 | D4, with menu-c.md slice 6 (the records) | the design notes' descriptions, bench plan | Sonnet |
@@ -819,6 +821,113 @@ SETUP case fails); a press timed while the gate holds (the 1499 ms case
 fails); a stamp of 0 read as no gate (the tap-to-bind case fails); a timed
 press kept when the stamp moves (the rebuild-under-SETUP case fails); the
 hubs' line dropped on RECEIVER (its case fails).
+
+#### D2 as built
+
+Branch `ccr-dshot-d2`, on `main` after pull request #125 (menu-c.md slice
+4); host tests only, not tested on hardware.
+
+Files: `src/esc_task.{h,cpp}` (`escTaskInit()` parks, `s_want` Park from the
+start); `src/pin_claim.{h,cpp}` (`pinClaimDshot()`, `pinClaimDshotRunning()`,
+`pinClaimRelease()`, `ClaimState::Parking`, Busy while Run is wanted);
+`src/ui.{h,cpp}` (`uiDshotRule()`, `uiDshotWanted()`, `uiArmGated()`,
+`uiNavOpenerTitle()`, the arm gate, the call once a frame, the splash);
+`src/config.h` (`ARM_GATE_MS`); `src/ui_menu.{h,cpp}` (the busy captions,
+`uiBusyCaption()`, the chip gone); `src/ui_hub.{h,cpp}` and
+`src/ui_registry.cpp` (`UiHub::warn`, `UiHubEntry::note` and `noteWhen`);
+`src/ui_rx_signals.{h,cpp}` (MONITOR's line); `src/ui_leave.{h,cpp}`
+(`uiLeaveBackStep()`, the wide button's label); the tools' leave pages and
+texts in `src/ui_servo.*`, `src/ui_kst.*`, `src/ui_hitec.*`,
+`src/ui_sbus.*`, `src/ui_sbus_out.*`, `src/ui_bridge.*`, `src/ui_am32.*`;
+`src/ui_widgets.h`; the splash comment in `src/main.cpp`.
+
+The state machine as built:
+
+| From | Event | To | Core1 |
+|---|---|---|---|
+| power-up | `escTaskInit()` | Free, Run not wanted | parked on core0 before core1 starts |
+| Free, Run not wanted | `pinClaimDshot(true)`: ESC TESTER, ESC COMMANDS or SETUP over the tester on top | Free, Run wanted | binds on its next pass, the EDT enable first; the bind stamp |
+| Free, Run wanted | `pinClaimDshot(false)`: any other screen on top | Free, Run not wanted | disarmed; zero frames while a throttle frame is 250 ms old or less, then the teardown and the park |
+| Free, Run wanted | `pinClaimBegin()` | refused, Busy | none |
+| Free, Run not wanted | `pinClaimBegin()` | Stopping | the rest of a drain, if one is owed, then Release |
+| Stopping | `escTaskSuspended()` | Held | as before |
+| Held, Running, Leaving | as before | as before | as before |
+| Leaving | the leave page's last button (`pinClaimRelease()`), or the job idle for a claim with no page | Parking | parks SIG low and AUX on its pull-down |
+| Stopping | BACK (`pinClaimEnd()`) | Parking | parks, after the rest of a drain |
+| Parking | `escTaskParked()` | Free, Run not wanted | none |
+| any but Free | `pinClaimDshot()` | unchanged | none |
+
+`uiDshotRule()` is pure: ESC TESTER or ESC COMMANDS on top, or SETUP over
+ESC TESTER; its `cueHolds` input, the run cue standing with START DSHOT not
+tapped, is false until D3. `uiInit()` hands it to `pinClaimDshot()` once too,
+which at power-up asks for nothing.
+
+Where the build chose, the note being silent:
+
+- **The hubs' strip.** The hub's own line stays the first line; the second
+  line is the busy caption while the claim is not Free, else `UiHub::warn`.
+  ESC CONFIG, which has no warning, shows its busy caption as a second line
+  too. MONITOR's GP1 line shows while SIG is GP1, whatever the claim's state.
+- **The busy caption** reads `SETTING SIG GP0 LOW` in Parking and
+  `RELEASING SIG GP0` in every other state that is not Free.
+- **The gate's text** is amber, as the card's text in the same place.
+- **The leave page of ESC SETTINGS** keeps its two steps; step 2 is
+  `PLUG IT IN ONCE ESC CONFIG SHOWS.` from `AM32_UI_LEAVE_2`, and the wide
+  button reads the hub's title. The hubs' titles are those before menu-c.md
+  slice 5: `BACK TO RX SIGNALS.` and `BACK TO ESC CONFIG.`, 19 characters.
+- **The wide button's colour** stays `C_PANEL`: its `C_CYAN` is ui-theme.md
+  slice 11's.
+- **The control ids** named for RESTART DSHOT are `Release` (`ServoCtl`,
+  `KstCtl`, `HitecCtl`, `SbusCtl`, `SbusOutCtl`, `BridgeCtl`, `Am32Ctl`,
+  `UiLeaveEv`), and `ServoCtl::BackToServo` is `NextServo`.
+- **`src/main.cpp`**: the splash's comment changes with the code; the other
+  comments of the boot order and `SPLASH_MS` stay for D4.
+- **A quick MENU, then ESC TESTER, within the drain** finds the pump still
+  bound: Run is asked again before the teardown, the pump runs on with no new
+  bind, and the gate counts from the earlier bind. The ESC heard zero frames
+  throughout. Arming afterwards needs the 1000 ms hold only, since the
+  earlier bind is older than 1500 ms by then.
+- **The track after a refused bind.** `DSHOT STARTING: WAIT 1.5 S` shows
+  only while a bind is pending or younger than 1500 ms. After the driver
+  refused the bind (`initError`, `DSERR` in the status bar), the stamp stays
+  0 and the gate holds; the track then reads `DSHOT COULD NOT START`
+  (`UI_TESTER_REFUSED_TEXT`), amber, 21 characters, 125 px of the track's
+  width. The track reads `escTaskBindRefused()`, a flag core1 sets in each
+  bind and clears in each teardown. No bind starts before the last pump's
+  teardown, so the flag is clear while a bind is pending, and a refused bind
+  leaves the stamp 0: core0 reads the stamp, then the flag, and a pending
+  bind never reads as refused.
+
+Tests: `test/test_dshot_life.cpp`, thirteen cases, and in `test/test_claim.cpp`
+the drain after a running tester, Parking, the park as the claim left it,
+and `testPollSource()`'s check of `escTaskInit()`. The host suites that
+claimed from the tester leave it for MENU first; the job suites keep the pump
+running before a claim (`freshPump()`), since their own pad writes are
+under test. `fakes.cpp` gains `escTaskInit()`, `fakeParkCount()`,
+`fakeParkJobIdle()`, `fakePinsReset()` and `fakeSetBindRefused()`.
+
+Mutations, each run against the whole suite and restored:
+
+| Mutation | Result |
+|---|---|
+| `restore()` calls `escTaskStart()` | the suite fails from the first leave on, "the pins parked, no DShot", and stops there |
+| `uiDshotWanted()` true for MENU | 1867 checks fail, among them "MENU alone: false" of the rule case |
+| Parking skipped: Free before `escTaskParked()` | 40 checks fail, among them "parking until core1 parks the pins" |
+| `pinClaimDshot()` acting while not Free | 8 checks fail, "Run while parking does nothing" first |
+| `escTaskInit()` asking for Run | 1 check fails: `testPollSource()`'s "escTaskInit() seeds the wiring, then asks for Park" |
+| The fake's `escTaskInit()` asking for Run | 11 checks fail, among them the power-up case's "a second of MENU: parked, no bind, no frame" |
+| Busy read from the pump's state, not from Run wanted | 2545 checks fail, the first "100 ms after the throttle frame: the claim is not busy" |
+| The gate stamped at the tester's open, not at core1's bind | 20 checks fail, among them "back on the tester: the gate holds from the new bind" (the SETUP case) |
+| A press timed while the gate holds | 1 check fails: "a press that lands at 1499 ms, held 3000 ms: no arm" |
+| The gate's backstop in the timed branch dropped too | none: equivalent, since a live press needs the gate open when it lands and a stamp that moves cancels it |
+| A stamp of 0 read as no gate | 162 checks fail, among them "the same press, held 3000 ms past the bind: no arm" (the tap-to-bind case) |
+| A timed press kept when the stamp moves | 1 check fails: "held on 3000 ms: no arm" (the rebuild case) |
+| The hubs' line dropped on RX SIGNALS | 4 checks fail, among them the RX SIGNALS case of the hubs' line |
+| Run asked only once the pins are parked (`pinClaimDshot()`) | 20 checks fail, among them the drain race's "ESC TESTER again: no new bind, the stamp unchanged, never parked" |
+| The fake's `escTaskStart()` asking for a rebuild | 18 checks fail, among them four of the drain race's, "zero frames throughout" with them |
+| The track's refused branch dropped: the gate's text after a refused bind | 1 check fails: "the track reads the refused text in amber, not the gate's" |
+| `pumpTeardown()` not clearing the refused flag | 1 check fails, the source order "the refused flag cleared, a barrier, then the stamp 0" |
+| The fake's teardown not clearing the refused flag | 2 checks fail, among them "a bind pending: the gate's text, not the refused text" |
 
 ### D3: ESC COMMANDS and the run cue on a starting pump (Opus)
 

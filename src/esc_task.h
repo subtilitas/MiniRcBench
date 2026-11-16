@@ -129,15 +129,22 @@ struct EscTelemetry {
  * an uninitialised spin lock.
  *
  * The symptom is a board that shows the splash and then nothing at all.
+ *
+ * It also asks for Park and parks the pins on core0: SIG an SIO output
+ * driving low at 2 mA, AUX an input on its pull-down with the input buffer
+ * off (escParkPlan()). No DShot frame leaves the board at power-up; the
+ * pump binds only when the pin claim asks for Run, for ESC TESTER and ESC
+ * COMMANDS (pinClaimDshot(), docs/design/dshot-lifetime.md).
  */
 void escTaskInit();
 
 /**
  * @brief Start the frame pump. Call from core1.
  *
- * Does not itself claim the PIO state machines: the driver is bound on the
- * first escTaskPoll(), from whatever configuration escTaskConfigure() last
- * supplied, and that same path binds it again after a suspend or a pin change.
+ * Does not itself claim the PIO state machines: the driver is bound by the
+ * first escTaskPoll() that finds Run wanted, from whatever configuration
+ * escTaskConfigure() last supplied, and that same path binds it again after a
+ * park, a suspend or a pin change.
  * One construction site rather than two is the point: two sites can disagree
  * about the order of the bind and the `initError` it reports.
  *
@@ -1598,6 +1605,21 @@ bool escTaskRunning();
  * @return The bind's millis(), never 0 while bound; 0 with no bind.
  */
 uint32_t escTaskBoundMs();
+
+/**
+ * @brief Whether core1's last bind was refused: the DShot driver found no
+ *        PIO block with two adjacent free state machines.
+ *
+ * Core1 sets it in each bind and clears it in each teardown, and no bind
+ * starts before the last pump's teardown, so the flag is clear while a bind
+ * is pending. A refused bind leaves the stamp 0. A reader takes
+ * escTaskBoundMs() and then this flag: a stamp of 0 with the flag set is a
+ * refused bind, a stamp of 0 with the flag clear a bind still pending. One
+ * byte written by core1, read by core0.
+ *
+ * @return True from a refused bind until the next teardown.
+ */
+bool escTaskBindRefused();
 
 /**
  * @brief Set the pins and bitrate the DShot pump uses, and rebuild it.

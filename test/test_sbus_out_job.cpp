@@ -392,6 +392,12 @@ static void testCoreStops() {
 
 /** @brief The wiring, the pump bound and past any drain, no ESC, no KISS. */
 static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
+	// Run not wanted, so a claim is not Busy (docs/design/dshot-lifetime.md).
+	// The pump itself runs, as a claim found it before slice D2: the job's
+	// own pad writes are under test here, and the fake's teardown writes no
+	// pad. A claim from the parked pump is tested in test_claim.cpp.
+	pinClaimDshot(false);
+	escTaskStart();
 	escTaskConfigure(sig, 600, kiss, aux);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -399,6 +405,8 @@ static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
 	fakePumpPoll();
 	fakeAdvance(1000);
 	fakePumpPoll();
+	// The pads the pump's park or bind wrote are not the job's.
+	fakePinsReset();
 }
 
 /** @brief SIG as the pump's teardown leaves it: an SIO input with the pull-up (esc_task.cpp). */
@@ -491,7 +499,7 @@ static bool claimEnd() {
 	runTo(time_us_64() + 5000, 500);
 	pinClaimPoll();
 	bool due = pinClaimUnplugDue();
-	pinClaimRestart(PinUser::SbusOut);
+	pinClaimRelease(PinUser::SbusOut);
 	fakePumpPoll();
 	return due && pinClaimState() == ClaimState::Free;
 }
@@ -594,7 +602,8 @@ static void testJobBind() {
 	checkInt("SAFE for 100 ms: no character on the wire", fakeUartTxCount(), 0);
 	checkTrue("GP0 still bound, inverted", fakePin(0).ctrl == CTRL_UART_INV);
 	checkTrue("back to free", claimEnd());
-	checkTrue("GP0 let go low", gp0Released());
+	checkTrue("GP0 parked: SIG driven low", fakePin(0).function == GPIO_FUNC_SIO &&
+	          fakePin(0).outover == GPIO_OVERRIDE_NORMAL && fakePin(0).output && !fakePin(0).high);
 	checkTrue("still never on the UART without the inversion", neverUartPlain());
 
 	// A command sent before the bind is not taken.
@@ -819,10 +828,10 @@ static void testJobRelease() {
 	                                st.sent.channel[0] == 0);
 	pinClaimPoll();
 	checkTrue("the leave page is due", pinClaimUnplugDue() && escTaskSuspended());
-	pinClaimRestart(PinUser::SbusOut);
+	pinClaimRelease(PinUser::SbusOut);
 	fakePumpPoll();
 	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
-	checkTrue("the job was idle before DShot resumed", fakeResumeJobIdle());
+	checkTrue("the job was idle before the park", fakeParkJobIdle());
 
 	// A transmitter that never sends: the next frame waits for TXFE.
 	freshPump(0, 1);
@@ -845,7 +854,7 @@ static void testJobRelease() {
 	checkTrue("SAFE: released in one pass", core1JobPhase() == Core1JobPhase::Idle &&
 	                                        gp0Released());
 	pinClaimPoll();
-	pinClaimRestart(PinUser::SbusOut);
+	pinClaimRelease(PinUser::SbusOut);
 	fakePumpPoll();
 
 	// A BUSY that never clears: the backstop, 10 ms after the first pass.
@@ -865,7 +874,7 @@ static void testJobRelease() {
 	checkTrue("let go 10 ms on", core1JobPhase() == Core1JobPhase::Idle && gp0Released());
 	fakeUartTxStuck(false);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::SbusOut);
+	pinClaimRelease(PinUser::SbusOut);
 	fakePumpPoll();
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 }
@@ -968,7 +977,7 @@ static void testJobWirings() {
 	checkTrue("neither pin touched", samePin(fakePin(0), gp0) && samePin(fakePin(1), gp1));
 	pinClaimEnd(PinUser::SbusOut);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::SbusOut);
+	pinClaimRelease(PinUser::SbusOut);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
 	gp0 = fakePin(0);
@@ -1481,7 +1490,7 @@ static void testProbeRelease() {
 	          core1JobPhase() == Core1JobPhase::Idle && !fakeEwSim()->running && !fakeEwOpen());
 	checkTrue("GP0 an SIO input on the pull-up, never the UART's", gp0Up() && neverUart(ctrl0));
 	pinClaimPoll();
-	pinClaimRestart(PinUser::SbusOut);
+	pinClaimRelease(PinUser::SbusOut);
 	fakePumpPoll();
 	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
 
@@ -1789,7 +1798,7 @@ static void testOnlyPath() {
 		// S.BUS OUTPUT: its claim, its one command call, its one START.
 		{ "../src/ui_sbus_out.cpp", "s_refusal = pinClaimBegin(PinUser::SbusOut, s_roles);", 1 },
 		{ "../src/ui_sbus_out.cpp", "pinClaimEnd(PinUser::SbusOut);", 2 },
-		{ "../src/ui_sbus_out.cpp", "pinClaimRestart(PinUser::SbusOut);", 1 },
+		{ "../src/ui_sbus_out.cpp", "pinClaimRelease(PinUser::SbusOut);", 1 },
 		{ "../src/ui_sbus_out.cpp", "pinClaimKeep(PinUser::SbusOut);", 1 },
 		{ "../src/ui_sbus_out.cpp", "if (retry && tapped(BTN_RETRY)) pinClaimRetry(PinUser::SbusOut);", 1 },
 		{ "../src/ui_sbus_out.h", "UiScreenId::SbusOut, SBOUT_UI_TITLE, PinUser::SbusOut, nullptr,", 1 },

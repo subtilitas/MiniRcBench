@@ -68,6 +68,7 @@ letters b and c are not used.
 | `BJ-` | [bluejay-blheli-s.md](design/bluejay-blheli-s.md#bench) | Bench, B1 to B13 |
 | `BK-` | [STATUS.md](../STATUS.md#open-items) open item 13, for [backups.md](design/backups.md#work-breakdown) | numbered here |
 | `CS-` | [current-sense.md](design/current-sense.md#bench-tests) | Bench tests, B1 to B13 |
+| `DL-` | [dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built) | slice D2 as built, numbered here |
 | `DG-` | [diagnostics.md](design/diagnostics.md#not-tested-on-hardware) | Not tested on hardware, numbered here |
 | `EC-` | [esc-commands.md](design/esc-commands.md#bench) | Bench, B1 to B9 |
 | `HT-` | [hitec-programming.md](design/hitec-programming.md#work-breakdown) | Work breakdown step 6, numbered here 6a to 6f |
@@ -161,7 +162,9 @@ These hold in every session; each test adds its own.
 - Propellers off, every motor clamped. Wear eye protection and stay out of
   the plane of rotation. Keep a way to cut the ESC's power that does not
   depend on the touchscreen (README.md, "Safety").
-- One device on SIG at a time. Unplug any servo before DShot runs.
+- One device on SIG at a time. Unplug any servo before ESC TESTER or ESC
+  COMMANDS opens: DShot runs only there (dshot-lifetime.md, slice D2);
+  elsewhere SIG is driven low.
 - The ESC on its own pack, never on the board's 5 V; its BEC wire cut.
 - Never connect J5 pin 3 or J4 pin 6 (3.3 V out) or J4 pin 2 (VBUS) to a
   device.
@@ -189,7 +192,7 @@ These hold in every session; each test adds its own.
 | Session | Content | Prerequisites |
 |---|---|---|
 | [1](#session-1-the-board-alone-and-the-sd-card) | Power-up, display and touch, splash, BOARD voltage, settings, diagnostics, the clock; then the SD card | none |
-| [2](#session-2-pins-the-pin-claim-and-dshot) | DShot on SIG, KISS on AUX, the pin claim, the touch-loss stop, logs with an ESC | 1 |
+| [2](#session-2-pins-the-pin-claim-and-dshot) | The DShot lifetime, DShot on SIG, KISS on AUX, the pin claim, the touch-loss stop, logs with an ESC | 1 |
 | [3](#session-3-esc-tools-on-dshot) | ESC COMMANDS, ESC SETTINGS on AM32, Bluejay and BLHeli_S, read and write | 2 |
 | [4](#session-4-servo-tester-current-sensor-and-converter) | Servo tester, INA219, the boost converter, and the converter's protections: the hard cut, the stuck bus and the heartbeat | 1, 2 (`PC-`) |
 | [5](#session-5-servo-programmers-and-backups) | KST and Hitec bring-up, the backups | 3 (for `BK-1`), 4 complete |
@@ -622,6 +625,20 @@ Prerequisite: Session 1. Setup E with the AM32 ESC first; MAX THROTTLE at
 its default, 20 %, unless a test says. The scope or the logic analyser on
 SIG (GP0) and AUX (GP1).
 
+#### DL-1 to DL-6. The DShot lifetime
+
+[dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built), slice D2,
+numbered here. None of it has run on hardware.
+
+| Test | Steps | Pass | Record |
+|---|---|---|---|
+| DL-1 | the analyser on SIG and AUX from before power-up; power the board; wait 10 s on MENU; open SERVO, RX SIGNALS, SD LOG and SETTINGS | no DShot frame; SIG low from shortly after reset, through the splash and every screen; AUX low on its pull-down | the time from power-up to SIG driven low; any edge |
+| DL-2 | the AM32 ESC on SIG; tap ESC TESTER; hold HOLD TO ARM from 0.5 s on, then again from 1.6 s on | the 10 EDT enable frames first, then zero throttle; `DSHOT STARTING: WAIT 1.5 S` for 1.5 s; no arm from the first press, an arm 1 s into the second | the capture; the time from the tap to the first frame |
+| DL-3 | armed, LATCH on at 10 %; tap MENU | zero-throttle frames from the tap until more than 250 ms after the last throttle frame, then SIG driven low, no frame | the capture; what the ESC does (signal-loss behaviour, not recorded) |
+| DL-4 | from ESC CONFIG, ESC COMMANDS, then BACK; then USB BRIDGE and its leave page | ESC COMMANDS binds with the enable first; BACK parks at once (no drain, no throttle was sent); USB BRIDGE puts SIG on its pull-up with no frame; the leave page's ESC CONFIG drives SIG low again, no frame | the captures |
+| DL-5 | a Bluejay ESC, powered, on the parked SIG for 60 s; then ESC TESTER | the ESC does not enter its bootloader on the low line (from source, not measured); it answers eRPM once the tester opens | whether the ESC answers, and after how long |
+| DL-6 | a: armed, LATCH on at 10 %; tap MENU, then the ESC TESTER row within 250 ms; hold HOLD TO ARM at once. b: on ESC TESTER, tap MAX, change SIG PIN to GP1 and back to GP0 in SETUP, then BACK within 1.5 s of the last change; hold HOLD TO ARM at once, then again 1.5 s after the last change | a: zero-throttle frames from the MENU tap on, no gap and no new EDT enable on the reopen; an arm 1 s into the hold. b: the frames stop on GP0 and start on GP1 with the EDT enable first, then again on GP0; `DSHOT STARTING: WAIT 1.5 S` on the track after BACK; no arm from the first press, an arm 1 s into the second | the captures of SIG and AUX; the time from the reopen tap to the arm |
+
 #### OI-15a. An ESC on SIG at each DShot rate
 
 [STATUS.md](../STATUS.md#open-items) open item 15; verification table
@@ -653,7 +670,8 @@ telemetry, automatic enable, expiry"; open item 1's facts.
   enable at pump start and the decode of every reply with EDT on are not
   tested on hardware.
 - **Setup:** E, the AM32 ESC with EDT; the logic analyser on SIG.
-- **Steps:** capture from power-up of the board; then run at 10 %.
+- **Steps:** capture from the tap on MENU's ESC TESTER row; then run at
+  10 %.
 - **Pass:** 10 frames of command 13 first; after them, the enable only while
   the ESC answers eRPM (open item 1); the EDT tags on the tiles.
 - **Record:** the capture; the tiles' tags and values.
@@ -671,8 +689,12 @@ telemetry, automatic enable, expiry"; open item 1's facts.
   press rule is not tested on hardware.
 - **Setup:** E; then the card on USB DRIVE, as in SD-3's steps.
 - **Steps:** arm; tap DISARM and keep the finger down for 3 s; with the host
-  holding the card, hold HOLD TO ARM for 3 s; eject; hold it for 1 s.
-- **Pass:** no arm in the first two cases; an arm in the third.
+  holding the card, hold HOLD TO ARM for 3 s; eject; hold it for 1 s. Then
+  MENU, the ESC TESTER row, and HOLD TO ARM pressed at once and held 4 s.
+- **Pass:** no arm in the first two cases; an arm in the third; in the
+  fourth no arm (the press landed while the arm gate held,
+  `DSHOT STARTING: WAIT 1.5 S` in the track), and a new press after 1.5 s
+  arms 1 s later.
 - **Record:** each outcome.
 - **Result to:** verification table, row "Bidirectional DShot throttle".
 - **Safety:** propeller off.
@@ -794,7 +816,8 @@ order; [pin-claim.md](design/pin-claim.md#hardware).
 Prerequisite: Session 2, `PC-1` to `PC-4` in particular. Setup E, each ESC
 firmware at hand in turn; a card in the slot; the logic analyser on SIG.
 For `BJ-`, the ESC's pack stays reachable: decision 8 of bluejay-blheli-s.md
-asks for it to come off before DShot returns after an EFM8 answer.
+asks for it to come off before the leave page's last button after an EFM8
+answer.
 
 ### 3A. ESC COMMANDS and the kV estimate
 
@@ -1011,8 +1034,8 @@ open item 30. "Only an ESC settles these." `BJ-B8`, `BJ-B9`, `BJ-B10` and
 - **Record:** the time from the pump's stop to the answer.
 - **Result to:** verification table, row "Bluejay and BLHeli_S, slice 2";
   bluejay-blheli-s.md slice 5.
-- **Safety:** propeller off; the ESC's pack off before DShot returns
-  (decision 8).
+- **Safety:** propeller off; the ESC's pack off before the leave page's
+  last button (decision 8).
 
 #### BJ-B2. The same with BLHeli_S 16.7
 
@@ -1130,7 +1153,7 @@ Setup S; SERVO SUPPLY at `OWN`; the scope on SIG (GP0) and AUX (GP1).
 | SV-4 | STOP while running at 50 Hz | the last pulse ends within one frame, 20 ms at 50 Hz | the time from the press to the last edge |
 | SV-5 | halt core0 in the debugger while running | the pulses stop 250 ms after the last UI frame | the time |
 | SV-6 | BACK while RUNNING; a profile change right after STOP | the last pulse complete, not cut short; the pins leave PWM about 41 ms after BACK; the rebind waits until about 41 ms after STOP, at 50 Hz | both captures |
-| SV-7 | the line after the release, through the leave page; unplug the servos (the leave page's step 1), then RESTART DSHOT: DShot reads to a servo as a pulse of about 970 µs at 1 kHz (README.md) | an input with the pull-down on: low; DShot back on RESTART DSHOT | the capture |
+| SV-7 | the line after the release, through the leave page; unplug the servos (the leave page's step 1), then SERVO, the last button: ESC TESTER's DShot reads to a servo as a pulse of about 970 µs at 1 kHz (README.md) | an input with the pull-down on: low; driven low after SERVO, no DShot frame | the capture |
 | SV-8 | STOP on SET while RUNNING | level 0 within one frame, as on SERVO | the time |
 | SV-9 | a real servo on each profile, each profile only on a servo rated for it: a rate above 60 Hz overheats an analogue servo (README.md) | criterion not set: record whether it reads 3.3 V pulses and moves | per servo and profile |
 
@@ -1793,11 +1816,11 @@ answer ESC SETTINGS' greeting on this board; `SO-1` and `SO-2`
 numbered here SO-3 to SO-6; STATUS open item 31. Run in the order SO-5,
 SO-4, SO-6, SO-3.
 
-- **Safety:** S.BUS output never to an ESC outside SO-4 to SO-6. In those,
-  no motor on the ESC; the ESC's pack off before DShot returns after an
-  EFM8 answer (decision 8's leave page). SO-6 on an expendable ESC: by
-  source, BLHeli_S can calibrate a throttle range into its flash, arm and
-  meet its motor-start condition on S.BUS.
+- **Safety:** S.BUS output never to an ESC outside SO-4 to SO-6. In those, no
+  motor on the ESC; the ESC's pack off before the leave page's last button after
+  an EFM8 answer (decision 8's leave page). SO-6 on an expendable ESC: by
+  source, BLHeli_S can calibrate a throttle range into its flash, arm and meet
+  its motor-start condition on S.BUS.
 - **Result to:** verification table, rows "S.BUS output's bootloader probe"
   and "S.BUS OUTPUT, slice 4"; open item 31; sbus-output.md slice 5.
 
@@ -1973,6 +1996,7 @@ and the note's section the result went into.
 | blackbox-logging.md | 1: `BB-1`; its unmeasured BUF PEAK and WORST FLUSH are `SD-2` |
 | bluejay-blheli-s.md | 13: `BJ-B1` to `BJ-B13` |
 | current-sense.md | 13: `CS-B1` to `CS-B13`, B9 in two steps, `CS-B9a` and `CS-B9b` |
+| dshot-lifetime.md, slice D2 | 6: `DL-1` to `DL-6` |
 | diagnostics.md | 8: `DG-1` to `DG-8` |
 | esc-commands.md | 9: `EC-B1` to `EC-B9` |
 | hitec-programming.md | 6: `HT-6a` to `HT-6f` |
@@ -1990,5 +2014,5 @@ and the note's section the result went into.
 | STATUS.md open items alone | 18: `OI-1`, `OI-4`, `OI-11`, `OI-15a`, `OI-15d`, `OI-15e`, `OI-16`, `OI-18`, `OI-19`, `OI-20a`, `OI-20b`, `OI-21`, `OI-22a`, `OI-22b`, `OI-23`, `OI-24a`, `OI-24b`, `OI-24c` |
 | STATUS.md verification table alone | 4: `VT-2`, `VT-3`, `VT-5`, `VT-6`; `VT-1` and `VT-4` are part of `OI-15a` |
 
-142 tests in all. menu.md and menu-b.md have no bench list; the panel check
+147 tests in all. menu.md and menu-b.md have no bench list; the panel check
 of open item 18 is `OI-18`.

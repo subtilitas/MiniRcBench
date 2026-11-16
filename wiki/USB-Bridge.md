@@ -39,7 +39,7 @@ The board knows which from the tool's first byte; you choose nothing.
 1. Connect the ESC to SIG and GND as for DShot, on its own battery. Take
    the propeller off.
 2. Connect the board to the computer by USB.
-3. Open `MENU → ESC CONFIG` and tap `USB BRIDGE`. DShot stops; the strip
+3. Open `MENU → ESC CONFIG` and tap `USB BRIDGE`. The board takes SIG; the strip
    reads `RELEASING SIG GP0` for a moment, then `SIG GP0  19200 8N1`.
 4. In the tool, pick the board's serial port, the same one the board's
    console uses, and connect. The chip reads `PORT OPEN` once the tool
@@ -49,9 +49,9 @@ The board knows which from the tool's first byte; you choose nothing.
    no ESC, and after a flash.
 6. Tap `BACK` when done.
 
-<img src="img/bridge-stopping.png" width="240" alt="USB BRIDGE while DShot stops: RELEASING SIG GP0 on the strip, no chip, the instruction lines"> <img src="img/bridge-failed.png" width="240" alt="USB BRIDGE after a failed bind: SIG GP0 COULD NOT BE TAKEN (PIO) in amber, RETRY in the footer">
+<img src="img/bridge-stopping.png" width="240" alt="USB BRIDGE while the board takes SIG: RELEASING SIG GP0 on the strip, no chip, the instruction lines"> <img src="img/bridge-failed.png" width="240" alt="USB BRIDGE after a failed bind: SIG GP0 COULD NOT BE TAKEN (PIO) in amber, RETRY in the footer">
 
-While DShot stops, the bridge is not open yet. If the board cannot take
+While the board takes SIG, the bridge is not open yet. If the board cannot take
 SIG, one amber line reads `SIG GP0 COULD NOT BE TAKEN (PIO)`, with `REFUSED`
 or `CLOCK` in place of `PIO`, and `RETRY` appears:
 
@@ -60,11 +60,12 @@ or `CLOCK` in place of `PIO`, and `RETRY` appears:
 - `CLOCK`: the system clock (`clk_sys`) is too slow for the line's rate;
 - `REFUSED`: the board's second core did not take the job.
 
-`RETRY` tries again. `BACK` goes straight to ESC CONFIG, with no leave page, while
-DShot stops and after a failed bind: the bridge never took the line.
+`RETRY` tries again. `BACK` goes straight to ESC CONFIG, with no leave page,
+while the board takes SIG and after a failed bind: the bridge never took the
+line.
 
 While the bridge is open the board's console is off: no telemetry line
-reaches the port. It comes back once DShot runs again.
+reaches the port. It comes back once the bridge has ended.
 
 If `USB DRIVE` on SD LOG holds the card, the bridge does not start and
 reads `EJECT THE USB DRIVE FIRST.`. Eject the drive and it starts.
@@ -98,7 +99,7 @@ writing 3D mode on, off after reading it off.
 
 ## Writing and leaving
 
-<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK grey"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 RESTART DSHOT., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, RESTART DSHOT and BACK grey">
+<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK grey"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 BACK TO ESC CONFIG., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC CONFIG and BACK grey">
 
 While the ESC writes or erases its flash, the first line reads
 `WRITING: DO NOT UNPLUG ESC OR USB.` and `BACK` is grey, until the ESC
@@ -108,29 +109,32 @@ answers or 3 s pass. This holds in both ways of working.
 
 On a running bridge, `BACK` opens a leave page every time, whatever the
 tool did: the ESC may sit in its bootloader, entered at power-up or by
-itself, and DShot frames can pass as its commands. Power the ESC off, then
-tap `RESTART DSHOT`, live 1 s after the page opens. `BRIDGE` returns to
+itself, and DShot frames at the next ESC TESTER or ESC COMMANDS can pass as
+its commands. Power the ESC off, then tap `ESC CONFIG`, the hub's title, live
+1 s after the page opens: it holds the signal pin low, starts no DShot and
+returns to ESC CONFIG. `BRIDGE` returns to
 the bridge instead. After a write not followed by a start of the firmware
 the page adds `FLASH THE ESC AGAIN BEFORE USE.`: flash the ESC again
 before you use it.
 In the 4-way interface only the tool's reset of the ESC counts as that
 start, not its disconnect. The note stays after `BRIDGE`: every later
-`BACK` brings it back until the tool starts the firmware. `RESTART DSHOT`
+`BACK` brings it back until the tool starts the firmware. `ESC CONFIG`
 ends the session, and the next `USB BRIDGE` starts without the note.
 
-<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 RESTART DSHOT., no FLASH note, BRIDGE, RESTART DSHOT and BACK grey">
+<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 BACK TO ESC CONFIG., no FLASH note, BRIDGE, ESC CONFIG and BACK grey">
 
 Without such a write, as after a session that only read or a write followed
 by a start, the page shows the two steps and no note.
 
 MENU shows `POWER-CYCLE THE ESC TO RUN IT` once the screen has taken the
-signal pin, also after a bind that failed, until DShot restarts from the
-leave page or the ESC answers DShot again.
+signal pin, also after a bind that failed, until the leave page's last
+button or until the ESC answers DShot on ESC TESTER or ESC COMMANDS.
 
 If the USB cable is pulled during a write while the board runs on its own
 cell, the board keeps the signal pin and sends nothing. On USB power alone
 the board stops with the cable, and plugging it in again restarts the
-board with DShot on SIG. Either way: power the ESC off before you plug the
+board with SIG held low; DShot runs only once ESC TESTER or ESC COMMANDS
+opens. Either way: power the ESC off before you plug the
 cable in again, then flash again.
 
 ---

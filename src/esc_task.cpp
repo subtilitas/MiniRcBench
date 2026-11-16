@@ -60,6 +60,8 @@ static volatile EscPinMode s_reached = EscPinMode::Run;
  * pump is down. Core0 reads it. @see escTaskBoundMs()
  */
 static volatile uint32_t s_boundMs = 0;
+/** Core1's last bind was refused; the teardown clears it. */
+static volatile bool s_bindRefused = false;
 /** SIG the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
 static uint8_t s_heldSig = ESC_NO_GPIO;
 /** AUX the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
@@ -309,8 +311,11 @@ bool escEdtRequested() { return s_edtRequested; }
  * @see pin_claim.h, escHandoverStep()
  * @{
  */
-/** The mode core0 asks for. Run from boot. */
-static volatile EscPinMode s_want = EscPinMode::Run;
+/**
+ * The mode core0 asks for. Park from escTaskInit() on: no DShot frame at
+ * power-up (docs/design/dshot-lifetime.md, owner decision 2).
+ */
+static volatile EscPinMode s_want = EscPinMode::Park;
 
 void escTaskSuspend() {
 	escSetArmed(false);
@@ -332,6 +337,7 @@ bool escTaskSuspended() {
 bool escTaskParked() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Park); }
 bool escTaskRunning() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Run); }
 uint32_t escTaskBoundMs() { return s_boundMs; }
+bool escTaskBindRefused() { return s_bindRefused; }
 /** @} */
 
 void escSnapshot(EscTelemetry *out) {
@@ -339,6 +345,8 @@ void escSnapshot(EscTelemetry *out) {
 	*out = s_tel;
 	critical_section_exit(&s_cs);
 }
+
+static void padsTo(EscPinMode to);
 
 void escTaskInit() {
 	// Core0 owns this, and must do it before core1 is launched. See the note in
@@ -355,6 +363,15 @@ void escTaskInit() {
 	s_kissEnable = cfg->kissEnable;
 	s_kissPin    = cfg->kissPin;
 	s_rebuildReq = false;
+
+	// Parked from here on: no DShot frame at power-up, and SIG driven low
+	// at 2 mA, AUX on its pull-down (docs/design/dshot-lifetime.md, "What
+	// changes at boot"). Core0 sets the pads itself, as servoSupplyInit()
+	// sets its enable pin: core1 is not running yet, and a park is a GPIO
+	// setting, not a PIO claim. Core1's first escTaskPoll() then finds Park
+	// wanted and reached, and binds nothing.
+	s_want = EscPinMode::Park;
+	padsTo(EscPinMode::Park);
 }
 
 void escTaskConfigure(uint8_t dshotPin, uint16_t dshotKbaud,
@@ -418,8 +435,12 @@ static void pumpTeardown() {
 		// back on, so the line holds the bidirectional idle level until its
 		// next owner takes it: a claim's user, the park, or nothing after a
 		// pin change.
-		// The stamp first: core0 never reads a bind stamp for a pump
-		// that is going down.
+		// The stamp before the stop: core0 never reads a bind stamp for a
+		// pump that is going down. The refused flag is cleared in every
+		// teardown, before any next bind starts, so a pending bind never
+		// reads as refused.
+		s_bindRefused = false;
+		__dmb();
 		s_boundMs = 0;
 		__dmb();
 		out_dshot_stop(s_pumpPin);
@@ -504,13 +525,15 @@ static void pumpBind() {
 	// The bind stamp last, once everything it stands for is in place.
 	// @see escTaskBoundMs()
 	uint32_t stamp = millis();
+	s_bindRefused = !bound;
 	__dmb();
 	s_boundMs = bound ? (stamp ? stamp : 1u) : 0u;
 }
 
 /**
  * @brief Set the pads for Park or Release from the latched wiring, and
- *        report the mode. Core1 only.
+ *        report the mode. Core1 only, or core0 in escTaskInit() before
+ *        core1 starts.
  *
  * Release touches the pads only out of Park: from Run the teardown left them
  * in today's handover state, and before anything was held they are in the

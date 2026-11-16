@@ -722,16 +722,16 @@ static void setTouch() {
 static void drawLeave() {
 	uint32_t now = millis();
 	struct {
-		bool    back, left, wide, live, leavePress, restartPress, efm8;
+		bool    back, left, wide, live, leavePress, releasePress, efm8;
 		uint8_t phase, sig, aux;
 	} k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.left = uiPressing(UI_LEAVE_LEFT, s_t);
 	k.wide = uiPressing(UI_LEAVE_WIDE, s_t);
-	k.live = uiLeaveRestartLive(&s_leave, now);
+	k.live = uiLeaveReleaseLive(&s_leave, now);
 	k.leavePress = s_leave.leavePress;
-	k.restartPress = s_leave.restartPress;
+	k.releasePress = s_leave.releasePress;
 	k.efm8 = s_efm8Page;
 	k.phase = (uint8_t)s_leave.phase;
 	k.sig = gpioOf(PIN_SIG);
@@ -755,7 +755,7 @@ static void drawLeave() {
 	}
 	tx.step[s][0] = SBOUT_UI_UNPLUG;
 	tx.step[s][1] = dshot;
-	tx.step[s + 1][0] = UI_LEAVE_RESTART;
+	uiLeaveBackStep(&tx, s + 1, uiNavOpenerTitle());
 	if (s_efm8Page) tx.step[s + 1][1] = SBOUT_UI_PLUG_ESC;
 	tx.next = SBOUT_UI_BACK_TO;
 	if (s_leave.phase == UiLeavePhase::Releasing) tx.note[0] = UI_LEAVE_RELEASING;
@@ -775,7 +775,7 @@ static void newVisit() {
 
 /**
  * @brief One frame of the leave page.
- * @return false once RESTART DSHOT gave GP0 back to DShot.
+ * @return false once the last button parked GP0.
  */
 static bool leaveTick() {
 	uint32_t now = millis();
@@ -789,13 +789,13 @@ static bool leaveTick() {
 	if (ev == UiLeaveEv::Leave) {
 		pinClaimEnd(PinUser::SbusOut);
 		ClaimState cs = pinClaimState();
-		if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
+		if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
 		s_full = true;
 	}
-	// The page gives RESTART DSHOT and BACK TO OUTPUT only once GP0 is let
+	// The page gives the last button and BACK TO OUTPUT only once GP0 is let
 	// go (uiLeavePoll()).
-	if (ev == UiLeaveEv::Restart) {
-		pinClaimRestart(PinUser::SbusOut);
+	if (ev == UiLeaveEv::Release) {
+		pinClaimRelease(PinUser::SbusOut);
 		// Only the page that asked for the ESC's battery to come off clears
 		// the EFM8 mark and MENU's cue: a mark that landed after BACK keeps
 		// them.
@@ -824,8 +824,8 @@ uint8_t uiSbusOutControls(UiControl *out, uint8_t max) {
 		bool before = s_leave.phase == UiLeavePhase::Before;
 		uiControlAdd(out, &n, max, UI_FIX(before ? SbusOutCtl::Stay : SbusOutCtl::BackToOutput),
 		             UI_LEAVE_LEFT, before || s_leave.phase == UiLeavePhase::Released);
-		uiControlAdd(out, &n, max, UI_FIX(before ? SbusOutCtl::Leave : SbusOutCtl::Restart),
-		             UI_LEAVE_WIDE, before ? s_leave.leaveEnabled : uiLeaveRestartLive(&s_leave, millis()));
+		uiControlAdd(out, &n, max, UI_FIX(before ? SbusOutCtl::Leave : SbusOutCtl::Release),
+		             UI_LEAVE_WIDE, before ? s_leave.leaveEnabled : uiLeaveReleaseLive(&s_leave, millis()));
 		return n;
 	}
 	if (s_view == View::Set) {
@@ -899,10 +899,10 @@ bool uiSbusOutTick(const TouchState *t) {
 			} else {
 				pinClaimEnd(PinUser::SbusOut);
 				ClaimState cs = pinClaimState();
-				// Restoring: core1 suspended the pump between pinClaimPoll()
-				// and pinClaimEnd().
-				if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
-				// RESTART DSHOT waits 1000 ms after GP0 is let go.
+				// Parking: the claim was still Stopping at pinClaimEnd(), so the
+				// pins park with no leave page.
+				if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
+				// The last button waits 1000 ms after GP0 is let go.
 				uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 			}
 		}

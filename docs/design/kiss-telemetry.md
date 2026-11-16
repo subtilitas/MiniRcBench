@@ -202,7 +202,7 @@ Revised by the owner's decision 2 of 2026-11-15
 runs only while ESC TESTER or ESC COMMANDS is open. Revised by
 [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 5, pending the
 owner's review: elsewhere AUX rests on its pull-down with the input buffer
-off. Not built.
+off. Built (D2).
 
 Any free GPIO that is not the ESC's can receive. KISS listens on AUX, the
 pin [pin-claim.md](pin-claim.md#the-two-pins) names, which SETTINGS sets in
