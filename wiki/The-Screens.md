@@ -12,7 +12,7 @@ PROGRAMMER, the choice of the KST and Hitec programmers. RX SIGNALS opens
 the choice of the receiver signal tools. TOOLS opens the choice of the bench
 tools that use no signal pin.
 SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
-returns to the tester. DShot runs from power-up on every screen, `MENU`
+returns to the tester. DShot runs from the end of the splash on every screen, `MENU`
 included, except while a tool holds the signal pins.
 
 ```
@@ -288,7 +288,7 @@ bench check is listed in STATUS.md in the repository, open item 23.
 The first screen after the splash, and the root: the header reads `MENU`
 and has no `BACK`. The tester's `MENU` button returns here and first
 **disarms**, sets the throttle to 0 and turns `LATCH` off. DShot runs from
-power-up behind `MENU`, so the strip's chip reads the ESC's telemetry.
+the end of the splash behind `MENU`, so the strip's chip reads the ESC's telemetry.
 
 Under the title, a strip names the two signal pins, SIG for the ESC and AUX
 for the KISS wire or a second servo, and the DShot rate, for example

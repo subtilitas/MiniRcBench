@@ -879,9 +879,9 @@ SAVE`); the way off the tester disarms, so the refusal is a backstop.
 **HOLD DEFAULTS** (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`)
 loads the compiled defaults, pole count and throttle ceiling included, into the
 live settings; the angle meter's setup and calibration, which SETTINGS does not
-show, keep their values. A tap loads nothing, a slide off the button cancels the hold, and a bar over
-the button and a `C_RED` fill, as on every hold of `src/ui_hold.*`, show it
-running. It has no armed check: SETTINGS opens only from MENU or from a
+show, keep their values. A tap loads nothing, a slide off the button cancels
+the hold, and a bar over the button and a `C_RED` fill, as on every hold of
+`src/ui_hold.*`, show it running. It has no armed check: SETTINGS opens only from MENU or from a
 disarmed tester's readouts, and leaving the tester disarms. Flash changes
 only on the next save.
 

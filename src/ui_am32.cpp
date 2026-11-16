@@ -1265,9 +1265,10 @@ static bool leaveTick(const TouchState *t) {
  * @brief Ask for the signal pin. On a refusal the reason goes on the screen
  *        and S_HANDOVER asks again next frame.
  *
- * Neither refusal is reachable through the UI: MENU disarms on entry, and
- * no other screen that claims is open while this one is. AM32 is exempt from
- * the ESC-answering rule, since it needs the ESC on the pin.
+ * Neither refusal is reachable through the UI: every open through
+ * `uiOpenTool()` disarms, and no other screen that claims is open while this
+ * one is. AM32 is exempt from the ESC-answering rule, since it needs the ESC
+ * on the pin.
  */
 static void claimPins() {
 	ClaimRefusal r = pinClaimBegin(PinUser::Am32, PIN_SIG);

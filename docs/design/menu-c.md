@@ -1044,8 +1044,8 @@ and `src/ui_menu.h` (no BACK, `UiMenuResult::Back` gone);
   ([decision 12](#decisions)).
 - **A finger resting from the splash.** MENU's rows take a tap only from a
   press that began on them (`uiListTouch()`), so the lift of a finger that
-  rested on the glass through the splash opens nothing. On the tester as
-  the first screen that lift completed a tap on LATCH, MENU or a readout.
+  rested on the glass through the splash opens nothing. The tester is not
+  the first screen, so that lift reaches no LATCH, MENU or readout.
 - **MENU after the tester** opens at scroll 0 (`uiMenuEnter()` on the pop),
   as MENU opened from the tester did.
 
@@ -1081,6 +1081,8 @@ Mutations, each run against the whole suite and restored:
 | `UI_TESTER` without `freePins` | 6 checks fail, the first "ESC TESTER, whose DShot needs the pin, does not act" |
 | MENU's frame without `sdLogSetArmed()` | 1 check fails: "the log hears the disarm on MENU's first frame" |
 | `uiInit()` opens the tester over MENU | 385 checks fail, the first "the splash ends on MENU" |
+| The `navPop` guard `s_navDepth > 1` changed to `> 0` | none: equivalent, since MENU is never popped and the guard is unreachable at depth 1 |
+| The MENU button's frame leaves before `escSetThrottle(s_throttle)` | none: equivalent, since `escSetArmed(false)` in `testerDisarm()` already zeroes the throttle |
 | `testerEnter()` empty | none: equivalent, since `uiOpenTool()` runs `testerDisarm()` before every push and the press state needs a press edge; kept as a guard for another route to the tester |
 | `uiOpenTool()` and `testerEnter()` without the disarm | 3 checks fail, the first "back on the tester: LATCH is off" |
 | The tester drawn on the frame it leaves | the suite fails, the first "the tester's MENU opens MENU" |

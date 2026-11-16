@@ -1084,10 +1084,9 @@ static void navPop() {
  *        decision 19): from MENU's rows, the tester among them, from the
  *        tester's readouts and from a hub's entries. It runs the tester's
  *        disarm, then pushes the tool, whose BACK pops it to the screen that
- *        opened it. The caller
- *        refuses a tool the pin claim refuses first: MENU for its rows,
- *        readoutsAct() for the readouts, the hub for its entries
- *        (uiHubEntryActs()).
+ *        opened it. The caller refuses a tool the pin claim refuses first:
+ *        MENU for its rows, readoutsAct() for the readouts, the hub for its
+ *        entries (uiHubEntryActs()).
  * @param s     The tool.
  * @param enter The entry point to run in place of `s->enter`, for the
  *              hub's Hitec entries, which set the family; null runs

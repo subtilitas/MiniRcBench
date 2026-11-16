@@ -13,7 +13,7 @@ dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
 Werkzeuge für Empfängersignale. TOOLS öffnet die Wahl der
 Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über
 die Polzahl und die Obergrenze des Testers; `BACK` führt dann zum Tester
-zurück. DShot läuft ab dem Einschalten auf jedem Bildschirm, `MENU`
+zurück. DShot läuft ab dem Ende des Startbildschirms auf jedem Bildschirm, `MENU`
 eingeschlossen, außer solange ein Werkzeug die Signalpins hält.
 
 ```
@@ -319,7 +319,7 @@ Punkt 23.
 Der erste Bildschirm nach dem Startbildschirm und die Wurzel: Der
 Kopfbereich zeigt `MENU` und kein `BACK`. Die Schaltfläche `MENU` des
 Testers führt hierher zurück und **entschärft** vorher, setzt das Gas auf 0
-und schaltet `LATCH` aus. DShot läuft ab dem Einschalten hinter `MENU`,
+und schaltet `LATCH` aus. DShot läuft ab dem Ende des Startbildschirms hinter `MENU`,
 daher liest das Feld in der Leiste die Telemetrie des ESC.
 
 Unter dem Titel nennt eine Leiste die beiden Signalpins, SIG für den ESC und

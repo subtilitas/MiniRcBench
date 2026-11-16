@@ -12,10 +12,10 @@
  * do not fit: nine rows at a 42 px pitch scroll 120 px.
  *
  * A tool that claims the signal pins, or one that opens only while they are
- * free (the tester, SETTINGS and ESC COMMANDS), is refused while the pin claim is not
- * Free: its row is drawn disabled under its own status, a tap opens nothing,
- * and the strip reads `DSHOT RESTARTING ON SIG GP0`. That state is reachable
- * for the time Restoring takes after RESTART DSHOT. The choosers ESC CONFIG,
+ * free (the tester, SETTINGS and ESC COMMANDS), is refused while the pin
+ * claim is not Free: its row is drawn disabled under its own status, a tap
+ * opens nothing, and the strip reads `DSHOT RESTARTING ON SIG GP0`. That
+ * state is reachable for the time Restoring takes after RESTART DSHOT. The choosers ESC CONFIG,
  * PROGRAMMER, RX SIGNALS and TOOLS are never refused: each gates its own
  * entries (ui_hub.h).
  *
