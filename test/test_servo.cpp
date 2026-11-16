@@ -3613,6 +3613,19 @@ static void testColourRoles() {
 	uiFrames(1);
 	checkTrue("applied: nothing waits", !s_pending && setValueShows(2, false, true));
 
+	// A SWEEP row's edit applies at once: its value is a setting as it
+	// stands before the step and after it.
+	selectRow(7);   // SHAPE
+	uiFrames(1);
+	checkTrue("SHAPE, a SWEEP row: cyan text, no bar", setValueShows(7, false, true) &&
+	          pixel(1, ctlRect(UI_ROW(7, Row)).y + 5) == C_PANEL);
+	stepSel(+1, 1);
+	uiFrames(1);
+	checkTrue("stepped: applied at once, still cyan text with no rectangle and no bar, in the row and the bar",
+	          !s_pending && setValueShows(7, false, true) && !setValueHas(7, C_ONACCENT) && setBarShows(false) &&
+	          pixel(1, ctlRect(UI_ROW(7, Row)).y + 5) == C_PANEL);
+	stepSel(-1, 1);
+
 	// Every PULSE row can wait: the widest value of each beside its label.
 	{
 		int worst = 1000;

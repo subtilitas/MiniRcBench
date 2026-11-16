@@ -438,12 +438,13 @@ sind also drei auf einmal sichtbar.
   bleibt auf SET und setzt `1 CHANGE NOT APPLIED.` und
   `BACK AGAIN DISCARDS IT.` in Bernstein auf den Streifen, oder
   `n CHANGES NOT APPLIED.` und `BACK AGAIN DISCARDS THEM.`, mit der Zahl der
-  cyanfarbenen Zeilen; das zweite `BACK` kehrt zum Servobildschirm zurück und
+  wartenden Zeilen; das zweite `BACK` kehrt zum Servobildschirm zurück und
   verwirft die Änderung. Jede andere Berührung nimmt die Warnung weg, und die
   Änderung wartet weiter. Wartet nichts, kehrt `BACK` sofort zurück.
-  Solange sie wartet, ist der Wert der
-  Zeile cyan, mit einem 3 px breiten cyanfarbenen Balken am linken Rand; ein
-  übernommener Wert steht in der Textfarbe, ausgewählt oder nicht.
+  Solange sie wartet, steht der Wert der Zeile dunkel auf einer cyanfarbenen
+  Fläche, in der Zeile und in der Editorleiste, mit einem 3 px breiten
+  cyanfarbenen Balken am linken Rand der Zeile; ein übernommener Wert ist
+  cyanfarbener Text, die Farbe einer Einstellung, ausgewählt oder nicht.
 - Ein Puls über den Stellweg eines Servos hinaus fährt es gegen seinen
   Endanschlag, wo es blockiert und heiß wird. Mit TYPE WIDE, MIN unter 900 µs
   oder MAX über 2100 µs zeigt der Bildschirm in Bernstein `PAST ITS TRAVEL A

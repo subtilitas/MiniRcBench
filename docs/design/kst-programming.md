@@ -1090,6 +1090,10 @@ y   0 | KST SERVO                        [ BACK ]|
   as read is `C_CYAN` with a 3 px `C_CYAN` bar at the row's left edge;
   selection fills the row `C_PANEL` and lights the label, never the value.
   The editor bar's value follows the same colours.
+  Revised by [ui-theme.md](ui-theme.md#slice-10-as-built), slice 10 of
+  [menu-c.md](menu-c.md#build-plan): in the row the changed value is
+  `C_ONACCENT` on a `C_CYAN` rectangle; the bar and the editor bar's `C_CYAN`
+  text are as above.
 - Groups follow rcbench's pages: TUNE (MAX. DUTY, BOOST, STRETCH, SOFT START,
   SPEED LIMIT, SPEED, DEAD BAND), PULSE (PULSE LOWER, PULSE UPPER, NEUTRAL,
   REVERSED, LEFT ANGLE, RIGHT ANGLE), FAILSAFE (FAILSAFE MOVE, FAILSAFE

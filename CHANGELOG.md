@@ -1404,6 +1404,45 @@ protocol.
   `src/ui_servo.cpp` hold every button label of the view 4 px or more inside
   each side of its button, pressed too. Host test, mutation-checked:
   `testColourRoles()` in `test/test_servo.cpp`.
+- After v0.1.0-rc1: cyan is the accent, as on rcbench, slice 10 of the
+  build plan in [menu-c.md](docs/design/menu-c.md#build-plan), by the
+  owner's decision 1 of 2026-11-15 in
+  [ui-theme.md](docs/design/ui-theme.md#decisions), recorded in
+  [ui-theme.md](docs/design/ui-theme.md#slice-10-as-built). Before, cyan
+  meant one thing, a value changed and not yet written, and the mark `>` of
+  a MENU row that opens a hub. Now it marks four things. The way back: BACK
+  in every header (`uiHeader()`) and the tester's `MENU` button are `C_CYAN`
+  buttons with a `C_ONACCENT` label, in place of `C_PANEL` with a `C_TEXT`
+  and a `C_DIM` label; a BACK that would do nothing keeps the disabled look
+  and is not cyan, and MENU, the root, draws none. A hub row's `>`, as
+  before. A setting, as cyan text: SETTINGS' section captions and its values
+  beside `-` and `+`, the values of SERVO SET and OUTPUT SET
+  (`UiValue::Setting`), and LENGTH on ANGLE SETUP, all `C_TEXT` before. A
+  change: a changed value in a row of ESC SETTINGS, KST SERVO, HITEC SERVO
+  and SERVO SET is `C_ONACCENT` on a `C_CYAN` rectangle that reaches 3 px
+  beyond the text at each side and 2 px above and below it
+  (`uiListDrawValue()`), in place of cyan text; the 3 px bar at the row's
+  left edge stays, amber for a soft rule. The text does not move. SERVO
+  SET's editor bar draws a waiting value on the rectangle too. A value read
+  from a device stays `C_TEXT`. The editor bars of ESC SETTINGS, KST SERVO
+  and HITEC SERVO and the write pages keep the new value as cyan text after
+  `old ->`. Read-only values, warning values and the labels of buttons keep
+  their colours. High contrast follows the same rules with its own dark
+  cyan: a white label on BACK, white text on the rectangle. No rectangle of
+  a control and no text moves. Not seen on the panel. Host tests,
+  mutation-checked: `testHeaderHomeTag()`, `testListDrawField()` and
+  `testChangedCue()` in `test/test_widgets.cpp`, the last holding the
+  rectangle 14.95 off its row, 10.89 off a selected row and its text 14.70
+  off the rectangle, 10.23 at the least through the simulations of
+  protanopia, deuteranopia and tritanopia, and 4.91 in High contrast;
+  `backLook()` and `changedFillsClear()` in `test/ui_ids.h`, which
+  `checkControlTable()` runs on every frame it reads, the second holding
+  each rectangle 4 px or more after its row's text (`testChangedWalk()` in
+  `test/test_ids.cpp`); the rows, the bars, the captions and the tester's
+  `MENU` on their screens. The previews under `docs/` and `wiki/img/` are
+  rendered again. README.md and the wiki pages The Screens, AM32
+  Configuration, KST Programming, Hitec Programming and Servo Tester, in
+  both languages, describe the uses.
 - After v0.1.0-rc1: a tool chosen on a chooser returns to that chooser, slice
   2 of [menu-c.md](docs/design/menu-c.md#slice-2-as-built), by owner decision
   7 of 2026-11-15. ESC SETTINGS and USB BRIDGE return to ESC CONFIG, KST

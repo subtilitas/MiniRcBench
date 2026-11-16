@@ -214,8 +214,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
   for example `RAW 1234`. A value that does not decode reads `?`.
 - Read-only rows are drawn grey, but for a `RAW` value in amber, and a tap on
   them selects nothing: `SENSITIVITY`, and every INFO row but `ID`.
-- A changed value is cyan, with a 3 px cyan bar at its row's left edge; the
-  name carries no mark. A value as read is in the text colour, selected or
+- A changed value is dark on a cyan fill, with a 3 px cyan bar at its row's
+  left edge; the name carries no mark. A value as read is in the text colour, selected or
   not: selecting a row lights the row and its name, not the value.
 
 <img src="img/hitec-preview.png" width="240" alt="SPEED selected and stepped from 100 % (4095) to 90 % (18)">
@@ -224,8 +224,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 
 1. Tap an editable row. The editor bar under the list shows the parameter,
    its stored value and the pending value, for example
-   `SPEED  100 % (4095) ->` above `90 % (18)`, the pending value cyan once it
-   differs. With no row selected, the bar
+   `SPEED  100 % (4095) ->` above `90 % (18)`, the pending value in cyan text
+   once it differs. With no row selected, the bar
    reads `TAP A ROW TO EDIT IT` and `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tap `-` or `+` (44 × 44 px) to step the value to the next value its
    encoding takes. Hold to repeat. `+` raises the value shown and `-` lowers
@@ -247,8 +247,8 @@ Two kinds of limit apply:
   steps are hard limits, and so is the order `LEFT END` below `NEUTRAL`
   below `RIGHT END`. When no further step is legal, the button is drawn
   disabled.
-- **A soft rule** is taken. The row's bar turns amber, the value stays cyan,
-  and the editor bar shows the rule's text in amber. The rules are
+- **A soft rule** is taken. The row's bar turns amber, the value stays on
+  its cyan fill, and the editor bar shows the rule's text in amber. The rules are
   rcbench's seven, compared with the servo as last read:
 
 | Rule | Text |
