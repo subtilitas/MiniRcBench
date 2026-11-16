@@ -88,12 +88,13 @@ ein geänderter Wert, der noch nicht geschrieben oder übernommen ist, mit einem
 cyanfarbenen Balken am linken Rand seiner Zeile. Blau ist eine
 Einstellung, die an bleibt: `LATCH`, ein eingeschalteter Schalter, `PROG MODE`,
 Servo B. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
-oder auslösen, stehen in der Textfarbe oder in Grau. Ein Feld auf der Leiste
-unter einem Titel ist eckig, damit es nicht wie eine Schaltfläche aussieht.
-Nicht jede Verwendung folgt der Tabelle: Hellgrün markiert auch Zustände wie
-`READY` auf SD LOG und die über USB bereitgestellte Karte, und viele Fehler
-stehen in Bernstein oder in der Textfarbe, zum Beispiel `CARD ERROR` auf SD LOG
-und `WRITE FAILED` bei AM32.
+oder auslösen, stehen in der Textfarbe oder in Grau. Eine Schaltfläche hat
+abgerundete Ecken. Ein Feld auf der Leiste unter einem Titel ist eckig, damit
+es nicht wie eine Schaltfläche aussieht; das Scharf-Feld des Testers und sein
+Feld `SDERR` sind ebenfalls eckig. Nicht jede Verwendung folgt der Tabelle:
+Hellgrün markiert auch Zustände wie `READY` auf SD LOG und die über USB
+bereitgestellte Karte, und viele Fehler stehen in Bernstein oder in der
+Textfarbe, zum Beispiel `CARD ERROR` auf SD LOG und `WRITE FAILED` bei AM32.
 
 **Das normale Farbschema übernimmt seine Farben von rcbench,** der größeren
 Werkbank desselben Besitzers: ein fast schwarzer Bildschirm mit einem
@@ -110,8 +111,8 @@ ist einer der beiden blaugrauen Neutraltöne gemeint. Die Farben sind
 berechnet und nicht auf dem Display gesehen: Wie das Display sie zeigt, ist
 nicht gemessen. Hoher Kontrast behält seine eigenen Farben. Rahmen und
 Beschriftungen sind dort fast schwarz; deshalb hat eine Schaltfläche, die
-nichts auslöst, dort einen gestrichelten Rahmen und ein Schieberegler, der
-nichts auslöst, einen hohlen Griff.
+nichts auslöst, dort einen gestrichelten Rahmen mit ganzen, abgerundeten
+Ecken und ein Schieberegler, der nichts auslöst, einen hohlen Griff.
 
 ---
 

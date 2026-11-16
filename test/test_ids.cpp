@@ -511,6 +511,46 @@ static void testLayoutTable() {
 	openTester();
 }
 
+/**
+ * @brief buttonCornersClear(), the walk of checkControlTable(): it takes a
+ *        drawn button for one, counts it, and reports a corner pixel that is
+ *        not the ground's.
+ */
+static void testCornerWalk() {
+	section("Control ids: the walk over a table's button corners");
+	const UiControl t[] = {
+		{ UI_FIX(1), { 20, 100, 110, 46 }, true },
+		{ UI_FIX(2), { 140, 100, 64, 32 }, false },
+		{ UI_FIX(3), { 20, 200, 200, 40 }, true },   // nothing drawn here: a list row
+	};
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *tn = th ? "high contrast" : "dark";
+		char what[96];
+		gfxFill(C_BG);
+		uiButton(t[0].rect, "ONE", C_PANEL, C_TEXT, 2, true, true);
+		uiButton(t[1].rect, "TWO", C_PANEL, C_TEXT, 1, false, false);
+		snprintf(what, sizeof(what), "%s: a pressed and a disabled button are walked, the bare row is not", tn);
+		checkInt(what, buttonCornersClear(t, 3), 2);
+		uint16_t *fb = gfxBuffer();
+		fb[100 * GFX_W + 21] = C_PANEL;
+		snprintf(what, sizeof(what), "%s: a fill left at (1,0) of a corner is reported", tn);
+		checkInt(what, buttonCornersClear(t, 3), -1);
+		fb[100 * GFX_W + 21] = C_BG;
+		fb[(100 + 31) * GFX_W + 140 + 63] = C_GRID;
+		snprintf(what, sizeof(what), "%s: a frame's pixel left at the last corner is reported", tn);
+		checkInt(what, buttonCornersClear(t, 3), -1);
+		// A square frame, as a button was drawn before the radius.
+		gfxFill(C_BG);
+		gfxRect(20, 100, 110, 46, C_GRID);
+		gfxRect(21, 101, 108, 44, C_PANEL);
+		snprintf(what, sizeof(what), "%s: a button with square corners is reported", tn);
+		checkInt(what, buttonCornersClear(t, 1), -1);
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
 void runIdTests() {
 	testHelpersFail();
 	testHelpersReport();
@@ -518,4 +558,5 @@ void runIdTests() {
 	testMenuSettingsLog();
 	testServo();
 	testLayoutTable();
+	testCornerWalk();
 }

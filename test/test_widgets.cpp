@@ -653,6 +653,161 @@ static void testHeaderRule() {
 }
 
 /**
+ * @brief The frame of a button's corner, @ref UI_RADIUS px square, for the
+ *        top left corner: `#` the frame, `.` the ground the button leaves,
+ *        ` ` inside. Index 0 is the 1 px frame, 1 High contrast's 2 px.
+ */
+static const char *const CORNER[2][UI_RADIUS] = {
+	{ "..###", ".#   ", "#    ", "#    ", "#    " },
+	{ "..###", ".####", "###  ", "##   ", "##   " },
+};
+
+/**
+ * @brief Whether the four corners of the button @p r are drawn as @ref
+ *        CORNER has them in the theme in force: the frame in @p frame, the
+ *        three pixels outside it in @p ground. The inside is not looked at.
+ */
+static bool cornerFrameWhole(const UiRect &r, uint16_t frame, uint16_t ground) {
+	const char *const *want = CORNER[themeStroke() - 1];
+	for (int j = 0; j < UI_RADIUS; j++)
+		for (int i = 0; i < UI_RADIUS; i++) {
+			if (want[j][i] == ' ') continue;
+			const uint16_t c = want[j][i] == '#' ? frame : ground;
+			if (px(r.x + i, r.y + j) != c || px(r.x + r.w - 1 - i, r.y + j) != c ||
+			    px(r.x + i, r.y + r.h - 1 - j) != c || px(r.x + r.w - 1 - i, r.y + r.h - 1 - j) != c)
+				return false;
+		}
+	return true;
+}
+
+/**
+ * @brief Draw the button of uiButton() with square corners, as it was drawn
+ *        before the radius: the reference testButtonRadius() compares with.
+ */
+static void squareButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg, int scale,
+                         bool pressed, bool enabled) {
+	const int t = themeStroke();
+	if (!enabled) { fill = C_BG; fg = C_GRID; pressed = false; }
+	gfxRect(r.x, r.y, r.w, r.h, pressed ? C_INK : C_GRID);
+	gfxRect(r.x + t, r.y + t, r.w - 2 * t, r.h - 2 * t, fill);
+	if (pressed) {
+		gfxRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, C_INK);
+		gfxRect(r.x + 2 + t, r.y + 2 + t, r.w - 4 - 2 * t, r.h - 4 - 2 * t, fill);
+	}
+	const int d = pressed ? 1 : 0;
+	gfxText(r.x + d + (r.w - gfxTextW(label, scale)) / 2, r.y + d + (r.h - 7 * scale) / 2, label, fg, scale);
+}
+
+/**
+ * @brief The 5 px radius of a button (slice 9 of menu-c.md's build plan,
+ *        ui-theme.md decision 4): the three pixels of each corner are left
+ *        to the ground, the frame follows the corner, and nothing else of
+ *        the button moves, at rest, pressed and disabled, in both themes. A
+ *        chip keeps its corners.
+ */
+static void testButtonRadius() {
+	section("Widgets: a button's corners are rounded, 5 px; a chip's are square");
+
+	checkInt("the radius", UI_RADIUS, 5);
+	checkInt("the corner's rows and columns that differ from a square button's", UI_CORNER, 3);
+	// A narrow button, a hub entry, a footer button, BACK, a MENU row and
+	// the smallest target, UI_TAP_MIN tall.
+	static const UiRect R[] = { {8, 60, 40, 46}, {6, 120, 228, 46}, {6, 180, 110, 46}, {130, 60, 64, 32},
+	                            {8, 230, 224, 40}, {130, 280, 53, UI_TAP_MIN} };
+	static uint16_t round[GFX_W * GFX_H];
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *tn = th ? "high contrast" : "dark";
+		for (int state = 0; state < 3; state++) {
+			const bool pressed = state == 1, enabled = state != 2;
+			// Dark's disabled frame is whole. High contrast's is dashed on
+			// its straight edges, which the square reference does not draw:
+			// there the corners alone are compared.
+			const bool dashed = th && !enabled;
+			static const char *const SN[] = { "at rest", "pressed", "disabled" };
+			bool lit = true, frame = true, onlyCorners = true, label = true;
+			for (const UiRect &r : R) {
+				gfxFill(C_RED);
+				uiButton(r, "88", C_PANEL, C_TEXT, 2, pressed, enabled);
+				memcpy(round, gfxBuffer(), sizeof(round));
+				const uint16_t fc = pressed ? C_INK : C_GRID;
+				if (!cornerFrameWhole(r, fc, C_RED)) frame = false;
+				if (px(r.x, r.y) != C_RED || px(r.x + r.w - 1, r.y) != C_RED ||
+				    px(r.x, r.y + r.h - 1) != C_RED || px(r.x + r.w - 1, r.y + r.h - 1) != C_RED)
+					lit = false;
+				const int d = pressed ? 1 : 0;
+				// A pressed button's second frame is 2 px thick in High
+				// contrast and ends 6 px inside: in a 22 px button it
+				// crosses a scale 2 label, with square corners as with
+				// round ones. No screen draws one; the case is left out.
+				const bool crossed = th && pressed && r.h == UI_TAP_MIN;
+				if (!crossed &&
+				    !fakeTextIs(r.x + d + (r.w - gfxTextW("88", 2)) / 2, r.y + d + (r.h - 14) / 2, "88",
+				                enabled ? C_TEXT : C_GRID, enabled ? C_PANEL : C_BG, 2))
+					label = false;
+				gfxFill(C_RED);
+				squareButton(r, "88", C_PANEL, C_TEXT, 2, pressed, enabled);
+				for (int y = 0; y < GFX_H; y++)
+					for (int x = 0; x < GFX_W; x++) {
+						if (round[y * GFX_W + x] == px(x, y)) continue;
+						const int dx = x - r.x < r.x + r.w - 1 - x ? x - r.x : r.x + r.w - 1 - x;
+						const int dy = y - r.y < r.y + r.h - 1 - y ? y - r.y : r.y + r.h - 1 - y;
+						const bool corner = dx >= 0 && dy >= 0 && dx < UI_CORNER && dy < UI_CORNER;
+						const bool edge = dx >= 0 && dy >= 0 && (dx < 2 || dy < 2);
+						if (!corner && !(dashed && edge)) onlyCorners = false;
+					}
+			}
+			char what[112];
+			snprintf(what, sizeof(what), "%s, %s: the corner pixel of each of six sizes is the ground's", tn, SN[state]);
+			checkTrue(what, lit);
+			snprintf(what, sizeof(what), "%s, %s: (1,0) and (0,1) too; the frame at insets 2, 1, 0, whole", tn, SN[state]);
+			checkTrue(what, frame);
+			snprintf(what, sizeof(what), "%s, %s: nothing differs from the square button outside 3 x 3 px a corner",
+			         tn, SN[state]);
+			checkTrue(what, onlyCorners);
+			snprintf(what, sizeof(what), "%s, %s: the label whole, at 22 px tall and scale 2 too", tn, SN[state]);
+			checkTrue(what, label);
+		}
+		// A label as wide as the frame leaves room for: nothing of it is
+		// lost at the corners of the smallest button.
+		const UiRect small = { 100, 100, (int16_t)(6 * 6 * 2 - 2 + 2 * themeStroke() + 2), UI_TAP_MIN };
+		gfxFill(C_RED);
+		uiButton(small, "WWWWWW", C_PANEL, C_TEXT, 2, false, true);
+		char what[112];
+		snprintf(what, sizeof(what), "%s: a label 1 px inside the frame of a 22 px button, scale 2: whole", tn);
+		checkTrue(what, fakeTextIs(small.x + themeStroke() + 1, small.y + 4, "WWWWWW", C_TEXT, C_PANEL, 2) &&
+		                cornerFrameWhole(small, C_GRID, C_RED));
+
+		// A chip is square: its corner pixel is its fill, and the neutral
+		// chip's its frame.
+		gfxFill(C_RED);
+		uiStripClear();
+		uiChip("PROG MODE", C_BLUE);
+		int w = gfxTextW("PROG MODE", 1) + 12, x = uiChipX("PROG MODE");
+		const int cy = UI_STRIP_Y + (UI_STRIP_H - UI_CHIP_H) / 2;
+		snprintf(what, sizeof(what), "%s: a chip's four corner pixels are its fill", tn);
+		checkTrue(what, px(x, cy) == C_BLUE && px(x + w - 1, cy) == C_BLUE &&
+		                px(x, cy + UI_CHIP_H - 1) == C_BLUE && px(x + w - 1, cy + UI_CHIP_H - 1) == C_BLUE);
+		uiStripClear();
+		uiChip("NO ESC", C_GRID);
+		w = gfxTextW("NO ESC", 1) + 12;
+		x = uiChipX("NO ESC");
+		snprintf(what, sizeof(what), "%s: the neutral chip's four corner pixels are its frame", tn);
+		checkTrue(what, px(x, cy) == C_GRID && px(x + w - 1, cy) == C_GRID &&
+		                px(x, cy + UI_CHIP_H - 1) == C_GRID && px(x + w - 1, cy + UI_CHIP_H - 1) == C_GRID);
+	}
+	themeSet(Theme::Dark);
+
+	// The header: BACK's corners show the band.
+	gfxFill(C_RED);
+	uiHeader("RADIUS", idle());
+	const UiRect b = uiBackRect();
+	checkTrue("BACK in the header: its corner pixels are the band's C_PANEL",
+	          cornerFrameWhole(b, C_GRID, C_PANEL));
+	gfxFill(C_BG);
+}
+
+/**
  * @brief A disabled button's cue in both themes (ui-theme.md, "Slices 7 and
  *        8 as built"): Dark draws the whole frame and a `C_GRID` label on
  *        `C_BG`; High contrast breaks the frame's straight edges into
@@ -711,10 +866,11 @@ static void testDisabledFrame() {
 				snprintf(what, sizeof(what), "%s, %d x %d px: the left and right gaps are %d px deep", tn, r.w, r.h, t);
 				checkTrue(what, vgap && vends);
 			}
-			// The corners stay whole in both themes.
-			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: the four corners drawn", tn, r.w, r.h);
-			checkTrue(what, px(r.x, r.y) == C_GRID && px(r.x + r.w - 1, r.y) == C_GRID &&
-			                px(r.x, r.y + r.h - 1) == C_GRID && px(r.x + r.w - 1, r.y + r.h - 1) == C_GRID);
+			// The corners stay whole in both themes: every pixel of the
+			// rounded frame within UI_RADIUS px of a corner is drawn, and
+			// no gap starts there.
+			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: the four rounded corners whole", tn, r.w, r.h);
+			checkTrue(what, cornerFrameWhole(r, C_GRID, C_BG));
 		}
 	}
 	themeSet(Theme::Dark);
@@ -1572,6 +1728,7 @@ void runWidgetTests() {
 	testHeaderBackDisabled();
 	testHeaderRule();
 	testDisabledFrame();
+	testButtonRadius();
 	testColourRoles();
 	testPaletteValues();
 	testPaletteDistinct();

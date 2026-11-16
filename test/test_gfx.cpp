@@ -1,6 +1,6 @@
 /**
  * @file test_gfx.cpp
- * @brief Dirty-band bookkeeping and glyph rendering tests.
+ * @brief Dirty-band bookkeeping, glyph rendering and the rounded corners.
  *
  * The dirty bands decide how much SPI traffic a frame costs, and their merge
  * and saturation paths are pure logic -- exactly the kind of code that is easy
@@ -9,6 +9,7 @@
 
 #include "check.h"
 #include "gfx.h"
+#include "theme.h"
 
 #include <string.h>
 
@@ -352,9 +353,162 @@ static void testLineAndArc() {
 	         countIn(0, 0, GFX_W, GFX_H, TEST_FG), 4);
 }
 
+/**
+ * @brief The first and the last lit column of row @p y between @p x0 and
+ *        @p x1, relative to @p x0; -1 for a row with nothing lit.
+ */
+static void rowExtent(int x0, int x1, int y, int *first, int *last) {
+	*first = -1;
+	*last = -1;
+	for (int x = x0; x <= x1; x++) {
+		if (px(x, y) != TEST_FG) continue;
+		if (*first < 0) *first = x - x0;
+		*last = x - x0;
+	}
+}
+
+/**
+ * @brief Whether the four corners of the rectangle hold @p want: @p rows
+ *        strings of @p cols characters, `#` lit and `.` not, written for the
+ *        top left corner and mirrored for the other three.
+ */
+static bool cornersAre(int x, int y, int w, int h, const char *const *want, int rows, int cols) {
+	for (int j = 0; j < rows; j++)
+		for (int i = 0; i < cols; i++) {
+			const bool lit = want[j][i] == '#';
+			if ((px(x + i, y + j) == TEST_FG) != lit) return false;
+			if ((px(x + w - 1 - i, y + j) == TEST_FG) != lit) return false;
+			if ((px(x + i, y + h - 1 - j) == TEST_FG) != lit) return false;
+			if ((px(x + w - 1 - i, y + h - 1 - j) == TEST_FG) != lit) return false;
+		}
+	return true;
+}
+
+/**
+ * @brief The corner radius (slice 9 of menu-c.md's build plan): the rows of
+ *        a 5 px corner are inset 2, 1 and 0 px, in the fill and in the frame,
+ *        at the frame's 1 px and at High contrast's 2 px.
+ */
+static void testRound() {
+	section("Rounded corners: a 5 px radius insets its rows 2, 1, 0");
+
+	themeSet(Theme::Dark);
+	const int X = 10, Y = 20, W = 30, H = 20;
+	resetGfx();
+	gfxRoundRect(X, Y, W, H, 5, TEST_FG);
+	static const int INSET5[] = { 2, 1, 0, 0, 0 };
+	bool rows = true;
+	for (int dy = 0; dy < H; dy++) {
+		const int want = dy < 5 ? INSET5[dy] : dy >= H - 5 ? INSET5[H - 1 - dy] : 0;
+		int a, b;
+		rowExtent(X, X + W - 1, Y + dy, &a, &b);
+		if (a != want || b != W - 1 - want) rows = false;
+	}
+	checkTrue("fill, 5 px: each row starts and ends at its inset, top and bottom", rows);
+	static const char *const FILL5[] = { "..###", ".####", "#####", "#####", "#####" };
+	checkTrue("fill, 5 px: (0,0), (1,0) and (0,1) of each corner are not lit, the rest is",
+	          cornersAre(X, Y, W, H, FILL5, 5, 5));
+	checkInt("fill, 5 px: 30 x 20 less 3 pixels a corner", countIn(0, 0, GFX_W, GFX_H, TEST_FG), W * H - 12);
+	int y0, y1;
+	gfxDirtyBand(0, &y0, &y1);
+	checkTrue("it dirties its own rows only", gfxDirtyCount() == 1 && y0 == Y && y1 == Y + H - 1);
+
+	resetGfx();
+	gfxRoundFrame(X, Y, W, H, 5, TEST_FG);
+	static const char *const FRAME5[] = { "..###", ".#...", "#....", "#....", "#...." };
+	checkTrue("frame, 1 px, 5 px: the corner pixels at insets 2, 1, 0, joined to the edges",
+	          cornersAre(X, Y, W, H, FRAME5, 5, 5));
+	checkInt("frame, 1 px: 60 px of straight edges and 7 a corner",
+	         countIn(0, 0, GFX_W, GFX_H, TEST_FG), 2 * (W - 10) + 2 * (H - 10) + 4 * 7);
+	checkTrue("frame, 1 px: the edges between the corners, nothing inside",
+	          px(X + 5, Y) == TEST_FG && px(X + W - 6, Y + H - 1) == TEST_FG && px(X, Y + 5) == TEST_FG &&
+	          px(X + W - 1, Y + H - 6) == TEST_FG && px(X + W / 2, Y + 1) == 0 && px(X + 1, Y + H / 2) == 0);
+	// The frame lies on the fill's outermost pixels: none of it outside.
+	gfxRoundRect(X, Y, W, H, 5, 0);
+	checkInt("frame, 1 px: the fill covers it", countIn(0, 0, GFX_W, GFX_H, TEST_FG), 0);
+
+	themeSet(Theme::HighContrast);
+	resetGfx();
+	gfxRoundFrame(X, Y, W, H, 5, TEST_FG);
+	static const char *const FRAME5X2[] = { "..###", ".####", "###..", "##...", "##..." };
+	checkTrue("frame, 2 px, 5 px: the same outline, 2 px thick, no open pixel between its rings",
+	          cornersAre(X, Y, W, H, FRAME5X2, 5, 5));
+	checkInt("frame, 2 px: 120 px of straight edges and 14 a corner",
+	         countIn(0, 0, GFX_W, GFX_H, TEST_FG), 2 * 2 * (W - 10) + 2 * 2 * (H - 10) + 4 * 14);
+	gfxRoundRect(X, Y, W, H, 5, 0);
+	checkInt("frame, 2 px: the fill covers it", countIn(0, 0, GFX_W, GFX_H, TEST_FG), 0);
+	resetGfx();
+	gfxRoundFrame(X, Y, 4, 9, 5, TEST_FG);
+	checkInt("frame, 2 px, 4 px wide: no room for two strokes, filled", countIn(0, 0, GFX_W, GFX_H, TEST_FG),
+	         4 * 9);
+	themeSet(Theme::Dark);
+
+	resetGfx();
+	gfxRoundRect(X, Y, W, H, 4, TEST_FG);
+	static const char *const FILL4[] = { "..##", ".###", "####", "####" };
+	checkTrue("fill, 4 px: insets 2, 1, 0, 0", cornersAre(X, Y, W, H, FILL4, 4, 4));
+	resetGfx();
+	gfxRoundRect(X, Y, W, H, 3, TEST_FG);
+	static const char *const FILL3[] = { ".##", "###", "###" };
+	checkTrue("fill, 3 px: insets 1, 0, 0", cornersAre(X, Y, W, H, FILL3, 3, 3));
+	resetGfx();
+	gfxRoundRect(X, Y, W, H, 0, TEST_FG);
+	checkInt("fill, radius 0: the whole rectangle", countIn(0, 0, GFX_W, GFX_H, TEST_FG), W * H);
+	resetGfx();
+	gfxRoundFrame(X, Y, W, H, 0, TEST_FG);
+	checkInt("frame, radius 0: the rectangle's outline", countIn(0, 0, GFX_W, GFX_H, TEST_FG), 2 * W + 2 * H - 4);
+
+	// A larger radius, where a row's inset drops by 2 px and more: the
+	// frame's rows still meet, at 1 px and at 2 px.
+	static const char *const FRAME12[] = { "........####", "......##....", "....##......", "...#........",
+	                                       "..#.........", "..#.........", ".#..........", ".#..........",
+	                                       "#...........", "#...........", "#...........", "#..........." };
+	static const char *const FRAME12X2[] = { "........####", "......######", "....####....", "...###......",
+	                                         "..###.......", "..##........", ".##.........", ".##.........",
+	                                         "##..........", "##..........", "##..........", "##.........." };
+	resetGfx();
+	gfxRoundFrame(X, Y, 60, 40, 12, TEST_FG);
+	checkTrue("frame, 1 px, 12 px: each row of the corner reaches the row above it",
+	          cornersAre(X, Y, 60, 40, FRAME12, 12, 12));
+	themeSet(Theme::HighContrast);
+	resetGfx();
+	gfxRoundFrame(X, Y, 60, 40, 12, TEST_FG);
+	checkTrue("frame, 2 px, 12 px: 2 px thick along the corner, no open pixel",
+	          cornersAre(X, Y, 60, 40, FRAME12X2, 12, 12));
+	themeSet(Theme::Dark);
+
+	// A radius of half the size: the servo's selection dot, 12 x 12 px.
+	resetGfx();
+	gfxRoundRect(X, Y, 12, 12, 6, TEST_FG);
+	static const int DOT[] = { 3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 2, 3 };
+	bool dot = true;
+	for (int dy = 0; dy < 12; dy++) {
+		int a, b;
+		rowExtent(X, X + 11, Y + dy, &a, &b);
+		if (a != DOT[dy] || b != 11 - DOT[dy]) dot = false;
+	}
+	checkTrue("fill, 12 x 12 px at 6 px: a disc, rows inset 3, 2, 1, 0", dot);
+	resetGfx();
+	gfxRoundRect(X, Y, 12, 12, 40, TEST_FG);
+	checkInt("a radius over half the size counts as half: the same disc",
+	         countIn(0, 0, GFX_W, GFX_H, TEST_FG), 12 * 12 - 4 * 6);
+	resetGfx();
+	gfxRoundRect(X, Y, 0, 12, 5, TEST_FG);
+	gfxRoundFrame(X, Y, 12, 0, 5, TEST_FG);
+	checkInt("no width or no height: nothing drawn", countIn(0, 0, GFX_W, GFX_H, TEST_FG), 0);
+
+	resetGfx();
+	gfxSetClip(0, 0, GFX_W, Y + 2);
+	gfxRoundRect(X, Y, W, H, 5, TEST_FG);
+	gfxClearClip();
+	checkInt("the fill obeys the clip: its first two rows", countIn(0, 0, GFX_W, GFX_H, TEST_FG),
+	         (W - 4) + (W - 2));
+}
+
 void runGfxTests() {
 	testBands();
 	testGlyphs();
 	testClip();
 	testLineAndArc();
+	testRound();
 }

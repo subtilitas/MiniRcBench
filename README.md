@@ -915,6 +915,18 @@ SETTINGS row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
 SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
 FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
 
+**Buttons and chips**
+
+A button has rounded corners with a radius of 5 px (`UI_RADIUS`), in both
+themes: its fill and its frame leave out three pixels at each corner, and
+the screen under them shows. A press counts on the whole rectangle, the
+corners included. A chip is square: the chips on the strip, the tester's
+arm badge and its `SDERR` chip. The tester's throttle track, the sliders,
+SERVO TESTER's selected horn tip and the dial's shaft are round too. At
+rest a label is centred and ends 3 px or more from a button's top and
+bottom edge. A pressed button draws its label 1 px lower and 1 px to the
+right.
+
 **The Dark theme**
 
 The Dark theme, `CONTRAST` at `NORMAL`, takes its 17 colours from the dark
@@ -950,8 +962,9 @@ darkened to carry white text, every glyph stroke gets one extra pixel of
 weight, frames are 2 px, the seven-segment stroke is thicker, and the
 backlight is forced to 255. It is meant for direct sunlight on the
 transmissive IPS panel. Its frames and labels are near black, so a disabled
-button has a dashed frame there, 4 px drawn and 4 px open, and a slider
-that does not act has a hollow thumb.
+button has a dashed frame there, 4 px drawn and 4 px open on its straight
+edges, with its rounded corners whole, and a slider that does not act has
+a hollow thumb.
 
 The palette has fewer distinct greys than the dark one. Label greys are
 merged so that labels stay legible outdoors.
@@ -2118,7 +2131,7 @@ applies.
 | `STOP` | Acts on touch. The pulses end from the next PWM frame; the last one ends within one frame, 20 ms at 50 Hz |
 | The horn | Press on the dial and drag: the servo goes to the angle under the finger, −90° MIN, +90° MAX. Release holds. Refused while SAFE; a press that starts off the dial never drags |
 | `MIN` `CENTRE` `MAX` | Act on release, while RUNNING |
-| `SWEEP` / `STOP SWEEP` | A square, sine or triangle about the centre, run on core1; a stopped sweep leaves the servo where the curve was |
+| `SWEEP` / `STOP SWEEP` | A square, sine or triangle about the centre, run on core1; a stopped sweep leaves the servo where the curve was. The button is 69 px wide, `MIN` and `MAX` 47 px and `CENTRE` 49 px: `STOP SWEEP`, 59 px, lies 5 px inside each side |
 | `SPEED` | A slew, 10 % to 100 %: at 10 % a full MIN to MAX travel takes 5 s; 100 % is no slew |
 | `A` `B` `AB` | Two servos: what the horn and the buttons drive. With `AB`, REVERSE B mirrors B. A's horn and letter are lime, B's blue |
 | `SET` | Profile, rate, range, servo count, REVERSE B and the sweep |
@@ -3928,7 +3941,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,004 of 16,266 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,006 of 16,266 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

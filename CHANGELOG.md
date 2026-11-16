@@ -1330,6 +1330,47 @@ protocol.
   README.md and the wiki pages The Screens, Telemetry, Servo Tester, USB
   Bridge and Angle Meter, in both languages, describe the palette and the
   changed widgets.
+- After v0.1.0-rc1: a button has rounded corners with a radius of 5 px,
+  slice 9 of the build plan in
+  [menu-c.md](docs/design/menu-c.md#build-plan), by the owner's decision 4 of
+  2026-11-15 in [ui-theme.md](docs/design/ui-theme.md#decisions), recorded
+  in [ui-theme.md](docs/design/ui-theme.md#slice-9-as-built). Before,
+  `gfxRoundRect()` and `gfxRoundFrame()` in `src/gfx.cpp` took a radius and
+  drew none: their corner solver inset every row by 0 (STATUS.md, open item
+  25, closed by this change). `cornerInset()` insets the rows of a 5 px
+  corner by 2, 1 and 0 px, so a fill and a frame leave three pixels of each
+  corner undrawn, and the frame is one stroke, 1 px, or 2 px in High
+  contrast, with no open pixel. Every button is drawn by `uiButton()` with
+  `UI_RADIUS`: the footers, the header's BACK, MENU's rows, the choosers'
+  entries, the editor bars' `-` and `+`, SETTINGS' steppers and toggles,
+  HOLD DEFAULTS and the other hold buttons, the leave page and the tester's
+  button row. A press counts on the whole rectangle as before; no rectangle
+  and no label moves but SERVO TESTER's button row, below. Chips stay
+  square: `uiChip()`, and the tester's arm badge and its `SDERR` chip, which
+  were passed a radius and are drawn with `gfxRect()`. In High contrast a
+  disabled button keeps its dashed frame on the straight edges, and its
+  rounded corners are whole. What was round by
+  intent is round now: the tester's throttle track, the sliders' tracks,
+  fills and thumbs, SERVO TESTER's selected horn tip and the dial's shaft.
+  The tester's throttle fill follows the track's corner at every width: a
+  fill under 10 px wide is clipped to its width instead of taking a smaller
+  radius. Not seen on the panel. Host tests, mutation-checked:
+  `testRound()` in `test/test_gfx.cpp`; `testButtonRadius()` and
+  `testDisabledFrame()` in `test/test_widgets.cpp`; the badge, the chip and
+  `testThrottleFillCorner()` in `test/test_ui.cpp`; and
+  `buttonCornersClear()` in `test/ui_ids.h`, which `checkControlTable()`
+  runs on every frame it reads, held by `testCornerWalk()` in
+  `test/test_ids.cpp`. The previews under `docs/` and `wiki/img/` are
+  rendered again. README.md and the wiki pages The Screens and Die
+  Bildschirme describe the corners.
+- After v0.1.0-rc1: SERVO TESTER's `STOP SWEEP` fits its button. The label
+  is 59 px wide at scale 1 and was drawn on a button 53 px wide, 3 px over
+  the frame at each side. `SWEEP` is 69 px wide, `MIN` and `MAX` 47 px and
+  `CENTRE` 49 px, at x 8, 59, 112 and 163; the row runs from x 8 to x 231 as
+  before, and a press counts on the new rectangles. `static_assert`s in
+  `src/ui_servo.cpp` hold every button label of the view 4 px or more inside
+  each side of its button, pressed too. Host test, mutation-checked:
+  `testColourRoles()` in `test/test_servo.cpp`.
 - After v0.1.0-rc1: a tool chosen on a chooser returns to that chooser, slice
   2 of [menu-c.md](docs/design/menu-c.md#slice-2-as-built), by owner decision
   7 of 2026-11-15. ESC SETTINGS and USB BRIDGE return to ESC CONFIG, KST
