@@ -24,6 +24,7 @@
 #include "sense.h"
 #include "servo_supply.h"
 #include "touch.h"
+#include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_leave.h"
@@ -232,6 +233,8 @@ enum class StartStep : uint8_t { None, Note, Open };
 static StartStep    s_startStep = StartStep::None;
 static UiLeave      s_leave;               /**< The leave page: its phase and its presses. */
 static bool         s_needLift = false;    /**< A STOP press is down; it starts and taps nothing. */
+/** @brief The touch-loss stop ended a run, and the touch has not answered since. */
+static bool         s_touchStop = false;
 static ServoStatus  s_st;                  /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;    /**< This frame's touch. */
 static bool         s_full = true;         /**< Repaint every region this frame. */
@@ -311,9 +314,13 @@ static bool supplyStarting() {
 /** @brief RUNNING with the pulses on: the dial and the buttons drive the servo. */
 static bool driving() { return s_st.running && live() && !supplyStarting(); }
 
-/** @brief HOLD TO START is live: SAFE, the pins bound, and the supply not refusing START. */
+/**
+ * @brief HOLD TO START is live: SAFE, the pins bound, the supply not
+ *        refusing START, and the touch controller answering (uiTouchLost()).
+ */
 static bool startAllowed() {
-	return live() && !s_st.running && s_st.startBlock == ServoStartBlock::None;
+	return live() && !s_st.running && s_st.startBlock == ServoStartBlock::None &&
+	       !uiTouchLost();
 }
 
 /**
@@ -537,16 +544,30 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
  * @brief The dial band's two notes while not RUNNING: the cause of a stop,
  *        a refused START, or what START does.
  *
- * First wins: a trip, by its cause (the heartbeat, a silent touch
- * controller, a stuck bus, a cut of supply_guard.h); with the switch, a
- * supply that did not come
- * up, then why START is refused (a current sensor not found, a stuck bus,
- * a silent touch controller), then the ESC warning; without it, CENTRE at
- * START and the throttle warning.
+ * First wins: a touch controller that does not answer (uiTouchLost()),
+ * which stops the servo and refuses START, its second line
+ * `THE SERVO IS STOPPED.` after it or core1's 250 ms cut (TouchSilent or the
+ * heartbeat) ended a run and HOLD TO START's wait otherwise; a log being
+ * prepared; a trip, by its cause (the heartbeat, a silent touch controller,
+ * a stuck bus, a cut of supply_guard.h); with the switch, a supply that did
+ * not come up, then why START is refused (a current sensor not found, a
+ * stuck bus, a silent touch controller), then the ESC warning; without it,
+ * CENTRE at START and the throttle warning.
  */
 static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	unsigned sig = gpioOf(PIN_SIG);
 	*ca = *cb = C_DIM;
+	if (uiTouchLost()) {
+		// The tester's note, and why the servo stopped or does not start.
+		snprintf(a, n, "%s", UI_TOUCH_LOST_TEXT);
+		// A run ended by either core's touch rule: core0's stop, or core1's
+		// 250 ms cut (TouchSilent, or the heartbeat when frames lag).
+		bool cut = s_st.tripped && (s_st.powerFault == ServoPowerFault::TouchSilent ||
+		                            s_st.powerFault == ServoPowerFault::None);
+		snprintf(b, n, "%s", s_touchStop || cut ? SERVO_UI_TOUCH_LOST_2 : SERVO_UI_TOUCH_WAIT_2);
+		*ca = C_AMBER;
+		return;
+	}
 	if (s_startStep != StartStep::None) {
 		snprintf(a, n, SERVO_UI_LOG_PREP_1);
 		snprintf(b, n, SERVO_UI_LOG_PREP_2);
@@ -871,8 +892,8 @@ static void position(uint16_t cmd, bool step = false) { send(ServoCmdKind::Posit
  *        touch: the open in the frame after the note was drawn, the Start in
  *        the frame after the open. Core1 judges the Start as any other, by
  *        the heartbeat and the touch stamp of this frame. With the pins gone
- *        no Start is sent, and the log is told the job's last seq, so it
- *        ends at once.
+ *        or the touch controller not answering (uiTouchLost()) no Start is
+ *        sent, and the log is told the job's last seq, so it ends at once.
  */
 static void startSteps() {
 	if (s_startStep == StartStep::Note) {
@@ -882,7 +903,7 @@ static void startSteps() {
 	}
 	if (s_startStep != StartStep::Open) return;
 	s_startStep = StartStep::None;
-	servoLogFollow(live() ? send(ServoCmdKind::Start) : s_st.ackSeq);
+	servoLogFollow(live() && !uiTouchLost() ? send(ServoCmdKind::Start) : s_st.ackSeq);
 }
 
 /** @brief BACK while a Start waits: no Start, and a log already open ends. */
@@ -1391,6 +1412,8 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Centre), BTN_CENTRE, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Max), BTN_MAX, run);
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Sweep), BTN_SWEEP, run);
+	// STOP stays live while running; HOLD TO START is refused, and drawn
+	// disabled, while the touch does not answer.
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Start), BTN_START,
 	             s_st.running || startAllowed());
 	uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Set), BTN_SET, true);
@@ -1416,6 +1439,7 @@ void uiServoEnter() {
 	uiHoldReset(&s_hold);
 	s_startStep = StartStep::None;
 	s_needLift = false;
+	s_touchStop = false;
 	s_sel = -1;
 	uiListInit(&s_list, SET_VIEW, SET_ROW_PITCH, SET_ROWS);
 	uiListSetBody(&s_list, SET_ROW_H, UI_LIST_TAP_MIN);
@@ -1429,6 +1453,18 @@ bool uiServoTick(const TouchState *t) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
 	servoJobStatus(&s_st);
+	// A touch that does not answer cannot press STOP, and a running servo,
+	// sweeping or at a position, has no other stop on this screen: stop it
+	// as STOP does, on either view. Sent every frame until the job reports it
+	// stopped.
+	if (s_st.running && uiTouchLost()) {
+		send(ServoCmdKind::Safe);
+		s_dragging = false;
+		s_needLift = true;
+		s_touchStop = true;
+	} else if (!uiTouchLost()) {
+		s_touchStop = false;
+	}
 	if (s_owed) applyProfile();
 	if (s_claimed) pinClaimPoll();
 	else if (s_view != View::Leave) claimPins();

@@ -523,6 +523,48 @@ throttle finger rests on the glass may not register: lift the throttle
 finger before DISARM. A wet screen, or a lead lying across the glass, can
 count as a contact and block every tap.
 
+The driver records whether and when the controller last answered
+(`touchAnswered()`, `touchAnsweredMs()`) and counts its failed finger
+reads in a row (`touchFailedReads()`). The
+touch counts as not answering (`uiTouchLost()`) when the controller has not
+answered since `touchInit()`, or when four or more reads in a row have
+failed and 100 ms or more (`TOUCH_LOST_MS`, four UI frames of 25 ms) have
+passed since the last answer. Both conditions together keep a core0 stall
+alone, a card write of 250 ms for instance, from counting: after a stall
+the next read is one failed read, not four. While it does not answer:
+
+- an armed tester disarms by the idle interlock's path: throttle 0, LATCH
+  off, the ESC told, the backlight dipped;
+- arming is refused, and HOLD TO ARM is drawn disabled, as while a USB host
+  holds the card;
+- `TOUCH NOT ANSWERING` replaces the swipe hint in amber, so `NO TELEMETRY`
+  on the line above stays visible; it takes the row from the 3D note too;
+- the servo tester stops a running servo as `STOP` does (see
+  [Servo tester](#servo-tester));
+- S.BUS OUTPUT stops its frames as `STOP` does (see
+  [S.BUS output](#sbus-output)).
+
+The other screens drive nothing a finger has to stop. ESC COMMANDS sends a
+beacon or a direction or 3D change with its save, which ends by itself; the
+servo programmers, ESC SETTINGS and the USB bridge read and write settings
+or firmware, each operation ends by itself (KST SERVO's search after 30 s),
+and a write is not cut. The USB bridge's PC decides what it sends, and with
+DShot off there is no motor to stop. S.BUS MONITOR, the angle meter,
+SETTINGS and SD LOG drive no output.
+
+The driver reports a finger up after two failed reads, 50 ms, so without
+this a latched throttle would run until the idle interlock, 30 s after the
+last touch. The shared bus's record in `src/sense.cpp` does not serve here:
+it counts timeouts and held lines, and a controller off the bus answers
+with a NACK (not acknowledged), which it does not count.
+
+Not measured: whether the CST328 answers its finger reads with no finger on
+the glass for minutes. Some controllers of its maker doze when idle and
+NACK until touched; this one would then disarm a motor latched by LATCH
+shortly after the finger lifts. Before this rule a NACK while idle read as
+"finger up", so earlier use on hardware does not answer it. The bench
+check is in STATUS.md, open item 23.
+
 **Button behaviour**
 
 Every button except DISARM acts on release and shows a pressed outline while
@@ -2029,6 +2071,16 @@ If the screen stalls for 250 ms (`UI_HEARTBEAT_TIMEOUT_MS`), core1 ends the
 pulses and the sweep, the chip reads `STALLED`, and nothing restarts until the
 next HOLD TO START.
 
+The servo tester has no idle stop, so a running servo, sweeping or holding a
+position, has STOP and BACK as its only stops, both by touch. When the touch
+controller does not answer (`uiTouchLost()`, the rule under "Touch"), the screen
+sends the command STOP sends, on the main view and on SET, and the dial reads
+`TOUCH NOT ANSWERING` until it answers, over `THE SERVO IS STOPPED.` when that
+stop or core1's 250 ms cut (the heartbeat, or the touch silent with the switched
+supply) ended a run and over `HOLD TO START WORKS ONCE IT ANSWERS.` otherwise;
+HOLD TO START is disabled meanwhile. The touch note comes before every other
+note of the dial, the log's included.
+
 The strip's caption names the pin by role and number, the frame rate and
 the travel, `SIG GP0  50 HZ  1000-2000 US`, and `SIG+AUX  50 HZ  1000-2000 US`
 with two servos. Where that would run within 4 px of the widest chip,
@@ -2072,8 +2124,12 @@ the [wiring diagram](#wiring-diagram) (decision 20 of
   below).
 - While the supply comes up the pulses wait at level 0 and MIN, CENTRE,
   MAX, SWEEP and the dial are drawn disabled; STOP acts.
-- The touch controller is the only way to STOP. A touch controller that has
-  not answered for 250 ms (`touchAnsweredMs()`), or the shared I2C bus marked
+- The touch controller is the only way to STOP. While the UI frames run
+  every 25 ms, the screen's own stop on a touch that does not answer
+  (above) acts first, at 100 ms, by STOP's path: the supply goes off as at
+  STOP, with no trip. Behind it, on core1, a touch controller that has
+  not answered for 250 ms (`touchAnsweredMs()`), which UI frames slower than
+  about 62 ms reach before four failed reads, or the shared I2C bus marked
   stuck by the sensor, switches the supply off while RUNNING: the chip reads
   `STALLED`, the dial `STOPPED: TOUCH DID NOT ANSWER` or
   `STOPPED: TOUCH BUS STUCK`. Either refuses HOLD TO START while it lasts;
@@ -2198,6 +2254,8 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   and the frame after it sends the Start, with the heartbeat stamped and touch
   read afresh, so core1 takes it however long the open held core0. Without a
   sensor or a card the Start goes out in the frame of the hold, as before.
+  With the pins gone or the touch controller not answering in the Start's
+  frame no Start goes out, and the log ends at once.
 - The open reserves 4 MiB in one run of the card (`SERVO_LOG_PREALLOC_BYTES`,
   about an hour of rows), or 64 KiB on a card without that run free; less is `NO
   LOG: NO 64 KIB IN ONE PIECE`. The free count from the card's FSINFO comes
@@ -3068,6 +3126,11 @@ What the rows' area shows in place of the channels:
   with `STOPPED: NO TOUCH FOR 30 S.`. An FC armed through a switch channel
   idles its motors with the throttle at its stop. On the START frame the
   frames go on.
+- **The touch controller does not answer** (`uiTouchLost()`, the rule
+  under "Touch"), on the main view or on SET: STOP's command, so the frames
+  stop at about 100 ms, `STOPPED: TOUCH DID NOT ANSWER`, and HOLD TO START
+  is drawn disabled until the controller answers. The note stays until the
+  next HOLD TO START.
 
 **SET** (`OUTPUT SET`) holds the rows that are not dragged, changed with the
 editor's `-` and `+`, each at once:
@@ -3803,7 +3866,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,009 of 16,271 lines in 96 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 15,982 of 16,244 lines in 96 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

@@ -121,7 +121,9 @@ example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
 (electrical RPM) the ESC (electronic speed controller) reports and the pole
 count. The `ERPM` value and the pole count, for example `14 POLES`, are shown
 below it. Green digits: eRPM arrived within the last 500 ms. Dark red zero: it
-did not, and the line reads `NO TELEMETRY`.
+did not, and the line reads `NO TELEMETRY`. The row under it, right, is the
+swipe hint: `SWIPE = THROTTLE`, or `SWIPE ACTIVE` while a swipe moves the
+throttle.
 
 **RPM/V and the kV estimate.** While armed, the `ERPM` line also reads
 `RPM/V`, the RPM divided by the ESC's supply voltage, the value of the
@@ -180,9 +182,10 @@ left half written), or after `3D ON` on
 reads `3D MODE ESC: 0-50% REVERSED AT 2X` in amber, in place of the pole count
 and the swipe hint, armed or not; `NO TELEMETRY` stays on its own line above
 it. While a swipe on the pad is engaged, `SWIPE ACTIVE` in green takes the
-row, and the note returns on release. In 3D mode the tester's 0 to 50 % runs
-the motor the reverse of its set direction at twice the throttle, so 50 % is
-full power reversed; above 50 % it runs the set direction from low. Keep the
+row, and the note returns on release; `TOUCH NOT ANSWERING` (Touch, below)
+takes it too, until the controller answers. In 3D mode the tester's 0 to 50 %
+runs the motor the reverse of its set direction at twice the throttle, so 50 %
+is full power reversed; above 50 % it runs the set direction from low. Keep the
 propeller off. Arming is not refused on it. The note does not know that the
 ESC on the pin was swapped for another one; only a verified write or a list
 read with 3D MODE off or DIRECTION at NORMAL or REVERSED, or a restart,
@@ -231,6 +234,22 @@ glass is not measured, so a press made while the throttle finger rests on
 the glass may not register. Lift the throttle finger before pressing
 `DISARM`. A wet screen, or a lead lying across the glass, can count as a
 finger and block every tap.
+
+When the touch controller has missed four reads in a row and has not
+answered for 100 ms or more, `TOUCH NOT ANSWERING` in amber replaces the
+swipe hint; `NO TELEMETRY` keeps its line. While it shows, the tester cannot
+be armed, `HOLD TO ARM` is drawn as an outline, and an armed tester
+disarms: the throttle goes to zero and `LATCH` goes off, as when the idle
+interlock disarms. The note goes when the controller answers again; the
+tester stays disarmed. SERVO TESTER and S.BUS OUTPUT stop on the same rule
+(below).
+
+Not measured: whether the touch controller keeps answering with no finger
+on the glass for minutes. If it does not, this note would appear and a
+motor latched with `LATCH` would stop shortly after the finger lifts. The
+bench check is listed in STATUS.md in the repository, open item 23.
+
+<img src="img/tester-touch-lost.png" width="240" alt="The tester with TOUCH NOT ANSWERING in amber under the RPM readout">
 
 ---
 
@@ -559,7 +578,10 @@ Drives one or two servos with servo pulses on SIG and AUX, the ESC and KISS
 pins. The strip names them, `SIG GP0  50 HZ  1000-2000 US`, or
 `SIG+AUX  50 HZ  1000-2000 US` with two servos. It opens SAFE;
 `HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
-touch. While SAFE with one servo, the readout reads `TWO SERVOS:` and
+touch. When four reads of the touch controller in a row have failed, over
+100 ms or more, a running servo stops as on `STOP`, the dial reads
+`TOUCH NOT ANSWERING` until it answers again, and `HOLD TO START` is drawn
+as an outline. While SAFE with one servo, the readout reads `TWO SERVOS:` and
 `SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
 `GP28` or `GP29` the screen switches the converter: on at `HOLD TO START`,
 off at `STOP`, at a stall and at `BACK`. The strip's second line says where
@@ -646,8 +668,10 @@ Sends S.BUS frames on GP0 to a flight controller, never to an ESC: 16
 channels on sliders over two pages, and on SET the throttle channel, CH17,
 CH18 and the failsafe and frame-lost flags. It takes GP0 from DShot, then
 checks it for an ESC's bootloader before `HOLD TO START` is offered. The
-throttle channel stops at MAX THROTTLE's ceiling. `STOP`, a stalled screen
-and 30 s without touch away from the first frame stop the frames. `BACK`
+throttle channel stops at MAX THROTTLE's ceiling. `STOP`, a stalled screen,
+30 s without touch away from the first frame, and a touch controller that
+does not answer, as on the tester, stop the frames; the last reads
+`STOPPED: TOUCH DID NOT ANSWER`. `BACK`
 opens the leave page at `1 UNPLUG THE FLIGHT CONTROLLER.`; `BACK TO OUTPUT`
 checks GP0 again, and `RESTART DSHOT` returns to `MENU`. See
 [RX Signals](RX-Signals).

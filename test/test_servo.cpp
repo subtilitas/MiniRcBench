@@ -3294,6 +3294,103 @@ static void testButtonsAndSweep() {
 	leaveServo();
 }
 
+/**
+ * @brief A touch that does not answer stops a running servo as STOP does,
+ *        sweeping or at a position, on either view; HOLD TO START waits for
+ *        an answer.
+ */
+static void testTouchLossStops() {
+	section("Servo screen: a touch that does not answer stops the servo");
+
+	freshUi();
+	openServo();
+	holdStart();
+	tapId(UI_FIX(ServoCtl::Sweep)); core1();
+	ServoStatus st;
+	servoJobStatus(&st);
+	checkTrue("sweeping", st.running && st.sweeping);
+
+	fakeTouchAnswers(false);
+	uiFrames(3);
+	servoJobStatus(&st);
+	checkTrue("75 ms without an answer: still sweeping", st.running && st.sweeping);
+	uiFrames(1); core1();
+	servoJobStatus(&st);
+	checkTrue("100 ms: stopped, as STOP stops it", !st.running && !st.sweeping);
+	uiFrames(2);
+	checkInt("no pulses", fakePin(0).level, 0);
+	checkTrue("TOUCH NOT ANSWERING in amber on the dial band",
+	          fakeTextCentredIs(64, UI_TOUCH_LOST_TEXT, C_AMBER, C_BG, 1));
+	checkTrue("HOLD TO START is drawn disabled", fillOf(ctlRect(UI_FIX(ServoCtl::Start))) == C_BG);
+	checkTrue("the run ended: THE SERVO IS STOPPED.",
+	          fakeTextCentredIs(76, SERVO_UI_TOUCH_LOST_2, C_DIM, C_BG, 1));
+
+	fakeTouchAnswers(true);
+	uiFrames(2);
+	servoJobStatus(&st);
+	checkTrue("answering again: the note goes, still stopped",
+	          !fakeTextCentredIs(64, UI_TOUCH_LOST_TEXT, C_AMBER, C_BG, 1) && !st.running);
+
+	// Holding a position, on SET.
+	holdStart();
+	tapId(UI_FIX(ServoCtl::Max)); core1();
+	openSet();
+	servoJobStatus(&st);
+	checkTrue("at MAX, SET open", st.running && fakePin(0).level == 2000);
+	fakeTouchAnswers(false);
+	uiFrames(4); core1();
+	servoJobStatus(&st);
+	checkTrue("a position on SET: stopped too", !st.running);
+	fakeTouchAnswers(true);
+	uiFrames(1);
+	backFromSet();
+
+	// The start refusal itself: a driver that still reports the finger while
+	// the controller counts as lost does not start the servo.
+	fakeTouchAnswers(false);
+	uiFrames(4);
+	int sx, sy;
+	ctlCentre(UI_FIX(ServoCtl::Start), &sx, &sy);
+	// The touch-loss stop would undo a start a frame later; the pin's level
+	// writes show whether one happened at all.
+	const int writes = fakePin(0).levelWrites;
+	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled);
+	fakeHold(sx, sy); frameAt(UI_HOLD_MS);
+	fakeRelease(); uiFrames(1);
+	core1();
+	servoJobStatus(&st);
+	checkTrue("HOLD TO START held while lost: not running", !st.running);
+	checkInt("not even for a frame: no pulse level written", fakePin(0).levelWrites, writes);
+	fakeTouchAnswers(true);
+	uiFrames(2);
+	holdStart();
+	servoJobStatus(&st);
+	checkTrue("answering: HOLD TO START starts", st.running);
+	pressId(UI_FIX(ServoCtl::Start)); core1();
+	fakeRelease(); uiFrames(1);
+
+	// Core0 stalls 260 ms with the touch silent: core1's heartbeat trip ends
+	// the run before core0 counts the touch as lost.
+	holdStart();
+	servoJobStatus(&st);
+	checkTrue("running again", st.running);
+	fakeTouchAnswers(false);
+	fakeAdvance(260);
+	core1();
+	servoJobStatus(&st);
+	checkTrue("260 ms stall: the heartbeat trip, no fault named",
+	          !st.running && st.tripped && st.powerFault == ServoPowerFault::None &&
+	          !uiTouchLost());
+	uiFrames(4);
+	checkTrue("lost on core0 after the trip: TOUCH NOT ANSWERING",
+	          uiTouchLost() && fakeTextCentredIs(64, UI_TOUCH_LOST_TEXT, C_AMBER, C_BG, 1));
+	checkTrue("the trip ended the run: THE SERVO IS STOPPED.",
+	          fakeTextCentredIs(76, SERVO_UI_TOUCH_LOST_2, C_DIM, C_BG, 1));
+	fakeTouchAnswers(true);
+	uiFrames(2);
+	leaveServo();
+}
+
 /** @brief Two servos: SERVOS TWO on SET, the selector, REVERSE B. */
 static void testTwoServos() {
 	section("Servo screen: two servos, the selector and REVERSE B");
@@ -4796,7 +4893,7 @@ static void testSupplyLineAndHint() {
 	const char *band[] = { b1, SERVO_UI_ESC_2, SERVO_UI_NO_START_1, b2, SERVO_UI_NO_SENSOR_1,
 	                       SERVO_UI_NO_SENSOR_2, SERVO_UI_TOUCH_SILENT, SERVO_UI_BUS_STUCK,
 	                       SERVO_UI_BUS_WAIT_1, SERVO_UI_BUS_WAIT_2, SERVO_UI_TOUCH_WAIT_1,
-	                       SERVO_UI_TOUCH_WAIT_2 };
+	                       SERVO_UI_TOUCH_WAIT_2, SERVO_UI_TOUCH_LOST_2 };
 	for (const char *t : band) checkTrue(t, gfxTextW(t, 1) <= GFX_W - 2 * UI_MARGIN);
 	settings()->servoSupply = 0;
 	servoSupplyConfigure(0);
@@ -4903,19 +5000,48 @@ static void testSupplyScreenFaults() {
 	          notesAre(SERVO_UI_NO_START_1, C_AMBER, b2, C_DIM));
 	checkTrue("the chip says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
 
-	// The touch controller stops answering while the supply is on.
+	// The touch controller stops answering while the supply is on, UI frames
+	// 25 ms apart: core0's stop (uiTouchLost()) at four failed reads and
+	// 100 ms, by STOP's path, before core1's 250 ms cut.
 	holdStartFrames();
 	senseFrames(ina, 3);
 	checkTrue("on", fakePin(28).high && fakePin(SIG).level == 1500);
 	fakeTouchAnswers(false);
-	senseFrames(ina, 9);
-	checkTrue("225 ms silent: on", fakePin(28).high);
+	senseFrames(ina, 3);
+	checkTrue("75 ms silent: on", fakePin(28).high);
 	senseFrames(ina, 2);
+	checkTrue("100 ms: STOP's path: the enable pin low, level 0, no trip, the touch note",
+	          !fakePin(28).high && fakePin(SIG).level == 0 && !s_st.running && !s_st.tripped &&
+	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_LOST_2, C_DIM));
+	checkTrue("HOLD TO START refused while silent", !ctlEnabled(UI_FIX(ServoCtl::Start)));
+	fakeTouchAnswers(true);
+	senseFrames(ina, 2);
+	checkTrue("touch back: START live", ctlEnabled(UI_FIX(ServoCtl::Start)));
+
+	// UI frames 100 ms apart: two failed reads, not yet lost on core0, when
+	// the touch stamp reaches 250 ms on core1: the job's own cut.
+	holdStartFrames();
+	senseFrames(ina, 3);
+	checkTrue("on again", fakePin(28).high && fakePin(SIG).level == 1500);
+	fakeTouchAnswers(false);
+	followEn(ina, 28); frameAt(100);
+	followEn(ina, 28); frameAt(100);
+	checkTrue("200 ms, two failed reads: on", fakePin(28).high && !uiTouchLost());
+	fakeAdvance(50);
+	core1();
+	followEn(ina, 28); frameAt(25);
 	checkTrue("250 ms: the enable pin low, level 0, STALLED with the cause",
 	          !fakePin(28).high && fakePin(SIG).level == 0 && s_st.tripped &&
+	          !uiTouchLost() &&
 	          pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_MAGENTA &&
 	          notesAre(SERVO_UI_TOUCH_SILENT, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
 	checkTrue("HOLD TO START refused while silent", !ctlEnabled(UI_FIX(ServoCtl::Start)));
+	// The fourth failed read, 100 ms on: lost on core0 too, after core1's cut
+	// ended the run. Its note says the servo is stopped.
+	followEn(ina, 28); frameAt(100);
+	checkTrue("lost on core0 after core1's cut: the touch note, THE SERVO IS STOPPED.",
+	          uiTouchLost() && s_st.tripped && !s_st.running && !fakePin(28).high &&
+	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_LOST_2, C_DIM));
 	fakeTouchAnswers(true);
 	senseFrames(ina, 2);
 	checkTrue("touch back: START live, the cause kept",
@@ -4947,14 +5073,26 @@ static void testSupplyScreenFaults() {
 	          notesAre(SERVO_UI_BUS_WAIT_1, C_AMBER, SERVO_UI_BUS_WAIT_2, C_DIM));
 	fakeI2cHoldSda(false);
 	senseFrames(ina, 80);
+	// Frames 100 ms apart again: core1 refuses START at 250 ms, core0 does
+	// not count the touch as lost yet.
 	fakeTouchAnswers(false);
-	senseFrames(ina, 11);
+	followEn(ina, 28); frameAt(100);
+	followEn(ina, 28); frameAt(100);
+	fakeAdvance(60);
+	followEn(ina, 28); frameAt(25);
 	s_st.tripped = false;
 	s_full = true;
 	drawDial();
 	checkTrue("SAFE, touch silent: START WAITS: TOUCH DOES NOT ANSWER.",
-	          s_st.startBlock == ServoStartBlock::TouchSilent &&
+	          s_st.startBlock == ServoStartBlock::TouchSilent && !uiTouchLost() &&
 	          notesAre(SERVO_UI_TOUCH_WAIT_1, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+	followEn(ina, 28); frameAt(25);
+	s_st.tripped = false;
+	s_full = true;
+	drawDial();
+	checkTrue("four failed reads: lost on core0 too, its note first; no run ended: START waits",
+	          s_st.startBlock == ServoStartBlock::TouchSilent && uiTouchLost() &&
+	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
 	fakeTouchAnswers(true);
 	senseFrames(ina, 2);
 
@@ -5047,6 +5185,17 @@ static void testCutScreens() {
 	          notesAre(SERVO_UI_CUT_HARD, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
 	checkTrue("HOLD TO START live", ctlEnabled(UI_FIX(ServoCtl::Start)));
 	fakeDumpFrame("shot_servo_overcurrent.ppm");
+	// The guard's cut ended the run, not the touch: a touch lost after it
+	// shows HOLD TO START's wait, not THE SERVO IS STOPPED.
+	fakeTouchAnswers(false);
+	senseFrames(ina, 5);
+	checkTrue("lost after OVERCURRENT: the wait, not THE SERVO IS STOPPED.",
+	          uiTouchLost() && s_st.powerFault == ServoPowerFault::Overcurrent &&
+	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+	fakeTouchAnswers(true);
+	senseFrames(ina, 2);
+	checkTrue("answering again: the cause in magenta again",
+	          notesAre(SERVO_UI_CUT_HARD, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
 	ina->currentA = 0;
 	holdStartFrames();
 	senseFrames(ina, 3);
@@ -5352,6 +5501,48 @@ static void testLogStartOrder() {
 		uiFrames(2);
 		leaveServo();
 	}
+	// The touch lost while the Start waits: the touch note over the log's,
+	// no Start, the log told to end. Three failed reads on record and 100 ms
+	// make the open's frame the 4th failed read, lost.
+	{
+		freshUi();
+		settings()->servoSupply = 0;
+		servoSupplyConfigure(0);
+		ServoLogStatus lg = {};
+		lg.active = true;
+		fakeServoLogSet(&lg);
+		fakeServoLogOpen(true, 800);
+		openServo();
+		uiFrames(2);
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+		pressId(UI_FIX(ServoCtl::Start));
+		for (int i = 0; i < 80 && s_startStep == StartStep::None; i++) { fakeHold(x, y); uiFrames(1); }
+		fakeRelease();
+		fakeTouchAnswers(false);
+		fakeTouchFails(3);
+		fakeAdvance(100);
+		uiFrames(1);
+		checkTrue("lost in the open's frame: opened, the touch note over the log's",
+		          s_startStep == StartStep::Open && uiTouchLost() &&
+		          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+		ServoStatus st;
+		servoJobStatus(&st);
+		uint16_t ack = st.ackSeq;
+		uiFrames(1);
+		core1();
+		servoJobStatus(&st);
+		FakeServoLogCalls c = fakeServoLogCalls();
+		checkTrue("the Start's frame: no Start, the log given the last seq",
+		          uiTouchLost() && !st.running && c.follows == 1 && c.seq == ack &&
+		          s_startStep == StartStep::None);
+		checkTrue("the touch note stays, START waits",
+		          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+		fakeTouchAnswers(true);
+		uiFrames(2);
+		leaveServo();
+	}
+
 	// BACK between the open and the Start: no Start, the log told to end.
 	freshUi();
 	settings()->servoSupply = 0;
@@ -5688,6 +5879,7 @@ void runServoTests() {
 	testStartNeedsLivePress();
 	testHorn();
 	testButtonsAndSweep();
+	testTouchLossStops();
 	testTwoServos();
 	testAuxRefused();
 	testEscAnswering();

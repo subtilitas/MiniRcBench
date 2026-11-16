@@ -423,6 +423,7 @@ record either way.
 | --- | --- | --- |
 | DShot driver in `src/dshot/` (from rcbench 453cf334): frame, reply decode, three-state poll, RP2350 pin driver | frame and checksum, throttle map, line and group code, sampler against clock error, extended telemetry schedule against an AM32 model, three-state poll and the counters it feeds; the pin driver is compiled only | not tested on hardware in MiniRcBench. rcbench ran it at bidirectional DShot600 on one AM32 2.21 ESC (Skystars 35A); other rates and ESC firmwares are untested |
 | Bidirectional DShot throttle, eRPM and RPM readout | core1 frame decision, throttle and arming interlocks, HOLD TO ARM timing only a press that landed while arming was allowed, RPM smoothing | hardware-tested (owner report) with `pico-bidir-dshot`, the driver before `src/dshot/`; the owner has found no bug since DshotDisplay v2.3, and issue #1 is a separate, unreproduced report; the HOLD TO ARM press rule is not tested on hardware |
+| The stop on a touch that does not answer (`touchFailedReads()`, `touchAnsweredMs()`, `uiTouchLost()`, `TOUCH_LOST_MS`): the tester, SERVO TESTER and S.BUS OUTPUT | against a touch fake that stops answering and still reports the scripted finger: a latched throttle kept armed for 1, 2 and 3 failed reads and disarmed on the 4th, also after a 150 ms stall, and kept armed for 9 failed reads 10 ms apart and disarmed at 100 ms; LATCH off; HOLD TO ARM refused, with no arm even for a frame, and drawn disabled while lost; the note in the swipe hint's place with NO TELEMETRY kept, gone on an answer with the tester still disarmed; the servo tester stopped sweeping and holding a position on SET, its note, HOLD TO START refused, with no pulse written, and disabled; with the switched supply the stop at 100 ms by STOP's path, no trip, and core1's 250 ms cut (`STOPPED: TOUCH DID NOT ANSWER`) and `START WAITS: TOUCH DOES NOT ANSWER.` with UI frames 100 ms apart, before four failed reads; S.BUS OUTPUT's frames running at 75 ms and STOP's command at 100 ms, no frame after it, no trip, `STOPPED: TOUCH DID NOT ANSWER` kept until START, HOLD TO START refused and disabled while lost, a 1.1 s hold while lost sending no Start and no byte in any frame, the stop on SET; the servo tester's touch note over the log's, `THE SERVO IS STOPPED.` after a run, also after core1's cut ended it (the touch silent with frames 100 ms apart; the heartbeat after a 260 ms stall), and `HOLD TO START WORKS ONCE IT ANSWERS.` without one and after a guard's cut (Overcurrent with the switched supply), a Start waiting for a log not sent when the touch is lost in its frame; the real driver against the CST328 model: the answer's time frozen at the last ACK while it NACKs, failures counted and held at 255, cleared by an answer and started at 0 by `touchInit()`; mutation-checked (CHANGELOG 0.1.0) | not tested on hardware; open item 23 |
 | The splash's `TOUCH CONTROLLER NOT FOUND` (`touchAnswered()` in `src/cst328.cpp`, `uiSplashTick()`) and the BOARD voltage's colour (`uiBoardCell()`) | against a touch fake that stops answering: the splash line at boot without an answer, kept while none comes, cleared by one; a finger on the glass from the splash on does not arm, and its lift completes a tap on MENU; the real driver against the CST328 model: a probe with another ID records no answer, a finger read that completes records one, `touchInit()` starts the record again; each band edge, the centivolt rounding at 3.50 V and 3.30 V, the 50 mV hysteresis, the text colour below 2.50 V and at 0 V and red again from 2.55 V, drawn through the ADC fake; IDLE's countdown in amber in place of an amber voltage; the KST, Hitec and AM32 write and the KST and Hitec restore refused while red, at the hold and after a flush that ended red, with no file and no frame, and written while amber, below 2.50 V and in the text colour (`testBoardLow()`, `testAm32BoardLow()`) | not tested on hardware; open item 22 |
 | EDT telemetry, automatic enable, expiry | merge, expiry, enable rule, decode of each frame type; enable at pump start and decode with EDT on against a simulated ESC, with and without EDT | hardware-tested (owner report) with `pico-bidir-dshot`; the enable at pump start and the decode of every reply with EDT on are not tested on hardware |
 | ESC command slot on core1 (`src/esc_task.h`, slice 1 of [esc-commands.md](docs/design/esc-commands.md#slice-1-as-built)): beacons 1 to 5, 12, and 7 to 10 with 12 after them | the frames of a sequence and their telemetry bit, the reply check of frames 1 to 6 of each block, the guards (armed, no answer, eRPM, the 1500 ms settle, the 2000 ms wait), the EDT enable's order, the gaps, the `millis()` wrap, a request dropped by a teardown, a cut sequence keeping its outcome, against AM32, Bluejay and BLHeli_S models read from source | not tested on hardware: no command of the slot has gone to an ESC from this board |
@@ -508,9 +509,11 @@ ports the first branch's frame slot and ring.
 
 ## Next steps
 
-The draft pull request #49, the touch-loss stop of item 23, waits for a bench
-check. The open pull requests were read from the GitHub REST (Representational
-State Transfer) API (application programming interface) on 2026-11-15.
+Pull request #49, the touch-loss stop of item 23, is merged before its bench
+check by the owner's decision of 2026-11-15 and is in 0.1.0; its bench test,
+OI-23, stays in the bench plan. The open pull requests were read from the
+GitHub REST (Representational State Transfer) API (application programming
+interface) on 2026-11-15.
 
 The release: by the owner's decision of 2026-11-15, 0.1.0 is released before
 the bench checks, in place of a second pre-release; the decision of 2026-11-14,
@@ -881,20 +884,21 @@ criteria; none has run.
     the divider on GP27 reads with USB power and no cell, and the CST328's
     answers to its probe and its finger reads on a board whose controller
     is missing or slow to start.
-23. **The touch-loss stop waits for a bench check.** Pull request #49
-    disarms the tester and stops the servo tester when the touch controller
-    does not answer for 4 reads in a row and 100 ms. It is not merged. Not
-    known: whether the CST328 answers reads while no finger is on the glass
-    for minutes. If it does not, the change disarms a motor latched at a
-    throttle after the finger lifts. The check, with that branch's firmware:
+23. **The touch-loss stop on hardware.** The tester disarms, SERVO
+    TESTER stops the servo and S.BUS OUTPUT stops its frames when the touch
+    controller does not answer for 4 reads in a row and 100 ms
+    (`uiTouchLost()`). It runs in the host suite only. Not known: whether
+    the CST328 answers reads while no finger is on the glass for minutes.
+    If it does not, the stop disarms a motor latched at a throttle after
+    the finger lifts. The check, OI-23 in
+    [docs/bench-plan.md](docs/bench-plan.md):
     - power up and leave the tester untouched for 5 minutes:
       `TOUCH NOT ANSWERING` does not appear;
-    - propeller off, arm with the latch on (HOLD on that branch, LATCH on
-      `main`) at a low throttle and lift the finger:
-      the motor runs until DISARM or the 30 s idle disarm.
+    - propeller off, arm with LATCH on at a low throttle and lift the
+      finger: the motor runs until DISARM or the 30 s idle disarm.
 
-    Until then a controller that stops answering leaves a latched motor
-    running until the idle disarm, 30 s after the last contact.
+    Revised by the owner's decision of 2026-11-15: pull request #49 is
+    merged before this bench check and is in 0.1.0. The check stays open.
 24. **Five owner decisions on existing screens, taken on 2026-11-14.**
     All five are built.
     - **AM32 3D MODE**, built. The tester shows `3D MODE ESC: 0-50%
@@ -1179,8 +1183,8 @@ criteria; none has run.
     172 + 1639 × MAX THROTTLE / 2000, raw 499 (1200 µs) at the default;
     CH17, CH18 and the failsafe and frame-lost bits on SET; frames stop on
     STOP, BACK, a heartbeat lapse, more than 30 s without touch with the
-    throttle or a switch channel off its START value, and touch loss once
-    pull request #49 is merged (item 23). Read from source, not run on an
+    throttle or a switch channel off its START value, and a touch that does
+    not answer (item 23). Read from source, not run on an
     ESC: AM32 2.22 and Bluejay 0.21 take no throttle from an S.BUS line.
     BLHeli_S 16.7 may detect it as Multishot; in a model of the line, with
     channel 16 at 1500 µs or CH17 on, it calibrates a 140 µs throttle range
@@ -1504,7 +1508,7 @@ model.
 | `src/clock.h` | 14 | 14 | 100.0% |
 | `src/clock_line.cpp` | 64 | 63 | 98.4% |
 | `src/core1_job.cpp` | 70 | 70 | 100.0% |
-| `src/cst328.cpp` | 69 | 69 | 100.0% |
+| `src/cst328.cpp` | 74 | 74 | 100.0% |
 | `src/diag.cpp` | 31 | 31 | 100.0% |
 | `src/dshot/dshot_edt.c` | 33 | 33 | 100.0% |
 | `src/dshot/dshot_frame.c` | 25 | 25 | 100.0% |
@@ -1539,7 +1543,7 @@ model.
 | `src/sbus_job.cpp` | 109 | 109 | 100.0% |
 | `src/sbus_job.h` | 5 | 5 | 100.0% |
 | `src/sbus_out_job.cpp` | 282 | 282 | 100.0% |
-| `src/sbus_out_view.cpp` | 77 | 77 | 100.0% |
+| `src/sbus_out_view.cpp` | 79 | 79 | 100.0% |
 | `src/sbus_view.cpp` | 73 | 73 | 100.0% |
 | `src/sd_log.h` | 37 | 37 | 100.0% |
 | `src/sdio/sd_cache.c` | 166 | 163 | 98.2% |
@@ -1555,7 +1559,7 @@ model.
 | `src/supply_guard.cpp` | 41 | 41 | 100.0% |
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
-| `src/ui.cpp` | 538 | 537 | 99.8% |
+| `src/ui.cpp` | 542 | 541 | 99.8% |
 | `src/ui.h` | 1 | 1 | 100.0% |
 | `src/ui_am32.cpp` | 1179 | 1152 | 97.7% |
 | `src/ui_angle.cpp` | 360 | 355 | 98.6% |
@@ -1571,10 +1575,10 @@ model.
 | `src/ui_menu.cpp` | 118 | 117 | 99.2% |
 | `src/ui_rx_signals.cpp` | 49 | 49 | 100.0% |
 | `src/ui_sbus.cpp` | 235 | 234 | 99.6% |
-| `src/ui_sbus_out.cpp` | 469 | 467 | 99.6% |
+| `src/ui_sbus_out.cpp` | 472 | 470 | 99.6% |
 | `src/ui_screen.h` | 8 | 8 | 100.0% |
 | `src/ui_sdlog.cpp` | 254 | 250 | 98.4% |
-| `src/ui_servo.cpp` | 742 | 742 | 100.0% |
+| `src/ui_servo.cpp` | 758 | 758 | 100.0% |
 | `src/ui_servo_prog.cpp` | 65 | 65 | 100.0% |
 | `src/ui_settings.cpp` | 444 | 439 | 98.9% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
@@ -1583,7 +1587,7 @@ model.
 | `src/usb_bridge.cpp` | 356 | 351 | 98.6% |
 | `src/usb_dev.cpp` | 37 | 35 | 94.6% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **16271** | **16009** | **98.4%** |
+| **Total** | **16244** | **15982** | **98.4%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

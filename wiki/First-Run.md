@@ -154,6 +154,11 @@ on a button that acts on release, such as `LATCH` or `MENU`; on `14 POLES`
 or `MAX 20%` its lift opens SETTINGS. If you touched the screen at power-up,
 lift the finger before `HOLD TO ARM`.
 
+If the touch controller stops answering while the tester is armed, the
+tester disarms once four reads in a row have failed over 100 ms or more,
+sets the throttle to zero, turns `LATCH` off and shows
+`TOUCH NOT ANSWERING`.
+
 ---
 
 ## Giving it throttle

@@ -639,7 +639,7 @@ static void testTouchBeside() {
  * @brief The touch driver's answer record against the CST328 model: a probe
  *        that reads another ID records none, a finger read that completes
  *        records one, a NACKing controller records none, and touchInit()
- *        starts the record again.
+ *        starts the record again, its failed reads at 0.
  */
 static void testTouchAnswerRecord() {
 	section("Touch: the driver's answer record");
@@ -670,6 +670,50 @@ static void testTouchAnswerRecord() {
 	cst::touchPoll(&ts);
 	checkTrue("a NACKed read records none", !cst::touchAnswered());
 	checkInt("the stamp stays at the last answer", cst::touchAnsweredMs(), found);
+	cst::touchPoll(&ts);
+	cst::touchPoll(&ts);
+	checkInt("three NACKed reads counted", cst::touchFailedReads(), 3);
+	checkTrue("no part again: touchInit() fails", !cst::touchInit());
+	checkInt("and starts the failed reads at 0", cst::touchFailedReads(), 0);
+	fakeI2cReset();
+}
+
+/**
+ * @brief The time of the touch driver's last answer and its failed reads in
+ *        a row against the CST328 model: the time freezes while the
+ *        controller NACKs, the failures count and are held at 255, an answer
+ *        moves the time and clears the count.
+ */
+static void testTouchAnswerTime() {
+	section("Touch: the last answer's time and the failed reads");
+	senseConfigure(0);
+	fakeI2cReset();
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	checkTrue("found", cst::touchInit());
+	checkTrue("the probe's time", cst::touchAnsweredMs() == millis());
+	TouchState ts;
+	memset(&ts, 0, sizeof(ts));
+	fakeAdvance(25);
+	cst::touchPoll(&ts);
+	uint32_t ack = millis();
+	checkTrue("a finger read: now, no failures",
+	          cst::touchAnsweredMs() == ack && cst::touchFailedReads() == 0);
+
+	fakeI2cRemove(CST328_I2C_ADDR);
+	for (int i = 1; i <= 5; i++) {
+		fakeAdvance(25);
+		cst::touchPoll(&ts);
+	}
+	checkTrue("NACKing: the time stays at the last ACK", cst::touchAnsweredMs() == ack);
+	checkInt("five failed reads counted", cst::touchFailedReads(), 5);
+	for (int i = 0; i < 300; i++) cst::touchPoll(&ts);
+	checkInt("held at 255", cst::touchFailedReads(), 255);
+
+	fakeI2cAddCst328(CST328_I2C_ADDR);
+	fakeAdvance(25);
+	cst::touchPoll(&ts);
+	checkTrue("back: the time moves, the count is 0",
+	          cst::touchAnsweredMs() == millis() && cst::touchFailedReads() == 0);
 	fakeI2cReset();
 }
 
@@ -956,6 +1000,7 @@ void runSenseTests() {
 	testReadoutText();
 	testTouchBeside();
 	testTouchAnswerRecord();
+	testTouchAnswerTime();
 	testArbitrationLost();
 	testFrameTime();
 	testReadAbortStop();
