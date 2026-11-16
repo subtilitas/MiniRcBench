@@ -1021,7 +1021,7 @@ Host tests:
     (`framesNoPump()`), so it stays Stopping. BACK: `pinClaimEnd()`
     restores at once (`src/pin_claim.cpp` 191 to 194), no job starts,
     `bridgeWireBinds()` does not move, no leave page: the cue is clear.
-- The log: a frame with an eRPM older than 500 ms logs 0; a fresh one logs
+- The log: a frame with an eRPM 500 ms or older logs 0; a fresh one logs
   its value (`make -C test lognum` and the blackbox checker).
 - #49's cases pass unchanged.
 
@@ -1104,11 +1104,21 @@ Where the build chose, the note being silent or the safer reading taken:
   once more, clears the cue only with the flag clear, and ends the claim's
   watch, so a second BACK of the same screen changes nothing.
   `usbBridgeRunCueClear()` ends it too.
+- **A cue that stands at a claim.** Found in review after the first push:
+  decision 13's `usbBridgeRunCueSet()` cleared the flag at each claim. A
+  first claim whose ESC byte kept the cue, then a second claim ended before
+  its bind, BACK with no leave page, cleared the cue an ESC in its
+  bootloader still needed. `usbBridgeRunCueSet()` now sets the flag to
+  whether the cue already stands (`s_escSeen = s_cue;` before
+  `s_cue = true;`): the settle clears only a cue this claim raised.
+  Decision 13 carries a "Revised by" line. The rule on the counts is
+  `usbBridgeEscByteSeen()`, a pure function the tests call.
 - **The eRPM column.** `sdLogErpmField()` gives `EscTelemetry::erpm` while
   `escFieldFresh()` holds with `ESC_LINK_STALE_MS`, 500 ms, as
   `src/run_summary.cpp` takes eRPM: a frame 499 ms old logs its value, one
-  500 ms old logs 0. lognum tests the function and checks by its source that
-  `sdLogTick()` writes the column through it.
+  500 ms old logs 0. lognum tests the function, and decodes the eRPM column
+  of a log across a parked pump from the card: the last eRPM while under
+  500 ms old, then 0.
 - **The tests' cue sources.** The AM32 cue is set through `testAm32CueSet()`
   in `test/test_ui.cpp`, which includes `src/ui_am32.cpp`; the bridge's by
   `usbBridgeRunCueSet()`; S.BUS OUTPUT's by a real probe answer in
@@ -1122,15 +1132,21 @@ Where the build chose, the note being silent or the safer reading taken:
   last button.
 
 Tests: `test/test_dshot_life.cpp` `testEscCmdStarting()`, `testStartStep()`
-(decision 8 from the AM32 and bridge sources on both screens, and both
-screens with no cue), `testStartStepWayOut()` (decision 14); the S.BUS
-OUTPUT source in `test/test_sbus_out_ui.cpp`; decision 13's cases (a) to (g)
-in `test/test_bridge_ui.cpp` `testCueAtClaimEnd()`, with `framesNoJob()`,
+(decision 8 from the AM32 and bridge sources on both screens, and both screens
+with no cue), `testStartStepWayOut()` (decision 14); the S.BUS OUTPUT source
+in `test/test_sbus_out_ui.cpp`; decision 13's cases (a) to (i) in
+`test/test_bridge_ui.cpp` `testCueAtClaimEnd()`, with `framesNoJob()`,
 `fakeCsExitOnce()` (`test/fakes.cpp`) and `fakeBridgeLineInject()`
-(`test/fake_bridge_line.cpp`); `testErpmFresh()` in `test/sd_log_fatfs.cpp`
-(`make -C test lognum`). The blackbox checker encodes through
-`gen_blackbox_log.cpp`, not `sdLogTick()`, so it does not see the column's
-freshness; it passes unchanged. #49's cases pass unchanged.
+(`test/fake_bridge_line.cpp`), and `usbBridgeEscByteSeen()`'s rule, among it a
+byte lost or a collision with no more received than sent; `testErpmFresh()`
+and `testErpmLogged()` in `test/sd_log_fatfs.cpp` (`make -C test lognum`).
+Case (h) is the review's: case (c), back to ESC PROGRAM, a second claim Held
+with its start pending, BACK; the first claim's cue stands. Case (i): a byte
+the line received is read by `usbBridgeTask()`, not by the settle, before
+core1 binds again and zeroes the counts; the cue stands. Case (c) also settles
+twice. The blackbox checker encodes through `gen_blackbox_log.cpp`, not
+`sdLogTick()`, so it does not see the column's freshness; it passes unchanged.
+#49's cases pass unchanged.
 
 Mutations, each run against the whole suite (lognum for the last two) and
 restored:
@@ -1139,6 +1155,7 @@ restored:
 |---|---|
 | The start text kept past 1500 ms (`dshotStarting()` true once bound) | 4 checks fail, the first "1500 ms: NO ESC ANSWERS ON SIG GP0." |
 | START DSHOT live at once | 29 checks fail, the first "999 ms on, START DSHOT disabled and drawn so, parked, no bind, no frame" |
+| START DSHOT live only past 1000 ms (`>` for `>=`) | 1 check fails: "START DSHOT: not live at 999 ms, live at exactly 1000 ms" |
 | START DSHOT leaving the bridge's cue set | 8 checks fail, the first "START DSHOT ends the step and clears every cue" |
 | START DSHOT leaving ESC SETTINGS' cue set | 15 checks fail, the same first |
 | START DSHOT leaving S.BUS OUTPUT's cue set | 1 check fails: "START DSHOT: the cue gone, the EFM8 mark kept, DShot binds once" |
@@ -1146,10 +1163,15 @@ restored:
 | The settle never clearing | 11 checks fail, among them cases (a), (b), (e), (f) and (g) |
 | The settle clearing only with `bridgeWireBinds()` unmoved | 5 checks fail, among them cases (b) and (e) |
 | `back()` not calling the settle | 11 checks fail, as the settle never clearing |
-| The counts' difference against a stamp at `usbBridgeRunCueSet()` | 2 checks fail: case (c) |
+| The counts' difference against a stamp at `usbBridgeRunCueSet()` | 6 checks fail, among them case (c)'s second settle |
 | The counts read before `bridgeWireBinds()` moves | 6 checks fail, among them cases (e), (f) and (g) |
 | `bridgeJobBind()` zeroing the counts only after a successful open, `bridgeWireBinds()` still raised at every bind | 3 checks fail, among them case (e)'s "a failed bind: the counts zeroed" |
 | `bridgeWireBinds()` raised only after a successful open | 2 checks fail: case (e) |
+| `usbBridgeRunCueSet()` clearing the flag, as first built | 2 checks fail: case (h), "the first claim's cue: the cue stands" |
+| `usbBridgeTask()` not running `cueWatch()` | 2 checks fail: case (i), "a byte seen by usbBridgeTask(): the cue stands" |
+| A lost byte not counted as the ESC's | 1 check fails: "a byte lost with no more received than sent is the ESC's" |
+| A collision not counted as the ESC's | 1 check fails: "a collision with as many received as sent is the ESC's" |
+| The settle not ending the watch | none: equivalent. After a settle the cue is clear, and only a new `usbBridgeRunCueSet()` raises it, which starts a new watch; or it stands with the flag set, and only a new `usbBridgeRunCueSet()` sets the flag again |
 | MENU drawn disabled on the start step | 1 check fails: "MENU live from the first frame, drawn cyan" |
 | MENU's tap on the step clearing the cue | 16 checks fail, among them "MENU: MENU, parked, no bind, no frame, the cue kept" |
 | ESC COMMANDS' BACK on the step clearing the cue | 2 checks fail, the first "BACK: ESC PROGRAM, parked, no bind, no frame, the cue kept" |
@@ -1164,8 +1186,8 @@ restored:
 | `uiDshotWanted()` not reading the cue, the latch alone | none at first: no tool sets a cue while the tester shows. A case added: a cue set under a running tester; then 1 check fails, "a cue that rises under the tester: not wanted, parked" |
 | The tester's open not latching the step | 40 checks fail |
 | ESC COMMANDS' open not latching the step | 29 checks fail |
-| The eRPM logged without the freshness check (`sdLogErpmField()`) | 3 checks of lognum fail, the first "500 ms old: 0" |
-| `sdLogTick()` writing the raw eRPM | 1 check of lognum fails: "sdLogTick() writes the column through sdLogErpmField()" |
+| The eRPM logged without the freshness check (`sdLogErpmField()`) | 5 checks of lognum fail, the first "500 ms old: 0" |
+| `sdLogTick()` writing the raw eRPM | 2 checks of lognum fail, one per volume: "0 from 500 ms on" |
 
 ### D4: SETUP's texts and the comments (Opus)
 
@@ -1377,6 +1399,12 @@ review.
     after `BOOT_DELAY`, about 250 ms with no edge, an AM32 after 20 ms low
     ([bluejay-blheli-s.md](bluejay-blheli-s.md#entering-the-bootloader);
     from source, not measured). Slice D3 builds it, with decision 8.
+
+    Revised by [D3 as built](#d3-as-built), "A cue that stands at a
+    claim", pending the owner's review: `usbBridgeRunCueSet()` sets the
+    flag to whether the cue already stands, in place of clearing it, so a
+    claim that ends with no leave page never clears a cue that an earlier
+    claim's ESC byte kept.
 14. Developer's call of 2026-11-16, pending the owner's review: **The start
     step's way out.** Decision 8's start step is left by START DSHOT or by
     the screen's own way out, which stays live on the step: ESC TESTER's

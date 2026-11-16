@@ -929,6 +929,15 @@ static void startStepCase(void (*cue)(), const char *src, bool tester) {
 static void testStartStep() {
 	section("DShot lifetime D3: the start step while MENU's run cue stands");
 
+	{
+		UiLeaveStart st;
+		uiLeaveStartOpen(&st, true, 5000);
+		checkTrue("START DSHOT: not live at 999 ms, live at exactly 1000 ms",
+		          !uiLeaveStartLive(&st, 5999) && uiLeaveStartLive(&st, 6000));
+		uiLeaveStartOpen(&st, false, 5000);
+		checkTrue("no step: never live", !uiLeaveStartLive(&st, 6000));
+	}
+
 	startStepCase(cueAm32, "ESC SETTINGS", true);
 	startStepCase(cueAm32, "ESC SETTINGS", false);
 	startStepCase(cueBridge, "USB BRIDGE", true);

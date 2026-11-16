@@ -597,7 +597,11 @@ static void cueWatch() {
 	if (!s_cueWatch || bridgeWireBinds() == s_cueBinds) return;
 	BridgeWireStats w;
 	bridgeWireStats(&w);
-	if (w.received > w.sent || w.lost > 0 || w.collisions > 0) s_escSeen = true;
+	if (usbBridgeEscByteSeen(&w)) s_escSeen = true;
+}
+
+bool usbBridgeEscByteSeen(const BridgeWireStats *w) {
+	return w->received > w->sent || w->lost > 0 || w->collisions > 0;
 }
 
 void usbBridgeTask() {
@@ -653,9 +657,12 @@ bool usbBridgeRunCue(uint32_t lastRpmMs) {
 }
 
 void usbBridgeRunCueSet() {
+	// A cue that stands from an earlier claim counts as seen: the settle
+	// clears only a cue this claim raised, so a claim that ends early never
+	// clears a cue an ESC's byte kept.
+	s_escSeen = s_cue;
 	s_cue = true;
 	s_cueMs = millis();
-	s_escSeen = false;
 	s_cueBinds = bridgeWireBinds();
 	s_cueWatch = true;
 }

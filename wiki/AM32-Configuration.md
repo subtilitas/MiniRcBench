@@ -250,7 +250,8 @@ signal pin is held low and the screen returns to ESC PROGRAM; DShot runs only
 once ESC TESTER or ESC COMMANDS opens. LEAVE has no answer: whether the ESC
 started is not seen, and not verified on an ESC. MENU's
 `POWER-CYCLE THE ESC TO RUN IT` stays until `START DSHOT` on the start step of
-ESC TESTER or ESC COMMANDS ([The Screens](The-Screens)).
+ESC TESTER or ESC COMMANDS ([The Screens](The-Screens)), the leave page's last
+button after its power-cycle steps, or a restart of the board.
 
 <img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE. ESC TESTER THEN RUNS IT. KEEP THE PROPELLER OFF.">
 

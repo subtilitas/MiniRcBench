@@ -1624,8 +1624,9 @@ and for 1500 ms after it (`ESC_CMD_SETTLE_MS`), since the ESC needs that time
 to see DShot; after a bind the driver refused it reads `NO ESC ANSWERS ON SIG
 GP0.` at once. While the page's request waits or its sequence goes out, BACK
 is drawn disabled too; a request that cannot start within 2000 ms expires.
-Leaving the page drops a request that still waits (`escCancelCommand()`). A hold's fill turns red while held, and a
-lime bar under it fills over the 1000 ms (`UI_HOLD_MS`).
+Leaving the page drops a request that still waits (`escCancelCommand()`). A
+hold's fill turns red while held, and a lime bar under it fills over the 1000 ms
+(`UI_HOLD_MS`).
 
 The six lines at y 244 to 310, at most 37 characters each:
 
@@ -3506,8 +3507,10 @@ unless a byte came from the ESC on one of the claim's binds. The count of
 the line's binds, `bridgeWireBinds()`, says when the wire's counts are this
 claim's; a received count above the sent count, a lost byte or a collision
 is a byte from the ESC, since the echo gives one byte back per byte sent
-(decision 13 of `docs/design/dshot-lifetime.md`, pending the owner's
-review; host tests only).
+(`usbBridgeEscByteSeen()`). A cue that already stands when the claim begins
+counts as such a byte, so a claim that sent nothing never clears a cue an
+earlier claim kept (decision 13 of `docs/design/dshot-lifetime.md`, pending
+the owner's review; host tests only).
 
 BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
 from the PC and drops a frame it was gathering; a frame already on the

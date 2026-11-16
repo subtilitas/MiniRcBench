@@ -1329,7 +1329,9 @@ protocol.
 - After v0.1.0-rc1: a USB BRIDGE claim that ends with no leave page clears
   MENU's run cue unless a byte came from the ESC on one of its binds
   (`usbBridgeRunCueSettle()`, `bridgeWireBinds()`; decision 13, pending the
-  owner's review). Before, the cue stood after such a claim.
+  owner's review). Before, the cue stood after such a claim. A cue that
+  stands when a claim begins is kept: a second claim ended before its bind
+  does not clear the cue an earlier claim's ESC byte kept.
 - After v0.1.0-rc1: the log's `eRPM[0]` column is 0 once the last eRPM frame
   is 500 ms old, as the EDT columns expire, so a log started by hand across
   a parked pump no longer repeats the last eRPM.

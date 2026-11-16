@@ -328,7 +328,7 @@ start step below, the last button of the tool's leave page is tapped, an eRPM
 frame arrives, or the board restarts
 ([AM32 Configuration](AM32-Configuration#leaving)). A USB BRIDGE visit that
 ends with no leave page, before the line was used, clears it unless a byte
-came from the ESC.
+came from the ESC or the line already stood when the visit began.
 
 While that line stands, ESC TESTER and ESC COMMANDS open on a start step
 with DShot off, because a waiting bootloader can read DShot as a command:

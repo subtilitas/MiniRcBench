@@ -1080,6 +1080,17 @@ static bool raceBack(void (*hook)()) {
 	return stays;
 }
 
+/**
+ * @brief The hook of case (i): the bind and the ESC's byte, counted; one
+ *        pass of core0's loop; then core1 binds again, which zeroes the
+ *        counts. Only that pass of usbBridgeTask() can have seen the byte.
+ */
+static void hookSeenThenRebind() {
+	hookBindInject();
+	usbBridgeTask();
+	BRIDGE_JOB_OPS.bind(fakeBridgeLinePin(), 0xFF);
+}
+
 static void testCueAtClaimEnd() {
 	section("USB BRIDGE: the run cue at a claim's end (dshot-lifetime.md decision 13)");
 
@@ -1126,7 +1137,59 @@ static void testCueAtClaimEnd() {
 	          bridgeWireBinds() == binds + 1 && fakeBridgeLineOpens() == opens + 1 &&
 	          w.received == 1 && w.sent == 0);
 	checkTrue("(c) no leave page", !stays2 && !pinClaimLeavePage());
+	usbBridgeRunCueSettle();
+	checkTrue("(c) a second settle changes nothing: the cue stands", usbBridgeRunCue(0));
 	cueEnd("(c)", true);
+
+	// (h) The cue (c) kept, then a second claim that ends by BACK while Held,
+	// before its line binds: its settle leaves the first claim's cue.
+	leftovers();
+	claimFromMenu();
+	checkTrue("(h) the first claim Held, the start pending", heldPending());
+	raceBack(hookBindInject);
+	checkTrue("(h) the first claim keeps the cue: a byte from the ESC", usbBridgeRunCue(0));
+	for (int k = 0; k < 4 && uiCurrentScreen() == UiScreenId::Bridge; k++) tapBackWith(brFrames);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	checkTrue("(h) back on ESC PROGRAM, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
+	          pinClaimState() == ClaimState::Free);
+	binds = bridgeWireBinds();
+	tapId(UI_FIX(EscCfgCtl::Bridge));
+	checkTrue("(h) the second claim Held, the start pending", heldPending());
+	tapBackWith(framesNoJob);
+	brFrames(4);
+	checkTrue("(h) the second claim ends with no bind", bridgeWireBinds() == binds &&
+	          uiCurrentScreen() == UiScreenId::EscConfig);
+	cueEnd("(h) the first claim's cue", true);
+
+	// (i) The ESC's byte seen by one pass of core0's loop, then the counts
+	// zeroed by a second bind before BACK: the flag kept from that pass.
+	usbBridgeRunCueClear();
+	freshUi();
+	testerToMenu();
+	binds = bridgeWireBinds();
+	claimFromMenu();
+	checkTrue("(i) Held, the start pending", heldPending());
+	raceBack(hookSeenThenRebind);
+	bridgeWireStats(&w);
+	checkTrue("(i) two binds, the counts zeroed by the second",
+	          bridgeWireBinds() == binds + 2 && w.received == 0 && w.sent == 0);
+	cueEnd("(i) a byte seen by usbBridgeTask()", true);
+
+	// The rule on the counts, pure: a lost byte or a collision is the ESC's.
+	{
+		BridgeWireStats c = {5, 5, 1, 0, 0};
+		bool echoOnly = usbBridgeEscByteSeen(&c);
+		c.received = 6;
+		bool more = usbBridgeEscByteSeen(&c);
+		c.received = 3; c.lost = 1;
+		bool lost = usbBridgeEscByteSeen(&c);
+		c.lost = 0; c.received = 5; c.collisions = 1;
+		bool coll = usbBridgeEscByteSeen(&c);
+		checkTrue("the counts: an echo alone is not the ESC's; one more received is",
+		          !echoOnly && more);
+		checkTrue("a byte lost with no more received than sent is the ESC's", lost);
+		checkTrue("a collision with as many received as sent is the ESC's", coll);
+	}
 
 	// (d) Running, the leave page's last button.
 	usbBridgeRunCueClear();

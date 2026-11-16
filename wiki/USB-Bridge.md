@@ -130,7 +130,8 @@ MENU shows `POWER-CYCLE THE ESC TO RUN IT` once the screen has taken the
 signal pin, until the leave page's last button, `START DSHOT` on the start
 step of ESC TESTER or ESC COMMANDS, or an answer to DShot. A visit that ends
 with no leave page, `BACK` before the line is used or after a bind that
-failed, sent nothing: it clears the line unless a byte came from the ESC.
+failed, sent nothing: it clears the line unless a byte came from the ESC or
+the line already stood when the visit began.
 This is tested on the host only.
 
 If the USB cable is pulled during a write while the board runs on its own

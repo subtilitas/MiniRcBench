@@ -278,7 +278,9 @@ zurück; DShot läuft erst, wenn ESC TESTER oder ESC COMMANDS öffnet.
 LEAVE hat keine Antwort: Ob der ESC gestartet ist, sieht der Tester nicht;
 an keinem ESC geprüft. MENUs `POWER-CYCLE THE ESC TO RUN IT` bleibt bis
 `START DSHOT` im Startschritt von ESC TESTER oder ESC COMMANDS
-([Die Bildschirme](Die-Bildschirme)).
+([Die Bildschirme](Die-Bildschirme)), bis zum letzten Knopf der Verlassenseite
+nach ihren Schritten zum Aus- und Einschalten oder bis zu einem Neustart der
+Platine.
 
 <img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE. ESC TESTER THEN RUNS IT. KEEP THE PROPELLER OFF.">
 

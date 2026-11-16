@@ -364,7 +364,8 @@ Startschritt unten getippt wird, die letzte Taste der Verlassenseite des
 Werkzeugs getippt wird, ein eRPM-Frame eintrifft oder die Platine neu
 startet ([AM32-Konfiguration](AM32-Konfiguration#verlassen)). Ein Besuch in
 USB BRIDGE, der ohne Verlassenseite endet, bevor die Leitung benutzt wurde,
-nimmt sie weg, außer ein Byte kam vom ESC.
+nimmt sie weg, außer ein Byte kam vom ESC oder die Zeile stand schon, als
+der Besuch begann.
 
 Solange diese Zeile steht, öffnen ESC TESTER und ESC COMMANDS mit einem
 Startschritt und ohne DShot, denn ein wartender Bootloader kann DShot als

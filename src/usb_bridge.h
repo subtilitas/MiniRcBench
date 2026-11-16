@@ -278,21 +278,33 @@ bool usbBridgeRunCue(uint32_t lastRpmMs);
 /**
  * @brief Set MENU's run cue when the screen's claim begins.
  *
- * From the claim's begin DShot is off SIG. BACK while Stopping or after a
- * failed bind parks the pins at once, and while the line binds once the job
- * is idle (ui_bridge.h), with no leave page; an AM32 ESC can enter its
- * bootloader on its own after about 2 s without a signal. The cue then stands
- * until an eRPM frame stamped after this call, usbBridgeRunCueClear() or
- * usbBridgeRunCueSettle().
+ * From the claim's begin DShot is off SIG, and the line may meet an ESC
+ * whose bootloader waits, entered at a power-up with SIG high or by an AM32
+ * ESC after about 2 s without a signal. The cue stands until an eRPM frame
+ * stamped after this call, usbBridgeRunCueClear(), or usbBridgeRunCueSettle()
+ * at a claim's end with no leave page.
  *
- * It also clears the claim's "ESC byte seen" flag and notes
- * bridgeWireBinds(). From then on every usbBridgeTask() pass reads the counts
- * once bridgeWireBinds() has moved, so they are this claim's, counted from 0
- * at the line's last bind; more received than sent, or `lost` or
- * `collisions` above 0, sets the flag (docs/design/dshot-lifetime.md,
- * decision 13).
+ * It notes bridgeWireBinds() and sets the claim's "ESC byte seen" flag to
+ * whether the cue already stood: a cue an earlier claim left standing is
+ * never cleared by this claim's settle. From then on every usbBridgeTask()
+ * pass reads the counts once bridgeWireBinds() has moved, so they are this
+ * claim's, counted from 0 at the line's last bind; more received than sent,
+ * or `lost` or `collisions` above 0, sets the flag
+ * (docs/design/dshot-lifetime.md, decision 13 and "D3 as built").
  */
 void usbBridgeRunCueSet();
+
+struct BridgeWireStats;
+
+/**
+ * @brief Whether a claim's counts, read since the line's last bind, hold a
+ *        byte from the ESC: more received than sent, or a byte lost, or a
+ *        collision. The echo gives one byte back per byte sent, so any byte
+ *        more came from the ESC (bridge_wire.h). Pure.
+ * @param w bridgeWireStats() read after bridgeWireBinds().
+ * @return True when a byte came from the ESC.
+ */
+bool usbBridgeEscByteSeen(const BridgeWireStats *w);
 
 /**
  * @brief A claim ended with no leave page: BACK while Stopping, while Held
