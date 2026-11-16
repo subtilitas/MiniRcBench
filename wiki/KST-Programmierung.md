@@ -17,12 +17,13 @@ Digital).
 > auf einem Pin. Die Bildschirme in diesem Wiki entstehen aus dem Code der
 > Bedienoberfläche (UI, User Interface) gegen ein simuliertes Servo.
 
-> **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
-> auf dem ESC-Pin (Electronic Speed Controller, Motorregler) DShot, das
-> digitale Gasprotokoll. Ein Servo an diesem Pin liest das als Impuls von etwa
-> 970 µs mit 1000 Hz und fährt Richtung eines Endanschlags. Das passiert, wenn
-> die Platine mit einem Servo am ESC-Pin **startet**, und wenn du diesen
-> Bildschirm verlässt. Der Bildschirm fordert dich vorher zum Abziehen auf.
+> **Zieh das Servo ab, bevor du ESC TESTER oder ESC COMMANDS öffnest.** Nur
+> diese beiden Bildschirme und SETUP, vom Tester aus geöffnet, senden DShot,
+> das digitale Gasprotokoll, auf dem ESC-Pin (Electronic Speed Controller,
+> Motorregler). Überall sonst, auch beim Start, liegt der Pin auf Low, und
+> nichts wird gesendet. Ein Servo an diesem Pin liest DShot als Impuls von
+> etwa 970 µs mit 1000 Hz und fährt Richtung eines Endanschlags. Wenn du
+> diesen Bildschirm verlässt, fordert er dich vorher zum Abziehen auf.
 
 Mit **SETTINGS → SERVO SUPPLY** auf `OWN`, der Voreinstellung, schaltest du
 das Servo von Hand ein und aus, mit einem Stecker oder einem Schalter. Mit

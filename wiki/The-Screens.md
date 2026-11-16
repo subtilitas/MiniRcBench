@@ -698,10 +698,11 @@ Programming](KST-Programming).
 
 Opens from `MENU → SERVO → HITEC D SERIES` or `HITEC CLASSIC`.
 Reads and writes the settings of a Hitec D series or classic servo over the
-signal wire on SIG, the ESC pin. The tap on the hub's entry takes the pin from
-the ESC driver; the strip reads `RELEASING SIG GP0 FROM DSHOT` until DShot
-has stopped. A D series servo on its own supply (SERVO SUPPLY at `OWN`)
-must run before the screen reads it, so the screen then waits: the strip
+signal wire on SIG, the ESC pin. The tap on the hub's entry takes the pin,
+which no DShot drives on the hub; the strip reads
+`RELEASING SIG GP0 FROM DSHOT` until the board has let go of it. A D series
+servo on its own supply (SERVO SUPPLY at `OWN`) must run before the screen
+reads it, so the screen then waits: the strip
 reads `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green and
 `POWER THE SERVO UP, THEN TAP READ.` in amber. Power the servo up and tap
 `READ`. With the switched supply, and for a classic servo, the bench powers

@@ -26,12 +26,13 @@ SD-Karte (Secure Digital).
 > SERVO SUPPLY auf `GP28` oder `GP29`. Unter `OWN` lässt sich nur die
 > D-Serie öffnen. Siehe [Klassische Servos](#klassische-servos).
 
-> **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
-> auf dem ESC-Pin DShot, das digitale Gasprotokoll. Ein Servo an diesem Pin
-> liest das als Impuls von etwa 970 µs mit 1000 Hz und fährt Richtung eines
-> Endanschlags. Das passiert, wenn die Platine mit einem Servo am ESC-Pin
-> **startet**, und wenn du diesen Bildschirm verlässt. Der Bildschirm fordert
-> dich vorher zum Abziehen auf.
+> **Zieh das Servo ab, bevor du ESC TESTER oder ESC COMMANDS öffnest.** Nur
+> diese beiden Bildschirme und SETUP, vom Tester aus geöffnet, senden DShot,
+> das digitale Gasprotokoll, auf dem ESC-Pin. Überall sonst, auch beim
+> Start, liegt der Pin auf Low, und nichts wird gesendet. Ein Servo an diesem
+> Pin liest DShot als Impuls von etwa 970 µs mit 1000 Hz und fährt Richtung
+> eines Endanschlags. Wenn du diesen Bildschirm verlässt, fordert er dich
+> vorher zum Abziehen auf.
 
 Hitec ist ein Name oder eine Marke seines Inhabers. Er steht hier nur, um zu
 sagen, mit welchen Servos dieser Bildschirm arbeitet. MiniRcBench ist nicht

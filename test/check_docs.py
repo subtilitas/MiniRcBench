@@ -28,10 +28,11 @@ Enforces what actually goes wrong, and nothing else:
      no image of a removed screen; nor does a fakeDumpFrame() call or
      tools/make_previews.py. CHANGELOG.md, STATUS.md and the design notes
      keep those names as records and are not checked. The comments of
-     src/*.h and src/*.cpp name no DShot restart after a claim
-     (STALE_RESTART), read as one text per file so a phrase that wraps
-     across comment lines is found; string literals and code are not read
-     there
+     src/*.h and src/*.cpp, and README.md and the wiki pages, name no DShot
+     restart after a claim and no DShot outside ESC TESTER and ESC COMMANDS
+     (STALE_RESTART). Each file is read as one text, comments only for the
+     sources, so a phrase that wraps across lines is found; string literals
+     and code are not read
   10. the hardware models, CAD files and drawings are CC BY-NC-SA 4.0 and
      the software is MIT. Every tracked file under hardware/ except
      hardware/LICENSE-CAD.txt, the README.md files and
@@ -154,18 +155,20 @@ REMOVED_TEXTS = [
      "a tool as a MENU row, now an entry of the hub ESC CONFIG or SERVO "
      "(menu-c.md owner decision 4, slice 4)"),
 ]
-# Rule 9: DShot's restart after a claim, checked in the manual and in the
-# comments of src/*.h and src/*.cpp. The patterns after the first line are the
-# comments' prose.
+# Rule 9: DShot's restart after a claim, and DShot outside ESC TESTER and ESC
+# COMMANDS, checked in the manual and in the comments of src/*.h and
+# src/*.cpp, each file joined into one text (check_stale_comments()). The
+# patterns after the first line are prose; the last line's are German.
 STALE_RESTART = (
     r"RESTART DSHOT|DSHOT RESTARTING|DSHOT RESTARTS ON|LEAVE, THEN DSHOT RETURNS|"
     r"DShot (restarts|resumes|resumed|returns(?! eRPM)|takes it back)|"
     r"back to DShot|resumes the pump|resumes DShot|returns DShot|"
-    r"with DShot on SIG|DShot runs on SIG while",
+    r"with DShot on SIG|DShot runs on SIG while|carries DShot|"
+    r"DShot (runs|starts) (at|on|from) (boot|power-up)|until DShot has stopped|"
+    r"bis DShot angehalten hat|DShot läuft auf SIG|liegt\s+auf dem ESC-Pin[^.]*DShot",
     "DShot's restart after a claim, now the leave page's hub title and the "
     "busy captions; DShot runs only on ESC TESTER and ESC COMMANDS "
     "(dshot-lifetime.md, slice D2)")
-REMOVED_TEXTS.append(STALE_RESTART)
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers
 # kst-leave-pending.
@@ -334,13 +337,17 @@ def comment_lines(text):
 COMMENT_LEAD = re.compile(r"^[\s*/!<]*")
 
 
-def joined_comments(text):
-    """The comments of C++ source @p text as one string, each line's lead
-    stripped and the lines joined by one space, and the start offset and
-    line number of each line in it, in order."""
+# A Markdown line's lead: whitespace and a quote's `>`.
+MARKDOWN_LEAD = re.compile(r"^[\s>]*")
+
+
+def joined_lines(lines, lead):
+    """The (line number, text) pairs @p lines as one string, each line's
+    @p lead stripped and the lines joined by one space, and the start offset
+    and line number of each line in it, in order."""
     parts, starts, pos = [], [], 0
-    for n, line in comment_lines(text):
-        body = COMMENT_LEAD.sub("", line).rstrip()
+    for n, line in lines:
+        body = lead.sub("", line).rstrip()
         if not body:
             continue
         starts.append((pos, n))
@@ -350,14 +357,19 @@ def joined_comments(text):
 
 
 def check_stale_comments():
-    """Rule 9: no comment in src/ names DShot's restart after a claim,
-    wrapped across lines or not."""
+    """Rule 9: no comment in src/ and no manual page names DShot's restart
+    after a claim, wrapped across lines or not."""
     problems = []
     pattern, why = STALE_RESTART
+    texts = []
     for path in SOURCES:
-        if not path.startswith("src/"):
-            continue
-        joined, starts = joined_comments(open(path, encoding="utf-8").read())
+        if path.startswith("src/"):
+            text = open(path, encoding="utf-8").read()
+            texts.append((path, joined_lines(comment_lines(text), COMMENT_LEAD)))
+    for path in MANUAL_DOCS:
+        lines = list(enumerate(open(path, encoding="utf-8").read().split("\n"), 1))
+        texts.append((path, joined_lines(lines, MARKDOWN_LEAD)))
+    for path, (joined, starts) in texts:
         offsets = [o for o, _ in starts]
         for m in re.finditer(pattern, joined):
             n = starts[bisect.bisect_right(offsets, m.start()) - 1][1]
