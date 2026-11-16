@@ -22,9 +22,9 @@ does not cover three things:
 - DShot's lifetime and the pin claim:
   [dshot-lifetime.md](dshot-lifetime.md). This note gives two of its
   buttons their colours ([decision 16](#decisions)).
-- The touch-loss stop of pull request #49 (branch `ccr-ux-pass2`, head
-  3bb8d86), not merged. It merges before slice 12, which draws its touch
-  loss, as [the build plan](menu-c.md#build-plan) names. Its texts take the
+- The touch-loss stop of pull request #49, merged into `main` as 3b36588.
+  Slice 12 draws its touch loss on HOLD TO ARM and keeps its host cases,
+  as [the build plan](menu-c.md#build-plan) names. Its texts take the
   roles of this note unchanged.
 
 Names. The proposal's screens carry the names of
@@ -1187,8 +1187,8 @@ Notes on the slices:
   3, 4, 7 and 9. Slice 11 follows slice 10 and D3, for the leave page's
   button to the hub and START DSHOT. Slice 12, the tester's button row,
   follows slices 3, 9 and 11 and D3, for the arm gate's disabled HOLD TO
-  ARM and the tester's START DSHOT, and pull request #49, for the touch
-  loss's disabled HOLD TO ARM. Slice 14 follows slice 13 and D4.
+  ARM and the tester's START DSHOT; #49's disabled HOLD TO ARM on a touch
+  loss is on `main` since 3b36588. Slice 14 follows slice 13 and D4.
   [The build plan](menu-c.md#build-plan) lists the same dependencies.
 - **Flash and RAM.** The palette is 34 bytes of the same size. The radius
   adds a loop per corner row; the frame cost is not measured.

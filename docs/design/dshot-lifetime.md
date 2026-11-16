@@ -33,18 +33,20 @@ signal-loss behaviour, read from source and not measured
 [decision 6](#decisions)'s reading of decision 2, which waits for the
 owner's confirmation.
 
-Pull request #49, the touch-loss stop (branch `ccr-ux-pass2`, head 3bb8d86), is
-not merged. It merges before slice D2, which names it as a prerequisite, and
-before menu-c.md's slice 12. It disarms the tester, and stops SERVO
-TESTER and S.BUS OUTPUT, while the touch controller does not answer
-(`uiTouchLost()`). It keeps core1's own cut in the servo job, which switches the
-servo's supply off once the touch controller's last answer is 250 ms old
-(`touchOk`, `src/servo_job.cpp` 405, already at cff09ae). [#49 and the
+Pull request #49, the touch-loss stop, is merged into `main` as 3b36588.
+While the touch controller does not answer (`uiTouchLost()`), it disarms the
+tester and refuses arming, and it stops SERVO TESTER and S.BUS OUTPUT and
+refuses their HOLD TO START. Core1's own cut in the servo job stays: it
+switches the servo's supply off once the touch controller's last answer is
+250 ms old (`touchOk`, `src/servo_job.cpp` 405, as at cff09ae). [#49 and the
 lifetime](#49-and-the-lifetime) says how it fits.
 
-The code is read at 43531d9, the base branch `ccr-menu-rcb`, whose `src/`
-and `test/` equal `main` at cff09ae (`git diff --stat cff09ae 43531d9 --
-src test` is empty). Line numbers are at that commit.
+The code is read at 43531d9, whose `src/` and `test/` equal `main` at
+cff09ae (`git diff --stat cff09ae 43531d9 -- src test` is empty). Line
+numbers are at that commit. `main` 3b36588 is cff09ae with #49 added. #49
+moves lines in 12 files of `src/`, `src/ui.cpp` and `src/ui.h` among them
+(`git diff --stat cff09ae 3b36588 -- src`); the references to its own code
+below are at 3b36588.
 
 Terms: ESC is electronic speed controller, DShot the digital ESC protocol the
 tester drives, EDT Extended DShot Telemetry, eRPM electrical revolutions per
@@ -473,21 +475,30 @@ greetings, see the line they see today
 
 ### #49 and the lifetime
 
-#49 adds `uiTouchLost()`, read once a frame after the touch read
-(`touchLostNow()`; `src/ui.cpp` in `ccr-ux-pass2`). It fits without a
-change on either side:
+#49, merged as 3b36588, adds `uiTouchLost()`, set once a frame in
+`uiTick()` right after the touch read (`touchLostNow()`, `src/ui.cpp`).
+The touch counts as lost while the controller has not answered since
+`touchInit()`, or after 4 failed reads in a row (`TOUCH_LOST_READS`) and
+100 ms since its last answer (`TOUCH_LOST_MS`, `src/config.h`).
+`touchInit()` clears the record: no answer and `s_pollFails` 0
+(`src/cst328.cpp`). It fits without a change on either side:
 
-- **ESC TESTER**: a lost touch disarms by the idle interlock's path and
-  refuses arming. DShot keeps sending zero frames: the tester is still
-  open, and with no touch no screen change can happen. A lost touch never
-  starts or stops DShot. Decision 10's gate and #49's refusal both refuse
-  arming, each on its own condition, and HOLD TO ARM is drawn disabled
-  while either refuses ([decision 12](#decisions)).
+- **ESC TESTER**: a lost touch disarms by the path of DISARM and the idle
+  interlock, `testerStop()`, and refuses arming; `drawButtons()` draws
+  HOLD TO ARM disabled while it lasts. DShot keeps sending zero frames:
+  the tester is still open, and with no touch no screen change can happen.
+  A lost touch never starts or stops DShot. Decision 10's gate and #49's
+  refusal both refuse arming, each on its own condition, and HOLD TO ARM
+  is drawn disabled while either refuses ([decision 12](#decisions)).
 - **ESC COMMANDS**: #49 adds nothing; the page's sequences end by
   themselves and it sends no throttle.
 - **SERVO TESTER, S.BUS OUTPUT**: they stop as STOP does and keep the
-  claim; SIG stays the job's. Core1's 250 ms cut of the servo's supply
-  stays as at cff09ae.
+  claim; SIG stays the job's. HOLD TO START is refused while the touch is
+  lost. SERVO TESTER's notes (`safeNotes()`, `src/ui_servo.cpp`) read
+  `TOUCH NOT ANSWERING` and then `THE SERVO IS STOPPED.` or
+  `HOLD TO START WORKS ONCE IT ANSWERS.`; S.BUS OUTPUT records the stop as
+  `SbusOutStop::Touch` and reads `STOPPED: TOUCH DID NOT ANSWER`. Core1's
+  250 ms cut of the servo's supply stays as at cff09ae.
 - **MENU, hubs, LOGS, SETUP from MENU**: nothing is driven, so nothing has
   to stop.
 - #49's README text, "with DShot off there is no motor to stop" for the
@@ -583,7 +594,7 @@ lines (menu-b.md owner decision 27). The order against
 | Slice | After | What | Model |
 |---|---|---|---|
 | D1 | anything; before or with menu-c.md slice 1. Built as pull request #119 (branch `ccr-pump-modes`, head b20ae37), which is amended before it merges: [D1](#d1-the-pumps-three-modes-opus) lists what it adds | the pump's three modes and core1's bind stamp, no caller changes | Opus |
-| D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs), D1 as amended, and pull request #49 (branch `ccr-ux-pass2`, head 3bb8d86) | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
+| D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 as amended; #49 is on `main` as 3b36588 | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
 | D3 | D2 | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
 | D4 | D2 and menu-c.md slice 5 (the rename) | SETUP's pin note and LINK; the comments of the boot order | Opus |
 | D5 | D4, with menu-c.md slice 6 (the records) | the design notes' descriptions, bench plan | Sonnet |
@@ -591,7 +602,7 @@ lines (menu-b.md owner decision 27). The order against
 D2 follows menu-c.md slice 4, so its tests open every tool from its hub,
 and it needs no rename: the texts it adds take the hub's title as the hub
 draws it. The graph has no cycle: slices 1 to 6 are a chain, D1 joins
-before slice 1 or with it, D2 hangs off slice 4, D1 and #49, D3 off D2, D4
+before slice 1 or with it, D2 hangs off slice 4 and D1, D3 off D2, D4
 off D2 and slice 5, D5 off D4 and slice 6.
 
 ### What each slice leaves on main
@@ -689,7 +700,7 @@ that keeps `initError`; the direction set to output before the value 0 (the
 ### D2: the lifetime (Opus)
 
 D2 starts once #119, amended as [D1](#d1-the-pumps-three-modes-opus)
-lists, and #49 (head 3bb8d86) have merged: the arm gate reads
+lists, has merged; #49 is on `main` as 3b36588. The arm gate reads
 `escTaskBoundMs()` and `uiTouchLost()`.
 
 `escTaskInit()` asks for Park and parks SIG on core0. `src/pin_claim.*`:
@@ -841,10 +852,11 @@ Host tests:
     (`fakeBridgeLineOpens()` 1), `bridgeWireBinds()` moved, nothing went
     on the wire (`fakeBridgeLineWireCount()` 0), no leave page, the screen
     ESC PROGRAM: the cue is clear.
-  - (c) The race of (b), and the hook also puts one byte on the wire from
-    the model ESC unasked (`fakeBridgeLineInject()`, new) and runs core1's
-    passes until the job has counted it: `received` 1, `sent` 0. No leave
-    page: the cue stands.
+  - (c) The race of (b), after the first claim of (e), so 500 received
+    and 400 sent are left over. The hook also puts one byte on the wire
+    from the model ESC unasked (`fakeBridgeLineInject()`, new) and runs
+    core1's passes until the job has counted it: `received` 1, `sent` 0.
+    No leave page: the cue stands.
   - (d) The line bound, the claim Running, the leave page's last button:
     the cue is clear, as today.
   - (e) Leftover counts: a first claim's line sends 400 bytes and receives
@@ -1073,8 +1085,9 @@ review.
       (`src/bridge_wire.cpp` 118 to 124), and core1 counts a byte sent
       before its echo. A read that spans a byte sent and echoed shows one
       received more than sent, and sets the flag: the error keeps the cue,
-      the safe direction. Reading `received` first would remove it; the
-      rule does not need it.
+      the safe direction. Reading `received` first would turn the error
+      the other way: a byte sent between the two reads would hide one of
+      the ESC's. The order stays.
     - The flag stays set across the claim's binds. The counts stay after a
       release until the next bind. A read that meets core1 zeroing the
       counts at a RETRY's bind mixes two binds of this claim; no read
