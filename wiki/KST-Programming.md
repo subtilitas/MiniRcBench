@@ -15,12 +15,13 @@ with a backup on the SD (Secure Digital) card first.
 > The screens in this wiki are rendered from the UI (user interface) code
 > against a simulated servo.
 
-> **Unplug the servo before DShot runs.** Outside this screen the ESC
-> (electronic speed controller) pin carries DShot, the digital throttle
-> protocol. A servo on that pin reads it as a pulse of about 970 µs at 1000 Hz
-> and drives towards one end of its travel. That happens when the board
-> **boots** with a servo on the ESC pin, and when you leave this screen. The
-> screen asks you to unplug the servo first.
+> **Unplug the servo before ESC TESTER or ESC COMMANDS.** Only those two
+> screens, and SETUP opened from the tester, send DShot, the digital throttle
+> protocol, on the ESC (electronic speed controller) pin. Everywhere else, at
+> boot too, the pin is held low and nothing is sent. A servo on that pin
+> reads DShot as a pulse of about 970 µs at 1000 Hz and drives towards one
+> end of its travel. When you leave this screen, it asks you to unplug the
+> servo first.
 
 With **SETUP → SERVO SUPPLY** at `OWN`, the default, you power the servo
 up and down by hand, with a plug or a switch. With `GP28` or `GP29` the bench

@@ -774,11 +774,11 @@ Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 Öffnet über `MENU → SERVO → HITEC D SERIES` oder `HITEC CLASSIC`. Liest und
 schreibt die Einstellungen eines Hitec-Servos der D-Serie oder der klassischen
 Familie über das Signalkabel an SIG, dem ESC-Pin. Das Tippen auf den Eintrag
-übernimmt den Pin vom ESC-Treiber; die Leiste zeigt
-`RELEASING SIG GP0 FROM DSHOT`, bis DShot angehalten hat. Ein Servo der D-Serie
-mit eigener Versorgung (SERVO SUPPLY auf `OWN`) muss laufen, bevor der
-Bildschirm es liest, deshalb wartet der Bildschirm dann: Die Leiste zeigt
-`SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün und
+übernimmt den Pin, auf dem in der Auswahl kein DShot läuft; die Leiste zeigt
+`RELEASING SIG GP0 FROM DSHOT`, bis die Platine ihn freigegeben hat. Ein
+Servo der D-Serie mit eigener Versorgung (SERVO SUPPLY auf `OWN`) muss
+laufen, bevor der Bildschirm es liest, deshalb wartet der Bildschirm dann:
+Die Leiste zeigt `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün und
 `POWER THE SERVO UP, THEN TAP READ.` in Bernstein. Schalte das Servo ein und
 tippe `READ`. Mit geschalteter Versorgung und für ein klassisches Servo versorgt
 der Prüfstand das Servo selbst, und der Bildschirm macht sofort weiter. Solange
