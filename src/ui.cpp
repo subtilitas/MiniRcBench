@@ -627,8 +627,10 @@ static void drawStatusBar() {
 
 	gfxRect(0, Z_STATUS_Y0, GFX_W, Z_STATUS_Y1 - Z_STATUS_Y0 + 1, C_PANEL);
 
+	// The badge is a chip, and a chip is square: the 5 px radius is a
+	// button's (docs/design/ui-theme.md, decisions 4 and 13).
 	uint16_t badge = s_armed ? C_RED : C_GREEN;
-	gfxRoundRect(4, 3, 92, 20, 4, badge);
+	gfxRect(4, 3, 92, 20, badge);
 	const char *txt = s_armed ? "ARMED" : "SAFE";
 	gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, C_ONACCENT, 2);
 
@@ -662,8 +664,8 @@ static void drawStatusBar() {
 	if (log.state == SdLogState::Error) {
 		// A recording that stopped on its own: an amber chip, not amber text,
 		// so it shows at a glance while armed. It stays in the column between
-		// the arm badge and BOARD, clear of both.
-		gfxRoundRect(STATUS_SDERR_X, STATUS_SDERR_Y, STATUS_SDERR_W, STATUS_SDERR_H, 2, C_AMBER);
+		// the arm badge and BOARD, clear of both. Square, as every chip.
+		gfxRect(STATUS_SDERR_X, STATUS_SDERR_Y, STATUS_SDERR_W, STATUS_SDERR_H, C_AMBER);
 		gfxText(STATUS_SDERR_X + 3, STATUS_SDERR_Y + 2, lg, C_PAPER, 1);
 	} else {
 		gfxText(104, 14, lg, lgCol, 1);

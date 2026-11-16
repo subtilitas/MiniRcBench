@@ -374,6 +374,43 @@ static inline BackLook backLook() {
 	return BackLook::Other;
 }
 
+/**
+ * @brief Walk the controls of @p t that are drawn as buttons and check the
+ *        three pixels outside each rounded corner, (0,0), (1,0) and (0,1) of
+ *        the corner: each holds the ground the button lies on, the pixel
+ *        beside the button in its top or bottom row, and not a frame or a
+ *        fill left by an earlier draw.
+ *
+ * A control is taken for a button when the two pixels where its frame leaves
+ * each corner, (2,0) and (0,2), hold a frame's colour, `C_GRID` or `C_INK`.
+ * A list row, a tile, a drag surface and a control a viewport clips are not.
+ * @return The buttons checked, or -1 when a corner pixel is not the ground's.
+ */
+static inline int buttonCornersClear(const UiControl *t, uint8_t n) {
+	const uint16_t *fb = gfxBuffer();
+	auto at = [fb](int x, int y) { return fb[y * GFX_W + x]; };
+	auto frame = [](uint16_t c) { return c == C_GRID || c == C_INK; };
+	int buttons = 0;
+	for (uint8_t i = 0; i < n; i++) {
+		const UiRect &r = t[i].rect;
+		if (r.w < 2 * UI_RADIUS || r.h < 2 * UI_RADIUS || r.x < 1 || r.y < 0 || r.x + r.w >= GFX_W ||
+		    r.y + r.h > GFX_H)
+			continue;
+		const int x1 = r.x + r.w - 1, y1 = r.y + r.h - 1;
+		if (!frame(at(r.x + 2, r.y)) || !frame(at(r.x, r.y + 2)) || !frame(at(x1 - 2, r.y)) ||
+		    !frame(at(x1, r.y + 2)) || !frame(at(r.x + 2, y1)) || !frame(at(r.x, y1 - 2)) ||
+		    !frame(at(x1 - 2, y1)) || !frame(at(x1, y1 - 2)))
+			continue;
+		buttons++;
+		const uint16_t tl = at(r.x - 1, r.y), tr = at(x1 + 1, r.y), bl = at(r.x - 1, y1), br = at(x1 + 1, y1);
+		if (at(r.x, r.y) != tl || at(r.x + 1, r.y) != tl || at(r.x, r.y + 1) != tl) return -1;
+		if (at(x1, r.y) != tr || at(x1 - 1, r.y) != tr || at(x1, r.y + 1) != tr) return -1;
+		if (at(r.x, y1) != bl || at(r.x + 1, y1) != bl || at(r.x, y1 - 1) != bl) return -1;
+		if (at(x1, y1) != br || at(x1 - 1, y1) != br || at(x1, y1 - 1) != br) return -1;
+	}
+	return buttons;
+}
+
 /** @brief @p a and @p b are a tester readout and the pad or the track, either way round. */
 static inline bool readoutOverPad(UiControlId a, UiControlId b) {
 	if (uiCurrentScreen() != UiScreenId::Tester) return false;
@@ -391,7 +428,9 @@ static inline bool readoutOverPad(UiControlId a, UiControlId b) {
  *        rectangle inside the panel and not empty, no two controls
  *        overlapping, and BACK at uiBackRect() on every screen but the
  *        tester, drawn live where the table says it acts and disabled
- *        where it says it does not, over the header's rule at y 35. The one overlap allowed is the tester's
+ *        where it says it does not, over the header's rule at y 35, and
+ *        every button with its rounded corners left to the ground
+ *        (buttonCornersClear()). The one overlap allowed is the tester's
  *        readouts (`TesterCtl::Poles`, `TesterCtl::Max`) over the pad
  *        and the track, never with both acting.
  * @param where Names the frame in the check's text.
@@ -426,6 +465,8 @@ static inline void checkControlTable(const char *where) {
 	checkTrue(what, unique);
 	snprintf(what, sizeof(what), "%s: no two controls overlap that may not", where);
 	checkTrue(what, apart);
+	snprintf(what, sizeof(what), "%s: every button's corner pixels are the ground's", where);
+	checkTrue(what, buttonCornersClear(t, n) >= 0);
 	if (uiCurrentScreen() != UiScreenId::Tester) {
 		UiControl b;
 		UiRect br = uiBackRect();

@@ -1146,6 +1146,12 @@ static void testTesterSdErr() {
 	fakeSdLogSet(&st);
 	frames(2);
 	checkTrue("a card idle: SD, dim text", fakeTextIs(104, 14, "SD", C_DIM, C_PANEL, 1));
+	const uint16_t *fb = gfxBuffer();
+	// The badge is a chip, 92 x 20 px from (4, 3): square, its corner pixels
+	// lit (slice 9 of menu-c.md's build plan).
+	checkTrue("the SAFE badge is square: its four corner pixels are its fill",
+	          fb[3 * GFX_W + 4] == C_GREEN && fb[3 * GFX_W + 95] == C_GREEN &&
+	          fb[22 * GFX_W + 4] == C_GREEN && fb[22 * GFX_W + 95] == C_GREEN);
 	holdToArm();
 	checkTrue("armed", uiArmed());
 	st.state = SdLogState::Error;
@@ -1154,7 +1160,12 @@ static void testTesterSdErr() {
 	frames(2);
 	checkTrue("the log failed while armed: SDERR on an amber chip",
 	          fakeTextIs(104, 14, "SDERR", C_PAPER, C_AMBER, 1));
-	const uint16_t *fb = gfxBuffer();
+	checkTrue("the chip is square: its four corner pixels are amber",
+	          fb[12 * GFX_W + 101] == C_AMBER && fb[12 * GFX_W + 134] == C_AMBER &&
+	          fb[22 * GFX_W + 101] == C_AMBER && fb[22 * GFX_W + 134] == C_AMBER);
+	checkTrue("the ARMED badge is square: its four corner pixels are red",
+	          fb[3 * GFX_W + 4] == C_RED && fb[3 * GFX_W + 95] == C_RED &&
+	          fb[22 * GFX_W + 4] == C_RED && fb[22 * GFX_W + 95] == C_RED);
 	checkTrue("the chip's fill from x 101 to 134, y 12 to 22",
 	          fb[12 * GFX_W + 102] == C_AMBER && fb[22 * GFX_W + 133] == C_AMBER &&
 	          fb[17 * GFX_W + 100] == C_PANEL && fb[17 * GFX_W + 135] == C_PANEL &&

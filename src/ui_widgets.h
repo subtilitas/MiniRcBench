@@ -59,12 +59,20 @@ struct TouchState;
 /** @brief Left margin for titles, labels and the first control in a row. */
 #define UI_MARGIN        8
 /**
- * @brief Corner radius passed to gfxRoundRect() and gfxRoundFrame() for every
- *        button. Neither draws a radius: their corner solver insets every row
- *        by 0, so a button's fill and frame are square in pixels (STATUS.md,
- *        open items). A chip is square by design: uiChip().
+ * @brief Corner radius of every button, in pixels: uiButton() passes it to
+ *        gfxRoundRect() and gfxRoundFrame(), which inset a corner's rows by
+ *        2, 1 and 0 px (docs/design/ui-theme.md, decision 4). A button's
+ *        touch rectangle is its whole rectangle, the corners included. A
+ *        chip is square by design: uiChip().
  */
 #define UI_RADIUS        5
+/**
+ * @brief Side of the square at each corner of a button, in pixels, outside
+ *        which a rounded button is drawn as a square one: the 1 px frame
+ *        changes 2 rows and columns, High contrast's 2 px frame 3. A label
+ *        that stays out of these rows is not touched by the radius.
+ */
+#define UI_CORNER        3
 /**
  * @brief Length of a dash and of a gap in a disabled button's frame in the
  *        High contrast theme, in pixels. @see uiButton()
@@ -206,6 +214,11 @@ bool uiTapped(const UiRect &r, const TouchState *t);
 
 /**
  * @brief Draw a rounded button with its label centred.
+ *
+ * The corners have a radius of @ref UI_RADIUS px. The three pixels of each
+ * corner that lie outside it are not drawn and keep what is under the
+ * button, so a caller that redraws a button over a different one clears the
+ * rectangle first.
  *
  * @param r       Rectangle.
  * @param label   Text, centred.

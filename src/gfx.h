@@ -149,14 +149,27 @@ void gfxRect(int x, int y, int w, int h, uint16_t c);
 
 /**
  * @brief Filled rectangle with rounded corners.
+ *
+ * Each corner is a quarter of an integer circle. At a radius of 5 px its
+ * rows start 2, 1, 0, 0 and 0 px inside the rectangle, so three pixels of
+ * each corner are left as they are: (0, 0), (1, 0) and (0, 1).
+ *
  * @param x,y Top-left corner.
  * @param w,h Size.
- * @param r   Corner radius, clamped to half the smaller dimension.
+ * @param r   Corner radius, clamped to half the smaller dimension. 0 or less
+ *            draws a plain rectangle.
  * @param c   Fill colour.
  */
 void gfxRoundRect(int x, int y, int w, int h, int r, uint16_t c);
 
-/** @brief One-pixel outline version of gfxRoundRect(). */
+/**
+ * @brief Outline of gfxRoundRect(), themeStroke() px thick, drawn inside
+ *        the rectangle.
+ *
+ * At 1 px it is the outermost pixels of the fill. At 2 px it has no open
+ * pixel between its outer and its inner edge. A rectangle no larger than
+ * two strokes in either direction is filled.
+ */
 void gfxRoundFrame(int x, int y, int w, int h, int r, uint16_t c);
 
 /** @brief Horizontal line of length @p w. */
