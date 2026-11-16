@@ -140,7 +140,9 @@ REMOVED_TEXTS = [
      "ESC HEX and AM32 n.n (bluejay-blheli-s.md, call A)"),
     (r"ANSWERED: NOT READ YET",
      "slice 2's EFM8 status, now ANSWERED: READING. (bluejay-blheli-s.md, slice 3)"),
-    (r"SERVO PROGRAMMER|\bPROGRAMMER\b|\bTOOLS\b",
+    (r"SERVO PROGRAMMER|"
+     r"MENU\s*(→|>|->|&gt;)\s*(PROGRAMMER|TOOLS)\b|"
+     r"(`|\*\*|\||^#+\s+)\s*(PROGRAMMER|TOOLS)\s*(`|\*\*|\||$)",
      "MENU's rows SERVO PROGRAMMER and TOOLS and the screens PROGRAMMER and TOOLS, "
      "now entries of the hub SERVO (menu-c.md owner decisions 4 and 5, slice 4)"),
     (r"MENU\s*(→|>|->|&gt;)\s*(ESC COMMANDS|SERVO TESTER|ANGLE METER)",
