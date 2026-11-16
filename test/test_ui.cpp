@@ -5197,6 +5197,15 @@ static bool am32OpenPage() {
 	return s_state == S_PAGE;
 }
 
+/**
+ * @brief For test_dshot_life.cpp: ESC SETTINGS' run cue, as a handshake with
+ *        the bootloader sets it. This file includes ui_am32.cpp.
+ */
+void testAm32CueSet() {
+	s_blReached = true;
+	s_blReachedMs = millis();
+}
+
 /** @brief MENU's strip shows the run cue on its second line, in amber. */
 static bool menuRunCueShown() {
 	return fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1);
