@@ -775,8 +775,7 @@ numbers stay, so the references above keep pointing at them.
    [dshot-lifetime.md](dshot-lifetime.md#decisions) decisions 7 and 11,
    pending the owner's review: in place of the lost check the hubs SERVO and
    RECEIVER draw `NO ESC CHECK: UNPLUG ANY ESC FIRST.` before any entry is
-   tapped. Built (D2); the built hubs read SERVO and RX SIGNALS until slice 5
-   of [menu-c.md](menu-c.md#build-plan).
+   tapped. Built (D2, slice 5).
 4. **Unplug page.** A tap dismisses it. The page guards against forgetting,
    not against a slip of the finger, and BACK beside it undoes nothing
    dangerous.

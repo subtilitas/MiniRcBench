@@ -892,10 +892,11 @@ Where the build chose, the note being silent:
   refused the bind (`initError`, `DSERR` in the status bar), the stamp stays
   0 and the gate holds; the track then reads `DSHOT COULD NOT START`
   (`UI_TESTER_REFUSED_TEXT`), amber, 21 characters, 125 px of the track's
-  width. The track reads `escTaskBindRefused()`, a flag core1 sets in the
-  bind before the stamp and clears in the teardown before the stamp 0, each
-  behind a barrier; core0 reads the stamp first, then the flag, so a
-  pending bind never reads as refused.
+  width. The track reads `escTaskBindRefused()`, a flag core1 sets in each
+  bind and clears in each teardown. No bind starts before the last pump's
+  teardown, so the flag is clear while a bind is pending, and a refused bind
+  leaves the stamp 0: core0 reads the stamp, then the flag, and a pending
+  bind never reads as refused.
 
 Tests: `test/test_dshot_life.cpp`, thirteen cases, and in `test/test_claim.cpp`
 the drain after a running tester, Parking, the park as the claim left it,

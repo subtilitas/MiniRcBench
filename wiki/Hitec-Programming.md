@@ -23,12 +23,12 @@ Digital) card first.
 > current) of [wiring](Wiring) part C, and SERVO SUPPLY at `GP28` or `GP29`.
 > Under `OWN` only the D series opens. See [Classic servos](#classic-servos).
 
-> **Unplug the servo before ESC TESTER or ESC COMMANDS.** Only those two
-> screens, and SETUP opened from the tester, send DShot, the digital throttle
-> protocol, on the ESC pin. Everywhere else, at boot too, the pin is held low
-> and nothing is sent. A servo on that pin reads DShot as a pulse of about
-> 970 µs at 1000 Hz and drives towards one end of its travel. When you leave
-> this screen, it asks you to unplug the servo first.
+> **Unplug the servo before you open ESC TESTER or ESC COMMANDS.** Only those
+> two screens, and SETUP opened over the tester, send DShot, the digital
+> throttle protocol, on the ESC pin. On MENU, the hubs and at boot the pin is
+> held low; no other screen sends DShot. A servo on that pin reads DShot as a
+> pulse of about 970 µs at 1000 Hz and drives towards one end of its travel.
+> When you leave this screen, it asks you to unplug the servo first.
 
 Hitec is a name or trademark of its owner. It is used here only to say which
 servos this screen works with. MiniRcBench is not affiliated with Hitec.

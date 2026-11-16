@@ -767,7 +767,7 @@ line built when the slice that changes the decision merges.
 | 18, MENU statuses report state | choice | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15 and decision 13: a row that opens a hub carries `>`; the rows SD LOG and SETTINGS read LOGS and SETUP. Built (slices 4 and 5). |
 | 19, the chooser opens a tool | choice | Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15 and decision 8: the hub widget `ui_hub` replaces the chooser; `UiScreenId::ServoProg` and `Tools` are gone; a chosen tool's origin is its hub, not MENU. Built (slice 4). |
 | 32, RX SIGNALS after SERVO PROGRAMMER; 35, RX SIGNALS shown | owner | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the row follows SERVO and reads RECEIVER. Built (slices 4 and 5). |
-| ["Not changed"](menu-b.md#not-changed): the tester is the root | reason of the note | Revised by the owner's decisions 1 and 2 of 2026-11-15, [menu-c.md](menu-c.md#decisions) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Not built. |
+| ["Not changed"](menu-b.md#not-changed): the tester is the root | reason of the note | Revised by the owner's decisions 1 and 2 of 2026-11-15, [menu-c.md](menu-c.md#decisions) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Built (slice 3, D2). |
 
 Revised by the other notes, with their lines in menu-b.md too:
 [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9, pending the
@@ -1315,10 +1315,11 @@ Texts, each by `textW()` as the build holds them.
 | `PLUG IT IN ONCE ESC PROGRAM SHOWS.` | 34, 203 px | `UI_LEAVE_STEP_CHARS` 35 |
 
 The strict firmware build holds all of them. `A SERVO ON ITS OWN SUPPLY
-NEEDS SETUP > SERVO SUPPLY AT OWN.` is 60 characters; `kstWrap()` breaks it
-at 37, `A SERVO ON ITS OWN SUPPLY NEEDS SETUP` and `> SERVO SUPPLY AT OWN.`,
-so the second line starts with the `>`. The note gives only "wrapped to two
-lines"; the break is the code's. The leave pages of D2
+NEEDS SETUP > SERVO SUPPLY AT OWN.` is 60 characters. `kstWrap()` never
+starts a line with a lone `>`, so it breaks the text at 31, `A SERVO ON ITS
+OWN SUPPLY NEEDS` and `SETUP > SERVO SUPPLY AT OWN.`, and the path stays
+whole; `testWrap()` in `test/test_kst_view.cpp` and the KST case check the
+break. The leave pages of D2
 take the hub's title as the hub draws it, so `BACK TO RX SIGNALS.` and
 `BACK TO ESC CONFIG.` became the two texts above, and `AM32_UI_LEAVE_2`
 (`PLUG IT IN ONCE %s SHOWS.`) the last, with no change to their code.
@@ -1349,9 +1350,11 @@ rx-signals.md, angle-meter.md, esc-commands.md, bluejay-blheli-s.md and
 usb-bridge.md: the six rows and MENU as the start screen (slices 3 to 5),
 the hub entries, titles, order, statuses and rows (slices 4 and 5), and the
 pure renames of menu-b.md decisions 4, 17, 32 and 35, menu.md 12 and 13,
-rx-signals.md 4 and the view ANGLE SET (slice 5). The line on "the tester
-is the root", which says DShot runs only on ESC TESTER and ESC COMMANDS,
-stays "Not built", as do the lines of dshot-lifetime.md that D2 owns.
+rx-signals.md 4 and the view ANGLE SET (slice 5). The lines D2 builds read
+"Built (D2)" in their notes; the two that named the hubs by their old titles
+read "Built (D2, slice 5)" now, and "the tester is the root" reads "Built
+(slice 3, D2)", each checked against the code and the D2 tests. The lines
+that wait for D3 or D4 stay "Not built".
 
 Tests. The expectations that find a row, a title or a text by its words
 read the new words; no case is removed. `testRenamedHeaders()` in

@@ -141,7 +141,8 @@ void kstBadRegsText(uint32_t bad, char *line, char *more, size_t n);
 
 /**
  * @brief Break @p text into lines of at most @p width characters, at spaces.
- *        A width below 4 counts as 4, above 47 as 47.
+ *        A width below 4 counts as 4, above 47 as 47. A line never starts
+ *        with a lone `>`: the break moves one word earlier.
  * @return The lines written into @p lines, at most @p maxLines; the last
  *         line ends in `...` when the text did not fit.
  */

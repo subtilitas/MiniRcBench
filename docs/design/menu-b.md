@@ -713,8 +713,7 @@ Decisions of the owner, 2026-11-13:
    the hub the tool returns to, SERVO, RECEIVER or ESC PROGRAM, in place of
    RESTART DSHOT, and starts no DShot. The last step reads BACK TO SERVO, BACK
    TO RECEIVER or BACK TO ESC PROGRAM. SERVO TESTER's left button reads NEXT
-   SERVO. Built (D2); the built labels read RX SIGNALS and ESC CONFIG until
-   slice 5 of [menu-c.md](menu-c.md#build-plan).
+   SERVO. Built (D2, slice 5).
 4. **SETTINGS from the tester.** A tap on the MAX or the pole-count readout
    opens SETTINGS through the disarming path MENU uses.
    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:

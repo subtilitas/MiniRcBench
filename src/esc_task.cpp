@@ -435,10 +435,10 @@ static void pumpTeardown() {
 		// back on, so the line holds the bidirectional idle level until its
 		// next owner takes it: a claim's user, the park, or nothing after a
 		// pin change.
-		// The stamp first: core0 never reads a bind stamp for a pump
-		// that is going down.
-		// The refused flag before the stamp: a reader that sees the stamp 0
-		// then reads the flag clear, a pending bind and not a refused one.
+		// The stamp before the stop: core0 never reads a bind stamp for a
+		// pump that is going down. The refused flag is cleared in every
+		// teardown, before any next bind starts, so a pending bind never
+		// reads as refused.
 		s_bindRefused = false;
 		__dmb();
 		s_boundMs = 0;
