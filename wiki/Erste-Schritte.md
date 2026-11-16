@@ -80,12 +80,13 @@ eigenen Akku. Die Reihenfolge ist egal. Die Firmware schickt die
 Telemetrie-Freigabe an jeden ESC, der zu antworten beginnt. Du kannst den ESC
 also jederzeit anstecken oder neu starten.
 
-Der Startbildschirm steht 3 s lang, dann erscheint der Tester-Bildschirm. Er
-nennt die Platine, für die die Firmware gebaut ist, RP2350-TOUCH-LCD-2.8, und
-die Firmware-Version, zum Beispiel `VERSION 0.1.0`. Seine letzte Zeile nennt
-in Bernstein den ESC-Pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot startet
-am Ende des Startbildschirms auf diesem Pin, und ein dort vergessenes Servo
-liest die Frames als Impulse und fährt an ein Ende seines Wegs.
+Der Startbildschirm steht 3 s lang, dann erscheint `MENU`, die Liste der
+Werkzeuge. Der Startbildschirm nennt die Platine, für die die Firmware gebaut
+ist, RP2350-TOUCH-LCD-2.8, und die Firmware-Version, zum Beispiel
+`VERSION 0.1.0`. Seine letzte Zeile nennt in Bernstein den ESC-Pin:
+`UNPLUG ANY SERVO FROM GP0 NOW`. DShot startet am Ende des Startbildschirms auf
+diesem Pin, und ein dort vergessenes Servo liest die Frames als Impulse und
+fährt an ein Ende seines Wegs.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">
 
@@ -110,11 +111,20 @@ zeigt nichts davon.
 
 Hat der Touch-Controller beim Einschalten nicht geantwortet, zeigt der
 Startbildschirm über dem Namen in Bernstein `TOUCH CONTROLLER NOT FOUND`. Die
-Zeile verschwindet, sobald der Controller antwortet. Steht sie noch, wenn der
-Tester erscheint, funktioniert die Berührung nicht; siehe
+Zeile verschwindet, sobald der Controller antwortet. Steht sie noch, wenn
+`MENU` erscheint, funktioniert die Berührung nicht; siehe
 [Fehlersuche](Fehlersuche#der-bildschirm-reagiert-nicht-auf-berührung).
 
 <img src="img/splash-no-touch.png" width="240" alt="Der Startbildschirm mit TOUCH CONTROLLER NOT FOUND in Bernstein über dem Namen">
+
+`MENU` ist der Ausgangspunkt jedes Werkzeugs. Sein Kopfbereich hat kein
+`BACK`: Dahinter liegt nichts. Tippe auf seine erste Zeile, `ESC TESTER`,
+um den Tester zu öffnen. Der Tester öffnet entschärft, mit Gas 0 und
+`LATCH` aus; seine Schaltfläche `MENU` unten rechts führt zu `MENU` zurück.
+DShot läuft schon auf dem ESC-Pin, während `MENU` zu sehen ist, der ESC
+hört also ab dem Ende des Startbildschirms Frames mit Gas 0.
+
+<img src="img/menu.png" width="240" alt="MENU nach dem Startbildschirm: ESC TESTER ist die erste Zeile">
 
 ---
 
@@ -159,12 +169,9 @@ Druck, während der Gas-Finger aufliegt, kommt also womöglich nicht an. Ein
 nasser Bildschirm oder ein Kabel, das auf dem Glas liegt, kann als Finger
 zählen und jedes Tippen blockieren.
 
-Ein Finger, der schon auf dem Glas liegt, wenn der Tester erscheint,
-schaltet nicht scharf und bewegt das Gas nicht. Wird er gehoben, wirkt das
-trotzdem als Tippen auf eine Schaltfläche, die beim Loslassen auslöst, etwa
-`LATCH` oder `MENU`, wenn er darauf liegt; auf `14 POLES` oder `MAX 20%`
-öffnet das Heben SETTINGS. Hast du beim Einschalten den Bildschirm berührt,
-hebe den Finger vor `HOLD TO ARM`.
+Ein Finger, der schon auf dem Glas liegt, wenn `MENU` erscheint, öffnet
+beim Heben nichts: Eine Zeile nimmt ein Tippen nur von einem Druck an, der
+auf ihr begann.
 
 Antwortet der Touch-Controller im scharfen Zustand nicht mehr, entschärft der
 Tester, sobald vier Lesungen in Folge über 100 ms oder länger fehlgeschlagen
@@ -198,9 +205,9 @@ loslässt. Der Balken zeigt einen Griff, und seine Beschriftung lautet
 
 ## Die Obergrenze anheben
 
-`MENU` auf dem Tester öffnet die Liste der Werkzeuge. Das Öffnen entschärft
-immer. `SETTINGS` ist die letzte Zeile: Ziehe `MENU` um 76 px nach oben und
-tippe darauf. Oder tippe entschärft auf `MAX 20%`
+`MENU` auf dem Tester führt zur Liste der Werkzeuge zurück und entschärft
+dabei immer. `SETTINGS` ist die letzte Zeile: Ziehe `MENU` um 120 px nach
+oben und tippe darauf. Oder tippe entschärft auf `MAX 20%`
 oder `14 POLES` im Tester, unterstrichen, solange ein Tippen darauf wirkt:
 Das Tippen entschärft genauso und öffnet SETTINGS, und `BACK` führt dort zum
 Tester zurück.

@@ -127,8 +127,8 @@ PROGRAMMER.
   taken: an ESC connected after that is not detected.
 - While the tester is armed, the screen reads `DISARM FIRST`. While the
   pins are still in use, it reads `WAIT: DSHOT RESTARTING`. Neither is
-  reachable through the screens: opening `MENU` disarms, and PROGRAMMER
-  draws its entries disabled while the pins are in use.
+  reachable through the screens: leaving the tester for `MENU` disarms, and
+  PROGRAMMER draws its entries disabled while the pins are in use.
 
 While the job binds, the strip reads `TAKING SIG GP0`.
 

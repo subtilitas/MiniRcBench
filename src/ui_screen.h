@@ -30,8 +30,8 @@ struct TouchState;
 
 /** @brief The screens. SERVO and its SET view are one screen. */
 enum class UiScreenId : uint8_t {
-	Tester,    /**< The root: throttle, ARM, LATCH, MENU, the two readouts. */
-	Menu,      /**< MENU, the list of tools and actions. */
+	Tester,    /**< ESC TESTER, MENU's first row: throttle, ARM, LATCH, MENU, the two readouts. */
+	Menu,      /**< MENU, the root: the list of tools and actions. */
 	Settings,  /**< SETTINGS, one list in sections. */
 	SdLog,     /**< SD LOG. */
 	Am32,      /**< ESC SETTINGS, opened from ESC CONFIG. */
@@ -201,22 +201,24 @@ inline bool uiPinsRefuse(const UiScreen *s) {
 UiScreenId uiCurrentScreen();
 
 /**
- * @brief Most screens on the navigation stack over the tester: MENU, a hub,
- *        a hub's tool (docs/design/menu-c.md, "Navigation").
+ * @brief Most screens on the navigation stack, MENU, the root, among them:
+ *        MENU; a hub, the tester, SD LOG or SETTINGS; a hub's tool, or
+ *        SETTINGS over the tester (docs/design/menu-c.md, "Navigation").
  */
 #define UI_NAV_MAX 3
 
 /**
- * @brief How many screens are on the navigation stack over the tester: 0
- *        while the tester is open, at most @ref UI_NAV_MAX.
+ * @brief How many screens are on the navigation stack, MENU included: 1
+ *        while MENU is open, at most @ref UI_NAV_MAX. 0 only before
+ *        uiInit().
  */
 uint8_t uiNavDepth();
 
 /**
- * @brief The screen at depth @p i of the navigation stack, 0 the bottom.
- *        The open screen is at uiNavDepth() - 1.
+ * @brief The screen at depth @p i of the navigation stack, 0 the bottom,
+ *        MENU. The open screen is at uiNavDepth() - 1.
  * @param i The depth, from 0.
- * @return Its id; `UiScreenId::Tester`, the root, for @p i at or past
+ * @return Its id; `UiScreenId::Menu`, the root, for @p i at or past
  *         uiNavDepth().
  */
 UiScreenId uiNavAt(uint8_t i);

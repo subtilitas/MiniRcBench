@@ -8,8 +8,10 @@
  * 240 px panel. A tool's persisted settings rows, `UiScreen::settings`, join
  * SETTINGS between SERVO SUPPLY and DISPLAY in this order.
  *
- * The rows go by device (docs/design/menu-b.md, decisions 16, 23, 32): ESC
- * COMMANDS (docs/design/esc-commands.md, decision 1), ESC CONFIG, SERVO
+ * The first row is ESC TESTER, the tester, which MENU opens since MENU is
+ * the root (docs/design/menu-c.md owner decisions 1 and 4, slice 3). The
+ * rows after it go by device (docs/design/menu-b.md, decisions 16, 23, 32):
+ * ESC COMMANDS (docs/design/esc-commands.md, decision 1), ESC CONFIG, SERVO
  * TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS (docs/design/angle-meter.md,
  * decision 1), SD LOG, SETTINGS. A tool row has no status: the strip names
  * the pins (decision 18). ESC CONFIG, RX SIGNALS and TOOLS open their

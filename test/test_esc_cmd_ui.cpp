@@ -62,7 +62,7 @@ static void escAnswering() {
 static void freshEc() {
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	fakeSetCmdReady(EscCmdReady::Ready);
 	fakeSetCmdState(EscCmdState::Idle, 0);
 	esc3dSetNote(false);
@@ -161,7 +161,7 @@ static void testRowAndOpen() {
 	tapId(menuRow(&UI_ESC_CMD));
 	checkTrue("once Free it opens", uiCurrentScreen() == UiScreenId::EscCmd);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 static void testLayout() {
@@ -254,7 +254,7 @@ static void testLayout() {
 	ecFrames(1);
 	fakeDumpFrame("shot_esccmd.ppm");
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 static void testReadiness() {
@@ -332,7 +332,7 @@ static void testReadiness() {
 	ecFrames(1);
 	checkTrue("Ready again: live", allControls(true) && lineIs(0, "SENT 1 (BEEP 1).", C_TEXT));
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 static void testBeeps() {
@@ -379,7 +379,7 @@ static void testBeeps() {
 	          fakeBeepRequests() == before && idleShown());
 	escSetArmed(false);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief Press hold @p c and keep it @p ms, in 25 ms frames and one of the remainder. */
@@ -480,7 +480,7 @@ static void testHolds() {
 	checkInt("a hold the readiness broke never fires on the same press", fakeBeepRequests(), before);
 	fakeRelease(); ecFrames(1);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief Run a hold of @p c to its request and set the state core1 reports. */
@@ -543,7 +543,7 @@ static void testOutcomes() {
 	          lineIs(1, UI_ESC_CMD_3D_STAYS, C_TEXT) && blankFrom(2));
 	checkTrue("and the 3D note stays (decision 4)", esc3dNote());
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	ecFrames(2);
 	checkTrue("the tester shows the note: " ESC_3D_TESTER_NOTE,
 	          fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1));
@@ -567,7 +567,7 @@ static void testOutcomes() {
 	          lineIs(0, UI_ESC_CMD_SAVE_LOST, C_AMBER) && lineIs(1, UI_ESC_CMD_CHECK, C_AMBER) &&
 	          blankFrom(2));
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 static void testBackCancels() {
@@ -594,7 +594,7 @@ static void testBackCancels() {
 	          px(back.x + 6, back.y + back.h - 5) == C_PANEL);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK cancels again", fakeCommandCancels() == cancels + 2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	fakeSetCmdState(EscCmdState::Idle, 0);
 
 	// A press on BACK begun while 3D ON goes out, lifted on the first frame
@@ -651,7 +651,7 @@ static void testBackCancels() {
 	fakeSetCmdState(EscCmdState::Sent, 2);
 	ecFrames(1);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	fakeSetCmdState(EscCmdState::Idle, 0);
 	esc3dSetNote(false);
 }

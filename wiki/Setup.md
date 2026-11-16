@@ -95,7 +95,8 @@ in this manual.
    name and where the two buttons sit on the board are not checked here.
 4. Copy the `.uf2` file onto that drive. The board restarts.
 5. The splash screen shows for 3 s and names the board,
-   `RP2350-TOUCH-LCD-2.8`. Then the tester screen appears.
+   `RP2350-TOUCH-LCD-2.8`. Then `MENU` appears; its first row,
+   `ESC TESTER`, opens the tester.
 
 <img src="img/splash.png" width="240" alt="The splash screen">
 

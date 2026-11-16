@@ -12,7 +12,8 @@
 #include <stdint.h>
 
 /**
- * @brief Reset UI state, seed the ADC, and clear the screen.
+ * @brief Reset UI state, seed the ADC, clear the screen, and open MENU, the
+ *        first screen after the splash (docs/design/menu-c.md, slice 3).
  * @pre st7789Init() and touchInit() must already have run.
  */
 void uiInit();
@@ -33,9 +34,9 @@ void uiDrawSplash();
  *
  * The read goes into a state of its own. The driver keeps the contact
  * between reads, so a finger resting on the glass at the splash's end gives
- * the tester no press edge: it does not arm or start a drag. The driver also
- * keeps where that press began, so lifting it completes a tap on a button
- * that acts on release.
+ * MENU, the first screen, no press edge: a MENU row takes a tap only from
+ * a press that began on it (ui_list.h), so lifting that finger opens
+ * nothing.
  */
 void uiSplashTick();
 
@@ -151,7 +152,7 @@ bool     uiArmed();
 enum class TesterCtl : uint8_t {
 	Arm = 1,   /**< HOLD TO ARM, or DISARM. Acts while no USB host holds the card. */
 	Latch,     /**< LATCH: the throttle stays where the finger leaves it. */
-	Menu,      /**< MENU: disarms, zeroes the throttle, turns LATCH off and opens MENU. */
+	Menu,      /**< MENU: disarms, zeroes the throttle, turns LATCH off and returns to MENU. */
 	Throttle,  /**< The throttle gauge's track, as drawn. A press lands 8 px beyond its left, right and top edges and 1 px below it (handleMainTouch()). Acts while armed. */
 	Pad,       /**< The relative throttle pad over the readouts. Acts while armed. */
 	/**
@@ -204,5 +205,13 @@ enum class TesterCtl : uint8_t {
 
 struct UiScreen;
 
-/** @brief The tester, the root screen. */
+/** @brief The tester's MENU row, scale 2: 10 characters, 118 px. */
+#define UI_TESTER_LABEL "ESC TESTER"
+
+/**
+ * @brief The tester: MENU's first row, ESC TESTER, opened disarmed at
+ *        throttle 0 with LATCH off; its MENU button disarms and returns to
+ *        MENU (docs/design/menu-c.md, slice 3). It has no header. It opens
+ *        only while the pin claim is Free (`freePins`): DShot needs the pin.
+ */
 extern const UiScreen UI_TESTER;

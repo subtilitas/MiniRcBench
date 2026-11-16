@@ -21,6 +21,7 @@
 #include "ui_settings.h"
 #include "ui_tools.h"
 #include "ui_angle.h"
+#include "ui.h"
 #include "servo_supply.h"
 #include "gfx.h"
 
@@ -29,6 +30,7 @@
  *        in characters, 0 for a row with none.
  */
 constexpr UiMenuEntry UI_MENU[] = {
+	{ UI_TESTER_LABEL,     0, &UI_TESTER     },   // the tester; the first row (menu-c.md owner decision 4)
 	{ UI_ESC_CMD_TITLE,    0, &UI_ESC_CMD    },   // the DShot commands, BEEP 1 to 5 among them
 	{ UI_ESC_CFG_TITLE,    0, &UI_ESC_CONFIG },   // the chooser: ESC SETTINGS, USB BRIDGE
 	{ SERVO_UI_TITLE,      0, &UI_SERVO      },

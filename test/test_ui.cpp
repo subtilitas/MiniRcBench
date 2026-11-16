@@ -336,13 +336,13 @@ static void testLogScreen() {
 	checkTrue("and its size", st.cardSizeMB > 100000);
 	fakeDumpFrame("shot_log_mounted.ppm");
 
-	// BACK leaves SD LOG for MENU, and MENU's BACK reaches the tester.
+	// BACK leaves SD LOG for MENU, and MENU's row ESC TESTER reaches the tester.
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /** @brief Whether SD LOG's FILE row reads @p text, right-aligned. */
@@ -686,7 +686,7 @@ static void testLogRun() {
 	fakeSdLogSet(&st);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
@@ -734,14 +734,14 @@ static void testTesterNoRun() {
 	fakeSdLogSet(&st);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(4);
 	uint32_t with = fakeRegionHash(0, 0, GFX_W, GFX_H);
 	st.summary = nullptr;
 	fakeSdLogSet(&st);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(4);
 	checkTrue("the tester's frame is the same without the summary",
 	          fakeRegionHash(0, 0, GFX_W, GFX_H) == with);
@@ -910,7 +910,7 @@ static void testLogNumbering() {
 	fakeSdLogSetHighest(0);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
 }
 
@@ -1078,7 +1078,7 @@ static void testLogEndNotes() {
 	checkTrue("a log runs", sdLogActive());
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
@@ -1125,7 +1125,7 @@ static void testLogEndNotes() {
 	fakeSdLogSet(&st);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
@@ -1138,7 +1138,7 @@ static void testTesterSdErr() {
 	section("Tester: SDERR is an amber chip");
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
@@ -1293,13 +1293,13 @@ static void testUsbDriveScreen() {
 	// Arming is refused while a host holds the card, from the tester screen --
 	// which is reachable, because BACK does not cancel a copy in progress.
 	// BACK leaves SD LOG for MENU while the host holds the card too, and
-	// MENU's BACK then reaches the tester.
+	// MENU's row ESC TESTER then reaches the tester.
 	fakeMscSet(MscState::Serving, 0);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from SD LOG, card held: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("leaving does not end the handover", mscGetState() == MscState::Serving);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	openTester();
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	frames(2);
 	holdToArm(IdExpect::Disabled);
 	checkTrue("a host holding the card blocks arming", !uiArmed());
@@ -1333,9 +1333,9 @@ static void testManualLogSurvivesArming() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	// A tap will not arm: it takes a one-second hold, and using tap() here is
 	// how an earlier version of this test passed against the broken rule.
 	holdToArm();
@@ -1354,7 +1354,7 @@ static void testManualLogSurvivesArming() {
 	checkTrue("manual STOP ends it", !sdLogActive());
 	tapId(UI_FIX(UI_BACK));               // to MENU
 	frames(2);
-	tapId(UI_FIX(UI_BACK));               // to the tester
+	openTester();                         // to the tester
 	frames(2);
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
@@ -1637,8 +1637,8 @@ static void testMenuChip() {
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	const UiRect cmds = ctlRect(menuRow(&UI_ESC_CMD));
 	uint32_t chipOn = fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H);
-	checkTrue("ESC COMMANDS is the first row, its label at scale 2 from x 16, 142 px",
-	          uiMenuRowOf(&UI_ESC_CMD) == 0 &&
+	checkTrue("ESC COMMANDS is the second row, its label at scale 2 from x 16, 142 px",
+	          uiMenuRowOf(&UI_ESC_CMD) == 1 &&
 	          fakeTextIs(16, cmds.y + 13, "ESC COMMANDS", C_TEXT, C_PANEL, 2) &&
 	          gfxTextW("ESC COMMANDS", 2) == 142);
 	fakeDumpFrame("shot_menu_edt_on.ppm");
@@ -1717,9 +1717,9 @@ static void testMenuChip() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 
-	tapId(UI_FIX(UI_BACK));               // BACK, in the header
+	openTester();                         // MENU has no BACK: its row
 	frames(2);
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 
@@ -1822,7 +1822,7 @@ static void testSettingsConnectorLines() {
 	section("SETTINGS: the connector lines agree with the board header");
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 	for (uint8_t g = 0; g < 2; g++) {
@@ -1856,7 +1856,7 @@ static void testSettingsConnectorLines() {
 		          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", gp, C_TEXT, sub));
 	}
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	fakeFlashClear();
 	settingsLoad();
 }
@@ -1887,7 +1887,7 @@ static void testSettingsWiring() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -1964,7 +1964,7 @@ static void testStatusBarBitrate() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	fakeSetEdtRequested(false);
 	feedLiveTelemetry();
 	uint8_t pin = escTaskDshotPin();
@@ -2014,7 +2014,7 @@ static void testSettingsKiss() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -2097,7 +2097,7 @@ static void testSettingsServoSupply() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -2139,7 +2139,7 @@ static void testSettingsServoSupply() {
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Minus));
 	checkTrue("+ then -: none again", settings()->servoSupply == 0 && !servoSupplyFitted());
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	fakeFlashClear();
 	settingsLoad();
 }
@@ -2162,7 +2162,7 @@ static void testSettingsCurrentSense() {
 	settingsLoad();
 	senseConfigure(0);
 	fakeI2cReset();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -2201,7 +2201,7 @@ static void testSettingsCurrentSense() {
 	tapRowId(UI_ROW(SettingsRowId::CurrentSense, Toggle));
 	checkTrue("toggled twice: NONE again", settings()->currentSense == 0 && !senseDeclared());
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	fakeFlashClear();
 	settingsLoad();
 	fakeI2cReset();
@@ -2213,7 +2213,7 @@ static void testSettingsDisplay() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -2241,8 +2241,8 @@ static void testSettingsDisplay() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));               // BACK, out of MENU
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	openTester();                         // out of MENU, by its row
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	// Live data in both halves of the published pair. A dark screen full of
 	// numbers next to a light screen reading "--" compares two different things.
 	feedLiveTelemetry();
@@ -2282,7 +2282,7 @@ static void testSettingsSave() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -2396,7 +2396,7 @@ static void testTapCancels() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 
 	// LATCH is observable through the throttle gauge: with it on, the bar latches
@@ -2451,7 +2451,7 @@ static void testStepperRepeat() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -2525,7 +2525,7 @@ static void testArmBacklightDip() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(6);
 	uint8_t resting = fakeBacklight();
 	checkTrue("resting at the configured level", resting > 0);
@@ -2566,7 +2566,7 @@ static void testArmInterlocks() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 
 	// A tap is not a hold. Nothing in the suite asserted this, which is how
@@ -2612,7 +2612,7 @@ static void testDisarmButton() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 	checkTrue("armed to begin with", uiArmed());
@@ -2656,7 +2656,7 @@ static void testArmNeedsLivePress() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 	checkTrue("armed to begin with", uiArmed());
@@ -2701,7 +2701,7 @@ static void testThrottleRailsAreReachable() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 
@@ -2753,7 +2753,7 @@ static void testThrottleBarStopsAtTheButtons() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 
@@ -2788,7 +2788,7 @@ static void testCeilingBindsInRelativeMode() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 
@@ -2828,7 +2828,7 @@ static void testDisarmedThrottleBackstop() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 
 	// Never armed: every throttle surface must be inert.
@@ -3516,7 +3516,7 @@ static void testIdleAutoDisarm() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 	checkTrue("armed", uiArmed());
@@ -3580,7 +3580,7 @@ static void testTouchLoss() {
 	fakeSdLogSet(&card);
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	checkTrue("answering: the swipe hint, no note", hintIs("SWIPE = THROTTLE", C_DIM));
 	checkInt("TOUCH_LOST_MS is four 25 ms frames", TOUCH_LOST_MS, 4 * UI_FRAME_MS);
@@ -3661,7 +3661,7 @@ static void testTouchLoss() {
 	// A 3D-mode ESC's note gives the row to the touch note, since nothing on
 	// the tester works until the touch answers; it returns with the touch.
 	esc3dSetNote(true);
-	uiInit();
+	uiInitTester();
 	frames(4);
 	checkTrue("the 3D note on the bottom row",
 	          fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1));
@@ -3675,7 +3675,7 @@ static void testTouchLoss() {
 	checkTrue("answering: the 3D note again",
 	          fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1));
 	esc3dSetNote(false);
-	uiInit();
+	uiInitTester();
 	frames(4);
 	fakeSdLogSet(&logWas);
 }
@@ -3690,7 +3690,7 @@ static void testTouchLossStall() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 	tapId(UI_FIX(TesterCtl::Latch));
@@ -3806,14 +3806,14 @@ static void testBoardCellColour() {
 	};
 	for (const auto &c : cases) {
 		fakeAdcSet(c.raw);
-		uiInit();
+		uiInitTester();
 		frames(2);
 		checkTrue(c.what, shows(c.text, c.col));
 	}
 	// Hysteresis through the smoothing: from 3.45 V, amber, to 3.53 V stays
 	// amber; to 3.58 V goes back.
 	fakeAdcSet(1427);
-	uiInit();
+	uiInitTester();
 	frames(2);
 	fakeAdcSet(1460);
 	frames(120);
@@ -3834,7 +3834,7 @@ static void testBoardCellColour() {
 		};
 		for (const auto &c : both) {
 			fakeAdcSet(c.raw);
-			uiInit();
+			uiInitTester();
 			frames(2);
 			char what[64];
 			snprintf(what, sizeof(what), "SDERR chip and %s together", c.text);
@@ -3849,7 +3849,7 @@ static void testBoardCellColour() {
 	// colour: armed at a red reading, so the two colours differ, and run into
 	// the last 5 s.
 	fakeAdcSet(1325);
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 	checkTrue("armed at 3.20 V: the voltage in red", uiArmed() && shows("3.20V", C_RED));
@@ -3881,7 +3881,7 @@ static void testBoardCellColour() {
 	checkTrue("the idle interlock disarms", !uiArmed());
 	checkTrue("the voltage is back, red", shows("3.20V", C_RED));
 	fakeAdcSet(fakeAdcDefault());
-	uiInit();
+	uiInitTester();
 	frames(2);
 }
 
@@ -3903,8 +3903,17 @@ static void testSplashTouch() {
 	checkTrue("it stays while the controller does not answer",
 	          fakeTextCentredIs(UI_SPLASH_TOUCH_Y, UI_SPLASH_TOUCH_TEXT, C_AMBER, C_BG, 1));
 
-	// The splash ends; the tester says the same in its words.
+	// The splash ends on MENU, the root (docs/design/menu-c.md, slice 3).
 	uiInit();
+	frames(2);
+	checkTrue("the splash ends on MENU", uiCurrentScreen() == UiScreenId::Menu && uiNavDepth() == 1);
+	// The tester says the same in its words once opened, and the touch then
+	// stops answering.
+	fakeTouchAnswers(true);
+	touchInit();
+	openTester();
+	fakeTouchAnswers(false);
+	touchInit();
 	frames(2);
 	checkTrue("the tester shows TOUCH NOT ANSWERING", hintIs(UI_TOUCH_LOST_TEXT, C_AMBER));
 
@@ -3918,68 +3927,47 @@ static void testSplashTouch() {
 	int x0 = 0, x1 = 0;
 	checkTrue("an answer clears the line",
 	          !fakeInkExtent(UI_SPLASH_TOUCH_Y, 8, C_BG, &x0, &x1));
-	uiInit();
+	uiInitTester();
 	frames(2);
 	checkTrue("and the tester has no note", hintIs("SWIPE = THROTTLE", C_DIM));
 
 	// A finger on the glass through the end of the splash: the splash's read
-	// took its press edge, so on the tester it presses nothing until lifted.
+	// took its press edge, so MENU, the first screen, takes no tap from its
+	// lift. On MENU's row ESC TESTER: the tester does not open.
 	uiInit();
 	uiDrawSplash();
-	int ax = 0, ay = 0;
-	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
-	fakePress(ax, ay);
+	int rx = 0, ry = 0;
+	ctlCentre(menuRow(&UI_TESTER), &rx, &ry);
+	fakePress(rx, ry);
+	fakeAdvance(UI_FRAME_MS);
+	uiSplashTick();
+	frames(4);
+	checkTrue("a finger on ESC TESTER from the splash on: MENU stays", uiCurrentScreen() == UiScreenId::Menu);
+	fakeRelease();
+	frames(2);
+	checkTrue("its lift opens nothing", uiCurrentScreen() == UiScreenId::Menu && uiNavDepth() == 1);
+	openTester();
+	checkTrue("lifted and tapped again: the tester opens", uiCurrentScreen() == UiScreenId::Tester);
+
+	// Where ARM lies on the tester, 1.5 s from the splash on: MENU stays,
+	// nothing is armed, and the lift opens nothing.
+	uiInit();
+	uiDrawSplash();
+	fakePress(6 + 104 / 2, 283 + 33 / 2);
 	fakeAdvance(UI_FRAME_MS);
 	uiSplashTick();
 	frames(60);
-	checkTrue("a finger on ARM from the splash on, 1.5 s: not armed", !uiArmed());
 	fakeRelease();
 	frames(2);
-	holdToArm();
-	checkTrue("lifted and pressed again: HOLD TO ARM arms", uiArmed());
-	tapId(UI_FIX(TesterCtl::Arm));
-	checkTrue("disarmed for what follows", !uiArmed());
-
-	// Its lift still completes a tap on a button that acts on release: the
-	// press began on MENU.
-	uiInit();
-	uiDrawSplash();
-	int mx = 0, my = 0;
-	ctlCentre(UI_FIX(TesterCtl::Menu), &mx, &my);
-	fakePress(mx, my);
-	fakeAdvance(UI_FRAME_MS);
-	uiSplashTick();
-	frames(4);
-	checkTrue("a finger on MENU from the splash on: the tester stays", uiCurrentScreen() == UiScreenId::Tester);
-	fakeRelease();
-	frames(2);
-	checkTrue("its lift opens MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
-
-	// The same for a finger resting on a readout: its lift opens SETTINGS.
-	uiInit();
-	uiDrawSplash();
-	ctlCentre(UI_FIX(TesterCtl::Max), &mx, &my);
-	fakePress(mx, my);
-	fakeAdvance(UI_FRAME_MS);
-	uiSplashTick();
-	frames(4);
-	checkTrue("a finger on MAX from the splash on: the tester stays, disarmed",
-	          uiCurrentScreen() == UiScreenId::Tester && !uiArmed() && fakeThrottle() == 0);
-	fakeRelease();
-	frames(2);
-	checkTrue("its lift opens SETTINGS", uiCurrentScreen() == UiScreenId::Settings);
-	tapId(UI_FIX(UI_BACK));
-	frames(2);
-	checkTrue("BACK to the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("a finger at ARM's place from the splash on, 1.5 s: MENU, not armed",
+	          uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && fakeThrottle() == 0);
 
 	// Answering at boot: no line.
 	touchInit();
 	uiDrawSplash();
 	checkTrue("a controller found at boot: no line",
 	          !fakeInkExtent(UI_SPLASH_TOUCH_Y, 8, C_BG, &x0, &x1));
-	uiInit();
+	uiInitTester();
 	frames(2);
 }
 
@@ -3989,7 +3977,7 @@ static void testPoleCountReachesEsc() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	enterSettings();
 
@@ -4027,7 +4015,7 @@ static void testRpmGoesDead() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 
 	auto rpmBand = []() { return fakeRegionHash(0, 27, 240, 100); };
@@ -4053,7 +4041,7 @@ static void testAutoLogOnArm() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 
 	SdLogStatus st;
@@ -4080,7 +4068,7 @@ static void testHitBoundaries() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -4103,7 +4091,7 @@ static void testHitBoundaries() {
 	frames(2);
 	checkTrue("a tap in the gap below SD LOG left MENU up",
 	          uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	tapId(UI_FIX(TesterCtl::Menu));
 	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h - 1);
 	checkTrue("ESC COMMANDS' last pixel row opens it", uiCurrentScreen() == UiScreenId::EscCmd);
@@ -4143,7 +4131,7 @@ static void testMenuDestinations() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	EscTelemetry quiet;
 	memset(&quiet, 0, sizeof(quiet));
 	fakeSetTelemetry(&quiet);
@@ -4156,13 +4144,14 @@ static void testMenuDestinations() {
 	// The registry, in MENU order.
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
-	checkInt("MENU has eight rows", rows, 8);
-	checkTrue("ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, "
-	          "SD LOG, SETTINGS, in that order",
-	          uiMenuRowOf(&UI_ESC_CMD) == 0 && uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
-	          uiMenuRowOf(&UI_SERVO) == 2 && uiMenuRowOf(&UI_SERVO_PROG) == 3 &&
-	          uiMenuRowOf(&UI_RX_SIGNALS) == 4 && uiMenuRowOf(&UI_TOOLS) == 5 &&
-	          uiMenuRowOf(&UI_SDLOG) == 6 && uiMenuRowOf(&UI_SETTINGS) == 7);
+	checkInt("MENU has nine rows", rows, 9);
+	checkTrue("ESC TESTER, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, "
+	          "TOOLS, SD LOG, SETTINGS, in that order",
+	          uiMenuRowOf(&UI_TESTER) == 0 && uiMenuRowOf(&UI_ESC_CMD) == 1 &&
+	          uiMenuRowOf(&UI_ESC_CONFIG) == 2 && uiMenuRowOf(&UI_SERVO) == 3 &&
+	          uiMenuRowOf(&UI_SERVO_PROG) == 4 && uiMenuRowOf(&UI_RX_SIGNALS) == 5 &&
+	          uiMenuRowOf(&UI_TOOLS) == 6 && uiMenuRowOf(&UI_SDLOG) == 7 &&
+	          uiMenuRowOf(&UI_SETTINGS) == 8);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.
@@ -4278,9 +4267,9 @@ static void testMenuDestinations() {
 	checkTrue("and MENU takes taps: ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /**
@@ -4295,7 +4284,7 @@ static void testRailReAnchor() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(4);
 	holdToArm();
 	tapId(UI_FIX(TesterCtl::Latch));           // LATCH: the gauge is relative
@@ -4356,7 +4345,7 @@ static void testBoardRow() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 
 	checkTrue("the descriptor is the 2.8\"'s", g_board == &BOARD_DESC_LCD_2_8);
@@ -4501,7 +4490,7 @@ static void testArmedSaveRefused() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	holdToArm();
 	checkTrue("armed to begin with", uiArmed());
@@ -4561,7 +4550,7 @@ static void testArmedSaveRefused() {
 	checkTrue("disarmed again", !uiArmed());
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 }
 
@@ -4577,7 +4566,7 @@ static void testPressedLookClears() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	tapId(UI_FIX(TesterCtl::Menu));           // to MENU
 	frames(2);
@@ -4627,11 +4616,10 @@ static void testPressedLookClears() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	// The old tap here was at (120, 309), the bottom BACK of an earlier layout,
-	// and hit nothing. BACK is in the header now.
-	tapId(UI_FIX(UI_BACK));              // BACK, from MENU to the tester screen
+	// MENU, the root, has no BACK: its row ESC TESTER leads back.
+	openTester();
 	frames(2);
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /**
@@ -4646,7 +4634,7 @@ static void testScreenChangeResidue() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 
 	// The marker is amber in the footer band, y 260 to y 319: SETTINGS'
@@ -4669,9 +4657,9 @@ static void testScreenChangeResidue() {
 	tapId(UI_FIX(UI_BACK));                 // BACK, to MENU
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));                 // BACK, to the tester screen
+	openTester();                           // to the tester, by its row
 	frames(3);
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	int after = footerAmber();
 	checkTrue("no SETTINGS amber survives on the tester screen",
 	          after <= before);
@@ -4692,7 +4680,7 @@ static void testTesterBoardAndCard() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	feedLiveTelemetry();
 	frames(4);
 	checkTrue("BOARD at x 140, y 14, dim on the status bar",
@@ -4732,7 +4720,7 @@ static void testTesterBoardAndCard() {
 	};
 	for (const auto &vc : volts) {
 		fakeAdcSet(vc.raw);
-		uiInit();
+		uiInitTester();
 		frames(2);
 		const int w = gfxTextW(vc.want, 2), x = GFX_W - 4 - w;
 		char what[64];
@@ -4745,7 +4733,7 @@ static void testTesterBoardAndCard() {
 		checkTrue(what, clear && fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1));
 	}
 	fakeAdcSet(fakeAdcDefault());
-	uiInit();
+	uiInitTester();
 	feedLiveTelemetry();
 	frames(4);
 
@@ -4831,7 +4819,7 @@ static void testTesterReadouts() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	feedLiveTelemetry();
 	frames(4);
 	const uint16_t *fb = gfxBuffer();
@@ -4883,9 +4871,9 @@ static void testTesterReadouts() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("SETTINGS opened from MENU returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
-	checkTrue("and MENU to the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("and MENU's row to the tester", uiCurrentScreen() == UiScreenId::Tester);
 
 	// A press that slides off the readout opens nothing.
 	fakePress(poles.x + poles.w / 2, poles.y + poles.h / 2); frames(1);
@@ -4908,8 +4896,9 @@ static void testTesterReadouts() {
 		fakeRelease(); frames(1);
 		checkTrue("the tap opens SETTINGS, disarmed",
 		          uiCurrentScreen() == UiScreenId::Settings && !uiArmed() && !fakeArmed());
-		checkTrue("the stack: SETTINGS alone over the tester",
-		          uiNavDepth() == 1 && uiNavAt(0) == UiScreenId::Settings);
+		checkTrue("the stack: MENU, the tester, SETTINGS",
+		          uiNavDepth() == 3 && uiNavAt(0) == UiScreenId::Menu &&
+		          uiNavAt(1) == UiScreenId::Tester && uiNavAt(2) == UiScreenId::Settings);
 		// The frame that opened SETTINGS paints none of the tester over it.
 		bool clear = true;
 		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
@@ -4918,8 +4907,9 @@ static void testTesterReadouts() {
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("SETTINGS from a readout: BACK returns to the tester, the stack empty",
-	          uiCurrentScreen() == UiScreenId::Tester && uiNavDepth() == 0);
+	checkTrue("SETTINGS from a readout: BACK returns to the tester, over MENU",
+	          uiCurrentScreen() == UiScreenId::Tester && uiNavDepth() == 2 &&
+	          uiNavAt(0) == UiScreenId::Menu);
 	checkTrue("back on the tester: LATCH is off",
 	          fb[(283 + 4) * GFX_W + 116 + 4] == C_PANEL &&
 	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
@@ -4972,7 +4962,7 @@ static void testTesterReadouts() {
 		          uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && clear);
 	}
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	frames(2);
 	holdToArm();
 	checkTrue("armed again", uiArmed());
@@ -5000,7 +4990,7 @@ static void testTesterReadouts() {
 
 	// --- the 3D note takes the pole count's row, and its target ---
 	esc3dSetNote(true);
-	uiInit();
+	uiInitTester();
 	frames(2);
 	checkTrue("3D note: no pole count, no Poles control",
 	          tester3dShown() && !ctlPresent(UI_FIX(TesterCtl::Poles)));
@@ -5013,7 +5003,7 @@ static void testTesterReadouts() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	esc3dSetNote(false);
-	uiInit();
+	uiInitTester();
 	frames(2);
 }
 
@@ -5089,7 +5079,7 @@ static void testSplash() {
 
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 }
 
@@ -5120,7 +5110,7 @@ static void leaveAm32ToTester() {
 	}
 	checkTrue("BACK from ESC SETTINGS: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
@@ -5964,13 +5954,13 @@ static void testAm32Guard() {
 	checkTrue("the second BACK: ESC CONFIG, nothing written, the ESC as it was",
 	          uiCurrentScreen() == UiScreenId::EscConfig && fakeAm32Writes() == writes && fakeEscByte(0x1B) == esc);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	enterAm32(6);
 	checkTrue("back in: the list as read", s_state == S_LIST && !anyDirty() && !s_guard.armed);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("no edits: one BACK leaves", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	enterAm32(6);
 	checkTrue("POLES steps", am32Step("POLES"));
 	tapId(UI_FIX(UI_BACK));
@@ -5979,7 +5969,7 @@ static void testAm32Guard() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("then one BACK leaves", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
@@ -5997,7 +5987,7 @@ static void testAm32ClaimWords() {
 	section("ESC SETTINGS: RELEASING SIG GP0, and WAIT: DSHOT RESTARTING");
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
@@ -6261,7 +6251,7 @@ static void testEfm8Write() {
 	int leaveAt = -1;
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt == e->starts - 1);
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: BLHeli_S 16.7 with no card; the 3D note");
 	am32NoCard();
@@ -6284,7 +6274,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a card that refuses the backup; the BOARD voltage red");
 	am32Card();
@@ -6316,7 +6306,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: the ESC's page changed since the read; READ AGAIN");
 	am32NoCard();
@@ -6351,7 +6341,7 @@ static void testEfm8Write() {
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	efm8Esc(0xB2, true);
 	checkTrue("the list again", efm8Read());
 	e = fakeEwSim();
@@ -6377,7 +6367,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: the ESC's power cut after the erase");
 	am32Card();
@@ -6446,7 +6436,7 @@ static void testEfm8Write() {
 	checkTrue("no DShot all along", fakeResumeCount() == resumes);
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: programs that do not take: half written, then the draft again");
 	am32NoCard();
@@ -6479,7 +6469,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: BACK on a half-written page aborts with no LEAVE");
 	am32NoCard();
@@ -6516,7 +6506,7 @@ static void testEfm8Write() {
 	for (int i = 0; i < e->starts; i++) left = left || fakeEwSentLeave(i);
 	checkTrue("no LEAVE frame went to the half-written page", !left);
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a heartbeat lapse after the erase");
 	am32NoCard();
@@ -6552,7 +6542,7 @@ static void testEfm8Write() {
 	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a Write the job refuses for a lapsed heartbeat is asked again");
 	am32NoCard();
@@ -6585,7 +6575,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a second session in one visit saves its own backup");
 	am32Card();
@@ -6623,7 +6613,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: an AM32 answering after an EFM8 session saves its own backup");
 	am32Card();
@@ -6653,7 +6643,7 @@ static void testEfm8Write() {
 	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a driver failure after the erase, no card: the old page kept on the screen");
 	am32NoCard();
@@ -6723,7 +6713,7 @@ static void testEfm8Write() {
 	          fakeResumeCount() == resumes + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a heartbeat lapse in a write that ends half written, a card in");
 	am32Card();
@@ -6773,7 +6763,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: READ AGAIN on a half-written page that ends the session; the guard's abort");
 	am32NoCard();
@@ -6800,7 +6790,7 @@ static void testEfm8Write() {
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	efm8Esc(0xB2, true);
 	memcpy(orig, efm8Page(), sizeof(orig));
 	checkTrue("a fresh visit: no old page", efm8Read() && s_ewKeptLen == 0);
@@ -6824,7 +6814,7 @@ static void testEfm8Write() {
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a torn page that reads as writable does not replace the kept old page");
 	am32NoCard();
@@ -6873,7 +6863,7 @@ static void testEfm8Write() {
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: a page changed and read again gets its own backup");
 	am32Card();
@@ -6899,7 +6889,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Ok));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	section("ESC WRITE: read-only lists save their backup and never write");
 	am32Card();
@@ -6913,7 +6903,7 @@ static void testEfm8Write() {
 	checkTrue("BH001.TXT holds the page as read", efm8BackupHolds("BACKUP/BH001.TXT", 0xB2, orig));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	efm8Esc(0xB2, false);
 	memset(efm8Page() + 0x40, 0xFF, 48);
 	checkTrue("the same page opened again", efm8Read());
@@ -6929,7 +6919,7 @@ static void testEfm8Write() {
 	checkTrue("WRITE... does nothing", s_state == S_EW_LIST && e->erases == 0 && e->programs == 0);
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	efm8Esc(0xB2, true);
 	efm8Page()[0x01] = 19;
 	efm8Page()[0x02] = 206;
@@ -6939,7 +6929,7 @@ static void testEfm8Write() {
 	                                                  UI_COL_WARN, C_BG, 1));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	fakeFatWriteProtect(true);
 	efm8Esc(0xB2, true);
 	efm8Page()[0x0E] = 0;
@@ -6950,7 +6940,7 @@ static void testEfm8Write() {
 	fakeFatWriteProtect(false);
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	am32NoCard();
 	efm8Esc(0xB2, false);
 	memset(efm8Page() + 0x40, 0xFF, 48);
@@ -6959,7 +6949,7 @@ static void testEfm8Write() {
 	checkTrue("REFLASH ON A COMPUTER. NO CARD.", stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. NO CARD."));
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	fakeMscSet(MscState::Serving, 0);
 	efm8Esc(0xB2, true);
 	efm8Page()[0x0E] = 0;
@@ -6970,7 +6960,7 @@ static void testEfm8Write() {
 	fakeMscSet(MscState::Idle, 0);
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**
@@ -7000,7 +6990,7 @@ static void testAm32Efm8() {
 		checkTrue("no leave page is due", !pinClaimUnplugDue());
 		fakeAm32Silent(false);
 		frames(1);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: the connect cycle, 1000 ms quiet, then 3 greetings");
@@ -7184,7 +7174,7 @@ static void testAm32Efm8() {
 		checkTrue("an eRPM frame from before the answer leaves it", uiAm32RunCue(s_blReachedMs - 1));
 		checkTrue("one after LEAVE clears it", !uiAm32RunCue(millis()) && !s_blReached);
 		checkTrue("the line closed", fakeEwCloses() == 1 && !fakeEwOpen());
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: BLHeli_S 16.7 in 3D");
@@ -7207,7 +7197,7 @@ static void testAm32Efm8() {
 		int leaveAt = -1;
 		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 		frames(2);
 		checkTrue("the tester shows the 3D note", tester3dShown());
 
@@ -7216,7 +7206,7 @@ static void testAm32Efm8() {
 		checkTrue("the note cleared", !esc3dNote());
 		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: read-only lists");
@@ -7239,7 +7229,7 @@ static void testAm32Efm8() {
 		int leaveAt = -1;
 		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 
 		efm8Esc(0xB2, false);
 		memset(efm8Page() + 0x40, 0xFF, 48);
@@ -7250,7 +7240,7 @@ static void testAm32Efm8() {
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, EFM8_UI_REFLASH, UI_COL_WARN, C_BG, 1));
 		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 
 		efm8Esc(0xB2, true);
 		efm8Page()[0x0E] = 0x00;
@@ -7262,7 +7252,7 @@ static void testAm32Efm8() {
 		checkTrue("the tester's 3D note left as it was", !esc3dNote());
 		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: a page not taken, then BACK: the leave page of decision 8");
@@ -7359,7 +7349,7 @@ static void testAm32Efm8() {
 		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
 		checkTrue("the claim ends", pinClaimState() == ClaimState::Free);
 		checkTrue("no LEAVE frame went", e->starts == starts);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: a page not known");
@@ -7384,7 +7374,7 @@ static void testAm32Efm8() {
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: BACK while the job reads");
@@ -7402,7 +7392,7 @@ static void testAm32Efm8() {
 		int leaveAt = -1;
 		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 
 		efm8Esc(0xB2, true);
 		enterAm32(1);
@@ -7423,7 +7413,7 @@ static void testAm32Efm8() {
 		for (int i = 0; i < fakeEwSim()->starts; i++) sent = sent || fakeEwSentLeave(i);
 		checkTrue("no LEAVE frame went", !sent);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: an ESC that answers the greeting, then not escwire");
@@ -7485,7 +7475,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		checkTrue("the claim ends, the cue cleared", pinClaimState() == ClaimState::Free && !s_blReached);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: after an EFM8 answer, BACK from the read-only view opens the leave page");
@@ -7516,7 +7506,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: a LEAVE that does not go out");
@@ -7541,7 +7531,7 @@ static void testAm32Efm8() {
 		          fakeResumeCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: a LEAVE the job refuses for a lapsed heartbeat is asked again");
@@ -7575,7 +7565,7 @@ static void testAm32Efm8() {
 		          fakeResumeCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: an AM32 answers the session's own contact");
@@ -7598,7 +7588,7 @@ static void testAm32Efm8() {
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: an EFM8 answer with a byte lost brings the leave page");
@@ -7631,7 +7621,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeAm32Silent(false);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: the job's bind refused");
@@ -7659,7 +7649,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEwRefuse(0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: a pin the job's line driver does not take");
@@ -7680,7 +7670,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEwRefuse(0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: an answer with a glitch byte after it is an EFM8's");
@@ -7697,7 +7687,7 @@ static void testAm32Efm8() {
 		int leaveAt = -1;
 		checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	section("ESC SETTINGS: the leave page goes with the claim");
@@ -7715,7 +7705,7 @@ static void testAm32Efm8() {
 		checkTrue("an eRPM frame after the answer clears the cue",
 		          uiAm32RunCue(s_blReachedMs - 1) && !uiAm32RunCue(s_blReachedMs + 1));
 		frames(1);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 }
 
@@ -7832,7 +7822,7 @@ static void testAm32Guidance() {
 		fakeSetTelemetry(&quiet);
 		frames(2);
 		checkTrue("and stays gone when eRPM stops again", !menuRunCueShown());
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 		checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 	}
 
@@ -8365,7 +8355,7 @@ static void testTesterKvEst() {
 	settingsLoad();
 	settings()->maxThrottle = 2000;          // MAX 100%: the estimate needs 75 %
 	esc3dSetNote(false);                     // an earlier case left it standing
-	uiInit();
+	uiInitTester();
 	// 14 poles: 156,800 eRPM is 22,400 RPM, a 1,750 kV motor's ideal speed
 	// at 16.0 V and 80 % duty.
 	const uint32_t erpm = 156800, rpm = erpm / 7;
@@ -8583,7 +8573,7 @@ static void testTesterKvEst() {
 	// --- the 3D note: it takes the row; RPM/V stays on the ERPM line ---
 	tapId(UI_FIX(TesterCtl::Arm));                     // DISARM
 	esc3dSetNote(true);
-	uiInit();
+	uiInitTester();
 	kvFrames(2, erpm, 15.75f, 16.0f);
 	holdToArm();
 	t = kvHoldTrack(80, erpm, 15.75f, 16.0f);
@@ -8631,7 +8621,7 @@ static void testTesterKvEst() {
 	checkTrue("  ends 27 px before RPM at x 192",
 	          226 - gfxTextW("RPM", 2) - (10 + gfxTextW("ERPM 60000000  RPM/V 99999", 1)) == 27);
 
-	uiInit();
+	uiInitTester();
 	fakeFlashClear();
 	settingsLoad();
 	feedLiveTelemetry();
@@ -8689,7 +8679,11 @@ void runUiTests() {
 
 	uiInit();
 	frames(4);
-	checkTrue("the tester is open after uiInit()", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("the splash ends on MENU: open after uiInit()", uiCurrentScreen() == UiScreenId::Menu);
+	checkControlTable("MENU after the splash");
+	openTester();
+	frames(3);
+	checkTrue("its first row, ESC TESTER, opens the tester", uiCurrentScreen() == UiScreenId::Tester);
 	checkControlTable("tester, disarmed");
 	fakeDumpFrame("shot_tester_disarmed.ppm");
 
@@ -9393,8 +9387,8 @@ void runUiTests() {
 		// one assume. It used to be left on the settings screen and get away
 		// with it: enterLogScreen()'s first tap, at a coordinate then, fell
 		// into dead space there and was harmlessly ignored.
-		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+		openTester();
+		checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 	}
 
 	section("Splash fits the panel");

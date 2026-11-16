@@ -1268,6 +1268,23 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: MENU is the start screen and the root, slice 3 of
+  [menu-c.md](docs/design/menu-c.md#slice-3-as-built), by owner decisions 1
+  and 4 of 2026-11-15. The splash ends on MENU, whose header draws no BACK.
+  Its first row, ESC TESTER, opens the tester, disarmed, at throttle 0, with
+  LATCH off; the tester's MENU button disarms, zeroes the throttle, turns
+  LATCH off and returns to MENU. The row is drawn disabled while the pin
+  claim is not Free. Before, the tester was the first screen and MENU's BACK
+  returned to it. MENU has nine rows and scrolls 120 px: RX SIGNALS is whole
+  at 0 px, TOOLS after 36 px, SD LOG after 78 px, SETTINGS after 120 px. The
+  stack holds MENU at its bottom, at most three screens with it; SETTINGS
+  from a readout still returns to the tester. A finger resting on the glass
+  through the splash opens nothing when it lifts. DShot still runs from boot
+  behind MENU, on every screen as before, until slice D2 of
+  [dshot-lifetime.md](docs/design/dshot-lifetime.md), and MENU's EDT chip
+  stays until then. The arming rules, the 30 s idle disarm, the touch-loss
+  stop and HOLD TO ARM are unchanged. Host tests by control id, the suites
+  opening the tester through the row, mutation-checked.
 - After v0.1.0-rc1: the Dark theme takes rcbench's dark palette, slices 7
   and 8 of the build plan in
   [menu-c.md](docs/design/menu-c.md#build-plan), recorded in

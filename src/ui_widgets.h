@@ -254,6 +254,16 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
  */
 void uiHeader(const char *title, const TouchState *t, bool backEnabled = true);
 
+/**
+ * @brief Draw the header band of the root, MENU: the title on the left and
+ *        no BACK (docs/design/menu-c.md decision 10). Nothing lies behind
+ *        the root, and a BACK drawn disabled for good would be a control
+ *        that never acts. The band is uiHeader()'s, so the title sits where
+ *        it sits on every other screen.
+ * @param title Screen name, drawn at scale 2.
+ */
+void uiHeaderRoot(const char *title);
+
 /** @brief Rectangle of the header's BACK button. @return The shared target. */
 UiRect uiBackRect();
 

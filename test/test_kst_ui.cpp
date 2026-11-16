@@ -178,7 +178,7 @@ static void freshKst(bool powered = true) {
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
 	fakeSetTelemetry(&t);
-	uiInit();
+	uiInitTester();
 	escTaskConfigure(0, 600, false, 1);
 	fakeKstLineReset();
 	fakeKstSim()->powered = powered;
@@ -698,7 +698,7 @@ static void testLeaveAndBack() {
 	checkTrue("RESTART DSHOT: PROGRAMMER, the pin back to DShot",
 	          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	kstFrames(2);
 }
 
@@ -837,7 +837,7 @@ static void testRefusalsAndFailures() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK before a claim: PROGRAMMER", uiCurrentScreen() == UiScreenId::ServoProg);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	kstFrames(2);
 
 	// Another claim holds the pins: MENU refuses the row, so KST SERVO is
@@ -1766,7 +1766,7 @@ static void testSwitchedSupply() {
 	kstFrames(8);
 	checkTrue("RESTART DSHOT: PROGRAMMER", uiCurrentScreen() == UiScreenId::ServoProg);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	kstFrames(2);
 
 	// The stalled screen: core1 runs, the UI does not.
@@ -2354,7 +2354,7 @@ static void testNavOpener() {
 	          navIsTool(UiScreenId::ServoProg, UiScreenId::Kst) && pinClaimHolder() == PinUser::None);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK before a claim: PROGRAMMER", navIsHub(UiScreenId::ServoProg));
-	checkTrue("BACK there: MENU, then the tester", backToTester() && uiNavDepth() == 0);
+	checkTrue("BACK there: MENU, then its row ESC TESTER: the tester over MENU", backToTester());
 
 	freshKst();
 	checkTrue("the list", toList());

@@ -31,9 +31,9 @@ Ursache in der Firmware. Melde ihn wie unter
 
 `TOUCH CONTROLLER NOT FOUND` in Bernstein auf dem Startbildschirm bedeutet,
 dass der Touch-Controller der Firmware beim Einschalten nicht geantwortet
-hat. Die Zeile verschwindet, sobald er antwortet. Steht sie noch, wenn der
-Tester erscheint, hat die Berührung während des Startbildschirms nicht
-geantwortet; der Tester liest sie weiter, und ein Controller, der später
+hat. Die Zeile verschwindet, sobald er antwortet. Steht sie noch, wenn
+`MENU` erscheint, hat die Berührung während des Startbildschirms nicht
+geantwortet; die Firmware liest sie weiter, und ein Controller, der später
 antwortet, funktioniert. Bewirkt Tippen weiter nichts, helfen die Schritte
 unten. Nach einem Update, das die
 Einstellungen zurückgesetzt hat, steht sie unter den beiden Zeilen zu den
@@ -160,7 +160,8 @@ Vier Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
   etwas auf dem Glas zählt als Berührung. `IDLE ns` zählt in den letzten
   5 s oben rechts herunter. Beim
   Entschärfen dunkelt die Hintergrundbeleuchtung kurz ab.
-- **`MENU` öffnen.** Das Öffnen entschärft immer.
+- **Die Schaltfläche `MENU` des Testers.** Der Weg vom Tester zu `MENU`
+  entschärft immer.
 - **Touch antwortet nicht.** Vier fehlgeschlagene Lesungen des
   Touch-Controllers in Folge, über 100 ms oder länger, entschärfen den
   scharfen Tester. `TOUCH NOT ANSWERING` steht in Bernstein unter der
@@ -294,7 +295,7 @@ Einstellungen im Flash nicht lesen. Polzahl und Gasobergrenze werden unter
 **MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
 ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`, der
-letzten: Ziehe `MENU` um 76 px nach oben, um sie zu sehen.
+letzten: Ziehe `MENU` um 120 px nach oben, um sie zu sehen.
 
 Die Firmware speichert ihre Einstellungen im Format Version 6. Einstellungen,
 die eine frühere Firmware im Format Version 2, 3, 4 oder 5 gespeichert hat,

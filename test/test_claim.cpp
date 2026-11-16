@@ -266,7 +266,7 @@ static void testCheckRules() {
 static void testBeginRefusals() {
 	section("Pin claim: refusals change nothing");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	checkControlTable("tester, disarmed");
@@ -562,7 +562,7 @@ static void testHandoverSlots() {
 static void testDrain() {
 	section("Pin claim: the drain before teardown");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	escSetArmed(true);
@@ -595,7 +595,7 @@ static void testDrain() {
 static void testRestoring() {
 	section("Pin claim: restoring until the pump runs");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
@@ -628,7 +628,7 @@ static void testRestoring() {
 static void testOrder() {
 	section("Pin claim: order of the handover");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 	int resumes = fakeResumeCount();
@@ -721,7 +721,7 @@ static void testOrder() {
 static void testJobGuard() {
 	section("Core1 jobs: start is refused unless DShot is down");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 
@@ -815,7 +815,7 @@ static void heldWithBind() {
 static void testBackEveryState() {
 	section("Pin claim: BACK in every state");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 	int resumes;
@@ -975,7 +975,7 @@ static const Core1JobOps FAKE_HITEC = { hitecBind, hitecStep, hitecRelease, null
 static void testDeferredJob() {
 	section("Pin claim: HITEC holds SIG before its job");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 	memset(&g_hitecJob, 0, sizeof(g_hitecJob));
@@ -1065,7 +1065,7 @@ static void testDeferredJob() {
 static void testRestore() {
 	section("Pin claim: DShot comes back as it was");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 	escTaskConfigure(SIG_GPIO, 300, true, AUX_GPIO);
@@ -1121,7 +1121,7 @@ static void testHeartbeat() {
 	checkTrue("a stamp 0x90000000 ms old: dead", !escUiAlive(0x90000000u, 0u));
 	checkTrue("a stamp 2^32 - 251 ms old: dead", !escUiAlive(0xFFFFFF05u, 0u));
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 
@@ -1168,7 +1168,7 @@ static void testHeartbeat() {
 static void testNoSaveDuringClaim() {
 	section("Pin claim: no flash write while it holds");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	fakeFlashClear();
 	settingsLoad();
@@ -1198,7 +1198,7 @@ static void testNoSaveDuringClaim() {
 static void testLeavePagePerClaim() {
 	section("Pin claim: the leave page per claim");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 
@@ -1270,7 +1270,7 @@ static void testLeavePagePerClaim() {
 static void testAm32Screen() {
 	section("Pin claim: the AM32 screen");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	frames(2);
 	int resumes = fakeResumeCount();
@@ -1304,8 +1304,8 @@ static void testAm32Screen() {
 	// in between: only the screens' own calls see Restoring end.
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from ESC CONFIG returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from MENU returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
+	openTester();
+	checkTrue("MENU's row ESC TESTER returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(2);
 	openEscSettings();
@@ -1319,8 +1319,8 @@ static void testAm32Screen() {
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from MENU returns to the tester again", uiCurrentScreen() == UiScreenId::Tester);
+	openTester();
+	checkTrue("MENU's row ESC TESTER returns to the tester again", uiCurrentScreen() == UiScreenId::Tester);
 	frames(2);
 
 	// Straight from a running motor: MENU disarms, and AM32 is opened before
@@ -1382,8 +1382,8 @@ static void testAm32Screen() {
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from MENU returns to the tester at the end", uiCurrentScreen() == UiScreenId::Tester);
+	openTester();
+	checkTrue("MENU's row ESC TESTER returns to the tester at the end", uiCurrentScreen() == UiScreenId::Tester);
 	frames(2);
 }
 
@@ -1547,7 +1547,7 @@ static void testParkPlan() {
 static void testParkDrain() {
 	section("DShot modes: Park drains, then parks");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1616,7 +1616,7 @@ static void testParkDrain() {
 static void testParkReleaseRun() {
 	section("DShot modes: Release and Run from Park");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1677,7 +1677,7 @@ static void watchSigDriven(uint32_t) {
 static void testParkAlreadyLow() {
 	section("DShot modes: parking a SIG that is already low");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1717,7 +1717,7 @@ static void testParkAlreadyLow() {
 static void testParkJobGuard() {
 	section("DShot modes: a job never binds on a parked pin");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	installJobs();
 	checkTrue("parked", toParked());
@@ -1742,7 +1742,7 @@ static void testParkJobGuard() {
 static void testParkWiring() {
 	section("DShot modes: a wiring change");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1806,7 +1806,7 @@ static void testParkWiring() {
 static void testTeardownError() {
 	section("DShot modes: a teardown clears initError");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	EscTelemetry t;
@@ -1844,7 +1844,7 @@ static void configureOnWrite(uint32_t) {
 static void testConfigureMidway() {
 	section("DShot modes: a configure during a bind or a park");
 
-	uiInit();
+	uiInitTester();
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1883,7 +1883,7 @@ static void boundInBind() { g_boundInBind = escTaskBoundMs(); }
 static void testBoundMs() {
 	section("DShot modes: the bind stamp");
 
-	uiInit();
+	uiInitTester();
 	fakePumpPowerOn();
 	checkInt("0 before the first bind", escTaskBoundMs(), 0);
 	checkTrue("and no mode reported",

@@ -89,7 +89,7 @@ bool uiBackTapped(const TouchState *t) {
 	return uiTapped(uiBackRect(), t);
 }
 
-void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
+void uiHeaderRoot(const char *title) {
 	gfxRect(0, 0, GFX_W, UI_HDR_H, C_PANEL);
 	// The band's last row, y 35: the rule that ends the header. BACK ends at
 	// y 33 and the strip starts at y 40, so the rule moves nothing.
@@ -97,6 +97,10 @@ void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
 	// Scale 2 is 14 px tall, centred in the band rather than at a hand-picked y,
 	// so the title sits on the same baseline on every screen.
 	gfxText(UI_MARGIN, (UI_HDR_H - 14) / 2, title, C_TEXT, 2);
+}
+
+void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
+	uiHeaderRoot(title);
 	uiButton(uiBackRect(), "BACK", C_PANEL, C_TEXT, 1, uiPressing(uiBackRect(), t),
 	         backEnabled);
 }
