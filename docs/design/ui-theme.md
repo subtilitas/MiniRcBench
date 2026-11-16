@@ -22,8 +22,10 @@ does not cover three things:
 - DShot's lifetime and the pin claim:
   [dshot-lifetime.md](dshot-lifetime.md). This note gives two of its
   buttons their colours ([decision 16](#decisions)).
-- The touch-loss stop of pull request #49, head 27d67c1, merged before the
-  builds. Its texts take the roles of this note unchanged.
+- The touch-loss stop of pull request #49 (branch `ccr-ux-pass2`, head
+  3bb8d86), not merged. It merges before slice 12, which draws its touch
+  loss, as [the build plan](menu-c.md#build-plan) names. Its texts take the
+  roles of this note unchanged.
 
 Names. The proposal's screens carry the names of
 [menu-c.md](menu-c.md#names): SETUP for SETTINGS, LOGS for SD LOG, RECEIVER
@@ -1072,11 +1074,11 @@ comes from a developer's call. Slice 14 of
 1. **[menu-b.md](menu-b.md#decisions) decision 8,** "Changed is cyan, with
    a bar", and decision 26, the owner's choice of `C_CYAN`.
 
-   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15: a
-   > changed value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3
-   > px bar stays. Cyan text without a fill is a settings value. The editor
-   > bar's and the write page's new value stay `C_CYAN` text after `old ->`. Not
-   > built.
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15
+   > and the note's choice 7, which the owner has not decided: a changed value
+   > in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px bar stays.
+   > Cyan text without a fill is a settings value. The editor bar's and the
+   > write page's new value stay `C_CYAN` text after `old ->`. Not built.
 
 2. **menu-b.md decision 11,** the role "changed: `C_CYAN`", and the rows
    "SETTINGS section captions", "SETTINGS `KISS PIN` value", "SETTINGS
@@ -1094,7 +1096,8 @@ comes from a developer's call. Slice 14 of
 3. **menu-b.md decision 11,** the role "safe, done: `C_GREEN`", with its
    uses "SAFE badge and chip, EDT ON chip".
 
-   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15:
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15
+   > and the note's choices 10 and 11, which the owner has not decided:
    > `C_GREEN` as a button's fill says that a press starts an output: HOLD TO
    > ARM, HOLD TO WRITE, HOLD TO START and HOLD TO APPLY, and by ui-theme.md
    > decisions 14 and 16, pending the owner's review, HOLD TO RESTORE and START
@@ -1104,10 +1107,12 @@ comes from a developer's call. Slice 14 of
 
 4. **menu-b.md decision 14,** the row "Hold fill: `C_RED`".
 
-   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15: a
-   > hold that starts an output is `C_GREEN` with a `C_ONACCENT` label at rest
-   > and `C_RED` while held, HOLD TO ARM included. Every other hold is neutral
-   > at rest and `C_RED` while held. Not built.
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15
+   > and the note's choice 11, which the owner has not decided: a hold that
+   > starts an output is `C_GREEN` with a `C_ONACCENT` label at rest and
+   > `C_RED` while held, HOLD TO ARM included. By ui-theme.md decision 14,
+   > pending the owner's review, every other hold is neutral at rest and
+   > `C_RED` while held. Not built.
 
 5. **menu-b.md decision 11,** the row "MENU `NO ESC` chip, no eRPM:
    `C_GRID`, square".
@@ -1182,8 +1187,9 @@ Notes on the slices:
   3, 4, 7 and 9. Slice 11 follows slice 10 and D3, for the leave page's
   button to the hub and START DSHOT. Slice 12, the tester's button row,
   follows slices 3, 9 and 11 and D3, for the arm gate's disabled HOLD TO
-  ARM and the tester's START DSHOT. [The build plan](menu-c.md#build-plan)
-  lists the same dependencies.
+  ARM and the tester's START DSHOT, and pull request #49, for the touch
+  loss's disabled HOLD TO ARM. Slice 14 follows slice 13 and D4.
+  [The build plan](menu-c.md#build-plan) lists the same dependencies.
 - **Flash and RAM.** The palette is 34 bytes of the same size. The radius
   adds a loop per corner row; the frame cost is not measured.
 

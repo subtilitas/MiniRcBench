@@ -226,9 +226,10 @@ drawn disabled under `NOT BUILT`, and the titles read `ESC SETTINGS`,
 `ESC HEX` and `ESC WRITE`. `USB BRIDGE` is live from slice 2 of
 [usb-bridge.md](usb-bridge.md#slice-2-as-built), which gives it its
 screen.
-Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15: MENU
-is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO, RECEIVER,
-LOGS, SETUP; it does not scroll. Not built.
+Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1 and 4 of
+2026-11-15: MENU is the start screen (decision 1) and has six rows (decision
+4), ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it does not
+scroll. Not built.
 
 Row 1 is built by slice 2 of
 [esc-commands.md](esc-commands.md#slice-2-as-built): `ESC COMMANDS` in BEEP
@@ -689,9 +690,10 @@ Decisions of the owner, 2026-11-13:
 1. **Six rows.** MENU has six rows and never scrolls. The order is this
    note's choice, decision 16. Revised by decision 33 of 2026-11-14: seven
    rows, and MENU scrolls 36 px.
-   Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
-   MENU is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO,
-   RECEIVER, LOGS, SETUP; it does not scroll. Not built.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1 and 4 of
+   2026-11-15: MENU is the start screen (decision 1) and has six rows
+   (decision 4), ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it
+   does not scroll. Not built.
 2. **SERVO PROGRAMMER.** KST SERVO and HITEC SERVO fold into one row that
    opens a chooser: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. CLASSIC is
    drawn disabled without the switched supply and names the path to enable
@@ -828,9 +830,10 @@ change.
      KST-Programming / KST-Programmierung, Hitec-Programming /
      Hitec-Programmierung (the `*` and "lime"); kst-programming.md "Field
      list"; hitec-programming.md "Field list".
-   - Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15: a
-     changed value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3
-     px bar stays. Cyan text without a fill is a settings value. The editor
+   - Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15
+     and that note's choice 7, which the owner has not decided: a changed
+     value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px bar
+     stays. Cyan text without a fill is a settings value. The editor
      bar's and the write page's new value stay `C_CYAN` text after `old ->`. Not
      built.
 9. **SERVO SUPPLY is a core section** (item 5). The section holds two
@@ -957,7 +960,8 @@ change.
       row that opens a hub, a selected tab's label, a settings value and a
       section caption. "Changed" is the cyan fill and the bar of decision 8.
       SETUP's captions and values are `C_CYAN`. Not built.
-    - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15:
+    - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15
+      and that note's choices 10 and 11, which the owner has not decided:
       `C_GREEN` as a button's fill says that a press starts an output: HOLD TO
       ARM, HOLD TO WRITE, HOLD TO START and HOLD TO APPLY, and by ui-theme.md
       decisions 14 and 16, pending the owner's review, HOLD TO RESTORE and START
@@ -1039,10 +1043,12 @@ change.
       moved rectangles break none.
     - Docs: README "Using it" (RESET); wiki The-Screens / Die-Bildschirme,
       First-Run / Erste-Schritte, Troubleshooting / Fehlersuche (RESET).
-    - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15:
-      a hold that starts an output is `C_GREEN` with a `C_ONACCENT` label at
-      rest and `C_RED` while held, HOLD TO ARM included. Every other hold is
-      neutral at rest and `C_RED` while held. Not built.
+    - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15
+      and that note's choice 11, which the owner has not decided: a hold that
+      starts an output is `C_GREEN` with a `C_ONACCENT` label at rest and
+      `C_RED` while held, HOLD TO ARM included. By ui-theme.md decision 14,
+      pending the owner's review, every other hold is neutral at rest and
+      `C_RED` while held. Not built.
 15. **Words that say what they mean** (item 11).
 
     | | Today | Becomes | Code |
@@ -1139,10 +1145,11 @@ Decisions of the owner, 2026-11-14, answering the open questions of
 25. **BACK on the leave page** (question 3). Drawn disabled, as decision 5.
 26. **The "changed" colour** (question 4). `C_CYAN` on every screen, as
     decision 8.
-    Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15: a
-    changed value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px
-    bar stays. Cyan text without a fill is a settings value. The editor bar's
-    and the write page's new value stay `C_CYAN` text after `old ->`. Not built.
+    Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15 and
+    that note's choice 7, which the owner has not decided: a changed value in a
+    list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px bar stays. Cyan
+    text without a fill is a settings value. The editor bar's and the write
+    page's new value stay `C_CYAN` text after `old ->`. Not built.
 27. **Docs between slices** (question 5). Each slice updates its own
     README.md and wiki lines and images, not all in slice 10. This is
     against the note's recommendation, which was to change them in slice
@@ -1175,9 +1182,10 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     the seven-row MENU on `main` does; SETTINGS is reached with a short
     drag. This revises decision 1 of 2026-11-13, six rows that never
     scroll.
-    Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
-    MENU is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO,
-    RECEIVER, LOGS, SETUP; it does not scroll. Not built.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1 and 4 of
+    2026-11-15: MENU is the start screen (decision 1) and has six rows
+    (decision 4), ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it
+    does not scroll. Not built.
 
 Decisions of the owner, 2026-11-14, on slice 9, called A and B when taken:
 

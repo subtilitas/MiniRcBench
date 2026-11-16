@@ -263,11 +263,13 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
 - Logging starts on arming and stops on disarming (`SD_LOG_AUTO_ON_ARM`).
   START and STOP on MENU → SD LOG work by hand, and a log started by hand
   survives the disarm that opening MENU performs.
-  Revised by the owner's decision of 2026-11-15
-  ([dshot-lifetime.md](dshot-lifetime.md#each-case)): DShot runs only
-  while ESC TESTER or ESC COMMANDS is open. An auto log still ends at the
-  disarm of leaving the tester; a hand log runs on with no DShot
-  telemetry, and that note logs eRPM only while fresh. Not built.
+  Revised by [menu-c.md](menu-c.md#decisions) owner decision 2 of
+  2026-11-15: DShot runs only while ESC TESTER or ESC COMMANDS is open, so
+  an auto log still ends at the disarm of leaving the tester. The design of
+  [dshot-lifetime.md](dshot-lifetime.md#each-case), proposed and pending
+  the owner's review and under no numbered decision of that note: a hand
+  log runs on with no DShot telemetry, and its slice D3 logs eRPM only
+  while fresh. Not built.
 - On stop: an `E` frame with `LOG_END` (255), the ring drained, the unused
   pre-allocation released with `f_truncate()`, then sync and close.
 - The directory entry is synced every `SD_LOG_SYNC_MS`, 2000 ms, right after a

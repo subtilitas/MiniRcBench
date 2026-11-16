@@ -1,7 +1,7 @@
 # DShot lifetime
 
 Status: proposed, not built. The developer settled its six questions on
-2026-11-16, and made three further calls the review of the note raised, each
+2026-11-16, and made four further calls the reviews of the note raised, each
 pending the owner's review ([Decisions](#decisions)). It builds on
 [menu-c.md](menu-c.md), whose slice 3 makes MENU the root, and answers
 [What the structure requires of
@@ -18,8 +18,9 @@ The owner's decisions of 2026-11-15 that this note takes as fixed:
    returns to its hub; RX SIGNALS, SETTINGS, SD LOG and ESC CONFIG are
    renamed RECEIVER, SETUP, LOGS and ESC PROGRAM. This note uses the new
    names for the structure and today's names for code and screen texts.
-   ESC COMMANDS is the first entry of the hub ESC PROGRAM (menu-c.md owner
-   decision 4).
+   Owner decision 4 of menu-c.md puts ESC COMMANDS in a hub; menu-c.md's
+   choice 8, which the owner has not decided, makes it the first entry of
+   the hub ESC PROGRAM.
 4. **0.1.0 waits for this work.**
 
 This note reads decision 2 so: back on MENU, in a hub, on LOGS or on SETUP
@@ -32,8 +33,9 @@ signal-loss behaviour, read from source and not measured
 [decision 6](#decisions)'s reading of decision 2, which waits for the
 owner's confirmation.
 
-Pull request #49, the touch-loss stop (branch `ccr-ux-pass2`, head 27d67c1), is
-merged before the builds of this note. It disarms the tester, and stops SERVO
+Pull request #49, the touch-loss stop (branch `ccr-ux-pass2`, head 3bb8d86), is
+not merged. It merges before slice D2, which names it as a prerequisite, and
+before menu-c.md's slice 12. It disarms the tester, and stops SERVO
 TESTER and S.BUS OUTPUT, while the touch controller does not answer
 (`uiTouchLost()`). It keeps core1's own cut in the servo job, which switches the
 servo's supply off once the touch controller's last answer is 250 ms old
@@ -236,14 +238,17 @@ DShot runs while the screen on top of the navigation stack is ESC TESTER
 or ESC COMMANDS, and, by [decision 6](#decisions), while SETUP is on top
 of ESC TESTER. Everywhere else it is parked. While MENU's run cue stands,
 ESC TESTER and ESC COMMANDS open on the start step of
-[decision 8](#decisions) with DShot parked, until START DSHOT.
+[decision 8](#decisions) with DShot parked, until START DSHOT. The screen's
+own way out stays live on the step: the tester's `MENU` and ESC COMMANDS'
+BACK return with DShot parked and the cue kept ([decision 14](#decisions)).
 
 The UI decides it once a frame: `uiDshotWanted()` is a pure function of the
 stack of menu-c.md's [navigation](menu-c.md#navigation), of the run cue
 (`uiAm32RunCue()`, `usbBridgeRunCue()`, `sbusOutRunCue()`, ORed as MENU
 reads them) and of whether START DSHOT was tapped since the screen opened.
 `uiTick()` hands its result to `pinClaimDshot(bool)` before the screen's
-tick. Asking
+tick, so a tap that changes the stack takes effect at the next `uiTick()`,
+one frame later. Asking
 every frame, rather than on each transition, means no route can leave
 DShot in the wrong mode: a screen added later is parked unless the rule
 names it.
@@ -283,9 +288,9 @@ UI they open only while the claim is Free.
 
 | Case | What happens | Why |
 |---|---|---|
-| ESC TESTER opens | the tap that opens it asks for Run; core1 binds on its next pass; the first 10 frames are the EDT enable, then zero-throttle frames | `escPumpBind()` sets disarmed and throttle 0 at every bind (`src/esc_task.h` 910 to 917) |
+| ESC TESTER opens | the tap pushes the tester; the next `uiTick()` reads the stack and asks for Run; core1 binds on its next pass; the first 10 frames are the EDT enable, then zero-throttle frames | `escPumpBind()` sets disarmed and throttle 0 at every bind (`src/esc_task.h` 910 to 917) |
 | The ESC's zero-throttle frames before it arms | AM32 takes commands only after more than 1 s of zero input, and arms on its own rule; Bluejay's and BLHeli_S's times are not recorded here | [esc-commands.md](esc-commands.md#safety-and-interlocks), "1500 ms of answers"; not measured |
-| HOLD TO ARM | its 1000 ms hold (`ARM_HOLD_MS`, `src/config.h` 540) could complete 1 s after the tap, with at most one UI frame, 25 ms, between the tap and the first frame. Decisions 10 and 12 add a gate: arming is refused until 1500 ms after core1's last bind, `ESC_CMD_SETTLE_MS`'s margin over AM32's 1 s. The gate starts again at every bind: the open, a rebuild after a SETUP change over the tester, START DSHOT. Meanwhile HOLD TO ARM is drawn disabled, a press that lands on it is not timed, and the track reads `DSHOT STARTING: WAIT 1.5 S`. The earliest arm is 2500 ms after the bind | today the tester appears at the same moment DShot starts, after the splash, and the same race exists once per power-up; the design repeats it at every open |
+| HOLD TO ARM | its 1000 ms hold (`ARM_HOLD_MS`, `src/config.h` 540) could complete 1 s after the tap, with at most one UI frame, 25 ms, between the tap and the first frame. Decisions 10 and 12 add a gate: arming is refused until 1500 ms after core1's last bind, `ESC_CMD_SETTLE_MS`'s margin over AM32's 1 s. The gate holds while `escTaskBoundMs()` is 0 or less than 1500 ms old; a stamp that moves cancels a timed press. The stamp is 0 from the tap until core1's bind, so the frame between them is gated too. The gate starts again at every bind: the open, a rebuild after a SETUP change over the tester, START DSHOT. Meanwhile HOLD TO ARM is drawn disabled, a press that lands on it is not timed, and the track reads `DSHOT STARTING: WAIT 1.5 S`. The earliest arm is 2500 ms after the bind | today the tester appears at the same moment DShot starts, after the splash, and the same race exists once per power-up; the design repeats it at every open |
 | Leaving while armed | the MENU tap runs `testerDisarm()` (`src/ui.cpp` 1005 to 1012, 1015 to 1020): throttle 0, LATCH off; then Park. Core1 sends zero frames until more than 250 ms after the last throttle frame (`escDrainDone()`, `src/esc_task.h` 1135 to 1138), then stops | the ESC hears zero before silence, as before every handover today |
 | Leaving disarmed | Park at once when no throttle frame went out within 250 ms | `escHandoverStep()`: a pump with no recent throttle frame has nothing to drain |
 | SETUP from the readouts | they act only disarmed (`readoutsAct()`, `src/ui.cpp` 456). Decision 6: DShot stays up under SETUP | see decision 6 |
@@ -301,7 +306,7 @@ UI they open only while the claim is Free.
 | The 30 s idle disarm | on the tester only (`src/ui.cpp` 1478 to 1487); DShot keeps sending zero frames while the tester stays open | the tester is open; the rule is the owner's |
 | The touch-loss stop | see [#49 and the lifetime](#49-and-the-lifetime) | |
 | The BOARD voltage | read every frame on core0 from the ADC before any screen ticks (`src/ui.cpp` 1400 to 1405) and drawn on the tester's status bar; the red band refuses KST, Hitec and AM32 writes (`uiBoardWriteRefused()`, `src/ui.h` 99 to 115). Independent of DShot. With MENU the start screen it is not on the first screen; where it shows is menu-c.md's and ui-theme.md's | |
-| The run cue | stays MENU's second strip line; cleared as today by a LEAVE sent, by the leave page's last button, whose steps power-cycle the ESC, or by an eRPM frame newer than the answer, which only ESC TESTER and ESC COMMANDS now receive. ESC SETTINGS and S.BUS OUTPUT set it on a bootloader's answer; USB BRIDGE sets it on every claim (`src/ui_bridge.cpp` 150 to 153), and decision 13 clears it at a claim's end that no ESC answered. Decision 8: a start step while it stands | |
+| The run cue | stays MENU's second strip line; cleared as today by a LEAVE sent, by the leave page's last button, whose steps power-cycle the ESC, or by an eRPM frame newer than the answer, which only ESC TESTER and ESC COMMANDS now receive. ESC SETTINGS and S.BUS OUTPUT set it on a bootloader's answer; USB BRIDGE sets it on every claim (`src/ui_bridge.cpp` 150 to 153), and decision 13 clears it at a claim's end that no ESC answered. Decision 8: a start step while it stands; decision 14: `MENU` or BACK leaves the step with DShot parked and the cue kept | |
 | A claiming tool opens from a hub | Run is not wanted, so the claim is not Busy and asks for Release. From Park: no drain, the pins free on core1's next pass. Within 250 ms of leaving a running tester the pump still drains: the claim stays in Stopping until the rest of that drain is sent, then Release | `escHandoverStep()`: the drain owed is taken before any release |
 | A claiming tool leaves | the leave page as today; its last button parks instead of restarting DShot, and returns to the hub | menu-c.md, requirement 13 and decision 7 |
 
@@ -322,9 +327,9 @@ AUX: it alone asks core1 for Run, Park and Release.
 
 "Not Free" on MENU and in the hubs then lasts only for the USB bridge's
 release, at most 250 ms (`BRIDGE_RELEASE_MAX_MS`), while the claim is
-Leaving, and for Parking, one core1 pass. MENU's busy caption reads
-`RELEASING SIG GP0`, 17 characters, while the claim is Leaving, and
-`SETTING SIG GP0 LOW`, 19 characters, while it is Parking.
+Leaving, and for Parking, one core1 pass. The busy caption, on MENU and on
+the hubs, reads `RELEASING SIG GP0`, 17 characters, while the claim is
+Leaving, and `SETTING SIG GP0 LOW`, 19 characters, while it is Parking.
 
 ### API
 
@@ -485,7 +490,7 @@ change on either side:
 - #49's README text, "with DShot off there is no motor to stop" for the
   USB bridge, stays true.
 
-The slices start from `main` after #49 is merged, and keep its host cases.
+D2 and every slice after it keep #49's host cases.
 
 ## Texts and documents that assume DShot from boot
 
@@ -574,8 +579,8 @@ lines (menu-b.md owner decision 27). The order against
 
 | Slice | After | What | Model |
 |---|---|---|---|
-| D1 | anything; before or with menu-c.md slice 1 | the pump's three modes and core1's bind stamp, no caller changes | Opus |
-| D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
+| D1 | anything; before or with menu-c.md slice 1. Built as pull request #119 (branch `ccr-pump-modes`, head b20ae37), which is amended before it merges: [D1](#d1-the-pumps-three-modes-opus) lists what it adds | the pump's three modes and core1's bind stamp, no caller changes | Opus |
+| D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs), D1 as amended, and pull request #49 (branch `ccr-ux-pass2`, head 3bb8d86) | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
 | D3 | D2 | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
 | D4 | D2 and menu-c.md slice 5 (the rename) | SETUP's pin note and LINK; the comments of the boot order | Opus |
 | D5 | D4, with menu-c.md slice 6 (the records) | the design notes' descriptions, bench plan | Sonnet |
@@ -583,8 +588,8 @@ lines (menu-b.md owner decision 27). The order against
 D2 follows menu-c.md slice 4, so its tests open every tool from its hub,
 and it needs no rename: the texts it adds take the hub's title as the hub
 draws it. The graph has no cycle: slices 1 to 6 are a chain, D1 joins
-before slice 1 or with it, D2 hangs off slice 4, D3 off D2, D4 off D2 and
-slice 5, D5 off D4 and slice 6.
+before slice 1 or with it, D2 hangs off slice 4, D1 and #49, D3 off D2, D4
+off D2 and slice 5, D5 off D4 and slice 6.
 
 ### What each slice leaves on main
 
@@ -604,27 +609,52 @@ slice 5, D5 off D4 and slice 6.
 - **From D4 to D5** the design notes' descriptions, not their decision
   lines, still describe RESTART DSHOT as built at cff09ae.
 
-0.1.0 follows D5.
+0.1.0 follows slice 14 of menu-c.md and D5 (owner decision 4 at the top),
+as [the build plan](menu-c.md#build-plan) says.
 
 ### D1: the pump's three modes (Opus)
 
-`src/esc_task.{h,cpp}`: `EscPinMode` Run, Park, Release; the pure step
-extended from `escHandoverStep()` to the wanted mode, the mode reached, the
-rebuild request, the pump, the last throttle stamp and the clock; a pure
-`escParkPlan()` naming each GPIO's state for a wiring change while parked;
-`escTaskStart()`, `escTaskPark()`, `escTaskParked()`,
+D1 is built as pull request #119 (branch `ccr-pump-modes`, head b20ae37),
+not merged. #119 has no bind stamp and no `highEnables` case for the park
+(`git grep escTaskBoundMs` and `highEnables` over its `src/` and
+`test/test_claim.cpp`). It is amended before it merges with:
+
+1. **The bind stamp** `escTaskBoundMs()`, as described below, in
+   `src/esc_task.{h,cpp}`, with the fake pump of `test/fakes.cpp` setting
+   it as core1 does.
+2. **Its test:** `escTaskBoundMs()` is 0 before the first bind, the fake
+   clock at the bind, the new clock at a rebuild after
+   `escTaskConfigure()`, and 0 once parked and once released.
+3. **Its mutation:** the bind stamp left unchanged at a rebuild; the test
+   of item 2 fails.
+4. **The `highEnables` test:** SIG's output latch is preset high
+   (`gpio_put(SIG, 1)`) before the park, because the fake's `gpio_init()`
+   (`test/fake_i2c.cpp`) sets the direction and the function but does not
+   clear the latch, as the SDK's does. The park then leaves SIG an output
+   driving 0 with the 2 mA drive, and the fake's `highEnables` count for SIG
+   stays 0 across it. Its mutation: `gpio_set_dir()` before `gpio_put(0)`
+   in `escPadSet()`'s `EscPad::Low` case; the test fails.
+
+D2 relies on the amended #119: its arm gate reads the stamp.
+
+What D1 builds. `src/esc_task.{h,cpp}`: `EscPinMode` Run, Park, Release;
+the pure step extended from `escHandoverStep()` to the wanted mode, the
+mode reached, the rebuild request, the pump, the last throttle stamp and
+the clock; a pure `escParkPlan()` naming each GPIO's state for a wiring
+change while parked; `escTaskStart()`, `escTaskPark()`, `escTaskParked()`,
 `escTaskRunning()`; `escTaskSuspended()` true only in Release; the park on
 core1 in `escTaskPoll()`; `initError` cleared at a teardown.
 
-The park drives SIG low with no high glitch: it writes SIG's SIO output
-value 0 (`gpio_put()`) and sets the 2 mA drive before it sets the function
-to SIO and the direction to output. The pad is never an output with the
-value 1.
+The park drives SIG low with no high glitch: SIG's SIO output has value 0
+(`gpio_put()`) and 2 mA before the direction becomes output. The pad is
+never an output with the value 1.
 
 Core1 stamps `millis()` at each bind, whatever its cause, and publishes it
 to core0 as `escTaskBoundMs()`, as `escHeartbeatMs()` crosses the cores:
-one aligned 32-bit word, written by core1 after the bind, read by core0.
-It is 0 while the pump is parked or released. D2's arm gate reads it.
+one aligned 32-bit word, written by core1 after the bind, read by core0. A
+bind at `millis()` 0 is stamped 1, so 0 never names a bind. The stamp is 0
+while the pump is parked or released: core1 writes 0 when it starts a
+teardown. D2's arm gate reads it.
 
 `test/fakes.cpp` follows the pure step. Boot still asks for Run, and the
 claim still calls `escTaskResume()` under its new name, so no behaviour
@@ -634,8 +664,9 @@ Host tests (`test/test_claim.cpp` or a new `test/test_dshot_life.cpp`):
 
 - Park after a throttle frame sends zero frames until more than 250 ms
   after it, then parks; Park with no throttle frame parks on the first pass.
-- The park leaves SIG an output driving 0 with the 2 mA drive, and the
-  fake's `highEnables` count for SIG stays 0 across it.
+- With SIG's latch preset high, the park leaves SIG an output driving 0
+  with the 2 mA drive, and the fake's `highEnables` count for SIG stays 0
+  across it.
 - Release from Park releases on the first pass with no frame.
 - `escTaskSuspended()` is false while parked, and `core1JobStart()` is
   refused then.
@@ -643,8 +674,9 @@ Host tests (`test/test_claim.cpp` or a new `test/test_dshot_life.cpp`):
   off state, the new SIG low, AUX on its pull-down; while running: a
   rebuild, as `testHandoverRules()` checks today.
 - Run from Park binds once, with the EDT enable first.
-- `escTaskBoundMs()` is the fake clock at the bind, again at a rebuild
-  after `escTaskConfigure()`, and 0 once parked.
+- `escTaskBoundMs()` is 0 before the first bind, the fake clock at the
+  bind, the new clock at a rebuild after `escTaskConfigure()`, and 0 once
+  parked and once released.
 
 Mutations that must fail them: Park without the drain; `escTaskSuspended()`
 true while parked; the old SIG left driven low after a swap; a teardown
@@ -652,6 +684,10 @@ that keeps `initError`; the direction set to output before the value 0 (the
 `highEnables` case); the bind stamp left unchanged at a rebuild.
 
 ### D2: the lifetime (Opus)
+
+D2 starts once #119, amended as [D1](#d1-the-pumps-three-modes-opus)
+lists, and #49 (head 3bb8d86) have merged: the arm gate reads
+`escTaskBoundMs()` and `uiTouchLost()`.
 
 `escTaskInit()` asks for Park and parks SIG on core0. `src/pin_claim.*`:
 `pinClaimDshot()`, `pinClaimDshotRunning()`, `restore()` parks,
@@ -667,6 +703,8 @@ With it, so that no false safety text and no unguarded path reaches
 
 - **The arm gate** of decisions 10 and 12, on `escTaskBoundMs()`, with
   HOLD TO ARM drawn disabled and `DSHOT STARTING: WAIT 1.5 S` in the track.
+  The gate holds while `escTaskBoundMs()` is 0 or less than 1500 ms old; a
+  stamp that moves cancels a timed press.
 - **The hubs' line** of decisions 7 and 11 on SERVO and RECEIVER, and
   MONITOR's second line while SIG is GP1.
 - **The texts** of [the table above](#screen-texts) marked D2, with their
@@ -697,7 +735,7 @@ Host tests, by control id, each tool opened from its hub:
 - Each tool's leave, by the leave page's last button and by BACK where it
   has none: Parking, then Free, no bind, the screen its hub. The wide
   button reads the hub's title and the last step `BACK TO ` and that
-  title. MENU's busy caption reads `SETTING SIG GP0 LOW` while Parking and
+  title. The hub's busy caption reads `SETTING SIG GP0 LOW` while Parking and
   `RELEASING SIG GP0` while the bridge's release runs.
 - `pinClaimDshot(true)` while a claim holds does nothing.
 - The arm gate: for 1499 ms after the bind HOLD TO ARM is drawn disabled
@@ -706,6 +744,19 @@ Host tests, by control id, each tool opened from its hub:
   press that lands at 1500 ms arms at 2500 ms, its progress growing as
   today. A SIG PIN change in SETUP over the tester starts the gate again.
   While #49's touch loss refuses arming, HOLD TO ARM is drawn disabled too.
+- The frame between the tap and the bind: the ESC TESTER row is tapped, and
+  the test runs `uiTick()` frames with core1's pass held back, so
+  `escTaskBoundMs()` reads 0 while the tester shows; HOLD TO ARM is drawn
+  disabled, the track reads `DSHOT STARTING: WAIT 1.5 S`, and a press held
+  through those frames is not timed. Once core1 binds, the gate counts
+  1500 ms from the stamp.
+- A rebuild under SETUP during a timed press: the tester is 1500 ms past
+  its bind and a press on HOLD TO ARM is timed for 500 ms; the test then
+  calls `escTaskConfigure()` with a new SIG PIN, as SETUP's `applyLive()`
+  does, and core1 rebinds. The stamp moves, the press is cancelled, its
+  progress is gone, it does not arm at 1000 ms, and the gate holds 1500 ms
+  from the new stamp. No UI path reaches SETUP with a finger on HOLD TO
+  ARM; the case checks the rule, which any later rebind path meets.
 - The hubs SERVO and RECEIVER draw `NO ESC CHECK: UNPLUG ANY ESC FIRST.`
   in `C_AMBER` as the strip's second line while the claim is Free; ESC
   PROGRAM draws none; the busy caption takes its place while not Free.
@@ -722,14 +773,18 @@ acting while not Free (its case fails); `escTaskInit()` asking for Run (the
 boot case fails); Busy read from the pump's state, not from Run wanted (the
 drain case fails); the gate stamped at the tap, not at core1's bind (the
 SETUP case fails); a press timed while the gate holds (the 1499 ms case
-fails); the hubs' line dropped on RECEIVER (its case fails).
+fails); a stamp of 0 read as no gate (the tap-to-bind case fails); a timed
+press kept when the stamp moves (the rebuild-under-SETUP case fails); the
+hubs' line dropped on RECEIVER (its case fails).
 
 ### D3: ESC COMMANDS and the run cue on a starting pump (Opus)
 
 `DSHOT STARTING ON SIG GP0.` on ESC COMMANDS for the first 1500 ms after
 the bind with no answer; the start step of decision 8, with
-`uiDshotWanted()` reading the run cue; decision 13's rule for the bridge's
-cue; the log's eRPM column only while fresh (`src/sd_log.cpp` 421).
+`uiDshotWanted()` reading the run cue, and its way out and START DSHOT's
+place by decision 14; decision 13's rule for the bridge's cue, with
+`bridgeWireBinds()` in `src/bridge_wire.*` and `usbBridgeRunCueSettle()`;
+the log's eRPM column only while fresh (`src/sd_log.cpp` 421).
 
 START DSHOT clears every source of the cue: `uiAm32RunCueClear()`, new,
 `usbBridgeRunCueClear()`, and `sbusOutRunCueClear()`, new, which marks the
@@ -745,13 +800,27 @@ Host tests:
   parked and the start step; START DSHOT is drawn disabled for 999 ms and
   acts at 1000 ms after the step opens; the tap binds, clears the cue and
   starts the arm gate. With no cue both open running.
+- Decision 14: on the start step, the tester's `MENU` returns to MENU and
+  ESC COMMANDS' BACK to ESC PROGRAM, each live from the step's first
+  frame and drawn live; after either the pump is still parked, no bind
+  happened (`fakeRebuildCount()` unchanged), no frame went out, and the
+  cue still stands, so the next open shows the step again. START DSHOT
+  lies inside y 214 to 259 and does not overlap `BTN_MENU`.
 - Decision 13: (a) the bridge's claim ends by BACK before the line binds:
   no leave page, the cue is clear, and ESC TESTER opens running. (b) The
   line bound, the fake wire received 9 bytes more than it sent, then the
   claim ends with no leave page after a job error: the cue stands, and ESC
   TESTER opens on the start step. (c) The same with only the echo
   received: the cue is clear. (d) The line bound, the leave page's last
-  button: the cue is clear, as today.
+  button: the cue is clear, as today. (e) Counts left over from a previous
+  session: a first claim's line ends at 500 received and 400 sent; a second
+  claim binds, its line sends 10 and receives 19, and it ends with no leave
+  page after a job error: the cue stands. (f) The same leftovers, the
+  second claim ends by BACK before its line binds: the leftovers are not
+  read, and the cue is clear. (g) Two binds in one claim: the first
+  receives 9 bytes more than it sent, a job error, RETRY, the second
+  receives only the echo, then the claim ends with no leave page: the cue
+  stands.
 - The log: a frame with an eRPM older than 500 ms logs 0; a fresh one logs
   its value (`make -C test lognum` and the blackbox checker).
 - #49's cases pass unchanged.
@@ -759,7 +828,12 @@ Host tests:
 Mutations: the start text kept past 1500 ms; START DSHOT live at once;
 START DSHOT leaving the bridge's cue set; the settle clearing whatever the
 wire received (case b fails); the settle never clearing (cases a and c
-fail); the eRPM logged without the freshness check.
+fail); the settle taking the counts' difference against a stamp at
+`usbBridgeRunCueSet()` (case e fails); the counts read before
+`bridgeWireBinds()` moves (case f fails); the flag cleared at a bind (case
+g fails); `MENU` drawn disabled on the start step, or its tap clearing the
+cue (the decision 14 case fails); the eRPM logged without the freshness
+check.
 
 ### D4: SETUP's texts and the comments (Opus)
 
@@ -786,8 +860,8 @@ checks above are its tests.
 The owner's decisions of 2026-11-15 are numbers 1 to 4 at the top of this
 note. Numbers 5 to 10 answer its six questions in order. The owner is away.
 The developer made each call on 2026-11-16 and took the note's own
-recommendation each time. Numbers 11 to 13 settle points the review of the
-note raised, each the safest option that builds. Each waits for the owner's
+recommendation each time. Numbers 11 to 14 settle points the reviews of
+the note raised, each the safest option that builds. Each waits for the owner's
 review.
 
 5. Developer's call of 2026-11-16, pending the owner's review: **SIG while
@@ -834,7 +908,8 @@ review.
    [decision 13](#decisions) clears it at a claim's end that no ESC
    answered. With that rule the cue stands only where a bootloader may
    still wait, and the step costs a tap on those paths alone. Slice D3
-   builds it.
+   builds it. [Decision 14](#decisions) names the step's way out and START
+   DSHOT's place.
 9. Developer's call of 2026-11-16, pending the owner's review: **The leave
    page's last button.** Option (a): it reads the hub's title, `SERVO`,
    `RECEIVER` or `ESC PROGRAM`, with the last step `BACK TO SERVO.` and so
@@ -877,7 +952,11 @@ review.
     gate's start and look.** The gate of decision 10 starts again at every
     bind, from core1's bind stamp (`escTaskBoundMs()`, slice D1) published
     to core0, not from the tap: the first open, a rebuild after a rate,
-    pin or KISS TELEM change in SETUP over the tester, and START DSHOT.
+    pin or KISS TELEM change in SETUP over the tester, and START DSHOT. The
+    gate holds while `escTaskBoundMs()` is 0 or less than 1500 ms old; a
+    stamp that moves cancels a timed press. The stamp is 0 while the pump
+    is parked or released, which covers the frame between the tap and the
+    bind.
     While it holds, and while #49's touch loss refuses arming, HOLD TO ARM
     is drawn disabled, as while a USB host holds the card, and a press that
     lands on it is not timed: the finger lifts and presses again once the
@@ -888,20 +967,65 @@ review.
     refused must not arm, and a gate counted from the tap would miss a
     rebind under SETUP.
 13. Developer's call of 2026-11-16, pending the owner's review: **The
-    bridge's run cue at a claim's end.** `usbBridgeRunCueSet()` also
-    stamps the wire's counts, `sent`, `received`, `lost` and `collisions`
-    of `bridgeWireStats()`. When the claim ends with no leave page
-    (`pinClaimLeavePage()` false in `back()` of `src/ui_bridge.cpp`), a new
-    `usbBridgeRunCueSettle()` clears the cue if since the stamp the wire
-    received no more bytes than it sent, and lost and collided none: no
-    byte came from the ESC, so no bootloader answered. Otherwise the cue
-    stands. The leave page's last button clears it as today: its steps
-    power the ESC off. The cue then stands only where a bootloader may
-    still wait. One that answered waits for commands with no timeout; one
-    that did not answer starts its firmware on the parked low line, an
-    EFM8 after `BOOT_DELAY`, about 250 ms with no edge, an AM32 after 20 ms
-    low ([bluejay-blheli-s.md](bluejay-blheli-s.md#entering-the-bootloader);
+    bridge's run cue at a claim's end.** The counts of `bridgeWireStats()`,
+    `sent`, `received`, `lost` and `collisions`, count since the line's
+    last bind: `bridgeJobBind()` zeroes them (`src/bridge_wire.cpp` 225 and
+    226), and a claim binds once more at each RETRY (`pinClaimRetry()`,
+    `src/pin_claim.cpp` 242 to 248). `usbBridgeRunCueSet()` runs at the
+    claim (`src/ui_bridge.cpp` 153), before the line's first bind, so counts
+    stamped there are the previous claim's, and a difference against them
+    wraps: with 500 received and 400 sent left over, a new bind that sends
+    10 and receives 19 reads as "received no more than sent", and the cue
+    would clear though the ESC answered. The rule takes no difference
+    across a bind:
+
+    - `usbBridgeRunCueSet()` clears a per-claim flag, "ESC byte seen", and
+      notes `bridgeWireBinds()`, a new count of the line's binds that core1
+      raises after it zeroes the counts and before it opens the line.
+    - Every `usbBridgeTask()` pass, every pass of core0's loop
+      (`src/main.cpp` 194), reads the counts once `bridgeWireBinds()` has
+      moved since the claim began, so they are this claim's, counted from 0
+      at the last bind. Received more than sent, or `lost` or `collisions`
+      above 0, sets the flag: the echo gives one byte back per byte sent
+      (`src/bridge_wire.h`, "The echo"), so any byte more came from the ESC.
+    - The flag stays set across the claim's binds. The counts stay after a
+      release until the next bind, and a RETRY's bind comes after a tap at
+      least one UI frame after the error, so the passes between read each
+      bind's last counts before they are zeroed.
+    - When the claim ends with no leave page (`pinClaimLeavePage()` false in
+      `back()` of `src/ui_bridge.cpp`), the claim is not Running: its job
+      was released after an error, or never bound. A new
+      `usbBridgeRunCueSettle()` then reads the counts once more under the
+      same condition and clears the cue only if the flag is clear. A read
+      that meets core1 zeroing the counts at a RETRY's bind mixes two binds
+      of this claim; no read clears the flag, so such a read can only keep
+      the cue.
+
+    The leave page's last button clears the cue as today: its steps power
+    the ESC off. The cue then stands only where a bootloader may still
+    wait. One that answered waits for commands with no timeout; one that
+    did not answer starts its firmware on the parked low line, an EFM8
+    after `BOOT_DELAY`, about 250 ms with no edge, an AM32 after 20 ms low
+    ([bluejay-blheli-s.md](bluejay-blheli-s.md#entering-the-bootloader);
     from source, not measured). Slice D3 builds it, with decision 8.
+14. Developer's call of 2026-11-16, pending the owner's review: **The start
+    step's way out.** Decision 8's start step is left by START DSHOT or by
+    the screen's own way out, which stays live on the step: ESC TESTER's
+    `MENU` button (x 176 to 233, y 283 on, `BTN_MENU`, `src/ui.cpp` 177)
+    and ESC COMMANDS' header BACK. Each returns as it does without the
+    step, the tester to MENU and ESC COMMANDS to its hub, with DShot
+    parked, nothing sent and the run cue kept: no step was done. The step
+    takes the leave page widget's numbered steps and its 1000 ms wait, not
+    the leave page's rules. Owner decision 25 of
+    [menu-b.md](menu-b.md#decisions) draws BACK disabled on the leave page,
+    where a claim holds SIG and only the page's steps end it. On the start
+    step no claim holds and DShot is parked, so leaving loses nothing, and
+    BACK and `MENU` stay live. START DSHOT does not take the widget's
+    wide button (`UI_LEAVE_WIDE`, y 268 to 313), which would cover the
+    tester's button row: it is 228 px wide at the row of the widget's left
+    and right buttons (`UI_LEAVE_BTN_Y`, y 214, 46 px tall), at scale 2.
+    The foot stays the screen's: on the tester `MENU` live, HOLD TO ARM and
+    LATCH drawn disabled. Slice D3 builds it.
 
 ## Open questions
 
@@ -918,9 +1042,9 @@ the developer's call of 2026-11-16, pending the owner's review:
 6. ~~Arming right after DShot starts.~~ Settled by
    [decision 10](#decisions).
 
-The review of the note raised three more points, settled by decisions 11
-to 13, pending the owner's review: where decision 7's line shows, the arm
-gate's start and look, and the bridge's run cue.
+The reviews of the note raised four more points, settled by decisions 11
+to 14, pending the owner's review: where decision 7's line shows, the arm
+gate's start and look, the bridge's run cue, and the start step's way out.
 
 ## Not verified
 
