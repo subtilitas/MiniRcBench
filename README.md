@@ -917,10 +917,10 @@ slider's fill is the frames' colour.
 Not seen on the panel: every colour is computed for sRGB, and the panel's
 gamma, primaries and backlight are not measured. The host suite holds the
 17 values and their contrast ratios (`testPaletteContrast()` in
-`test/test_widgets.cpp`): each text pair is 4.5 or more but two. The
-fainter colour on the screen is 3.57, and disabled labels, group captions
-and read-only values use it. `ERROR` in the tester's ESC STATUS tile is
-4.03. Where this document says "grey", the colour is one of the two
+`test/test_widgets.cpp`): each text pair is 4.5 or more but two.
+`C_GRID` on `C_BG`, 3.57, which disabled labels, group captions and
+read-only values use, is one; `ERROR` in the tester's ESC STATUS tile, 4.03,
+is the other. Where this document says "grey", the colour is one of the two
 blue-grey neutrals.
 
 **High contrast**
@@ -3910,7 +3910,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 15,976 of 16,238 lines in 98 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 15,996 of 16,258 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

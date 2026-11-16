@@ -415,6 +415,8 @@ static void testEditAndWrite() {
 	          disabledButtonIs(UI_FIX(KstCtl::EditPlus), "+", 2) &&
 	          neutralButtonIs(UI_FIX(KstCtl::EditMinus), "-", 2) &&
 	          ctlFrameDrawnPercent(UI_FIX(KstCtl::EditPlus)) == 100);
+	selectField(KST_F_DEAD_BAND);
+	checkTrue("another field, same changes: its + acts", ctlEnabled(UI_FIX(KstCtl::EditPlus)));
 	selectField(KST_F_DUTY);
 	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));

@@ -1283,8 +1283,8 @@ Readings of the note where the code asked for a choice:
   one black on `C_PANEL`, 14.40. `uiButton()` therefore breaks a disabled
   button's frame into dashes in High contrast: on the four straight edges
   4 px drawn and 4 px open (`UI_DASH`), through both rings, the gaps
-  centred on each edge and the corners whole. Half of the straight edges
-  or less is drawn, 45 % to 52 % on the sizes the tests hold, against
+  centred on each edge and the corners whole. About half
+  of the straight edges is drawn, 45 % to 52 % on the sizes the tests hold, against
   100 % on a live button. The rule of [Widgets](#widgets) stands in both
   themes: `C_BG`, the frame, a `C_GRID` label. A faded label was not
   taken: it needs a value the table does not have, and a mid-grey label

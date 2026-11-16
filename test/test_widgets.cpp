@@ -699,6 +699,18 @@ static void testDisabledFrame() {
 				         tn, r.w, r.h, n, t);
 				checkTrue(what, gap && ends && t == 2);
 			}
+			// The first gap of the left edge: its length and both rings.
+			if (th) {
+				const int vlen = r.h - 2 * UI_RADIUS, vn = (vlen + UI_DASH) / (2 * UI_DASH);
+				const int vg = r.y + UI_RADIUS + (vlen - (2 * vn - 1) * UI_DASH) / 2;
+				bool vgap = true;
+				for (int k = 0; k < UI_DASH; k++)
+					for (int j = 0; j < t; j++)
+						vgap = vgap && px(r.x + j, vg + k) == C_BG && px(r.x + r.w - 1 - j, vg + k) == C_BG;
+				const bool vends = px(r.x, vg + UI_DASH) == C_GRID && px(r.x + t - 1, vg + UI_DASH) == C_GRID;
+				snprintf(what, sizeof(what), "%s, %d x %d px: the left and right gaps are %d px deep", tn, r.w, r.h, t);
+				checkTrue(what, vgap && vends);
+			}
 			// The corners stay whole in both themes.
 			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: the four corners drawn", tn, r.w, r.h);
 			checkTrue(what, px(r.x, r.y) == C_GRID && px(r.x + r.w - 1, r.y) == C_GRID &&
