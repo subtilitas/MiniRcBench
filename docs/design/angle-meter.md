@@ -1223,7 +1223,8 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    resulting MENU is recorded in [menu-b.md](menu-b.md#menu). This is the
    recommendation.
    Revised by [menu-c.md](menu-c.md#decisions) owner decision 5 of 2026-11-15:
-   TOOLS is gone; ANGLE METER is the second entry of the hub SERVO. Not built.
+   TOOLS is gone; ANGLE METER is the second entry of the hub SERVO. Built
+   (slice 4).
 2. **rcbench's IMU model.** Option (b): a function that takes three
    angles and a time is added to `imu.c` in rcbench and tested there, and
    that commit is copied unchanged. This is the recommendation.

@@ -60,7 +60,7 @@
  * job is idle whether or not the screen still polls. An AM32 claim no EFM8
  * bootloader answered has started no job and restores at once.
  *
- * HITEC defers its job too: the entry tap on PROGRAMMER claims SIG, and the
+ * HITEC defers its job too: the entry tap on SERVO, the hub, claims SIG, and the
  * screen calls pinClaimStartJob() at once for CLASSIC and for D SERIES with
  * the switched supply, and on READ for D SERIES on OWN, for each servo:
  * pinClaimKeep() leaves it unasked again. Until then the

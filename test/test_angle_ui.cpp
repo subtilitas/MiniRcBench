@@ -1,6 +1,6 @@
 /**
  * @file test_angle_ui.cpp
- * @brief TOOLS and ANGLE METER through the real UI: MENU's TOOLS row, the
+ * @brief SERVO and ANGLE METER through the real UI: MENU's SERVO row, the
  *        chooser, the meter's main view, SETUP and FLIP CAL, on the QMI8658
  *        driver and a register model of the part on the I2C fake.
  *
@@ -18,7 +18,6 @@
 #include "fake_i2c.h"
 #include "ui.h"
 #include "ui_angle.h"
-#include "ui_tools.h"
 #include "ui_settings.h"
 #include "settings.h"
 #include "sense.h"
@@ -144,16 +143,16 @@ static void freshBench(bool part = true) {
 	frames(2);
 }
 
-/** @brief From the tester to MENU, then TOOLS. */
+/** @brief From the tester to MENU, then SERVO, the hub. */
 static void openTools() {
 	tapId(UI_FIX(TesterCtl::Menu));
-	tapId(menuRow(&UI_TOOLS));
+	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
 }
 
-/** @brief From the tester through MENU and TOOLS to the meter. */
+/** @brief From the tester through MENU and SERVO to the meter. */
 static void openMeter() {
 	openTools();
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 }
 
@@ -188,57 +187,40 @@ static AngleReading reading() {
 }
 
 // ---------------------------------------------------------------------------
-// TOOLS
+// SERVO
 // ---------------------------------------------------------------------------
 
 /**
- * @brief TOOLS (angle-meter.md decision 1, menu-b.md "MENU"): MENU's sixth
- *        row opens the chooser, which claims nothing, with ANGLE METER over
- *        its line; BACK returns to MENU.
+ * @brief ANGLE METER's place (menu-c.md owner decision 5): the second entry
+ *        of the hub SERVO, which claims nothing; BACK returns to MENU.
  */
 static void testTools() {
-	section("TOOLS: MENU's seventh row, the chooser, ANGLE METER");
+	section("ANGLE METER: the second entry of the hub SERVO");
 	freshBench();
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(1);
-	const UiControlId row = menuRow(&UI_TOOLS);
-	const UiRect r = ctlRect(row);
-	checkTrue("MENU's seventh row, whole after a drag, reads TOOLS, 58 px at scale 2 from x 16, no status",
-	          uiMenuRowOf(&UI_TOOLS) == 6 && gfxTextW(UI_TOOLS_TITLE, 2) == 58 &&
-	          r.h == 40 && r.y + r.h <= GFX_H &&
-	          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_TOOLS_TITLE, C_TEXT, C_PANEL, 2) &&
-	          allOf(r.x + 100, r.y + 4, r.w - 104, r.h - 8, C_PANEL));
-	checkTrue("the chooser opens whatever the claim's state and claims nothing",
-	          !UI_TOOLS.freePins && UI_TOOLS.pinUser == PinUser::None && !UI_TOOLS.status &&
-	          UI_TOOLS.id == UiScreenId::Tools);
-	checkTrue("the meter claims nothing either, and opens only while the claim is Free",
+	checkTrue("the meter claims nothing, and opens only while the claim is Free",
 	          UI_ANGLE.pinUser == PinUser::None && UI_ANGLE.freePins && !UI_ANGLE.status);
-	tapId(row);
-	checkTrue("TOOLS opens the chooser", uiCurrentScreen() == UiScreenId::Tools);
+	checkTrue("no MENU row opens the meter", uiMenuRowOf(&UI_ANGLE) == -1);
+	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
+	checkTrue("SERVO opens the hub", uiCurrentScreen() == UiScreenId::ServoHub);
 	frames(4);
 	checkTrue("it claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free &&
 	          !escTaskSuspended());
 	checkTrue("nothing is sent to 0x6B", fakeI2cTransactionsTo(IMU) == 0);
-	checkTrue("the title reads TOOLS",
-	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_TOOLS_TITLE, C_TEXT, C_PANEL, 2));
-	{
-		char strip[32];
-		snprintf(strip, sizeof(strip), "DSHOT RUNS ON SIG GP%u", (unsigned)settings()->dshotPin);
-		checkTrue("the strip: DSHOT RUNS ON SIG GP0, dim, 125 px",
-		          lineIs(UI_STRIP_Y + 4, strip, C_DIM) && gfxTextW(strip, 1) == 125);
-	}
-	checkInt("one entry", UI_TOOLS_ENTRIES_COUNT, 1);
-	const UiRect a = ctlRect(UI_FIX(ToolsCtl::Angle));
-	checkTrue("ANGLE METER: 228 x 46 px at (6, 62)", a.x == 6 && a.y == 62 && a.w == 228 && a.h == 46);
+	checkTrue("ANGLE METER is the second entry", UI_SERVO_ENTRIES_COUNT == 5 &&
+	          UI_SERVO_ENTRIES[1].screen == &UI_ANGLE && !UI_SERVO_ENTRIES[1].enter &&
+	          strcmp(UI_SERVO_ENTRIES[1].label, UI_ANGLE_TITLE) == 0);
+	const UiRect a = ctlRect(HUB_ENTRY(1));
+	checkTrue("ANGLE METER: 228 x 46 px at (6, 142)", a.x == 6 && a.y == 142 && a.w == 228 && a.h == 46);
 	checkTrue("it acts, its label C_TEXT on the panel, centred at scale 2, 130 px",
-	          ctlEnabled(UI_FIX(ToolsCtl::Angle)) && gfxTextW(UI_ANGLE_TITLE, 2) == 130 &&
+	          ctlEnabled(HUB_ENTRY(1)) && gfxTextW(UI_ANGLE_TITLE, 2) == 130 &&
 	          fakeTextIs(a.x + (a.w - 130) / 2, a.y + 16, UI_ANGLE_TITLE, C_TEXT, C_PANEL, 2));
-	checkTrue("its line at y 112, dim, 215 px",
-	          lineIs(112, "INCIDENCE, DECALAGE, DIHEDRAL, THROW", C_DIM) &&
+	checkTrue("its line at y 192, dim, 215 px",
+	          lineIs(192, "INCIDENCE, DECALAGE, DIHEDRAL, THROW", C_DIM) &&
 	          gfxTextW("INCIDENCE, DECALAGE, DIHEDRAL, THROW", 1) == 215);
-	checkTrue("under it nothing", blank(124, 320 - 124));
-	checkControlTable("TOOLS");
-	fakeDumpFrame("shot_tools_chooser.ppm");
+	checkTrue("under it nothing, to the next entry", allOf(0, 204, 235, 222 - 204, C_BG));
+	checkControlTable("SERVO");
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("still nothing sent to 0x6B", fakeI2cTransactionsTo(IMU) == 0);
@@ -254,14 +236,14 @@ static void testTools() {
  *        to 0x6B after it, MENU up; the next visit starts unzeroed.
  */
 static void testOpenAndBack() {
-	section("ANGLE METER: opened from TOOLS, BACK writes CTRL7 00h");
+	section("ANGLE METER: opened from SERVO, BACK writes CTRL7 00h");
 	freshBench();
 	frames(40);
 	checkInt("closed: nothing to 0x6B in a second", fakeI2cTransactionsTo(IMU), 0);
 	openMeter();
 	checkTrue("ANGLE METER opens", uiCurrentScreen() == UiScreenId::Angle &&
 	          uiAngleView() == AngleView::Main);
-	checkTrue("from TOOLS: no claim, DShot runs", pinClaimState() == ClaimState::Free);
+	checkTrue("from SERVO: no claim, DShot runs", pinClaimState() == ClaimState::Free);
 	checkTrue("the title reads ANGLE METER, 4 px or more before BACK",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_ANGLE_TITLE, C_TEXT, C_PANEL, 2) &&
 	          UI_MARGIN + gfxTextW(UI_ANGLE_TITLE, 2) + 4 <= UI_BACK_X);
@@ -278,15 +260,14 @@ static void testOpenAndBack() {
 	frames(60);
 	checkTrue("zeroed on this visit", reading().zeroed);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK returns to TOOLS", uiCurrentScreen() == UiScreenId::Tools);
+	checkTrue("BACK returns to SERVO", uiCurrentScreen() == UiScreenId::ServoHub);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	checkTrue("CTRL7 00h: the accelerometer off", s_q->reg[0x08] == 0x00 &&
 	          qmi8658State() == ImuState::Closed);
 	uint32_t t = fakeI2cTransactionsTo(IMU);
 	frames(80);
 	checkInt("nothing to 0x6B after BACK, in two seconds", fakeI2cTransactionsTo(IMU) - t, 0);
-	tapId(menuRow(&UI_TOOLS));
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("a new visit: no zero, no MAX", !reading().zeroed && !reading().hasMax[0] &&
 	          !reading().hasMax[1] && reading().zero == AngleZero::None);
@@ -430,7 +411,7 @@ static void testNoImu() {
 	          qmi8658State() == ImuState::Offline && chipIs("NO IMU", C_AMBER) &&
 	          lineIs(80, UI_ANGLE_NO_ANSWER, C_AMBER));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK leaves", uiCurrentScreen() == UiScreenId::Tools);
+	checkTrue("BACK leaves", uiCurrentScreen() == UiScreenId::ServoHub);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	openTester();
 }
@@ -654,10 +635,10 @@ static void testSetup() {
 	          lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) && settings()->angleAlong == 0 &&
 	          uiAngleModel()->set.along == AngleAlong::Long);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("CTRL7 00h on BACK from the main view, which returns to TOOLS",
-	          s_q->reg[0x08] == 0x00 && uiCurrentScreen() == UiScreenId::Tools);
+	checkTrue("CTRL7 00h on BACK from the main view, which returns to SERVO",
+	          s_q->reg[0x08] == 0x00 && uiCurrentScreen() == UiScreenId::ServoHub);
 	// The next visit takes the setup from the live settings.
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	checkTrue("the next visit: LENGTH 40, INVERT, LONG", uiAngleModel()->set.lengthMm == 40 &&
 	          uiAngleModel()->set.invert && uiAngleModel()->set.along == AngleAlong::Long);
 	tapId(UI_FIX(UI_BACK));
@@ -666,8 +647,7 @@ static void testSetup() {
 	checkTrue("a restart: what flash holds, SHORT, the failed save's LONG lost",
 	          settings()->angleAlong == 1 && settings()->angleLengthMm == 40);
 	tapId(UI_FIX(TesterCtl::Menu));
-	tapId(menuRow(&UI_TOOLS));
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("the visit after it opens on SHORT, LENGTH 40, INVERT",
 	          uiAngleModel()->set.along == AngleAlong::Short && uiAngleModel()->set.lengthMm == 40 &&
@@ -686,7 +666,7 @@ static void testSetup() {
 	fakeFlashSetWritable(true);
 	checkTrue("LONG not saved: the hint", lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) && settingsAngleDirty());
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("a new visit: still LONG, the hint still there",
 	          uiAngleModel()->set.along == AngleAlong::Long && lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER));
@@ -709,7 +689,7 @@ static void testSetup() {
 	fakeFlashSetWritable(true);
 	checkTrue("SHORT not saved", settingsAngleDirty());
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));                  // TOOLS to MENU
+	tapId(UI_FIX(UI_BACK));                  // SERVO to MENU
 	tapId(menuRow(&UI_SETTINGS));
 	pressId(UI_FIX(SettingsCtl::Save));
 	holdId(UI_FIX(SettingsCtl::Save), 41);
@@ -760,8 +740,7 @@ static void testDefaultsKeepMeter() {
 	          settings()->angleCalOffG[0] == 0.03f && settings()->angleCalGain[2] == 1.02f &&
 	          !settingsAngleDirty());
 	tapId(UI_FIX(UI_BACK));
-	tapId(menuRow(&UI_TOOLS));
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("the meter opens calibrated", angleCalValid(&uiAngleModel()->set.cal));
 	tapId(UI_FIX(AngleCtl::Setup));
@@ -807,7 +786,7 @@ static void testOnlyExit() {
 	checkTrue("12 s on: still the meter, still reading", uiCurrentScreen() == UiScreenId::Angle &&
 	          qmi8658State() == ImuState::Online);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("the main view's BACK leaves, CTRL7 00h", uiCurrentScreen() == UiScreenId::Tools &&
+	checkTrue("the main view's BACK leaves, CTRL7 00h", uiCurrentScreen() == UiScreenId::ServoHub &&
 	          qmi8658State() == ImuState::Closed && s_q->reg[0x08] == 0x00);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	openTester();
@@ -984,7 +963,7 @@ static void testFlip() {
 
 	// The next visit takes the calibration from the live settings: the one
 	// applied, not saved; after a restart the one flash holds.
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("the next visit: the calibration applied, X's offset 60 mg",
 	          angleCalValid(&uiAngleModel()->set.cal) &&
@@ -1002,8 +981,7 @@ static void testFlip() {
 	backToTester();
 	settingsLoad();
 	tapId(UI_FIX(TesterCtl::Menu));
-	tapId(menuRow(&UI_TOOLS));
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("after a restart: the calibration saved, X's offset 60 mg",
 	          angleCalValid(&uiAngleModel()->set.cal) &&
@@ -1041,33 +1019,33 @@ static void testFits() {
 }
 
 /**
- * @brief docs/design/menu-c.md slice 2: ANGLE METER returns to TOOLS, the
- *        chooser that opened it, by BACK; TOOLS is drawn again as it was
+ * @brief docs/design/menu-c.md slice 2: ANGLE METER returns to SERVO, the
+ *        chooser that opened it, by BACK; SERVO is drawn again as it was
  *        left. The meter has no leave page.
  */
 static void testNavOpener() {
-	section("Navigation: ANGLE METER returns to TOOLS, its opener");
+	section("Navigation: ANGLE METER returns to SERVO, its opener");
 	freshBench();
 	openTools();
 	frames(1);
-	checkTrue("TOOLS: MENU, TOOLS", navIsHub(UiScreenId::Tools));
+	checkTrue("SERVO: MENU, SERVO", navIsHub(UiScreenId::ServoHub));
 	const uint32_t tools = fakeRegionHash(0, 0, GFX_W, GFX_H);
-	tapId(UI_FIX(ToolsCtl::Angle));
+	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
-	checkTrue("ANGLE METER: MENU, TOOLS, ANGLE METER", navIsTool(UiScreenId::Tools, UiScreenId::Angle));
+	checkTrue("ANGLE METER: MENU, SERVO, ANGLE METER", navIsTool(UiScreenId::ServoHub, UiScreenId::Angle));
 	tapId(UI_FIX(UI_BACK));
 	frames(1);
-	checkTrue("BACK: TOOLS, the stack MENU, TOOLS", navIsHub(UiScreenId::Tools));
-	checkTrue("TOOLS drawn again as it was left", fakeRegionHash(0, 0, GFX_W, GFX_H) == tools);
-	// The meter opened with no press drawn on TOOLS: the frame TOOLS last
+	checkTrue("BACK: SERVO, the stack MENU, SERVO", navIsHub(UiScreenId::ServoHub));
+	checkTrue("SERVO drawn again as it was left", fakeRegionHash(0, 0, GFX_W, GFX_H) == tools);
+	// The meter opened with no press drawn on SERVO: the frame SERVO last
 	// drew is the frame it draws on the return, which repaints all the same.
 	uiChooseTool(&UI_ANGLE, nullptr);
 	frames(2);
-	checkTrue("opened with no press: ANGLE METER over TOOLS", navIsTool(UiScreenId::Tools, UiScreenId::Angle));
+	checkTrue("opened with no press: ANGLE METER over SERVO", navIsTool(UiScreenId::ServoHub, UiScreenId::Angle));
 	tapId(UI_FIX(UI_BACK));
 	frames(1);
-	checkTrue("BACK: TOOLS drawn again, the same frame",
-	          navIsHub(UiScreenId::Tools) && fakeRegionHash(0, 0, GFX_W, GFX_H) == tools);
+	checkTrue("BACK: SERVO drawn again, the same frame",
+	          navIsHub(UiScreenId::ServoHub) && fakeRegionHash(0, 0, GFX_W, GFX_H) == tools);
 	checkTrue("then MENU and the tester", backToTester());
 }
 

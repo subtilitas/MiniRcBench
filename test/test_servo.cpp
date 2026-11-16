@@ -2813,14 +2813,14 @@ static void freshUi() {
 	uiFrames(2);
 }
 
-/** @brief Main screen to SERVO, through MENU. */
+/** @brief Main screen to SERVO TESTER, through MENU and SERVO, the hub. */
 static void openServo() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(menuRow(&UI_SERVO));
+	tapId(toolEntry(&UI_SERVO));
 	uiFrames(2);
-	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("SERVO TESTER opens from SERVO, the hub", navIsTool(UiScreenId::ServoHub, UiScreenId::Servo));
 }
 
 /** @brief SERVO's main view to SET. */
@@ -2846,10 +2846,12 @@ static void backFromSet() {
 	          uiCurrentScreen() == UiScreenId::Servo && ctlPresent(UI_FIX(ServoCtl::Start)));
 }
 
-/** @brief From MENU, which has no BACK, through its row ESC TESTER: the tester. */
+/**
+ * @brief From MENU, which has no BACK, through its row ESC TESTER: the
+ *        tester. From SERVO, the hub, its BACK reaches MENU first.
+ */
 static void backFromMenu() {
-	openTester();
-	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("MENU's row ESC TESTER reaches the tester", backToTester());
 }
 
 /** @brief Hold HOLD TO START for 1000 ms, then lift. */
@@ -2877,7 +2879,11 @@ static void holdStartFrames() {
 	core1();
 }
 
-/** @brief BACK, the leave page, and RESTART DSHOT: out to MENU. */
+/**
+ * @brief BACK, the leave page, and RESTART DSHOT: out to SERVO, the hub
+ *        that opened the tester (menu-c.md owner decision 7), then the
+ *        hub's BACK to MENU.
+ */
 static void leaveServo() {
 	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
@@ -2885,7 +2891,10 @@ static void leaveServo() {
 	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) uiFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
 	uiFrames(2);
-	checkTrue("RESTART DSHOT leaves SERVO for MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("RESTART DSHOT leaves SERVO TESTER for SERVO, its hub", navIsHub(UiScreenId::ServoHub));
+	tapId(UI_FIX(UI_BACK));
+	uiFrames(1);
+	checkTrue("the hub's BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /**
@@ -2994,10 +3003,14 @@ static void testScreenOpens() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(2);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
-	checkTrue("MENU: SERVO is drawn live", fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
-	checkTrue("MENU: SERVO PROGRAMMER is drawn live", fillOf(ctlRect(menuRow(&UI_SERVO_PROG))) == C_PANEL);
-	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("MENU: SERVO, the hub's row, is drawn live",
+	          fillOf(ctlRect(menuRow(&UI_SERVO_HUB_SCREEN))) == C_PANEL);
+	const UiControlId entry = toolEntry(&UI_SERVO);
+	checkTrue("SERVO, the hub: SERVO TESTER is its first entry, drawn live",
+	          uiCurrentScreen() == UiScreenId::ServoHub && entry == HUB_ENTRY(0) &&
+	          fillOf(ctlRect(entry)) == C_PANEL);
+	tapId(entry);
+	checkTrue("SERVO TESTER opens from the hub", navIsTool(UiScreenId::ServoHub, UiScreenId::Servo));
 	checkTrue("the tap claims the pins for SERVO", pinClaimHolder() == PinUser::Servo);
 	uiFrames(3);
 	checkTrue("running on the claim", pinClaimState() == ClaimState::Running);
@@ -3010,13 +3023,12 @@ static void testScreenOpens() {
 	          s_profile.type == ServoType::Standard && s_profile.rateHz == 50 &&
 	          s_profile.servos == 1 && (int)s_speed.value == 100);
 	checkTrue("the chip says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
-	// menu-b.md decision 13: the title is the MENU row's label.
+	// menu-b.md decision 13: the title is the label of the entry that opens it.
 	checkTrue("the title reads SERVO TESTER",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO TESTER", C_TEXT, C_PANEL, 2));
 	checkTrue("and nothing after it before BACK", titleEndsClear());
-	uint8_t rows;
-	checkTrue("MENU's label and the screen's title",
-	          strcmp(uiMenuEntries(&rows)[uiMenuRowOf(&UI_SERVO)].label, SERVO_UI_TITLE) == 0 &&
+	checkTrue("the hub entry's label and the screen's title",
+	          strcmp(UI_SERVO_ENTRIES[0].label, SERVO_UI_TITLE) == 0 && UI_SERVO_ENTRIES[0].screen == &UI_SERVO &&
 	          strcmp(UI_SERVO.title, SERVO_UI_TITLE) == 0);
 	checkTrue("13 characters or fewer: it ends 4 px or more before BACK",
 	          strlen(SERVO_UI_TITLE) <= 13 && UI_MARGIN + gfxTextW(SERVO_UI_TITLE, 2) + 4 <= UI_BACK_X);
@@ -3136,8 +3148,8 @@ static void testStartNeedsLivePress() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
+	tapId(toolEntry(&UI_SERVO));
+	checkTrue("SERVO TESTER opens from its hub", uiCurrentScreen() == UiScreenId::Servo);
 	int x, y;
 	ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
 	pressId(UI_FIX(ServoCtl::Start), IdExpect::Disabled); core1();
@@ -3213,8 +3225,8 @@ static void testHorn() {
 	uiFrames(1);
 	checkTrue("stalled again", s_st.tripped);
 	leaveServo();
-	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
+	tapId(toolEntry(&UI_SERVO));
+	checkTrue("SERVO TESTER opens from its hub", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("opened again, first frame: the job not yet bound",
 	          pinClaimState() != ClaimState::Running);
@@ -3237,8 +3249,8 @@ static void testHorn() {
 	memset(&t, 0, sizeof(t));
 	t.lastRpmMs = millis();
 	fakeSetTelemetry(&t);
-	tapId(menuRow(&UI_SERVO));
-	checkTrue("SERVO opens from MENU", uiCurrentScreen() == UiScreenId::Servo);
+	tapId(toolEntry(&UI_SERVO));
+	checkTrue("SERVO TESTER opens from its hub", uiCurrentScreen() == UiScreenId::Servo);
 	uiFrames(1);
 	checkTrue("refused while an ESC answers, first frame: not STALLED",
 	          s_refusal == ClaimRefusal::EscAnswering && !s_st.tripped &&
@@ -3820,9 +3832,11 @@ static void testLeavePage() {
 	tapId(UI_FIX(ServoCtl::Restart));
 	checkInt("RESTART DSHOT: DShot back", fakeResumeCount(), resumes + 1);
 	uiFrames(2);
-	checkTrue("free, and MENU up", pinClaimState() == ClaimState::Free &&
-	                                   uiCurrentScreen() == UiScreenId::Menu &&
-	                                   fillOf(ctlRect(menuRow(&UI_SERVO))) == C_PANEL);
+	checkTrue("free, and SERVO, the hub, up, its entry live",
+	          pinClaimState() == ClaimState::Free && navIsHub(UiScreenId::ServoHub) &&
+	          fillOf(ctlRect(HUB_ENTRY(0))) == C_PANEL);
+	tapId(UI_FIX(UI_BACK));
+	uiFrames(1);
 	backFromMenu();
 }
 
@@ -4416,26 +4430,30 @@ static void claimSigAloneKiss(EscTelemetry *t) {
 static void testClaimCorners() {
 	section("Servo screen: refusals the UI cannot reach, and TWO before the claim");
 
-	// Another screen holds the pins. MENU refuses SERVO while the claim is
-	// not Free: the row is drawn disabled, does not act, and a tap opens
-	// nothing. Once the claim is Free, the row opens SERVO, which claims at
-	// once.
+	// Another screen holds the pins. SERVO, the hub, refuses SERVO TESTER
+	// while the claim is not Free: the entry is drawn disabled, does not
+	// act, and a tap opens nothing. Once the claim is Free, the entry opens
+	// SERVO TESTER, which claims at once.
 	freshUi();
 	checkTrue("another screen holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
-	checkTrue("MENU: SERVO drawn disabled, the strip DSHOT RESTARTING", busyShown(menuRow(&UI_SERVO)));
-	checkTrue("and its row does not act", !ctlEnabled(menuRow(&UI_SERVO)));
-	tapId(menuRow(&UI_SERVO), IdExpect::Disabled);
-	checkTrue("a tap opens nothing, and SERVO claims nothing",
-	          uiCurrentScreen() == UiScreenId::Menu && pinClaimHolder() == PinUser::Am32);
+	checkTrue("MENU: SERVO, the hub's row, acts while the claim is not Free",
+	          ctlEnabled(menuRow(&UI_SERVO_HUB_SCREEN)));
+	const UiControlId entry = toolEntry(&UI_SERVO);
+	uiFrames(1);
+	checkTrue("the hub: SERVO TESTER drawn disabled, the strip DSHOT RESTARTING",
+	          uiCurrentScreen() == UiScreenId::ServoHub && busyShown(entry));
+	checkTrue("and its entry does not act", !ctlEnabled(entry));
+	tapId(entry, IdExpect::Disabled);
+	checkTrue("a tap opens nothing, and SERVO TESTER claims nothing",
+	          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimHolder() == PinUser::Am32);
 	pinClaimEnd(PinUser::Am32);
-	for (int i = 0; i < 20 && !ctlEnabled(menuRow(&UI_SERVO)); i++) uiFrames(1);
-	checkTrue("the other claim gone: the row acts again",
-	          pinClaimState() == ClaimState::Free && ctlEnabled(menuRow(&UI_SERVO)) &&
-	          !busyShown(menuRow(&UI_SERVO)));
-	tapId(menuRow(&UI_SERVO));
+	for (int i = 0; i < 20 && !ctlEnabled(entry); i++) uiFrames(1);
+	checkTrue("the other claim gone: the entry acts again",
+	          pinClaimState() == ClaimState::Free && ctlEnabled(entry) && !busyShown(entry));
+	tapId(entry);
 	checkTrue("SERVO opens, and claims on the tap",
 	          uiCurrentScreen() == UiScreenId::Servo && s_claimed &&
 	          pinClaimHolder() == PinUser::Servo);
@@ -4811,7 +4829,7 @@ static void testSupplyLineAndHint() {
 	freshUi();
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
-	tapId(menuRow(&UI_SERVO));
+	tapId(toolEntry(&UI_SERVO));
 	uiTick();   // SERVO's first frame, at once: the pump is still draining
 	checkTrue("the first frame: the claim is not Running yet",
 	          uiCurrentScreen() == UiScreenId::Servo && pinClaimState() != ClaimState::Running);
@@ -5650,7 +5668,9 @@ static void testMoveScreen() {
 	freeServo(&sim);
 	simAttach(ina, &sim);
 	openServo();
-	uiSimFrames(ina, &sim, 42);
+	// 38 frames: the way through SERVO, the hub, took 4 of the 42 that
+	// set the sensor's phase against the first step.
+	uiSimFrames(ina, &sim, 38);
 	holdStartFrames();
 	uiSimFrames(ina, &sim, 3);
 	checkTrue("running at CENTRE", s_st.running && fakePin(SIG).level == 1500);
@@ -5679,8 +5699,13 @@ static void testMoveScreen() {
 	checkTrue("MAX again: timed", s_st.move.state == MoveState::Measuring);
 	uiSimFrames(ina, &sim, 45);
 	checkTrue("arrived, the hold in", s_st.move.state == MoveState::Arrived && s_st.move.holdOk);
-	checkTrue("16 ms to MOVE_LAG_MS after the model's 417 ms",
-	          s_st.move.ms >= 417 + 16 && s_st.move.ms <= 417 + MOVE_LAG_MS);
+	// Both stamps are frame times, so the result is a multiple of the 25 ms
+	// frame: the first frame at or after the model's 417 ms, and no later
+	// than MOVE_LAG_MS after it. Which of 425, 450 and 475 depends on the
+	// sensor's phase against the frames, which the frame count before START sets.
+	checkTrue("a frame multiple, 417 ms to MOVE_LAG_MS after the model's 417 ms",
+	          s_st.move.ms % 25 == 0 && s_st.move.ms >= (417 + 24) / 25 * 25 &&
+	          s_st.move.ms <= 417 + MOVE_LAG_MS);
 	char line[MOVE_TEXT_MAX + 1];
 	moveTimerText(&s_st.move, line, sizeof(line));
 	checkTrue("the line: MOVE, PEAK and HOLD", strncmp(line, "MOVE 0.4", 8) == 0 &&
@@ -5767,6 +5792,7 @@ static void testMoveScreenNone() {
 	settings()->currentSense = 0;
 	senseConfigure(0);
 	openServo();
+	// No sensor: nothing here depends on a phase, so the count is free.
 	uiFrames(42);
 	holdStartFrames();
 	uiFrames(3);
@@ -5860,7 +5886,7 @@ static void testPinNames() {
 	freshUi();
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
-	tapId(menuRow(&UI_SERVO));
+	tapId(toolEntry(&UI_SERVO));
 	uiTick();
 	claimMessage(&l1, &l2, &l3, &col, &retry);
 	checkTrue("RELEASING SIG GP0 while the pump drains",

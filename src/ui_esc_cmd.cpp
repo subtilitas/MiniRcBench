@@ -445,7 +445,3 @@ uint8_t uiEscCmdControls(UiControl *out, uint8_t max) {
 	return n;
 }
 
-const UiScreen UI_ESC_CMD = {
-	UiScreenId::EscCmd, UI_ESC_CMD_TITLE, PinUser::None, nullptr,
-	uiEscCmdEnter, uiEscCmdTick, nullptr, uiEscCmdControls, nullptr, true,
-};

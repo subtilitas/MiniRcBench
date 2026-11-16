@@ -4,9 +4,10 @@
  *        leave page before DShot restarts.
  *
  * Servo PWM (pulse-width modulation) on the ESC pin, and on the KISS pin for
- * two servos. Entry: MENU → SERVO TESTER. The screen claims the pins
- * (pin_claim.h) and hands the servo job (servo_job.h) its profile and its
- * commands; core1 makes the pulses.
+ * two servos. Entry: MENU → SERVO → SERVO TESTER, the first entry of the
+ * hub SERVO (ui_servo_hub.h). The screen claims the pins (pin_claim.h) and
+ * hands the servo job (servo_job.h) its profile and its commands; core1
+ * makes the pulses.
  *
  * The screen has the motor screen's two states under other names. SAFE: the
  * pins bound at level 0, no pulses. HOLD TO START, 1000 ms, puts CENTRE on
@@ -25,11 +26,13 @@
 
 #include <stdint.h>
 
+#include "ui_screen.h"
+
 struct TouchState;
 
 /**
- * @brief The header's title on the main view and the leave page: MENU's
- *        row label, 12 characters, 142 px at scale 2, from x 8 to x 149,
+ * @brief The header's title on the main view and the leave page: the hub
+ *        entry's label, 12 characters, 142 px at scale 2, from x 8 to x 149,
  *        20 px before BACK at x 170.
  */
 #define SERVO_UI_TITLE "SERVO TESTER"
@@ -188,7 +191,6 @@ enum class ServoCtl : uint8_t {
 	BackToServo,                  /**< BACK TO SERVO on the leave page: the claim kept, SERVO TESTER SAFE. */
 };
 
-struct UiControl;
 
 /**
  * @brief The SERVO TESTER view that is up controls on the current frame.
@@ -199,6 +201,8 @@ struct UiControl;
  */
 uint8_t uiServoControls(UiControl *out, uint8_t max);
 
-struct UiScreen;
-/** @brief SERVO TESTER. */
-extern const UiScreen UI_SERVO;
+/** @brief SERVO TESTER, a constant: SERVO's table checks it at build time. */
+inline constexpr const UiScreen UI_SERVO = {
+	UiScreenId::Servo, SERVO_UI_TITLE, PinUser::Servo, nullptr,
+	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr, false,
+};

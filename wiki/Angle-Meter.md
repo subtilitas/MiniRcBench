@@ -2,7 +2,7 @@
 
 # Angle Meter
 
-`MENU → TOOLS → ANGLE METER` measures angles with the accelerometer on the
+`MENU → SERVO → ANGLE METER` measures angles with the accelerometer on the
 board itself, from the direction of gravity while the board lies still: a
 wing's incidence, the decalage between wing and stabiliser, dihedral, and a
 control surface's throw in degrees and as the trailing edge's travel in mm.
@@ -14,7 +14,7 @@ degree and of a millimetre; that is how fine the display is, not how right
 the reading is. Until the bench measures the meter against known angles,
 treat a reading as a comparison of two settings, not as an exact angle.
 
-<img src="img/tools-chooser.png" width="240" alt="TOOLS: ANGLE METER with INCIDENCE, DECALAGE, DIHEDRAL, THROW under it"> <img src="img/angle-main.png" width="240" alt="ANGLE METER after a zero: -20.0 degrees from the zero, -13.7 MM with a length of 40 mm, MAX -20.0 degrees">
+<img src="img/servo-hub.png" width="240" alt="SERVO, the hub: ANGLE METER is its second entry, with INCIDENCE, DECALAGE, DIHEDRAL, THROW under it"> <img src="img/angle-main.png" width="240" alt="ANGLE METER after a zero: -20.0 degrees from the zero, -13.7 MM with a length of 40 mm, MAX -20.0 degrees">
 
 ---
 
@@ -39,7 +39,7 @@ readings only while it shows.
   It is drawn as an outline while the sensor does not answer.
 - **RESET MAX** clears MAX.
 - **SETUP** opens SETUP.
-- **BACK** turns the sensor off and returns to TOOLS. The zero and MAX are
+- **BACK** turns the sensor off and returns to SERVO. The zero and MAX are
   gone then: the next visit starts from level, since the model may have
   moved in between.
 

@@ -87,5 +87,27 @@ bool uiSettingsTick(const TouchState *t);
  */
 uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max);
 
+struct UiHub;
+
+/** @brief The hub a screen shows, or null: uiHubOf()'s shape. */
+typedef const UiHub *(*UiHubOfFn)(const UiScreen *s);
+
+/**
+ * @brief The tools' SETTINGS sections of a registry, each once, in the
+ *        order of its rows: a row's own section (@ref UiScreen::settings),
+ *        then, for a row that opens a hub, the sections of the hub's
+ *        entries, top to bottom. SETTINGS shows them between SERVO SUPPLY
+ *        and DISPLAY.
+ * @param e        The rows.
+ * @param n        How many.
+ * @param hubOf    The hub a row's screen shows, as uiHubOf(); null: no row
+ *                 opens a hub.
+ * @param[out] out At most @p max sections.
+ * @param max      Room in @p out.
+ * @return The number written.
+ */
+uint8_t uiSettingsToolSections(const UiMenuEntry *e, uint8_t n, UiHubOfFn hubOf,
+                               const SettingsSection **out, uint8_t max);
+
 /** @brief SETTINGS. */
 extern const UiScreen UI_SETTINGS;

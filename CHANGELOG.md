@@ -1268,6 +1268,39 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: MENU has six rows and does not scroll, and every tool
+  is behind one of three hubs, slice 4 of
+  [menu-c.md](docs/design/menu-c.md#slice-4-as-built), by owner decisions 4,
+  5 and 7 of 2026-11-15. The rows read ESC TESTER, ESC CONFIG, SERVO, RX
+  SIGNALS, SD LOG and SETTINGS; each is whole at scroll 0, and the last ends
+  at y 311. Before, MENU had nine rows and scrolled 120 px, with SD LOG and
+  SETTINGS behind a drag. ESC CONFIG, SERVO and RX SIGNALS open a hub and
+  carry the mark `>` at scale 2 from x 213, in cyan. ESC CONFIG holds ESC
+  COMMANDS, new there, with the lines `BEEP 1 TO 5, DIRECTION, 3D MODE.` and
+  `SENT AS DSHOT COMMANDS.`, then ESC SETTINGS and USB BRIDGE. SERVO holds
+  SERVO TESTER, with the line `ONE SERVO ON SIG, OR TWO WITH AUX.`, ANGLE
+  METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC; its strip reads
+  `SIG GP0  AUX GP1  SERVO SUPPLY OWN`, or the supply's pin. RX SIGNALS
+  holds MONITOR and OUTPUT, as before. ESC COMMANDS and SERVO TESTER go from
+  one tap to two from MENU; ANGLE METER and the two Hitec entries stay at
+  two, the Hitec entries after a drag. The MENU rows ESC COMMANDS, SERVO
+  TESTER, SERVO PROGRAMMER and TOOLS and the screens PROGRAMMER and TOOLS are
+  gone, with TOOLS' strip text `DSHOT RUNS ON SIG GP0`. SERVO, five entries,
+  is a list on `ui_list`: 404 px of content in the 258 px under the strip,
+  a scroll range of 146 px, a 3 px scroll bar at x 235. At scroll 0 its
+  fourth entry, HITEC D SERIES, shows 18 px, is listed and takes no press
+  below 40 px; it is whole from 28 px of scroll and HITEC CLASSIC from
+  108 px. A tool that returns to SERVO finds it at the scroll it was left
+  at; SERVO opened from MENU starts at 0. Every tool keeps its behaviour and
+  returns to its hub by BACK and by the leave page's last button: the leave
+  page, the holds, the BACK guard, HITEC CLASSIC's gate and the claim on the
+  tap's frame are unchanged. The names are still those before the rename of
+  slice 5: ESC CONFIG, RX SIGNALS, SD LOG, SETTINGS. DShot still runs from
+  boot behind MENU and the hubs until slice D2 of
+  [dshot-lifetime.md](docs/design/dshot-lifetime.md). SETTINGS looks for a
+  tool's section behind the hubs too; no tool has one. `test/check_docs.py`
+  rule 9 refuses the removed names in README.md and the wiki. Host tests by
+  control id, mutation-checked; nothing of it has run on the board.
 - After v0.1.0-rc1: MENU is the start screen and the root, slice 3 of
   [menu-c.md](docs/design/menu-c.md#slice-3-as-built), by owner decisions 1
   and 4 of 2026-11-15. The splash ends on MENU, whose header draws no BACK.

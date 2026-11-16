@@ -96,11 +96,12 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 
 ## Den Bildschirm öffnen
 
-Öffne **MENU → SERVO PROGRAMMER** und tippe auf **HITEC D SERIES** oder
-**HITEC CLASSIC** (siehe [Die Bildschirme](Die-Bildschirme#programmer)).
-PROGRAMMER belegt keinen Pin: DShot läuft auf SIG, solange er zu sehen ist,
-also bleibt das Servo bis zum Tippen stromlos. Das Tippen öffnet diesen
-Bildschirm für die Familie und übernimmt SIG im selben Frame vom
+Öffne **MENU → SERVO**, ziehe die Liste nach oben und tippe auf
+**HITEC D SERIES** oder **HITEC CLASSIC** (siehe
+[Die Bildschirme](Die-Bildschirme#servo)).
+SERVO, die Auswahl, belegt keinen Pin: DShot läuft auf SIG, solange sie zu
+sehen ist, also bleibt das Servo bis zum Tippen stromlos. Das Tippen öffnet
+diesen Bildschirm für die Familie und übernimmt SIG im selben Frame vom
 ESC-Treiber: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
 Gas null, hält an und lässt den Pin als Eingang, den sein Pull-up high hält.
 Die Leiste zeigt währenddessen `RELEASING SIG GP0 FROM DSHOT`.
@@ -127,7 +128,7 @@ derselben Familie; für ein Servo der D-Serie an `OWN` führt es immer
 wieder zum Warten auf `READ`, damit auch das nächste Servo erst nach dem
 Tippen Strom bekommt. Solange der Treiber noch anhält
 oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu
-PROGRAMMER zurück.
+SERVO zurück.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO, während ein ESC auf GP0 antwortet: CHECKING SIG GP0 FOR AN ESC in der Leiste, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein">
 
@@ -141,7 +142,7 @@ PROGRAMMER zurück.
 - Solange der Tester scharf ist, zeigt der Bildschirm `DISARM FIRST`.
   Solange die Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`.
   Beides ist über die Bildschirme nicht erreichbar: Der Weg vom Tester zu
-  `MENU` entschärft, und PROGRAMMER zeichnet seine Einträge gesperrt,
+  `MENU` entschärft, und SERVO zeichnet seine Einträge gesperrt,
   solange die Pins belegt sind.
 
 Während der Job sich bindet, zeigt die Leiste `TAKING SIG GP0`.
@@ -573,10 +574,10 @@ Es behält den Pin und startet eine Sitzung für das nächste Servo. Mit `OWN`
 zeigt die Seite `NEXT SERVO: POWER IT AFTER THE TAP.`: Der Bildschirm kehrt
 zum Warten auf `READ` zurück. Mit geschalteter Versorgung beginnt der
 Eintritt sofort. **`RESTART DSHOT`** wirkt 1 s
-danach: Der ESC-Treiber übernimmt den Pin wieder, und PROGRAMMER erscheint. Ein
-Doppeltippen auf `LEAVE` landet, während `RESTART DSHOT` grau ist, und
-startet nichts neu; ein Druck, der begann, während es grau war, bewirkt
-beim Loslassen nichts.
+danach: Der ESC-Treiber übernimmt den Pin wieder, und SERVO erscheint, dort,
+wo es stand. Ein Doppeltippen auf `LEAVE` landet, während `RESTART DSHOT` grau
+ist, und startet nichts neu; ein Druck, der begann, während es grau war,
+bewirkt beim Loslassen nichts.
 
 `BACK` während des Eintritts, bevor das Servo geantwortet hat, bricht ihn ab
 und öffnet die Seite bei `1 UNPLUG THE SERVO.`
@@ -653,7 +654,7 @@ Bildschirm wieder läuft: Ein Schreiben zeigt dann
 `HITEC CLASSIC` (HS-5xxx, HS-7xxx) braucht SERVO SUPPLY auf `GP28` oder
 `GP29`: Ein klassisches Servo geht nur beim Einschalten in den
 Programmiermodus, und die Platine schaltet seine Versorgung über den Wandler
-aus Teil C der [Verdrahtung](Verdrahtung). Unter `OWN` zeichnet PROGRAMMER
+aus Teil C der [Verdrahtung](Verdrahtung). Unter `OWN` zeichnet SERVO
 den Eintrag abgeblendet und zeigt `NEEDS THE CONVERTER OF WIRING PART C` und
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
@@ -674,7 +675,7 @@ ein simuliertes Servo. Noch kein klassischer Eintritt, kein Lesen und kein
 Schreiben lief an einem Servo auf dieser Platine. Die Bilder unten zeigen
 sie mit SERVO SUPPLY auf `GP28`.
 
-<img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER mit SERVO SUPPLY auf GP28: HITEC CLASSIC freigegeben"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/servo-hub-switched.png" width="240" alt="SERVO am Ende mit SERVO SUPPLY auf GP28: HITEC CLASSIC freigegeben"> <img src="img/hitec-repair.png" width="240" alt="Ein klassisches HS-5645MG: CHECKSUM BAD mit REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="Ein nicht vermessenes klassisches Modell: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** Ein klassisches Servo, dessen Prüfsumme nicht aufgeht, zeigt
   `CHECKSUM` `BAD` in Bernstein. Die Zeile lässt sich auswählen, und die

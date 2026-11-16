@@ -35,18 +35,17 @@ enum class UiScreenId : uint8_t {
 	Settings,  /**< SETTINGS, one list in sections. */
 	SdLog,     /**< SD LOG. */
 	Am32,      /**< ESC SETTINGS, opened from ESC CONFIG. */
-	Servo,     /**< SERVO, its SET view and its leave page. */
+	Servo,     /**< SERVO TESTER, its SET view and its leave page, opened from SERVO. */
 	Kst,       /**< KST SERVO: the search, the field list, FILES, the write and leave pages. */
 	Hitec,     /**< HITEC SERVO: the entry, the field list, FILES, the write and leave pages. */
-	EscCmd,    /**< ESC COMMANDS, MENU's first row: BEEP 1 to 5, direction and 3D mode. */
-	ServoProg, /**< PROGRAMMER, the chooser behind MENU's SERVO PROGRAMMER row. */
-	RxSignals, /**< RX SIGNALS, the chooser behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
+	EscCmd,    /**< ESC COMMANDS, opened from ESC CONFIG: BEEP 1 to 5, direction and 3D mode. */
+	ServoHub,  /**< SERVO, the hub behind MENU's SERVO row: the tester, the angle meter and the three programmers. */
+	RxSignals, /**< RX SIGNALS, the hub behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
 	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
 	SbusOut,   /**< S.BUS OUTPUT, its SET view and its leave page, opened from RX SIGNALS. */
-	EscConfig, /**< ESC CONFIG, the chooser behind MENU's ESC CONFIG row: ESC SETTINGS and USB BRIDGE. */
+	EscConfig, /**< ESC CONFIG, the hub behind MENU's ESC CONFIG row: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. */
 	Bridge,    /**< USB BRIDGE and its leave page, opened from ESC CONFIG. */
-	Tools,     /**< TOOLS, the chooser behind MENU's TOOLS row: ANGLE METER. */
-	Angle,     /**< ANGLE METER, its SETUP and its FLIP CAL, opened from TOOLS. */
+	Angle,     /**< ANGLE METER, its SETUP and its FLIP CAL, opened from SERVO. */
 	Count,     /**< How many screens; not a screen. */
 };
 

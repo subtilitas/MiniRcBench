@@ -114,13 +114,13 @@ REMOVED_TEXTS = [
      "the KST labels, now FAILSAFE and REVERSED (decision 15 h)"),
     (r"BACKUP IN MEMORY", "a backup not on the card, now BACKUP IN RAM (slice 2)"),
     (r"CHOOSE THE SERVO'S FAMILY|[Ff]amily view|Familien(ansicht|auswahl)",
-     "HITEC SERVO's family view, now PROGRAMMER's entries (decision 19)"),
+     "HITEC SERVO's family view, now the hub's two Hitec entries (decision 19)"),
     (r"MUST BE POWERED NOW|POWER (THE SERVO UP|IT) BEFORE THE TAP",
      "the D series powered before the tap (decision 34)"),
     (r"[Uu]nplug page|Abzieh-?[Ss]eite", "the unplug page, now the leave page (owner decision 3)"),
     (r"LEAVING AFTER THE WRITE ENDS", "BACK's leave queue (decision 5)"),
     (r"MENU\s*(→|>|->|&gt;)\s*(KST|HITEC) SERVO|^\|\s*\*\*(KST|HITEC) SERVO\*\*\s*\|",
-     "the KST SERVO and HITEC SERVO rows, now SERVO PROGRAMMER (owner decision 2)"),
+     "the KST SERVO and HITEC SERVO rows, now entries of the hub SERVO (owner decision 2)"),
     (r"titled `SERVO`", "SERVO's title, now SERVO TESTER (decision 13)"),
     (r"`NONE`, (the default, )?`GP2[89]`|SERVO SUPPLY[^|`]{0,12}`NONE`",
      "SERVO SUPPLY's NONE, now OWN (decisions 15 e and 22)"),
@@ -140,12 +140,20 @@ REMOVED_TEXTS = [
      "ESC HEX and AM32 n.n (bluejay-blheli-s.md, call A)"),
     (r"ANSWERED: NOT READ YET",
      "slice 2's EFM8 status, now ANSWERED: READING. (bluejay-blheli-s.md, slice 3)"),
+    (r"SERVO PROGRAMMER|"
+     r"MENU\s*(→|>|->|&gt;)\s*(PROGRAMMER|TOOLS)\b|"
+     r"(`|\*\*|\||^#+\s+)\s*(PROGRAMMER|TOOLS)\s*(`|\*\*|\||$)",
+     "MENU's rows SERVO PROGRAMMER and TOOLS and the screens PROGRAMMER and TOOLS, "
+     "now entries of the hub SERVO (menu-c.md owner decisions 4 and 5, slice 4)"),
+    (r"MENU\s*(→|>|->|&gt;)\s*(ESC COMMANDS|SERVO TESTER|ANGLE METER)",
+     "a tool as a MENU row, now an entry of the hub ESC CONFIG or SERVO "
+     "(menu-c.md owner decision 4, slice 4)"),
 ]
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers
 # kst-leave-pending.
 REMOVED_IMAGES = ["hitec-family", "hitec-unplug", "kst-leave", "servo-unplug",
-                  "menu-pins-busy", "menu-beep"]
+                  "menu-pins-busy", "menu-beep", "prog-chooser", "tools-chooser"]
 
 
 def collect_symbols():

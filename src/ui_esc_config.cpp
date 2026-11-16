@@ -19,7 +19,7 @@ void uiEscConfigStrip(char *buf, size_t n) {
 	snprintf(buf, n, UI_ESC_CFG_STRIP_FMT, (unsigned)escTaskDshotPin());
 }
 
-void uiEscConfigEnter() { uiHubEnter(); }
+void uiEscConfigEnter() { uiHubEnter(UI_ESC_CFG_HUB); }
 
 bool uiEscConfigTick(const TouchState *t) { return uiHubTick(UI_ESC_CFG_HUB, t); }
 

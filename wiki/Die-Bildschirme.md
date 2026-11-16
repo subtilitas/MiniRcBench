@@ -2,16 +2,15 @@
 
 # Die Bildschirme
 
-Die Firmware hat vierzehn Bildschirme. `MENU` ist die Wurzel und der erste
-Bildschirm nach dem Startbildschirm: die Liste der Werkzeuge, ohne `BACK`.
-Ihre erste Zeile, `ESC TESTER`, öffnet den Tester, dessen Schaltfläche
-`MENU` zu `MENU` zurückführt. Jedes andere Werkzeug verlässt du mit `BACK`,
-das zu dem Bildschirm zurückführt, der es geöffnet hat: zu `MENU` oder zu
-der Wahl, auf der du das Werkzeug gewählt hast. ESC CONFIG öffnet die Wahl der
-ESC-Werkzeuge. SERVO PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
-dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
-Werkzeuge für Empfängersignale. TOOLS öffnet die Wahl der
-Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über
+Die Firmware hat sechzehn Bildschirme. `MENU` ist die Wurzel und der erste
+Bildschirm nach dem Startbildschirm: sechs Zeilen, ohne `BACK`. Ihre erste
+Zeile, `ESC TESTER`, öffnet den Tester, dessen Schaltfläche `MENU` zu
+`MENU` zurückführt. Die nächsten drei Zeilen öffnen je eine Auswahl, eine
+Liste der Werkzeuge für eine Geräteart: ESC CONFIG die ESC-Werkzeuge, SERVO
+die Servo-Werkzeuge, RX SIGNALS die Werkzeuge für Empfängersignale. Jedes
+Werkzeug liegt zwei Tippen von `MENU` entfernt. Ein Werkzeug verlässt du mit
+`BACK`, das zu der Auswahl zurückführt, die es geöffnet hat, und das `BACK`
+der Auswahl führt zu `MENU` zurück. SETTINGS öffnet auch über
 die Polzahl und die Obergrenze des Testers; `BACK` führt dann zum Tester
 zurück. DShot läuft ab dem Ende des Startbildschirms auf jedem Bildschirm, `MENU`
 eingeschlossen, außer solange ein Werkzeug die Signalpins hält.
@@ -20,25 +19,24 @@ eingeschlossen, außer solange ein Werkzeug die Signalpins hält.
 Startbildschirm ──3 s──> MENU (die Wurzel, kein BACK)
 MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
        │                    └── 14 POLES oder MAX 20% (entschärft) ──> SETTINGS ──BACK──> Tester
-       ├── ESC COMMANDS ──BACK──> MENU
-       ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
+       ├── ESC CONFIG > ──> ESC CONFIG ──BACK──> MENU
+       │    ├── ESC COMMANDS ──BACK──> ESC CONFIG
        │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
        │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> ESC CONFIG)
        │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> ESC CONFIG)
        │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
        │        (sobald die Leitung gebunden ist: BACK──> Verlassenseite ──RESTART DSHOT──> ESC CONFIG)
-       ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
-       ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
-       │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> PROGRAMMER
-       │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> PROGRAMMER
+       ├── SERVO > ──> SERVO ──BACK──> MENU
+       │    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> SERVO
+       │    ├── ANGLE METER ──BACK──> SERVO   (SETUP, FLIP CAL: BACK eine Ebene hoch)
+       │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> SERVO
+       │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> SERVO
        │    └── HITEC CLASSIC  ──> HITEC SERVO, wie D SERIES
        │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
        │   (ESC HEX, ESC WRITE, SET: BACK eine Ebene hoch)
-       ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
+       ├── RX SIGNALS > ──> RX SIGNALS ──BACK──> MENU
        │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RESTART DSHOT──> RX SIGNALS
        │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> Verlassenseite ──RESTART DSHOT──> RX SIGNALS   (SET: BACK eine Ebene hoch)
-       ├── TOOLS ──> TOOLS ──BACK──> MENU
-       │    └── ANGLE METER ──BACK──> TOOLS   (SETUP, FLIP CAL: BACK eine Ebene hoch)
        ├── SD LOG       ──BACK──> MENU
        └── SETTINGS     ──BACK──> MENU
 ```
@@ -347,44 +345,41 @@ jeden ESC, der zu antworten beginnt, und wiederholt sie jede Sekunde, solange
 eRPM eintrifft und EDT nicht. Der ESC bestätigt die Freigabe nicht, daher zeigt
 das Feld *empfangene Frames*, nicht gesendete Befehle.
 
-Unter der Leiste steht eine Liste mit neun Zeilen von 40 px Höhe und 42 px
-Abstand: zuerst `ESC TESTER`, dann geordnet nach dem, was am Signalpin
-hängt: der ESC, ein Servo, dann der Prüfstand. Jede Zeile zeigt links ihren
-Namen und rechts ihren Zustand; die Zeile eines Werkzeugs zeigt keinen, denn
-die Leiste nennt die Pins.
+Unter der Leiste steht eine Liste mit sechs Zeilen von 40 px Höhe und 42 px
+Abstand: zuerst `ESC TESTER`, dann eine Zeile je Geräteart am Signalpin, der
+ESC, ein Servo, ein Empfänger, dann die Aufzeichnung und die Einstellungen.
+Jede Zeile zeigt links ihren Namen. `SD LOG` und `SETTINGS` zeigen rechts
+ihren Zustand. `ESC CONFIG`, `SERVO` und `RX SIGNALS` zeigen dort
+stattdessen `>`: Jede öffnet eine Auswahl, eine Liste von Werkzeugen, eine
+Ebene tiefer.
 
-**Verschieben.** Sechs Zeilen passen auf den Bildschirm. RX SIGNALS ist die
-sechste, ganz sichtbar und ohne Ziehen antippbar. Von der siebten, TOOLS,
-sind zuerst nur 6 px sichtbar; ziehe MENU um 36 px nach oben, um sie ganz zu
-sehen. Die achte, SD LOG, ist nach 78 px ganz sichtbar. Die neunte,
-SETTINGS, beginnt unter dem Bildschirm: Ziehe MENU um 120 px nach oben, um
-SETTINGS mit seinem Zustand `UNSAVED` ganz zu sehen.
-Eine Zeile nimmt ein Tippen nur an, solange sie ganz sichtbar ist. Ein
-3 px breiter Rollbalken am rechten Rand zeigt die Lage.
+**Kein Verschieben.** Die sechs Zeilen passen auf den Bildschirm: Jede Zeile
+ist ganz sichtbar und nimmt ein Tippen sofort an. MENU hat keinen
+Rollbalken, und ein Ziehen verschiebt nichts.
 
-| Zeile | Zustand rechts | Ein Tippen |
+| Zeile | Rechts | Ein Tippen |
 |---|---|---|
 | **ESC TESTER** | nichts | Öffnet den Tester, entschärft, mit Gas 0 und `LATCH` aus. Siehe [Der Tester](#der-tester) |
-| **ESC COMMANDS** | nichts | Öffnet ESC COMMANDS: die DShot-Beacons, die Drehrichtung und den 3D-Modus. Siehe [ESC COMMANDS](#esc-commands) |
-| **ESC CONFIG** | nichts | Öffnet ESC CONFIG, die Wahl der ESC-Werkzeuge. Siehe [ESC CONFIG](#esc-config) |
-| **SERVO TESTER** | nichts | Öffnet den Servotester |
-| **SERVO PROGRAMMER** | nichts | Öffnet PROGRAMMER, die Wahl des Servo-Programmierers. Siehe [PROGRAMMER](#programmer) |
-| **RX SIGNALS** | nichts | Öffnet RX SIGNALS, die Wahl der Werkzeuge für Empfängersignale. Siehe [RX SIGNALS](#rx-signals) |
-| **TOOLS** | nichts | Öffnet TOOLS, die Wahl der Prüfstand-Werkzeuge: ANGLE METER. Siehe [TOOLS](#tools) |
+| **ESC CONFIG** | `>` | Öffnet ESC CONFIG, die Auswahl der ESC-Werkzeuge: ESC COMMANDS, ESC SETTINGS und USB BRIDGE. Siehe [ESC CONFIG](#esc-config) |
+| **SERVO** | `>` | Öffnet SERVO, die Auswahl der Servo-Werkzeuge: SERVO TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES und HITEC CLASSIC. Siehe [SERVO](#servo) |
+| **RX SIGNALS** | `>` | Öffnet RX SIGNALS, die Auswahl der Werkzeuge für Empfängersignale: MONITOR und OUTPUT. Siehe [RX SIGNALS](#rx-signals) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
 | **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETTINGS |
 
+Jedes Werkzeug liegt zwei Tippen von MENU entfernt: die Zeile der Auswahl,
+dann der Eintrag des Werkzeugs. `BACK` auf einem Werkzeug führt zu seiner
+Auswahl zurück, `BACK` auf der Auswahl zu `MENU`.
+
 Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
 Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
-zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC TESTER, ESC
-COMMANDS, SERVO TESTER und SETTINGS sind dann als Umriss unter ihrem üblichen
-Zustand gezeichnet, und ein Tippen auf eine solche Zeile öffnet nichts. Sie
-wirken wieder, sobald DShot läuft. SD LOG belegt keinen Pin und bleibt
-bedienbar. ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS und TOOLS öffnen wie immer;
-die Wahl zeichnet ihre Einträge so lange als Umriss, mit derselben
-Bernstein-Zeile in ihrer Leiste.
+zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC TESTER und
+SETTINGS sind dann als Umriss unter ihrem üblichen Zustand gezeichnet, und
+ein Tippen auf eine solche Zeile öffnet nichts. Sie wirken wieder, sobald
+DShot läuft. SD LOG belegt keinen Pin und bleibt bedienbar. ESC CONFIG,
+SERVO und RX SIGNALS öffnen wie immer; die Auswahl zeichnet ihre Einträge
+so lange als Umriss, mit derselben Bernstein-Zeile in ihrer Leiste.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, SERVO TESTER und SETTINGS als Umriss, SERVO PROGRAMMER, RX SIGNALS und TOOLS gefüllt">
+<img src="img/menu-restarting.png" width="240" alt="MENU, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, ESC TESTER und SETTINGS als Umriss, ESC CONFIG, SERVO und RX SIGNALS gefüllt, jede mit ihrem Zeichen">
 
 `UNSAVED` in der Zeile SETTINGS heißt, dass ein Wert vom Flash abweicht. Die
 Schaltfläche zum Speichern liegt in SETTINGS.
@@ -408,12 +403,34 @@ Startbildschirm sagt dasselbe beim Einschalten (siehe
 
 <img src="img/menu-updated.png" width="240" alt="UPDATED in der Zeile SETTINGS, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
 
+### ESC CONFIG
+
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS und USB BRIDGE, jedes mit seinen zwei Zeilen">
+
+`MENU → ESC CONFIG` öffnet eine Auswahl aus drei Einträgen, je eine
+Schaltfläche mit zwei Zeilen darunter: **ESC COMMANDS**, das DShot-Befehle
+sendet, darunter `BEEP 1 TO 5, DIRECTION, 3D MODE.` und
+`SENT AS DSHOT COMMANDS.`; **ESC SETTINGS**, das den Bildschirm für
+ESC-Einstellungen öffnet, AM32, Bluejay und BLHeli_S gelesen und
+geschrieben; und **USB BRIDGE**, über das ein ESC-Programm auf dem Computer
+den ESC erreicht, darunter `A DESKTOP ESC TOOL OVER USB.` und
+`MSP, 4-WAY AND PASSTHROUGH.`. Die Leiste nennt den Signalpin, `SIG GP0`.
+ESC CONFIG belegt keinen Pin; das Tippen auf ESC SETTINGS oder USB BRIDGE
+belegt SIG, ESC COMMANDS belegt keinen. `BACK` führt zu `MENU` zurück;
+`BACK` auf jedem der drei Werkzeuge führt zu ESC CONFIG zurück. Während
+DShot neu startet, sind die drei Einträge Umrisse, und die Leiste zeigt
+`DSHOT RESTARTING ON SIG GP0` in Bernstein. Siehe
+[ESC COMMANDS](#esc-commands) weiter unten,
+[AM32-Konfiguration](AM32-Konfiguration)
+und [USB-Brücke](USB-Bruecke).
+
 ### ESC COMMANDS
 
 <img src="img/esccmd.png" width="240" alt="ESC COMMANDS in Ruhe: BEEP 1 bis 5, NORMAL und REVERSED, 3D OFF und 3D ON und die sechs gedimmten Zeilen"> <img src="img/esccmd-3d-on.png" width="240" alt="ESC COMMANDS nach 3D ON: SENT 10 (3D ON), THEN 12 (SAVE). und drei bernsteinfarbene Zeilen">
 
-`MENU → ESC COMMANDS` sendet DShot-Befehle an den ESC an SIG. Die Seite
-belegt keinen Pin: DShot läuft weiter, solange sie offen ist. Die Leiste
+`MENU → ESC CONFIG → ESC COMMANDS` sendet DShot-Befehle an den ESC an SIG.
+Die Seite belegt keinen Pin: DShot läuft weiter, solange sie offen ist.
+`BACK` führt zu ESC CONFIG zurück. Die Leiste
 zeigt `SIG GP0  DSHOT600` und den EDT-Chip von MENU.
 
 - **BEEP 1 bis 5**, je ein Tippen: Der ESC spielt seinen Beacon-Ton 1 bis 5.
@@ -458,73 +475,65 @@ bisher von diesem Board an einen ESC gesendet.
 
 <img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS, während Beacon 3 gesendet wird: alle Tasten und BACK grau"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS ohne antwortenden ESC: NO ESC ANSWERS ON SIG GP0. in Bernstein, alle Tasten grau">
 
-### PROGRAMMER
+### SERVO
 
-<img src="img/prog-chooser.png" width="240" alt="PROGRAMMER mit SERVO SUPPLY auf OWN: KST / CHASERVO und HITEC D SERIES mit POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC als Umriss mit NEEDS THE CONVERTER OF WIRING PART C und AND SETTINGS > SERVO SUPPLY GP28/29. in Bernstein"> <img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER mit SERVO SUPPLY auf GP28: jeder Eintrag mit THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC bedienbar">
+<img src="img/servo-hub.png" width="240" alt="SERVO am Anfang: SERVO TESTER, ANGLE METER und KST / CHASERVO ganz sichtbar, jedes mit seiner Zeile, HITEC D SERIES am Bildschirmrand abgeschnitten, rechts der Rollbalken"> <img src="img/servo-hub-scrolled.png" width="240" alt="SERVO bis ans Ende gezogen, mit SERVO SUPPLY auf OWN: KST / CHASERVO und HITEC D SERIES mit POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC als Umriss mit NEEDS THE CONVERTER OF WIRING PART C und AND SETTINGS > SERVO SUPPLY GP28/29. in Bernstein"> <img src="img/servo-hub-switched.png" width="240" alt="SERVO am Ende mit SERVO SUPPLY auf GP28: die drei Programmierer mit THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC bedienbar">
 
-`MENU → SERVO PROGRAMMER` öffnet PROGRAMMER, eine Schaltfläche je
-Servo-Programmierer: **KST / CHASERVO**, **HITEC D SERIES** und
-**HITEC CLASSIC**. Die Leiste zeigt `SIG GP0  SERVO SUPPLY OWN` oder den Pin
-der geschalteten Versorgung. PROGRAMMER belegt keinen Pin: DShot läuft auf
-SIG weiter, solange er zu sehen ist. Schließe das Servo also stromlos an,
-oder lass den Prüfstand es versorgen. Das Tippen auf einen Eintrag öffnet
-den Programmierer, der SIG mit diesem Tippen belegt.
+`MENU → SERVO` öffnet SERVO, die Auswahl der fünf Servo-Werkzeuge, in der
+Reihenfolge der Nutzung: **SERVO TESTER** treibt ein Servo, **ANGLE METER**
+misst den Ausschlag eines Ruders, und **KST / CHASERVO**,
+**HITEC D SERIES** und **HITEC CLASSIC** programmieren ein Servo. Die Leiste
+zeigt `SIG GP0  AUX GP1  SERVO SUPPLY OWN` oder den Pin der geschalteten
+Versorgung. SERVO belegt keinen Pin: DShot läuft auf SIG weiter, solange es
+zu sehen ist. Schließe das Servo also stromlos an, oder lass den Prüfstand
+es versorgen. Das Tippen auf einen Eintrag öffnet das Werkzeug, und ein
+Werkzeug, das SIG braucht, belegt es mit diesem Tippen.
 
-Unter jeder Schaltfläche steht, wann das Servo Strom bekommt:
-`POWER THE SERVO UP AFTER THE TAP.` mit SERVO SUPPLY auf `OWN`, oder
-`THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung. Ein Servo,
-das schon vor dem Tippen Strom hat, nähme die DShot-Frames als Puls von
-970 µs bei 1000 Hz und liefe los. HITEC CLASSIC braucht die geschaltete
+**Verschieben.** Drei Einträge passen auf den Bildschirm. SERVO TESTER,
+ANGLE METER und KST / CHASERVO sind ganz sichtbar, wenn SERVO öffnet. Von
+HITEC D SERIES sind nur die oberen 18 px sichtbar, und dort nimmt es kein
+Tippen an: Es zeigt, dass die Liste weitergeht. Ziehe SERVO nach oben, um
+die beiden Hitec-Einträge zu erreichen; die Liste bewegt sich um höchstens
+146 px. Ein 3 px breiter Rollbalken am rechten Rand zeigt die Lage. Ein
+Werkzeug, das zu SERVO zurückführt, findet die Liste dort, wo sie stand.
+
+Unter jeder Schaltfläche steht, was das Werkzeug tut oder welche Servos es
+programmiert. Unter den drei Programmierern steht, wann das Servo Strom
+bekommt: `POWER THE SERVO UP AFTER THE TAP.` mit SERVO SUPPLY auf `OWN`,
+oder `THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung. Ein
+Servo, das schon vor dem Tippen Strom hat, nähme die DShot-Frames als Puls
+von 970 µs bei 1000 Hz und liefe los. HITEC CLASSIC braucht die geschaltete
 Versorgung: unter `OWN` ist es als Umriss gezeichnet, tut nichts und sagt in
 Bernstein warum, `NEEDS THE CONVERTER OF WIRING PART C` und
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
-`BACK` führt zu `MENU` zurück. `RESTART DSHOT` am Ende einer
-Programmier-Sitzung und `BACK` in einem Programmierer, bevor er SIG belegt,
-führen zu PROGRAMMER zurück. Während DShot neu startet, öffnet PROGRAMMER
-mit seinen Einträgen als Umriss und `DSHOT RESTARTING ON SIG GP0` in
-Bernstein in der Leiste; ein Tippen auf einen Eintrag öffnet nichts, bis
-DShot läuft.
+| Eintrag | Zeile darunter | Öffnet |
+|---|---|---|
+| **SERVO TESTER** | `ONE SERVO ON SIG, OR TWO WITH AUX.` | [Servotester](Servotester) |
+| **ANGLE METER** | `INCIDENCE, DECALAGE, DIHEDRAL, THROW` | [Winkelmesser](Winkelmesser) |
+| **KST / CHASERVO** | die Stromzeile | [KST-Programmierung](KST-Programmierung) |
+| **HITEC D SERIES** | `D485HW, D645MW AND THE OTHERS`, die Stromzeile | [Hitec-Programmierung](Hitec-Programmierung) |
+| **HITEC CLASSIC** | `HS-5XXX, HS-7XXX`, die Stromzeile oder die zwei Bernstein-Zeilen | [Hitec-Programmierung](Hitec-Programmierung#klassische-servos) |
 
-### ESC CONFIG
-
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS und USB BRIDGE, jedes mit seinen zwei Zeilen">
-
-`MENU → ESC CONFIG` öffnet eine Wahl aus zwei, wie PROGRAMMER:
-**ESC SETTINGS**, das den Bildschirm für ESC-Einstellungen öffnet, AM32,
-Bluejay und BLHeli_S gelesen und geschrieben, und **USB BRIDGE**, über das
-ein ESC-Programm auf dem Computer den ESC erreicht, darunter
-`A DESKTOP ESC TOOL OVER USB.` und `MSP, 4-WAY AND PASSTHROUGH.`. Die
-Leiste nennt den Signalpin, `SIG GP0`. ESC CONFIG belegt keinen Pin; das
-Tippen auf einen Eintrag belegt SIG. `BACK` führt zu `MENU` zurück; `BACK`
-auf beiden Werkzeugen führt zu ESC CONFIG zurück. Während DShot neu startet,
-sind beide Einträge Umrisse, wie auf PROGRAMMER. Siehe
-[AM32-Konfiguration](AM32-Konfiguration)
-und [USB-Brücke](USB-Bruecke).
+`BACK` führt zu `MENU` zurück. `RESTART DSHOT` am Ende einer Sitzung des
+Servotesters oder eines Programmierers und `BACK` in einem Werkzeug, bevor
+es SIG belegt, führen zu SERVO zurück; ebenso `BACK` auf dem Winkelmesser.
+Während DShot neu startet, öffnet SERVO mit seinen Einträgen als Umriss und
+`DSHOT RESTARTING ON SIG GP0` in Bernstein in der Leiste; ein Tippen auf
+einen Eintrag öffnet nichts, bis DShot läuft.
 
 ### RX SIGNALS
 
 <img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT mit S.BUS TO A FLIGHT CONTROLLER. und ON GP0, NEVER TO AN ESC.">
 
-`MENU → RX SIGNALS` öffnet eine Wahl aus zwei, wie PROGRAMMER:
+`MENU → RX SIGNALS` öffnet eine Auswahl aus zwei Einträgen:
 **MONITOR**, das S.BUS MONITOR öffnet, und **OUTPUT**, das S.BUS OUTPUT
 öffnet, einen S.BUS-Ausgang zu einem Flugcontroller, mit seiner Warnung
 darunter: `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` Die
 Leiste nennt beide Signalpins, `SIG GP0  AUX GP1`. RX SIGNALS belegt keinen
 Pin. `BACK` führt zu `MENU` zurück; `RESTART DSHOT` am Ende jedes der beiden
 Werkzeuge führt zu RX SIGNALS zurück. Während DShot neu startet, sind beide
-Einträge Umrisse, wie auf PROGRAMMER. Siehe [RX-Signale](RX-Signale).
-
-### TOOLS
-
-<img src="img/tools-chooser.png" width="240" alt="TOOLS: ANGLE METER mit INCIDENCE, DECALAGE, DIHEDRAL, THROW darunter">
-
-`MENU → TOOLS` öffnet eine Wahl der Prüfstand-Werkzeuge, die keinen
-Signalpin nutzen, wie PROGRAMMER. TOOLS enthält **ANGLE METER**. Die Leiste
-zeigt `DSHOT RUNS ON SIG GP0`: TOOLS belegt keinen Pin, der Winkelmesser
-auch nicht. `BACK` führt zu `MENU` zurück; `BACK` auf dem Winkelmesser
-führt zu TOOLS zurück. Während DShot neu startet, ist der Eintrag ein
-Umriss, wie auf PROGRAMMER. Siehe [Winkelmesser](Winkelmesser).
+Einträge Umrisse, wie auf SERVO. Siehe [RX-Signale](RX-Signale).
 
 ---
 
@@ -692,7 +701,7 @@ Sweep; sein `BACK` warnt bei einer Änderung, die auf `HOLD TO APPLY`
 wartet, zuerst: `1 CHANGE NOT APPLIED.` `BACK`
 öffnet die Verlassenseite bei `1 UNPLUG THE SERVO.`, bevor der ESC-Treiber
 die Pins zurückbekommt; `BACK TO SERVO` führt zum Tester zurück, und
-`RESTART DSHOT` führt zu `MENU`. Mit CURRENT SENSE auf `INA219`
+`RESTART DSHOT` führt zu SERVO, der Auswahl. Mit CURRENT SENSE auf `INA219`
 zeigt die Zeile unter der Skala statt des Hinweises Strom und Spannung der
 Servoversorgung, und die Messwerte des Sensors halten das Servo an: Die
 Anzeige zeigt dann `OVERCURRENT`, `STALL`, `LOW SUPPLY` oder `NO SENSOR` in
@@ -704,7 +713,7 @@ Magenta. Siehe [Servotester](Servotester).
 
 <img src="img/kst-list.png" width="240" alt="Die KST-Feldliste">
 
-Öffnet über `MENU → SERVO PROGRAMMER → KST / CHASERVO`; dieses Tippen
+Öffnet über `MENU → SERVO → KST / CHASERVO`; dieses Tippen
 belegt SIG. Liest und schreibt die Einstellungen eines KST- oder
 Chaservo-Servos über das Signalkabel an SIG, dem ESC-Pin. Der Bildschirm
 sucht das Servo, während du es einschaltest, liest seine 32 Register und
@@ -714,7 +723,7 @@ Ein Tippen auf `WRITE...` öffnet die Schreibseite, und ihr `HOLD TO WRITE`,
 die Verlassenseite, deren erster Schritt dich auffordert, das Servo
 auszuschalten; `LEAVE` macht dann `UNPLUG THE SERVO.` zum aktuellen Schritt,
 `NEXT SERVO` startet eine neue Suche, und `RESTART DSHOT` führt zu
-PROGRAMMER. Mit
+SERVO, der Auswahl. Mit
 CURRENT SENSE auf `INA219` zeigt der Streifen den Strom hinter dem Zustand der
 Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 
@@ -726,10 +735,10 @@ Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 
 <img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO für ein Servo der D-Serie mit eigener Versorgung: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, POWER THE SERVO UP, THEN TAP READ. in Bernstein, und READ">
 
-Öffnet über `MENU → SERVO PROGRAMMER → HITEC D SERIES` oder
+Öffnet über `MENU → SERVO → HITEC D SERIES` oder
 `HITEC CLASSIC`. Liest und schreibt die Einstellungen eines Hitec-Servos der
 D-Serie oder der klassischen Familie über das Signalkabel an SIG, dem
-ESC-Pin. Das Tippen in PROGRAMMER übernimmt den Pin vom ESC-Treiber; die
+ESC-Pin. Das Tippen auf den Eintrag übernimmt den Pin vom ESC-Treiber; die
 Leiste zeigt `RELEASING SIG GP0 FROM DSHOT`, bis DShot angehalten hat. Ein
 Servo der D-Serie mit eigener Versorgung (SERVO SUPPLY auf `OWN`) muss
 laufen, bevor der Bildschirm es liest, deshalb wartet der Bildschirm dann:
@@ -739,7 +748,7 @@ und tippe `READ`. Mit geschalteter Versorgung und für ein klassisches Servo
 versorgt der Prüfstand das Servo selbst, und der Bildschirm macht sofort
 weiter. Solange ein ESC an SIG antwortet, belegt der Bildschirm nichts und
 zeigt `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` in Bernstein; `BACK` führt
-dann zu PROGRAMMER zurück. Der Bildschirm tritt in das
+dann zu SERVO, der Auswahl, zurück. Der Bildschirm tritt in das
 Servo ein und liest es. Ein Servo der D-Serie
 liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung
 hängt ein Servo, ohne Pull-up-Widerstand. Ein Tippen auf `WRITE...` öffnet
@@ -747,9 +756,9 @@ die Schreibseite, und ihr `HOLD TO WRITE`, 1 s, schreibt, zuvor mit einer
 Sicherung auf der SD-Karte. `BACK` öffnet
 die Verlassenseite; `LEAVE` macht dann `UNPLUG THE SERVO.` zum aktuellen
 Schritt, `NEXT SERVO` startet eine neue Sitzung derselben Familie, und
-`RESTART DSHOT` führt zu PROGRAMMER. Mit CURRENT SENSE auf `INA219` zeigt der
-Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet. Siehe
-[Hitec-Programmierung](Hitec-Programmierung).
+`RESTART DSHOT` führt zu SERVO, der Auswahl. Mit CURRENT SENSE auf `INA219`
+zeigt der Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet.
+Siehe [Hitec-Programmierung](Hitec-Programmierung).
 
 ---
 
@@ -796,9 +805,9 @@ den Winkel um die Achse in Größe 5, die Neigung der Achse und den Chip
 MAX je Seite und die Temperatur der Platine. In der Fußleiste `ZERO`,
 `RESET MAX` und `SETUP`; SETUP enthält ALONG AXIS, LENGTH, SIGN und die
 Kalibrierung in drei Lagen, FLIP CAL. `BACK` auf der Hauptansicht schaltet
-den Beschleunigungssensor ab und führt zu TOOLS; auf SETUP und FLIP CAL
-geht es eine Ebene hoch. Nicht auf Hardware getestet; die Genauigkeit ist
-nicht gemessen. Siehe [Winkelmesser](Winkelmesser).
+den Beschleunigungssensor ab und führt zu SERVO, der Auswahl; auf SETUP und
+FLIP CAL geht es eine Ebene hoch. Nicht auf Hardware getestet; die Genauigkeit
+ist nicht gemessen. Siehe [Winkelmesser](Winkelmesser).
 
 ---
 

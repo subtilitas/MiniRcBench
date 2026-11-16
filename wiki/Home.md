@@ -30,7 +30,7 @@ run.
 | [Hitec Programming](Hitec-Programming) | Reading and writing the settings of a Hitec D series or classic servo, with backup and restore. Not tested on hardware |
 | [RX Signals](RX-Signals) | S.BUS MONITOR, reading a receiver's S.BUS output: channels, failsafe, frame rate, errors; and S.BUS OUTPUT, sending S.BUS to a flight controller. Not tested on hardware |
 | [USB Bridge](USB-Bridge) | ESC CONFIG's second entry: a desktop ESC tool reaching the ESC's bootloader through the board's USB port. Not tested on hardware |
-| [Angle Meter](Angle-Meter) | TOOLS → ANGLE METER: incidence, decalage, dihedral and control-surface throw from the board's own sensor. Not tested on hardware |
+| [Angle Meter](Angle-Meter) | SERVO → ANGLE METER: incidence, decalage, dihedral and control-surface throw from the board's own sensor. Not tested on hardware |
 | [Troubleshooting](Troubleshooting) | Symptom first, cause second |
 
 > **Before you power anything on:** a motor on a bench can injure. Read
@@ -75,7 +75,7 @@ Strom und der erste Motorlauf.
 | [Hitec-Programmierung](Hitec-Programmierung) | Einstellungen eines Hitec-Servos der D-Serie oder der klassischen Familie lesen und schreiben, mit Sicherung und Wiederherstellung. Nicht auf Hardware getestet |
 | [RX-Signale](RX-Signale) | S.BUS MONITOR, den S.BUS-Ausgang eines Empfängers lesen: Kanäle, Failsafe, Framerate, Fehler; und S.BUS OUTPUT, S.BUS an einen Flugcontroller senden. Nicht auf Hardware getestet |
 | [USB-Brücke](USB-Bruecke) | Zweiter Eintrag von ESC CONFIG: ein ESC-Programm auf dem Computer erreicht den Bootloader des ESC über den USB-Anschluss der Platine. Nicht auf Hardware getestet |
-| [Winkelmesser](Winkelmesser) | TOOLS → ANGLE METER: Einstellwinkel, EWD, V-Form und Ruderausschlag mit dem Sensor der Platine. Nicht auf Hardware getestet |
+| [Winkelmesser](Winkelmesser) | SERVO → ANGLE METER: Einstellwinkel, EWD, V-Form und Ruderausschlag mit dem Sensor der Platine. Nicht auf Hardware getestet |
 | [Fehlersuche](Fehlersuche) | Erst das Symptom, dann die Ursache |
 
 > **Vor dem Einschalten:** Ein Motor auf der Werkbank kann verletzen. Lies

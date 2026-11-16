@@ -41,14 +41,16 @@ PREVIEWS = {
         "shot_tester_kv",
         "shot_tester_stale",
     ],
-    # Three states of MENU's EDT chip, and PROGRAMMER, the chooser its SERVO
-    # PROGRAMMER row opens. shot_menu is the same screen with EDT off, so
-    # pairing it with shot_menu_edt_off published the same picture twice.
+    # Three states of MENU's EDT chip, and SERVO, the hub its SERVO row
+    # opens, at scroll 0 and at its end. shot_menu is the same screen with
+    # EDT off, so pairing it with shot_menu_edt_off published the same
+    # picture twice.
     "menu-preview": [
         "shot_menu_edt_on",
         "shot_menu_edt_off",
         "shot_menu_no_esc",
-        "shot_prog_chooser",
+        "shot_servo_hub",
+        "shot_servo_hub_scrolled",
     ],
     # ESC COMMANDS: at rest, a beacon going out with every control drawn
     # disabled, 3D ON sent with its amber lines, and no ESC answering.
@@ -91,7 +93,7 @@ PREVIEWS = {
         "shot_am32_hex",
         "shot_am32_written",
     ],
-    # ESC CONFIG, the chooser, then ESC SETTINGS after a Bluejay or
+    # ESC CONFIG, the hub, then ESC SETTINGS after a Bluejay or
     # BLHeli_S bootloader answered: the connect page while the escwire job
     # reads, the read-only list, and the leave page BACK opens where no LEAVE
     # goes out.
@@ -154,15 +156,15 @@ PREVIEWS = {
         "shot_bridge_writing",
         "shot_bridge_leave",
     ],
-    # ANGLE METER: TOOLS, the chooser, the main view after a zero with
-    # LENGTH set and SIGN at INVERT, SETUP, and FLIP CAL with its result.
+    # ANGLE METER: the main view after a zero with LENGTH set and SIGN at
+    # INVERT, SETUP, and FLIP CAL with its result. Its entry of the hub
+    # SERVO is in menu-preview.
     "angle-preview": [
-        "shot_tools_chooser",
         "shot_angle_main",
         "shot_angle_setup",
         "shot_angle_flip",
     ],
-    # S.BUS MONITOR: RX SIGNALS, the chooser, then the monitor with frames,
+    # S.BUS MONITOR: RX SIGNALS, the hub, then the monitor with frames,
     # in failsafe, and after the receiver stopped, the last frame dim.
     "sbus-preview": [
         "shot_rx_chooser",

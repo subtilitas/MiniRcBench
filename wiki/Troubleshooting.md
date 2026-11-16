@@ -273,7 +273,7 @@ They were not saved, or new firmware could not read the settings layout in
 flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
-`UNSAVED` on its `SETTINGS` row, the last: drag `MENU` up 120 px to see it.
+`UNSAVED` on its `SETTINGS` row, the last.
 
 The firmware stores its settings in layout version 6. Settings an earlier
 firmware saved in layout version 2, 3, 4 or 5, DshotDisplay 2.x's among them,

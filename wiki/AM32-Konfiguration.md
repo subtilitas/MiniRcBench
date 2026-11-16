@@ -19,10 +19,12 @@ Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 **MENU → ESC CONFIG** öffnen, dann **ESC SETTINGS** antippen.
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS und USB BRIDGE">
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS und USB BRIDGE">
 
-`ESC CONFIG` ist eine Auswahl. Sie nimmt dem Signalpin nichts weg: DShot
-läuft weiter, bis du `ESC SETTINGS` antippst. Über `USB BRIDGE` erreicht
+`ESC CONFIG` ist eine Auswahl, eine Liste der drei ESC-Werkzeuge. Sie nimmt
+dem Signalpin nichts weg: DShot läuft weiter, bis du `ESC SETTINGS`
+antippst. `ESC COMMANDS` sendet DShot-Befehle: siehe
+[Die Bildschirme](Die-Bildschirme#esc-commands). Über `USB BRIDGE` erreicht
 ein ESC-Programm auf dem Computer den ESC durch die Platine: siehe
 [USB-Brücke](USB-Bruecke). `BACK` führt zu MENU zurück. Der Bildschirm
 heißt für jede ESC-Firmware `ESC SETTINGS`; er liest und schreibt AM32,
@@ -622,7 +624,7 @@ anbietet, oder siehst, was eine Änderung auf Byte-Ebene bewirkt hat.
 ## Verlassen
 
 `BACK` auf der Liste gibt den Signalpin an den DShot-Treiber zurück und
-kehrt zu ESC CONFIG zurück, der Wahl, aus der es geöffnet wurde; mit
+kehrt zu ESC CONFIG zurück, der Auswahl, aus der es geöffnet wurde; mit
 ungeschriebenen Änderungen fragt es zuerst, wie
 unter [Ändern](#ändern). Der Tester ist entschärft.
 

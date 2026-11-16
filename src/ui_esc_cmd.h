@@ -1,6 +1,7 @@
 /**
  * @file ui_esc_cmd.h
- * @brief ESC COMMANDS: the DShot commands on one page, MENU's first row.
+ * @brief ESC COMMANDS: the DShot commands on one page, the first entry of
+ *        the hub ESC CONFIG (ui_esc_config.h). BACK returns to the hub.
  *
  * BEEP 1 to 5 are taps, each one beacon. NORMAL and REVERSED, and 3D OFF and
  * 3D ON, are 1000 ms holds (ui_hold.h): each sends its command, 7, 8, 9 or
@@ -38,7 +39,7 @@
 
 struct TouchState;
 
-/** @brief The header's title and MENU's label: 12 characters, 142 px at scale 2. */
+/** @brief The header's title and the hub entry's label: 12 characters, 142 px at scale 2. */
 #define UI_ESC_CMD_TITLE "ESC COMMANDS"
 /**
  * @brief The strip's caption, `C_DIM`, with SIG's GPIO and the DShot rate in
@@ -159,5 +160,8 @@ bool uiEscCmdTick(const TouchState *t);
  */
 uint8_t uiEscCmdControls(UiControl *out, uint8_t max);
 
-/** @brief ESC COMMANDS. */
-extern const UiScreen UI_ESC_CMD;
+/** @brief ESC COMMANDS, a constant: ESC CONFIG's table checks it at build time. */
+inline constexpr const UiScreen UI_ESC_CMD = {
+	UiScreenId::EscCmd, UI_ESC_CMD_TITLE, PinUser::None, nullptr,
+	uiEscCmdEnter, uiEscCmdTick, nullptr, uiEscCmdControls, nullptr, true,
+};

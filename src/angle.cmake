@@ -9,13 +9,12 @@
 # control-surface arithmetic (servo_rudder.c) and IMU model (imu.c), copied
 # into lib/rcbench/ and built as C (lib/rcbench/README.md), with the WitMotion
 # decoder imu.h includes (witmotion.c). The screen, ui_angle.cpp, opens the
-# driver and shows the model's reading; TOOLS, ui_tools.cpp, is the chooser
-# behind its MENU row.
+# driver and shows the model's reading; it is the second entry of the hub
+# SERVO (ui_servo_hub.cpp).
 target_sources(MiniRcBench PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/qmi8658.cpp
     ${CMAKE_CURRENT_LIST_DIR}/angle_model.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui_angle.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ui_tools.cpp
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/shared/servo/servo_rudder.c
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/shared/bench/imu.c
     ${CMAKE_CURRENT_LIST_DIR}/../lib/rcbench/protocols/witmotion/witmotion.c

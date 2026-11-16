@@ -17,6 +17,8 @@
 
 #include "ui_settings.h"
 #include "ui_menu.h"
+#include "ui_registry.h"
+#include "ui_hub.h"
 #include "settings.h"
 #include "esc_task.h"
 #include "ui.h"
@@ -502,10 +504,28 @@ static_assert(settingsSectionFits(SEC_DIAG), "a DIAGNOSTICS label runs into its 
 // geometry
 // ---------------------------------------------------------------------------
 
+uint8_t uiSettingsToolSections(const UiMenuEntry *e, uint8_t n, UiHubOfFn hubOf,
+                               const SettingsSection **out, uint8_t max) {
+	uint8_t ns = 0;
+	// Once each: HITEC SERVO stands behind two of SERVO's entries.
+	auto add = [&](const UiScreen *sc) {
+		if (!sc->settings || ns >= max) return;
+		for (uint8_t k = 0; k < ns; k++)
+			if (out[k] == sc->settings) return;
+		out[ns++] = sc->settings;
+	};
+	for (uint8_t i = 0; i < n; i++) {
+		add(e[i].screen);
+		const UiHub *hub = hubOf ? hubOf(e[i].screen) : nullptr;
+		for (uint8_t k = 0; hub && k < hub->count; k++) add(hub->entries[k].screen);
+	}
+	return ns;
+}
+
 /**
  * @brief Lay the sections out: the core ones, ESC TESTER, WIRING and SERVO
- *        SUPPLY, each tool's in registry order, then DISPLAY, BOARD and
- *        DIAGNOSTICS.
+ *        SUPPLY, each tool's in registry order, the tools behind a hub
+ *        (uiHubOf()) among them, then DISPLAY, BOARD and DIAGNOSTICS.
  */
 static void buildItems() {
 	const SettingsSection *secs[MAX_SECTIONS];
@@ -515,8 +535,7 @@ static void buildItems() {
 	secs[ns++] = &SEC_SUPPLY;
 	uint8_t n;
 	const UiMenuEntry *e = uiMenuEntries(&n);
-	for (uint8_t i = 0; i < n && ns < MAX_SECTIONS - 3; i++)
-		if (e[i].screen->settings) secs[ns++] = e[i].screen->settings;
+	ns += uiSettingsToolSections(e, n, uiHubOf, secs + ns, (uint8_t)(MAX_SECTIONS - 3 - ns));
 	secs[ns++] = &SEC_DISPLAY;
 	secs[ns++] = &SEC_BOARD;
 	secs[ns++] = &SEC_DIAG;

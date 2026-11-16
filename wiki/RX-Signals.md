@@ -49,9 +49,9 @@ See also [Wiring](Wiring).
 
 ---
 
-## The chooser
+## The hub
 
-`MENU → RX SIGNALS` opens a page with two buttons. The strip names both
+`MENU → RX SIGNALS` opens a hub, a page with two buttons. The strip names both
 signal pins, `SIG GP0  AUX GP1`, so you see which role GP1 has before you
 tap. The page takes no pin: DShot keeps running.
 
