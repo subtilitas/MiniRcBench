@@ -468,8 +468,9 @@ Grobschritt, der über das Ende des Bereichs hinausginge, hält am Ende an. Weg
 über das Ende hinaus zählt nicht, sodass schon der erste Grobschritt zurück
 den Wert vom Ende löst.
 
-**Ein geänderter Wert ist cyan, mit einem cyanfarbenen Balken am linken Rand
-seiner Zeile.** Die Bearbeitungsleiste zeigt ihn ebenfalls in Cyan, und
+**Ein geänderter Wert steht in seiner Zeile dunkel auf einer cyanfarbenen
+Fläche, mit einem cyanfarbenen Balken am linken Rand der Zeile.** Die
+Bearbeitungsleiste zeigt ihn als cyanfarbenen Text, und
 darüber den gelesenen Wert: zum Beispiel `PWM FREQ  24KHZ ->` über `25KHZ`.
 Passen Name und alter Wert nicht zwischen `-` und `+`, zeigt die Leiste nur
 `24KHZ ->`. An den ESC ist noch nichts gesendet. Ein Wert, wie er gelesen

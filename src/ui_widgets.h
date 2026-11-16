@@ -141,15 +141,20 @@ struct TouchState;
 
 /**
  * @defgroup uiw_roles Colour roles
- * @brief One meaning per colour: the role names of the `C_*` palette entries
- *        (docs/design/menu-b.md, decisions 8, 11 and 26).
+ * @brief The role names of the `C_*` palette entries (docs/design/menu-b.md,
+ *        decisions 8, 11 and 26, as docs/design/ui-theme.md revises them).
  *
  * Each name expands to its palette entry, so it follows the active theme.
  * The neutral role is three colours, `C_TEXT`, `C_DIM` and `C_GRID`, and
  * keeps their names: labels, navigation, command and edit buttons, hints,
  * captions and source tags. A hint a user reads is `C_DIM`; `C_GRID` is a
  * frame, a rule, a disabled label, a group caption or a read-only value. The
- * uses decision 11's tables name take their role's colour; the splash's
+ * uses decision 11's tables name take their role's colour. `C_CYAN` is the
+ * accent and has more than one use (docs/design/ui-theme.md, decision 1):
+ * as a button's fill the way back, BACK and the tester's `MENU`; as text
+ * the mark `>` of a row that opens a hub, a setting's value, a section
+ * caption and the new value after `old ->`; as a fill behind a value in a
+ * row, and as the row's bar, a change (@ref UI_COL_CHANGED). The splash's
  * `JuWi made` in `C_CYAN` is a mark, not a state. Uses the tables do not
  * name, such as lime on SD LOG's READY, are left to the owner
  * (docs/design/menu-b.md, slice 2 as built).
@@ -172,9 +177,10 @@ struct TouchState;
 /** @brief An alert the device or the bench raised, which needs a look: the
  *         ESC status alert, STALLED. */
 #define UI_COL_ALERT    C_MAGENTA
-/** @brief A value edited and not yet written, applied or saved, and its
- *         bar: the field rows of ESC SETTINGS, KST SERVO, HITEC SERVO and
- *         SERVO SET, their editor bars and the write pages' new values. */
+/** @brief A value edited and not yet written, applied or saved: the fill
+ *         behind it and the bar of its row on ESC SETTINGS, KST SERVO, HITEC
+ *         SERVO and SERVO SET, with the value in `C_ONACCENT`; as text, the
+ *         new value after `old ->` in an editor bar and on a write page. */
 #define UI_COL_CHANGED  C_CYAN
 /** @brief A setting that stays on until it is turned off: LATCH on, a toggle
  *         that is on, the PROG MODE chip, servo B. */
@@ -251,7 +257,9 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
  *        the rule in its last row.
  *
  * Draws BACK on every screen that has a header, which is what stops it being a
- * control that exists on some of them and is remembered on all of them. The
+ * control that exists on some of them and is remembered on all of them. BACK
+ * is the home tag: a `C_CYAN` button with a `C_ONACCENT` label
+ * (docs/design/ui-theme.md, "Cyan"). The
  * rule is 1 px of `C_GRID` at y 35 (@ref UI_HDR_RULE_Y), from x 0 to x 239.
  *
  * @param title       Screen name, drawn at scale 2.

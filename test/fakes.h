@@ -329,6 +329,22 @@ bool fakeTextCentredIs(int y, const char *text, uint16_t col, uint16_t bg, int s
 bool fakeChangeIs(int y, const char *old, const char *now, uint16_t bg);
 
 /**
+ * @brief Whether a changed value shows at (@p x, @p y) as uiListDrawValue()
+ *        draws it: @p text at @p scale in `C_ONACCENT` on a `C_CYAN`
+ *        rectangle that reaches 3 px beyond the text at each side and 2 px
+ *        above and below it, with @p ground in the ring 1 px around the
+ *        rectangle, where the ring is on the panel.
+ */
+bool fakeChangedIs(int x, int y, const char *text, uint16_t ground, int scale);
+
+/**
+ * @brief The changed values checkControlTable() of test/ui_ids.h has walked
+ *        since the start, over every test file: the suite's last section
+ *        holds that the walk met some.
+ */
+int &fakeChangedWalked();
+
+/**
  * @brief The leftmost and rightmost columns in rows @p y to @p y + @p h - 1
  *        that hold a pixel other than @p bg.
  * @return false when every pixel there is @p bg.

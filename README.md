@@ -122,8 +122,13 @@ scrolls 146 px; RX SIGNALS holds MONITOR and OUTPUT. Every tool is two taps
 from MENU and returns to its hub. The names of slice 5 of that note, ESC
 PROGRAM, RECEIVER, LOGS and SETUP, are not built. DShot still runs from boot
 behind MENU until slice D2 of `docs/design/dshot-lifetime.md`.
-The uses that the design note's decision 11 names take their role's colour,
-and a value changed and not yet written is cyan.
+The uses that the design note's decision 11 names take their role's colour.
+Cyan is the accent, as on rcbench (slice 10 of the build plan in
+`docs/design/menu-c.md`, `docs/design/ui-theme.md`): BACK and the tester's
+MENU button are cyan, a setting's value and a section caption are cyan
+text, and a value changed and not yet written is dark on a cyan fill; "The
+Dark theme" under [Using it](#using-it) lists the uses. Tested on the host
+only: no colour has been seen on the panel.
 
 ![UI preview](docs/ui-preview.png)
 
@@ -514,7 +519,9 @@ claim is not free.
 - **LATCH**: off by default, blue while on. Turning it off sets the
   throttle to zero.
 - **MENU**: back to MENU, the list of tools and settings. The tap
-  disarms, sets the throttle to zero and turns LATCH off first.
+  disarms, sets the throttle to zero and turns LATCH off first. The tester
+  has no header, so this button is its way back: cyan with a dark label, as
+  BACK is on every screen with a header.
 - **Pole count and ceiling**: `14 POLES` at x 10, y 114, and `MAX 20%` at
   x 88, y 236, both in the text colour. While disarmed and while the pin
   claim is free, each is underlined in the text colour (y 122 and y 244) and
@@ -604,7 +611,9 @@ tools, at scroll 0 and at its end.*
 
 MENU is the first screen after the splash and the root of the navigation
 (slice 3 of `docs/design/menu-c.md`): its header reads `MENU` and draws no
-**BACK**, since nothing lies behind it. MENU is a list of rows. Each row is
+**BACK**, since nothing lies behind it. On every other screen with a header
+BACK is cyan with a dark label; a BACK that does nothing is drawn disabled
+and is not cyan. MENU is a list of rows. Each row is
 40 px tall at a 42 px pitch, with the name at scale 2 on the left and its
 state right-aligned. **BACK** returns to the screen that opened the one on
 show: a hub, SD LOG or SETTINGS opened from a MENU row returns to MENU, a
@@ -775,8 +784,9 @@ the ESC pin's warning shows, see below) and scrolls under a drag. A row is
 ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS. On a row
 with a connector line, SIG PIN, AUX PIN and SERVO SUPPLY, the value sits at
 y+8 to y+21 of the row and the line, scale 1, at y+27 to y+33, both ending at
-x 132. Section captions and the values of the rows that change are in the text
-colour, read-only values grey, and a toggle that is on fills blue.
+x 132. Section captions and the values beside `-` and `+` are cyan, the
+colour of a setting; read-only values are grey, a toggle keeps a button's
+label, and a toggle that is on fills blue.
 
 | Section | Row | What it does |
 |---|---|---|
@@ -963,14 +973,40 @@ are in the fainter colour of the frames. A chip with no state to report,
 editor bars' `-` and `+` and Hitec's `REPAIR` are neutral buttons, and a
 slider's fill is the frames' colour.
 
+Cyan is the accent, as on rcbench, and marks four things:
+
+- **The way back.** BACK in the header and the tester's `MENU` button are
+  cyan with a near-black label. A BACK that would do nothing is drawn
+  disabled, with a frame and a faint label, and is not cyan. MENU, the
+  root, draws no BACK.
+- **A row that opens a hub.** The mark `>` on MENU's rows ESC CONFIG, SERVO
+  and RX SIGNALS.
+- **A setting.** A value of the bench's own settings is cyan text with no
+  fill: SETTINGS' values beside `-` and `+` and its section captions, the
+  values of SERVO SET and OUTPUT SET, and LENGTH on ANGLE SETUP. A value
+  that is a button's label keeps the button's colours. A value read from a
+  device, on ESC SETTINGS, KST SERVO and HITEC SERVO, is in the text
+  colour.
+- **A change.** A value edited and not yet written or applied is near-black
+  text on a cyan rectangle in its row, with a 3 px cyan bar at the row's
+  left edge. The rectangle reaches 3 px beyond the text at each side and
+  2 px above and below it; the text does not move. A setting is light text
+  on the dark row and a change dark text on a light rectangle, so the two
+  differ by which of text and ground is the lighter, not by hue. An editor
+  bar that names the old value, `24KHZ ->`, draws the new one as cyan
+  text; SERVO SET's bar has no old value and draws the rectangle.
+
 Not seen on the panel: every colour is computed for sRGB, and the panel's
 gamma, primaries and backlight are not measured. The host suite holds the
 17 values and their contrast ratios (`testPaletteContrast()` in
 `test/test_widgets.cpp`): each text pair is 4.5 or more but two.
 `C_GRID` on `C_BG`, 3.57, which disabled labels, group captions and
 read-only values use, is one; `ERROR` in the tester's ESC STATUS tile, 4.03,
-is the other. Where this document says "grey", the colour is one of the two
-blue-grey neutrals.
+is the other. A changed value's rectangle stands 14.95 off its row and
+10.89 off a selected row, and its text 14.70 off the rectangle; through a
+simulation of protanopia, deuteranopia and tritanopia the least of the
+three is 10.23 (`testChangedCue()`). Where this document says "grey", the
+colour is one of the two blue-grey neutrals.
 
 **High contrast**
 
@@ -985,7 +1021,10 @@ backlight is forced to 255. It is meant for direct sunlight on the
 transmissive IPS panel. Its frames and labels are near black, so a disabled
 button has a dashed frame there, 4 px drawn and 4 px open on its straight
 edges, with its rounded corners whole, and a slider that does not act has
-a hollow thumb.
+a hollow thumb. Cyan marks the same four things there, in a dark cyan: BACK
+has a white label, a setting's value is dark cyan text on white, and a
+changed value is white text on a dark cyan rectangle, 7.73 off its row and
+5.30 off a selected row, 4.91 at the least through the three simulations.
 
 The palette has fewer distinct greys than the dark one. Label greys are
 merged so that labels stay legible outdoors.
@@ -1915,12 +1954,12 @@ the step moves by the step from where it is. A coarse step that would pass
 the end of the range stops at the end. Travel past the end is not stored, so
 the first coarse step back moves the value off it.
 
-A value that differs from the ESC as read is cyan, with a 3 px cyan bar at
-its row's left edge; the editor bar's value is cyan too, and the bar's top
-line names the value as read: `PWM FREQ  24KHZ ->` over the new value, or
-`24KHZ ->` alone where the label and the value do not fit the 140 px between
-`-` and `+`. Selecting a row fills it and lights its label, and leaves the
-value's colour as it is: a value as read is in the text colour. **REVERT**,
+A value that differs from the ESC as read is dark on a cyan rectangle in
+its row, with a 3 px cyan bar at the row's left edge; the editor bar's value
+is cyan text, and the bar's top line names the value as read:
+`PWM FREQ  24KHZ ->` over the new value, or `24KHZ ->` alone where the label
+and the value do not fit the 140 px between `-` and `+`. Selecting a row fills it and lights its label, and leaves the
+value's look as it is: a value as read is in the text colour. **REVERT**,
 labelled in amber, restores the values that were read. **HEX** shows the raw
 48 bytes for checking a field's decoding, titled `ESC HEX`; its BACK
 returns to the list.
@@ -2446,13 +2485,15 @@ change up to 60 Hz on a type that is not a heli type apply at once while nothing
 waits and join a waiting change otherwise. SERVOS ONE to TWO waits for the hold
 when the profile is past its travel, since it drives a second servo there, and
 applies at once on a profile within it. HELI CYCLIC's own 820 µs
-to 2220 µs are past the travel; its one hold covers both warnings. A value that
-waits for the hold is cyan, with a 3 px cyan bar at its row's left edge, until
-HOLD TO APPLY; while RUNNING the PULSE rows are grey. BACK from SET with a
+to 2220 µs are past the travel; its one hold covers both warnings. A value of
+SET is cyan text, the colour of a setting. A value that waits for the hold is
+dark on a cyan rectangle, in its row and in the editor bar, with a 3 px cyan
+bar at its row's left edge, until HOLD TO APPLY; while RUNNING the PULSE rows
+are grey. BACK from SET with a
 change waiting arms a guard (decision 7 of `docs/design/menu-b.md`): the
 strip reads, in amber, `1 CHANGE NOT APPLIED.` over
 `BACK AGAIN DISCARDS IT.`, or `n CHANGES NOT APPLIED.` over
-`BACK AGAIN DISCARDS THEM.`, counting the rows in cyan. A second BACK
+`BACK AGAIN DISCARDS THEM.`, counting the rows that wait. A second BACK
 returns to the servo screen and drops the change, and SET opens again on the
 applied profile; a press anywhere else disarms the guard. With nothing
 waiting BACK returns at once. The SWEEP
@@ -2596,9 +2637,9 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    selects a field; − and + step it, and a sideways swipe steps it by an
    eleventh of its range. The stepper skips values that break a hard limit,
    for example MAX. DUTY above 98 %. A value that differs from the servo as
-   read is cyan, with a 3 px cyan bar at its row's left edge, and the editor
-   bar's value is cyan too; selection fills the row and leaves the value's
-   colour as it is. A value that breaks a soft rule is taken, with the bar
+   read is dark on a cyan rectangle, with a 3 px cyan bar at its row's left
+   edge, and the editor bar's value is cyan text; selection fills the row and
+   leaves the value's look as it is. A value that breaks a soft rule is taken, with the bar
    in amber and the rule's text in the editor bar. REVERT is labelled in
    amber.
 4. A tap on `WRITE...` opens the write page, `KST WRITE` (decision 6 of
@@ -2834,9 +2875,9 @@ not 0 answers ID 0 is not measured.
    selects a row; - and + step it to the next value the encoding takes, and a
    sideways swipe steps it by an eleventh of its range. LEFT END stays below
    NEUTRAL, below RIGHT END. A value that differs from the servo as read is
-   cyan, with a 3 px cyan bar at its row's left edge; the label carries no mark.
-   The editor bar's value is cyan too, and selection fills the row and leaves
-   the value's colour as it is. A value that breaks one of rcbench's seven soft
+   dark on a cyan rectangle, with a 3 px cyan bar at its row's left edge; the
+   label carries no mark. The editor bar's value is cyan text, and selection
+   fills the row and leaves the value's look as it is. A value that breaks one of rcbench's seven soft
    rules, for example SPEED below 30 %, is taken with the bar in amber and the
    rule's text. REVERT is labelled in amber. Reversing DIRECTION mirrors NEUTRAL
    and both ends, as Hitec's programmer does.
@@ -3226,7 +3267,8 @@ What the rows' area shows in place of the channels:
   next HOLD TO START.
 
 **SET** (`OUTPUT SET`) holds the rows that are not dragged, changed with the
-editor's `-` and `+`, each at once:
+editor's `-` and `+`, each at once; their values are cyan text, the colour
+of a setting, and grey while SET locks the row:
 
 | Row | Values | Changes |
 |---|---|---|
@@ -3545,7 +3587,8 @@ knock while the surface moves does not set it. The zero and MAX last for the
 visit: BACK drops them, and the next visit starts from level. The screen
 shows 0.1° and 0.1 mm; that is the display's resolution, not an accuracy.
 
-**SETUP.** Rows as SETTINGS draws them. A row applies at once; BACK returns
+**SETUP.** Rows as SETTINGS draws them; LENGTH's value is cyan text, the
+colour of a setting. A row applies at once; BACK returns
 to the main view and saves the four fields while they differ from flash
 (`settingsAngleDirty()`).
 
@@ -3966,7 +4009,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,047 of 16,307 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,055 of 16,315 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

@@ -182,8 +182,8 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
   sign. A raw value whose display is not established reads `RAW` and the number.
 - LOCKED fields are read-only. They are drawn grey and a tap on them selects
   nothing.
-- A changed value is cyan, with a 3 px cyan bar at its row's left edge. A
-  value as read is in the text colour, selected or not: selecting a row
+- A changed value is dark on a cyan fill, with a 3 px cyan bar at its row's
+  left edge. A value as read is in the text colour, selected or not: selecting a row
   lights the row and its name, not the value.
 
 <img src="img/kst-edit.png" width="240" alt="DEAD BAND selected and stepped from 2.0 US to 2.2 US">
@@ -192,7 +192,7 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 
 1. Tap an editable row. The editor bar under the list shows the field, its
    stored value, and the pending value, for example `DEAD BAND  2.0 US ->`
-   over `2.2 US`, the pending value cyan once it differs.
+   over `2.2 US`, the pending value in cyan text once it differs.
    With no row selected, the bar reads `TAP A ROW TO EDIT IT` and
    `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tap `-` or `+` (44 × 44 px) to step the value. Hold to repeat. `+`
@@ -211,8 +211,8 @@ Two kinds of limit apply:
 - **A hard limit** is never offered. The stepper skips values that break
   one, so `-` and `+` stop at the last legal value. For example, `MAX. DUTY`
   stops at 98 %. When no further step is legal, the button is drawn disabled.
-- **A soft rule** is taken. The row's bar turns amber, the value stays cyan,
-  and the editor bar shows the rule's text in amber, for example
+- **A soft rule** is taken. The row's bar turns amber, the value stays on
+  its cyan fill, and the editor bar shows the rule's text in amber, for example
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 
 Under the editor bar are three buttons, 46 px tall: `WRITE...`

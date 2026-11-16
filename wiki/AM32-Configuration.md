@@ -426,8 +426,9 @@ stored off the step moves by the step from where it is. A coarse step that
 would pass the end of the range stops at the end. Travel past the end does not
 count, so the first coarse step back moves the value off it.
 
-**A changed value is cyan, with a cyan bar at its row's left edge.** The
-editor bar shows it in cyan too, and above it the value as read: for example
+**A changed value is dark on a cyan fill in its row, with a cyan bar at the
+row's left edge.** The editor bar shows it as cyan text, and above it the
+value as read: for example
 `PWM FREQ  24KHZ ->` over `25KHZ`. Where the name and the old value do not
 fit between `-` and `+`, the bar shows `24KHZ ->` alone. Nothing has been
 sent to the ESC yet. A value as read is in the text colour, selected or not:

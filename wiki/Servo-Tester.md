@@ -409,11 +409,12 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
   after a warning: the first `BACK` stays on SET and puts
   `1 CHANGE NOT APPLIED.` and `BACK AGAIN DISCARDS IT.` in amber on the
   strip, or `n CHANGES NOT APPLIED.` and `BACK AGAIN DISCARDS THEM.`,
-  counting the cyan rows; the second `BACK` returns to the servo screen and
+  counting the rows that wait; the second `BACK` returns to the servo screen and
   drops the change. Any other touch takes the warning away, and the change
   keeps waiting. With nothing waiting, `BACK` returns at once.
-  While it waits, the row's value is cyan with a 3 px cyan bar at its left
-  edge; a value that applied is in the text colour, selected or not.
+  While it waits, the row's value is dark on a cyan fill, in the row and in
+  the editor bar, with a 3 px cyan bar at the row's left edge; a value that
+  applied is cyan text, the colour of a setting, selected or not.
 - A pulse past a servo's travel drives it against its end stop, where it stalls
   and heats. With TYPE WIDE, MIN below 900 µs or MAX above 2100 µs the screen
   says `PAST ITS TRAVEL A SERVO STALLS AND HEATS. TRY MIN AND MAX HORN-FREE.` in

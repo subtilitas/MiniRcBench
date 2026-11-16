@@ -114,7 +114,10 @@ void uiHeaderRoot(const char *title) {
 
 void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
 	uiHeaderRoot(title);
-	uiButton(uiBackRect(), "BACK", C_PANEL, C_TEXT, 1, uiPressing(uiBackRect(), t),
+	// The home tag: the way back is the accent on every screen with a header
+	// (docs/design/ui-theme.md, "Cyan"). A BACK that would do nothing is
+	// uiButton()'s disabled look, and then not cyan.
+	uiButton(uiBackRect(), "BACK", C_CYAN, C_ONACCENT, 1, uiPressing(uiBackRect(), t),
 	         backEnabled);
 }
 

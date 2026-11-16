@@ -1905,13 +1905,13 @@ static void testSettingsConnectorLines() {
 		int j5 = boardConnectorPin("J5", gp);
 		snprintf(sub, sizeof(sub), "J5 PIN %d", j5);
 		snprintf(what, sizeof(what), "SIG on %s: %s, as the header's J5 says", gp, sub);
-		checkTrue(what, j5 > 0 && settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", gp, C_TEXT, sub));
+		checkTrue(what, j5 > 0 && settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", gp, C_CYAN, sub));
 		char agp[8], asub[16];
 		snprintf(agp, sizeof(agp), "GP%u", (unsigned)(1 - g));
 		int aj5 = boardConnectorPin("J5", agp);
 		snprintf(asub, sizeof(asub), "J5 PIN %d", aj5);
 		snprintf(what, sizeof(what), "AUX on %s: %s", agp, asub);
-		checkTrue(what, aj5 > 0 && settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", agp, C_TEXT, asub));
+		checkTrue(what, aj5 > 0 && settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", agp, C_CYAN, asub));
 	}
 	for (uint8_t mode = 1; mode <= SERVO_SUPPLY_MODE_MAX; mode++) {
 		settings()->servoSupply = mode;
@@ -1923,7 +1923,7 @@ static void testSettingsConnectorLines() {
 		snprintf(sub, sizeof(sub), "J4 PIN %d", j4);
 		snprintf(what, sizeof(what), "SERVO SUPPLY %s: %s, as the header's J4 says", gp, sub);
 		checkTrue(what, j4 > 0 &&
-		          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", gp, C_TEXT, sub));
+		          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", gp, C_CYAN, sub));
 	}
 	tapId(UI_FIX(UI_BACK));
 	openTester();
@@ -2094,11 +2094,11 @@ static void testSettingsKiss() {
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	tapRowId(UI_ROW(SettingsRowId::Kiss, Toggle));   // a repaint, KISS off again
 	checkTrue("SIG PIN: GP0, J5 PIN 2 under it",
-	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP0", C_TEXT, "J5 PIN 2"));
+	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP0", C_CYAN, "J5 PIN 2"));
 	checkTrue("AUX PIN: GP1, J5 PIN 1 under it",
-	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP1", C_TEXT, "J5 PIN 1"));
+	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP1", C_CYAN, "J5 PIN 1"));
 	checkTrue("DSHOT: the rate alone, nothing under it",
-	          settingsRowShows((int)SettingsRowId::Speed, "DSHOT", "600", C_TEXT, nullptr, false));
+	          settingsRowShows((int)SettingsRowId::Speed, "DSHOT", "600", C_CYAN, nullptr, false));
 	for (int i = 0; i < 2; i++) {
 		uint8_t sig = settings()->dshotPin, aux = settings()->kissPin;
 		tapRowId(UI_ROW(SettingsRowId::Aux, Plus));
@@ -2114,9 +2114,9 @@ static void testSettingsKiss() {
 	}
 	checkTrue("SIG on GP1: J5 PIN 1 under it",
 	          settings()->dshotPin == 1 &&
-	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP1", C_TEXT, "J5 PIN 1"));
+	          settingsRowShows((int)SettingsRowId::Sig, "SIG PIN", "GP1", C_CYAN, "J5 PIN 1"));
 	checkTrue("AUX on GP0: J5 PIN 2 under it",
-	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP0", C_TEXT, "J5 PIN 2"));
+	          settingsRowShows((int)SettingsRowId::Aux, "AUX PIN", "GP0", C_CYAN, "J5 PIN 2"));
 	checkInt("and KISS stays off", settings()->kissEnable, 0);
 
 	uint8_t sig0 = settings()->dshotPin, aux0 = settings()->kissPin;
@@ -2173,12 +2173,12 @@ static void testSettingsServoSupply() {
 
 	checkInt("none by default", settings()->servoSupply, 0);
 	checkTrue("SERVO SUPPLY reads OWN, nothing under it",
-	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "OWN", C_TEXT, nullptr));
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "OWN", C_CYAN, nullptr));
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Minus));
 	checkInt("- at OWN stays", settings()->servoSupply, 0);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
 	checkTrue("GP28, J4 PIN 11 under it",
-	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP28", C_TEXT, "J4 PIN 11"));
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP28", C_CYAN, "J4 PIN 11"));
 	FakePin p = fakePin(28);
 	checkTrue("+: GP28, applied at once",
 	          settings()->servoSupply == 1 && servoSupplyFitted() && servoSupplyPin() == 28);
@@ -2188,7 +2188,7 @@ static void testSettingsServoSupply() {
 	p = fakePin(29);
 	checkTrue("+ again: GP29", settings()->servoSupply == 2 && servoSupplyPin() == 29);
 	checkTrue("GP29, J4 PIN 12 under it",
-	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP29", C_TEXT, "J4 PIN 12"));
+	          settingsRowShows((int)SettingsRowId::ServoSupply, "SERVO SUPPLY", "GP29", C_CYAN, "J4 PIN 12"));
 	checkTrue("GP29 an undriven input", p.function == GPIO_FUNC_SIO && !p.output && p.inputOff);
 	checkTrue("GP28 stays one", !fakePin(28).output && fakePin(28).inputOff);
 	tapRowId(UI_ROW(SettingsRowId::ServoSupply, Plus));
@@ -4930,6 +4930,24 @@ static void testTesterReadouts() {
 	          fakeTextIs(116 + (54 - gfxTextW("LATCH", 1)) / 2, 283 + (33 - 7) / 2, "LATCH",
 	                     C_DIM, C_PANEL, 1) &&
 	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
+	{
+		// The tester has no header: MENU is its home tag, cyan as BACK is
+		// (ui-theme.md, decision 15), at the right end of the button row.
+		const UiRect mb = ctlRect(UI_FIX(TesterCtl::Menu));
+		checkTrue("MENU is the home tag: C_CYAN, a C_GRID frame, its label C_ONACCENT; 58 px from x 176",
+		          mb.x == 176 && mb.w == 58 && fb[(mb.y + mb.h / 2) * GFX_W + mb.x + 4] == C_CYAN &&
+		          fb[mb.y * GFX_W + mb.x + mb.w / 2] == C_GRID &&
+		          fakeTextIs(mb.x + (mb.w - gfxTextW("MENU", 1)) / 2, mb.y + (mb.h - 7) / 2, "MENU",
+		                     C_ONACCENT, C_CYAN, 1));
+		int cyan = 0, inside = 0;
+		for (int y = 0; y < GFX_H; y++)
+			for (int x = 0; x < GFX_W; x++) {
+				if (fb[y * GFX_W + x] != C_CYAN) continue;
+				cyan++;
+				if (x >= mb.x && x < mb.x + mb.w && y >= mb.y && y < mb.y + mb.h) inside++;
+			}
+		checkTrue("and the only cyan on the tester", cyan > 0 && cyan == inside);
+	}
 
 	// --- the control table ---
 	const UiRect poles = ctlRect(UI_FIX(TesterCtl::Poles));
@@ -6248,8 +6266,9 @@ static void testEfm8Write() {
 	                                                  gfxTextW("TIMING  MEDIUM HIGH ->", 1)) / 2,
 	                     EDIT_Y + 2, "TIMING  MEDIUM HIGH ->", C_DIM, C_BG, 1));
 	UiRect rt = ctlRect(UI_ROW(s_ewSel, Row));
-	checkTrue("the row's value cyan, its bar", fakeTextIs(GFX_W - UI_MARGIN - gfxTextW("MEDIUM", 2), rt.y + 13,
-	                                                     "MEDIUM", UI_COL_CHANGED, C_PANEL, 2));
+	checkTrue("the row's value dark on its cyan rectangle, its bar",
+	          fakeChangedIs(GFX_W - UI_MARGIN - gfxTextW("MEDIUM", 2), rt.y + 13, "MEDIUM", C_PANEL, 2) &&
+	          gfxBuffer()[(rt.y + 5) * GFX_W + 1] == UI_COL_CHANGED);
 	checkTrue("WRITE... and REVERT live", ctlEnabled(UI_FIX(Am32Ctl::Write)) && ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	checkTrue("DIRECTION + : REVERSED", ewEditRow("DIRECTION", +1) && s_ewDraft[0x0B] == 2);
 	checkTrue("+ at the top rail: 3D REVERSED, then nothing", ewEditRow("DIRECTION", +4) && s_ewDraft[0x0B] == 4);
@@ -6270,7 +6289,11 @@ static void testEfm8Write() {
 	frames(1);
 	checkTrue("3 rows changed, nothing sent", ewPending() == 3 && e->erases == 0 && e->programs == 0);
 	checkTrue("BEEP STRENGTH selected again", ewTapRow("BEEP STRENGTH"));
-	checkControlTable("ESC SETTINGS, the EFM8 list edited");
+	{
+		int walked = fakeChangedWalked();
+		checkControlTable("ESC SETTINGS, the EFM8 list edited");
+		checkTrue("the walk met the changed value", fakeChangedWalked() > walked);
+	}
 	fakeDumpFrame("shot_efm8_edit.ppm");
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK with edits: the guard, 3 CHANGES NOT WRITTEN.",
@@ -8062,8 +8085,8 @@ static void testAm32Guidance() {
 		checkInt("TEMP LIMIT at 141", uiByte(0x2B), 141);
 		frames(1);
 		const UiRect tr = ctlRect(UI_ROW(vt, Row));
-		checkTrue("the row reads OFF",
-		          fakeTextIs(GFX_W - 8 - gfxTextW("OFF", 2), tr.y + 13, "OFF", C_CYAN, C_PANEL, 2));
+		checkTrue("the row reads OFF, changed: dark on its cyan rectangle",
+		          fakeChangedIs(GFX_W - 8 - gfxTextW("OFF", 2), tr.y + 13, "OFF", C_PANEL, 2));
 		checkTrue("the editor reads OFF", fakeTextCentredIs(EDIT_Y + 14, "OFF", C_CYAN, C_BG, 2));
 		checkTrue("selected and off: the protection note",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, AM32_UI_PROT_1, UI_COL_WARN, C_BG, 1) &&
@@ -8919,12 +8942,18 @@ void runUiTests() {
 			frames(1);
 			const UiRect r = ctlRect(UI_ROW(vPwm, Row));
 			const uint16_t *fb = gfxBuffer();
-			checkTrue("changed: 25KHZ cyan, and a 3 px cyan bar at the row's left edge",
-			          fakeTextIs(232 - gfxTextW("25KHZ", 2), r.y + 13, "25KHZ", C_CYAN, C_PANEL, 2) &&
+			checkTrue("changed: 25KHZ dark on a cyan rectangle, and a 3 px cyan bar at the row's left edge",
+			          fakeChangedIs(232 - gfxTextW("25KHZ", 2), r.y + 13, "25KHZ", C_PANEL, 2) &&
+			          !fakeTextIs(232 - gfxTextW("25KHZ", 2), r.y + 13, "25KHZ", C_CYAN, C_PANEL, 2) &&
 			          fb[(r.y + 5) * GFX_W] == C_CYAN && fb[(r.y + 5) * GFX_W + 2] == C_CYAN &&
 			          fb[(r.y + 5) * GFX_W + 3] == C_PANEL);
 			checkTrue("the editor bar's value cyan",
 			          fakeTextCentredIs(EDIT_Y + 14, "25KHZ", C_CYAN, C_BG, 2));
+			{
+				int walked = fakeChangedWalked();
+				checkControlTable("ESC SETTINGS, PWM FREQUENCY changed");
+				checkTrue("the walk met the changed value", fakeChangedWalked() > walked);
+			}
 			const UiRect h = ctlRect(UI_FIX(Am32Ctl::Hex));
 			checkTrue("HEX, a command button: its label in the text colour",
 			          fakeTextIs(h.x + (h.w - gfxTextW("HEX", 1)) / 2, h.y + (h.h - 7) / 2,

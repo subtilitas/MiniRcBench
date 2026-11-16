@@ -1,9 +1,10 @@
 # UI theme after rcbench's
 
-Status: slices 7, 8 and 9 of [the build plan](menu-c.md#build-plan), the
-palette, the neutral fills and the radius, are built, host tests only
+Status: slices 7, 8, 9 and 10 of [the build plan](menu-c.md#build-plan), the
+palette, the neutral fills, the radius and cyan, are built, host tests only
 ([Slices 7 and 8 as built](#slices-7-and-8-as-built),
-[Slice 9 as built](#slice-9-as-built)). Slices 10 to 14 are
+[Slice 9 as built](#slice-9-as-built),
+[Slice 10 as built](#slice-10-as-built)). Slices 11 to 14 are
 proposed, not built. The owner decided its five questions on 2026-11-15.
 The two questions the answers raised, and the colours of two buttons of the
 DShot lifetime, are settled by the developer's calls of 2026-11-16, pending the
@@ -1083,7 +1084,7 @@ with its number, here and in the note the line stands in. Slice 14 of
    > and the note's choice 7, which the owner has not decided: a changed value
    > in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px bar stays.
    > Cyan text without a fill is a settings value. The editor bar's and the
-   > write page's new value stay `C_CYAN` text after `old ->`. Not built.
+   > write page's new value stay `C_CYAN` text after `old ->`. Built: slice 10.
 
 2. **menu-b.md decision 11,** the role "changed: `C_CYAN`", and the rows
    "SETTINGS section captions", "SETTINGS `KISS PIN` value", "SETTINGS
@@ -1096,7 +1097,9 @@ with its number, here and in the note the line stands in. Slice 14 of
    > by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
    > row that opens a hub, a selected tab's label, a settings value and a
    > section caption. "Changed" is the cyan fill and the bar of decision 8.
-   > SETUP's captions and values are `C_CYAN`. Not built.
+   > SETUP's captions and values are `C_CYAN`. Not built: the leave page's
+   > button to the hub is slice 11's, and no screen has a tab. The other uses
+   > are built by slice 10 ([Slice 10 as built](#slice-10-as-built)).
 
 3. **menu-b.md decision 11,** the role "safe, done: `C_GREEN`", with its
    uses "SAFE badge and chip, EDT ON chip".
@@ -1167,7 +1170,7 @@ tests and its dependence on the DShot slices, D1 to D5. None needs hardware
 | 7 | Palette. Built: [Slices 7 and 8 as built](#slices-7-and-8-as-built) |
 | 8 | Neutral fills: the edit buttons, the neutral chip, the header's rule, the hints, the slider's fill. Built with slice 7 |
 | 9 | Radius. Built: [Slice 9 as built](#slice-9-as-built) |
-| 10 | Cyan |
+| 10 | Cyan. Built: [Slice 10 as built](#slice-10-as-built) |
 | 11 | Green on the tools |
 | 12 | Green on the tester |
 | 13 | Screens |
@@ -1334,7 +1337,8 @@ Mutations, each run against the suite and restored:
 | A dimmed thumb `C_DIM` in High contrast | 1 |
 
 Left to the slices that follow: the radius (slice 9, built since:
-[Slice 9 as built](#slice-9-as-built)), cyan (slice 10),
+[Slice 9 as built](#slice-9-as-built)), cyan (slice 10, built since:
+[Slice 10 as built](#slice-10-as-built)),
 green (slices 11 and 12), the walk over every screen's pairs (slice 13),
 and "grey" in README and the wiki where slice 8 did not change the thing
 named (slice 14). The previews under `docs/` and `wiki/img/` are rendered
@@ -1486,10 +1490,191 @@ Mutations, each run against the suite and restored:
 | The row back to 4 x 53 px and that `static_assert` removed | 5: `testColourRoles()`'s label, its 4 px, the frame, the fill and x 231 |
 | The throttle fill 10 px wide at the least, not clipped | 1: no fill under 10 px wide is drawn |
 
-Left to the slices that follow: cyan (slice 10), green (slices 11 and
+Left to the slices that follow: cyan (slice 10, built since:
+[Slice 10 as built](#slice-10-as-built)), green (slices 11 and
 12), the walk over every screen's pairs (slice 13) and the records and
 "grey" (slice 14). The previews under `docs/` and `wiki/img/` are
 rendered with the radius.
+
+## Slice 10 as built
+
+Slice 10, cyan, of [the build plan](menu-c.md#build-plan)
+([decision 1](#decisions)), with host tests in `test/test_widgets.cpp`,
+`test/test_ids.cpp`, `test/test_ui.cpp`, `test/test_servo.cpp`,
+`test/test_kst_ui.cpp`, `test/test_hitec_ui.cpp`,
+`test/test_sbus_out_ui.cpp`, `test/test_angle_ui.cpp`,
+`test/test_menu.cpp`, `test/test_efm8_view.cpp`, `test/test_esc_cmd_ui.cpp`
+and `test/ui_ids.h`. Not seen on the panel: the suite reads RGB565 words,
+and the contrast and CVD numbers are computed from them.
+
+| Block | Where | What it draws |
+|---|---|---|
+| The home tag | `uiHeader()`, `src/ui_widgets.{h,cpp}` | BACK as a `C_CYAN` button with a `C_ONACCENT` label, 64 x 32 px at x 170 as before. Pressed, it keeps the fill and takes the `C_INK` frames. Disabled, it is `uiButton()`'s disabled look and no pixel of the band is cyan. `uiHeaderRoot()` draws none |
+| The tester's home tag | `drawButtons()`, `src/ui.cpp` | `MENU` as a `C_CYAN` button with a `C_ONACCENT` label, 58 px from x 176; it was `C_PANEL` with a `C_DIM` label. It is the only cyan on the tester |
+| A setting's value in a field row | `UiValue::Setting`, `uiListValueColour()`, `src/ui_list.{h,cpp}` | `C_CYAN` text with no fill. SERVO SET and OUTPUT SET pass it for a value as it stands (`setValue()` in `src/ui_servo.cpp` and `src/ui_sbus_out.cpp`). `UiValue::Plain`, `C_TEXT`, is a device's value: ESC SETTINGS, KST SERVO, HITEC SERVO |
+| A changed value | `uiListDrawValue()`, `UI_FIELD_FILL_DX`, `UI_FIELD_FILL_DY`, `src/ui_list.{h,cpp}` | `C_ONACCENT` text on a `C_CYAN` rectangle that reaches 3 px beyond the text at each side and 2 px above and below it. The text is where it was, right-aligned to x 231; the rectangle ends at x 234. At scale 2 the rectangle is 18 px tall, at scale 1 11 px. `uiListDrawField()` draws every row's value through it. The 3 px bar at x 0 is as before, `C_AMBER` for a soft rule |
+| SERVO SET's editor bar | `drawSet()`, `src/ui_servo.cpp` | the selected row's value through `uiListDrawValue()`: cyan text as it stands, the rectangle while it waits for HOLD TO APPLY |
+| SETUP's captions and values | `drawItem()` and the value functions, `src/ui_settings.cpp` | a section caption in `C_CYAN` at scale 1; the seven values drawn as text beside `-` and `+` in `C_CYAN` at scale 2: MOTOR POLES, MAX THROTTLE, SIG PIN, DSHOT, AUX PIN, SERVO SUPPLY and BACKLIGHT |
+| ANGLE METER's settings view | `setupFrame()`, `src/ui_angle.cpp` | LENGTH's value in `C_CYAN` at scale 2 |
+| The entries' meanings | `TC_CYAN` in `src/theme.h`, `C_CYAN` in `src/gfx.h`, the role comments of `src/ui_widgets.h` | cyan as the accent, with its uses; `UI_COL_CHANGED` names the rectangle, the bar and the new value after `old ->` |
+
+`>` on a hub row was `C_CYAN` since slice 4 and is not changed.
+
+The tests the plan names, and where they are:
+
+- **`uiHeader()` draws BACK on `C_CYAN` with a `C_ONACCENT` label, disabled
+  on `C_BG`, and none at the root.** `testHeaderHomeTag()` in
+  `test/test_widgets.cpp`, in both themes: the fill, the label, the frame,
+  no `C_PANEL` inside BACK, no cyan in the band outside BACK, the title in
+  `C_TEXT`; pressed, the fill kept under a `C_INK` frame with the label
+  moved 1 px; disabled, `C_BG` inside, a `C_GRID` label and no cyan pixel
+  in the band; at the root, BACK's rectangle is the band.
+- **The checks "BACK is drawn live" read the new fill through their one
+  helper.** `backLook()` in `test/ui_ids.h`: live is a `C_CYAN` fill with
+  `BACK` in `C_ONACCENT`, at rest or pressed. `checkControlTable()` runs it
+  on 181 frames, of which 162 have a header.
+- **`uiListDrawField()`: Changed is a `C_CYAN` rectangle behind
+  `C_ONACCENT` ink, with the bar.** `testListDrawField()`: the rectangle's
+  four edges by pixel at scale 2, x 159 to x 234 and y + 11 to y + 28 for
+  `2.2 US`, and at scale 1; selected and not; the bar `C_CYAN`, and
+  `C_AMBER` for a rule with the value still on its rectangle; both themes.
+  `fakeChangedIs()` in `test/fakes.{h,cpp}` reads a changed value on its
+  screen: the glyphs in `C_ONACCENT` on `C_CYAN`, every pixel of the
+  rectangle one of the two, and the row's ground in the ring 1 px around
+  it.
+- **Plain is `C_TEXT` on a device list and `C_CYAN` on a settings list.**
+  `testListDrawField()` for both states. On the screens: a value as read
+  is `C_TEXT` and holds no cyan on ESC SETTINGS (`test/test_ui.cpp`), KST
+  SERVO and HITEC SERVO; SERVO SET's and OUTPUT SET's values are `C_CYAN`
+  text (`testColourRoles()` in `test/test_servo.cpp`,
+  `test/test_sbus_out_ui.cpp`).
+- **The fill ends 4 px or more after the label.** `changedFillsClear()` in
+  `test/ui_ids.h`, which `checkControlTable()` runs on every frame it
+  reads: in each row as wide as the panel it finds the rectangle by its
+  cyan in column 234 and holds the 4 px before it, over the rectangle's
+  height, to the row's ground. The suite's frames show 14 changed
+  values, on ESC SETTINGS with an AM32 and with a Bluejay page, KST SERVO,
+  HITEC SERVO and SERVO SET, and the suite's last section holds that the
+  walk met them. `testChangedWalk()` in `test/test_ids.cpp` holds the walk:
+  a label that ends 2 px before a rectangle is reported, one that ends
+  8 px before it is not, and a cyan button is not taken for a row. Two
+  sweeps over values no frame shows: every value of every Bluejay and
+  BLHeli_S row, where the narrowest gap is 20 px (`test/test_efm8_view.cpp`),
+  and the widest value of each PULSE row of SERVO SET.
+- **SETUP: a value and a caption in `C_CYAN`, a warning value still
+  `C_AMBER`.** `testSettingsValueColours()` in `test/test_menu.cpp`: each
+  of the seven values beside `-` and `+` is `C_CYAN`, none of the five
+  read-only values is, no value is `C_TEXT`; on the panel the caption `ESC
+  TESTER`, MOTOR POLES' value and its neutral `-`. The connector rows and
+  DSHOT in `test/test_ui.cpp` read their values in `C_CYAN`; DIAGNOSTICS'
+  caption is `C_CYAN` and LAST RESTART's `BROWN-OUT` beside it `C_AMBER`.
+- **The tester's `MENU`.** `testTesterReadouts()` in `test/test_ui.cpp`:
+  the fill, the frame, the label, and no cyan pixel outside the button.
+- **Changed against unchanged, by contrast and through the CVD
+  simulation.** `testChangedCue()` in `test/test_widgets.cpp` draws a row
+  as a setting and as a change, selected and not, reads the ink's and the
+  ground's words from the frame, and computes the luminance contrast for
+  normal vision and through the matrices of Machado, Oliveira and
+  Fernandes for protanopia, deuteranopia and tritanopia, as `ui_theme.py`
+  does. Each of the twelve ratios of
+  [The cues of the decisions](#the-cues-of-the-decisions) is held to two
+  decimals: the rectangle against the row, 14.95, 16.71, 13.82 and 16.00;
+  against the selected row, 10.89, 11.87, 10.23 and 11.62; the ink on the
+  rectangle, 14.70, 16.42, 13.59 and 15.71. The least is 10.23. In every
+  view the setting's ink is lighter than its ground and the change's ink
+  darker than its ground. High contrast: 7.73, 7.08, 8.25 and 7.16 against
+  the row and for the ink, 5.30, 4.91, 5.62 and 4.92 against the selected
+  row; the least is 4.91, and ink and ground change places the other way
+  round, dark cyan text on white against white text on dark cyan.
+
+Readings of the note where the code asked for a choice:
+
+- **The leave page's button to the hub is not built here.**
+  [Decision 16](#decisions) and the build plan give it to slice 11, after
+  D2, which draws the button and changes the page's texts.
+  `src/ui_leave.cpp` is not touched. Revision 2 of
+  [Revisions](#revisions) therefore stays "Not built".
+- **A state, not a flag.** A settings list tells the row that a value is a
+  setting by `UiValue::Setting`. `UiValue::Plain` keeps its meaning and
+  its colour, so ESC SETTINGS, KST SERVO and HITEC SERVO are not changed.
+- **Which of SETUP's values are cyan.** The values drawn as text: the
+  seven beside `-` and `+`. A toggle's value is its button's label and
+  keeps the button's rule, `C_DIM` on `C_PANEL`, or `C_ONACCENT` on
+  `C_BLUE` while on: KISS TELEM, CURRENT SENSE, CONTRAST. Read-only values
+  keep their colours, `C_GRID`, `C_DIM` for CLOCK's `NOT SET` and `C_AMBER`
+  for a LAST RESTART that warns; the captions under a label keep theirs.
+  This is what the mock-up's patch draws ([Mock-ups](#mock-ups)).
+- **ANGLE METER's settings view has one value drawn as text,** LENGTH.
+  ALONG AXIS and SIGN show their value as the label of a neutral button,
+  `C_TEXT` on `C_PANEL`, by the same reading as SETUP's toggles, and
+  CALIBRATION's `FLIP` is a command. The widget table's "the first tab"
+  gives a cyan label on `C_PANEL` to a selected tab only.
+- **OUTPUT SET** has no change that waits: its values are `C_CYAN`, or
+  `C_GRID` while SET locks the row. SERVO SET's PULSE rows are `C_GRID`
+  while RUNNING, as before.
+- **SERVO SET's editor bar draws the rectangle.** The bar shows the
+  selected row's value alone, with no `old ->`. With cyan text for a
+  setting, a waiting value in cyan text would look the same there, so the
+  bar takes the row's cue. The widest value at scale 2, `HELI CYCLIC`, is
+  130 px of the 140 px between `-` and `+`: its rectangle is 136 px and
+  ends 2 px before each button. The rows' 4 px are not kept there.
+- **The editor bars of the device lists are not changed.** ESC SETTINGS,
+  KST SERVO and HITEC SERVO draw the new value as `C_CYAN` text under
+  `old ->`. KST SERVO and HITEC SERVO draw it in `C_CYAN` at scale 1 over
+  a soft rule's text, without the arrow, as before: no unchanged value on
+  those screens is cyan.
+- **The fit.** The rectangle ends at x 234, 5 px before the panel's edge;
+  no field list draws a scroll bar. The walk and the two sweeps above hold
+  the 4 px at the left. KST SERVO, HITEC SERVO and AM32's list have no
+  sweep over every value of every row: there the 4 px are held on the
+  frames the suite draws, not for every value a device can hold.
+- **High contrast** takes the same rules with its own `TC_CYAN`, 0, 88,
+  122: BACK and `MENU` carry white labels, a setting is dark cyan text on
+  white and a change white text on the dark cyan rectangle. `C_ONACCENT`
+  and `C_BG` are the same word there, so a probe tells the ink from the
+  screen by the rectangle around it. The table is not changed.
+- **`uiListValueColour()`** returns `C_CYAN` for a change and for a
+  setting: it is the colour of a value drawn as text with no fill, which
+  an editor bar after `old ->` and a write page use. `uiListDrawValue()`
+  is the call that tells the two apart.
+- **A pressed BACK** keeps its fill: the `C_INK` frames are the press
+  ([adaptation 13](#adaptations-to-the-small-display)).
+
+Mutations, each run against the suite and restored:
+
+| Mutation | Failing checks |
+|---|---|
+| A changed value drawn as cyan text, no rectangle | 66: the row's 6, the cue's 34, the walk's 8 and its count, 17 on ESC SETTINGS, ESC WRITE, SERVO SET, KST SERVO and HITEC SERVO |
+| The rectangle drawn, the ink left `C_CYAN` | 34: the row's 5, the cue's 18, 11 on the five screens |
+| The rectangle in `C_BLUE` | 61 |
+| The rectangle 2 px beyond the text at the sides | 20: the row's 6, the walk's 2, the sweep's `20 px`, 11 on the screens |
+| The rectangle 12 px beyond the text at the sides | 34: with the walk's "starts 4 px or more after its row's text" on SERVO SET and ESC SETTINGS |
+| The rectangle 1 px above and below the text | 16 |
+| The bar of a changed row not drawn | 12 |
+| A setting's value `C_TEXT` | 13: the row's 3, the cue's 2, SERVO SET's 7, OUTPUT SET's 1 |
+| A device's value `C_CYAN` | 11: the row's 4, ESC SETTINGS, KST SERVO, HITEC SERVO |
+| SERVO SET: a PULSE row that does not differ `Plain` while another waits | 2 |
+| SERVO SET: an applied PULSE value `Plain` | 6 |
+| SERVO SET: the SWEEP rows `Plain` | 2; none before the SHAPE case was added to `testColourRoles()` |
+| OUTPUT SET's rows `Plain` | 1 |
+| SERVO SET's editor bar draws a waiting value as cyan text | 1 |
+| BACK neutral, `C_PANEL` with `C_TEXT` | 148: the header case's 6, and "BACK is drawn live" on every screen with a header |
+| BACK cyan with a `C_TEXT` label | 143 |
+| A disabled BACK keeps the cyan fill | 58: the header cases, and "BACK is drawn disabled" on the write and leave pages |
+| The root's header draws BACK | 11 |
+| The tester's `MENU` neutral | 2 |
+| SETUP's captions `C_TEXT` | 2 |
+| SETUP: MOTOR POLES' value `C_TEXT` | 3 |
+| SETUP: SIG PIN's value `C_TEXT` | 7 |
+| SETUP: VERSION's read-only value `C_CYAN` | 2 |
+| ANGLE METER's settings view: LENGTH's value `C_TEXT` | 3 |
+| High contrast's `TC_CYAN` lighter, 0, 150, 190 | 20: the palette's word, 5 ratios of the contrast table, the cue's 14 |
+
+Left to the slices that follow: green on the tools, with the leave
+page's cyan button to the hub and START DSHOT (slice 11), green on the
+tester (slice 12), the walk over every screen's pairs (slice 13) and the
+records and "grey" (slice 14). The previews under `docs/` and `wiki/img/`
+are rendered with cyan as built here.
 
 ## Open questions
 

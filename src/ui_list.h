@@ -222,11 +222,14 @@ void uiListDraw(const UiList *l, UiListDrawFn drawRow, void *ctx);
 
 /** @brief What a field row's value is, which sets its colour. */
 enum class UiValue : uint8_t {
-	Plain,     /**< As the device holds it: `C_TEXT`. */
-	Changed,   /**< Edited and not yet written: @ref UI_COL_CHANGED. */
+	Plain,     /**< As the device holds it, on a device's list: `C_TEXT`. */
+	Changed,   /**< Edited and not yet written or applied: `C_ONACCENT` on a
+	                @ref UI_COL_CHANGED fill in a row. */
 	ReadOnly,  /**< Not editable: `C_GRID`, the label too. */
 	Odd,       /**< A value the screen cannot show as a setting, or a row
 	                that needs a repair: @ref UI_COL_WARN. */
+	Setting,   /**< A setting of the bench as it stands, on a settings list:
+	                `C_CYAN` with no fill. */
 };
 
 /** @brief The bar at a field row's left edge. */
@@ -241,7 +244,7 @@ struct UiField {
 	const char *group;     /**< Scale 1, `C_GRID`, at the row's top + 11; or null. */
 	const char *label;     /**< Scale 1 at the row's top + 21. */
 	const char *value;     /**< Right-aligned to x 231. */
-	UiValue     state;     /**< The value's colour. */
+	UiValue     state;     /**< The value's look. */
 	UiEdge      edge;      /**< The bar at the left edge. */
 	bool        selected;  /**< The row the editor bar edits. */
 };
@@ -249,31 +252,60 @@ struct UiField {
 /** @brief Widest value drawn at scale 2, px; a wider one is drawn at scale 1. */
 #define UI_FIELD_VALUE_W2 104
 /**
- * @brief The colour of a value in state @p v: `C_TEXT`, @ref UI_COL_CHANGED,
- *        `C_GRID` or @ref UI_COL_WARN. uiListDrawField() draws the value in
- *        it, and an editor bar draws the selected row's value in it too.
+ * @brief The colour of a value in state @p v, drawn as text with no fill:
+ *        `C_TEXT`, @ref UI_COL_CHANGED, `C_GRID`, @ref UI_COL_WARN or, for a
+ *        setting, `C_CYAN`. A device list's editor bar draws the selected
+ *        row's value in it, after `old ->` when it is changed. A changed
+ *        value and a setting share `C_CYAN` here: where the two can meet,
+ *        uiListDrawValue() tells them apart.
  * @param v The value's state.
  * @return The colour, from the active palette.
  */
 uint16_t uiListValueColour(UiValue v);
+
+/** @brief A changed value's fill reaches this far beyond its text at the
+ *         left and at the right, px. */
+#define UI_FIELD_FILL_DX    3
+/** @brief A changed value's fill reaches this far above and below its text,
+ *         px. */
+#define UI_FIELD_FILL_DY    2
+
+/**
+ * @brief Draw a value in its state's look (docs/design/ui-theme.md,
+ *        "Cyan"). A changed value is `C_ONACCENT` on a @ref UI_COL_CHANGED
+ *        rectangle that reaches @ref UI_FIELD_FILL_DX px beyond the text at
+ *        each side and @ref UI_FIELD_FILL_DY px above and below it; every
+ *        other state is text in uiListValueColour() with no fill. The text
+ *        is at (@p x, @p y) in every state, so a change moves no glyph. The
+ *        cue is which of ink and ground is light, in both themes.
+ * @param x     Left edge of the text.
+ * @param y     Top of the text.
+ * @param value The text.
+ * @param state The value's state.
+ * @param scale The text's scale.
+ */
+void uiListDrawValue(int x, int y, const char *value, UiValue state, int scale);
 
 /** @brief Width of a field row's edge bar, px. */
 #define UI_FIELD_EDGE_W     3
 
 /**
  * @brief Draw one field row of an editor's list (docs/design/menu-b.md,
- *        decision 8).
+ *        decision 8, as docs/design/ui-theme.md revises it).
  *
- * The rows of ESC SETTINGS, KST SERVO, HITEC SERVO and SERVO SET draw
- * through it.
+ * The rows of ESC SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT
+ * SET draw through it. A device's list passes @ref UiValue::Plain for a
+ * value as read, `C_TEXT`; a settings list passes @ref UiValue::Setting,
+ * `C_CYAN`.
  *
  * The row fills @p h - 1 px from @p y, `C_PANEL` while selected and `C_BG`
  * otherwise, with a `C_PANEL` rule on its last line. The group is at y + 11,
  * the label at y + 21, `C_TEXT` while selected and `C_DIM` otherwise, or
  * `C_GRID` for a read-only value. The value is at scale 2 while it is at most
  * @ref UI_FIELD_VALUE_W2 px wide and at scale 1 otherwise, centred in the
- * filled height and right-aligned to x 231. Selection never changes the
- * value's colour. The edge bar is @ref UI_FIELD_EDGE_W px wide at x 0, as
+ * filled height and right-aligned to x 231, drawn by uiListDrawValue(): a
+ * changed value's fill ends at x 234. Selection never changes the value's
+ * look. The edge bar is @ref UI_FIELD_EDGE_W px wide at x 0, as
  * tall as the fill.
  *
  * @param y Top of the row, which may lie outside the viewport.
