@@ -8663,9 +8663,13 @@ void runUiTests() {
 	uiDrawSplash();
 	fakeDumpFrame("shot_splash.ppm");
 
-	uiInitTester();
+	uiInit();
 	frames(4);
-	checkTrue("the tester is open after uiInit()", uiCurrentScreen() == UiScreenId::Tester);
+	checkTrue("the splash ends on MENU: open after uiInit()", uiCurrentScreen() == UiScreenId::Menu);
+	checkControlTable("MENU after the splash");
+	openTester();
+	frames(3);
+	checkTrue("its first row, ESC TESTER, opens the tester", uiCurrentScreen() == UiScreenId::Tester);
 	checkControlTable("tester, disarmed");
 	fakeDumpFrame("shot_tester_disarmed.ppm");
 

@@ -140,9 +140,9 @@ PROGRAMMER zurück.
   erkannt.
 - Solange der Tester scharf ist, zeigt der Bildschirm `DISARM FIRST`.
   Solange die Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`.
-  Beides ist über die Bildschirme nicht erreichbar: Das Öffnen von `MENU`
-  entschärft, und PROGRAMMER zeichnet seine Einträge gesperrt, solange die
-  Pins belegt sind.
+  Beides ist über die Bildschirme nicht erreichbar: Der Weg vom Tester zu
+  `MENU` entschärft, und PROGRAMMER zeichnet seine Einträge gesperrt,
+  solange die Pins belegt sind.
 
 Während der Job sich bindet, zeigt die Leiste `TAKING SIG GP0`.
 

@@ -930,7 +930,7 @@ is accepted.
    rows and scrolls 78 px.
    Revised by [menu-c.md](menu-c.md#decisions) owner decision 1 of 2026-11-15:
    MENU is the root; the tester is MENU's first row and its MENU button returns
-   there. Not built.
+   there. Built (slice 3).
 2. **BEEP.** An action row on MENU, with the sent or refused flash on the
    row.
 3. **Poles and ceiling.** Motor poles and throttle ceiling move to the top

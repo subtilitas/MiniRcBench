@@ -758,7 +758,7 @@ change.
      "Leave"; servo-tester.md "The unplug page".
    - Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15
      and decision 10: MENU, the root, draws no BACK. A tool opened from a hub
-     returns to the hub, where this decision's table says MENU. Not built.
+     returns to the hub, where this decision's table says MENU. Built (slice 3).
 6. **A tap opens the write page; only the write page holds** (item 2). On
    AM32, KST and Hitec the list's button reads `WRITE...` and opens the write
    page on a tap; the page lists every change, old -> new, and its

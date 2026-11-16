@@ -2,46 +2,52 @@
 
 # Die Bildschirme
 
-Die Firmware hat vierzehn Bildschirme. Der Tester ist die Wurzel. `MENU` öffnet
-die Liste der Werkzeuge, und jedes Werkzeug verlässt du mit `BACK`, das zu
-dem Bildschirm zurückführt, der es geöffnet hat: zu `MENU` oder zu der Wahl,
-auf der du das Werkzeug gewählt hast. ESC CONFIG öffnet die Wahl der
+Die Firmware hat vierzehn Bildschirme. `MENU` ist die Wurzel und der erste
+Bildschirm nach dem Startbildschirm: die Liste der Werkzeuge, ohne `BACK`.
+Ihre erste Zeile, `ESC TESTER`, öffnet den Tester, dessen Schaltfläche
+`MENU` zu `MENU` zurückführt. Jedes andere Werkzeug verlässt du mit `BACK`,
+das zu dem Bildschirm zurückführt, der es geöffnet hat: zu `MENU` oder zu
+der Wahl, auf der du das Werkzeug gewählt hast. ESC CONFIG öffnet die Wahl der
 ESC-Werkzeuge. SERVO PROGRAMMER öffnet PROGRAMMER, die Wahl zwischen
 dem KST- und den Hitec-Programmierern. RX SIGNALS öffnet die Wahl der
 Werkzeuge für Empfängersignale. TOOLS öffnet die Wahl der
 Prüfstand-Werkzeuge, die keinen Signalpin nutzen. SETTINGS öffnet auch über
 die Polzahl und die Obergrenze des Testers; `BACK` führt dann zum Tester
-zurück.
+zurück. DShot läuft ab dem Einschalten auf jedem Bildschirm, `MENU`
+eingeschlossen, außer solange ein Werkzeug die Signalpins hält.
 
 ```
-Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
-   ▲                    ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
-   │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
-   │                    │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> ESC CONFIG)
-   │                    │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> ESC CONFIG)
-   │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
-   │                    │        (sobald die Leitung gebunden ist: BACK──> Verlassenseite ──RESTART DSHOT──> ESC CONFIG)
-   │                    ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
-   │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
-   │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> PROGRAMMER
-   │                    │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> PROGRAMMER
-   │                    │    └── HITEC CLASSIC  ──> HITEC SERVO, wie D SERIES
-   │                    │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
-   │                    │   (ESC HEX, ESC WRITE, SET: BACK eine Ebene hoch)
-   │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
-   │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RESTART DSHOT──> RX SIGNALS
-   │                    │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> Verlassenseite ──RESTART DSHOT──> RX SIGNALS   (SET: BACK eine Ebene hoch)
-   │                    ├── TOOLS ──> TOOLS ──BACK──> MENU
-   │                    │    └── ANGLE METER ──BACK──> TOOLS   (SETUP, FLIP CAL: BACK eine Ebene hoch)
-   │                    ├── SD LOG       ──BACK──> MENU
-   │                    └── SETTINGS     ──BACK──> MENU
-   └──── BACK auf MENU ─┘
-Tester ──14 POLES oder MAX 20% (entschärft)──> SETTINGS ──BACK──> Tester
+Startbildschirm ──3 s──> MENU (die Wurzel, kein BACK)
+MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
+       │                    └── 14 POLES oder MAX 20% (entschärft) ──> SETTINGS ──BACK──> Tester
+       ├── ESC COMMANDS ──BACK──> MENU
+       ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
+       │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
+       │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> ESC CONFIG)
+       │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> ESC CONFIG)
+       │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
+       │        (sobald die Leitung gebunden ist: BACK──> Verlassenseite ──RESTART DSHOT──> ESC CONFIG)
+       ├── SERVO TESTER ──BACK──> Verlassenseite ──RESTART DSHOT──> MENU
+       ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
+       │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> PROGRAMMER
+       │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> Verlassenseite ──LEAVE, RESTART DSHOT──> PROGRAMMER
+       │    └── HITEC CLASSIC  ──> HITEC SERVO, wie D SERIES
+       │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
+       │   (ESC HEX, ESC WRITE, SET: BACK eine Ebene hoch)
+       ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
+       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RESTART DSHOT──> RX SIGNALS
+       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> Verlassenseite ──RESTART DSHOT──> RX SIGNALS   (SET: BACK eine Ebene hoch)
+       ├── TOOLS ──> TOOLS ──BACK──> MENU
+       │    └── ANGLE METER ──BACK──> TOOLS   (SETUP, FLIP CAL: BACK eine Ebene hoch)
+       ├── SD LOG       ──BACK──> MENU
+       └── SETTINGS     ──BACK──> MENU
 ```
 
-**BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer dem
-Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Der Tester ist
-die Wurzel und hat keinen Kopfbereich. Auf der Verlassenseite von SERVO TESTER,
+**BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer `MENU`
+und dem Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px.
+`MENU` ist die Wurzel: Sein Kopfbereich zeigt `MENU` und kein `BACK`, denn
+dahinter liegt nichts. Der Tester hat keinen Kopfbereich; seine Schaltfläche
+`MENU` ist sein Weg zurück. Auf der Verlassenseite von SERVO TESTER,
 KST SERVO, HITEC SERVO, S.BUS MONITOR und ESC SETTINGS ist `BACK` deaktiviert
 gezeichnet, als Umriss mit grauer Beschriftung, und ein Tippen darauf bewirkt
 nichts: Jeder Weg weiter ist eine beschriftete Taste, `STAY`, `NEXT SERVO`,
@@ -94,6 +100,13 @@ und `WRITE FAILED` bei AM32.
 ## Der Tester
 
 <img src="img/tester-armed.png" width="240" alt="Tester-Bildschirm">
+
+Die erste Zeile von `MENU`, `ESC TESTER`, öffnet den Tester. Er öffnet
+**entschärft**, mit Gas 0 und `LATCH` aus, jedes Mal. Er hat keinen
+Kopfbereich: Seine Schaltfläche `MENU` unten rechts führt zu `MENU` zurück
+und entschärft vorher, setzt das Gas auf 0 und schaltet `LATCH` aus.
+Solange die Signalpins belegt sind, ist die Zeile `ESC TESTER` als Umriss
+gezeichnet, und ein Tippen darauf öffnet nichts.
 
 **Obere Zeile.** Von links nach rechts:
 
@@ -230,11 +243,11 @@ dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
-öffnet SETTINGS. Das Tippen entschärft wie `MENU`, und `BACK` in SETTINGS
-führt zum Tester zurück. Scharf verschwindet die Unterstreichung, `KV EST`
-nimmt den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die Polzahl
-liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also
-steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
+öffnet SETTINGS. Das Tippen entschärft wie die Schaltfläche `MENU`, und `BACK`
+in SETTINGS führt zum Tester zurück. Scharf verschwindet die Unterstreichung,
+`KV EST` nimmt den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die
+Polzahl liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens,
+also steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
 startet, verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts,
 so wie `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
 einnimmt, öffnet nur `MAX` SETTINGS. Entschärft ist der Hinweis
@@ -284,8 +297,11 @@ Punkt 23.
 
 <img src="img/menu.png" width="240" alt="Der MENU-Bildschirm">
 
-Erreichbar über die Schaltfläche `MENU` des Testers. Das Öffnen **entschärft**,
-setzt das Gas auf 0 und schaltet `LATCH` aus.
+Der erste Bildschirm nach dem Startbildschirm und die Wurzel: Der
+Kopfbereich zeigt `MENU` und kein `BACK`. Die Schaltfläche `MENU` des
+Testers führt hierher zurück und **entschärft** vorher, setzt das Gas auf 0
+und schaltet `LATCH` aus. DShot läuft ab dem Einschalten hinter `MENU`,
+daher liest das Feld in der Leiste die Telemetrie des ESC.
 
 Unter dem Titel nennt eine Leiste die beiden Signalpins, SIG für den ESC und
 AUX für das KISS-Kabel oder ein zweites Servo, und die DShot-Rate, zum
@@ -311,22 +327,24 @@ jeden ESC, der zu antworten beginnt, und wiederholt sie jede Sekunde, solange
 eRPM eintrifft und EDT nicht. Der ESC bestätigt die Freigabe nicht, daher zeigt
 das Feld *empfangene Frames*, nicht gesendete Befehle.
 
-Unter der Leiste steht eine Liste mit acht Zeilen von 40 px Höhe und 42 px
-Abstand, geordnet nach dem, was am Signalpin hängt: der ESC, ein Servo, dann
-der Prüfstand. Jede Zeile zeigt links ihren Namen und rechts ihren Zustand;
-die Zeile eines Werkzeugs zeigt keinen, denn die Leiste nennt die Pins.
-`BACK` führt zum Tester zurück.
+Unter der Leiste steht eine Liste mit neun Zeilen von 40 px Höhe und 42 px
+Abstand: zuerst `ESC TESTER`, dann geordnet nach dem, was am Signalpin
+hängt: der ESC, ein Servo, dann der Prüfstand. Jede Zeile zeigt links ihren
+Namen und rechts ihren Zustand; die Zeile eines Werkzeugs zeigt keinen, denn
+die Leiste nennt die Pins.
 
-**Verschieben.** Sechs Zeilen passen auf den Bildschirm. TOOLS ist die
-sechste, ganz sichtbar und ohne Ziehen antippbar. Von der siebten, SD LOG,
-sind zuerst nur 6 px sichtbar; ziehe MENU um 34 px nach oben, um sie ganz zu
-sehen. Die achte, SETTINGS, beginnt unter dem Bildschirm: Ziehe MENU um
-76 px nach oben, um SETTINGS mit seinem Zustand `UNSAVED` ganz zu sehen.
+**Verschieben.** Sechs Zeilen passen auf den Bildschirm. RX SIGNALS ist die
+sechste, ganz sichtbar und ohne Ziehen antippbar. Von der siebten, TOOLS,
+sind zuerst nur 6 px sichtbar; ziehe MENU um 36 px nach oben, um sie ganz zu
+sehen. Die achte, SD LOG, ist nach 78 px ganz sichtbar. Die neunte,
+SETTINGS, beginnt unter dem Bildschirm: Ziehe MENU um 120 px nach oben, um
+SETTINGS mit seinem Zustand `UNSAVED` ganz zu sehen.
 Eine Zeile nimmt ein Tippen nur an, solange sie ganz sichtbar ist. Ein
 3 px breiter Rollbalken am rechten Rand zeigt die Lage.
 
 | Zeile | Zustand rechts | Ein Tippen |
 |---|---|---|
+| **ESC TESTER** | nichts | Öffnet den Tester, entschärft, mit Gas 0 und `LATCH` aus. Siehe [Der Tester](#der-tester) |
 | **ESC COMMANDS** | nichts | Öffnet ESC COMMANDS: die DShot-Beacons, die Drehrichtung und den 3D-Modus. Siehe [ESC COMMANDS](#esc-commands) |
 | **ESC CONFIG** | nichts | Öffnet ESC CONFIG, die Wahl der ESC-Werkzeuge. Siehe [ESC CONFIG](#esc-config) |
 | **SERVO TESTER** | nichts | Öffnet den Servotester |
@@ -338,12 +356,12 @@ Eine Zeile nimmt ein Tippen nur an, solange sie ganz sichtbar ist. Ein
 
 Solange die Signalpins noch belegt sind, zum Beispiel während DShot nach dem
 Servotester, dem KST-Programmierer oder dem Hitec-Programmierer neu startet,
-zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC COMMANDS,
-SERVO TESTER und SETTINGS sind dann als Umriss unter ihrem üblichen Zustand
-gezeichnet, und ein Tippen auf eine solche Zeile öffnet nichts. Sie wirken
-wieder, sobald DShot läuft. SD LOG belegt keinen Pin und bleibt bedienbar.
-ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS und TOOLS öffnen wie immer; die
-Wahl zeichnet ihre Einträge so lange als Umriss, mit derselben
+zeigt die Leiste `DSHOT RESTARTING ON SIG GP0` in Bernstein. ESC TESTER, ESC
+COMMANDS, SERVO TESTER und SETTINGS sind dann als Umriss unter ihrem üblichen
+Zustand gezeichnet, und ein Tippen auf eine solche Zeile öffnet nichts. Sie
+wirken wieder, sobald DShot läuft. SD LOG belegt keinen Pin und bleibt
+bedienbar. ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS und TOOLS öffnen wie immer;
+die Wahl zeichnet ihre Einträge so lange als Umriss, mit derselben
 Bernstein-Zeile in ihrer Leiste.
 
 <img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, SERVO TESTER und SETTINGS als Umriss, SERVO PROGRAMMER, RX SIGNALS und TOOLS gefüllt">

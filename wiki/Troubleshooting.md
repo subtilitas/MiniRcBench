@@ -28,8 +28,8 @@ it as described under [Still stuck](#still-stuck).
 
 `TOUCH CONTROLLER NOT FOUND` in amber on the splash means the touch
 controller did not answer the firmware at power-up. The line goes as soon
-as it answers. If it is still there when the tester appears, touch did not
-answer during the splash; the tester keeps reading it, and a controller
+as it answers. If it is still there when `MENU` appears, touch did not
+answer during the splash; the firmware keeps reading it, and a controller
 that answers later works. If taps still do nothing, try the steps below.
 After an update that reset the settings, it shows under the two settings
 lines.
@@ -149,7 +149,8 @@ Four interlocks stop the motor, and each one shows on screen:
   lying on the glass counts as a contact.
   `IDLE ns` counts down in the top right during the last 5 s. The backlight
   dims briefly when it disarms.
-- **Opening `MENU`.** Opening it always disarms.
+- **The tester's `MENU` button.** Leaving the tester for `MENU` always
+  disarms.
 - **Touch not answering.** Four failed reads of the touch controller in
   a row, over 100 ms or more, disarm an armed tester.
   `TOUCH NOT ANSWERING` shows in amber under the RPM readout until it
@@ -272,7 +273,7 @@ They were not saved, or new firmware could not read the settings layout in
 flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
-`UNSAVED` on its `SETTINGS` row, the last: drag `MENU` up 76 px to see it.
+`UNSAVED` on its `SETTINGS` row, the last: drag `MENU` up 120 px to see it.
 
 The firmware stores its settings in layout version 6. Settings an earlier
 firmware saved in layout version 2, 3, 4 or 5, DshotDisplay 2.x's among them,
