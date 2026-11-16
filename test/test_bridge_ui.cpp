@@ -517,14 +517,14 @@ static void testBackStates() {
 	brFrames(1);
 	fakeRelease();
 	framesNoPump(1);
-	const int resumes = fakeResumeCount();
+	const int resumes = fakeParkCount();
 	const UiRect back = uiBackRect();
 	fakePress(back.x + 10, back.y + 10);
 	framesNoPump(1);
 	fakeRelease();
 	framesNoPump(1);
-	checkTrue("BACK while Stopping: ESC CONFIG, DShot asked back at once",
-	          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1 &&
+	checkTrue("BACK while Stopping: ESC CONFIG, parked at once",
+	          uiCurrentScreen() == UiScreenId::EscConfig && fakeParkCount() == resumes + 1 &&
 	          fakeBridgeLineOpens() == 0);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	brFrames(4);
@@ -571,11 +571,11 @@ static void testBackStates() {
 	tapId(UI_FIX(EscCfgCtl::Bridge));
 	brFrames(4);
 	checkTrue("a refused clock: (CLOCK)", msgIs(0, "SIG GP0 COULD NOT BE TAKEN (CLOCK)", C_AMBER));
-	const int r2 = fakeResumeCount();
+	const int r2 = fakeParkCount();
 	fakeAdvance(600);   // the stamp is stale on MENU: NO ESC, the cue's line shows
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from a failed bind: ESC CONFIG, DShot asked back", uiCurrentScreen() == UiScreenId::EscConfig &&
-	          fakeResumeCount() == r2 + 1);
+	checkTrue("BACK from a failed bind: ESC CONFIG, parked", uiCurrentScreen() == UiScreenId::EscConfig &&
+	          fakeParkCount() == r2 + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	brFrames(4);
 	checkTrue("  the bind never ran, an eRPM frame from before the claim: the cue stands, MENU warns",

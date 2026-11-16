@@ -65,6 +65,15 @@ static void hubFrames(int n) {
 #define UI_IDS_FRAMES(n) hubFrames(n)
 #include "ui_ids.h"
 
+/** @brief Whether any pixel of the rectangle is not `C_BG`. */
+static bool inkIn(int x, int y, int w, int h) {
+	const uint16_t *fb = gfxBuffer();
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (fb[j * GFX_W + i] != C_BG) return true;
+	return false;
+}
+
 /** @brief The tester, from a fresh boot with the compiled defaults. */
 static void freshTester() {
 	// A claim outlives uiInitTester(); let the last test's claim end first.
@@ -611,7 +620,13 @@ static void testHubClaimGate() {
 		char strip[48];
 		c.hub->strip(strip, sizeof(strip));
 		snprintf(what, sizeof(what), "%s: the strip its own again, dim", c.name);
-		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		checkTrue(what, fakeTextIs(UI_MARGIN, c.hub->warn ? UI_STRIP_LINE1_Y : UI_STRIP_Y + 4, strip,
+		                           C_DIM, C_BG, 1));
+		snprintf(what, sizeof(what), "%s: the second line %s", c.name,
+		         c.hub->warn ? "NO ESC CHECK: UNPLUG ANY ESC FIRST., amber" : "blank");
+		checkTrue(what, c.hub->warn ? fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, UI_HUB_NO_ESC_CHECK, C_AMBER,
+		                                         C_BG, 1)
+		                            : !inkIn(0, UI_STRIP_LINE2_Y, GFX_W, 7));
 		checkTrue("BACK: MENU, then the tester", backToTester());
 	}
 	setSupply(0);
@@ -653,14 +668,6 @@ static void testNavDepth() {
 // SERVO, the hub that scrolls (docs/design/menu-c.md, slice 4)
 // ---------------------------------------------------------------------------
 
-/** @brief Whether any pixel of the rectangle is not `C_BG`. */
-static bool inkIn(int x, int y, int w, int h) {
-	const uint16_t *fb = gfxBuffer();
-	for (int j = y; j < y + h; j++)
-		for (int i = x; i < x + w; i++)
-			if (fb[j * GFX_W + i] != C_BG) return true;
-	return false;
-}
 
 /** @brief Whether the hub's line at @p y reads @p text from x 8 in @p col. */
 static bool hubLine(int y, const char *text, uint16_t col) {
@@ -689,6 +696,13 @@ static void scrollHubTo(int px) {
 	}
 }
 
+/** @brief Pixels of @p c from row @p y0 to the panel's foot: the hub's body, under the strip. */
+static int colourBelow(uint16_t c, int y0) {
+	int n = 0;
+	for (int i = y0 * GFX_W; i < GFX_W * GFX_H; i++) n += gfxBuffer()[i] == c;
+	return n;
+}
+
 /**
  * @brief SERVO: five entries, 404 px of content in the 258 px under the
  *        strip, a range of 146 px. At scroll 0 three entries are whole and
@@ -715,7 +729,7 @@ static void testServoScroll() {
 	char own[48];
 	snprintf(own, sizeof(own), "SIG GP%u  AUX GP%u  SERVO SUPPLY OWN", (unsigned)settings()->dshotPin,
 	         (unsigned)settings()->kissPin);
-	checkTrue("the strip at OWN: SIG GP0  AUX GP1  SERVO SUPPLY OWN, dim", hubLine(UI_STRIP_Y + 4, own, C_DIM));
+	checkTrue("the strip at OWN: SIG GP0  AUX GP1  SERVO SUPPLY OWN, dim", hubLine(UI_STRIP_LINE1_Y, own, C_DIM));
 	checkTrue("the strip at its widest, 35 characters, 209 px, ends at x 217",
 	          strlen("SIG GP0  AUX GP1  SERVO SUPPLY GP28") == 35 &&
 	          gfxTextW("SIG GP0  AUX GP1  SERVO SUPPLY GP28", 1) == 209 && UI_MARGIN + 209 == 217);
@@ -828,7 +842,7 @@ static void testServoScroll() {
 	}
 	checkTrue("the header and the strip stay: the list is clipped under them",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO", C_TEXT, C_PANEL, 2) &&
-	          hubLine(UI_STRIP_Y + 4, own, C_DIM));
+	          hubLine(UI_STRIP_LINE1_Y, own, C_DIM));
 	checkControlTable("SERVO at 146 px");
 	fakeDumpFrame("shot_servo_hub_scrolled.ppm");
 	tapId(HUB_ENTRY(4), IdExpect::Disabled);
@@ -874,12 +888,12 @@ static void testServoScroll() {
 		char strip[48];
 		snprintf(strip, sizeof(strip), "SIG GP%u  AUX GP%u  SERVO SUPPLY GP%u", (unsigned)settings()->dshotPin,
 		         (unsigned)settings()->kissPin, (unsigned)servoSupplyPinOf(1));
-		checkTrue("the strip names the supply's pin", hubLine(UI_STRIP_Y + 4, strip, C_DIM));
+		checkTrue("the strip names the supply's pin", hubLine(UI_STRIP_LINE1_Y, strip, C_DIM));
 	}
 	revealEntry(4);
 	checkTrue("HITEC CLASSIC with the supply: whole, live, its power line in the why lines' place",
 	          ctlEnabled(HUB_ENTRY(4)) && buttonIs(uiHubEntryRect(4), "HITEC CLASSIC", true) &&
-	          fakeCountColour(C_AMBER) == 0);
+	          colourBelow(C_AMBER, UI_BODY_Y) == 0);
 	checkTrue("BACK: MENU, then the tester", backToTester());
 
 	// The two hubs that fill the page do not scroll.

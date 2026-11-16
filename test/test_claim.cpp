@@ -1350,6 +1350,7 @@ static void testAm32Screen() {
 	checkInt("the transport gets the pin the claim latched", fakeAm32Pin(),
 	         escTaskDshotPin());
 	checkTrue("no core1 job", core1JobRunning() == Core1Job::None);
+	resumes = fakeParkCount();
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from AM32 returns to ESC CONFIG, its opener",
 	          uiCurrentScreen() == UiScreenId::EscConfig);
@@ -1609,7 +1610,8 @@ static void testParkPlan() {
 static void testParkDrain() {
 	section("DShot modes: Park drains, then parks");
 
-	uiInitTester();
+	uiInitMenu();
+	escTaskStart();  // the pump alone, no claim: Run
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1678,7 +1680,8 @@ static void testParkDrain() {
 static void testParkReleaseRun() {
 	section("DShot modes: Release and Run from Park");
 
-	uiInitTester();
+	uiInitMenu();
+	escTaskStart();  // the pump alone, no claim: Run
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1739,7 +1742,8 @@ static void watchSigDriven(uint32_t) {
 static void testParkAlreadyLow() {
 	section("DShot modes: parking a SIG that is already low");
 
-	uiInitTester();
+	uiInitMenu();
+	escTaskStart();  // the pump alone, no claim: Run
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1779,7 +1783,8 @@ static void testParkAlreadyLow() {
 static void testParkJobGuard() {
 	section("DShot modes: a job never binds on a parked pin");
 
-	uiInitTester();
+	uiInitMenu();
+	escTaskStart();  // the pump alone, no claim: Run
 	freshPump();
 	installJobs();
 	checkTrue("parked", toParked());
@@ -1804,7 +1809,8 @@ static void testParkJobGuard() {
 static void testParkWiring() {
 	section("DShot modes: a wiring change");
 
-	uiInitTester();
+	uiInitMenu();
+	escTaskStart();  // the pump alone, no claim: Run
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1868,7 +1874,8 @@ static void testParkWiring() {
 static void testTeardownError() {
 	section("DShot modes: a teardown clears initError");
 
-	uiInitTester();
+	uiInitMenu();
+	escTaskStart();  // the pump alone, no claim: Run
 	freshPump();
 	removeJobs();
 	EscTelemetry t;
@@ -1906,7 +1913,8 @@ static void configureOnWrite(uint32_t) {
 static void testConfigureMidway() {
 	section("DShot modes: a configure during a bind or a park");
 
-	uiInitTester();
+	uiInitMenu();
+	escTaskStart();  // the pump alone, no claim: Run
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1945,7 +1953,7 @@ static void boundInBind() { g_boundInBind = escTaskBoundMs(); }
 static void testBoundMs() {
 	section("DShot modes: the bind stamp");
 
-	uiInitTester();
+	uiInitMenu();
 	fakePumpPowerOn();
 	checkInt("0 before the first bind", escTaskBoundMs(), 0);
 	checkTrue("and no mode reported",

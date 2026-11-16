@@ -392,9 +392,12 @@ static void testCoreStops() {
 
 /** @brief The wiring, the pump bound and past any drain, no ESC, no KISS. */
 static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
-	// A hub's frame: Run not wanted, so a claim is not Busy
-	// (docs/design/dshot-lifetime.md).
+	// Run not wanted, so a claim is not Busy (docs/design/dshot-lifetime.md).
+	// The pump itself runs, as a claim found it before slice D2: the job's
+	// own pad writes are under test here, and the fake's teardown writes no
+	// pad. A claim from the parked pump is tested in test_claim.cpp.
 	pinClaimDshot(false);
+	escTaskStart();
 	escTaskConfigure(sig, 600, kiss, aux);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -402,6 +405,8 @@ static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
 	fakePumpPoll();
 	fakeAdvance(1000);
 	fakePumpPoll();
+	// The pads the pump's park or bind wrote are not the job's.
+	fakePinsReset();
 }
 
 /** @brief SIG as the pump's teardown leaves it: an SIO input with the pull-up (esc_task.cpp). */
@@ -597,7 +602,8 @@ static void testJobBind() {
 	checkInt("SAFE for 100 ms: no character on the wire", fakeUartTxCount(), 0);
 	checkTrue("GP0 still bound, inverted", fakePin(0).ctrl == CTRL_UART_INV);
 	checkTrue("back to free", claimEnd());
-	checkTrue("GP0 let go low", gp0Released());
+	checkTrue("GP0 parked: SIG driven low", fakePin(0).function == GPIO_FUNC_SIO &&
+	          fakePin(0).outover == GPIO_OVERRIDE_NORMAL && fakePin(0).output && !fakePin(0).high);
 	checkTrue("still never on the UART without the inversion", neverUartPlain());
 
 	// A command sent before the bind is not taken.
@@ -825,7 +831,7 @@ static void testJobRelease() {
 	pinClaimRelease(PinUser::SbusOut);
 	fakePumpPoll();
 	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
-	checkTrue("the job was idle before DShot resumed", fakeResumeJobIdle());
+	checkTrue("the job was idle before the park", fakeParkJobIdle());
 
 	// A transmitter that never sends: the next frame waits for TXFE.
 	freshPump(0, 1);

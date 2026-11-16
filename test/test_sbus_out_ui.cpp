@@ -1112,10 +1112,10 @@ static void testLeave() {
 	checkTrue("975 ms after: RESTART DSHOT still waits", !ctlEnabled(UI_FIX(SbusOutCtl::Release)));
 	soFrames(1);
 	checkTrue("1000 ms: it acts", ctlEnabled(UI_FIX(SbusOutCtl::Release)));
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 	tapId(UI_FIX(SbusOutCtl::Release));
-	checkTrue("RESTART DSHOT: RX SIGNALS, DShot resumed with the job idle",
-	          uiCurrentScreen() == UiScreenId::RxSignals && fakeResumeCount() == resumes + 1 && fakeResumeJobIdle());
+	checkTrue("RESTART DSHOT: RX SIGNALS, the pins parked with the job idle",
+	          uiCurrentScreen() == UiScreenId::RxSignals && fakeParkCount() == resumes + 1 && fakeParkJobIdle());
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	soFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
@@ -1318,9 +1318,9 @@ static void testUnavailable() {
 	checkTrue("then SAFE, the caption AUX GP0", toSafe() && leftIs(UI_STRIP_Y + 4, "AUX GP0  100 KBAUD  8E2", C_DIM));
 	tapId(UI_FIX(UI_BACK));
 	soFrames(1);
-	checkTrue("its leave page: SIG GP1  AUX GP0, DSHOT RESTARTS ON SIG GP1.",
+	checkTrue("its leave page: SIG GP1  AUX GP0, ESC TESTER SENDS DSHOT ON SIG GP1.",
 	          leftIs(UI_STRIP_Y + 4, "SIG GP1  AUX GP0", C_DIM) &&
-	          leaveStepIs(78, 0, "DSHOT RESTARTS ON SIG GP1.", true));
+	          leaveStepIs(78, 0, "ESC TESTER SENDS DSHOT ON SIG GP1.", true));
 	checkTrue("back to MENU", leaveToMenu());
 	openTester();
 
@@ -1432,8 +1432,8 @@ static void testUnavailable() {
 	fakeAdvance(25);
 	core1JobPoll();
 	uiTick();
-	checkTrue("BACK while Stopping: RX SIGNALS, DShot resumed", uiCurrentScreen() == UiScreenId::RxSignals &&
-	          fakePinReturned());
+	checkTrue("BACK while Stopping: RX SIGNALS, the pins parked", uiCurrentScreen() == UiScreenId::RxSignals &&
+	          !fakePinReturned());
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	soFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);

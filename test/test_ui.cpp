@@ -1674,6 +1674,14 @@ static bool menuStatusIs(const UiRect &r, const char *text, uint16_t col, uint16
  *        `C_GRID` it is the neutral chip: the frame, `C_BG` inside, a
  *        `C_DIM` label.
  */
+/** @brief Whether every pixel of the rectangle is @p c. */
+static bool allOf(int x, int y, int w, int h, uint16_t c) {
+	for (int j = y; j < y + h; j++)
+		for (int i = x; i < x + w; i++)
+			if (gfxBuffer()[j * GFX_W + i] != c) return false;
+	return true;
+}
+
 static bool menuChipIs(const char *text, uint16_t fill) {
 	if (fill == C_GRID) return neutralChipIs(text);
 	const int w = gfxTextW(text, 1) + 12, x = GFX_W - UI_MARGIN - w;
@@ -1682,16 +1690,14 @@ static bool menuChipIs(const char *text, uint16_t fill) {
 }
 
 /**
- * @brief MENU's EDT chip tracks reception, and a row opens its page on
- *        release.
+ * @brief MENU draws no EDT chip, and a row opens its page on release.
  *
- * The EDT chip on the strip is read-only. There is no enable button any more:
- * the firmware sends one to each ESC as it appears, so the control was for
- * something already handled. What remains is worth showing, because "green"
- * and "all four telemetry tiles read --" are the same fact.
+ * DShot is parked on MENU (docs/design/dshot-lifetime.md, slice D2), so an
+ * EDT chip there would read nothing; ESC COMMANDS keeps it (menu-c.md,
+ * decision 12).
  */
 static void testMenuChip() {
-	section("MENU: the EDT chip and a row's release");
+	section("MENU: no EDT chip, and a row's release");
 
 	feedLiveTelemetry();
 	tapId(UI_FIX(TesterCtl::Menu));          // into MENU (this force-disarms)
@@ -1699,71 +1705,39 @@ static void testMenuChip() {
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	const UiRect cmds = ctlRect(menuRow(&UI_ESC_CONFIG));
 	const UiRect logs = ctlRect(menuRow(&UI_SDLOG));
-	uint32_t chipOn = fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H);
 	checkTrue("ESC CONFIG is the second row, its label at scale 2 from x 16, 118 px, its mark at x 213",
 	          uiMenuRowOf(&UI_ESC_CONFIG) == 1 && cmds.y == 104 &&
 	          fakeTextIs(16, cmds.y + 13, "ESC CONFIG", C_TEXT, C_PANEL, 2) &&
 	          gfxTextW("ESC CONFIG", 2) == 118 &&
 	          fakeTextIs(UI_MENU_MARK_X, cmds.y + 13, ">", C_CYAN, C_PANEL, 2));
-	fakeDumpFrame("shot_menu_edt_on.ppm");
-
-	checkTrue("EDT frames: the chip reads EDT ON, green", menuChipIs(UI_MENU_EDT_ON, C_GREEN));
-
-	// Letting telemetry expire has to change the chip, or the colour is
-	// decoration rather than a readout.
-	EscTelemetry none;
-	memset(&none, 0, sizeof(none));
-	fakeSetTelemetry(&none);
-	frames(2);
-	checkTrue("EDT chip changes when telemetry stops",
-	          fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H) != chipOn);
-	// No ESC is the normal state of a bench with nothing plugged in: no
-	// alarm red, a dim NO ESC.
-	checkTrue("no eRPM: NO ESC, the neutral chip: frame, C_BG inside, C_DIM label",
-	          menuChipIs(UI_MENU_NO_ESC, C_GRID));
-	checkTrue("and no label in the ink of a fill",
-	          !fakeTextIs(uiChipX(UI_MENU_NO_ESC) + 6, UI_STRIP_Y + 4, UI_MENU_NO_ESC, C_ONACCENT, C_GRID, 1));
-	checkTrue("and not EDT OFF in red", !menuChipIs(UI_MENU_EDT_OFF, C_RED));
-	fakeDumpFrame("shot_menu_no_esc.ppm");
-
-	// An ESC that answers eRPM and sends no EDT: that is the red state.
+	// EDT frames arrive, as the telemetry block held them when the tester
+	// closed: MENU shows no chip for them, and the strip's right end is
+	// the background.
+	checkTrue("EDT frames: no chip, EDT ON nowhere on the strip",
+	          !menuChipIs(UI_MENU_EDT_ON, C_GREEN) &&
+	          allOf(170, UI_STRIP_Y, GFX_W - 170, UI_STRIP_H, C_BG));
 	EscTelemetry rpmOnly;
 	memset(&rpmOnly, 0, sizeof(rpmOnly));
 	rpmOnly.erpm = 84210;
 	rpmOnly.lastRpmMs = millis();
-	rpmOnly.packetRate = 998;
 	fakeSetTelemetry(&rpmOnly);
 	frames(2);
-	checkTrue("eRPM without EDT: the chip reads EDT OFF, red", menuChipIs(UI_MENU_EDT_OFF, C_RED));
-	fakeDumpFrame("shot_menu_edt_off.ppm");
-	// 500 ms (ESC_LINK_STALE_MS) after the last eRPM frame it is NO ESC again.
-	rpmOnly.lastRpmMs = millis();
-	fakeSetTelemetry(&rpmOnly);
-	frameAfter(ESC_LINK_STALE_MS - 1);
-	checkTrue("eRPM 499 ms old: still EDT OFF", menuChipIs(UI_MENU_EDT_OFF, C_RED));
-	frameAfter(1);
-	checkTrue("eRPM 500 ms old: NO ESC, the neutral chip", menuChipIs(UI_MENU_NO_ESC, C_GRID));
-	// The widest text the chip shows keeps clear of the strip's caption,
-	// `SIG GP1  AUX GP0  DSHOT1200` at its widest on this board, whose
-	// signal pins are GP0 and GP1: 27 characters from x 8.
-	checkTrue("the widest chip clears the widest caption",
-	          UI_MARGIN + gfxTextW("SIG GP1  AUX GP0  DSHOT1200", 1) + 4 <=
-	              GFX_W - UI_MARGIN - gfxTextW(UI_MENU_EDT_OFF, 1) - 12);
-	checkTrue("and the caption while DShot restarts",
-	          UI_MARGIN + gfxTextW("DSHOT RESTARTING ON SIG GP1", 1) + 4 <=
-	              GFX_W - UI_MARGIN - gfxTextW(UI_MENU_EDT_OFF, 1) - 12);
+	checkTrue("eRPM without EDT: no chip", !menuChipIs(UI_MENU_EDT_OFF, C_RED) &&
+	          allOf(170, UI_STRIP_Y, GFX_W - 170, UI_STRIP_H, C_BG));
+	EscTelemetry none;
+	memset(&none, 0, sizeof(none));
+	fakeSetTelemetry(&none);
+	frames(2);
+	checkTrue("no eRPM: no chip", !menuChipIs(UI_MENU_NO_ESC, C_GRID) &&
+	          allOf(170, UI_STRIP_Y, GFX_W - 170, UI_STRIP_H, C_BG));
+	checkTrue("DShot parked on MENU", escTaskParked() && !uiDshotWanted());
 	feedLiveTelemetry();
 	frames(2);
-	checkTrue("and changes back when it returns",
-	          fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H) == chipOn);
 
-	// The chip is not a button. Tapping it must not be mistaken for one. It
-	// lives on the strip under the title, not in the header: the header's
-	// right-hand end is BACK's on every screen. The chip is drawn on the
-	// strip, not a control, so the tap is a point.
+	// The strip is not a button: a tap where the chip stood does nothing.
 	int beepBefore = fakeBeepRequests();
 	tap(200, UI_STRIP_Y + UI_STRIP_H / 2);
-	checkInt("tapping the chip does nothing", fakeBeepRequests(), beepBefore);
+	checkInt("tapping the strip does nothing", fakeBeepRequests(), beepBefore);
 
 	// A row opens its page on release, and sends nothing itself: ESC
 	// CONFIG's row its hub, whose first entry opens ESC COMMANDS.
@@ -4187,7 +4161,7 @@ static void testHitBoundaries() {
  *
  * A row whose screen opens only while the pins are free, ESC TESTER or
  * SETTINGS, is drawn disabled under its own status while the claim is not
- * Free, as for the time Restoring takes after RESTART DSHOT, and the strip
+ * Free, as for the time Parking takes after the leave page, and the strip
  * says why: its control is gated on the same value, and a tap opens nothing
  * and claims nothing. A hub's row is never refused: the hub draws the
  * entries that claim disabled. SERVO TESTER opens from the hub SERVO and
@@ -4254,7 +4228,7 @@ static void testMenuDestinations() {
 	checkTrue("SERVO's row carries >", markIs(&UI_SERVO_HUB_SCREEN, C_CYAN, C_PANEL));
 	checkTrue("RX SIGNALS' row carries >", markIs(&UI_RX_SIGNALS, C_CYAN, C_PANEL));
 
-	// Another claim holds the pins, as Restoring does after RESTART DSHOT:
+	// Another claim holds the pins, as Parking does after the leave page:
 	// the rows that need the pins free are drawn disabled and do not act.
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
@@ -4266,11 +4240,10 @@ static void testMenuDestinations() {
 	          pixelIn(&UI_ESC_CONFIG) == C_PANEL && markIs(&UI_ESC_CONFIG, C_CYAN, C_PANEL));
 	checkTrue("ESC TESTER, whose DShot needs the pin, drawn disabled, no status",
 	          pixelIn(&UI_TESTER) == C_BG && rightBlank(&UI_TESTER, C_BG));
-	char restarting[40];
-	snprintf(restarting, sizeof(restarting), "DSHOT RESTARTING ON SIG GP%u",
-	         (unsigned)settings()->dshotPin);
-	checkTrue("the strip says why, in amber",
-	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, restarting, C_AMBER, C_BG, 1));
+	char busy[40];
+	snprintf(busy, sizeof(busy), "RELEASING SIG GP%u", (unsigned)settings()->dshotPin);
+	checkTrue("the strip says why, in amber: RELEASING SIG GP0",
+	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, busy, C_AMBER, C_BG, 1));
 	checkTrue("ESC TESTER is gated, ESC CONFIG acts",
 	          ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !ctlEnabled(menuRow(&UI_TESTER)));
 	checkTrue("SERVO, a hub, drawn live and acting",
@@ -4342,13 +4315,13 @@ static void testMenuDestinations() {
 	core1JobPoll();
 	frames(1);
 	checkTrue("BACK: the leave page, the pins let go", pinClaimUnplugDue());
-	// RESTART DSHOT takes a press 1000 ms after the release.
+	// The last button, SERVO, takes a press 1000 ms after the release.
 	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(ServoCtl::Release)); k++) frames(1);
-	tapId(UI_FIX(ServoCtl::Release));   // RESTART DSHOT
+	tapId(UI_FIX(ServoCtl::Release));   // SERVO
 	frames(2);
-	checkTrue("RESTART DSHOT: DShot back, SERVO up, its entry live again",
-	          pinClaimState() == ClaimState::Free && ctlEnabled(HUB_ENTRY(0)));
-	checkTrue("RESTART DSHOT leaves to SERVO, the hub", uiCurrentScreen() == UiScreenId::ServoHub);
+	checkTrue("SERVO: the pins parked, no DShot, its entry live again",
+	          pinClaimState() == ClaimState::Free && escTaskParked() && ctlEnabled(HUB_ENTRY(0)));
+	checkTrue("SERVO leaves to SERVO, the hub", uiCurrentScreen() == UiScreenId::ServoHub);
 	tapId(UI_FIX(UI_BACK));
 	frames(1);
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
@@ -5064,22 +5037,17 @@ static void testTesterReadouts() {
 	checkTrue("disarmed: the underlines are back",
 	          !uiArmed() && underlined(10, 122, "14 POLES") && underlined(88, 244, "MAX 20%"));
 
-	// --- another claim holds the pins: inert, no underline ---
-	checkTrue("another claim holds the pins",
-	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	// --- no claim reaches the tester: Run is wanted while it is open, so a
+	// claim is refused as Busy and the readouts stay live (the claim's gate
+	// on them, uiPinsRefuse(), is a backstop no route reaches) ---
+	checkTrue("a claim on the open tester: busy",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::Busy);
 	frames(2);
-	checkTrue("claim busy: no underline", noTextOn(122, 4, 75) && noTextOn(244, 82, 141));
-	checkTrue("claim busy: neither acts",
-	          !ctlEnabled(UI_FIX(TesterCtl::Poles)) && !ctlEnabled(UI_FIX(TesterCtl::Max)));
-	checkControlTable("tester, claim busy");
-	tapId(UI_FIX(TesterCtl::Poles), IdExpect::Disabled);
-	tapId(UI_FIX(TesterCtl::Max), IdExpect::Disabled);
-	checkTrue("claim busy: a tap on either opens nothing", uiCurrentScreen() == UiScreenId::Tester);
-	pinClaimEnd(PinUser::Am32);
-	frames(2);
-	checkTrue("the claim ends: both act and are underlined again",
-	          ctlEnabled(UI_FIX(TesterCtl::Poles)) && underlined(10, 122, "14 POLES") &&
-	          underlined(88, 244, "MAX 20%"));
+	checkTrue("the claim stays Free, DShot runs", pinClaimState() == ClaimState::Free &&
+	          pinClaimDshotRunning());
+	checkTrue("both readouts act and are underlined",
+	          ctlEnabled(UI_FIX(TesterCtl::Poles)) && ctlEnabled(UI_FIX(TesterCtl::Max)) &&
+	          underlined(10, 122, "14 POLES") && underlined(88, 244, "MAX 20%"));
 
 	// --- the 3D note takes the pole count's row, and its target ---
 	esc3dSetNote(true);
@@ -5130,11 +5098,12 @@ static void testTextProbes() {
 }
 
 /**
- * @brief The splash: the firmware's version under the board's name, and the
- *        ESC pin named before DShot starts on it.
+ * @brief The splash: the firmware's version under the board's name, and no
+ *        pin line: no DShot frame leaves the board at power-up
+ *        (docs/design/dshot-lifetime.md, slice D2).
  */
 static void testSplash() {
-	section("Splash: the version and the ESC pin");
+	section("Splash: the version, and no pin line");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -5146,28 +5115,22 @@ static void testSplash() {
 	checkTrue("the credit keeps its line", fakeTextCentredIs(216, "JuWi made", C_CYAN, C_BG, 2));
 	char want[48];
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
-	checkInt("the defaults put the ESC on the board's default pin",
-	         settings()->dshotPin, g_board->defaultDshotPin);
-	if (g_board->defaultDshotPin == 0)
-		checkStr("the warning names the ESC pin", want, "UNPLUG ANY SERVO FROM GP0 NOW");
-	checkTrue("in amber, y 288", fakeTextCentredIs(288, want, C_AMBER, C_BG, 1));
+	checkTrue("no pin line at y 288", !fakeTextCentredIs(288, want, C_AMBER, C_BG, 1));
 	int x0 = 0, x1 = 0;
-	checkTrue("the warning stays 8 px or more from both edges",
-	          fakeInkExtent(288, 7, C_BG, &x0, &x1) && x0 >= UI_MARGIN && x1 < GFX_W - UI_MARGIN);
-	checkTrue("and nothing else is drawn on its rows or the 20 px above",
-	          fakeInkExtent(268, 20, C_BG, &x0, &x1) == false);
+	checkTrue("nothing drawn from y 268 to the panel's foot",
+	          fakeInkExtent(268, GFX_H - 268, C_BG, &x0, &x1) == false);
 	fakeDumpFrame("shot_splash.ppm");
 
-	// The pin follows the settings: the ESC on the other free GPIO.
+	// Nor with SIG on the other free GPIO.
 	const uint8_t other = settingsNextPin(settings()->dshotPin, +1);
 	checkTrue("the board offers another pin", other != settings()->dshotPin);
 	settings()->dshotPin = other;
 	uiDrawSplash();
-	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)other);
-	checkTrue("SIG PIN moved: the warning names the new pin",
-	          fakeTextCentredIs(288, want, C_AMBER, C_BG, 1));
+	checkTrue("SIG PIN moved: still no pin line",
+	          fakeInkExtent(268, GFX_H - 268, C_BG, &x0, &x1) == false);
+	// The text stays as SETUP's pin note: a two-digit pin fits too.
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, 29u);
-	checkTrue("a two-digit pin fits too: 30 characters, 179 px",
+	checkTrue("the note with a two-digit pin fits: 30 characters, 179 px",
 	          gfxTextW(want, 1) == 179 && gfxTextW(want, 1) <= GFX_W - 2 * UI_MARGIN);
 
 	fakeFlashClear();
@@ -5182,8 +5145,8 @@ static void testSplash() {
  *        greets.
  */
 static void enterAm32(int n) {
-	tapId(UI_FIX(TesterCtl::Menu));
-	frames(2);
+	testerToMenu();
+	frames(1);
 	openEscSettings();
 	checkTrue("ESC SETTINGS opens", uiCurrentScreen() == UiScreenId::Am32);
 	for (int i = 0; i < 10 && s_state == S_HANDOVER; i++) frames(1);
@@ -6077,15 +6040,15 @@ static void testAm32Guard() {
  *        another holder, which MENU never lets through, says to wait.
  */
 static void testAm32ClaimWords() {
-	section("ESC SETTINGS: RELEASING SIG GP0, and WAIT: DSHOT RESTARTING");
+	section("ESC SETTINGS: RELEASING SIG GP0, and WAIT: THE PINS ARE BUSY");
 	fakeFlashClear();
 	settingsLoad();
-	uiInitTester();
+	uiInitMenu();
 	frames(2);
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	claimPins();
-	checkTrue("refused: WAIT: DSHOT RESTARTING",
+	checkTrue("refused: WAIT: THE PINS ARE BUSY",
 	          !s_claimed && strcmp(s_status, UI_WAIT_RESTART_TEXT) == 0);
 	pinClaimEnd(PinUser::Servo);
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) frames(1);
@@ -6156,12 +6119,12 @@ static bool ewTapRow(const char *name) {
 
 /**
  * @brief BACK from the EFM8 list: LEAVE, then ESC CONFIG, then BACK to MENU.
- *        True when ESC CONFIG followed the LEAVE and DShot came back once,
+ *        True when ESC CONFIG followed the LEAVE and the pins parked once,
  *        with no leave page.
  */
 static bool efm8Exit(int *leaveFrame) {
 	sim_t *e = fakeEwSim();
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 	int before = e->starts;
 	tapId(UI_FIX(UI_BACK));
 	bool exiting = s_state == S_EW_EXIT;
@@ -6174,7 +6137,7 @@ static bool efm8Exit(int *leaveFrame) {
 	for (int i = before; i < e->starts; i++)
 		if (fakeEwSentLeave(i)) *leaveFrame = i;
 	bool ok = exiting && !sawLeavePage && uiCurrentScreen() == UiScreenId::EscConfig &&
-	          fakeResumeCount() == resumes + 1;
+	          fakeParkCount() == resumes + 1;
 	// On to MENU, where the callers go on.
 	if (uiCurrentScreen() == UiScreenId::EscConfig) tapId(UI_FIX(UI_BACK));
 	return ok;
@@ -6490,7 +6453,7 @@ static void testEfm8Write() {
 	UiRect rs = ctlRect(UI_ROW(s_ewSel, Row));
 	swipe(rs.x + 40, rs.x + 120, rs.y + rs.h / 2, 8);
 	checkTrue("the draft as it was", s_ewDraft[0x1B] == orig[0x1B]);
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the guard names the page", s_guard.armed &&
 	          stripNoteIs(EFM8_UI_GUARD_1, EFM8_UI_GUARD_2));
@@ -6526,7 +6489,7 @@ static void testEfm8Write() {
 	checkTrue("still the settings page only", fakeEwOnlySettingsPage());
 	checkTrue("no second backup", !fakeFatExists("BACKUP/BJ002.TXT"));
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("no DShot all along", fakeResumeCount() == resumes);
+	checkTrue("no DShot all along", fakeParkCount() == resumes);
 	checkTrue("BACK: LEAVE, ESC CONFIG", efm8Exit(&leaveAt));
 	frames(2);
 	openTester();
@@ -6574,7 +6537,7 @@ static void testEfm8Write() {
 	sim_script(e, F_DEAD, 5, 1, 0);
 	checkTrue("held: lost", efm8HoldWrite() && efm8UntilDone() && strcmp(s_status, EFM8_UI_LOST_1) == 0);
 	tapId(UI_FIX(Am32Ctl::Ok));
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	int starts = e->starts;
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
@@ -6584,16 +6547,16 @@ static void testEfm8Write() {
 	escwireJobStatus(&st);
 	checkTrue("the session aborted: no frame, no LEAVE, the line parked", st.job == EwJobState::Ended &&
 	          e->starts == starts && e->line == EW_LINE_PARK);
-	checkTrue("no DShot", fakeResumeCount() == resumes && escTaskSuspended());
+	checkTrue("no DShot", fakeParkCount() == resumes && escTaskSuspended());
 	tapId(UI_FIX(Am32Ctl::Stay));
 	checkTrue("STAY: the session ended, the cycle greets again", untilState(S_CONNECT, 60) &&
-	          pinClaimLeavePage() && fakeResumeCount() == resumes);
+	          pinClaimLeavePage() && fakeParkCount() == resumes);
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Release));
-	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot back once", uiCurrentScreen() == UiScreenId::EscConfig &&
-	          fakeResumeCount() == resumes + 1);
+	checkTrue("LEAVE, then the button ESC CONFIG: the hub, parked once", uiCurrentScreen() == UiScreenId::EscConfig &&
+	          fakeParkCount() == resumes + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	bool left = false;
 	for (int i = 0; i < e->starts; i++) left = left || fakeEwSentLeave(i);
@@ -6624,15 +6587,15 @@ static void testEfm8Write() {
 	          st.job == EwJobState::Ended && memcmp(efm8Page(), draft, 255) == 0 && e->line == EW_LINE_PARK);
 	checkTrue("the screen: verified, the session ended", efm8UntilDone() &&
 	          ewResultIs("WRITE VERIFIED", UI_COL_SAFE, EFM8_UI_ENDED_2, C_TEXT));
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	tapId(UI_FIX(Am32Ctl::Ok));
-	checkTrue("OK: the cycle greets again, no DShot", untilState(S_CONNECT, 60) && fakeResumeCount() == resumes &&
+	checkTrue("OK: the cycle greets again, no DShot", untilState(S_CONNECT, 60) && fakeParkCount() == resumes &&
 	          pinClaimLeavePage());
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Release));
-	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("LEAVE, then the button ESC CONFIG: the hub", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
 	openTester();
@@ -6733,7 +6696,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Release));
-	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("LEAVE, then the button ESC CONFIG: the hub", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
 	openTester();
@@ -6797,13 +6760,13 @@ static void testEfm8Write() {
 	checkTrue("OLD PAGE from the session's page", s_state == S_EW_KEPT);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the session's page", s_state == S_EW);
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
 	tapId(UI_FIX(Am32Ctl::Release));
-	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
-	          fakeResumeCount() == resumes + 1);
+	checkTrue("LEAVE, then the button ESC CONFIG: the hub", uiCurrentScreen() == UiScreenId::EscConfig &&
+	          fakeParkCount() == resumes + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
 	openTester();
@@ -7075,11 +7038,11 @@ static void testAm32Efm8() {
 		fakeAm32Silent(true);
 		enterAm32(4);
 		checkTrue("the claim has no leave page", pinClaimHolder() == PinUser::Am32 && !pinClaimLeavePage());
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
-		checkInt("DShot asked back within BACK", fakeResumeCount(), resumes + 1);
+		checkInt("parked within BACK", fakeParkCount(), resumes + 1);
 		checkTrue("no leave page is due", !pinClaimUnplugDue());
 		fakeAm32Silent(false);
 		frames(1);
@@ -7238,7 +7201,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Hex));
 		checkTrue("the list", s_state == S_EW_LIST && !s_hexView);
 		// The exit page, one frame after BACK.
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: LEAVING, BACK drawn disabled", s_state == S_EW_EXIT && !ctlEnabled(UI_FIX(UI_BACK)) &&
 		          backLook() == BackLook::Disabled);
@@ -7259,7 +7222,7 @@ static void testAm32Efm8() {
 		checkTrue("then ESC CONFIG, with no leave page", uiCurrentScreen() == UiScreenId::EscConfig && !page);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		checkTrue("300 ms of low line first", millis() - t0 >= 300);
-		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
+		checkInt("parked once", fakeParkCount(), resumes + 1);
 		checkTrue("the job idle when DShot was asked back", fakeResumeJobIdle());
 		frames(2);
 		checkTrue("the claim ends; LEAVE has no answer, so the run cue stands",
@@ -7370,12 +7333,12 @@ static void testAm32Efm8() {
 		checkTrue("it stays: the job idle in mode", s_state == S_EW && fakeEwSim()->starts == 3);
 
 		sim_t *e = fakeEwSim();
-		int resumes = fakeResumeCount(), starts = e->starts;
+		int resumes = fakeParkCount(), starts = e->starts;
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: the leave page, the screen stays", uiCurrentScreen() == UiScreenId::Am32 &&
 		          s_state == S_LEAVE);
 		frames(1);
-		checkTrue("no DShot, the job keeps SIG", fakeResumeCount() == resumes && fakeEwOpen() &&
+		checkTrue("no DShot, the job keeps SIG", fakeParkCount() == resumes && fakeEwOpen() &&
 		          escTaskSuspended() && pinClaimHolder() == PinUser::Am32);
 		checkControlTable("ESC SETTINGS, the leave page before LEAVE");
 		checkTrue("BACK drawn disabled", !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
@@ -7389,12 +7352,13 @@ static void testAm32Efm8() {
 		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, true));
 		checkTrue("its detail lines", leaveStepIs(y1 + 12, 0, AM32_UI_LEAVE_1A, true) &&
 		          leaveStepIs(y1 + 24, 0, AM32_UI_LEAVE_1B, true));
-		checkTrue("step 2: PLUG IT IN AFTER RESTART DSHOT.", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, false));
+		checkTrue("step 2: PLUG IT IN ONCE ESC CONFIG SHOWS.",
+		          leaveStepIs(y2, '2', "PLUG IT IN ONCE ESC CONFIG SHOWS.", false));
 		checkTrue("step 1 is 35 characters, 209 px, to x 228",
 		          strlen(AM32_UI_LEAVE_1) == 35 && UI_LEAVE_TEXT_X + gfxTextW(AM32_UI_LEAVE_1, 1) == 229);
 		checkTrue("the others 33, 26 and 31 characters",
 		          strlen(AM32_UI_LEAVE_1A) == 33 && strlen(AM32_UI_LEAVE_1B) == 26 &&
-		          strlen(AM32_UI_LEAVE_2) == 31);
+		          strlen("PLUG IT IN ONCE ESC CONFIG SHOWS.") == 33);
 		checkTrue("STAY and LEAVE live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
 		checkTrue("no note", leaveNoteBlank(0));
 		fakeDumpFrame("shot_am32_leave.ppm");
@@ -7411,10 +7375,11 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(1);
 		checkTrue("LEAVE: the job lets go of SIG, no frame sent", !fakeEwOpen() && e->starts == starts);
-		checkTrue("and DShot waits", fakeResumeCount() == resumes &&
+		checkTrue("and DShot waits", fakeParkCount() == resumes &&
 		          pinClaimState() == ClaimState::Leaving && pinClaimUnplugDue());
 		checkControlTable("ESC SETTINGS, the leave page after LEAVE");
-		checkTrue("step 2 current, step 1 not", leaveStepIs(y2, '2', AM32_UI_LEAVE_2, true) &&
+		checkTrue("step 2 current, step 1 not",
+		          leaveStepIs(y2, '2', "PLUG IT IN ONCE ESC CONFIG SHOWS.", true) &&
 		          leaveStepIs(y1, '1', AM32_UI_LEAVE_1, false));
 		auto leftBlank = []() {
 			const uint16_t *fb = gfxBuffer();
@@ -7425,19 +7390,19 @@ static void testAm32Efm8() {
 			return true;
 		};
 		checkTrue("no left button after LEAVE", !ctlPresent(UI_FIX(Am32Ctl::Stay)) && leftBlank());
-		checkTrue("RESTART DSHOT drawn disabled", leaveWideIs("RESTART DSHOT", false) &&
+		checkTrue("RESTART DSHOT drawn disabled", leaveWideIs("ESC CONFIG", false) &&
 		          !ctlEnabled(UI_FIX(Am32Ctl::Release)));
 		tapId(UI_FIX(Am32Ctl::Release), IdExpect::Disabled);
-		checkTrue("a tap before 1000 ms restarts nothing", fakeResumeCount() == resumes &&
+		checkTrue("a tap before 1000 ms restarts nothing", fakeParkCount() == resumes &&
 		          s_state == S_LEAVE);
 		frames(37);
 		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Release)) &&
-		          leaveWideIs("RESTART DSHOT", true));
+		          leaveWideIs("ESC CONFIG", true));
 		checkTrue("the run cue still stands", uiAm32RunCue(0));
 		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
-		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
+		checkInt("parked once", fakeParkCount(), resumes + 1);
 		frames(2);
 		checkTrue("the run cue cleared", !s_blReached && !menuRunCueShown());
 		checkTrue("the claim ends", pinClaimState() == ClaimState::Free);
@@ -7464,7 +7429,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		checkTrue("LEAVE, then the button ESC CONFIG: the hub", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		openTester();
@@ -7492,15 +7457,15 @@ static void testAm32Efm8() {
 		fakeAm32Garble(nullptr, 0);
 		frames(3);
 		tapId(UI_FIX(UI_BACK));
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(1);
 		checkTrue("LEAVE while entering: the job cut, SIG let go, DShot waits",
-		          !fakeEwOpen() && core1JobPhase() == Core1JobPhase::Idle && fakeResumeCount() == resumes);
+		          !fakeEwOpen() && core1JobPhase() == Core1JobPhase::Idle && fakeParkCount() == resumes);
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
-		          fakeResumeCount() == resumes + 1);
+		          fakeParkCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		bool sent = false;
 		for (int i = 0; i < fakeEwSim()->starts; i++) sent = sent || fakeEwSentLeave(i);
@@ -7542,14 +7507,14 @@ static void testAm32Efm8() {
 		frames(45);
 		checkTrue("a later AM32 answer: the list, the leave page kept",
 		          s_state == S_LIST && pinClaimLeavePage());
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		checkTrue("POLES steps", am32Step("POLES"));
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("one change: the first BACK arms the guard", s_state == S_LIST && s_guard.armed);
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("the second BACK: the leave page, not MENU", uiCurrentScreen() == UiScreenId::Am32 &&
 		          s_state == S_LEAVE);
-		checkTrue("and no DShot", fakeResumeCount() == resumes && escTaskSuspended());
+		checkTrue("and no DShot", fakeParkCount() == resumes && escTaskSuspended());
 		tapId(UI_FIX(Am32Ctl::Stay));
 		checkTrue("STAY: the list, the edit kept, the guard disarmed",
 		          s_state == S_LIST && anyDirty() && !s_guard.armed);
@@ -7563,8 +7528,8 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot asked back once",
-		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
+		checkTrue("LEAVE, then the button ESC CONFIG: the hub, parked once",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeParkCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		checkTrue("the claim ends, the cue cleared", pinClaimState() == ClaimState::Free && !s_blReached);
@@ -7583,9 +7548,9 @@ static void testAm32Efm8() {
 		frames(45);
 		checkTrue("a later AM32 answer, layout 5: the read-only view, the leave page kept",
 		          s_state == S_VIEW && pinClaimLeavePage());
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes &&
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeParkCount() == resumes &&
 		          escTaskSuspended());
 		tapId(UI_FIX(Am32Ctl::Stay));
 		checkTrue("STAY: the read-only view", s_state == S_VIEW);
@@ -7594,8 +7559,8 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot asked back once",
-		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
+		checkTrue("LEAVE, then the button ESC CONFIG: the hub, parked once",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeParkCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEscSet(AM32_OFF_LAYOUT_REVISION, lay);
 		frames(2);
@@ -7607,11 +7572,11 @@ static void testAm32Efm8() {
 		efm8Esc(0xB2, true);
 		checkTrue("the list", efm8Read());
 		sim_script(fakeEwSim(), F_START_FALSE, 0, 1, 0);
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: LEAVING", s_state == S_EW_EXIT);
 		checkTrue("the driver refuses the frame: the leave page", untilState(S_LEAVE, 20));
-		checkTrue("no DShot, the cue stands", fakeResumeCount() == resumes && s_blReached);
+		checkTrue("no DShot, the cue stands", fakeParkCount() == resumes && s_blReached);
 		tapId(UI_FIX(Am32Ctl::Stay));
 		checkTrue("STAY: the session ended, the cycle greets again", untilState(S_CONNECT, 40) &&
 		          pinClaimLeavePage());
@@ -7620,8 +7585,8 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
-		          fakeResumeCount() == resumes + 1);
+		checkTrue("LEAVE, then the button ESC CONFIG: the hub", uiCurrentScreen() == UiScreenId::EscConfig &&
+		          fakeParkCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		openTester();
@@ -7631,7 +7596,7 @@ static void testAm32Efm8() {
 	{
 		efm8Esc(0xB2, true);
 		checkTrue("the list", efm8Read());
-		int resumes = fakeResumeCount(), n = fakeEwSim()->starts;
+		int resumes = fakeParkCount(), n = fakeEwSim()->starts;
 		UiRect back = ctlRect(UI_FIX(UI_BACK));
 		fakePress(back.x + back.w / 2, back.y + back.h / 2);
 		frames(2);
@@ -7655,7 +7620,7 @@ static void testAm32Efm8() {
 		}
 		checkTrue("asked again: LEAVE went out, ESC CONFIG, no leave page",
 		          fakeEwSentLeave(n) && uiCurrentScreen() == UiScreenId::EscConfig && !page &&
-		          fakeResumeCount() == resumes + 1);
+		          fakeParkCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		openTester();
@@ -7678,7 +7643,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		checkTrue("LEAVE, then the button ESC CONFIG: the hub", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		openTester();
@@ -7699,9 +7664,9 @@ static void testAm32Efm8() {
 		frames(1);
 		checkTrue("no job, the leave page and the run cue set", core1JobRunning() == Core1Job::None &&
 		          pinClaimLeavePage() && s_blReached);
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeResumeCount() == resumes);
+		checkTrue("BACK: the leave page, no DShot", s_state == S_LEAVE && fakeParkCount() == resumes);
 		char strip[32];
 		snprintf(strip, sizeof(strip), "EFM8  SIG GP%u", (unsigned)settings()->dshotPin);
 		checkTrue("the strip names no part: EFM8  SIG GP0",
@@ -7709,8 +7674,8 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, the cue cleared",
-		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1 && !s_blReached);
+		checkTrue("LEAVE, then the button ESC CONFIG: the hub, the cue cleared",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeParkCount() == resumes + 1 && !s_blReached);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeAm32Silent(false);
 		frames(2);
@@ -7731,14 +7696,14 @@ static void testAm32Efm8() {
 		checkTrue("nothing opened, the claim Held, its leave page set", fakeEwOpens() == 0 &&
 		          pinClaimState() == ClaimState::Held && pinClaimLeavePage());
 		checkTrue("SIG on its pull-up, not floating", fakePin(settings()->dshotPin).pull == FakePull::Up);
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: the leave page", s_state == S_LEAVE);
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
 		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
-		          fakeResumeCount() == resumes + 1);
+		checkTrue("LEAVE, then the button ESC CONFIG: the hub", uiCurrentScreen() == UiScreenId::EscConfig &&
+		          fakeParkCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEwRefuse(0);
 		frames(2);
@@ -7787,10 +7752,10 @@ static void testAm32Efm8() {
 	{
 		enterAm32(6);
 		checkTrue("an AM32 answer: the list", s_state == S_LIST && !pinClaimLeavePage());
-		int resumes = fakeResumeCount();
+		int resumes = fakeParkCount();
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK: ESC CONFIG, DShot asked back within BACK",
-		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
+		checkTrue("BACK: ESC CONFIG, parked within BACK",
+		          uiCurrentScreen() == UiScreenId::EscConfig && fakeParkCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		// The AM32 handshake set the cue; an eRPM frame after an EFM8
 		// answer clears it as after a handshake.
@@ -9475,7 +9440,7 @@ void runUiTests() {
 		tapId(UI_FIX(UI_BACK));                   // leave AM32, back to MENU
 		checkTrue("BACK from AM32 reaches ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
-		checkTrue("DShot pin handed back", fakePinReturned());
+		checkTrue("the pins parked, no DShot", !fakePinReturned());
 		// And back to the main screen, which is what the sections after this
 		// one assume. It used to be left on the settings screen and get away
 		// with it: enterLogScreen()'s first tap, at a coordinate then, fell

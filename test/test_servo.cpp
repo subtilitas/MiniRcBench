@@ -1313,9 +1313,12 @@ static void testPowerCuts() {
 
 /** @brief The board's wiring, KISS on, the pump bound and past any drain. */
 static void freshPump() {
-	// A hub's frame: Run not wanted, so a claim is not Busy
-	// (docs/design/dshot-lifetime.md).
+	// Run not wanted, so a claim is not Busy (docs/design/dshot-lifetime.md).
+	// The pump itself runs, as a claim found it before slice D2: the job's
+	// own pad writes are under test here, and the fake's teardown writes no
+	// pad. A claim from the parked pump is tested in test_claim.cpp.
 	pinClaimDshot(false);
+	escTaskStart();
 	escTaskConfigure(SIG, 600, true, AUX);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -1468,9 +1471,9 @@ static void testJob() {
 	servoJobStatus(&st);
 	checkTrue("binds, no error", st.bindError == 0 && fakePin(SIG).function == GPIO_FUNC_PWM);
 
-	checkTrue("BACK: the unplug page, then DShot", claimEnd());
-	checkTrue("SIG an input, pulled down", fakePin(SIG).function == GPIO_FUNC_SIO &&
-	                                       fakePin(SIG).pull == FakePull::Down);
+	checkTrue("BACK: the unplug page, then the park", claimEnd());
+	checkTrue("SIG parked: an SIO output driving low", fakePin(SIG).function == GPIO_FUNC_SIO &&
+	                                                   fakePin(SIG).output && !fakePin(SIG).high);
 	checkTrue("the slice stopped", !fakeSlice(0).enabled);
 	servoJobStatus(&st);
 	checkTrue("status after the release: SAFE, no pulse", !st.running && st.outUs[0] == 0);
@@ -2802,7 +2805,8 @@ static bool busyShown(UiControlId id) {
 	// On the first line of two while MENU's AM32 run cue stands under it.
 	return pixel(r.x + 5, r.y + 8) == C_BG &&
 	       (fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1) ||
-	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_AMBER, C_BG, 1));
+	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_AMBER, C_BG, 1) ||
+	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, want, C_AMBER, C_BG, 1));
 }
 
 /** @brief Fresh board: default settings, no ESC, the main screen up. */
@@ -3742,12 +3746,12 @@ static void testEscAnswering() {
  *        press that lands 1000 ms or more after that.
  */
 static void testLeavePage() {
-	section("Servo screen: the leave page before DShot restarts");
+	section("Servo screen: the leave page before the pins park");
 
 	freshUi();
 	openServo();
 	holdStart();
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 	int cuts = fakePin(0).cutPulses;
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK while RUNNING: the page waits for the last pulse",
@@ -3762,19 +3766,19 @@ static void testLeavePage() {
 	          backLook() == BackLook::Disabled);
 	checkTrue("no step before LEAVE: UNPLUG THE SERVO. is step 1, current",
 	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true) &&
-	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "ESC TESTER'S DSHOT ON SIG GP0 READS", true) &&
 	          leaveStepIs(UI_LEAVE_STEP_Y + 24, 0, "AS A 970 US PULSE AT 1000 HZ.", true) &&
-	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
+	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "BACK TO SERVO.", false));
 	checkTrue("the note: RELEASING THE PINS, dim", leaveNoteIs(0, "RELEASING THE PINS", C_DIM));
 	checkTrue("the buttons drawn disabled", leaveLeftIs("NEXT SERVO", false) &&
-	          leaveWideIs("RESTART DSHOT", false));
+	          leaveWideIs("SERVO", false));
 	checkTrue("the strip names both pins", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "SIG GP0  AUX GP1",
 	                                                  C_DIM, C_BG, 1));
 	core1();
 	checkTrue("core1's next pass: still stopping", core1JobPhase() == Core1JobPhase::Stopping);
 	checkTrue("level 0 written, SIG still on PWM",
 	          fakePin(0).level == 0 && fakePin(0).function == GPIO_FUNC_PWM);
-	checkInt("and no DShot", fakeResumeCount(), resumes);
+	checkInt("and no DShot", fakeParkCount(), resumes);
 	// BACK on the page does nothing in any phase. The frames are 5 ms apart
 	// here, so the press is by hand, at BACK's centre.
 	int bx, by;
@@ -3794,16 +3798,16 @@ static void testLeavePage() {
 	checkControlTable("the leave page, the job let go");
 	checkTrue("BACK drawn disabled, BACK TO SERVO live, RESTART DSHOT not",
 	          backLook() == BackLook::Disabled && leaveLeftIs("NEXT SERVO", true) &&
-	          leaveWideIs("RESTART DSHOT", false) && leaveNoteBlank(0));
+	          leaveWideIs("SERVO", false) && leaveNoteBlank(0));
 	checkTrue("step 1 stays current", leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true));
 	checkTrue("the page keeps the title SERVO TESTER",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO TESTER", C_TEXT, C_PANEL, 2) &&
 	          titleEndsClear());
 	checkInt("no pulse was cut short", fakePin(0).cutPulses, cuts);
 	checkTrue("the job let go: SIG an input", fakePin(0).function == GPIO_FUNC_SIO);
-	checkInt("DShot not yet restarted", fakeResumeCount(), resumes);
+	checkInt("DShot not yet restarted", fakeParkCount(), resumes);
 	tapId(UI_FIX(ServoCtl::Release), IdExpect::Disabled);
-	checkTrue("a tap in the wait restarts nothing", fakeResumeCount() == resumes &&
+	checkTrue("a tap in the wait restarts nothing", fakeParkCount() == resumes &&
 	          s_view == View::Leave);
 	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
 	checkTrue("BACK once released: nothing", s_view == View::Leave &&
@@ -3812,7 +3816,7 @@ static void testLeavePage() {
 	checkTrue("RESTART DSHOT live 1000 ms after the release",
 	          ctlEnabled(UI_FIX(ServoCtl::Release)) && millis() - t0 >= 1000 && millis() - t0 < 1025);
 	uiFrames(1);
-	checkTrue("and drawn live", leaveWideIs("RESTART DSHOT", true));
+	checkTrue("and drawn live", leaveWideIs("SERVO", true));
 	fakeDumpFrame("shot_leave_servo.ppm");
 	tapId(UI_FIX(ServoCtl::NextServo));
 	uiFrames(2);
@@ -3820,7 +3824,7 @@ static void testLeavePage() {
 	          s_view == View::Main && pinClaimState() == ClaimState::Running);
 	checkTrue("SAFE again, rebound at level 0",
 	          !s_st.running && fakePin(0).function == GPIO_FUNC_PWM && fakePin(0).level == 0);
-	checkInt("still no DShot", fakeResumeCount(), resumes);
+	checkInt("still no DShot", fakeParkCount(), resumes);
 	checkTrue("BACK live again on SERVO TESTER", ctlEnabled(UI_FIX(UI_BACK)) &&
 	          backLook() == BackLook::Live);
 
@@ -3830,10 +3834,10 @@ static void testLeavePage() {
 	checkTrue("BACK while SAFE: the leave page", s_view == View::Leave);
 	tapId(UI_FIX(ServoCtl::Release), IdExpect::Disabled);
 	checkTrue("a tap on RESTART DSHOT 75 ms after BACK: nothing", s_view == View::Leave &&
-	          fakeResumeCount() == resumes && pinClaimState() == ClaimState::Leaving);
+	          fakeParkCount() == resumes && pinClaimState() == ClaimState::Leaving);
 	for (int i = 0; i < 60 && !ctlEnabled(UI_FIX(ServoCtl::Release)); i++) uiFrames(1);
 	tapId(UI_FIX(ServoCtl::Release));
-	checkInt("RESTART DSHOT: DShot back", fakeResumeCount(), resumes + 1);
+	checkInt("SERVO: the pins parked", fakeParkCount(), resumes + 1);
 	uiFrames(2);
 	checkTrue("free, and SERVO, the hub, up, its entry live",
 	          pinClaimState() == ClaimState::Free && navIsHub(UiScreenId::ServoHub) &&
@@ -4438,15 +4442,15 @@ static void testClaimCorners() {
 	// act, and a tap opens nothing. Once the claim is Free, the entry opens
 	// SERVO TESTER, which claims at once.
 	freshUi();
-	checkTrue("another screen holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	tapId(UI_FIX(TesterCtl::Menu));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("another screen holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	checkTrue("MENU: SERVO, the hub's row, acts while the claim is not Free",
 	          ctlEnabled(menuRow(&UI_SERVO_HUB_SCREEN)));
 	const UiControlId entry = toolEntry(&UI_SERVO);
 	uiFrames(1);
-	checkTrue("the hub: SERVO TESTER drawn disabled, the strip DSHOT RESTARTING",
+	checkTrue("the hub: SERVO TESTER drawn disabled, the strip's busy caption",
 	          uiCurrentScreen() == UiScreenId::ServoHub && busyShown(entry));
 	checkTrue("and its entry does not act", !ctlEnabled(entry));
 	tapId(entry, IdExpect::Disabled);

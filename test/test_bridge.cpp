@@ -399,9 +399,12 @@ static void testRelease() {
 
 /** @brief The wiring, the pump bound and past any drain, no ESC answering. */
 static void freshPump(uint8_t sig, uint8_t aux, bool kiss) {
-	// A hub's frame: Run not wanted, so a claim is not Busy
-	// (docs/design/dshot-lifetime.md).
+	// Run not wanted, so a claim is not Busy (docs/design/dshot-lifetime.md).
+	// The pump itself runs, as a claim found it before slice D2: the job's
+	// own pad writes are under test here, and the fake's teardown writes no
+	// pad. A claim from the parked pump is tested in test_claim.cpp.
 	pinClaimDshot(false);
+	escTaskStart();
 	escTaskConfigure(sig, 600, kiss, aux);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -503,10 +506,10 @@ static void testClaimCycle() {
 	for (int k = 0; k < 100; k++) big[k] = (uint8_t)(k ^ 0x5A);
 	bridgeWireSend(big, sizeof(big));
 	for (int k = 0; k < 10; k++) pass();
-	const int resumes = fakeResumeCount();
+	const int resumes = fakeParkCount();
 	pinClaimEnd(PinUser::Bridge);
 	checkTrue("BACK: Leaving", pinClaimState() == ClaimState::Leaving);
-	checkInt("DShot not asked back while the job holds the pin", fakeResumeCount(), resumes);
+	checkInt("DShot not asked back while the job holds the pin", fakeParkCount(), resumes);
 	checkTrue("no leave page", !pinClaimLeavePage() && !pinClaimUnplugDue());
 	int leaving = 0;
 	while (pinClaimState() == ClaimState::Leaving && leaving < 300) {
@@ -516,8 +519,8 @@ static void testClaimCycle() {
 	checkTrue("Leaving lasts while the frame goes out", leaving > 30 && leaving < 250);
 	checkTrue("the frame whole on the wire", wireIs(0, big, 100));
 	checkInt("nothing cut", fakeBridgeLineCuts(), 0);
-	checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
-	checkTrue("with the job idle", fakeResumeJobIdle());
+	checkInt("parked once", fakeParkCount(), resumes + 1);
+	checkTrue("with the job idle", fakeParkJobIdle());
 	for (int k = 0; k < 3 && pinClaimState() != ClaimState::Free; k++) pass();
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	checkTrue("DShot up", !escTaskSuspended());
@@ -530,7 +533,7 @@ static void testClaimCycle() {
 	checkTrue("again: Running", claimToRunning() == ClaimState::Running);
 	bridgeWireSend(big, sizeof(big));
 	for (int k = 0; k < 10; k++) pass();
-	const int r1 = fakeResumeCount();
+	const int r1 = fakeParkCount();
 	pinClaimEnd(PinUser::Bridge);
 	int looks = 0;
 	while (pinClaimState() != ClaimState::Free && looks < 300) {
@@ -539,8 +542,8 @@ static void testClaimCycle() {
 	}
 	checkTrue("no poll after BACK: Free all the same", pinClaimState() == ClaimState::Free);
 	checkTrue("once the frame was out", looks > 30 && looks < 250 && wireIs(100, big, 100));
-	checkInt("DShot asked back once", fakeResumeCount(), r1 + 1);
-	checkTrue("with the job idle, and DShot up", fakeResumeJobIdle() && !escTaskSuspended());
+	checkInt("parked once", fakeParkCount(), r1 + 1);
+	checkTrue("with the job idle, and DShot up", fakeParkJobIdle() && !escTaskSuspended());
 	checkInt("DShot never with the line", g_together, 0);
 
 	// SIG on GP1: the line follows the latched wiring.
@@ -555,9 +558,9 @@ static void testClaimCycle() {
 	// BACK before the bind: no line, DShot at once.
 	fakeBridgeLineReset();
 	pinClaimBegin(PinUser::Bridge, PIN_SIG);
-	const int r2 = fakeResumeCount();
+	const int r2 = fakeParkCount();
 	pinClaimEnd(PinUser::Bridge);
-	checkInt("BACK while Stopping: DShot at once", fakeResumeCount(), r2 + 1);
+	checkInt("BACK while Stopping: parked at once", fakeParkCount(), r2 + 1);
 	for (int k = 0; k < 3 && pinClaimState() != ClaimState::Free; k++) pass();
 	checkTrue("Free, the line never opened", pinClaimState() == ClaimState::Free &&
 	                                         fakeBridgeLineOpens() == 0);
@@ -576,13 +579,13 @@ static void testLeavePageAndRetry() {
 	checkTrue("asked by another screen: no page", !pinClaimLeavePage());
 	pinClaimWantLeavePage(PinUser::Bridge);
 	checkTrue("an unfinished write asks for the page", pinClaimLeavePage());
-	const int resumes = fakeResumeCount();
+	const int resumes = fakeParkCount();
 	pinClaimEnd(PinUser::Bridge);
 	checkTrue("BACK: Leaving", pinClaimState() == ClaimState::Leaving);
 	checkTrue("the page not due while the job lets go", !pinClaimUnplugDue());
 	for (int k = 0; k < 20; k++) pass();
 	checkTrue("due once the job is idle", pinClaimUnplugDue() && !bridgeLineIsOpen());
-	checkInt("DShot still down", fakeResumeCount(), resumes);
+	checkInt("DShot still down", fakeParkCount(), resumes);
 	checkTrue("Leaving, suspended", pinClaimState() == ClaimState::Leaving && escTaskSuspended());
 
 	// The page's BRIDGE: keep the claim and return to the bridge.
@@ -596,9 +599,9 @@ static void testLeavePageAndRetry() {
 	for (int k = 0; k < 20; k++) pass();
 	checkTrue("due again", pinClaimUnplugDue());
 	pinClaimRelease(PinUser::Sbus);
-	checkInt("RESTART from another screen: nothing", fakeResumeCount(), resumes);
+	checkInt("RESTART from another screen: nothing", fakeParkCount(), resumes);
 	pinClaimRelease(PinUser::Bridge);
-	checkInt("RESTART DSHOT resumes", fakeResumeCount(), resumes + 1);
+	checkInt("the last button parks", fakeParkCount(), resumes + 1);
 	for (int k = 0; k < 3 && pinClaimState() != ClaimState::Free; k++) pass();
 	checkTrue("Free, the page gone", pinClaimState() == ClaimState::Free && !pinClaimLeavePage());
 	checkInt("DShot never with the line", g_together, 0);
@@ -621,9 +624,9 @@ static void testLeavePageAndRetry() {
 	fakeBridgeLineRefuse(CORE1_JOB_CLOCK);
 	checkTrue("a clock refused: Held", claimToRunning() == ClaimState::Held &&
 	                                   pinClaimJobError() == CORE1_JOB_CLOCK);
-	const int r2 = fakeResumeCount();
+	const int r2 = fakeParkCount();
 	pinClaimEnd(PinUser::Bridge);
-	checkInt("BACK from a refused bind: DShot within the call", fakeResumeCount(), r2 + 1);
+	checkInt("BACK from a refused bind: parked within the call", fakeParkCount(), r2 + 1);
 	for (int k = 0; k < 3 && pinClaimState() != ClaimState::Free; k++) pass();
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	checkInt("opens and closes balance", fakeBridgeLineOpens(), fakeBridgeLineCloses());

@@ -1469,7 +1469,7 @@ static void testLeaveSupplyNote() {
 }
 
 static void testLeaveRestartWait() {
-	section("Leave page: RESTART DSHOT takes a press 1000 ms into the released phase");
+	section("Leave page: the hub's title takes a press 1000 ms into the released phase");
 
 	UiLeave l;
 	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
@@ -1514,9 +1514,10 @@ static UiLeaveText kstOwnText() {
 	t.step[0][1] = "IT STAYS IN PROGRAMMING MODE UNTIL";
 	t.step[0][2] = "ITS SUPPLY IS OFF.";
 	t.step[1][0] = "UNPLUG THE SERVO.";
-	t.step[1][1] = "DSHOT RESTARTS ON SIG GP0 AND READS";
+	t.step[1][1] = "ESC TESTER'S DSHOT ON SIG GP0 READS";
 	t.step[1][2] = "AS A 970 US PULSE AT 1000 HZ.";
-	t.step[2][0] = "RESTART DSHOT.";
+	t.step[2][0] = "BACK TO SERVO.";
+	t.hub = "SERVO";
 	t.note[0] = "2 CHANGES NOT WRITTEN.";
 	t.note[1] = "THE SERVO IS IN DOUBT: RESTORE FIRST.";
 	t.next = "NEXT SERVO";
@@ -1551,10 +1552,10 @@ static void testLeaveDraw() {
 	          fakeTextIs(UI_MARGIN, 104, "2", C_DIM, C_BG, 1) &&
 	          fakeTextIs(20, 104, "UNPLUG THE SERVO.", C_DIM, C_BG, 1) && px(1, 104) == C_BG);
 	checkTrue("its longest line, 35 characters from x 20, ends at x 228",
-	          fakeTextIs(20, 116, "DSHOT RESTARTS ON SIG GP0 AND READS", C_DIM, C_BG, 1) &&
-	          20 + gfxTextW("DSHOT RESTARTS ON SIG GP0 AND READS", 1) - 1 == 228);
+	          fakeTextIs(20, 116, "ESC TESTER'S DSHOT ON SIG GP0 READS", C_DIM, C_BG, 1) &&
+	          20 + gfxTextW("ESC TESTER'S DSHOT ON SIG GP0 READS", 1) - 1 == 228);
 	checkTrue("step 3 at y 142", fakeTextIs(UI_MARGIN, 142, "3", C_DIM, C_BG, 1) &&
-	          fakeTextIs(20, 142, "RESTART DSHOT.", C_DIM, C_BG, 1));
+	          fakeTextIs(20, 142, "BACK TO SERVO.", C_DIM, C_BG, 1));
 	checkTrue("the notes at y 158 and y 170, amber",
 	          fakeTextIs(UI_MARGIN, 158, "2 CHANGES NOT WRITTEN.", C_AMBER, C_BG, 1) &&
 	          fakeTextIs(UI_MARGIN, 170, "THE SERVO IS IN DOUBT: RESTORE FIRST.", C_AMBER, C_BG, 1));
@@ -1574,7 +1575,7 @@ static void testLeaveDraw() {
 	checkTrue("the notes C_DIM, one line",
 	          fakeTextIs(UI_MARGIN, 158, "RELEASING THE PIN", C_DIM, C_BG, 1) && px(UI_MARGIN, 172) == C_BG);
 	checkTrue("NEXT SERVO drawn disabled", buttonIs(UI_LEAVE_LEFT, "NEXT SERVO", 1, false));
-	checkTrue("RESTART DSHOT drawn disabled", buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, false));
+	checkTrue("SERVO drawn disabled", buttonIs(UI_LEAVE_WIDE, "SERVO", 2, false));
 	const UiRect &w = UI_LEAVE_WIDE;
 	uiLeaveDraw(&l, t, press(w.x + 20, w.y + 20), 0);
 	checkTrue("a finger on it draws no pressed look", px(w.x + 2, w.y + w.h / 2) == C_BG);
@@ -1582,15 +1583,15 @@ static void testLeaveDraw() {
 	uiLeavePoll(&l, true, 1000);
 	idle();
 	uiLeaveDraw(&l, t, idle(), 1999);
-	checkTrue("released, 999 ms in: NEXT SERVO live, RESTART DSHOT still disabled",
-	          buttonIs(UI_LEAVE_LEFT, "NEXT SERVO", 1, true) && buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, false));
+	checkTrue("released, 999 ms in: NEXT SERVO live, SERVO still disabled",
+	          buttonIs(UI_LEAVE_LEFT, "NEXT SERVO", 1, true) && buttonIs(UI_LEAVE_WIDE, "SERVO", 2, false));
 	uiLeaveDraw(&l, t, idle(), 2000);
-	checkTrue("1000 ms in: RESTART DSHOT live", buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, true));
+	checkTrue("1000 ms in: SERVO live", buttonIs(UI_LEAVE_WIDE, "SERVO", 2, true));
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 1999);
 	uiLeaveTouch(&l, move(w.x + 20, w.y + 20), 2100);
 	uiLeaveDraw(&l, t, &s_touch, 2100);
 	checkTrue("a press that landed during the wait, held past it: no pressed look",
-	          buttonIs(UI_LEAVE_WIDE, "RESTART DSHOT", 2, true) && px(w.x + 2, w.y + w.h / 2) != C_INK);
+	          buttonIs(UI_LEAVE_WIDE, "SERVO", 2, true) && px(w.x + 2, w.y + w.h / 2) != C_INK);
 	uiLeaveTouch(&l, lift(), 2200);
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 2000);
 	uiLeaveDraw(&l, t, &s_touch, 2000);
@@ -1676,7 +1677,10 @@ static void testLeaveSteps() {
 	UiLeave l;
 	UiLeaveText t = {};
 	t.step[0][0] = "UNPLUG THE SERVO.";
-	t.step[1][0] = "RESTART DSHOT.";
+	uiLeaveBackStep(&t, 1, "RX SIGNALS");
+	checkTrue("the last step: BACK TO RX SIGNALS., the button RX SIGNALS",
+	          strcmp(t.step[1][0], "BACK TO RX SIGNALS.") == 0 && t.step[1][1] == nullptr &&
+	          strcmp(t.hub, "RX SIGNALS") == 0);
 	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
 	gfxFill(C_RED);
 	uiLeaveDraw(&l, t, idle(), 0);
@@ -1684,7 +1688,7 @@ static void testLeaveSteps() {
 	          fakeTextIs(UI_MARGIN, 66, "1", C_AMBER, C_BG, 1) &&
 	          fakeTextIs(20, 66, "UNPLUG THE SERVO.", C_AMBER, C_BG, 1));
 	checkTrue("the next step 14 px on, at y 80, numbered 2",
-	          fakeTextIs(UI_MARGIN, 80, "2", C_DIM, C_BG, 1) && fakeTextIs(20, 80, "RESTART DSHOT.", C_DIM, C_BG, 1));
+	          fakeTextIs(UI_MARGIN, 80, "2", C_DIM, C_BG, 1) && fakeTextIs(20, 80, "BACK TO RX SIGNALS.", C_DIM, C_BG, 1));
 	checkTrue("a one-line step's bar: y 66 to y 72", px(1, 72) == C_AMBER && px(1, 73) == C_BG);
 
 	// Three steps of three lines: the third step's second line would start

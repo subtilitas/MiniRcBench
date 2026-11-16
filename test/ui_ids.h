@@ -223,6 +223,16 @@ static inline void openTester() {
 	for (int k = 0; k < 200 && uiArmGated(escTaskBoundMs(), millis()); k++) UI_IDS_FRAMES(1);
 }
 
+/**
+ * @brief From the tester to MENU, where Run is no longer wanted: a case that
+ *        claims the pins by hand starts here, since a claim is Busy while
+ *        the tester is open (docs/design/dshot-lifetime.md).
+ */
+static inline void testerToMenu() {
+	if (uiCurrentScreen() == UiScreenId::Tester) tapId(UI_FIX(TesterCtl::Menu));
+	UI_IDS_FRAMES(1);
+}
+
 /** @brief The tester through its row, the arm gate still holding. */
 static inline void openTesterGated() {
 	tapId(menuRow(&UI_TESTER));

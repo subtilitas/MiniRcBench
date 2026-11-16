@@ -61,9 +61,12 @@ static void run(uint32_t ms) {
 }
 
 static void freshPump() {
-	// A hub's frame: Run not wanted, so a claim is not Busy
-	// (docs/design/dshot-lifetime.md).
+	// Run not wanted, so a claim is not Busy (docs/design/dshot-lifetime.md).
+	// The pump itself runs, as a claim found it before slice D2: the job's
+	// own pad writes are under test here, and the fake's teardown writes no
+	// pad. A claim from the parked pump is tested in test_claim.cpp.
 	pinClaimDshot(false);
+	escTaskStart();
 	escTaskConfigure(0, 600, true, 1);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));

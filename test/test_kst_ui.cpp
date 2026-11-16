@@ -566,12 +566,12 @@ static uint32_t leaveReleases(const char *where) {
 	if (!untilEnabled(UI_FIX(KstCtl::NextServo), 200)) return 0;
 	uint32_t t0 = millis();
 	snprintf(what, sizeof(what), "%s: released, RESTART DSHOT waits, drawn disabled", where);
-	checkTrue(what, !ctlEnabled(UI_FIX(KstCtl::Release)) && leaveWideIs("RESTART DSHOT", false) &&
+	checkTrue(what, !ctlEnabled(UI_FIX(KstCtl::Release)) && leaveWideIs("SERVO", false) &&
 	                leaveLeftIs("NEXT SERVO", true));
 	if (!untilEnabled(UI_FIX(KstCtl::Release), 60)) return 0;
 	kstFrames(1);
 	snprintf(what, sizeof(what), "%s: RESTART DSHOT drawn live", where);
-	checkTrue(what, leaveWideIs("RESTART DSHOT", true));
+	checkTrue(what, leaveWideIs("SERVO", true));
 	return millis() - 25 - t0;
 }
 
@@ -585,9 +585,9 @@ static void testLeaveAndBack() {
 	          uiKstView() == KstView::Leave && pinClaimState() == ClaimState::Leaving);
 	checkTrue("no servo in the mode: no step before LEAVE, UNPLUG THE SERVO. is step 1",
 	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true) &&
-	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", true) &&
+	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "ESC TESTER'S DSHOT ON SIG GP0 READS", true) &&
 	          leaveStepIs(UI_LEAVE_STEP_Y + 24, 0, "AS A 970 US PULSE AT 1000 HZ.", true) &&
-	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
+	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "BACK TO SERVO.", false));
 	checkTrue("BACK disabled on the page, and drawn so",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
 	uint32_t waited = leaveReleases("KST, no servo");
@@ -619,9 +619,9 @@ static void testLeaveAndBack() {
 	          leaveStepIs(90, 0, "ITS SUPPLY IS OFF.", true));
 	checkTrue("steps 2 and 3 dim: UNPLUG THE SERVO., RESTART DSHOT.",
 	          leaveStepIs(104, '2', "UNPLUG THE SERVO.", false) &&
-	          leaveStepIs(116, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", false) &&
+	          leaveStepIs(116, 0, "ESC TESTER'S DSHOT ON SIG GP0 READS", false) &&
 	          leaveStepIs(128, 0, "AS A 970 US PULSE AT 1000 HZ.", false) &&
-	          leaveStepIs(142, '3', "RESTART DSHOT.", false));
+	          leaveStepIs(142, '3', "BACK TO SERVO.", false));
 	checkTrue("STAY and LEAVE drawn live; no note", leaveLeftIs("STAY", true) &&
 	          leaveWideIs("LEAVE", true) && leaveNoteBlank(0));
 	fakeDumpFrame("shot_leave_kst.ppm");
@@ -688,7 +688,7 @@ static void testLeaveAndBack() {
 	pressId(UI_FIX(KstCtl::Release), IdExpect::Disabled);
 	holdId(UI_FIX(KstCtl::Release), 44);
 	checkTrue("held past the wait: RESTART DSHOT live, not drawn pressed",
-	          ctlEnabled(UI_FIX(KstCtl::Release)) && leaveWideIs("RESTART DSHOT", true));
+	          ctlEnabled(UI_FIX(KstCtl::Release)) && leaveWideIs("SERVO", true));
 	fakeRelease();
 	kstFrames(2);
 	checkTrue("its lift restarts nothing", uiCurrentScreen() == UiScreenId::Kst &&
@@ -843,6 +843,7 @@ static void testRefusalsAndFailures() {
 	// Another claim holds the pins: MENU refuses the row, so KST SERVO is
 	// opened by hand here.
 	freshKst(false);
+	testerToMenu();
 	checkTrue("another claim holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	{
 		TouchState none;
@@ -1709,7 +1710,7 @@ static void testSwitchedSupply() {
 	          uiKstView() == KstView::Leave &&
 	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", true) &&
 	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false) &&
-	          leaveStepIs(118, '3', "RESTART DSHOT.", false) &&
+	          leaveStepIs(118, '3', "BACK TO SERVO.", false) &&
 	          ctlEnabled(UI_FIX(KstCtl::Reboot)) && ctlEnabled(UI_FIX(KstCtl::Stay)));
 	{
 		UiRect r = ctlRect(UI_FIX(KstCtl::Reboot));

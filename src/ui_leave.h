@@ -194,7 +194,9 @@ struct UiLeaveText {
 	/** The wide button's label from the tap on LEAVE on: the title of the
 	    hub the tool returns to (uiLeaveBackStep()). */
 	const char *hub;
-	/** Room for the last step, `BACK TO ` and the hub's title. */
+	/** Room for the last step, `BACK TO ` and the hub's title. The step
+	    points into it: a text filled by uiLeaveBackStep() is drawn where
+	    it was filled, not copied. */
 	char back[UI_LEAVE_STEP_CHARS + 1];
 };
 

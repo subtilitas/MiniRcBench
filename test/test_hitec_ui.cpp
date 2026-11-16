@@ -286,10 +286,10 @@ static void testEntry() {
 	section("Hitec D SERIES on OWN: the tap takes SIG, then READ");
 	freshHitec(HITEC_D, false);
 	openChooser();
-	checkTrue("SERVO claims nothing: DShot runs on SIG",
+	checkTrue("SERVO claims nothing: DShot parked",
 	          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Free &&
-	          !escTaskSuspended() && fakePinReturned());
-	int resumes = fakeResumeCount();
+	          !escTaskSuspended() && !fakePinReturned());
+	int resumes = fakeParkCount();
 	tapId(hubEntry(progEntryOf(uiHitecEnterD)));
 	checkTrue("HITEC D SERIES opens HITEC SERVO on its main view",
 	          uiCurrentScreen() == UiScreenId::Hitec && uiHitecView() == HitecView::Main);
@@ -335,13 +335,13 @@ static void testEntry() {
 	          !ctlPresent(UI_FIX(HitecCtl::Leave)) && !ctlPresent(UI_FIX(HitecCtl::LeaveRead)));
 	checkTrue("no servo in the mode: UNPLUG THE SERVO. is step 1, RESTART DSHOT. step 2",
 	          leaveStepIs(UI_LEAVE_STEP_Y, '1', "UNPLUG THE SERVO.", true) &&
-	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "RESTART DSHOT.", false));
+	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "BACK TO SERVO.", false));
 	checkTrue("NEXT SERVO once the pin is let go", untilEnabled(UI_FIX(HitecCtl::NextServo), 10));
 	checkTrue("RESTART DSHOT waits 1000 ms: disabled", !ctlEnabled(UI_FIX(HitecCtl::Release)));
 	checkStr("the note's text", HITEC_UI_NEXT_POWER, "NEXT SERVO: POWER IT AFTER THE TAP.");
 	checkTrue("released, no switch: NEXT SERVO: POWER IT AFTER THE TAP., dim",
 	          leaveNoteIs(0, HITEC_UI_NEXT_POWER, C_DIM));
-	checkTrue("DShot is still down", fakeResumeCount() == resumes && escTaskSuspended());
+	checkTrue("DShot is still down", fakeParkCount() == resumes && escTaskSuspended());
 	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
 	checkTrue("BACK there does nothing", uiHitecView() == HitecView::Leave);
 	tapId(UI_FIX(HitecCtl::NextServo));
@@ -353,8 +353,8 @@ static void testEntry() {
 	checkTrue("BACK again: the leave page", untilCtl(UI_FIX(HitecCtl::Release), 10));
 	checkTrue("RESTART DSHOT 1000 ms after the release", untilEnabled(UI_FIX(HitecCtl::Release), 60));
 	tapId(UI_FIX(HitecCtl::Release));
-	checkTrue("RESTART DSHOT: SERVO, its opener, DShot resumed",
-	          uiCurrentScreen() == UiScreenId::ServoHub && fakeResumeCount() == resumes + 1);
+	checkTrue("RESTART DSHOT: SERVO, its opener, the pins parked",
+	          uiCurrentScreen() == UiScreenId::ServoHub && fakeParkCount() == resumes + 1);
 	{
 		const UiControlId d = hubEntry(progEntryOf(uiHitecEnterD));
 		checkTrue("SERVO draws HITEC D SERIES disabled while the pump rebuilds",
@@ -442,8 +442,8 @@ static void testEntry() {
 		snprintf(esc, sizeof(esc), HITEC_UI_ESC_FMT, (unsigned)escTaskDshotPin());
 		checkStr("the ESC line names SIG", esc, "AN ESC ANSWERS ON SIG GP0: UNPLUG IT.");
 		checkInt("37 characters, 221 px, to x 228", gfxTextW(esc, 1), 221);
-		checkTrue("refused: no claim, DShot runs", uiCurrentScreen() == UiScreenId::Hitec &&
-		          pinClaimState() == ClaimState::Free && fakePinReturned() && !escTaskSuspended());
+		checkTrue("refused: no claim, DShot parked", uiCurrentScreen() == UiScreenId::Hitec &&
+		          pinClaimState() == ClaimState::Free && !fakePinReturned() && !escTaskSuspended());
 		checkTrue("the strip: CHECKING SIG GP0 FOR AN ESC, dim",
 		          lineIs(UI_STRIP_Y + 4, "CHECKING SIG GP0 FOR AN ESC", C_DIM));
 		checkTrue("the lines: " HITEC_UI_ESC_FMT " and " HITEC_UI_ESC_2 ", amber",
@@ -464,7 +464,7 @@ static void testEntry() {
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
 		openChooser();
-		const int resumes = fakeResumeCount();
+		const int resumes = fakeParkCount();
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
 		tapId(hubEntry(progEntryOf(uiHitecEnterD)));
@@ -476,7 +476,7 @@ static void testEntry() {
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK while refused: SERVO, DShot never stopped",
 		          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Free &&
-		          fakeResumeCount() == resumes && !escTaskSuspended());
+		          fakeParkCount() == resumes && !escTaskSuspended());
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		memset(&t, 0, sizeof(t));
 		fakeSetTelemetry(&t);
@@ -487,7 +487,7 @@ static void testEntry() {
 	section("Hitec entry: BACK while DShot drains returns to MENU");
 	freshHitec(HITEC_D, false);
 	openChooser();
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	tapId(hubEntry(progEntryOf(uiHitecEnterD)));
 	checkTrue("Stopping after the tap", pinClaimState() == ClaimState::Stopping);
 	// BACK tapped in UI frames before core1's next pass: the claim still
@@ -496,8 +496,8 @@ static void testEntry() {
 	uiTick();
 	fakeRelease();
 	uiTick();
-	checkTrue("BACK from Stopping: SERVO, DShot resumed at once",
-	          uiCurrentScreen() == UiScreenId::ServoHub && fakeResumeCount() == resumes + 1 &&
+	checkTrue("BACK from Stopping: SERVO, the pins parked at once",
+	          uiCurrentScreen() == UiScreenId::ServoHub && fakeParkCount() == resumes + 1 &&
 	          fakeHitecLineOpens() == 0);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
@@ -1306,8 +1306,8 @@ static void testStallAndBack() {
 	checkTrue("with GP28: LEAVE SWITCHES THE SUPPLY OFF. is step 1, current",
 	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", true) &&
 	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false) &&
-	          leaveStepIs(92, 0, "DSHOT RESTARTS ON SIG GP0 AND READS", false) &&
-	          leaveStepIs(118, '3', "RESTART DSHOT.", false));
+	          leaveStepIs(92, 0, "ESC TESTER'S DSHOT ON SIG GP0 READS", false) &&
+	          leaveStepIs(118, '3', "BACK TO SERVO.", false));
 	checkTrue("STAY and LEAVE drawn live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
 	checkControlTable("Hitec leave, switched");
 	fakeDumpFrame("shot_leave_hitec.ppm");
@@ -1341,7 +1341,7 @@ static void testStallAndBack() {
 	checkTrue("NEXT SERVO after the 2 s off", untilEnabled(UI_FIX(HitecCtl::NextServo), 200));
 	uint32_t t0 = millis();
 	checkTrue("RESTART DSHOT waits, drawn disabled", !ctlEnabled(UI_FIX(HitecCtl::Release)) &&
-	          leaveWideIs("RESTART DSHOT", false) && leaveNoteBlank(0));
+	          leaveWideIs("SERVO", false) && leaveNoteBlank(0));
 	checkTrue("RESTART DSHOT live 1000 ms later", untilEnabled(UI_FIX(HitecCtl::Release), 60) &&
 	          millis() - t0 >= 1000 && millis() - t0 < 1025);
 	checkTrue("BACK still disabled, and drawn so",
@@ -2131,6 +2131,7 @@ static void testStripRoom() {
 static void testBusyRefusal() {
 	section("HITEC screen: another claim holds the pins");
 	freshHitec(HITEC_D, false);
+	testerToMenu();
 	checkTrue("another claim holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	TouchState none;
 	memset(&none, 0, sizeof(none));

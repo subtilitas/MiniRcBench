@@ -250,6 +250,12 @@ void fakePwmReset() {
 	for (fake_pad_reg &r : g_fakePadsBank0.io) r.value = PAD_RESET;
 	memset(g_pullTouched, 0, sizeof(g_pullTouched));
 }
+void fakePinsReset() {
+	for (FakePin &p : g_pins) p = FakePin{};
+	g_ctrlLog.clear();
+	for (fake_pad_reg &r : g_fakePadsBank0.io) r.value = PAD_RESET;
+	memset(g_pullTouched, 0, sizeof(g_pullTouched));
+}
 void fakePwmBreakSliceMap(bool on) { g_sliceMapBroken = on; }
 FakePin fakePin(unsigned gpio) {
 	if (gpio >= FAKE_GPIOS) return FakePin{};

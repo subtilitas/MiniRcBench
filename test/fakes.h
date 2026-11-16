@@ -565,6 +565,12 @@ uint32_t fakePad(unsigned gpio);
 void fakePwmBreakSliceMap(bool on);
 
 /** @brief The record of one GPIO. @param gpio GPIO. @return The record. */
+/**
+ * @brief Forget every pin's record and pad register, as fakePwmReset() does,
+ *        and keep the slices: a job test that wants only its job's writes
+ *        calls it once the pump has parked or bound the pads.
+ */
+void fakePinsReset();
 FakePin fakePin(unsigned gpio);
 
 /**
