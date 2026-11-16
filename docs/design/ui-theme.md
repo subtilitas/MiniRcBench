@@ -1,25 +1,32 @@
 # UI theme after rcbench's
 
-Status: proposed, not built. The owner has not decided its open questions.
+Status: proposed, not built. The owner decided its five questions on
+2026-11-15 ([Decisions](#decisions)). Every colour is computed and not seen
+on the panel.
 
 The owner's request of 2026-11-15: "Adapt the color scheme and tui to the
 MiniRcBench from the big brother." The big brother is rcbench, the larger
 bench of the same owner.
 
 This note covers the look: the palette, the colour roles, the header, the
-buttons, the lists, the choosers, the chips, the tester's status bar, the
+buttons, the lists, the hubs, the chips, the tester's status bar, the
 type, the spacing, the pressed and disabled states, and the two themes. It
 does not cover three things:
 
 - Which screens exist, their grouping, names and navigation.
-  `docs/design/menu-c.md`, on the branch `ccr-menu-rcb` at 71a060f, plans
-  them. [The widgets of menu-c.md](#the-widgets-of-menu-cmd) gives its
-  widgets their look.
-- MENU as the start screen and DShot's lifetime: `docs/design/start-menu.md`
-  on the branch `ccr-start-menu`. The branch is not on `origin` as this note
-  is written, so the note is not read.
+  [menu-c.md](menu-c.md) plans them. [The widgets of
+  menu-c.md](#the-widgets-of-menu-cmd) gives its widgets their look, and
+  [its build plan](menu-c.md#build-plan) orders the slices of both notes.
+- DShot's lifetime and the pin claim: `docs/design/dshot-lifetime.md`,
+  written beside this note and not on this branch.
 - The touch-loss stop of draft pull request #49. Its texts take the roles of
   this note unchanged.
+
+Names. The proposal's screens carry the names of
+[menu-c.md](menu-c.md#names): SETUP for SETTINGS, LOGS for SD LOG, RECEIVER
+for RX SIGNALS and ESC PROGRAM for ESC CONFIG. The sections on cff09ae and
+[the mock-ups](#mock-ups), which are rendered from cff09ae, keep the names
+in the code.
 
 Terms: UI is user interface, ESC electronic speed controller, DShot the
 digital ESC protocol the tester drives, EDT Extended DShot Telemetry, RPM
@@ -125,15 +132,33 @@ The button classes of `docs/Screens.md`, "Button colours", and
 
 | Class | Available | Active | Waiting | Refused |
 |---|---|---|---|---|
-| Output action: ARM, OUTPUT ON, CONNECT, WRITE n VALUES | `OK` | `DANGER` | `WARN` | `BG`, faint label |
-| Edit: `-`, `+`, value boxes, DISCARD | `PANEL_HI` | | | `BG` |
-| Navigation: tiles, tabs, openers | neutral; a selected tab's label `ACCENT` | | | `BG` |
-| Delete, NOT SAVED | neutral, the label `DANGER` | | | `BG` |
+| Output action: "switches an output on, arms, starts a run, writes a servo" | `OK` | `DANGER` | `WARN` | `BG`, faint label |
+| Emergency: STOP | `DANGER` | `DANGER`, flashes | | never |
+| Edit: `-`, `+`, value boxes, RESET MAX, DISCARD, READ AGAIN | `PANEL_HI` | | | `BG` |
+| SAVE on SETUP | `OK` while something is unsaved | | `WARN` | neutral; NOT SAVED with the label `DANGER` |
+| Navigation: tiles, tabs, OPEN, CLOSE, openers | neutral; a selected tab's label `ACCENT` | | | `BG` |
+| Delete | neutral, the label `DANGER` | | | `BG` |
+
+"The fill of a button says what a press does to an output." The output
+actions the manual lists: ARM, OUTPUT ON, PROG 5V ON, HOLD 2s: ARM + START
+on TEST, RUDDER AUTO and LIMIT RUN, CENTER on LIVE, SWEEP on SWEEP,
+`1000us`, CENTER, `2000us`, `-10us`, `+10us` and ZERO on RUDDER, and the
+programmers' CONNECT, WRITE n VALUES and MOVE SERVO. While active the label
+says what a press stops: DISARM, OUTPUT OFF, STOP RUN, PAUSE, LEAVE, ABORT.
+
+Green outside a button is a state that is good: the dot of the LINK chip
+(`chip_look()` in `ui_band.c`), `FREE`, the report's `PASS`. rcbench has no
+green badge: its SAFE chip is the neutral chip, `PANEL_SUNK` with `TEXT`,
+amber while a SAFE bench still holds a port or moves a servo, and only
+ARMED, HWSTOP and FAULT fill.
 
 A value that differs from the device is marked twice: the value box fills
 `ACCENT` and the value gains a `* ` (`kst_panel_draw.c`, lines 908 to 922;
 `hitec_panel_draw.c`, line 501). A value a loaded file holds and the write
-skips fills `WARN` with `! `.
+skips fills `WARN` with `! `. An unchanged value of a programmer is `TEXT`
+on `PANEL_SUNK`, not `ACCENT`; a settings list's value is `ACCENT` text
+with no box (`ui_setlist_draw.c`, line 208). So on rcbench the accent as
+text is a setting, and the accent as a fill is a change.
 
 ### Type
 
@@ -267,7 +292,8 @@ and `UI_COL_WARN` 80, `C_BG` 111, `C_PANEL` 95, `C_GRID` 60, `C_ONACCENT`
 `C_CYAN`, `UI_COL_LATCHED` `C_BLUE`. The neutral role is `C_TEXT`, `C_DIM`
 and `C_GRID`.
 
-Two owner decisions of [menu-b.md](menu-b.md#decisions) fix them:
+Two decisions of [menu-b.md](menu-b.md#decisions) fix them at cff09ae;
+[the owner's decisions of 2026-11-15](#decisions) revise both:
 
 - **Decision 8, "Changed is cyan, with a bar."** A value that differs from
   the device is `C_CYAN` with a 3 px `C_CYAN` bar at the row's left edge;
@@ -344,9 +370,10 @@ The widgets (`src/ui_widgets.cpp`, `src/ui_list.cpp`, `src/ui_hold.cpp`):
 
 ## The mapping
 
-The proposal changes the Dark table's 17 values, three widget rules and two
-uses of a colour. It adds no palette entry and no role, and it moves no
-rectangle. High contrast keeps its values.
+The proposal changes the Dark table's 17 values, the widget rules of
+[Widgets](#widgets) and what cyan and green mean. It adds no palette entry
+and moves no rectangle. High contrast keeps its values and takes the same
+widget rules.
 
 ### rcbench's roles on MiniRcBench
 
@@ -362,8 +389,8 @@ rectangle. High contrast keeps its values.
 | `UI_C_TEXT_DIM` | `TC_DIM` | 0x8579 | |
 | `UI_C_TEXT_FAINT` | `TC_GRID` | 0x4B50 | 3 |
 | `UI_C_TEXT_ON_LIGHT` | `TC_ONACCENT` | 0x0041 | 4: dark text on every fill |
-| `UI_C_ACCENT` | `TC_CYAN` | 0x079F | 5: changed only |
-| `UI_C_OK` | `TC_GREEN` | 0x07F2 | 6: safe and done, not "a press starts" |
+| `UI_C_ACCENT` | `TC_CYAN` | 0x079F | 5: the accent, as rcbench |
+| `UI_C_OK` | `TC_GREEN` | 0x07F2 | 6: "a press starts" as a fill, "good" as a word or an outline |
 | `UI_C_WARN` | `TC_AMBER` | 0xFDC0 | |
 | `UI_C_DANGER` | `TC_RED` | 0xF949 | |
 | `UI_C_RPM` | `TC_LIME` | 0x87E7 | 7: every live reading |
@@ -430,21 +457,22 @@ tall. So text needs 4.5.
 | `TEXT` | `BG` | 16.54 | 19.51 | 21.00 | values, titles of text |
 | `DIM` | `BG` | 5.51 | 8.74 | 9.10 | labels, captions, the neutral chip |
 | `GRID` | `BG` | 1.88 | 3.57 | 10.94 | disabled labels, group captions, hints; frames |
-| `GREEN` | `BG` | 10.02 | 15.41 | 6.50 | SAVED, WRITE VERIFIED |
+| `GREEN` | `BG` | 10.02 | 15.41 | 6.50 | SAVED, WRITE VERIFIED, SAFE and the outlined chips |
 | `LIME` | `BG` | 15.30 | 16.01 | 5.57 | RPM digits, readouts |
 | `AMBER` | `BG` | 10.71 | 12.02 | 4.99 | warnings, the current step |
 | `RED` | `BG` | 5.96 | 5.54 | 6.61 | failures |
-| `CYAN` | `BG` | 16.75 | 14.95 | 7.73 | a changed value |
+| `CYAN` | `BG` | 16.75 | 14.95 | 7.73 | a settings value, a section caption, `>` |
 | `BLUE` | `BG` | 8.59 | 6.24 | 9.68 | servo B's label and horn |
 | `MAGENTA` | `BG` | 6.70 | 6.56 | 7.96 | STALLED, the alert lines |
 | `TEXT` | `PANEL` | 13.58 | 14.21 | 14.40 | button labels, the header's title, the selected row |
 | `DIM` | `PANEL` | 4.52 | 6.37 | 6.24 | LATCH and MENU labels, tile captions |
 | `AMBER` | `PANEL` | 8.79 | 8.76 | 3.42 | REVERT and DEFAULTS labels |
-| `CYAN` | `PANEL` | 13.75 | 10.89 | 5.30 | a changed value in the selected row |
+| `CYAN` | `PANEL` | 13.75 | 10.89 | 5.30 | a settings value in the selected row, a selected tab |
 | `LIME` | `PANEL` | 12.56 | 11.66 | 3.82 | ESC STATUS `OK` in its tile |
 | `RED` | `PANEL` | 4.89 | 4.03 | 4.53 | ESC STATUS `ERROR` in its tile |
 | `MAGENTA` | `PANEL` | 5.50 | 4.78 | 5.46 | ESC STATUS `ALERT` in its tile |
-| `ONACCENT` | `GREEN` | 2.10 | 15.15 | 6.50 | the SAFE badge, the EDT ON chip |
+| `ONACCENT` | `GREEN` | 2.10 | 15.15 | 6.50 | HOLD TO ARM, HOLD TO WRITE, HOLD TO START, HOLD TO APPLY at rest |
+| `ONACCENT` | `CYAN` | 1.25 | 14.70 | 7.73 | BACK, the tester's MENU, a changed value |
 | `ONACCENT` | `LIME` | 1.37 | 15.74 | 5.57 | servo A's selector, the PORT OPEN chip |
 | `ONACCENT` | `RED` | 3.53 | 5.45 | 6.61 | ARMED, DISARM, STOP, a held hold |
 | `ONACCENT` | `BLUE` | 2.44 | 6.14 | 9.68 | LATCH on, a toggle on, PROG MODE |
@@ -462,7 +490,10 @@ What the numbers say:
   `C_GREEN` 2.10, on `C_BLUE` 2.44, on `C_MAGENTA` 3.14, on `C_RED` 3.53:
   the SAFE badge, the EDT ON chip, servo A's selector, LATCH, PROG MODE,
   ARMED and STOP. With rcbench's dark ink every label on a fill is 5.45 or
-  more.
+  more ([decision 3](#decisions)).
+- **The new fills.** Dark ink on the cyan of BACK and of a changed value is
+  14.70, and on the green of a start button 15.15. White on today's cyan
+  would be 1.25.
 - **One text pair is under 4.5 in the proposal:** `RED` on `PANEL`, 4.03,
   today 4.89. It is the word `ERROR` at scale 2 in the tester's ESC STATUS
   tile (`STATUS_COL` in `src/ui.cpp`). rcbench's own `PANEL` would give
@@ -519,19 +550,75 @@ What the numbers say:
   greens in both palettes. `BLUE` and `DIM` are 12.1 apart, because
   rcbench's label colour is a blue-grey.
 - **No state rests on hue alone.** Every chip and badge carries its word. A
-  changed value carries its bar. LATCH, a toggle and a selector show "on"
-  by a fill where "off" has none. The collisions above cost a second cue,
-  not the state.
+  changed value carries its fill and its bar. LATCH, a toggle and a
+  selector show "on" by a fill where "off" has none. The collisions above
+  cost a second cue, not the state.
 - **Dark ink on red under protanopia.** Red loses luminance for a
   protanope: `ONACCENT` on `RED` is 5.45 for normal vision, 3.61 simulated
   for protanopia, 6.66 for deuteranopia. White on the same red is 3.71,
-  5.58 and 3.05 ([question 3](#open-questions)).
+  5.58 and 3.05. The owner takes dark ink on every fill
+  ([decision 3](#decisions)).
 - **High contrast** collides more than either dark palette: ten pairs
   under 10 among its accents, `GREEN` against `LIME` at 5.1 for normal
   vision. Its accents are dark by its own rule and cannot spread in
   lightness. Not changed here.
 
-[The fourth mock-up](#mock-ups) shows three screens through the simulation.
+[The fourth mock-up](#mock-ups) shows four screens through the simulation.
+
+### The cues of the decisions
+
+The owner's [decisions 1 and 2](#decisions) give cyan and green two uses
+each. Each pair of uses is kept apart by a shape, and a shape is read by
+luminance. The table gives the luminance contrast of each cue, for normal
+vision and through the three simulations.
+
+| Cue | Pair | Normal | Protan | Deutan | Tritan |
+|---|---|---|---|---|---|
+| Changed: the fill against the row | `CYAN` on `BG` | 14.95 | 16.71 | 13.82 | 16.00 |
+| Changed: the fill against the selected row | `CYAN` on `PANEL` | 10.89 | 11.87 | 10.23 | 11.62 |
+| Changed: the ink on the fill; BACK's label | `ONACCENT` on `CYAN` | 14.70 | 16.42 | 13.59 | 15.71 |
+| Unchanged: a settings value, no fill | `CYAN` on `BG` | 14.95 | 16.71 | 13.82 | 16.00 |
+| A start button's fill against the screen | `GREEN` on `BG` | 15.41 | 16.83 | 14.39 | 15.68 |
+| A start button's label | `ONACCENT` on `GREEN` | 15.15 | 16.54 | 14.15 | 15.40 |
+| SAFE: the outlined badge's word and frame | `GREEN` on `BG` | 15.41 | 16.83 | 14.39 | 15.68 |
+| ARMED: the badge's fill against the status bar | `RED` on `PANEL` | 4.03 | 2.61 | 5.01 | 3.77 |
+| ARMED, DISARM, STOP: the ink | `ONACCENT` on `RED` | 5.45 | 3.61 | 6.66 | 5.09 |
+
+Two fills or marks that must not be taken for each other, by ΔE:
+
+| Pair | Where they meet | Normal | Protan | Deutan | Tritan | Told apart by |
+|---|---|---|---|---|---|---|
+| `GREEN` `RED` | HOLD TO ARM and DISARM, in one rectangle | 88.6 | 39.9 | 19.1 | 78.2 | no collision; the label and its scale |
+| `GREEN` `CYAN` | a start button and BACK; HOLD TO ARM and `MENU` in the tester's button row | 28.9 | 34.9 | 37.4 | 4.8 | the place: BACK is in the header at x 170 on every screen, `MENU` at the row's right end; the label |
+| `GREEN` `LIME` | a start button and its hold bar | 13.0 | 10.5 | 11.7 | 5.4 | time: the bar runs only while the button is held, and a held button is red |
+| `CYAN` `TEXT` | a settings value and a device value | 21.9 | 8.2 | 14.8 | 20.7 | nothing needed: the two never share a list |
+| `CYAN` `DIM` | a settings value and its label | 22.4 | 15.0 | 12.1 | 17.8 | no collision; the scale, 2 against 1 |
+
+What the numbers say:
+
+- **Changed against unchanged cyan.** A changed value is dark ink in a
+  cyan box; an unchanged settings value is cyan ink on the row. The box
+  stands 14.95 off the row and 10.89 off the selected row, and the least in
+  any simulation is 10.23. The ink in the box is 14.70, least 13.59. The
+  two differ by which of ink and ground is light, not by hue, so no kind of
+  CVD merges them. The 3 px bar at the row's left edge is the second cue.
+- **Green as a fill and green as a state** differ the same way: a filled
+  rounded button with dark ink against a frame and a word on the screen's
+  black. Least contrast of either, 14.15.
+- **ARMED is the weakest cue in the table.** The red fill stands 4.03 off
+  the status bar and 2.61 for a protanope, and its ink 5.45 and 3.61. It
+  does not rest on the fill alone: the word changes from SAFE to ARMED,
+  the badge from a frame to a fill, the button from HOLD TO ARM at scale 1
+  to DISARM at scale 2, and the throttle track fills.
+- **Tritanopia** cannot tell the green of a start button from the cyan of
+  the way back, 4.8. With a header the two are in different bands. On the
+  tester they share the button row, HOLD TO ARM at its left end and `MENU`
+  at its right with LATCH between, and the label and the place tell them
+  apart ([question 2](#open-questions)).
+- **High contrast.** The same cues hold with its dark accents on white:
+  the changed fill is 7.73 against the row and 5.30 against the selected
+  row, a start button 6.50 with white ink, and `GREEN` against `RED` is
+  10.3 for a protanope and 11.5 for a deuteranope, the label apart.
 
 ### Adaptations to the small display
 
@@ -560,16 +647,20 @@ What the numbers say:
    dark accents. A 5 x 7 glyph has 1 px strokes at scale 1, and a chip's
    label is scale 1: it needs the ratio more than rcbench's 10 x 20 face
    does.
-5. **Cyan stays "changed".** rcbench's accent also marks the home tag, the
-   icons, every settings value, the selected tab and the section names.
-   Decision 11 gives cyan one meaning here, and rcbench marks a changed
-   value with the same accent, so the mapping keeps the stronger half of
-   rcbench's use and decision 8 as it stands. The header keeps a `C_TEXT`
-   title and a neutral BACK ([question 1](#open-questions)).
-6. **Green stays "safe, done".** rcbench fills a button green when a press
-   starts an output and red while the output is on. Here HOLD TO ARM, HOLD
-   TO START and HOLD TO WRITE stay neutral and fill red while held, by
-   decisions 11 and 14 ([question 2](#open-questions)).
+5. **Cyan is the accent, as rcbench** ([decision 1](#decisions)). It
+   marks what rcbench marks with it: the way back, a settings value, a
+   section name, a selected tab, and a changed value as a fill. rcbench's
+   icons have no part here; the mark `>` of a hub row stands for them. The
+   pressed outline stays `C_INK` (adaptation 13) and the scroll bar
+   `C_GRID`: a 3 px bar of the accent beside a list of cyan values would be
+   the brightest thing on SETUP.
+6. **Green is "a press starts", as rcbench** ([decision 2](#decisions)). A
+   button that starts an output is green at rest and red while the output
+   is on. rcbench fades a held button from green to the colour it holds
+   next over 2 s; here a held button is red at once, as
+   [menu-b.md](menu-b.md#decisions) decision 14 has every hold, and the
+   3 px bar shows the 1000 ms. rcbench has no green badge, and here "safe,
+   done" is never a fill ([Green](#green)).
 7. **One live colour.** rcbench gives voltage, current, power and speed a
    colour each, for a plot with four traces. The tester has no plot, its
    tiles name their values, and decision 11 gives a live reading one
@@ -591,8 +682,8 @@ What the numbers say:
     scale 2, numerals to the segment digits.
 11. **No icons and no tiles.** A MENU row is 40 px tall with a label at
     scale 2; `SERVO PROGRAMMER` is 190 px of the row's 224, and menu-c's
-    widest label is 118 px. rcbench's tile is 243 x 255 px for a 40 px
-    icon over a name; this panel is 240 x 320 px.
+    widest label, `ESC PROGRAM`, is 130 px. rcbench's tile is 243 x 255 px
+    for a 40 px icon over a name; this panel is 240 x 320 px.
 12. **The same floor in millimetres.** rcbench's smallest target is 48 px
     at 0.150 mm, 7.2 mm. `UI_LIST_TAP_MIN`, 40 px at 0.178 mm, is 7.1 mm.
     The theme moves no rectangle, so the floors of
@@ -603,7 +694,7 @@ What the numbers say:
     moved 1 px. It reads on a fill of any colour, and the frame is 20.57
     against the background.
 14. **No brightness and contrast scaling of the palette.** rcbench scales
-    its palette; MiniRcBench dims the backlight (SETTINGS, DISPLAY) and has
+    its palette; MiniRcBench dims the backlight (SETUP, DISPLAY) and has
     High contrast for sunlight.
 
 ### High contrast
@@ -622,30 +713,37 @@ What each widget draws in the proposal. Rectangles are today's.
 | Widget | Proposed | rcbench's |
 |---|---|---|
 | Header | `C_PANEL` band; a 1 px `C_GRID` rule at y 35; the title `C_TEXT`, scale 2 | the band: `PANEL` over an `EDGE` rule |
-| BACK | a neutral button; disabled: `C_BG`, frame, `C_GRID` label | the home tag, on `ACCENT` (adaptation 5) |
-| Neutral button | `C_PANEL`, a 1 px `C_GRID` frame, `C_TEXT` label; `C_DIM` for LATCH and MENU, as today | `PANEL_HI`, no frame |
-| Button radius | 5 px (`UI_RADIUS`), drawn ([question 4](#open-questions)) | 8 px of 48 |
+| BACK | the home tag: a `C_CYAN` button, `C_ONACCENT` label, 64 x 32 px at x 170; disabled: `C_BG`, frame, `C_GRID` label; not drawn on MENU, the root | the home tag, on `ACCENT`; none on the menu |
+| The tester's `MENU` | the tester's home tag: `C_CYAN`, `C_ONACCENT` label | the home tag |
+| Neutral button | `C_PANEL`, a 1 px `C_GRID` frame, `C_TEXT` label; `C_DIM` for LATCH, as today | `PANEL_HI`, no frame |
+| Button radius | 5 px (`UI_RADIUS`), drawn ([decision 4](#decisions)) | 8 px of 48 |
 | Pressed | `C_INK` frame, inner frame, label + 1 px | fill toward white |
-| Disabled | `C_BG`, frame, `C_GRID` label | `BG`, outline, `TEXT_FAINT` |
-| Output on | `C_RED` fill, `C_ONACCENT` label: DISARM, STOP | `DANGER` |
-| Hold | neutral; `C_RED` with `C_ONACCENT` while held; a 3 px `C_LIME` bar | green fading to red or amber, then a flash |
-| Editor `-`, `+`; REPAIR | neutral, as SETTINGS' `-` and `+` are today | edit: `PANEL_HI` |
+| Disabled | `C_BG`, frame, `C_GRID` label, whatever the button's fill at rest | `BG`, outline, `TEXT_FAINT` |
+| Start button | `C_GREEN`, `C_ONACCENT` label: HOLD TO ARM, HOLD TO WRITE, HOLD TO RESTORE, HOLD TO START, HOLD TO APPLY ([Green](#green)) | output action, available: `OK` |
+| Output on | `C_RED` fill, `C_ONACCENT` label: DISARM, STOP | output action, active: `DANGER` |
+| Hold | at rest green if it starts an output, else neutral; `C_RED` with `C_ONACCENT` while held; a 3 px `C_LIME` bar | green fading to red or amber, then a flash |
+| Editor `-`, `+`; REPAIR | neutral, as SETUP's `-` and `+` are today | edit: `PANEL_HI` |
 | Warning label | `C_AMBER` on a neutral button: REVERT, DEFAULTS | the label in `DANGER` on DELETE |
 | Chip with a state | square, 12 px, the role's fill, `C_ONACCENT` label; `C_PAPER` on amber | a pill; filled for ARMED and FAULT |
+| Chip, safe or done | square, 12 px, a 1 px `C_GREEN` frame on `C_BG`, `C_GREEN` label: SAFE, OK, SETTLED, EDT ON | the neutral pill; a green dot for LINK |
 | Neutral chip | square, 12 px, `C_GRID` frame on `C_BG`, `C_DIM` label | a pill on `PANEL_SUNK` |
-| Tester badge | `C_GREEN` or `C_RED`, the word at scale 2 in `C_ONACCENT` | the ARMED chip |
+| Tester badge | a square chip, 92 x 20 px. SAFE: a 2 px `C_GREEN` frame on `C_BG`, the word at scale 2 in `C_GREEN`. ARMED: a `C_RED` fill, the word in `C_ONACCENT` | the ARMED chip; SAFE is the neutral pill |
 | Strip | `C_DIM` caption; the guard's and the notes' lines `C_AMBER` | the footer's line, `WARN` while it warns |
-| List row, MENU | a neutral button 40 px tall, label scale 2, status scale 1 `C_DIM` | a tile |
+| List row, MENU | a neutral button 40 px tall, label scale 2, status scale 1 `C_DIM`; `>` scale 2 `C_CYAN` | a tile |
 | Field row | fill `C_BG`, selected `C_PANEL`; caption `C_GRID`, label `C_DIM`, selected `C_TEXT`; value by state; a 1 px `C_PANEL` rule | a `PANEL` row with an `EDGE` outline |
-| Changed value | `C_CYAN` and a 3 px bar; `C_AMBER` bar for a soft rule | an `ACCENT` fill and `* ` |
+| Value, device list | `C_TEXT`: ESC SETTINGS, KST SERVO, HITEC SERVO | `TEXT` on `PANEL_SUNK` |
+| Value, settings list | `C_CYAN`: SETUP, SERVO SET, OUTPUT SET, ANGLE METER's settings view | `ACCENT` |
+| Changed value | `C_ONACCENT` on a `C_CYAN` fill, and the 3 px bar; `C_AMBER` bar for a soft rule ([Cyan](#cyan)) | an `ACCENT` fill and `* ` |
 | Read-only value | `C_GRID` | `TEXT_FAINT` |
-| Section caption | `C_TEXT`, scale 1 | `ACCENT` over a rule (adaptation 5) |
+| Value that warns | `C_AMBER`, `C_RED`, as the value functions set today | `WARN` |
+| Section caption | `C_CYAN`, scale 1 | `ACCENT` over a rule |
+| Tab | none at cff09ae and none in menu-c.md. The first one: `C_PANEL`, the selected label `C_CYAN`, the others `C_DIM` | `PANEL_HI`, the selected label `ACCENT` |
 | Scroll bar | 3 px, `C_GRID` | `ACCENT` on `PANEL_SUNK` |
 | Slider | trough as today, fill `C_GRID`, thumb `C_TEXT` | a `PANEL_SUNK` trough, a fill between it and `TEXT` |
 | Readings | `C_LIME` segments over `C_GHOST`; `C_REDDARK` with no telemetry | series colours, unlit segments drawn |
 | Tile, tester | `C_PANEL`, caption `C_DIM`, value `C_TEXT` at scale 2 | a card |
 
-Three of these change a widget's rule, beyond the palette:
+The rules that change a widget, beyond the palette:
 
 - **The header's rule.** One `gfxHLine()` at y 35. The strip starts at
   y 40, so nothing moves.
@@ -654,6 +752,15 @@ Three of these change a widget's rule, beyond the palette:
 - **Neutral edit buttons.** The editor bars' `-` and `+` and Hitec's REPAIR
   are `C_GRID` fills with a `C_ONACCENT` label today, 11.17 with white ink
   and 3.51 with dark. They become neutral buttons: 14.21.
+- **The radius.** `gfxRoundRect()` and `gfxRoundFrame()` draw the 5 px
+  that every `uiButton()` call passes; the corner solver draws none today
+  ([STATUS.md](../../STATUS.md), open item 25). Chips are drawn with
+  `gfxRect()`. The tester's badge and its `SDERR` chip are drawn with
+  `gfxRoundRect()` today, radius 4 and 2; they are chips and become
+  square. The tester's throttle track, the sliders and the dial's shaft
+  are round by intent and stay.
+- **The home tag, the changed fill, the start button, the outlined chip
+  and the tester's badge:** [Cyan](#cyan) and [Green](#green).
 
 Two uses of a colour change:
 
@@ -662,6 +769,122 @@ Two uses of a colour change:
   the slider outshines the readout over it.
 - **Hints** a user reads, `SWIPE = COARSE` and its kin, are `C_DIM`, today
   `C_GRID`. Group captions stay `C_GRID`.
+
+### Cyan
+
+[Decision 1](#decisions): cyan is rcbench's accent. What it marks here:
+
+| Use | Drawn as | rcbench's |
+|---|---|---|
+| The way back | BACK in the header and `MENU` on the tester: a `C_CYAN` button with a `C_ONACCENT` label | the home tag |
+| A row that opens a level | `>` at the right of a hub row of MENU, `C_CYAN`, scale 2 | the chevron; the icons |
+| A selected tab | its label in `C_CYAN`; no screen has a tab yet | a selected tab |
+| A settings value | `C_CYAN` text: SETUP, SERVO SET, OUTPUT SET, ANGLE METER's settings view | a settings value |
+| A section caption | `C_CYAN` text, scale 1: SETUP's ESC TESTER, WIRING and the others | a section name |
+| A changed value | `C_ONACCENT` text on a `C_CYAN` fill, and the 3 px `C_CYAN` bar | the accent fill and `* ` |
+
+The home tag is BACK, not the title. rcbench's tag carries the screen's
+name at the left of the band. Here the title stays `C_TEXT` at x 8 and BACK
+stays the 64 x 32 px button at x 170 that every test and every habit
+knows: the tag's colour moves to the control that climbs. A BACK that
+would do nothing is drawn disabled, as today, and is then not cyan.
+
+How "changed" stays apart from an unchanged cyan value:
+
+- **rcbench's cue** is an accent fill behind the value and a `* ` before
+  it. Its settings values are accent text without a fill, so fill against
+  no fill is the cue there too.
+- **Here** a changed value is drawn in `C_ONACCENT` on a `C_CYAN`
+  rectangle that reaches 3 px beyond the text on each side and 2 px above
+  and below it. The text stays where it is, right-aligned to x 231. The
+  3 px bar at x 0 stays, `C_CYAN`, or `C_AMBER` for a soft rule. No `*` is
+  added: the bar is the second cue, as [menu-b.md](menu-b.md#decisions)
+  decision 8 has it.
+- **Where the two meet.** SERVO SET is a settings list with changes that
+  wait for HOLD TO APPLY: its plain values are cyan text, its waiting ones
+  dark on cyan. On ESC SETTINGS, KST SERVO and HITEC SERVO a plain value
+  is `C_TEXT`, so there the fill meets no cyan text at all.
+- **The numbers** are in
+  [The cues of the decisions](#the-cues-of-the-decisions): the fill is
+  14.95 against the row, 10.89 against the selected row, and 10.23 at the
+  least through a simulation. The cue is which of ink and ground is light,
+  so it does not rest on hue.
+- **`old -> new`.** The editor bar and the write page draw the new value
+  in `C_CYAN` text after the old value and an arrow, as today
+  (`uiChangeText()`). The arrow is the cue there, and no unchanged value
+  stands beside it.
+- **The fit.** The fill adds 3 px at the value's left. `UI_FIELD_VALUE_W2`,
+  104 px, holds the value; the slice checks that the fill ends 4 px or
+  more after the row's label.
+
+### Green
+
+[Decision 2](#decisions): a button that starts an output is green.
+
+| Press | Class by rcbench's rule | At rest | While held or on |
+|---|---|---|---|
+| HOLD TO ARM, the tester | output action: arms | `C_GREEN` | `C_RED` while held; then DISARM, `C_RED` |
+| HOLD TO WRITE: ESC WRITE, KST WRITE, HITEC WRITE | output action: writes a device | `C_GREEN` | `C_RED` while held |
+| HOLD TO RESTORE: KST, Hitec | the same button and the same write, from a file | `C_GREEN` | `C_RED` while held |
+| HOLD TO START: SERVO TESTER, S.BUS OUTPUT | output action: starts a run | `C_GREEN` | `C_RED` while held; then STOP, `C_RED` |
+| HOLD TO APPLY, SERVO SET | output action: the pulses change | `C_GREEN` | `C_RED` while held |
+| HOLD TO SAVE, HOLD DEFAULTS, HOLD TO KEEP | edit: flash, no output | neutral | `C_RED` while held |
+| HOLD TO REBOOT, KST | a command; starts no output | neutral | `C_RED` while held |
+| ESC COMMANDS: BEEP 1 to 5; NORMAL, REVERSED, 3D OFF, 3D ON | a command; each button names a value | neutral | `C_RED` while held |
+| START, LOGS | starts a recording, no output | neutral | STOP, `C_RED` |
+| LEAVE, STAY, `WRITE...`, `RESTORE...`, MIN, CENTRE, MAX, SWEEP | navigation and edit | neutral | |
+
+The first four rows are the owner's list. HOLD TO RESTORE is this note's
+reading of "the WRITE holds"; the rows under it are
+[open question 1](#open-questions).
+
+rcbench's list has more: CENTER, SWEEP and the pulse buttons of its servo
+screens are green because a press moves an armed servo at once. Here MIN,
+CENTRE, MAX and SWEEP choose where the horn goes and act on the output
+only after HOLD TO START, so they are edits.
+
+How green as "a press starts" stays apart from green as "safe, done":
+
+- **rcbench's rule.** "The fill of a button says what a press does to an
+  output." Green is a fill only on a button. A state that is good is a
+  green dot or a green word, and SAFE is the neutral chip.
+- **Button against badge and text.** Here a green fill is a button and
+  nothing else. "Safe, done" is a word in `C_GREEN`, as `SAVED` and `WRITE
+  VERIFIED` are today, or a chip drawn as an outline.
+- **Shape.** A button is rounded, 5 px, and 22 px tall or more; a chip is
+  square and 12 px tall ([decision 4](#decisions)). The tester's badge is
+  a chip: square, 20 px tall.
+- **Fill against outline.** A start button is a green fill with dark ink.
+  A safe or done chip is a 1 px green frame on the screen's black with a
+  green word: SAFE on SERVO TESTER and S.BUS OUTPUT, OK on S.BUS MONITOR,
+  SETTLED on ANGLE METER, EDT ON on ESC COMMANDS. The tester's SAFE badge
+  is a 2 px green frame with the word at scale 2.
+- **The label.** A start button's label is an order: HOLD TO ARM. A
+  chip's is a state: SAFE.
+
+A green HOLD TO ARM does not say "safe". What keeps the arm control and
+ARMED unambiguous:
+
+1. **Two different things are green while the bench is safe,** and they
+   differ in every other way: the badge at the top left is a frame around
+   the word SAFE; the button at the bottom left is a fill under the order
+   HOLD TO ARM.
+2. **Nothing is filled green while armed.** The button reads DISARM on
+   `C_RED` at scale 2, and the badge reads ARMED on `C_RED`. A green fill
+   on the tester therefore means "not armed, and a hold arms".
+3. **ARMED is the only filled badge.** SAFE is an outline. rcbench does
+   the same, "readable by shape at arm's length, not by colour alone"
+   (`chip_look()`).
+4. **The hold shows.** From the first frame of the hold the button is
+   `C_RED`, and the `C_LIME` progress grows along the badge's lower edge,
+   92 px in 1000 ms (`ARM_HOLD_MS`). At cff09ae the button keeps its rest
+   fill while held and shows the press by its frame only (`drawButtons()`
+   in `src/ui.cpp`); it takes the rule of every hold.
+5. **Refused is not green.** While a USB host holds the card HOLD TO ARM
+   is the disabled button: `C_BG`, a frame, a `C_GRID` label.
+6. **The numbers.** Green against red in the one rectangle is 88.6, and
+   19.1 at the least through a simulation, the label and its scale apart
+   ([The cues of the decisions](#the-cues-of-the-decisions)).
 
 ### Units and groups
 
@@ -674,165 +897,270 @@ Two uses of a colour change:
 - **No value** is `--` on both benches.
 - **Frames.** rcbench frames a group with a card and a title tab. A card
   costs a margin on each side, 16 px of 240. Here a group is a caption
-  line, as SETTINGS draws its sections, and a field row carries its group
+  line, as SETUP draws its sections, and a field row carries its group
   over its label.
 
 ### The widgets of menu-c.md
 
-menu-c.md leaves three looks to this note:
+[menu-c.md](menu-c.md) leaves three looks to this note. The names are its
+own: the hubs are ESC PROGRAM, SERVO and RECEIVER.
 
-- **A MENU header with no BACK.** The band, its rule and the title; nothing
-  is drawn in BACK's rectangle. No wordmark: rcbench's root shows one, and
-  the splash already carries the name.
-- **`>` on a row that opens a hub.** `C_DIM` at scale 2, 10 px wide, ending
-  at x 222: at scale 1 the mark is 5 x 7 px, the smallest thing on a row
-  whose label is 14 px tall. It starts at x 213, 79 px after the widest
-  hub label ends at x 134. A disabled row draws it in `C_GRID`.
+- **The header.** On every screen but two: the band, its rule, the title
+  in `C_TEXT` and BACK as the cyan home tag. MENU, the root, draws nothing
+  in BACK's rectangle. No wordmark: rcbench's root shows one, and the
+  splash already carries the name. ESC TESTER has no header; its `MENU`
+  button is its home tag and is cyan.
+- **`>` on a row that opens a hub.** `C_CYAN` at scale 2, 10 px wide,
+  ending at x 222: at scale 1 the mark is 5 x 7 px, the smallest thing on a
+  row whose label is 14 px tall. It starts at x 213, 67 px after the
+  widest hub label, `ESC PROGRAM`, ends at x 146. A disabled row draws it
+  in `C_GRID`.
 - **The hub, `ui_hub`.** An entry is a neutral button, 228 x 46 px, with
-  its label at scale 2 in `C_TEXT`. Its lines are `C_DIM` at scale 1. An
-  entry that is refused is the disabled button, and its `why` lines are
-  `C_AMBER`, as PROGRAMMER draws HITEC CLASSIC today. The strip is `C_DIM`.
-  The scroll bar is the 3 px `C_GRID` bar at x 235.
+  the 5 px radius and its label at scale 2 in `C_TEXT`. Its lines are
+  `C_DIM` at scale 1. An entry that is refused is the disabled button, and
+  its `why` lines are `C_AMBER`, as PROGRAMMER draws HITEC CLASSIC today.
+  The strip is `C_DIM`. The scroll bar is the 3 px `C_GRID` bar at x 235.
+  An entry opens a tool, not a level of the menu, so it carries no `>`.
 
 MENU's strip loses its EDT chip in menu-c.md. The chips of ESC COMMANDS
-keep the looks above.
+keep the looks above: `EDT ON` is the outlined green chip, `EDT OFF` the
+red one, `NO ESC` the neutral one.
 
 ## Mock-ups
 
 Rendered by the host suite from a scratch copy of the tree at cff09ae with
 the proposal applied by `ui_theme.py --patch DIR --radius`, then tiled by
 `ui_theme.py --sheet`. Nothing in `src/` is changed on this branch. Each
-screen is 240 x 320 px, shown at twice its size.
+screen is 240 x 320 px, shown at twice its size. The screens are those of
+cff09ae: the structure and the names of menu-c.md are not built, so a
+title reads SETTINGS where the proposal has SETUP, and PROGRAMMER stands
+for a hub.
 
-Today: MENU, the tester armed, ESC SETTINGS with an edit, KST WRITE.
+Today: the tester safe and armed, ESC SETTINGS with an edit, KST WRITE.
 
 ![The four screens today](ui-theme-now.png)
 
-Proposed, the same four frames:
+Proposed, the same four frames: the outlined SAFE badge over a green HOLD
+TO ARM and the cyan `MENU`; ARMED and DISARM; the changed value as a cyan
+fill beside device values in the text colour; the green HOLD TO WRITE.
 
 ![The four screens in the proposed theme](ui-theme-proposed.png)
 
-Proposed: MENU with the neutral `NO ESC` chip, HITEC SERVO with the PROG
-MODE chip and disabled buttons, the leave page with BACK disabled, SERVO
-TESTER with two servos.
+Proposed: SETTINGS with cyan values and captions; SERVO SET with four
+values that wait for a green HOLD TO APPLY; SERVO TESTER with the outlined
+SAFE chip and a green HOLD TO START; PROGRAMMER, whose entries are the
+hub's, with HITEC CLASSIC disabled.
 
 ![Four more screens in the proposed theme](ui-theme-more.png)
 
 Proposed, through the simulation of protanopia, deuteranopia and
-tritanopia, top to bottom, at their own size: the tester armed, ESC
-SETTINGS with an edit, SERVO TESTER with two servos and with OVERCURRENT.
+tritanopia, top to bottom, at their own size: the tester safe and armed,
+ESC SETTINGS with an edit, SERVO TESTER safe.
 
 ![Four screens through the CVD simulation](ui-theme-cvd.png)
 
-The mock-ups draw the 5 px radius of [question 4](#open-questions). Without
-it the corners are those of the first picture.
+What the patch leaves out: the `>` of a hub row, the root's header without
+BACK, HOLD TO ARM's red while held, and the cyan values of ANGLE METER's
+settings view.
 
-With the patch the host suite fails six checks and passes the rest; they
-are the tests of [the slices](#slices):
+With the patch the host suite fails 202 checks and passes the rest; they
+are the tests the slices rewrite:
 
-| Check | Where |
+| Checks | What they read |
 |---|---|
-| `NO ESC` on a `C_GRID` fill, twice | `test/test_ui.cpp`, lines 1650 and 1670 |
-| `MOVING` on grey | `test/test_angle_ui.cpp`, line 329 |
-| `PORT CLOSED` on grey, twice | `test/test_bridge_ui.cpp`, lines 264 and 333 |
-| SPEED's fill dim | `test/test_servo.cpp`, line 3394 |
+| 130 | "BACK is drawn live": BACK's fill, on every screen with a header |
+| 72 | a value or a caption of SETTINGS, SERVO SET or OUTPUT SET by its colour; the fill of a SAFE, OK, SETTLED or EDT ON chip; a hold's fill at rest; a changed value's colour; BACK's fill in the cases that name it otherwise; and the six of the first patch: `NO ESC`, `MOVING` and `PORT CLOSED` on a `C_GRID` fill and SPEED's fill |
+
+The 72 are not counted by kind: a case that finds a text by its colour
+fails with the first colour that moved.
+
+## Decisions
+
+Decisions of the owner, 2026-11-15, answering the open questions of this
+note as it stood at ef2ffb0:
+
+1. **Cyan as rcbench** (question 1). Cyan marks the header's home tag,
+   tabs and settings values too, not only "changed". This is not the
+   recommendation, which kept cyan for "changed" alone. It revises
+   [menu-b.md](menu-b.md#decisions) decision 11 for cyan and decision 8.
+   The 3 px bar stays.
+2. **Green as rcbench** (question 2). Buttons that start an output turn
+   green: HOLD TO ARM, the WRITE holds, START and APPLY. This is not the
+   recommendation, which kept them neutral. Green also still means "safe,
+   done". It revises decision 11 for green and decision 14's hold fill.
+3. **Dark ink on red fills** (question 3). Dark ink on every fill, ARMED
+   and STOP among them. This is the recommendation.
+4. **5 px rounded button corners** (question 4). Chips stay square. This
+   is the recommendation.
+5. **The hardware look** (question 5). The owner has no bench session
+   soon. The slices proceed on the host, with every colour marked "not
+   seen on the panel". The fallback stays as written: a lighter `TC_PANEL`
+   between rcbench's `PANEL_HI` and `GRID`, which no other slice depends
+   on. This is not the recommendation, which put the first look before
+   slices 2 to 7.
+
+Choices of this note where the decisions above leave the choice. The owner
+has not decided them:
+
+6. **The home tag is BACK,** and on the tester `MENU`
+   ([question 2](#open-questions)); the title stays `C_TEXT`
+   ([Cyan](#cyan)).
+7. **Changed is the cyan fill** with dark ink, and the bar; no `*`
+   ([Cyan](#cyan)).
+8. **Section captions and the mark `>` are cyan;** the scroll bar and the
+   pressed frame are not (adaptation 5).
+9. **Device values stay `C_TEXT`;** the values of SETUP and of the tools'
+   own settings lists are cyan ([Widgets](#widgets)).
+10. **"Safe, done" is never a fill.** The green chips and the tester's
+    SAFE badge become outlines ([Green](#green)).
+11. **A hold that starts an output is green at rest and red while held;**
+    HOLD TO ARM too ([Green](#green)).
+12. **HOLD TO RESTORE is a WRITE hold.** The other presses of
+    [the table](#green) stay neutral ([question 1](#open-questions)).
+13. **The tester's badge and its `SDERR` chip are square**
+    ([Widgets](#widgets)).
 
 ## Revisions
 
 Decisions the theme revises, with the line the build adds under each. The
-notes are not edited now.
+notes are not edited now; slice 14 of
+[the build plan](menu-c.md#build-plan) adds the lines.
 
-1. **[menu-b.md](menu-b.md#decisions) decision 11,** the row "MENU `NO
-   ESC` chip, no eRPM: `C_GRID`, square".
+1. **[menu-b.md](menu-b.md#decisions) decision 8,** "Changed is cyan, with
+   a bar", and decision 26, the owner's choice of `C_CYAN`.
+
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of
+   > 2026-11-15: a changed value in a list row is `C_ONACCENT` on a
+   > `C_CYAN` fill, and the 3 px bar stays. Cyan text without a fill is a
+   > settings value. The editor bar's and the write page's new value stay
+   > `C_CYAN` text after `old ->`.
+
+2. **menu-b.md decision 11,** the role "changed: `C_CYAN`", and the rows
+   "SETTINGS section captions", "SETTINGS `KISS PIN` value", "SETTINGS
+   `ESC PIN` value" and "SETTINGS `MAX THROTTLE` value", each "becomes
+   `C_TEXT`".
+
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of
+   > 2026-11-15: `C_CYAN` is rcbench's accent and has more than one
+   > meaning. It marks the way back (BACK, the tester's `MENU`), `>` on a
+   > row that opens a hub, a selected tab's label, a settings value and a
+   > section caption. "Changed" is the cyan fill and the bar of decision 8.
+   > SETUP's captions and values are `C_CYAN`.
+
+3. **menu-b.md decision 11,** the role "safe, done: `C_GREEN`", with its
+   uses "SAFE badge and chip, EDT ON chip".
+
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of
+   > 2026-11-15: `C_GREEN` as a button's fill says that a press starts an
+   > output: HOLD TO ARM, HOLD TO WRITE, HOLD TO RESTORE, HOLD TO START
+   > and HOLD TO APPLY. "Safe, done" is never a fill: it is a word in
+   > `C_GREEN`, or a square chip with a `C_GREEN` frame and label on
+   > `C_BG`, the tester's SAFE badge among them.
+
+4. **menu-b.md decision 14,** the row "Hold fill: `C_RED`".
+
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of
+   > 2026-11-15: a hold that starts an output is `C_GREEN` with a
+   > `C_ONACCENT` label at rest and `C_RED` while held, HOLD TO ARM
+   > included. Every other hold is neutral at rest and `C_RED` while held.
+
+5. **menu-b.md decision 11,** the row "MENU `NO ESC` chip, no eRPM:
+   `C_GRID`, square".
 
    > Revised by [ui-theme.md](ui-theme.md#widgets): a chip with no state
    > to report, `NO ESC`, `PORT CLOSED` and `MOVING`, is a 1 px `C_GRID`
    > frame on `C_BG` with a `C_DIM` label, square and 12 px tall.
 
-2. **menu-b.md decision 11,** the row "servo SPEED fill: `C_DIM`".
+6. **menu-b.md decision 11,** the row "servo SPEED fill: `C_DIM`".
 
    > Revised by [ui-theme.md](ui-theme.md#widgets): a slider's fill is
    > `C_GRID`.
 
-3. **menu-b.md, "The field lists",** the drawing's line "`SWIPE = COARSE`:
+7. **menu-b.md, "The field lists",** the drawing's line "`SWIPE = COARSE`:
    `C_GRID`".
 
    > Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`.
 
-4. **menu-b.md, "Slice 2 as built",** the chip block: the label on a fill.
+8. **menu-b.md, "Slice 2 as built",** the chip block: the label on a fill.
    Not a decision; the build updates the paragraph and
    [rx-signals.md](rx-signals.md), which records the same rule: `C_ONACCENT`
-   is dark in the Dark theme.
+   is dark in the Dark theme ([decision 3](#decisions)).
 
 Decisions the theme leaves as they are:
 
-- **menu-b.md decisions 8 and 26.** Changed is `C_CYAN`, with a bar. The
-  value of cyan moves from 0x07FF to 0x079F.
-- **menu-b.md decision 11,** the role table and every other row. A role
-  keeps its entry; the entries' values change.
-- **menu-b.md decision 14.** No rectangle and no text moves.
+- **menu-b.md decision 11,** the other roles and rows: live, output on,
+  warning, alert, latched and neutral keep their entries; the entries'
+  values change. Chips stay square and 12 px tall.
+- **menu-b.md decision 14,** the other rows. No rectangle and no text
+  moves.
 - **[menu.md](menu.md#decisions) decisions 5 and 16.** The floors.
 
-Two open questions would revise more, if the owner takes the other side:
-question 1 revises decision 11's cyan, and question 2 its green and
-decision 14's hold fill. Question 4 closes open item 25 of
+[Decision 4](#decisions) closes open item 25 of
 [STATUS.md](../../STATUS.md).
 
 ## Slices
 
-Each slice builds and passes the host suite alone. None needs hardware; the
-look on the panel is checked once, after slice 1, by the owner.
+The slices of the look are slices 7 to 14 of
+[the build plan in menu-c.md](menu-c.md#build-plan), which orders them
+with the structure's, names the model each suits and gives each one's host
+tests and its dependence on the DShot slices. None needs hardware
+([decision 5](#decisions)).
 
-| Slice | What | Host tests |
-|---|---|---|
-| 1 | **Palette.** `THEME_DARK` in `src/theme.cpp` as `rgb()` triples; the comments of `theme.h`: the table's `C_ONACCENT` row and the entries' meanings | new, `test_widgets.cpp`: each word equals its triple; every entry but `TC_PAPER` differs from every other in both themes, so the colour probes stay valid; the contrast table above as a check, each text pair 4.5 or more but the three named exceptions, each label on a fill 4.5 or more. Mutation: one value changed |
-| 2 | **Labels on fills.** The editor `-` and `+` of ESC SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and S.BUS OUTPUT SET, and REPAIR, as neutral buttons | each button's fill and label by control id, 5 screens |
-| 3 | **The neutral chip.** `uiChip()` with `C_GRID` | `test_ui.cpp` 1650 and 1670, `test_angle_ui.cpp` 329, `test_bridge_ui.cpp` 264 and 333 rewritten: frame, `C_BG` inside, `C_DIM` label; `chipIs()` gains the case |
-| 4 | **Header rule and hints.** `uiHeader()`; `SWIPE = COARSE` and the other hints in `C_DIM`; the slider's fill | the rule's row on every screen with a header; `test_servo.cpp` 3394; the hints by text and colour. Fit checks do not change: no text moves |
-| 5 | **Radius,** if question 4 says so: the corner solver of `gfxRoundRect()` and `roundFrame1px()`; chips stay square | `test_gfx.cpp`: the corner pixels of a 5 px fill and frame, insets 2, 1, 0; `test_widgets.cpp`: a chip's corner pixel lit, a button's not. Mutation: the solver put back |
-| 6 | **Screens.** One pass per screen in each theme for a pair the tables above do not name: red text on `C_PANEL`, text on a role fill drawn outside `uiChip()` and `uiButton()` | a walk over the suite's 182 frames: no text pixel under 4.5 against its background outside the listed exceptions, as a suite check or a script over the shots |
-| 7 | **Docs and previews.** `tools/make_previews.py`, the README's "High contrast" and the screens' texts, the wiki in both languages, STATUS.md, CHANGELOG.md, the revision lines above | `test/check_docs.py`, `tools/check_wiki.py` |
+| Slice of the plan | What |
+|---|---|
+| 7 | Palette |
+| 8 | Neutral fills: the edit buttons, the neutral chip, the header's rule, the hints, the slider's fill |
+| 9 | Radius |
+| 10 | Cyan |
+| 11 | Green on the tools |
+| 12 | Green on the tester |
+| 13 | Screens |
+| 14 | The look's records and previews |
 
 Notes on the slices:
 
-- **Slice 1 alone is shippable.** With only the palette, the six `C_GRID`
-  fills carry dark ink at 3.51 until slices 2 and 3.
+- **Slice 7 alone is shippable.** With only the palette, the six `C_GRID`
+  fills carry dark ink at 3.51 until slice 8.
+- **Not seen on the panel.** Each slice's README, wiki and STATUS lines
+  say so of the colours, until the owner has looked. The first things to
+  look at are `TC_PANEL` against `TC_BG`, 1.37 computed, and the blue cast
+  of the neutrals at a backlight of 200. If the panel fill is too weak, a
+  lighter `TC_PANEL` is a change of one table entry.
 - **"Grey".** README.md says "grey" 17 times for dim and disabled texts and
-  the wiki pages do the same. With the palette they are blue-grey. Slice 7
-  replaces the word by the role, "dim" or "faint", in both languages.
-- **menu-c.md's widgets** take their look in menu-c.md's own slices, from
-  [the section above](#the-widgets-of-menu-cmd). The order between the two
-  notes is free: the theme touches no registry and no navigation.
+  the wiki pages do the same. With the palette they are blue-grey. Slice
+  14 replaces the word by the role, "dim" or "faint", in both languages.
+- **Slices 10 and 12 touch what the structure builds:** the header without
+  BACK and the tester's button row. They follow slices 3 and 4.
 - **Flash and RAM.** The palette is 34 bytes of the same size. The radius
   adds a loop per corner row; the frame cost is not measured.
 
 ## Open questions
 
-Each is a fork the owner decides. The recommendation is first.
+Questions 1 to 5 of this note as it stood at ef2ffb0 are answered:
+[decisions 1 to 5](#decisions). The answers raise two.
 
-1. **Does cyan stay "changed" only?** Recommended: yes. rcbench's cyan
-   marks navigation and values as well: the home tag, icons, the selected
-   tab, every settings value. Taking that here revises decision 11 and
-   leaves "changed" with the bar alone, on rows where every value is cyan.
-   The price of yes: the header is neutral and looks less like rcbench's.
-2. **Do buttons that start an output turn green?** Recommended: no.
-   rcbench fills ARM, OUTPUT ON and WRITE green while a press starts them.
-   Here green says safe and done (decision 11), and a green HOLD TO ARM
-   beside a green SAFE badge would give one colour two meanings on the
-   tester. The price of no: the button classes differ between the benches.
-3. **Dark or white text on red?** Recommended: dark, rcbench's ink on its
-   ARMED chip. It is 5.45 against white's 3.71, and one ink on every fill
-   is one rule. White is rcbench's choice on STOP and LEAVE and reads
-   better for a protanope, 5.58 against 3.61 simulated. White on red only
-   would need a third ink rule in `uiChip()` and `uiButton()`'s callers.
-4. **Draw the 5 px radius?** Recommended: yes. rcbench's controls are
-   rounded, 8 px of 48, and decision 11 keeps chips square so that they do
-   not look like buttons, which holds only when buttons are not square too.
-   `UI_RADIUS` is 5 and every call passes it. The fix is two loops in
-   `src/gfx.cpp`; the mock-ups draw it. No is today's look.
-5. **Is the first look on hardware before or after slices 2 to 7?**
-   Recommended: before. Slice 1 is one table. `TC_PANEL` against `TC_BG`,
-   1.37 computed, and the blue cast of the neutrals at a backlight of 200
-   are the two things the host cannot show. If the panel fill is too weak,
-   the fallback is a lighter `TC_PANEL` between rcbench's `PANEL_HI` and
-   `GRID`, which no other slice depends on.
+1. **Which other presses turn green?** The owner's list is HOLD TO ARM,
+   the WRITE holds, START and APPLY. [The table](#green) classes the rest
+   by rcbench's rule. Recommended: HOLD TO RESTORE joins the list, because
+   it is the WRITE hold's rectangle and the same write; nothing else does.
+   - HOLD TO SAVE, HOLD DEFAULTS and HOLD TO KEEP write flash and start no
+     output. rcbench fills its SAVE green while something is unsaved; here
+     the amber note line `UNSAVED - HOLD SAVE TO KEEP` and MENU's
+     `UNSAVED` already say so, and a green SAVE would be the one green
+     fill that starts nothing.
+   - HOLD TO REBOOT sends the servo one command and starts no pulse.
+   - ESC COMMANDS' BEEP 1 to 5, NORMAL, REVERSED, 3D OFF and 3D ON send a
+     command; the four holds also save it in the ESC. Each button names a
+     value, and a green one among them would read as the value in force.
+   - START on LOGS starts a recording.
+   The price of the recommendation: rcbench's programmers fill CONNECT and
+   its SAVE green, and these stay neutral here.
+2. **Is the tester's `MENU` cyan?** ESC TESTER has no header, so its `MENU`
+   button is its way back. Recommended: yes, the way back is cyan on every
+   screen. The price: the tester's button row then holds two bright fills
+   while safe, the green HOLD TO ARM and the cyan `MENU`, 66 px apart with
+   LATCH between, and a tritanope sees them as one colour, 4.8. A tap on
+   `MENU` disarms and leaves; arming needs the 1000 ms hold; a slip
+   between the two starts nothing. No: `MENU` stays neutral with its
+   `C_DIM` label, and the arm control is the one bright fill on the safe
+   tester.

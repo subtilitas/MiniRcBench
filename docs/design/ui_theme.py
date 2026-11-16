@@ -12,6 +12,9 @@ CIEDE2000 distance between role colours as seen with normal vision and
 through the Machado, Oliveira and Fernandes (2009) simulation of protanopia,
 deuteranopia and tritanopia at severity 1.0.
 
+The last tables are the cues of the owner's decisions of 2026-11-15: cyan as
+the accent with "changed" as a fill, and green as a start button's fill.
+
 --patch writes the proposed palette and widget changes into DIR, a scratch
 copy of the tree (`git archive HEAD | tar -x -C DIR`), never the working
 tree: `make -C DIR/test -s` then renders the mock-ups as shot_*.ppm.
@@ -212,6 +215,45 @@ assert abs(de2000_lab((50.0, 2.6772, -79.7751), (50.0, 0.0, -82.7485))
 assert abs(contrast((255, 255, 255), (0, 0, 0)) - 21.0) < 1e-9
 
 
+# The cues the owner's decisions of 2026-11-15 rest on. A fill against what
+# is around it, and the ink on it, as luminance contrast in each view.
+CUES = (
+    ("CYAN", "BG", "changed: the fill against the row"),
+    ("CYAN", "PANEL", "changed: the fill against the selected row"),
+    ("ONACCENT", "CYAN", "changed: the ink on the fill; BACK's label"),
+    ("CYAN", "BG", "unchanged: a settings value, no fill"),
+    ("GREEN", "BG", "a start button's fill against the screen"),
+    ("ONACCENT", "GREEN", "a start button's label"),
+    ("GREEN", "BG", "SAFE: the outlined badge's word and frame"),
+    ("RED", "PANEL", "ARMED: the badge's fill against the status bar"),
+    ("ONACCENT", "RED", "ARMED, DISARM, STOP"),
+)
+# Two fills or marks that must not be taken for each other.
+APART = (
+    ("GREEN", "RED", "HOLD TO ARM against DISARM, in one rectangle"),
+    ("GREEN", "CYAN", "a start button against BACK"),
+    ("GREEN", "LIME", "a start button against its hold bar"),
+    ("CYAN", "TEXT", "a settings value against a device value"),
+    ("CYAN", "DIM", "a settings value against its label"),
+)
+
+
+def table_decisions():
+    _, bench, hc = palettes()
+    for name, pal in (("proposed", bench), ("high contrast", hc)):
+        u = shown(pal)
+        print(f"\n{name}: cue | " + " | ".join(VIEWS))
+        for fg, bg, use in CUES:
+            print(f"{fg} on {bg}, {use} | " + " | ".join(
+                f"{contrast(simulate(u[fg], v), simulate(u[bg], v)):.2f}"
+                for v in VIEWS))
+        print(f"\n{name}: apart, CIEDE2000 | " + " | ".join(VIEWS))
+        for a, b, use in APART:
+            print(f"{a} {b}, {use} | " + " | ".join(
+                f"{de2000(simulate(u[a], v), simulate(u[b], v)):.1f}"
+                for v in VIEWS))
+
+
 def shown(pal):
     return {k: unpack(v) for k, v in pal.items()}
 
@@ -245,21 +287,22 @@ PAIRS = (
     ("TEXT", "BG", "values, titles of text"),
     ("DIM", "BG", "labels, captions, the neutral chip"),
     ("GRID", "BG", "disabled labels, group captions, hints; frames"),
-    ("GREEN", "BG", "SAVED, WRITE VERIFIED"),
+    ("GREEN", "BG", "SAVED, WRITE VERIFIED, SAFE and the outlined chips"),
     ("LIME", "BG", "RPM digits, readouts"),
     ("AMBER", "BG", "warnings, the current step"),
     ("RED", "BG", "failures"),
-    ("CYAN", "BG", "a changed value"),
+    ("CYAN", "BG", "a settings value, a section caption, >"),
     ("BLUE", "BG", "servo B's label and horn"),
     ("MAGENTA", "BG", "STALLED, the alert lines"),
     ("TEXT", "PANEL", "button labels, header title, selected row"),
     ("DIM", "PANEL", "LATCH and MENU labels, tile captions"),
     ("AMBER", "PANEL", "REVERT and DEFAULTS labels"),
-    ("CYAN", "PANEL", "a changed value in the selected row"),
+    ("CYAN", "PANEL", "a settings value in the selected row, a tab"),
     ("LIME", "PANEL", "ESC STATUS OK in its tile"),
     ("RED", "PANEL", "ESC STATUS in its tile"),
     ("MAGENTA", "PANEL", "ESC STATUS alert in its tile"),
-    ("ONACCENT", "GREEN", "SAFE badge, EDT ON chip"),
+    ("ONACCENT", "GREEN", "HOLD TO ARM, WRITE, START, APPLY at rest"),
+    ("ONACCENT", "CYAN", "BACK, the tester's MENU, a changed value"),
     ("ONACCENT", "LIME", "servo A's selector, PORT OPEN chip"),
     ("ONACCENT", "RED", "ARMED, DISARM, STOP, a held hold"),
     ("ONACCENT", "BLUE", "LATCH on, a toggle on, PROG MODE"),
@@ -400,6 +443,7 @@ def patch(root, radius):
     for f in ("ui_servo.cpp", "ui_sbus_out.cpp"):
         _resub(os.path.join(src, f), r"uiSliderDraw\((&\w+), C_DIM\)",
                r"uiSliderDraw(\1, C_GRID)")
+    decisions(src)
     if radius:
         # The corner solver of STATUS.md, open item 25: inset 2, 1, 0 at r 5.
         old = ("\t\tint dx = r - 1;\n\t\twhile (dx > 0) {\n"
@@ -410,6 +454,87 @@ def patch(root, radius):
                "\t\t\tint a = r - 1 - inset, b = r - 1 - dy;\n"
                "\t\t\tif (a * a + b * b <= r * r - r) break;\n\t\t}\n")
         _sub(os.path.join(src, "gfx.cpp"), old, new, count=2)
+
+
+def decisions(src):
+    """The owner's decisions of 2026-11-15 on cyan, green and the chips."""
+    w = os.path.join(src, "ui_widgets.cpp")
+    ui = os.path.join(src, "ui.cpp")
+    # Cyan: BACK and the tester's MENU are the home tag.
+    _sub(w, 'uiButton(uiBackRect(), "BACK", C_PANEL, C_TEXT, 1,',
+         'uiButton(uiBackRect(), "BACK", C_CYAN, C_ONACCENT, 1,')
+    _sub(ui, 'uiButton(BTN_MENU, "MENU", C_PANEL, C_DIM, 1,',
+         'uiButton(BTN_MENU, "MENU", C_CYAN, C_ONACCENT, 1,')
+    # Cyan: the settings lists' values and SETTINGS' section captions.
+    st = os.path.join(src, "ui_settings.cpp")
+    _sub(st, "it.sec->caption, C_TEXT, 1);", "it.sec->caption, C_CYAN, 1);")
+    _sub(st, "\tr.value(v, sizeof(v), &col);\n",
+         "\tr.value(v, sizeof(v), &col);\n"
+         "\tif (col == C_TEXT) col = C_CYAN;\n")
+    # A field list of settings passes its plain values as cyan: the mock-up
+    # marks SERVO SET and OUTPUT SET by their row height's name.
+    ls = os.path.join(src, "ui_list.cpp")
+    _sub(ls, "\tuint16_t col = uiListValueColour(f.state);\n",
+         "\tuint16_t col = uiListValueColour(f.state);\n"
+         "\tif (f.state == UiValue::Plain && g_mockSetting) col = C_CYAN;\n")
+    _sub(ls, "void uiListDrawField(int y, int h, const UiField &f) {",
+         "bool g_mockSetting = false;\n"
+         "void uiListDrawField(int y, int h, const UiField &f) {")
+    for f in ("ui_servo.cpp", "ui_sbus_out.cpp"):
+        _sub(os.path.join(src, f), "\tuiListDrawField(y, SET_ROW_H, f);\n",
+             "\textern bool g_mockSetting;\n\tg_mockSetting = true;\n"
+             "\tuiListDrawField(y, SET_ROW_H, f);\n"
+             "\tg_mockSetting = false;\n")
+    # Changed: dark ink on a cyan fill, and the bar as built.
+    _sub(ls, "\tgfxText(GFX_W - UI_MARGIN - gfxTextW(f.value, sc), "
+         "y + (fillH - 7 * sc + 1) / 2, f.value, col, sc);\n",
+         "\tint vw = gfxTextW(f.value, sc), "
+         "vy = y + (fillH - 7 * sc + 1) / 2;\n"
+         "\tif (f.state == UiValue::Changed) {\n"
+         "\t\tgfxRect(GFX_W - UI_MARGIN - vw - 3, vy - 2, vw + 6, "
+         "7 * sc + 4, C_CYAN);\n"
+         "\t\tcol = C_ONACCENT;\n\t}\n"
+         "\tgfxText(GFX_W - UI_MARGIN - vw, vy, f.value, col, sc);\n")
+    # Green: a button that starts an output, at rest.
+    hold = r"(\w+(?:\.holding)?) \? (?:C_RED|UI_COL_ON) : C_PANEL,(\s*)" \
+           r"\1 \? C_ONACCENT : C_TEXT"
+    for f, n in (("ui_am32.cpp", 1), ("ui_hitec.cpp", 1), ("ui_kst.cpp", 2),
+                 ("ui_sbus_out.cpp", 1), ("ui_servo.cpp", 2)):
+        path = os.path.join(src, f)
+        s = open(path).read()
+        if f == "ui_kst.cpp":
+            # HOLD TO REBOOT starts no output and stays neutral.
+            a = s.index('"HOLD TO REBOOT"')
+            head, tail = s[:a], s[a:]
+            head, k = re.subn(hold, r"\1 ? C_RED : C_GREEN,\2C_ONACCENT",
+                              head)
+            s, n = head + tail, 1
+        else:
+            s, k = re.subn(hold, r"\1 ? C_RED : C_GREEN,\2C_ONACCENT", s)
+        assert k == n, (f, k)
+        open(path, "w").write(s)
+    _sub(ui, "s_armed ? C_RED : C_PANEL, s_armed ? C_ONACCENT : C_TEXT,",
+         "s_armed ? C_RED : C_GREEN, C_ONACCENT,")
+    # Green as a state is an outline: the chip, and the tester's badge,
+    # which is a chip and square.
+    _sub(w, "\tif (fill == C_GRID) {\n",
+         "\tif (fill == C_GREEN) {\n"
+         "\t\tgfxRect(x, y, w, UI_CHIP_H, C_GREEN);\n"
+         "\t\tgfxRect(x + 1, y + 1, w - 2, UI_CHIP_H - 2, C_BG);\n"
+         "\t\tgfxText(x + 6, y + (UI_CHIP_H - 7) / 2, text, C_GREEN, 1);\n"
+         "\t\treturn;\n\t}\n"
+         "\tif (fill == C_GRID) {\n")
+    _sub(ui, "\tgfxRoundRect(4, 3, 92, 20, 4, badge);\n",
+         "\tgfxRect(4, 3, 92, 20, badge);\n"
+         "\tif (!s_armed) gfxRect(6, 5, 88, 16, C_BG);\n")
+    _sub(ui, "\tgfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, "
+         "C_ONACCENT, 2);\n",
+         "\tgfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, "
+         "s_armed ? C_ONACCENT : C_GREEN, 2);\n")
+    _sub(ui, "\t\tgfxRoundRect(STATUS_SDERR_X, STATUS_SDERR_Y, "
+         "STATUS_SDERR_W, STATUS_SDERR_H, 2, C_AMBER);\n",
+         "\t\tgfxRect(STATUS_SDERR_X, STATUS_SDERR_Y, "
+         "STATUS_SDERR_W, STATUS_SDERR_H, C_AMBER);\n")
 
 
 def sheet(out, shot_dir, names, views=("normal",), scale=2):
@@ -464,6 +589,7 @@ def main(argv):
         table_cvd()
         table_light()
         table_alternatives()
+        table_decisions()
 
 
 if __name__ == "__main__":
