@@ -2136,6 +2136,10 @@ static void testPollSource() {
 	                         "escPadApply(&plan);"}));
 	checkTrue("pumpBind(): the bind, a barrier, then the stamp",
 	          inOrder(bind, {"s_tel.initError", "__dmb();", "s_boundMs = "}));
+	checkTrue("pumpTeardown(): the refused flag cleared, a barrier, then the stamp 0",
+	          inOrder(teardown, {"s_bindRefused = false;", "__dmb();", "s_boundMs = 0;"}));
+	checkTrue("pumpBind(): the refused flag, a barrier, then the stamp",
+	          inOrder(bind, {"s_bindRefused = !bound;", "__dmb();", "s_boundMs = "}));
 	checkTrue("padsTo(): no mode, a barrier, then the wiring",
 	          inOrder(pads, {"s_reached = EscPinMode::Run;", "__dmb();",
 	                         "= s_dshotPin;"}));

@@ -229,6 +229,7 @@ enum class TesterCtl : uint8_t {
  *        stays disabled until a later bind succeeds. 21 characters, 125 px.
  */
 #define UI_TESTER_REFUSED_TEXT "DSHOT COULD NOT START"
+
 /**
  * @brief SETUP's pin note, with the ESC pin's GPIO number for `%u`: a SIG PIN
  *        change moves the pin ESC TESTER's DShot runs on, and a servo there

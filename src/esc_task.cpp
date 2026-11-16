@@ -60,6 +60,8 @@ static volatile EscPinMode s_reached = EscPinMode::Run;
  * pump is down. Core0 reads it. @see escTaskBoundMs()
  */
 static volatile uint32_t s_boundMs = 0;
+/** Core1's last bind was refused; the teardown clears it. */
+static volatile bool s_bindRefused = false;
 /** SIG the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
 static uint8_t s_heldSig = ESC_NO_GPIO;
 /** AUX the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
@@ -335,6 +337,7 @@ bool escTaskSuspended() {
 bool escTaskParked() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Park); }
 bool escTaskRunning() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Run); }
 uint32_t escTaskBoundMs() { return s_boundMs; }
+bool escTaskBindRefused() { return s_bindRefused; }
 /** @} */
 
 void escSnapshot(EscTelemetry *out) {
@@ -434,6 +437,10 @@ static void pumpTeardown() {
 		// pin change.
 		// The stamp first: core0 never reads a bind stamp for a pump
 		// that is going down.
+		// The refused flag before the stamp: a reader that sees the stamp 0
+		// then reads the flag clear, a pending bind and not a refused one.
+		s_bindRefused = false;
+		__dmb();
 		s_boundMs = 0;
 		__dmb();
 		out_dshot_stop(s_pumpPin);
@@ -518,6 +525,7 @@ static void pumpBind() {
 	// The bind stamp last, once everything it stands for is in place.
 	// @see escTaskBoundMs()
 	uint32_t stamp = millis();
+	s_bindRefused = !bound;
 	__dmb();
 	s_boundMs = bound ? (stamp ? stamp : 1u) : 0u;
 }

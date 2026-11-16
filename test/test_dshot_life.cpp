@@ -596,7 +596,10 @@ static void testRefusedBind() {
 	freshLife();
 	fakeSetBindRefused(true);
 	openTesterBound();
-	checkTrue("bound with initError: the stamp 0", escTaskRunning() && escTaskBoundMs() == 0);
+	EscTelemetry tel;
+	escSnapshot(&tel);
+	checkTrue("bound with initError: the stamp 0, refused, DSERR's flag set",
+	          escTaskRunning() && escTaskBoundMs() == 0 && escTaskBindRefused() && tel.initError);
 	lifeFrames(120);
 	const UiRect t = ctlRect(UI_FIX(TesterCtl::Throttle));
 	checkTrue("3 s on: HOLD TO ARM disabled and drawn so",
@@ -610,7 +613,12 @@ static void testRefusedBind() {
 	fakeSetBindRefused(false);
 	tapId(UI_FIX(TesterCtl::Menu));
 	lifeFrames(20);
-	openTesterBound();
+	checkTrue("MENU: parked, the teardown cleared the flag", escTaskParked() && !escTaskBindRefused());
+	tapId(menuRow(&UI_TESTER));
+	framesNoPump(2);
+	checkTrue("a bind pending: the gate's text, not the refused text",
+	          escTaskBoundMs() == 0 && gateTextShown());
+	lifeFrames(2);
 	checkTrue("a bind that succeeds: the gate's text again",
 	          escTaskBoundMs() != 0 && gateTextShown());
 	waitGate();

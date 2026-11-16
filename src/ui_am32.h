@@ -280,8 +280,8 @@ bool uiAm32Tick(const TouchState *t);
  *
  * Set when a handshake with the bootloader succeeds, and when an EFM8
  * bootloader answers the greeting. Cleared by an eRPM frame that arrived
- * after that answer, which only the ESC's firmware sends, and by RESTART
- * DSHOT on the leave page, whose steps power-cycle the ESC; a restart of the
+ * after that answer, which only the ESC's firmware sends, and by the leave
+ * page's last button, whose steps power-cycle the ESC; a restart of the
  * board clears it as well, since it is not stored. LEAVE's `00 01` leaves it:
  * LEAVE has no answer, so only an eRPM frame after it shows that the firmware
  * started. A reply that holds a piece of an EFM8 answer sets it too.

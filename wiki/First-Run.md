@@ -76,8 +76,8 @@ power-cycled at any time.
 The splash screen shows for 3 s, then `MENU` appears, the list of tools. The
 splash names the board the firmware is built for, RP2350-TOUCH-LCD-2.8, and the
 firmware version, for example `VERSION 0.1.0`. No DShot frame leaves the
-board at power-up: the ESC pin is driven low from `escTaskInit()` on, before
-the splash, and nothing is sent, through the splash and on `MENU`. DShot
+board at power-up: the ESC pin is driven low from start-up, before the
+splash screen, and nothing is sent, through the splash and on `MENU`. DShot
 starts only when you open `ESC TESTER` or `ESC COMMANDS`.
 
 <img src="img/splash.png" width="240" alt="Splash screen">

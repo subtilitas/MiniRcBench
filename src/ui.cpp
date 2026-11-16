@@ -931,10 +931,14 @@ static void drawThrottle() {
 	// host holds the card, 2 the arm gate holds while a bind is pending or
 	// younger than ARM_GATE_MS, 3 the driver refused the bind: the stamp
 	// stays 0 and the gate holds until the next bind.
-	int card = mscHoldsCard(mscGetState()) ? 1
-	         : !armGatedNow()               ? 0
-	         : s_tel.initError              ? 3
-	                                        : 2;
+	// The stamp first, then the flag (escTaskBindRefused()): a pending
+	// bind never reads as refused.
+	uint32_t boundMs = escTaskBoundMs();
+	bool refused = escTaskBindRefused();
+	int card = mscHoldsCard(mscGetState())           ? 1
+	         : !uiArmGated(boundMs, millis())         ? 0
+	         : boundMs == 0 && refused                ? 3
+	                                                  : 2;
 	int readout = readoutsAct() ? 1 : 0;
 
 	if (s_shown.throttleRaw == (int)s_throttle && s_shown.maxPct == maxPct &&

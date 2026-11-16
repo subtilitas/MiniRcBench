@@ -88,12 +88,10 @@ of its own regulated supply.
 
 Open **MENU → SERVO**, drag the list up, then tap **HITEC D SERIES** or
 **HITEC CLASSIC** (see [The Screens](The-Screens#servo)). SERVO, the hub,
-takes no pin: DShot runs on SIG while it shows, so the servo stays
-unpowered until the tap. The tap opens this screen for that family and takes
-SIG from the ESC driver on the same frame: DShot sends zero throttle for at
-least 250 ms after the last throttle frame, stops, and leaves the pin an
-input held high by its pull-up. The strip reads
-`RELEASING SIG GP0 FROM DSHOT` meanwhile.
+takes no pin, and no DShot runs while it shows: SIG is held low. The tap
+opens this screen for that family and takes SIG on the same frame: no DShot
+frame is sent, and the pin becomes an input held high by its pull-up. The
+strip reads `RELEASING SIG GP0 FROM DSHOT` meanwhile.
 
 - **D series, SERVO SUPPLY at `OWN`.** The entry reads the model at once,
   on the supply the servo has, so the screen waits for you: the strip reads

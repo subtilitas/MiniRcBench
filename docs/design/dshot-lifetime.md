@@ -892,7 +892,10 @@ Where the build chose, the note being silent:
   refused the bind (`initError`, `DSERR` in the status bar), the stamp stays
   0 and the gate holds; the track then reads `DSHOT COULD NOT START`
   (`UI_TESTER_REFUSED_TEXT`), amber, 21 characters, 125 px of the track's
-  width.
+  width. The track reads `escTaskBindRefused()`, a flag core1 sets in the
+  bind before the stamp and clears in the teardown before the stamp 0, each
+  behind a barrier; core0 reads the stamp first, then the flag, so a
+  pending bind never reads as refused.
 
 Tests: `test/test_dshot_life.cpp`, thirteen cases, and in `test/test_claim.cpp`
 the drain after a running tester, Parking, the park as the claim left it,
@@ -922,6 +925,8 @@ Mutations, each run against the whole suite and restored:
 | Run asked only once the pins are parked (`pinClaimDshot()`) | 20 checks fail, among them the drain race's "ESC TESTER again: no new bind, the stamp unchanged, never parked" |
 | The fake's `escTaskStart()` asking for a rebuild | 18 checks fail, among them four of the drain race's, "zero frames throughout" with them |
 | The track's refused branch dropped: the gate's text after a refused bind | 1 check fails: "the track reads the refused text in amber, not the gate's" |
+| `pumpTeardown()` not clearing the refused flag | 1 check fails, the source order "the refused flag cleared, a barrier, then the stamp 0" |
+| The fake's teardown not clearing the refused flag | 2 checks fail, among them "a bind pending: the gate's text, not the refused text" |
 
 ### D3: ESC COMMANDS and the run cue on a starting pump (Opus)
 

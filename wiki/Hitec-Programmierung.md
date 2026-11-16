@@ -99,12 +99,11 @@ Eliminator Circuit), die Leitung seiner eigenen geregelten Versorgung.
 Öffne **MENU → SERVO**, ziehe die Liste nach oben und tippe auf
 **HITEC D SERIES** oder **HITEC CLASSIC** (siehe
 [Die Bildschirme](Die-Bildschirme#servo)).
-SERVO, die Auswahl, belegt keinen Pin: DShot läuft auf SIG, solange sie zu
-sehen ist, also bleibt das Servo bis zum Tippen stromlos. Das Tippen öffnet
-diesen Bildschirm für die Familie und übernimmt SIG im selben Frame vom
-ESC-Treiber: DShot sendet nach dem letzten Gas-Frame mindestens 250 ms lang
-Gas null, hält an und lässt den Pin als Eingang, den sein Pull-up high hält.
-Die Leiste zeigt währenddessen `RELEASING SIG GP0 FROM DSHOT`.
+SERVO, die Auswahl, belegt keinen Pin, und solange sie zu sehen ist, läuft
+kein DShot: SIG liegt auf Low. Das Tippen öffnet diesen Bildschirm für die
+Familie und übernimmt SIG im selben Frame: Kein DShot-Frame wird gesendet,
+und der Pin wird ein Eingang, den sein Pull-up high hält. Die Leiste zeigt
+währenddessen `RELEASING SIG GP0 FROM DSHOT`.
 
 - **D-Serie, SERVO SUPPLY auf `OWN`.** Der Eintritt liest sofort das Modell,
   an der Versorgung, die das Servo hat, deshalb wartet der Bildschirm auf

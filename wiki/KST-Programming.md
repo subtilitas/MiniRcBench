@@ -73,12 +73,12 @@ Open **MENU → SERVO**, then tap **KST / CHASERVO**, the third entry (see
 [The Screens](The-Screens#servo)) with the servo unpowered, as the line
 under the entry says: `POWER THE SERVO UP AFTER THE TAP.`, or
 `THE BENCH SWITCHES IT ON GP28.` with the switched supply. SERVO, the hub,
-takes no pin: DShot runs on SIG until the tap.
+takes no pin, and no DShot runs while it shows: SIG is held low until the
+tap.
 
-The tap opens KST SERVO, which takes SIG from the ESC driver on the same
-frame. While it does, the strip reads `RELEASING SIG GP0`, then
-`TAKING SIG GP0`. While an ESC answers on the pin it reads
-`CHECKING SIG GP0 FOR AN ESC` instead.
+The tap opens KST SERVO, which takes SIG on the same frame. While it does,
+the strip reads `RELEASING SIG GP0`, then `TAKING SIG GP0`. While an ESC
+answers on the pin it reads `CHECKING SIG GP0 FOR AN ESC` instead.
 
 - If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON SIG GP0.`,
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin

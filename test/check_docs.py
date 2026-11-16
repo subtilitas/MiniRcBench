@@ -28,8 +28,10 @@ Enforces what actually goes wrong, and nothing else:
      no image of a removed screen; nor does a fakeDumpFrame() call or
      tools/make_previews.py. CHANGELOG.md, STATUS.md and the design notes
      keep those names as records and are not checked. The comments of
-     src/*.h name no DShot restart after a claim (STALE_RESTART); string
-     literals and code are not read there
+     src/*.h and src/*.cpp name no DShot restart after a claim
+     (STALE_RESTART), read as one text per file so a phrase that wraps
+     across comment lines is found; string literals and code are not read
+     there
   10. the hardware models, CAD files and drawings are CC BY-NC-SA 4.0 and
      the software is MIT. Every tracked file under hardware/ except
      hardware/LICENSE-CAD.txt, the README.md files and
@@ -55,6 +57,7 @@ location, so the result does not depend on the directory the script is run
 from.
 """
 
+import bisect
 import glob
 import hashlib
 import functools
@@ -152,11 +155,13 @@ REMOVED_TEXTS = [
      "(menu-c.md owner decision 4, slice 4)"),
 ]
 # Rule 9: DShot's restart after a claim, checked in the manual and in the
-# comments of src/*.h. The second pattern is the comments' prose.
+# comments of src/*.h and src/*.cpp. The patterns after the first line are the
+# comments' prose.
 STALE_RESTART = (
     r"RESTART DSHOT|DSHOT RESTARTING|DSHOT RESTARTS ON|LEAVE, THEN DSHOT RETURNS|"
-    r"DShot (restarts|resumes|resumed|returns,|returns\.|takes it back)|"
-    r"back to DShot|resumes the pump|resumes DShot",
+    r"DShot (restarts|resumes|resumed|returns(?! eRPM)|takes it back)|"
+    r"back to DShot|resumes the pump|resumes DShot|returns DShot|"
+    r"with DShot on SIG|DShot runs on SIG while",
     "DShot's restart after a claim, now the leave page's hub title and the "
     "busy captions; DShot runs only on ESC TESTER and ESC COMMANDS "
     "(dshot-lifetime.md, slice D2)")
@@ -324,15 +329,45 @@ def comment_lines(text):
     return out
 
 
-def check_removed():
-    """Rule 9: no removed screen text, view, MENU path or image comes back."""
+# A comment line's lead: whitespace, then the `*`, `/`, `!` and `<` of
+# `/**`, `///`, `//!`, `/**<` and a block's ` * `, then whitespace.
+COMMENT_LEAD = re.compile(r"^[\s*/!<]*")
+
+
+def joined_comments(text):
+    """The comments of C++ source @p text as one string, each line's lead
+    stripped and the lines joined by one space, and the start offset and
+    line number of each line in it, in order."""
+    parts, starts, pos = [], [], 0
+    for n, line in comment_lines(text):
+        body = COMMENT_LEAD.sub("", line).rstrip()
+        if not body:
+            continue
+        starts.append((pos, n))
+        parts.append(body)
+        pos += len(body) + 1
+    return " ".join(parts), starts
+
+
+def check_stale_comments():
+    """Rule 9: no comment in src/ names DShot's restart after a claim,
+    wrapped across lines or not."""
     problems = []
     pattern, why = STALE_RESTART
-    for path in HEADERS:
-        for n, line in comment_lines(open(path, encoding="utf-8").read()):
-            m = re.search(pattern, line)
-            if m:
-                problems.append(f"{path}:{n}: '{m.group(0)}' names {why}")
+    for path in SOURCES:
+        if not path.startswith("src/"):
+            continue
+        joined, starts = joined_comments(open(path, encoding="utf-8").read())
+        offsets = [o for o, _ in starts]
+        for m in re.finditer(pattern, joined):
+            n = starts[bisect.bisect_right(offsets, m.start()) - 1][1]
+            problems.append(f"{path}:{n}: '{m.group(0)}' names {why}")
+    return problems
+
+
+def check_removed():
+    """Rule 9: no removed screen text, view, MENU path or image comes back."""
+    problems = check_stale_comments()
     for path in MANUAL_DOCS:
         for n, line in enumerate(open(path, encoding="utf-8"), 1):
             for pattern, why in REMOVED_TEXTS:

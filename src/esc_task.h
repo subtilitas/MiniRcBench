@@ -1607,6 +1607,21 @@ bool escTaskRunning();
 uint32_t escTaskBoundMs();
 
 /**
+ * @brief Whether core1's last bind was refused: the DShot driver found no
+ *        PIO block with two adjacent free state machines.
+ *
+ * Core1 sets it in the bind before it writes the stamp, and the teardown
+ * clears it before it writes the stamp 0, each behind a memory barrier. A
+ * reader takes escTaskBoundMs() first and this flag second: a stamp of 0
+ * with the flag clear is a bind still pending, never a refused one, and a
+ * stamp of 0 with the flag set is a refused bind. One aligned word written
+ * by core1, read by core0.
+ *
+ * @return True from a refused bind until the next teardown.
+ */
+bool escTaskBindRefused();
+
+/**
  * @brief Set the pins and bitrate the DShot pump uses, and rebuild it.
  *
  * Core0 hands the values across rather than core1 reading the settings

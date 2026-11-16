@@ -77,12 +77,12 @@ siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 Eintrag (siehe [Die Bildschirme](Die-Bildschirme#servo)), mit stromlosem
 Servo, wie die Zeile unter dem Eintrag sagt: `POWER THE SERVO UP AFTER THE
 TAP.`, oder `THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung.
-SERVO, die Auswahl, belegt keinen Pin: DShot läuft bis zum Tippen auf SIG.
+SERVO, die Auswahl, belegt keinen Pin, und solange sie zu sehen ist, läuft
+kein DShot: SIG liegt bis zum Tippen auf Low.
 
-Das Tippen öffnet KST SERVO, das SIG im selben Frame vom ESC-Treiber
-übernimmt. Dabei zeigt die Leiste `RELEASING SIG GP0`, dann
-`TAKING SIG GP0`. Solange ein ESC auf dem Pin antwortet, zeigt sie
-stattdessen `CHECKING SIG GP0 FOR AN ESC`.
+Das Tippen öffnet KST SERVO, das SIG im selben Frame übernimmt. Dabei zeigt
+die Leiste `RELEASING SIG GP0`, dann `TAKING SIG GP0`. Solange ein ESC auf
+dem Pin antwortet, zeigt sie stattdessen `CHECKING SIG GP0 FOR AN ESC`.
 
 - Antwortet ein ESC auf dem Pin, zeigt der Bildschirm
   `AN ESC ANSWERS ON SIG GP0.` und danach `UNPLUG IT: KST FRAMES MAY READ` und
