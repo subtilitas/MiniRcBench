@@ -252,8 +252,9 @@ bool uiAm32Tick(const TouchState *t);
 /** @brief Step 1's second detail line: 26 characters, 155 px. */
 #define AM32_UI_LEAVE_1B "AND MAY READ DSHOT AS ONE."
 /**
- * @brief Step 2, with the title of the hub ESC SETTINGS returns to for `%s`:
- *        `PLUG IT IN ONCE ESC CONFIG SHOWS.`, 33 characters. SIG is parked
+ * @brief Step 2, with the title of the hub ESC SETTINGS returns to in
+ *        place of the format's string: PLUG IT IN ONCE ESC CONFIG SHOWS.,
+ *        33 characters. SIG is parked
  *        low by then, where an EFM8 does not enter its bootloader (from
  *        source, not measured).
  */

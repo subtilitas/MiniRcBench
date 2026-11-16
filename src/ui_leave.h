@@ -118,8 +118,8 @@ static_assert(UI_LEAVE_BTN_Y + UI_LEAVE_BTN_H < UI_LEAVE_WIDE.y,
 #define UI_LEAVE_PULSE       "AS A 970 US PULSE AT 1000 HZ."
 /**
  * @brief The last step, with the title of the hub the tool returns to:
- *        `BACK TO SERVO.`, `BACK TO RX SIGNALS.` or `BACK TO ESC CONFIG.`,
- *        19 characters at most (docs/design/dshot-lifetime.md, decision 9).
+ *        BACK TO SERVO., BACK TO RX SIGNALS. or BACK TO ESC CONFIG., 19
+ *        characters at most (docs/design/dshot-lifetime.md, decision 9).
  */
 #define UI_LEAVE_BACK_FMT    "BACK TO %s."
 /** @brief The first step with a switched supply, KST and Hitec. */
