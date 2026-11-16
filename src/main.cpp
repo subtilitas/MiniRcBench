@@ -275,8 +275,9 @@ void setup1() {
  *
  * escTaskPoll() returns at once while the pins are parked or a pin claim
  * holds them, and core1JobPoll() returns at once while no job runs, so at
- * most one of the two does the work on any pass. Deliberately kept free of anything that can block, so
- * frame spacing stays within tolerance regardless of what core0 is doing.
+ * most one of the two does the work on any pass. Deliberately kept free of
+ * anything that can block, so frame spacing stays within tolerance
+ * regardless of what core0 is doing.
  */
 void loop1() {
 	escTaskPoll();
