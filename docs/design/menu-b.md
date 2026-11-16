@@ -1139,7 +1139,7 @@ deliberate actions than at 9f965a3.
 
 | What | Reason |
 |---|---|
-| The tester is the root | DShot runs on SIG from boot whatever screen shows; a menu as root would hide the armed state the tester exists to show |
+| The tester is the root | DShot runs on SIG from boot whatever screen shows; a menu as root would hide the armed state the tester exists to show. Revised by the owner's decision of 2026-11-15, [menu-c.md](menu-c.md) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Not built. |
 | The tester's band layout and button row, the SERVO TESTER controls, SD LOG's 30 px buttons | the touch-target change of [menu.md](menu.md#decisions) decision 5, kept separate |
 | HOLD TO ARM's own timer | [menu.md](menu.md#decisions) decision 17 |
 | `UI_HOLD_MS`, 1000 ms; every hold stays a hold | the write, save, start, apply, reboot and arm holds are the deliberate actions the interlocks count |
