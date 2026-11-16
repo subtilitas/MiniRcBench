@@ -55,7 +55,10 @@
 #define SV_SPEED_H    22
 #define SV_BTN_Y     254   /**< MIN, CENTRE, MAX, SWEEP. */
 #define SV_BTN_H      30
-#define SV_BTN_W      53
+#define SV_BTN_W      47   /**< MIN and MAX. */
+#define SV_CENTRE_W   49   /**< CENTRE. */
+#define SV_SWEEP_W    69   /**< SWEEP, whose widest label is STOP SWEEP. */
+#define SV_BTN_GAP     4   /**< Between two buttons of the row. */
 #define SV_BAR_Y     284   /**< HOLD TO START's progress bar, 3 px. */
 #define SV_BOT_Y     287   /**< HOLD TO START or STOP, and SET. */
 #define SV_BOT_H      32
@@ -67,16 +70,17 @@
 #define SV_LOW_Y     (SV_SPEED_Y + SV_SPEED_H + UI_SLIDER_OVERHANG)
 /** @} */
 
-static const UiRect BTN_MIN    = { 8,   SV_BTN_Y, SV_BTN_W, SV_BTN_H };
-static const UiRect BTN_CENTRE = { 65,  SV_BTN_Y, SV_BTN_W, SV_BTN_H };
-static const UiRect BTN_MAX    = { 122, SV_BTN_Y, SV_BTN_W, SV_BTN_H };
-static const UiRect BTN_SWEEP  = { 179, SV_BTN_Y, SV_BTN_W, SV_BTN_H };
-static const UiRect BTN_START  = { 6,   SV_BOT_Y, 150, SV_BOT_H };
-static const UiRect BTN_SET    = { 162, SV_BOT_Y, 72,  SV_BOT_H };
-static const UiRect BTN_SEL_A  = { 122, SV_READ_Y + 1, 34, 22 };
-static const UiRect BTN_SEL_B  = { 160, SV_READ_Y + 1, 34, 22 };
-static const UiRect BTN_SEL_AB = { 198, SV_READ_Y + 1, 34, 22 };
-static const UiRect BTN_RETRY  = { 70,  150, 100, 30 };
+/** @brief The button row, x 8 to 231: 47, 49, 47 and 69 px, 4 px apart. */
+static constexpr UiRect BTN_MIN    = { 8,   SV_BTN_Y, SV_BTN_W, SV_BTN_H };
+static constexpr UiRect BTN_CENTRE = { 59,  SV_BTN_Y, SV_CENTRE_W, SV_BTN_H };
+static constexpr UiRect BTN_MAX    = { 112, SV_BTN_Y, SV_BTN_W, SV_BTN_H };
+static constexpr UiRect BTN_SWEEP  = { 163, SV_BTN_Y, SV_SWEEP_W, SV_BTN_H };
+static constexpr UiRect BTN_START  = { 6,   SV_BOT_Y, 150, SV_BOT_H };
+static constexpr UiRect BTN_SET    = { 162, SV_BOT_Y, 72,  SV_BOT_H };
+static constexpr UiRect BTN_SEL_A  = { 122, SV_READ_Y + 1, 34, 22 };
+static constexpr UiRect BTN_SEL_B  = { 160, SV_READ_Y + 1, 34, 22 };
+static constexpr UiRect BTN_SEL_AB = { 198, SV_READ_Y + 1, 34, 22 };
+static constexpr UiRect BTN_RETRY  = { 70,  150, 100, 30 };
 /** @brief SPEED's track: between its label and its value. */
 static const UiRect SPEED_TRACK = { 44, SV_SPEED_Y, 150, SV_SPEED_H };
 
@@ -100,7 +104,53 @@ static_assert(UI_MARGIN + (6 * (4 + SENSE_TEXT_MAX) - 1) + 4 <= 122,
               "the summed current runs into the selector");
 static_assert(SV_BAR_Y + UI_HOLD_BAR_H <= SV_BOT_Y, "the progress bar overlaps the bottom row");
 static_assert(SV_BOT_Y + SV_BOT_H <= GFX_H, "the bottom row runs off the panel");
-static_assert(8 + 4 * SV_BTN_W + 3 * 4 == 232, "the button row does not fill the margins");
+static_assert(BTN_MIN.x == UI_MARGIN && BTN_CENTRE.x == BTN_MIN.x + BTN_MIN.w + SV_BTN_GAP &&
+                  BTN_MAX.x == BTN_CENTRE.x + BTN_CENTRE.w + SV_BTN_GAP &&
+                  BTN_SWEEP.x == BTN_MAX.x + BTN_MAX.w + SV_BTN_GAP &&
+                  BTN_SWEEP.x + BTN_SWEEP.w == GFX_W - UI_MARGIN,
+              "the button row does not fill the margins, or two buttons are not 4 px apart");
+
+/**
+ * @defgroup servo_labels SERVO button labels
+ * @brief Every label uiButton() is passed on the SERVO view, so that the
+ *        text drawn is the text measured.
+ * @{
+ */
+#define SV_MIN_LABEL        "MIN"
+#define SV_CENTRE_LABEL     "CENTRE"
+#define SV_MAX_LABEL        "MAX"
+#define SV_SWEEP_LABEL      "SWEEP"
+#define SV_SWEEP_STOP_LABEL "STOP SWEEP"
+#define SV_START_LABEL      "HOLD TO START"
+#define SV_STOP_LABEL       "STOP"
+#define SV_SET_LABEL        "SET"
+#define SV_SEL_A_LABEL      "A"
+#define SV_SEL_B_LABEL      "B"
+#define SV_SEL_AB_LABEL     "AB"
+#define SV_RETRY_LABEL      "RETRY"
+/** @brief Clear columns between a label and each side of its button, px. */
+#define SV_LABEL_PAD        4
+/** @} */
+/**
+ * @brief True where the literal @p s at @p scale, measured as gfxTextW()
+ *        measures it, lies @ref SV_LABEL_PAD px or more inside each side of
+ *        @p r, at rest and pressed. uiButton() centres a label and draws it
+ *        1 px to the right while pressed, when a second frame takes the
+ *        columns 2 and, in High contrast, 3 from each side.
+ */
+#define SV_LABEL_FITS(r, s, scale) \
+	((6 * (int)(sizeof(s) - 1) - 1) * (scale) + 2 * SV_LABEL_PAD + 1 <= (r).w)
+static_assert(SV_LABEL_FITS(BTN_MIN, SV_MIN_LABEL, 1) && SV_LABEL_FITS(BTN_CENTRE, SV_CENTRE_LABEL, 1) &&
+                  SV_LABEL_FITS(BTN_MAX, SV_MAX_LABEL, 1),
+              "MIN, CENTRE or MAX does not fit its button");
+static_assert(SV_LABEL_FITS(BTN_SWEEP, SV_SWEEP_LABEL, 1) && SV_LABEL_FITS(BTN_SWEEP, SV_SWEEP_STOP_LABEL, 1),
+              "SWEEP or STOP SWEEP does not fit its button");
+static_assert(SV_LABEL_FITS(BTN_START, SV_START_LABEL, 1) && SV_LABEL_FITS(BTN_START, SV_STOP_LABEL, 2) &&
+                  SV_LABEL_FITS(BTN_SET, SV_SET_LABEL, 1),
+              "HOLD TO START, STOP or SET does not fit its button");
+static_assert(SV_LABEL_FITS(BTN_SEL_A, SV_SEL_A_LABEL, 1) && SV_LABEL_FITS(BTN_SEL_B, SV_SEL_B_LABEL, 1) &&
+                  SV_LABEL_FITS(BTN_SEL_AB, SV_SEL_AB_LABEL, 1) && SV_LABEL_FITS(BTN_RETRY, SV_RETRY_LABEL, 1),
+              "A, B, AB or RETRY does not fit its button");
 static_assert(SV_BTN_H >= UI_TAP_MIN && SV_BOT_H >= UI_TAP_MIN && 22 >= UI_TAP_MIN &&
               SV_SPEED_H >= UI_TAP_MIN, "a servo control is smaller than a fingertip");
 static_assert(SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4 > 82,
@@ -725,7 +775,7 @@ static void drawDial() {
 		line(90, l1, col);
 		if (l2) line(104, l2, col);
 		if (l3) line(118, l3, col);
-		if (retry) uiButton(BTN_RETRY, "RETRY", C_PANEL, C_TEXT, 1, k.rp);
+		if (retry) uiButton(BTN_RETRY, SV_RETRY_LABEL, C_PANEL, C_TEXT, 1, k.rp);
 		return;
 	}
 	if (!s_st.running) {
@@ -833,11 +883,11 @@ static void drawReadout() {
 		snprintf(sum, sizeof(sum), "A+B %s", cur);
 		gfxText(UI_MARGIN, SV_READ_Y + 14, sum, curCol, 1);
 	}
-	uiButton(BTN_SEL_A, "A", s_mask == SERVO_MASK_A ? C_LIME : C_PANEL,
+	uiButton(BTN_SEL_A, SV_SEL_A_LABEL, s_mask == SERVO_MASK_A ? C_LIME : C_PANEL,
 	         s_mask == SERVO_MASK_A ? C_ONACCENT : C_TEXT, 1, k.pa);
-	uiButton(BTN_SEL_B, "B", s_mask == SERVO_MASK_B ? UI_COL_LATCHED : C_PANEL,
+	uiButton(BTN_SEL_B, SV_SEL_B_LABEL, s_mask == SERVO_MASK_B ? UI_COL_LATCHED : C_PANEL,
 	         s_mask == SERVO_MASK_B ? C_ONACCENT : C_TEXT, 1, k.pb);
-	uiButton(BTN_SEL_AB, "AB", s_mask == SERVO_MASK_AB ? C_INK : C_PANEL,
+	uiButton(BTN_SEL_AB, SV_SEL_AB_LABEL, s_mask == SERVO_MASK_AB ? C_INK : C_PANEL,
 	         s_mask == SERVO_MASK_AB ? C_PAPER : C_TEXT, 1, k.pab);
 }
 
@@ -869,18 +919,18 @@ static void drawButtons(bool startOk, int holdPct) {
 	k.p[3] = pressing(BTN_SWEEP); k.p[4] = pressing(BTN_START); k.p[5] = pressing(BTN_SET);
 	if (!changed(4, &k, sizeof(k))) return;
 	gfxRect(0, SV_LOW_Y, GFX_W, GFX_H - SV_LOW_Y, C_BG);
-	uiButton(BTN_MIN, "MIN", C_PANEL, C_TEXT, 1, k.p[0], run);
-	uiButton(BTN_CENTRE, "CENTRE", C_PANEL, C_TEXT, 1, k.p[1], run);
-	uiButton(BTN_MAX, "MAX", C_PANEL, C_TEXT, 1, k.p[2], run);
-	uiButton(BTN_SWEEP, s_st.sweeping ? "STOP SWEEP" : "SWEEP", C_PANEL, C_TEXT, 1, k.p[3], run);
+	uiButton(BTN_MIN, SV_MIN_LABEL, C_PANEL, C_TEXT, 1, k.p[0], run);
+	uiButton(BTN_CENTRE, SV_CENTRE_LABEL, C_PANEL, C_TEXT, 1, k.p[1], run);
+	uiButton(BTN_MAX, SV_MAX_LABEL, C_PANEL, C_TEXT, 1, k.p[2], run);
+	uiButton(BTN_SWEEP, s_st.sweeping ? SV_SWEEP_STOP_LABEL : SV_SWEEP_LABEL, C_PANEL, C_TEXT, 1, k.p[3], run);
 	if (s_st.running) {
-		uiButton(BTN_START, "STOP", C_RED, C_ONACCENT, 2, k.p[4]);
+		uiButton(BTN_START, SV_STOP_LABEL, C_RED, C_ONACCENT, 2, k.p[4]);
 	} else {
 		uiHoldDrawBar(&s_hold, BTN_START, SV_BAR_Y, millis());
-		uiButton(BTN_START, "HOLD TO START", s_hold.holding ? C_RED : C_PANEL,
+		uiButton(BTN_START, SV_START_LABEL, s_hold.holding ? C_RED : C_PANEL,
 		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, startOk);
 	}
-	uiButton(BTN_SET, "SET", C_PANEL, C_TEXT, 1, k.p[5]);
+	uiButton(BTN_SET, SV_SET_LABEL, C_PANEL, C_TEXT, 1, k.p[5]);
 }
 
 /** @brief Point the selection, or the dial, at a command. */

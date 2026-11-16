@@ -3591,6 +3591,21 @@ static void testColourRoles() {
 	sweepText(sw, sizeof(sw));
 	checkTrue("two servos sweeping: the count under the letters, lime",
 	          sw[0] && textAt(UI_MARGIN, SV_READ_Y + 14, sw, C_LIME, 1));
+	// STOP SWEEP, 59 px, in a button 69 px wide: the label centred, 5 px of
+	// fill between it and the frame at each side, and the frame whole.
+	const int swW = gfxTextW("STOP SWEEP", 1), swX = BTN_SWEEP.x + (BTN_SWEEP.w - swW) / 2;
+	const int swY = BTN_SWEEP.y + (BTN_SWEEP.h - 7) / 2;
+	checkTrue("sweeping: the button reads STOP SWEEP, centred",
+	          fakeTextIs(swX, swY, "STOP SWEEP", C_TEXT, C_PANEL, 1));
+	checkTrue("its label starts and ends 4 px or more inside the button",
+	          swX - BTN_SWEEP.x >= 4 && BTN_SWEEP.x + BTN_SWEEP.w - (swX + swW) >= 4);
+	checkTrue("the frame beside the label is whole",
+	          allOf(BTN_SWEEP.x, swY - 2, 1, 11, C_GRID) &&
+	          allOf(BTN_SWEEP.x + BTN_SWEEP.w - 1, swY - 2, 1, 11, C_GRID));
+	checkTrue("and 4 px of fill lie between the frame and the label",
+	          allOf(BTN_SWEEP.x + 1, swY - 2, 4, 11, C_PANEL) &&
+	          allOf(BTN_SWEEP.x + BTN_SWEEP.w - 5, swY - 2, 4, 11, C_PANEL));
+	checkTrue("no pixel of the row lies past x 231", allOf(GFX_W - UI_MARGIN, SV_BTN_Y, UI_MARGIN, SV_BTN_H, C_BG));
 	tapId(UI_FIX(ServoCtl::Sweep)); core1();
 	openSet();
 	uiFrames(1);

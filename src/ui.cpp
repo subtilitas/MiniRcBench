@@ -629,8 +629,10 @@ static void drawStatusBar() {
 
 	gfxRect(0, Z_STATUS_Y0, GFX_W, Z_STATUS_Y1 - Z_STATUS_Y0 + 1, C_PANEL);
 
+	// The badge is a chip, and a chip is square: the 5 px radius is a
+	// button's (docs/design/ui-theme.md, decisions 4 and 13).
 	uint16_t badge = s_armed ? C_RED : C_GREEN;
-	gfxRoundRect(4, 3, 92, 20, 4, badge);
+	gfxRect(4, 3, 92, 20, badge);
 	const char *txt = s_armed ? "ARMED" : "SAFE";
 	gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, C_ONACCENT, 2);
 
@@ -664,8 +666,8 @@ static void drawStatusBar() {
 	if (log.state == SdLogState::Error) {
 		// A recording that stopped on its own: an amber chip, not amber text,
 		// so it shows at a glance while armed. It stays in the column between
-		// the arm badge and BOARD, clear of both.
-		gfxRoundRect(STATUS_SDERR_X, STATUS_SDERR_Y, STATUS_SDERR_W, STATUS_SDERR_H, 2, C_AMBER);
+		// the arm badge and BOARD, clear of both. Square, as every chip.
+		gfxRect(STATUS_SDERR_X, STATUS_SDERR_Y, STATUS_SDERR_W, STATUS_SDERR_H, C_AMBER);
 		gfxText(STATUS_SDERR_X + 3, STATUS_SDERR_Y + 2, lg, C_PAPER, 1);
 	} else {
 		gfxText(104, 14, lg, lgCol, 1);
@@ -952,8 +954,16 @@ static void drawThrottle() {
 	                : 0;
 	if (fillW > THR_TRACK_W) fillW = THR_TRACK_W;
 	if (fillW > 0) {
-		gfxRoundRect(THR_TRACK_X, THR_TRACK_Y, fillW, THR_TRACK_H, 5,
+		// gfxRoundRect() clamps a radius to half the width, so a fill under
+		// 10 px wide would take a smaller radius than the track and stand out
+		// of the track's corner. It is drawn 10 px wide or wider and clipped
+		// to its own width: its left end is the track's at every width.
+		gfxSetClip(THR_TRACK_X, THR_TRACK_Y, fillW, THR_TRACK_H);
+		gfxRoundRect(THR_TRACK_X, THR_TRACK_Y, fillW < 2 * 5 ? 2 * 5 : fillW, THR_TRACK_H, 5,
 		             s_armed ? C_LIME : C_GRID);
+		// drawThrottle() runs with no clip set, so clearing the clip puts
+		// back what its caller had.
+		gfxClearClip();
 	}
 	// With LATCH on the bar is a relative control, so give it a grab handle to
 	// say so -- it is a thing you push, not a place you tap.

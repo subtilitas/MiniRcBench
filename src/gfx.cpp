@@ -183,67 +183,86 @@ void gfxArcDots(int cx, int cy, int r, int deg0, int deg1, int stepDeg, int d,
 }
 
 /**
- * @brief Filled rounded rectangle: a square body with the corners chamfered
- *        against an integer circle of radius @p r.
+ * @brief How far a corner's row starts inside the rectangle.
+ *
+ * The corner is a quarter of an integer circle of radius @p r. Row 0 is the
+ * rectangle's outermost row. A row at or past @p r has no inset.
+ *
+ * At 5 px, @ref UI_RADIUS, the rows are inset 2, 1, 0, 0 and 0 px; at 4 px
+ * 2, 1, 0 and 0; at 6 px 3, 2, 1, 0, 0 and 0.
+ *
+ * @param r  Corner radius in pixels.
+ * @param dy Row within the corner, 0 at the rectangle's edge.
+ * @return The number of pixels the row leaves out at the corner.
  */
-void gfxRoundRect(int x, int y, int w, int h, int r, uint16_t c) {
-	if (r <= 0) { gfxRect(x, y, w, h, c); return; }
-	if (r > w / 2) r = w / 2;
-	if (r > h / 2) r = h / 2;
-	gfxRect(x + r, y, w - 2 * r, h, c);
-	gfxRect(x, y + r, r, h - 2 * r, c);
-	gfxRect(x + w - r, y + r, r, h - 2 * r, c);
-	for (int dy = 0; dy < r; dy++) {
-		// integer circle: how far in this row starts
-		int dx = r - 1;
-		while (dx > 0) {
-			int a = r - 1 - dx, b = r - 1 - dy;
-			if (a * a + b * b <= (r - 1) * (r - 1)) break;
-			dx--;
-		}
-		int inset = r - 1 - dx;
-		gfxRect(x + inset, y + dy, r - inset, 1, c);
-		gfxRect(x + w - r, y + dy, r - inset, 1, c);
-		gfxRect(x + inset, y + h - 1 - dy, r - inset, 1, c);
-		gfxRect(x + w - r, y + h - 1 - dy, r - inset, 1, c);
+static int cornerInset(int r, int dy) {
+	if (dy >= r) return 0;
+	const int b = r - 1 - dy;
+	int inset = 0;
+	for (; inset < r; inset++) {
+		const int a = r - 1 - inset;
+		if (a * a + b * b <= r * r - r) break;
 	}
+	return inset;
 }
 
-/** @brief One-pixel rounded outline. @see gfxRoundFrame() for the themed one. */
-static void roundFrame1px(int x, int y, int w, int h, int r, uint16_t c) {
+/**
+ * @brief Filled rounded rectangle: each of the @p r rows of a corner starts
+ *        cornerInset() px inside the rectangle.
+ */
+void gfxRoundRect(int x, int y, int w, int h, int r, uint16_t c) {
 	if (w <= 0 || h <= 0) return;
 	if (r > w / 2) r = w / 2;
 	if (r > h / 2) r = h / 2;
-	if (r < 0) r = 0;
-	gfxRect(x + r, y, w - 2 * r, 1, c);
-	gfxRect(x + r, y + h - 1, w - 2 * r, 1, c);
-	gfxRect(x, y + r, 1, h - 2 * r, c);
-	gfxRect(x + w - 1, y + r, 1, h - 2 * r, c);
+	if (r <= 0) { gfxRect(x, y, w, h, c); return; }
+	gfxRect(x, y + r, w, h - 2 * r, c);
 	for (int dy = 0; dy < r; dy++) {
-		int dx = r - 1;
-		while (dx > 0) {
-			int a = r - 1 - dx, b = r - 1 - dy;
-			if (a * a + b * b <= (r - 1) * (r - 1)) break;
-			dx--;
-		}
-		int inset = r - 1 - dx;
-		gfxRect(x + inset, y + dy, 1, 1, c);
-		gfxRect(x + w - 1 - inset, y + dy, 1, 1, c);
-		gfxRect(x + inset, y + h - 1 - dy, 1, 1, c);
-		gfxRect(x + w - 1 - inset, y + h - 1 - dy, 1, 1, c);
+		const int inset = cornerInset(r, dy);
+		gfxRect(x + inset, y + dy, w - 2 * inset, 1, c);
+		gfxRect(x + inset, y + h - 1 - dy, w - 2 * inset, 1, c);
 	}
 }
 
 void gfxRoundFrame(int x, int y, int w, int h, int r, uint16_t c) {
-	// Concentric one-pixel rings rather than a thicker stroke primitive: the
-	// corner solver above is written for a single pixel, and nesting it is both
-	// less code and geometrically exact at every radius.
-	int t = themeStroke();
-	for (int i = 0; i < t; i++) {
-		if (w - 2 * i < 2 || h - 2 * i < 2) break;
-		int ri = r - i;
-		if (ri < 0) ri = 0;
-		roundFrame1px(x + i, y + i, w - 2 * i, h - 2 * i, ri, c);
+	if (w <= 0 || h <= 0) return;
+	if (r > w / 2) r = w / 2;
+	if (r > h / 2) r = h / 2;
+	if (r < 0) r = 0;
+	// The stroke is the theme's. A rectangle too small to hold two strokes
+	// and a pixel between them is filled.
+	const int t = themeStroke();
+	if (w <= 2 * t || h <= 2 * t) { gfxRoundRect(x, y, w, h, r, c); return; }
+
+	// The straight edges, between the corners.
+	gfxRect(x + r, y, w - 2 * r, t, c);
+	gfxRect(x + r, y + h - t, w - 2 * r, t, c);
+	gfxRect(x, y + r, t, h - 2 * r, c);
+	gfxRect(x + w - t, y + r, t, h - 2 * r, c);
+
+	// The corners, a row at a time. A row starts at the outline's inset. In
+	// the first t rows it runs to the straight edge. Below them it runs to
+	// where the stroke's inner ring, the outline of the rectangle t - 1 px
+	// inside with a radius t - 1 px smaller, ends in that row. So a 1 px
+	// frame is the outline itself, its rows joined at their corners, and a
+	// thicker one has no hole between its rings.
+	const int ri = r - (t - 1) > 0 ? r - (t - 1) : 0;
+	for (int dy = 0; dy < r; dy++) {
+		const int x0 = cornerInset(r, dy);
+		int x1;   // last column of the run, inclusive
+		if (dy < t) {
+			x1 = r - 1;
+		} else {
+			const int di = dy - (t - 1);
+			const int here = cornerInset(ri, di);
+			const int above = cornerInset(ri, di - 1) - 1;
+			x1 = (t - 1) + (above > here ? above : here);
+		}
+		if (x1 < x0) x1 = x0;
+		const int n = x1 - x0 + 1;
+		gfxRect(x + x0, y + dy, n, 1, c);
+		gfxRect(x + w - 1 - x1, y + dy, n, 1, c);
+		gfxRect(x + x0, y + h - 1 - dy, n, 1, c);
+		gfxRect(x + w - 1 - x1, y + h - 1 - dy, n, 1, c);
 	}
 }
 

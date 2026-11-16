@@ -1487,6 +1487,10 @@ a fill shows no radius: a mutation of `uiChip()` to `gfxRoundRect()` with a
 4 px radius leaves the chip's corner pixels filled and passes
 `test/test_widgets.cpp`. Not changed in this slice.
 
+> Revised by [ui-theme.md](ui-theme.md#slice-9-as-built), slice 9 of
+> [menu-c.md](menu-c.md#build-plan): `gfxRoundRect()` draws its radius, and
+> a chip drawn through it fails `test/test_widgets.cpp`. Built: slice 9.
+
 ## Slice 3 as built
 
 Decisions 9, 10 and 15 b, e, f, h, j, k on the screens, with host tests in

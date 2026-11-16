@@ -18,6 +18,18 @@
 static_assert(UI_BACK_X == GFX_W - UI_BACK_W - UI_EDGE,
               "UI_BACK_X was written against a different panel width");
 static_assert(UI_BACK_X + UI_BACK_W < GFX_W, "BACK runs off the panel");
+// A label is centred in its button. At scale 2 it is 14 px tall, 15 px in
+// High contrast, whose glyphs are 1 px heavier downwards. At rest, in a
+// button UI_TAP_MIN px tall or taller, it starts and ends UI_CORNER px or
+// more from the top and the bottom edge, so no row of it meets a rounded
+// corner, whatever its width. These two hold the label at rest: a pressed
+// button draws it 1 px lower and 1 px to the right, and in a button
+// UI_TAP_MIN px tall its last row is then 2 px from the bottom edge.
+static_assert((UI_TAP_MIN - 7 * 2) / 2 >= UI_CORNER,
+              "a scale 2 label reaches into the corner rows at the top");
+static_assert(UI_TAP_MIN - (UI_TAP_MIN - 7 * 2) / 2 - (7 * 2 + 1) >= UI_CORNER,
+              "a scale 2 label reaches into the corner rows at the bottom");
+static_assert(UI_RADIUS > UI_CORNER, "the dashes start at UI_RADIUS, past the corner");
 
 bool uiPressing(const UiRect &r, const TouchState *t) {
 	return inputPressing(t, r.x, r.y, r.w, r.h);
@@ -30,7 +42,8 @@ bool uiTapped(const UiRect &r, const TouchState *t) {
 /**
  * @brief Break a disabled button's frame into dashes: @ref UI_DASH px drawn,
  *        @ref UI_DASH px open, on the four straight edges, the group of gaps
- *        centred on each edge. The corners stay whole.
+ *        centred on each edge. The corners stay whole: no gap starts within
+ *        @ref UI_RADIUS px of a corner, where the frame is rounded.
  *
  * The gaps are `C_BG`, which is a disabled button's fill, over the frame's
  * full thickness.
