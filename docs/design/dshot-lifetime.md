@@ -240,7 +240,10 @@ of ESC TESTER. Everywhere else it is parked. While MENU's run cue stands,
 ESC TESTER and ESC COMMANDS open on the start step of
 [decision 8](#decisions) with DShot parked, until START DSHOT. The screen's
 own way out stays live on the step: the tester's `MENU` and ESC COMMANDS'
-BACK return with DShot parked and the cue kept ([decision 14](#decisions)).
+BACK return with DShot parked and the cue kept. The step's text, START
+DSHOT and that way out are all the step draws and takes touches on; the
+screen's other controls and readouts are hidden and inert
+([decision 14](#decisions)).
 
 The UI decides it once a frame: `uiDshotWanted()` is a pure function of the
 stack of menu-c.md's [navigation](menu-c.md#navigation), of the run cue
@@ -518,7 +521,7 @@ Widths are at scale 1, 6 px a character less 1, unless named.
 | new: the tester's track while the arm gate holds | beside `UI_TESTER_CARD_TEXT`, `src/ui.h` 160 to 164 | decisions 10 and 12: `DSHOT STARTING: WAIT 1.5 S`, 26 characters, the card text's length, inside its `static_assert` (`src/ui.cpp` 965) | D2 |
 | new: the second strip line of the hubs SERVO and RECEIVER | `uiStripTwoLines()` under the hub's caption | decisions 7 and 11: `NO ESC CHECK: UNPLUG ANY ESC FIRST.`, 35 characters, 209 px, `C_AMBER`, while the claim is Free | D2 |
 | new: MONITOR's second line while SIG is GP1 | the hub RECEIVER's entry `MONITOR` | `GP1 IS SIG: PLUG IN AFTER THE TAP.`, 34 characters, 203 px, `C_AMBER` ([what it costs](#the-choice-sig-driven-low-aux-on-its-pull-down)) | D2 |
-| new: the start step while the run cue stands | ESC TESTER and ESC COMMANDS, on the leave page widget | decision 8: `1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and `AND READ DSHOT AS A COMMAND.`; the wide button `START DSHOT` | D3 |
+| new: the start step while the run cue stands | ESC TESTER and ESC COMMANDS, on the leave page widget | decision 8: `1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and `AND READ DSHOT AS A COMMAND.`; `START DSHOT`, 228 px wide in the row of the widget's left and right buttons, y 214 ([decision 14](#decisions)) | D3 |
 | `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.`, `PROPELLER OFF. DSHOT IS OFF.`, `THE TESTER SENDS DSHOT ONLY:`, `AND MAY READ DSHOT AS ONE.` | `src/ui_hitec.h` 85; `src/ui_bridge.h` 115; `src/ui_am32.h` 151, 251 | unchanged: still true | |
 | `AN ESC ANSWERS ON SIG GP0.` and its lines on SERVO TESTER, KST SERVO, HITEC SERVO, S.BUS MONITOR, S.BUS OUTPUT | `src/ui_servo.cpp` 509, 510; `src/ui_kst.cpp` 604 to 606; `src/ui_hitec.h` 89; `src/ui_sbus.h` 86; `src/ui_sbus_out.h` 107 to 111 | unchanged; reachable within 500 ms of the last answer | |
 
@@ -783,8 +786,9 @@ hubs' line dropped on RECEIVER (its case fails).
 the bind with no answer; the start step of decision 8, with
 `uiDshotWanted()` reading the run cue, and its way out and START DSHOT's
 place by decision 14; decision 13's rule for the bridge's cue, with
-`bridgeWireBinds()` in `src/bridge_wire.*` and `usbBridgeRunCueSettle()`;
-the log's eRPM column only while fresh (`src/sd_log.cpp` 421).
+`bridgeWireBinds()` in `src/bridge_wire.*` and `usbBridgeRunCueSettle()`,
+and the fakes' `fakeCsExitOnce()` and `fakeBridgeLineInject()`; the log's
+eRPM column only while fresh (`src/sd_log.cpp` 421).
 
 START DSHOT clears every source of the cue: `uiAm32RunCueClear()`, new,
 `usbBridgeRunCueClear()`, and `sbusOutRunCueClear()`, new, which marks the
@@ -805,35 +809,78 @@ Host tests:
   frame and drawn live; after either the pump is still parked, no bind
   happened (`fakeRebuildCount()` unchanged), no frame went out, and the
   cue still stands, so the next open shows the step again. START DSHOT
-  lies inside y 214 to 259 and does not overlap `BTN_MENU`.
-- Decision 13: (a) the bridge's claim ends by BACK before the line binds:
-  no leave page, the cue is clear, and ESC TESTER opens running. (b) The
-  line bound, the fake wire received 9 bytes more than it sent, then the
-  claim ends with no leave page after a job error: the cue stands, and ESC
-  TESTER opens on the start step. (c) The same with only the echo
-  received: the cue is clear. (d) The line bound, the leave page's last
-  button: the cue is clear, as today. (e) Counts left over from a previous
-  session: a first claim's line ends at 500 received and 400 sent; a second
-  claim binds, its line sends 10 and receives 19, and it ends with no leave
-  page after a job error: the cue stands. (f) The same leftovers, the
-  second claim ends by BACK before its line binds: the leftovers are not
-  read, and the cue is clear. (g) Two binds in one claim: the first
-  receives 9 bytes more than it sent, a job error, RETRY, the second
-  receives only the echo, then the claim ends with no leave page: the cue
-  stands.
+  lies inside y 214 to 259 and does not overlap `BTN_MENU`. On the step
+  the screen's list of controls holds only START DSHOT and the way out,
+  and:
+  - A tap at `TGT_MAX`'s centre, x 111, y 240, in the step's first 999 ms,
+    while START DSHOT is disabled (later the same tap is START DSHOT's):
+    the screen stays ESC TESTER on the step, SETUP does not open, no bind
+    happens and the pump stays parked.
+  - A 1000 ms press on HOLD TO ARM's rectangle, then a swipe along the
+    track below START DSHOT, y 270 from x 30 to x 200: nothing arms, the
+    throttle stays 0, no frame goes out, no bind happens, and the track's
+    rectangle from y 260 to 281 holds only `C_BG`.
+  - On ESC COMMANDS, a 1500 ms hold on 3D ON above START DSHOT, x 178,
+    y 200: no command is queued or sent, no bind happens, START DSHOT does
+    not act, and 3D ON's rectangle from y 192 to 213 holds only `C_BG`.
+  - `uiDshotWanted()` for the stack ESC TESTER under SETUP, with the cue
+    standing and START DSHOT not tapped: false.
+- Decision 13, on the host fakes (`test/fake_bridge_line.h`, core1's side
+  run by `core1JobPoll()` as in `test/test_bridge_ui.cpp`). After each
+  case ESC TESTER is opened to read the cue: running when it is clear, on
+  the start step when it stands.
+  - (a) The claim Held, its start pending with core1's pass held back,
+    BACK: no bind, no leave page, the cue is clear.
+  - (b) The race: the claim Held, its start pending; the test calls
+    `uiBridgeTick()` with BACK tapped and core1's bind put after the
+    frame's `pinClaimPoll()`. No frame loop can put a core1 pass there, so
+    `test/fakes.cpp` gains `fakeCsExitOnce()`, a one-shot hook that runs a
+    function after the next `critical_section_exit()`: the first one in
+    that tick is `pinClaimPoll()`'s read of the job's phase, and the hook
+    runs `core1JobPoll()`, which binds. The line opened once
+    (`fakeBridgeLineOpens()` 1), `bridgeWireBinds()` moved, nothing went
+    on the wire (`fakeBridgeLineWireCount()` 0), no leave page, the screen
+    ESC PROGRAM: the cue is clear.
+  - (c) The race of (b), and the hook also puts one byte on the wire from
+    the model ESC unasked (`fakeBridgeLineInject()`, new) and runs core1's
+    passes until the job has counted it: `received` 1, `sent` 0. No leave
+    page: the cue stands.
+  - (d) The line bound, the claim Running, the leave page's last button:
+    the cue is clear, as today.
+  - (e) Leftover counts: a first claim's line sends 400 bytes and receives
+    500, the model ESC's answers, and the claim ends at the leave page's
+    last button. A second claim's binds fail (`fakeBridgeLineRefuse()`
+    with a PIO error): the first, then RETRY's. Each zeroes the counts,
+    moves `bridgeWireBinds()` and opens nothing (`fakeBridgeLineOpens()`
+    unchanged). BACK: no leave page, Parking, then Free with no bind; the
+    cue is clear.
+  - (f) The leftovers of (e); the second claim ends by BACK while Held,
+    before its line binds: the leftovers are not read, and the cue is
+    clear.
+  - (g) The leftovers of (e); the second claim begins with no pump pass
+    (`framesNoPump()`), so it stays Stopping. BACK: `pinClaimEnd()`
+    restores at once (`src/pin_claim.cpp` 191 to 194), no job starts,
+    `bridgeWireBinds()` does not move, no leave page: the cue is clear.
 - The log: a frame with an eRPM older than 500 ms logs 0; a fresh one logs
   its value (`make -C test lognum` and the blackbox checker).
 - #49's cases pass unchanged.
 
-Mutations: the start text kept past 1500 ms; START DSHOT live at once;
-START DSHOT leaving the bridge's cue set; the settle clearing whatever the
-wire received (case b fails); the settle never clearing (cases a and c
-fail); the settle taking the counts' difference against a stamp at
-`usbBridgeRunCueSet()` (case e fails); the counts read before
-`bridgeWireBinds()` moves (case f fails); the flag cleared at a bind (case
-g fails); `MENU` drawn disabled on the start step, or its tap clearing the
-cue (the decision 14 case fails); the eRPM logged without the freshness
-check.
+Mutations: the start text kept past 1500 ms; START DSHOT live at once; START
+DSHOT leaving the bridge's cue set; the settle clearing whatever the wire
+received (case c fails); the settle never clearing (cases a, b, e, f and g
+fail); the settle run only after a job error or with `bridgeWireBinds()` unmoved
+(case b fails); the settle taking the counts' difference against a stamp at
+`usbBridgeRunCueSet()` (case c fails: 1 less 500 and 0 less 400 wrap, and the
+difference reads as no more received than sent); the counts read before
+`bridgeWireBinds()` moves (cases e, f and g fail: the leftovers set the flag);
+`bridgeJobBind()` zeroing the counts only after a successful `bridgeLineOpen()`,
+`bridgeWireBinds()` still raised at every bind (case e fails); `MENU` drawn
+disabled on the start step, or its tap clearing the cue (the decision 14 case
+fails); the readouts' targets left live on the step (the `TGT_MAX` case fails);
+HOLD TO ARM left live or the track drawn on the step (the swipe case fails); ESC
+COMMANDS' holds drawn on the step (the 3D ON case fails); `uiDshotWanted()` true
+for SETUP over the tester whatever the step (its case fails); the eRPM logged
+without the freshness check.
 
 ### D4: SETUP's texts and the comments (Opus)
 
@@ -897,9 +944,9 @@ review.
    while the run cue stands.** Option (a): while the cue stands, ESC TESTER
    and ESC COMMANDS open with DShot held off and one step on the leave page
    widget: `1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and
-   `AND READ DSHOT AS A COMMAND.`. A wide `START DSHOT` acts 1000 ms after
-   the step opens; the tap clears the cue. `START DSHOT` starts an output,
-   so it is `C_GREEN` from ui-theme.md slice 11
+   `AND READ DSHOT AS A COMMAND.`. `START DSHOT`, placed by decision 14,
+   acts 1000 ms after the step opens; the tap clears the cue. `START
+   DSHOT` starts an output, so it is `C_GREEN` from ui-theme.md slice 11
    ([ui-theme.md](ui-theme.md#green)). ESC SETTINGS and S.BUS OUTPUT set
    the cue only on a bootloader's answer. USB BRIDGE sets it on every claim
    (`src/ui_bridge.cpp` 150 to 153), before any answer, and with DShot
@@ -970,36 +1017,72 @@ review.
     bridge's run cue at a claim's end.** The counts of `bridgeWireStats()`,
     `sent`, `received`, `lost` and `collisions`, count since the line's
     last bind: `bridgeJobBind()` zeroes them (`src/bridge_wire.cpp` 225 and
-    226), and a claim binds once more at each RETRY (`pinClaimRetry()`,
+    226) before it opens the line, so a bind that fails zeroes them too,
+    and a claim binds once more at each RETRY (`pinClaimRetry()`,
     `src/pin_claim.cpp` 242 to 248). `usbBridgeRunCueSet()` runs at the
     claim (`src/ui_bridge.cpp` 153), before the line's first bind, so counts
     stamped there are the previous claim's, and a difference against them
     wraps: with 500 received and 400 sent left over, a new bind that sends
     10 and receives 19 reads as "received no more than sent", and the cue
     would clear though the ESC answered. The rule takes no difference
-    across a bind:
+    across a bind.
+
+    Which claims end with no leave page:
+
+    - A claim that reached Running ends at the leave page. `back()` asks
+      for the page while `pinClaimState()` reads Running
+      (`src/ui_bridge.cpp` 415 and 416), and `pinClaimKeep()`, the page's
+      left button, never clears that request (`src/pin_claim.cpp` 250 to
+      259), so every later BACK of the claim gives the page too.
+    - A bind that fails opens nothing and takes nothing: `bridgeJobBind()`
+      returns before it sets `s_open` (`src/bridge_wire.cpp` 227 to 229),
+      and `pinClaimPoll()` reads the job Idle again as "the bind failed and
+      took nothing" (`src/pin_claim.cpp` 148 to 151).
+    - A frame goes to the wire only from `forward()` in `usbBridgeTask()`,
+      which runs only while the claim is Running for the bridge
+      (`claimRunning()`, `src/usb_bridge.cpp` 141 to 143 and 571 to 579).
+
+    A claim that ends with no leave page (`pinClaimLeavePage()` false in
+    `back()`) therefore ended before `pinClaimPoll()` saw it Running, and
+    sent nothing: BACK while Stopping, BACK while Held before a bind, BACK
+    after binds that failed, or a race. In the race core1's bind lands
+    after the frame's `pinClaimPoll()` (`src/ui_bridge.cpp` 429) and before
+    BACK in the same frame (432): the claim still reads Held, `back()` asks
+    for no page, and the line, bound for less than a frame, sent nothing.
+    A bind that core1 took up before the stop and finishes after BACK
+    (`src/core1_job.cpp` 124 to 137) sends nothing either. On these ends the
+    counts can hold only bytes the line received unasked, which the rule
+    keeps as a guard:
 
     - `usbBridgeRunCueSet()` clears a per-claim flag, "ESC byte seen", and
-      notes `bridgeWireBinds()`, a new count of the line's binds that core1
-      raises after it zeroes the counts and before it opens the line.
+      notes `bridgeWireBinds()`, a new count of the line's binds.
+    - `bridgeWireBinds()` crosses the cores as the counts do: one aligned
+      `uint32_t` in `src/bridge_wire.cpp`, written by core1 in
+      `bridgeJobBind()` after it zeroes the counts and before
+      `bridgeLineOpen()`, with the file's release store `WIRE_PUBLISH`
+      (`src/bridge_wire.cpp` 12 to 19), so a failed bind raises it too.
+      Core0 reads it with the acquire `WIRE_OBSERVE` before it reads the
+      counts, so a core0 that sees the new value sees the zeroed counts.
     - Every `usbBridgeTask()` pass, every pass of core0's loop
       (`src/main.cpp` 194), reads the counts once `bridgeWireBinds()` has
       moved since the claim began, so they are this claim's, counted from 0
       at the last bind. Received more than sent, or `lost` or `collisions`
       above 0, sets the flag: the echo gives one byte back per byte sent
       (`src/bridge_wire.h`, "The echo"), so any byte more came from the ESC.
+    - `bridgeWireStats()` reads `sent` before `received`
+      (`src/bridge_wire.cpp` 118 to 124), and core1 counts a byte sent
+      before its echo. A read that spans a byte sent and echoed shows one
+      received more than sent, and sets the flag: the error keeps the cue,
+      the safe direction. Reading `received` first would remove it; the
+      rule does not need it.
     - The flag stays set across the claim's binds. The counts stay after a
-      release until the next bind, and a RETRY's bind comes after a tap at
-      least one UI frame after the error, so the passes between read each
-      bind's last counts before they are zeroed.
-    - When the claim ends with no leave page (`pinClaimLeavePage()` false in
-      `back()` of `src/ui_bridge.cpp`), the claim is not Running: its job
-      was released after an error, or never bound. A new
-      `usbBridgeRunCueSettle()` then reads the counts once more under the
-      same condition and clears the cue only if the flag is clear. A read
-      that meets core1 zeroing the counts at a RETRY's bind mixes two binds
-      of this claim; no read clears the flag, so such a read can only keep
-      the cue.
+      release until the next bind. A read that meets core1 zeroing the
+      counts at a RETRY's bind mixes two binds of this claim; no read
+      clears the flag, so such a read can only keep the cue.
+    - When the claim ends with no leave page, a new
+      `usbBridgeRunCueSettle()`, called from `back()`, reads the counts once
+      more under the same condition and clears the cue only if the flag is
+      clear.
 
     The leave page's last button clears the cue as today: its steps power
     the ESC off. The cue then stands only where a bootloader may still
@@ -1023,9 +1106,41 @@ review.
     BACK and `MENU` stay live. START DSHOT does not take the widget's
     wide button (`UI_LEAVE_WIDE`, y 268 to 313), which would cover the
     tester's button row: it is 228 px wide at the row of the widget's left
-    and right buttons (`UI_LEAVE_BTN_Y`, y 214, 46 px tall), at scale 2.
-    The foot stays the screen's: on the tester `MENU` live, HOLD TO ARM and
-    LATCH drawn disabled. Slice D3 builds it.
+    and right buttons (`UI_LEAVE_BTN_Y`, y 214, 46 px tall), x 6 to 233 and
+    y 214 to 259, at scale 2.
+
+    That rectangle lies over live controls of both screens. On ESC TESTER
+    it covers `TGT_MAX` (x 82 to 141, y 230 to 251, `src/ui.cpp` 199),
+    whose tap opens SETUP while disarmed, the throttle zone (y 234 to 281,
+    `Z_THR_Y0` and `Z_THR_Y1`, `src/ui.cpp` 76 and 77) and the track's grab
+    band (from y 240, `THR_TRACK_Y` 248 less `THR_TOUCH_PAD_TOP` 8,
+    `src/ui.cpp` 89 and 112); the step's lines, from y 66
+    (`UI_LEAVE_STEP_Y`), cover `TGT_POLES` (y 106 to 127). On ESC COMMANDS
+    it covers the 3D OFF and 3D ON holds (y 192 to 235, `UI_ESC_CMD_3D_Y`
+    and `UI_ESC_CMD_HOLD_H`, `src/ui_esc_cmd.h` 120 and 122) and the
+    message lines (from y 244, `UI_ESC_CMD_LINE_Y`, 124).
+
+    The rule: on the step only the step's text, START DSHOT and the
+    screen's way out, the tester's `MENU` and ESC COMMANDS' BACK, are drawn
+    and live. The rest of the screen is hidden and inert: on the tester the
+    readouts with `TGT_POLES` and `TGT_MAX`, the pad, the track, HOLD TO
+    ARM and LATCH; on ESC COMMANDS the BEEP buttons, the four holds and the
+    message lines. A touch on them does nothing, and none is in the
+    screen's list of controls.
+
+    `uiDshotWanted()` stays false for SETUP over a tester whose step was
+    not done: decision 6 keeps DShot up under SETUP only over a tester that
+    runs it. SETUP cannot be reached from the step anyway: the readouts,
+    its only way in from the tester, are inert there.
+
+    The colours follow [ui-theme.md](ui-theme.md#decisions) decisions 15
+    and 16. START DSHOT is a start button: disabled for its first 999 ms,
+    `C_BG` with a frame and a `C_GRID` label, then `C_GREEN` with a
+    `C_ONACCENT` label. The tester's `MENU` is `C_CYAN` with a `C_ONACCENT`
+    label, and ESC COMMANDS' BACK the header's `C_CYAN` button, each live
+    from the step's first frame. Slice D3 builds the step; slices 11 and 12
+    of [menu-c.md](menu-c.md#build-plan) give START DSHOT its colours on
+    ESC COMMANDS and on the tester.
 
 ## Open questions
 
