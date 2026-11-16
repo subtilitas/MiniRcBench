@@ -1016,10 +1016,12 @@ static EscFrame   g_lastFrame = {};
 static uint32_t   g_boundMs = 0;
 static void     (*g_bindHook)() = nullptr;
 
-static bool       g_bindRefused = false;
+static bool       g_bindRefused = false;   // binds fail from now on
+static bool       g_lastRefused = false;   // escTaskBindRefused()
 
 void fakeSetBindHook(void (*hook)()) { g_bindHook = hook; }
 void fakeSetBindRefused(bool refused) { g_bindRefused = refused; }
+bool escTaskBindRefused() { return g_lastRefused; }
 uint32_t escTaskBoundMs() { return g_boundMs; }
 
 void fakePumpPowerOn() {
@@ -1029,6 +1031,8 @@ void fakePumpPowerOn() {
 	g_reached = EscPinMode::Run;
 	g_rebuildReq = false;
 	g_boundMs = 0;
+	g_bindRefused = false;
+	g_lastRefused = false;
 	g_heldSig = ESC_NO_GPIO;
 	g_heldAux = ESC_NO_GPIO;
 }
@@ -1056,6 +1060,7 @@ static void fakePumpBind() {
 	g_rebuildWiring = w;
 	g_tel.initError = g_bindRefused;
 	uint32_t stamp = millis();
+	g_lastRefused = g_bindRefused;
 	g_boundMs = g_bindRefused ? 0u : stamp ? stamp : 1u;
 }
 
@@ -1081,7 +1086,8 @@ void fakePumpPoll() {
 	EscHandover h = escHandoverStep(want, g_reached, g_rebuildReq, g_pumpUp,
 	                                g_pump.lastThrottleMs, ms);
 	if (h == EscHandover::Teardown) {
-		// pumpTeardown(): the stamp first.
+		// pumpTeardown(): the refused flag, then the stamp.
+		g_lastRefused = false;
 		g_boundMs = 0;
 		g_pumpUp = false;
 		escTelTeardown(&g_tel);

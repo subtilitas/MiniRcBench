@@ -227,14 +227,15 @@ bool usbBridgeWriteWaiting();
 /**
  * @brief A write-class frame went to the wire, and no RUN and no leave
  *        page's last button after it: the leave page carries its note to
- *        flash the ESC again (ui_bridge.h). Kept through the close, the leave page and
- *        BRIDGE's reopen, which leave the ESC's flash as cut as it was.
+ *        flash the ESC again (ui_bridge.h). Kept through the close, the
+ *        leave page and BRIDGE's reopen, which leave the ESC's flash as cut
+ *        as it was.
  *        While the board runs it is cleared only by a RUN that core1 took
  *        from the slot, `cmd_DeviceReset`'s among them, and by
  *        usbBridgeWriteUnfinishedClear() at the leave page's last button,
- *        which ends the claim: the next claim starts with none. A RUN handed over and not
- *        taken when BACK comes is never sent and clears nothing; a write
- *        after a RUN still pending keeps it set.
+ *        which ends the claim: the next claim starts with none. A RUN
+ *        handed over and not taken when BACK comes is never sent and clears
+ *        nothing; a write after a RUN still pending keeps it set.
  *
  * It is held in RAM only: a board reset or a power loss in the middle of a
  * flash restarts the board with SIG parked low and no note.

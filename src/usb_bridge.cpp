@@ -31,7 +31,8 @@ static bool           s_ready = false;           /**< It is whole and waits for 
 static uint8_t        s_rx[256];                 /**< Bytes from the ring on their way to the PC. */
 static bool           s_dtr = false;             /**< DTR at the last pass. */
 static bool           s_portClosed = false;
-static bool           s_unfinished = false;      /**< A write-class frame, no RUN and no leave page's last button since. */
+/** A write-class frame, and no RUN and no leave page's last button since. */
+static bool           s_unfinished = false;
 static bool           s_runPending = false;      /**< A RUN handed over, not yet taken by core1. */
 static uint32_t       s_runFrame = 0;            /**< Its number among the frames handed over since the open. */
 static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */

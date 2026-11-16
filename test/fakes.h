@@ -262,8 +262,9 @@ void fakeSetBindHook(void (*hook)());
 
 /**
  * @brief Make each later fake bind fail as a refused out_dshot_bind() does
- *        in pumpBind(): `initError` set and the bind stamp 0; the pump is
- *        still up. False makes binds succeed again.
+ *        in pumpBind(): `initError` and escTaskBindRefused() set and the
+ *        bind stamp 0; the pump is still up. fakePumpPowerOn() clears it.
+ *        False makes binds succeed again.
  * @param refused Whether binds fail.
  */
 void fakeSetBindRefused(bool refused);

@@ -235,7 +235,10 @@ enum Am32Screen : uint8_t {
 	 * half written; BACK returns to s_keptFrom.
 	 */
 	S_EW_KEPT,
-	/** BACK from the EFM8 list: LEAVE goes out, then the pins park. BACK is drawn disabled. */
+	/**
+	 * BACK from the EFM8 list: LEAVE goes out, then the pins park. BACK is
+	 * drawn disabled.
+	 */
 	S_EW_EXIT,
 	/**
 	 * The session ended without the page: the job lets SIG go, and the
@@ -2326,12 +2329,13 @@ bool uiAm32Tick(const TouchState *t) {
 			ewSend(EwJobOp::Stop);
 			openLeave(S_EW);
 		} else if (back && s_state == S_EW_LIST) {
-			// The page was read: LEAVE starts the ESC's firmware, then DShot
-			// returns (docs/design/bluejay-blheli-s.md, decision 3).
+			// The page was read: LEAVE starts the ESC's firmware, then the
+			// pins park (docs/design/bluejay-blheli-s.md, decision 3).
 			startExit();
 		} else if (back && s_efm8Seen) {
-			// An EFM8 bootloader answered and no LEAVE went: SIG goes back to
-			// DShot only from the leave page (decision 8 of that note).
+			// An EFM8 bootloader answered and no LEAVE went: the pins park
+			// only from the leave page's last button (decision 8 of that
+			// note).
 			openLeave(s_state);
 		} else if (back) {
 			s_leaving = true;
