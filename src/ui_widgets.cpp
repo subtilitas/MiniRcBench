@@ -27,6 +27,33 @@ bool uiTapped(const UiRect &r, const TouchState *t) {
 	return inputTapped(t, r.x, r.y, r.w, r.h);
 }
 
+/**
+ * @brief Break a disabled button's frame into dashes: @ref UI_DASH px drawn,
+ *        @ref UI_DASH px open, on the four straight edges, the group of gaps
+ *        centred on each edge. The corners stay whole.
+ *
+ * The gaps are `C_BG`, which is a disabled button's fill, over the frame's
+ * full thickness.
+ */
+static void dashFrame(const UiRect &r) {
+	const int t = themeStroke();
+	for (int side = 0; side < 2; side++) {
+		// side 0: the top and bottom edges; side 1: the left and right ones.
+		const int len = (side ? r.h : r.w) - 2 * UI_RADIUS;
+		const int n = (len + UI_DASH) / (2 * UI_DASH);
+		int at = UI_RADIUS + (len - (2 * n - 1) * UI_DASH) / 2;
+		for (int i = 0; i < n; i++, at += 2 * UI_DASH) {
+			if (side) {
+				gfxRect(r.x, r.y + at, t, UI_DASH, C_BG);
+				gfxRect(r.x + r.w - t, r.y + at, t, UI_DASH, C_BG);
+			} else {
+				gfxRect(r.x + at, r.y, UI_DASH, t, C_BG);
+				gfxRect(r.x + at, r.y + r.h - t, UI_DASH, t, C_BG);
+			}
+		}
+	}
+}
+
 void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
               int scale, bool pressed, bool enabled) {
 	if (!enabled) {
@@ -40,6 +67,11 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
 	}
 	gfxRoundRect(r.x, r.y, r.w, r.h, UI_RADIUS, fill);
 	gfxRoundFrame(r.x, r.y, r.w, r.h, UI_RADIUS, pressed ? C_INK : C_GRID);
+	// High contrast's C_GRID is near black, 10.94 on white, and its C_PANEL is
+	// 1.46 from white: there the label and the fill do not tell a disabled
+	// button from a live one, so the frame does. Dark keeps the whole frame;
+	// its C_GRID label is 3.57 and reads as faded.
+	if (!enabled && themeGet() == Theme::HighContrast) dashFrame(r);
 	// The inner ring is what makes a press read at arm's length; it needs a
 	// button big enough to hold two concentric frames and still show fill.
 	if (pressed && r.w > 6 && r.h > 6)
@@ -59,6 +91,9 @@ bool uiBackTapped(const TouchState *t) {
 
 void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
 	gfxRect(0, 0, GFX_W, UI_HDR_H, C_PANEL);
+	// The band's last row, y 35: the rule that ends the header. BACK ends at
+	// y 33 and the strip starts at y 40, so the rule moves nothing.
+	gfxHLine(0, UI_HDR_RULE_Y, GFX_W, C_GRID);
 	// Scale 2 is 14 px tall, centred in the band rather than at a hand-picked y,
 	// so the title sits on the same baseline on every screen.
 	gfxText(UI_MARGIN, (UI_HDR_H - 14) / 2, title, C_TEXT, 2);
@@ -121,6 +156,12 @@ void uiChip(const char *text, uint16_t fill) {
 	gfxRect(x, y, w, UI_CHIP_H, fill);
 	// y 44, the line of uiStripText(), so the chip reads level with the caption.
 	uint16_t fg = (fill == C_AMBER || fill == C_INK) ? C_PAPER : C_ONACCENT;
+	if (fill == C_GRID) {
+		// The neutral chip: no state to report, so no fill. C_GRID is the
+		// frame, 1 px, and the label is a label's colour.
+		gfxRect(x + 1, y + 1, w - 2, UI_CHIP_H - 2, C_BG);
+		fg = C_DIM;
+	}
 	gfxText(x + 6, y + (UI_CHIP_H - 7) / 2, text, fg, 1);
 }
 

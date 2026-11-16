@@ -501,16 +501,17 @@ static void drawRow(int i) {
 	d.value = s_us[ch];
 	d.presetCount = 0;
 	d.dim = !s_st.running;
-	uiSliderDraw(&d, C_DIM);
+	uiSliderDraw(&d, C_GRID);
 	if (thr) {
-		// The ceiling: the track past it dim, a 2 px line along its middle
-		// that reads as no fill, the knob never past it, and a 1 px mark the
-		// row's height, broken where the knob covers it.
+		// The ceiling: the track past it dim, a 2 px line in the fill's
+		// colour along its middle, a fifth of the fill's 10 px, that reads
+		// as no fill, the knob never past it, and a 1 px mark the row's
+		// height, broken where the knob covers it.
 		const int mx = sbusOutUsX(k.ceilUs, SBOUT_UI_TRACK_X, SBOUT_UI_TRACK_W);
 		const int kx = knobX(s_us[ch]);
 		int x0 = mx + 1 > kx + 14 ? mx + 1 : kx + 14;
 		int x1 = SBOUT_UI_TRACK_X + SBOUT_UI_TRACK_W - 3;
-		if (x1 > x0) gfxRect(x0, y + SBOUT_UI_TRACK_DY + SBOUT_UI_TRACK_H / 2 - 1, x1 - x0, 2, C_DIM);
+		if (x1 > x0) gfxRect(x0, y + SBOUT_UI_TRACK_DY + SBOUT_UI_TRACK_H / 2 - 1, x1 - x0, 2, C_GRID);
 		bool covered = mx >= kx && mx < kx + 14;
 		gfxVLine(mx, y, UI_SLIDER_OVERHANG, UI_COL_WARN);
 		gfxVLine(mx, y + SBOUT_UI_ROW_H - UI_SLIDER_OVERHANG, UI_SLIDER_OVERHANG, UI_COL_WARN);
@@ -668,10 +669,10 @@ static void drawSet() {
 	if (changed(K_MSG, &ke, sizeof(ke))) {
 		gfxRect(0, SET_LIST_Y1 + 1, GFX_W, UI_FOOT_Y - SET_LIST_Y1 - 1, C_BG);
 		if (s_sel < 0) {
-			gfxTextCenter(SET_EDIT_Y + 19, "TAP A ROW TO EDIT IT", C_GRID, 1);
+			gfxTextCenter(SET_EDIT_Y + 19, "TAP A ROW TO EDIT IT", C_DIM, 1);
 		} else {
-			uiButton(BTN_MINUS, "-", C_GRID, C_ONACCENT, 2, ke.m, ke.cm);
-			uiButton(BTN_PLUS, "+", C_GRID, C_ONACCENT, 2, ke.p, ke.cp);
+			uiButton(BTN_MINUS, "-", C_PANEL, C_TEXT, 2, ke.m, ke.cm);
+			uiButton(BTN_PLUS, "+", C_PANEL, C_TEXT, 2, ke.p, ke.cp);
 			int cx = BTN_MINUS.x + BTN_MINUS.w, cw = BTN_PLUS.x - cx;
 			const char *name = ROWS[s_sel].name;
 			gfxText(cx + (cw - gfxTextW(name, 1)) / 2, SET_EDIT_Y + 6, name, C_DIM, 1);

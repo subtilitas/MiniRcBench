@@ -89,6 +89,24 @@ Nicht jede Verwendung folgt der Tabelle: Hellgrün markiert auch Zustände wie
 stehen in Bernstein oder in der Textfarbe, zum Beispiel `CARD ERROR` auf SD LOG
 und `WRITE FAILED` bei AM32.
 
+**Das normale Farbschema übernimmt seine Farben von rcbench,** der größeren
+Werkbank desselben Besitzers: ein fast schwarzer Bildschirm mit einem
+Blaustich und blaugraue Neutraltöne. Eine Beschriftung auf einer farbigen
+Füllung, etwa `ARMED`, `STOP` oder `PROG MODE`, ist fast schwarz. Ein
+Kopfbereich endet in einer dünnen Linie. Ein Hinweis wie `SWIPE = COARSE`
+steht in der gedämpften Farbe der Beschriftungen; eine deaktivierte
+Beschriftung und ein nur lesbarer Wert stehen in der blasseren Farbe der
+Rahmen. Ein Feld auf der Leiste, das keinen Zustand meldet, `NO ESC`,
+`PORT CLOSED` oder `MOVING`, ist ein Rahmen mit gedämpfter Beschriftung, ohne
+Füllung. `-` und `+` unter einer Liste und `REPAIR` bei Hitec sehen aus wie
+jede andere Schaltfläche, die etwas auslöst. Wo diese Seiten „grau“ sagen,
+ist einer der beiden blaugrauen Neutraltöne gemeint. Die Farben sind
+berechnet und nicht auf dem Display gesehen: Wie das Display sie zeigt, ist
+nicht gemessen. Hoher Kontrast behält seine eigenen Farben. Rahmen und
+Beschriftungen sind dort fast schwarz; deshalb hat eine Schaltfläche, die
+nichts auslöst, dort einen gestrichelten Rahmen und ein Schieberegler, der
+nichts auslöst, einen hohlen Griff.
+
 ---
 
 ## Der Tester
@@ -237,10 +255,11 @@ liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens, also
 steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
 startet, verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts,
 so wie `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
-einnimmt, öffnet nur `MAX` SETTINGS. Entschärft ist der Hinweis
-`SWIPE = THROTTLE` grau; scharf steht er in der Textfarbe.
+einnimmt, öffnet nur `MAX` SETTINGS. Entschärft steht der Hinweis
+`SWIPE = THROTTLE` in der gedämpften Farbe der Beschriftungen; scharf steht
+er in der Textfarbe.
 
-<img src="img/tester-disarmed.png" width="240" alt="Der Tester entschärft mit Telemetrie: SAFE in Grün, 14 POLES und MAX 20% unterstrichen, SWIPE = THROTTLE grau, ARM TO ENABLE im Balken">
+<img src="img/tester-disarmed.png" width="240" alt="Der Tester entschärft mit Telemetrie: SAFE in Grün, 14 POLES und MAX 20% unterstrichen, SWIPE = THROTTLE gedämpft, ARM TO ENABLE im Balken">
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der
 Finger es loslässt; blau, solange an), `MENU`.
@@ -296,7 +315,7 @@ nur eine Anzeige, eckig und 12 px hoch:
 |---|---|
 | `EDT ON`, grün | Extended-DShot-Telemetry-Frames treffen ein |
 | `EDT OFF`, rot | eRPM-Frames treffen ein, EDT-Frames nicht |
-| `NO ESC`, gedämpftes Grau | seit 500 ms kein eRPM-Frame: kein ESC angeschlossen, oder keiner antwortet |
+| `NO ESC`, ein Rahmen mit gedämpfter Beschriftung, ohne Füllung | seit 500 ms kein eRPM-Frame: kein ESC angeschlossen, oder keiner antwortet |
 
 Nach einer Sitzung in ESC SETTINGS, in der der Bootloader des ESC geantwortet
 hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in

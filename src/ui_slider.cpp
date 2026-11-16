@@ -165,7 +165,10 @@ void uiSliderDraw(const UiSlider *s, uint16_t fill) {
 	if (hx > r.x + r.w - THUMB_W / 2) hx = r.x + r.w - THUMB_W / 2;
 	int tx = hx - THUMB_W / 2, ty = r.y - UI_SLIDER_OVERHANG;
 	int th = r.h + 2 * UI_SLIDER_OVERHANG;
-	uint16_t thumb = s->dim ? C_DIM : C_TEXT;
+	// High contrast's C_DIM is 9.10 on white and its C_TEXT black: there a
+	// dimmed thumb in C_DIM reads as a live one, so it is hollow, C_BG
+	// inside its frame, as a disabled button is.
+	uint16_t thumb = !s->dim ? C_TEXT : themeGet() == Theme::HighContrast ? C_BG : C_DIM;
 	gfxRoundRect(tx, ty, THUMB_W, th, 4, thumb);
 	gfxRoundFrame(tx, ty, THUMB_W, th, 4, C_GRID);
 	// Two grip lines, so the thumb reads as a control and not a marker.

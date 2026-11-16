@@ -385,6 +385,13 @@ void fakeSetCmdState(EscCmdState st, uint8_t cmd);
  */
 int fakeCountColour(uint16_t c);
 
+/**
+ * @brief How much of a button's frame is drawn, in percent: the pixels of
+ *        the rectangle's outermost ring on its four straight edges, between
+ *        its corners of @p radius px, that hold @p c. A whole frame is 100.
+ */
+int fakeFrameDrawnPercent(int x, int y, int w, int h, int radius, uint16_t c);
+
 /** @brief Write the current framebuffer to a binary PPM, for eyeballing. */
 void fakeDumpFrame(const char *name);
 

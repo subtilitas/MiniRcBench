@@ -243,8 +243,8 @@ static void drawUsbPanel(MscState st) {
 		else            snprintf(buf, sizeof(buf), "%lu kB READ", (unsigned long)kb);
 		gfxTextCenter(LOG_ROW0_Y + 104, buf, UI_COL_LIVE, 2);
 
-		gfxTextCenter(LOG_ROW0_Y + 138, "EJECT ON THE COMPUTER FIRST,", C_GRID, 1);
-		gfxTextCenter(LOG_ROW0_Y + 152, "OR PRESS EJECT BELOW", C_GRID, 1);
+		gfxTextCenter(LOG_ROW0_Y + 138, "EJECT ON THE COMPUTER FIRST,", C_DIM, 1);
+		gfxTextCenter(LOG_ROW0_Y + 152, "OR PRESS EJECT BELOW", C_DIM, 1);
 	} else {
 		// Handover and Reclaim are both brief. Saying which one it is beats a
 		// spinner: they fail differently, and a screen stuck on one of them is

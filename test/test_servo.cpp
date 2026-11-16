@@ -2675,6 +2675,23 @@ static void testSliderDraw() {
 	uiSliderDraw(&s, C_LIME);
 	checkTrue("dimmed: the fill is grid grey", fb[110 * GFX_W + 50] == C_GRID);
 	checkTrue("and the thumb dim, at the right end", fb[(100 - 1) * GFX_W + 114] == C_DIM);
+	// High contrast: C_DIM is near black as C_TEXT is, so a dimmed thumb is
+	// hollow. The thumb is 14 px from x 107; x 114 is between its grip lines.
+	themeSet(Theme::HighContrast);
+	gfxInit();
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("high contrast, dimmed: the thumb hollow, C_BG in a 2 px C_GRID frame",
+	          fb[(100 - 1) * GFX_W + 114] == C_BG && fb[110 * GFX_W + 114] == C_BG &&
+	          fb[110 * GFX_W + 107] == C_GRID && fb[110 * GFX_W + 108] == C_GRID &&
+	          fb[110 * GFX_W + 120] == C_GRID && fb[110 * GFX_W + 112] == C_GRID);
+	checkTrue("high contrast, dimmed: the fill still C_GRID", fb[110 * GFX_W + 50] == C_GRID);
+	s.dim = false;
+	gfxInit();
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("high contrast, live: the thumb solid, C_TEXT",
+	          fb[(100 - 1) * GFX_W + 114] == C_TEXT && fb[110 * GFX_W + 114] == C_TEXT);
+	s.dim = true;
+	themeSet(Theme::Dark);
 	gfxInit();
 	UiSlider flat;
 	uiSliderInit(&flat, UiRect{20, 100, 101, 20}, 5, 5);
@@ -3475,7 +3492,7 @@ static bool setValueHas(int row, uint16_t c) {
 /**
  * @brief The colour roles on SERVO TESTER and SERVO SET (docs/design/menu-b.md,
  *        decisions 8 and 11): command labels in the text colour, SPEED's fill
- *        dim, servo B blue; a pending row cyan with a cyan bar until HOLD TO
+ *        `C_GRID` (docs/design/ui-theme.md, "Widgets"), servo B blue; a pending row cyan with a cyan bar until HOLD TO
  *        APPLY, a selected row's value never lime, the PULSE rows grey while
  *        RUNNING.
  */
@@ -3488,8 +3505,15 @@ static void testColourRoles() {
 	          fakeTextIs(BTN_SET.x + (BTN_SET.w - gfxTextW("SET", 1)) / 2, BTN_SET.y + (BTN_SET.h - 7) / 2,
 	                     "SET", C_TEXT, C_PANEL, 1));
 	UiRect sr = uiSliderPaintedRect(&s_speed);
-	checkTrue("SPEED's fill dim, not cyan",
-	          someOf(sr.x, sr.y, sr.w, sr.h, C_DIM) && !someOf(sr.x, sr.y, sr.w, sr.h, C_CYAN));
+	// SPEED opens at 100 %: the fill runs the track's length, and the thumb
+	// stands at its right end.
+	const UiRect &tr = s_speed.track;
+	checkTrue("SPEED's fill is C_GRID, inside the track at its left end and its middle",
+	          (int)s_speed.value == 100 && pixel(tr.x + 3, tr.y + tr.h / 2) == C_GRID &&
+	          pixel(tr.x + tr.w / 2, tr.y + tr.h / 2) == C_GRID);
+	checkTrue("no C_DIM and no cyan in the slider: the fill is under the readout",
+	          !someOf(sr.x, sr.y, sr.w, sr.h, C_DIM) && !someOf(sr.x, sr.y, sr.w, sr.h, C_CYAN));
+	checkTrue("the thumb in the text colour", someOf(sr.x, sr.y, sr.w, sr.h, C_TEXT));
 
 	openSet();
 	selectRow(1);   // TYPE

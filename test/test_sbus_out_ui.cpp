@@ -507,11 +507,12 @@ static void testEntryProbeStart() {
 	checkTrue("the ceiling's mark at x 83 on the throttle row, amber",
 	          pixel(83, rowTop(2)) == UI_COL_WARN && pixel(83, rowTop(2) + 21) == UI_COL_WARN &&
 	          pixel(82, rowTop(2)) == C_BG && pixel(83, rowTop(1)) != UI_COL_WARN);
-	checkTrue("the track past it: a dim line, 2 px, along its middle",
-	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 4) == C_DIM &&
-	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 5) == C_DIM &&
+	checkTrue("the track past it: a 2 px line in the fill's C_GRID along its middle",
+	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 4) == C_GRID &&
+	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 5) == C_GRID &&
 	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 3) == C_PANEL &&
-	          pixel(150, rowTop(1) + SBOUT_UI_TRACK_DY + 4) != C_DIM);
+	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 6) == C_PANEL &&
+	          pixel(150, rowTop(1) + SBOUT_UI_TRACK_DY + 4) == C_PANEL);
 	checkTrue("HOLD TO START acts; CH 9-16 and SET",
 	          ctlEnabled(UI_FIX(SbusOutCtl::Start)) && ctlEnabled(UI_FIX(SbusOutCtl::Page)) &&
 	          ctlEnabled(UI_FIX(SbusOutCtl::Set)));
@@ -573,6 +574,17 @@ static void testEntryProbeStart() {
 	checkTrue("note 2: the flags, all off", leftIs(SBOUT_UI_NOTE2_Y, "CH17 OFF  CH18 OFF  FS OFF  LOST OFF", C_TEXT));
 	checkTrue("the values live, lime", rowIs(0, "CH1", C_DIM, "1500", UI_COL_LIVE) &&
 	          rowIs(2, "CH3 THR", UI_COL_WARN, "1000", UI_COL_LIVE));
+	{
+		// CH1 at 1500 us: the fill from x 54 to x 126, the thumb at x 127.
+		const int ty = rowTop(0) + SBOUT_UI_TRACK_DY + SBOUT_UI_TRACK_H / 2;
+		bool noDim = true;
+		for (int x = SBOUT_UI_TRACK_X; x < SBOUT_UI_TRACK_X + SBOUT_UI_TRACK_W; x++)
+			if (pixel(x, ty) == C_DIM) noDim = false;
+		checkTrue("RUNNING: a slider's fill is C_GRID, the track past the thumb C_PANEL",
+		          pixel(60, ty) == C_GRID && pixel(110, ty) == C_GRID && pixel(180, ty) == C_PANEL);
+		checkTrue("the thumb in the text colour, and no C_DIM on the track",
+		          pixel(127, ty) == C_TEXT && noDim);
+	}
 	checkTrue("STOP at scale 2 on red; the rows act",
 	          fakeTextIs(6 + (110 - 46) / 2, SBOUT_UI_BOT_Y + 9, "STOP", C_ONACCENT, UI_COL_ON, 2) &&
 	          ctlEnabled(UI_FIX(SbusOutCtl::Row0)) && ctlEnabled(UI_FIX(SbusOutCtl::Start)));
@@ -941,6 +953,9 @@ static void testSet() {
 	checkTrue("the rows from y 62: CHANNEL first, CH3 at scale 2 right-aligned to x 231",
 	          ctlPresent(UI_ROW(0, Row)) && ctlRect(UI_ROW(0, Row)).y == UI_BODY_Y &&
 	          fakeTextIs(232 - gfxTextW("CH3", 2), UI_BODY_Y + 13, "CH3", C_TEXT, C_BG, 2));
+	checkTrue("no row selected: the bar's hint in C_DIM, TAP A ROW TO EDIT IT",
+	          !ctlPresent(UI_FIX(SbusOutCtl::EditPlus)) &&
+	          fakeTextCentredIs(218 + 19, "TAP A ROW TO EDIT IT", C_DIM, C_BG, 1));
 	checkControlTable("OUTPUT SET, SAFE");
 	{
 		const uint16_t seqF = held().seq;
@@ -956,12 +971,18 @@ static void testSet() {
 	checkTrue("CH17 while SAFE: - and + do not act",
 	          ctlPresent(UI_FIX(SbusOutCtl::EditPlus)) && !ctlEnabled(UI_FIX(SbusOutCtl::EditPlus)) &&
 	          !ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)));
+	checkTrue("both drawn disabled: C_BG, the frame, a C_GRID label",
+	          disabledButtonIs(UI_FIX(SbusOutCtl::EditMinus), "-", 2) &&
+	          disabledButtonIs(UI_FIX(SbusOutCtl::EditPlus), "+", 2));
 	tapId(UI_FIX(SbusOutCtl::EditPlus), IdExpect::Disabled);
 	checkTrue("a tap on + while SAFE: nothing sent, CH17 reads OFF", held().seq == seqSet &&
 	          fakeTextIs(232 - gfxTextW("OFF", 2), UI_BODY_Y + 42 + 13, "OFF", C_GRID, C_PANEL, 2));
 	tapId(UI_ROW(0, Row));
 	checkTrue("CHANNEL while SAFE: - and + act from CH3",
 	          ctlEnabled(UI_FIX(SbusOutCtl::EditPlus)) && ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)));
+	checkTrue("- and + are neutral buttons: C_PANEL, the frame, C_TEXT at scale 2",
+	          neutralButtonIs(UI_FIX(SbusOutCtl::EditMinus), "-", 2) &&
+	          neutralButtonIs(UI_FIX(SbusOutCtl::EditPlus), "+", 2));
 	tapId(UI_FIX(SbusOutCtl::EditPlus));
 	checkTrue("CH4: + stops there", !ctlEnabled(UI_FIX(SbusOutCtl::EditPlus)) &&
 	          ctlEnabled(UI_FIX(SbusOutCtl::EditMinus)));

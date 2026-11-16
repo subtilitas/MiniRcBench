@@ -1269,6 +1269,9 @@ static void testUsbDriveScreen() {
 	fakeDumpFrame("shot_log_usb_serving.ppm");
 	checkTrue("the read counter in lime, a live reading, at scale 2",
 	          fakeTextCentredIs(UI_HDR_H + 8 + 104, "3.0 MB READ", C_LIME, C_BG, 2));
+	checkTrue("the two lines on how to eject, hints in C_DIM",
+	          fakeTextCentredIs(UI_HDR_H + 8 + 138, "EJECT ON THE COMPUTER FIRST,", C_DIM, C_BG, 1) &&
+	          fakeTextCentredIs(UI_HDR_H + 8 + 152, "OR PRESS EJECT BELOW", C_DIM, C_BG, 1));
 
 	// START must not work while a host owns the card: the logger has let go.
 	tapId(UI_FIX(SdLogCtl::Toggle));                       // now EJECT, not START
@@ -1604,10 +1607,13 @@ static bool menuStatusIs(const UiRect &r, const char *text, uint16_t col, uint16
 }
 
 /**
- * @brief Whether MENU's strip chip reads @p text on a @p fill pill: the chip
- *        is right-aligned to x 232, its text 6 px in and white.
+ * @brief Whether MENU's strip chip reads @p text on a @p fill chip: the chip
+ *        is right-aligned to x 232, its text 6 px in and `C_ONACCENT`. With
+ *        `C_GRID` it is the neutral chip: the frame, `C_BG` inside, a
+ *        `C_DIM` label.
  */
 static bool menuChipIs(const char *text, uint16_t fill) {
+	if (fill == C_GRID) return neutralChipIs(text);
 	const int w = gfxTextW(text, 1) + 12, x = GFX_W - UI_MARGIN - w;
 	return gfxBuffer()[(UI_STRIP_Y + UI_STRIP_H / 2) * GFX_W + x + 2] == fill &&
 	       fakeTextIs(x + 6, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, C_ONACCENT, fill, 1);
@@ -1649,7 +1655,10 @@ static void testMenuChip() {
 	          fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H) != chipOn);
 	// No ESC is the normal state of a bench with nothing plugged in: no
 	// alarm red, a dim NO ESC.
-	checkTrue("no eRPM: the chip reads NO ESC, dim", menuChipIs(UI_MENU_NO_ESC, C_GRID));
+	checkTrue("no eRPM: NO ESC, the neutral chip: frame, C_BG inside, C_DIM label",
+	          menuChipIs(UI_MENU_NO_ESC, C_GRID));
+	checkTrue("and no label in the ink of a fill",
+	          !fakeTextIs(uiChipX(UI_MENU_NO_ESC) + 6, UI_STRIP_Y + 4, UI_MENU_NO_ESC, C_ONACCENT, C_GRID, 1));
 	checkTrue("and not EDT OFF in red", !menuChipIs(UI_MENU_EDT_OFF, C_RED));
 	fakeDumpFrame("shot_menu_no_esc.ppm");
 
@@ -1669,7 +1678,7 @@ static void testMenuChip() {
 	frameAfter(ESC_LINK_STALE_MS - 1);
 	checkTrue("eRPM 499 ms old: still EDT OFF", menuChipIs(UI_MENU_EDT_OFF, C_RED));
 	frameAfter(1);
-	checkTrue("eRPM 500 ms old: NO ESC", menuChipIs(UI_MENU_NO_ESC, C_GRID));
+	checkTrue("eRPM 500 ms old: NO ESC, the neutral chip", menuChipIs(UI_MENU_NO_ESC, C_GRID));
 	// The widest text the chip shows keeps clear of the strip's caption,
 	// `SIG GP1  AUX GP0  DSHOT1200` at its widest on this board, whose
 	// signal pins are GP0 and GP1: 27 characters from x 8.
@@ -3573,7 +3582,7 @@ static void testTouchLoss() {
 	settingsLoad();
 	uiInit();
 	frames(4);
-	checkTrue("answering: the swipe hint, no note", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("answering: the swipe hint, no note", hintIs("SWIPE = THROTTLE", C_DIM));
 	checkInt("TOUCH_LOST_MS is four 25 ms frames", TOUCH_LOST_MS, 4 * UI_FRAME_MS);
 
 	holdToArm();
@@ -3605,7 +3614,7 @@ static void testTouchLoss() {
 
 	fakeTouchAnswers(true);
 	frames(1);
-	checkTrue("answering again: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("answering again: the note goes", hintIs("SWIPE = THROTTLE", C_DIM));
 	checkTrue("and it stays disarmed", !uiArmed() && fakeThrottle() == 0);
 	// LATCH went off with the disarm: re-armed, a swipe springs back to zero.
 	holdToArm();
@@ -3627,7 +3636,7 @@ static void testTouchLoss() {
 	checkTrue("HOLD TO ARM drawn disabled: an outline, no fill", armFill() == C_BG);
 	fakeTouchAnswers(true);
 	frames(1);
-	checkTrue("answering: the note goes", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("answering: the note goes", hintIs("SWIPE = THROTTLE", C_DIM));
 	checkTrue("and HOLD TO ARM is live again", armFill() == C_PANEL);
 
 	// The refusal itself: a driver that still reports the finger while the
@@ -3911,7 +3920,7 @@ static void testSplashTouch() {
 	          !fakeInkExtent(UI_SPLASH_TOUCH_Y, 8, C_BG, &x0, &x1));
 	uiInit();
 	frames(2);
-	checkTrue("and the tester has no note", hintIs("SWIPE = THROTTLE", C_GRID));
+	checkTrue("and the tester has no note", hintIs("SWIPE = THROTTLE", C_DIM));
 
 	// A finger on the glass through the end of the splash: the splash's read
 	// took its press edge, so on the tester it presses nothing until lifted.
@@ -5206,7 +5215,7 @@ static void testAm32TesterNote() {
 		checkTrue("the tester: " ESC_3D_TESTER_NOTE " in amber at x 10, y 114", tester3dShown());
 		checkTrue("the pole count and the swipe hint give way",
 		          !testerPolesShown() &&
-		          !fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114, "SWIPE = THROTTLE", C_GRID, C_BG, 1));
+		          !fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114, "SWIPE = THROTTLE", C_DIM, C_BG, 1));
 		checkTrue("NO TELEMETRY stays on its row, y 102",
 		          fakeTextIs(10, 102, "NO TELEMETRY", C_AMBER, C_BG, 1));
 		holdToArm();
@@ -5399,8 +5408,8 @@ static void testAm32ReadOnly() {
 		bool hex = true;
 		for (int k = 0; k < HEX_LINES; k++) hex = hex && hexLineShown(k);
 		checkTrue("the 48 bytes in hex, 8 a line, from the text margin, x 8", hex);
-		checkTrue(AM32_UI_RO_BYTES ", grey", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, C_BG, 1));
-		checkTrue(AM32_UI_RO_TABLE ", grey", fakeTextCentredIs(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, C_BG, 1));
+		checkTrue(AM32_UI_RO_BYTES ", C_DIM", fakeTextCentredIs(EDIT_Y + 12, AM32_UI_RO_BYTES, C_DIM, C_BG, 1));
+		checkTrue(AM32_UI_RO_TABLE ", C_DIM", fakeTextCentredIs(EDIT_Y + 26, AM32_UI_RO_TABLE, C_DIM, C_BG, 1));
 		int x0 = 0, x1 = 0;
 		checkTrue("the strip stays inside the panel's 8 px margins",
 		          fakeInkExtent(UI_STRIP_LINE1_Y, 18, C_BG, &x0, &x1) && x0 >= UI_MARGIN &&
@@ -5610,9 +5619,13 @@ static void testAm32LayoutTable() {
 	UiRect m = ctlRect(UI_FIX(Am32Ctl::EditMinus)), p = ctlRect(UI_FIX(Am32Ctl::EditPlus));
 	checkTrue("- at x 6, 44 x 44 px, y 218", m.x == 6 && m.y == 218 && m.w == 44 && m.h == 44);
 	checkTrue("+ ending at x 234, 44 x 44 px", p.x == 190 && p.y == 218 && p.w == 44 && p.h == 44);
-	checkTrue("the hint centred in the 140 px between them",
+	checkTrue("the hint centred in the 140 px between them, C_DIM",
 	          fakeTextIs(50 + (140 - gfxTextW("SWIPE = COARSE", 1)) / 2, EDIT_Y + 33, "SWIPE = COARSE",
-	                     C_GRID, C_BG, 1));
+	                     C_DIM, C_BG, 1));
+	checkTrue("- and + are neutral buttons: C_PANEL, the frame, C_TEXT at scale 1",
+	          ctlEnabled(UI_FIX(Am32Ctl::EditMinus)) && ctlEnabled(UI_FIX(Am32Ctl::EditPlus)) &&
+	          neutralButtonIs(UI_FIX(Am32Ctl::EditMinus), "-", 1) &&
+	          neutralButtonIs(UI_FIX(Am32Ctl::EditPlus), "+", 1));
 	UiRect w = ctlRect(UI_FIX(Am32Ctl::Write)), r = ctlRect(UI_FIX(Am32Ctl::Revert)),
 	       h = ctlRect(UI_FIX(Am32Ctl::Hex));
 	checkTrue("the footer 6/110, 122/52, 180/54 at y 268, 46 px",
@@ -6909,7 +6922,8 @@ static void testEfm8Write() {
 	          stripNoteIs(EFM8_UI_LOST_TAGS, "REFLASH ON A COMPUTER. BACKUP BH001") &&
 	          !fakeFatExists("BACKUP/BH002.TXT"));
 	checkTrue("the bar: SHOWN ONLY: NOTHING IS WRITTEN.",
-	          fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_SHOWN, C_GRID, C_BG, 1));
+	          fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_SHOWN, C_DIM, C_BG, 1) &&
+	          fakeTextCentredIs(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_DIM, C_BG, 1));
 	checkTrue("DIRECTION selected: no -, no +", ewTapRow("DIRECTION") && !ctlPresent(UI_FIX(Am32Ctl::EditMinus)));
 	tapId(UI_FIX(Am32Ctl::Write), IdExpect::Disabled);
 	checkTrue("WRITE... does nothing", s_state == S_EW_LIST && e->erases == 0 && e->programs == 0);
@@ -7074,8 +7088,8 @@ static void testAm32Efm8() {
 		checkTrue("no edit: WRITE... and REVERT drawn disabled, HEX live",
 		          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)) &&
 		          ctlEnabled(UI_FIX(Am32Ctl::Hex)));
-		checkTrue("the bar's lines", fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_EDIT, C_GRID, C_BG, 1) &&
-		          fakeTextCentredIs(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, C_BG, 1));
+		checkTrue("the bar's lines, hints in C_DIM", fakeTextCentredIs(EDIT_Y + 12, EFM8_UI_BAR_EDIT, C_DIM, C_BG, 1) &&
+		          fakeTextCentredIs(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_DIM, C_BG, 1));
 		checkTrue("21 and 33 characters, 125 and 197 px", gfxTextW(EFM8_UI_BAR_EDIT, 1) == 125 &&
 		          gfxTextW(AM32_UI_EW_BAR_2, 1) == 197);
 		fakeDumpFrame("shot_efm8_list.ppm");
@@ -8686,8 +8700,8 @@ void runUiTests() {
 	section("Tester: the readouts and the hint take the neutral colours");
 	{
 		const int hx = 226 - gfxTextW("SWIPE = THROTTLE", 1);
-		checkTrue("disarmed: SWIPE = THROTTLE grey",
-		          fakeTextIs(hx, 114, "SWIPE = THROTTLE", C_GRID, C_BG, 1));
+		checkTrue("disarmed: SWIPE = THROTTLE, a hint, in C_DIM",
+		          fakeTextIs(hx, 114, "SWIPE = THROTTLE", C_DIM, C_BG, 1));
 		checkTrue("MAX 20% in the text colour at x 88, y 236",
 		          fakeTextIs(88, 236, "MAX 20%", C_TEXT, C_BG, 1));
 		holdToArm();

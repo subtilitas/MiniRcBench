@@ -22,7 +22,7 @@ treat a reading as a comparison of two settings, not as an exact angle.
 
 | Line | What it shows |
 |---|---|
-| Strip | The board edge that lies along the axis, `LONG EDGE` or `SHORT EDGE`, and that axis's tilt from the horizontal in whole degrees, amber from 45°. The chip: `SETTLED` (green), `MOVING` (grey), `TOO STEEP`, `STARTING` or `NO IMU` (amber) |
+| Strip | The board edge that lies along the axis, `LONG EDGE` or `SHORT EDGE`, and that axis's tilt from the horizontal in whole degrees, amber from 45°. The chip: `SETTLED` (green), `MOVING` (a frame with a dim label, no fill), `TOO STEEP`, `STARTING` or `NO IMU` (amber) |
 | Angle | The angle in tenths of a degree, from the zero, or from level before a zero; the line under it reads `FROM ZERO` or `NOT ZEROED: FROM LEVEL`. `---` while the meter starts, when no reading has come for 300 ms, and while the axis is tilted 70° or more |
 | Travel | With LENGTH set in SETUP, how far the trailing edge has moved, and `L 40 MM, HINGE TO TRAILING EDGE`. Without it, `SET LENGTH IN SETUP FOR MM` |
 | MAX | The largest settled angle each side since ZERO or RESET MAX, the negative side first, `--` for a side with none; under it their travel |

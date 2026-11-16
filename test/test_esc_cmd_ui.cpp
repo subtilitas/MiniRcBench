@@ -291,6 +291,8 @@ static void testReadiness() {
 			memset(&none, 0, sizeof(none));
 			fakeSetTelemetry(&none);
 			ecFrames(1);
+			checkTrue("no eRPM: NO ESC, the neutral chip: frame, C_BG inside, C_DIM label, as MENU's",
+			          neutralChipIs(UI_MENU_NO_ESC));
 			fakeDumpFrame("shot_esccmd_no_esc.ppm");
 		}
 	}

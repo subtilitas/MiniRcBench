@@ -175,7 +175,7 @@ Hinweis geht jedem anderen auf der Skala vor, auch `PREPARING THE LOG...`.
 | Loslassen | Das Servo bleibt, wo es ist |
 | `MIN` `CENTRE` `MAX` | Beim Loslassen an dieses Ende oder in die Mitte |
 | `SWEEP` | Ein Sweep um die Mitte; die Taste wird zu `STOP SWEEP` |
-| `SPEED` | Wie schnell das Servo bewegt wird, 10 % bis 100 %. Die Füllung ist grau |
+| `SPEED` | Wie schnell das Servo bewegt wird, 10 % bis 100 %. Die Füllung hat die blasse Farbe der Rahmen |
 
 - Skala und Tasten wirken nur im Zustand `RUNNING`; in `SAFE` sind sie als
   Umriss gezeichnet und tun nichts.

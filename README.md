@@ -489,9 +489,9 @@ touched the screen at power-up, lift the finger before HOLD TO ARM.
   (`PAD_DRAG_SENSITIVITY_PCT`).
 
   The pad ends where the gauge's grab area begins, with no overlap and no gap.
-  The hint under the RPM readout reads `SWIPE = THROTTLE`, grey while
-  disarmed and in the text colour while armed, and changes to `SWIPE ACTIVE`
-  in green while a drag is engaged. While the
+  The hint under the RPM readout reads `SWIPE = THROTTLE`, in the dim label
+  colour while disarmed and in the text colour while armed, and changes to
+  `SWIPE ACTIVE` in green while a drag is engaged. While the
   3D note shows ([Telemetry and logging](#telemetry-and-logging)), the note
   stands in the hint's place until a drag engages; `SWIPE ACTIVE` then
   replaces the note, and the note returns on release. The pad works the same.
@@ -599,7 +599,8 @@ BACK would.
 - **EDT ON / EDT OFF / NO ESC**: a read-only chip on the strip under the
   title, square and 12 px tall, so it does not look like a button.
   `EDT ON` in green while EDT frames arrive; `EDT OFF` in red while
-  eRPM frames arrive without EDT; `NO ESC` in dim grey while no eRPM frame
+  eRPM frames arrive without EDT; `NO ESC` as the neutral chip, a 1 px
+  frame with a dim label and no fill, while no eRPM frame
   has arrived for 500 ms (`ESC_LINK_STALE_MS`), the normal state with no ESC
   connected. The firmware sends the enable command itself (see
   [Telemetry and logging](#telemetry-and-logging)). The ESC does not
@@ -898,16 +899,43 @@ SETTINGS row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
 SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
 FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
 
+**The Dark theme**
+
+The Dark theme, `CONTRAST` at `NORMAL`, takes its 17 colours from the dark
+theme of rcbench, the larger bench of the same owner
+(`docs/design/ui-theme.md`): a near-black screen with a blue cast, 2, 5, 9
+in 8 bits a channel, and blue-grey neutrals for the control face, the
+frames and the labels. A label on a coloured fill is near black, 4, 8, 14,
+on every fill: `ARMED`, `STOP`, `PROG MODE`, a toggle that is on. A header
+ends in a 1 px rule at y 35. A hint, such as `SWIPE = COARSE`, is in the
+dim label colour; a disabled label, a group caption and a read-only value
+are in the fainter colour of the frames. A chip with no state to report,
+`NO ESC`, `PORT CLOSED` or `MOVING`, is a 1 px frame with a dim label. The
+editor bars' `-` and `+` and Hitec's `REPAIR` are neutral buttons, and a
+slider's fill is the frames' colour.
+
+Not seen on the panel: every colour is computed for sRGB, and the panel's
+gamma, primaries and backlight are not measured. The host suite holds the
+17 values and their contrast ratios (`testPaletteContrast()` in
+`test/test_widgets.cpp`): each text pair is 4.5 or more but two.
+`C_GRID` on `C_BG`, 3.57, which disabled labels, group captions and
+read-only values use, is one; `ERROR` in the tester's ESC STATUS tile, 4.03,
+is the other. Where this document says "grey", the colour is one of the two
+blue-grey neutrals.
+
 **High contrast**
 
 ![High contrast](docs/contrast-preview.png)
 
 *The tester screen in the normal and the high-contrast palette.*
 
-High contrast is black on white. Accents are darkened to carry white text,
-every glyph stroke gets one extra pixel of weight, frames are 2 px, the
-seven-segment stroke is thicker, and the backlight is forced to 255. It is
-meant for direct sunlight on the transmissive IPS panel.
+High contrast is black on white and keeps its own values. Accents are
+darkened to carry white text, every glyph stroke gets one extra pixel of
+weight, frames are 2 px, the seven-segment stroke is thicker, and the
+backlight is forced to 255. It is meant for direct sunlight on the
+transmissive IPS panel. Its frames and labels are near black, so a disabled
+button has a dashed frame there, 4 px drawn and 4 px open, and a slider
+that does not act has a hollow thumb.
 
 The palette has fewer distinct greys than the dark one. Label greys are
 merged so that labels stay legible outdoors.
@@ -1656,7 +1684,7 @@ map lets a write change are edited as on AM32, below: 15 on Bluejay, 12 on
 BLHeli_S. The rest, BLHeli_S' three throttle bytes, Bluejay's PWM INDICATOR
 and SAFETY ARM, are grey and shown only. On a read-only list every row is
 grey, a tap selects a row for its note, and `WRITE...` and `REVERT` are
-drawn disabled. The bar under the list reads, in grey,
+drawn disabled. The bar under the list reads, in the dim label colour,
 `TAP A SETTING TO EDIT`, or on a read-only list
 `SHOWN ONLY: NOTHING IS WRITTEN.`, over
 `BACK SENDS LEAVE: THE ESC STARTS.` HEX opens `ESC HEX`: the 112 or 255
@@ -1803,7 +1831,7 @@ any of them (`am32FieldShown()`). The strip reads, in amber,
 `LAYOUT 5 NOT KNOWN: READ-ONLY.` over `NOT VERIFIED. BACKUP AM001`, or
 `NOT VERIFIED. NO CARD: NO BACKUP.` without a card or with the card held by
 USB, or `NOT VERIFIED. BACKUP FAILED.` when the card refuses it. Under the
-bytes, in grey: `THE BYTES AS READ. THE FIELD TABLE` /
+bytes, in the dim label colour: `THE BYTES AS READ. THE FIELD TABLE` /
 `IS NOT CHECKED FOR THIS LAYOUT.`
 
 The backup goes to the card as the view opens, since no write follows. The
@@ -3272,7 +3300,8 @@ it. The page's address comes from the AM32 family in the greeting's
 answer, or in the 4-way interface's signature: 0x7C00, 0x7E00 or 0xF800.
 
 **The screen.** The strip reads `SIG GP0  19200 8N1` and a chip,
-`PORT OPEN` on lime while DTR is set, `PORT CLOSED` on grey otherwise.
+`PORT OPEN` on lime while DTR is set, `PORT CLOSED` as the neutral chip, a
+frame with a dim label, otherwise.
 Under it: the mode; the bytes `PC > ESC` and `ESC > PC`, the echo
 included; `FRAMES` and `LOST`, `LOST` amber above 0; the last command,
 such as `LAST SET ADDRESS 7E00`; and six lines: `OPEN THIS PORT IN A
@@ -3446,7 +3475,7 @@ the meter is closed.
 
 | Line | Shows |
 |---|---|
-| Strip | The edge along the axis and its tilt in whole degrees, `LONG EDGE  AXIS TILT 3°`, amber from 45°; the chip `SETTLED` (green), `MOVING` (grey), `TOO STEEP`, `STARTING` or `NO IMU` (amber) |
+| Strip | The edge along the axis and its tilt in whole degrees, `LONG EDGE  AXIS TILT 3°`, amber from 45°; the chip `SETTLED` (green), `MOVING` (the neutral chip: a frame, a dim label), `TOO STEEP`, `STARTING` or `NO IMU` (amber) |
 | Angle | Scale 5, in tenths of a degree, from the zero or, before a zero, from level: `NOT ZEROED: FROM LEVEL` or `FROM ZERO` under it. `---` while the model has no reading, at the start and 300 ms after the last frame, and while the axis is tilted 70° or more, with `TURN THE AXIS NEARER LEVEL.` under it. With no part answering at 0x6B, `NO ANSWER FROM THE IMU AT 0X6B.`; with another part there, `NOT A QMI8658: ID 0X3C.` with its WHO_AM_I |
 | Travel | With LENGTH set, the trailing edge's travel, LENGTH × sin(angle), at scale 3, and `L 40 MM, HINGE TO TRAILING EDGE`; with LENGTH `OFF`, `SET LENGTH IN SETUP FOR MM` |
 | MAX | The largest settled angle each side since ZERO or RESET MAX, negative first, `--` for a side with none, and under it their travel |
@@ -3881,7 +3910,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 15,976 of 16,238 lines in 98 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 15,996 of 16,258 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

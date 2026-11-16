@@ -86,7 +86,7 @@ Auswerfen startet sie.
 
 | Zeile | Bedeutung |
 |---|---|
-| `PORT OPEN`, `PORT CLOSED` | Ob das Programm den Anschluss offen hat |
+| `PORT OPEN`, `PORT CLOSED` | Ob das Programm den Anschluss offen hat. `PORT OPEN` steht auf Hellgrün; `PORT CLOSED` ist ein Rahmen mit gedämpfter Beschriftung, ohne Füllung |
 | `WAITING`, `PASSTHROUGH`, `4-WAY INTERFACE` | Warten auf das erste Byte des Programms, Bytes durchreichen, oder als Flugcontroller antworten. Beim Durchreichen, und solange das Programm noch seine ersten MSP-Fragen stellt, die schon `4-WAY INTERFACE` zeigen, führen 2 s ohne Byte, oder das Programm schließt den Anschluss, zurück zu `WAITING`; hat das Programm die 4-Way-Schnittstelle gestartet, bleibt sie, bis das Programm trennt oder den Anschluss schließt |
 | `PC > ESC`, `ESC > PC` | Bytes in jede Richtung; beim Durchreichen enthält `ESC > PC` das Echo, in der 4-Way-Schnittstelle zählt es die Antworten der Platine |
 | `FRAMES`, `LOST` | Frames an den ESC; Bytes, die die Platine nicht halten konnte, über 0 in Bernstein |
