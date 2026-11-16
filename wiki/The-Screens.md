@@ -317,7 +317,7 @@ ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS and TOOLS open as always; the choice
 draws its entries as outlines meanwhile, with the same amber line on its
 strip.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, ESC COMMANDS, SERVO TESTER and SETTINGS drawn as outlines">
+<img src="img/menu-restarting.png" width="240" alt="MENU dragged up while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, SERVO TESTER and SETTINGS drawn as outlines, SERVO PROGRAMMER, RX SIGNALS and TOOLS filled">
 
 `UNSAVED` on the SETTINGS row means a value differs from flash. The save button
 is on SETTINGS.

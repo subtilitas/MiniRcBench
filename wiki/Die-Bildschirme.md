@@ -346,7 +346,7 @@ ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS und TOOLS öffnen wie immer; die
 Wahl zeichnet ihre Einträge so lange als Umriss, mit derselben
 Bernstein-Zeile in ihrer Leiste.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, ESC COMMANDS, SERVO TESTER und SETTINGS als Umriss">
+<img src="img/menu-restarting.png" width="240" alt="MENU nach oben gezogen, während DShot neu startet: DSHOT RESTARTING ON SIG GP0 in der Leiste, SERVO TESTER und SETTINGS als Umriss, SERVO PROGRAMMER, RX SIGNALS und TOOLS gefüllt">
 
 `UNSAVED` in der Zeile SETTINGS heißt, dass ein Wert vom Flash abweicht. Die
 Schaltfläche zum Speichern liegt in SETTINGS.
