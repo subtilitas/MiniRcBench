@@ -1204,8 +1204,9 @@ Slice 7, the palette, and slice 8, the neutral fills, of
 in `test/test_widgets.cpp`, `test/test_ui.cpp`, `test/test_ids.cpp`,
 `test/test_servo.cpp`, `test/test_kst_ui.cpp`, `test/test_hitec_ui.cpp`,
 `test/test_sbus_out_ui.cpp`, `test/test_angle_ui.cpp`,
-`test/test_bridge_ui.cpp` and `test/test_esc_cmd_ui.cpp`. Not seen on the panel: every colour of both
-slices is computed, and the suite reads RGB565 words, not light.
+`test/test_bridge_ui.cpp` and `test/test_esc_cmd_ui.cpp`. Not seen on the
+panel: every colour of both slices is computed, and the suite reads RGB565
+words, not light.
 
 | Block | Where | What it draws |
 |---|---|---|
@@ -1232,10 +1233,15 @@ The tests the plan names, and where they are:
 - **Slice 8.** Each edit button's fill and label by control id on ESC
   SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR;
   the neutral chip in `testChipNeutral()` and through `chipIs()`,
-  `menuChipIs()` and `neutralChipIs()` on its four screens; the rule in `testHeaderRule()` and
-  in `checkControlTable()` of `test/ui_ids.h`, which 162 frames of screens
-  with a header pass through; each hint by its text and `C_DIM`; SPEED's
-  fill and a running channel's fill.
+  `menuChipIs()` and `neutralChipIs()` on its four screens; the rule in
+  `testHeaderRule()` and in `checkControlTable()` of `test/ui_ids.h`, which
+  162 frames of screens with a header pass through; each hint by its text
+  and `C_DIM`; SPEED's fill and a running channel's fill.
+- **A disabled button in High contrast.** `testDisabledFrame()`: in four
+  sizes and both themes, how much of the frame's straight edges is drawn,
+  the first gap's place and depth, the corners, the fill and the label. On
+  KST SERVO with MAX. DUTY at 98 %, in High contrast, the enabled `-` has
+  100 % of its frame and the disabled `+` 52 %.
 
 Readings of the note where the code asked for a choice:
 
@@ -1249,8 +1255,9 @@ Readings of the note where the code asked for a choice:
   label and the group captions; `RED` on `PANEL`, 4.03, `ERROR` in the ESC
   STATUS tile. High contrast, unchanged: `AMBER` on `PANEL`, 3.42, and
   `LIME` on `PANEL`, 3.82.
-- **Which texts are hints.** Every line that tells the user what a touch
-  does and was `C_GRID`: `SWIPE = COARSE`, `TAP A ROW TO EDIT IT`, `TAP A
+- **Which texts are hints.** A hint is a line the user reads that is
+  neither a caption nor a value. Of the lines that were `C_GRID`, these
+  are hints: `SWIPE = COARSE`, `TAP A ROW TO EDIT IT`, `TAP A
   SETTING TO EDIT` and `SWIPE IT SIDEWAYS FOR COARSE` in the editor bars;
   the bar's lines of a list that is shown only, `SHOWN ONLY: NOTHING IS
   WRITTEN.`, `TAP A SETTING TO EDIT` and `BACK SENDS LEAVE: THE ESC
@@ -1269,6 +1276,26 @@ Readings of the note where the code asked for a choice:
 - **The neutral chip and the rule in High contrast.** Both are 1 px, as in
   Dark; the 2 px frames of High contrast are `gfxRoundFrame()`'s, which a
   chip and a rule do not use.
+- **A disabled button in High contrast.** A build call. With `-` and `+`
+  on `C_PANEL`, a disabled one at a limit and a live one differ there by
+  the fill alone, `C_PANEL` against white at 1.46, under 2 px frames of
+  one colour: the disabled label is `C_GRID`, 10.94 on white, and the live
+  one black on `C_PANEL`, 14.40. `uiButton()` therefore breaks a disabled
+  button's frame into dashes in High contrast: on the four straight edges
+  4 px drawn and 4 px open (`UI_DASH`), through both rings, the gaps
+  centred on each edge and the corners whole. Half of the straight edges
+  or less is drawn, 45 % to 52 % on the sizes the tests hold, against
+  100 % on a live button. The rule of [Widgets](#widgets) stands in both
+  themes: `C_BG`, the frame, a `C_GRID` label. A faded label was not
+  taken: it needs a value the table does not have, and a mid-grey label
+  is what High contrast's table gives up for sunlight. Dark is not
+  changed: its frame is whole and its `C_GRID` label is 3.57. Every
+  disabled control is drawn by `uiButton()`, so the edit buttons, the HOLD
+  buttons, BACK, MENU's rows and the hub's entries share it.
+- **The throttle ceiling's line.** S.BUS OUTPUT draws the track past the
+  ceiling with a 2 px line along its middle. It is `C_GRID`, the fill's
+  colour, a fifth of the fill's 10 px; in `C_DIM` it was brighter than
+  the fill.
 - **Edit buttons' label scale.** As before: 1 on ESC SETTINGS and for
   REPAIR, 2 on the other four.
 - **A slider while dimmed** drew `C_GRID` before and still does; S.BUS
@@ -1289,6 +1316,10 @@ Mutations, each run against the suite and restored:
 | The rule not drawn | 166: the widget's four and 162 control-table frames |
 | Every hint back to `C_GRID` | 18 |
 | Both sliders' fill back to `C_DIM` | 4: SPEED and a running channel |
+| `uiButton()` does not dash in High contrast | 9: the widget's four sizes, two checks each, and KST SERVO's `+` |
+| `uiButton()` dashes in Dark too | 58: the widget's four sizes, KST SERVO's `+`, the disabled BACK of 13 screens |
+| The gaps 1 px deep, not the frame's 2 px | 4: the gap's depth in the four sizes |
+| The ceiling's line back to `C_DIM` | 1 |
 
 Left to the slices that follow: the radius (slice 9), cyan (slice 10),
 green (slices 11 and 12), the walk over every screen's pairs (slice 13),

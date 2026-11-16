@@ -266,6 +266,15 @@ static inline bool buttonLookIs(UiControlId id, const char *label, uint16_t fill
 	       fakeTextIs(x, y, label, fg, fill, scale);
 }
 
+/**
+ * @brief fakeFrameDrawnPercent() of the control @p id, a button with the
+ *        @ref UI_RADIUS px corners; -1 when it is not drawn.
+ */
+static inline int ctlFrameDrawnPercent(UiControlId id) {
+	UiControl c;
+	return ctlFind(id, &c) ? fakeFrameDrawnPercent(c.rect.x, c.rect.y, c.rect.w, c.rect.h, UI_RADIUS, C_GRID) : -1;
+}
+
 /** @brief Whether @p id is a neutral button: `C_PANEL`, the frame, a `C_TEXT` label. */
 static inline bool neutralButtonIs(UiControlId id, const char *label, int scale) {
 	return buttonLookIs(id, label, C_PANEL, C_TEXT, scale);

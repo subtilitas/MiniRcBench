@@ -502,11 +502,12 @@ static void testEntryProbeStart() {
 	checkTrue("the ceiling's mark at x 83 on the throttle row, amber",
 	          pixel(83, rowTop(2)) == UI_COL_WARN && pixel(83, rowTop(2) + 21) == UI_COL_WARN &&
 	          pixel(82, rowTop(2)) == C_BG && pixel(83, rowTop(1)) != UI_COL_WARN);
-	checkTrue("the track past it: a dim line, 2 px, along its middle",
-	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 4) == C_DIM &&
-	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 5) == C_DIM &&
+	checkTrue("the track past it: a 2 px line in the fill's C_GRID along its middle",
+	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 4) == C_GRID &&
+	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 5) == C_GRID &&
 	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 3) == C_PANEL &&
-	          pixel(150, rowTop(1) + SBOUT_UI_TRACK_DY + 4) != C_DIM);
+	          pixel(150, rowTop(2) + SBOUT_UI_TRACK_DY + 6) == C_PANEL &&
+	          pixel(150, rowTop(1) + SBOUT_UI_TRACK_DY + 4) == C_PANEL);
 	checkTrue("HOLD TO START acts; CH 9-16 and SET",
 	          ctlEnabled(UI_FIX(SbusOutCtl::Start)) && ctlEnabled(UI_FIX(SbusOutCtl::Page)) &&
 	          ctlEnabled(UI_FIX(SbusOutCtl::Set)));

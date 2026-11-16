@@ -393,8 +393,28 @@ static void testEditAndWrite() {
 	checkTrue("and is drawn disabled, C_BG with a C_GRID label; - stays neutral",
 	          disabledButtonIs(UI_FIX(KstCtl::EditPlus), "+", 2) &&
 	          neutralButtonIs(UI_FIX(KstCtl::EditMinus), "-", 2));
+	checkInt("Dark: the disabled +'s frame is whole, percent drawn",
+	         ctlFrameDrawnPercent(UI_FIX(KstCtl::EditPlus)), 100);
+	// High contrast: C_GRID is near black and C_PANEL near white, so the
+	// frame carries the cue. The screen is drawn again by a new selection.
+	themeSet(Theme::HighContrast);
 	selectField(KST_F_DEAD_BAND);
-	checkTrue("another field, same changes: its + acts", ctlEnabled(UI_FIX(KstCtl::EditPlus)));
+	selectField(KST_F_DUTY);
+	kstFrames(1);
+	checkTrue("High contrast: + still stops, - still acts",
+	          !ctlEnabled(UI_FIX(KstCtl::EditPlus)) && ctlEnabled(UI_FIX(KstCtl::EditMinus)));
+	checkInt("High contrast: the enabled -'s frame is whole, percent drawn",
+	         ctlFrameDrawnPercent(UI_FIX(KstCtl::EditMinus)), 100);
+	checkInt("High contrast: the disabled +'s frame is dashed, percent drawn",
+	         ctlFrameDrawnPercent(UI_FIX(KstCtl::EditPlus)), 52);
+	themeSet(Theme::Dark);
+	selectField(KST_F_DEAD_BAND);
+	selectField(KST_F_DUTY);
+	kstFrames(1);
+	checkTrue("back in Dark: + disabled with its whole frame, - neutral",
+	          disabledButtonIs(UI_FIX(KstCtl::EditPlus), "+", 2) &&
+	          neutralButtonIs(UI_FIX(KstCtl::EditMinus), "-", 2) &&
+	          ctlFrameDrawnPercent(UI_FIX(KstCtl::EditPlus)) == 100);
 	selectField(KST_F_DUTY);
 	tapUntilGone(UI_FIX(KstCtl::Write));
 	holdUntilGone(UI_FIX(KstCtl::WriteHold));

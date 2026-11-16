@@ -652,6 +652,63 @@ static void testHeaderRule() {
 	gfxFill(C_BG);
 }
 
+/**
+ * @brief A disabled button's cue in both themes (ui-theme.md, "Slices 7 and
+ *        8 as built"): Dark draws the whole frame and a `C_GRID` label on
+ *        `C_BG`; High contrast breaks the frame's straight edges into
+ *        dashes of @ref UI_DASH px, through both of its 2 px rings.
+ */
+static void testDisabledFrame() {
+	section("Widgets: a disabled button's frame is dashed in High contrast");
+
+	// Four sizes: a narrow button, a hub entry's 228 x 46 px, a footer
+	// button's 110 x 46 px and BACK's 64 x 32 px.
+	static const UiRect R[] = { {8, 60, 40, 46}, {6, 120, 228, 46}, {6, 180, 110, 46}, {130, 60, 64, 32} };
+	static const int HC_PERCENT[] = { 45, 49, 47, 47 };
+	checkInt("a dash and a gap are 4 px each", UI_DASH, 4);
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *tn = th ? "high contrast" : "dark";
+		for (int i = 0; i < 4; i++) {
+			const UiRect &r = R[i];
+			char what[96];
+			gfxFill(C_BG);
+			uiButton(r, "+", C_PANEL, C_TEXT, 2, false, true);
+			snprintf(what, sizeof(what), "%s, %d x %d px, enabled: the frame whole, percent", tn, r.w, r.h);
+			checkInt(what, fakeFrameDrawnPercent(r.x, r.y, r.w, r.h, UI_RADIUS, C_GRID), 100);
+			gfxFill(C_BG);
+			uiButton(r, "+", C_PANEL, C_TEXT, 2, true, false);
+			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: the frame drawn, percent", tn, r.w, r.h);
+			checkInt(what, fakeFrameDrawnPercent(r.x, r.y, r.w, r.h, UI_RADIUS, C_GRID), th ? HC_PERCENT[i] : 100);
+			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: C_BG inside, a C_GRID label", tn, r.w, r.h);
+			checkTrue(what, px(r.x + 4, r.y + r.h / 2) == C_BG &&
+			                fakeTextIs(r.x + (r.w - gfxTextW("+", 2)) / 2, r.y + (r.h - 14) / 2, "+",
+			                           C_GRID, C_BG, 2));
+			// The first gap of the top edge: its place, its length, both rings.
+			const int len = r.w - 2 * UI_RADIUS, n = (len + UI_DASH) / (2 * UI_DASH);
+			const int g = r.x + UI_RADIUS + (len - (2 * n - 1) * UI_DASH) / 2;
+			const int t = themeStroke();
+			bool gap = true, ends = true;
+			for (int k = 0; k < UI_DASH; k++)
+				for (int j = 0; j < t; j++)
+					gap = gap && px(g + k, r.y + j) == C_BG && px(g + k, r.y + r.h - 1 - j) == C_BG;
+			ends = px(g + UI_DASH, r.y) == C_GRID && px(g + UI_DASH, r.y + t - 1) == C_GRID &&
+			       px(r.x + r.w - 1 - (g - r.x) - UI_DASH, r.y) == C_GRID;
+			if (th) {
+				snprintf(what, sizeof(what), "%s, %d x %d px: %d gaps of 4 px on the top edge, centred, %d px deep",
+				         tn, r.w, r.h, n, t);
+				checkTrue(what, gap && ends && t == 2);
+			}
+			// The corners stay whole in both themes.
+			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: the four corners drawn", tn, r.w, r.h);
+			checkTrue(what, px(r.x, r.y) == C_GRID && px(r.x + r.w - 1, r.y) == C_GRID &&
+			                px(r.x, r.y + r.h - 1) == C_GRID && px(r.x + r.w - 1, r.y + r.h - 1) == C_GRID);
+		}
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
 // ---------------------------------------------------------------------------
 // slice 1 of menu-b.md: roles, constants, the strip, the guard, field rows
 // ---------------------------------------------------------------------------
@@ -1502,6 +1559,7 @@ void runWidgetTests() {
 	testNullTouch();
 	testHeaderBackDisabled();
 	testHeaderRule();
+	testDisabledFrame();
 	testColourRoles();
 	testPaletteValues();
 	testPaletteDistinct();

@@ -911,10 +911,11 @@ slider's fill is the frames' colour.
 Not seen on the panel: every colour is computed for sRGB, and the panel's
 gamma, primaries and backlight are not measured. The host suite holds the
 17 values and their contrast ratios (`testPaletteContrast()` in
-`test/test_widgets.cpp`): each text pair is 4.5 or more but two, a disabled
-label at 3.57 and `ERROR` in the tester's ESC STATUS tile at 4.03. Where
-this document says "grey", the colour is one of the two blue-grey
-neutrals.
+`test/test_widgets.cpp`): each text pair is 4.5 or more but two. The
+fainter colour on the screen is 3.57, and disabled labels, group captions
+and read-only values use it. `ERROR` in the tester's ESC STATUS tile is
+4.03. Where this document says "grey", the colour is one of the two
+blue-grey neutrals.
 
 **High contrast**
 
@@ -923,10 +924,12 @@ neutrals.
 *The tester screen in the normal and the high-contrast palette.*
 
 High contrast is black on white and keeps its own values. Accents are
-darkened to carry white text,
-every glyph stroke gets one extra pixel of weight, frames are 2 px, the
-seven-segment stroke is thicker, and the backlight is forced to 255. It is
-meant for direct sunlight on the transmissive IPS panel.
+darkened to carry white text, every glyph stroke gets one extra pixel of
+weight, frames are 2 px, the seven-segment stroke is thicker, and the
+backlight is forced to 255. It is meant for direct sunlight on the
+transmissive IPS panel. Its frames and labels are near black, so a disabled
+button has a dashed frame there, 4 px drawn and 4 px open, and a slider
+that does not act has a hollow thumb.
 
 The palette has fewer distinct greys than the dark one. Label greys are
 merged so that labels stay legible outdoors.

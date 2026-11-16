@@ -1239,9 +1239,13 @@ criteria; none has run.
     measured. The first things to look at on the panel are `TC_PANEL`
     against `TC_BG`, 1.37 computed, and the blue cast of the neutrals at a
     backlight of 200; the fallback is a lighter `TC_PANEL`, one table entry
-    (ui-theme.md, decision 5). One text pair the note names is under 4.5 in
-    Dark, `ERROR` in the tester's ESC STATUS tile at 4.03; slice 13 walks
-    the screens for pairs the note does not name. Slices 9 to 14 of the
+    (ui-theme.md, decision 5). Two text pairs the note names are under 4.5
+    in Dark: the faint colour on the screen at 3.57, which disabled labels,
+    group captions and read-only values use, and `ERROR` in the tester's ESC
+    STATUS tile at 4.03; slice 13 walks the screens for pairs the note does
+    not name. In High contrast a disabled button has a dashed frame and a
+    slider that does not act a hollow thumb, since its frames and labels
+    are near black. Slices 9 to 14 of the
     look, the radius, cyan, green, that walk and the records, are not built;
     README.md and the wiki still say "grey" for the two blue-grey neutrals
     where slice 8 changed nothing, until slice 14.

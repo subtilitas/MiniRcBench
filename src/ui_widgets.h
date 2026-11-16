@@ -19,7 +19,8 @@
  *   nudged — never a swapped fill. Buttons here pick a label colour to suit
  *   their own fill (`C_ONACCENT` on red, text on panel, background on a
  *   flash), so a pressed state that replaced the fill would have to know
- *   about all of them to stay legible. Adding to what is there cannot break any pairing.
+ *   about all of them to stay legible. Adding to what is there cannot break
+ *   any pairing.
  * - **Touch targets have a floor.** @ref UI_TAP_MIN is what a fingertip needs;
  *   the 18 px BACK strips this replaces were below it.
  * - **A control that is drawn unavailable does not act.** Pass `enabled=false`
@@ -64,6 +65,11 @@ struct TouchState;
  *        open items). A chip is square by design: uiChip().
  */
 #define UI_RADIUS        5
+/**
+ * @brief Length of a dash and of a gap in a disabled button's frame in the
+ *        High contrast theme, in pixels. @see uiButton()
+ */
+#define UI_DASH          4
 /**
  * @brief Smallest side of a touch target outside a list: the tester's button
  *        row, the SERVO screen's controls, SD LOG's RETRY and USB DRIVE and
@@ -134,9 +140,10 @@ struct TouchState;
  * The neutral role is three colours, `C_TEXT`, `C_DIM` and `C_GRID`, and
  * keeps their names: labels, navigation, command and edit buttons, hints,
  * captions and source tags. A hint a user reads is `C_DIM`; `C_GRID` is a
- * frame, a rule, a disabled label, a group caption or a read-only value. The uses decision 11's tables name take their role's colour;
- * the splash's `JuWi made` in `C_CYAN` is a mark, not a state. Uses the
- * tables do not name, such as lime on SD LOG's READY, are left to the owner
+ * frame, a rule, a disabled label, a group caption or a read-only value. The
+ * uses decision 11's tables name take their role's colour; the splash's
+ * `JuWi made` in `C_CYAN` is a mark, not a state. Uses the tables do not
+ * name, such as lime on SD LOG's READY, are left to the owner
  * (docs/design/menu-b.md, slice 2 as built).
  * @{
  */
@@ -212,7 +219,13 @@ bool uiTapped(const UiRect &r, const TouchState *t);
  *                which reads as "not a thing you press" at arm's length in a
  *                way that a dimmed label does not. @p fill and @p fg are then
  *                ignored, so callers can keep passing the colours the control
- *                has when it is live.
+ *                has when it is live. In the High contrast theme the
+ *                frame's straight edges are dashed, @ref UI_DASH px drawn and
+ *                @ref UI_DASH px open: there `C_GRID` is near black, 10.94 on
+ *                white, and `C_PANEL` is 1.46 from white, so neither the label
+ *                nor the missing fill tells a disabled button from a live
+ *                one. Dark keeps the whole frame; its `C_GRID` label is 3.57
+ *                on the background.
  *
  * Drawing a button disabled is half of it. The caller must gate the hit test on
  * the same expression; see the rule at the top of this file.
@@ -346,8 +359,9 @@ void uiBackGuardDraw(int pending, const char *verb);
  * A chip with no state to report is the neutral chip: `NO ESC`,
  * `PORT CLOSED`, `MOVING`. Its @p fill is `C_GRID`, and it is drawn as a
  * 1 px `C_GRID` frame with `C_BG` inside and a `C_DIM` label
- * (docs/design/ui-theme.md, "Widgets"). The Dark theme's ink on a `C_GRID`
- * fill has a contrast ratio of 3.51.
+ * (docs/design/ui-theme.md, "Widgets"). It has no fill because the Dark
+ * theme's ink on a `C_GRID` fill has a contrast ratio of 3.51, under the 4.5
+ * a label on a fill needs.
  *
  * @param text Label, drawn at scale 1 from 6 px inside the chip.
  * @param fill Chip colour. The label is @ref C_ONACCENT over it, and
