@@ -505,7 +505,7 @@ bisher von diesem Board an einen ESC gesendet.
 Reihenfolge der Nutzung: **SERVO TESTER** treibt ein Servo, **ANGLE METER**
 misst den Ausschlag eines Ruders, und **KST / CHASERVO**, **HITEC D SERIES** und
 **HITEC CLASSIC** programmieren ein Servo. Die Leiste zeigt
-`SIG GP0  AUX GP1 SERVO SUPPLY OWN` oder den Pin der geschalteten Versorgung.
+`SIG GP0  AUX GP1  SERVO SUPPLY OWN` oder den Pin der geschalteten Versorgung.
 SERVO belegt keinen Pin, und DShot ist aus, solange es zu sehen ist: SIG liegt
 auf Low. Eine zweite Zeile der Leiste zeigt
 `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in Bernstein: Bei abgeschaltetem DShot

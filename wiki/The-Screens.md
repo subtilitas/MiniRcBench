@@ -647,7 +647,7 @@ ESC CONFIG, after a warning when changes are not written. See
 
 Drives one or two servos with servo pulses on SIG and AUX, the ESC and KISS
 pins. The strip names them, `SIG GP0  50 HZ  1000-2000 US`, or
-`SIG+AUX  50 HZ 1000-2000 US` with two servos. It opens SAFE; `HOLD TO START`
+`SIG+AUX  50 HZ  1000-2000 US` with two servos. It opens SAFE; `HOLD TO START`
 for 1 s starts the pulses at the centre, `STOP` acts on touch. When four reads
 of the touch controller in a row have failed, over 100 ms or more, a running
 servo stops as on `STOP`, the dial reads `TOUCH NOT ANSWERING` until it answers
