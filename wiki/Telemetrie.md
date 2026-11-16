@@ -179,4 +179,5 @@ Eine schlechte Verbindung kommt meist vom Signalkabel: zu lang, ungeschirmt
 oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT** unter
 SETUP auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm SETUP ist
 live, solange SETUP über dem Tester offen ist, nach einem Tippen auf
-`MAX`, wo DShot läuft.
+`MAX`, wo DShot läuft. Von MENU aus geöffnet, wo DShot aus ist, zeigt sie
+`OFF`.

@@ -239,12 +239,15 @@ Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `SETUP`.
 
 `SIG PIN`, weiter unten, legt den ESC-Pin sofort auf den anderen GPIO: Über dem
-Tester wechselt DShot mit, von `MENU` aus nimmt ihn der nächste Tester. Solange
-es nicht der Pin ist, der beim Einschalten galt, zeigt eine eigene Zeile über
-`LINK` in Bernstein `UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter
-sagt weiter, ob die Einstellungen gespeichert sind.
+Tester wechselt DShot mit, von `MENU` aus nimmt ihn der nächste Tester. Über
+dem Tester geöffnet, mit einem Tippen auf `MAX` im entschärften Zustand, läuft
+DShot weiter, und eine eigene Zeile über `LINK` nennt in Bernstein den Pin,
+auf dem es läuft, zum Beispiel `UNPLUG ANY SERVO FROM GP1 NOW`; die
+Hinweiszeile darunter sagt weiter, ob die Einstellungen gespeichert sind. Von
+`MENU` aus geöffnet ist DShot aus: Die Zeile erscheint nicht, und `LINK`
+zeigt `OFF`.
 
-<img src="img/settings-pin.png" width="240" alt="SETUP, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+<img src="img/settings-pin.png" width="240" alt="SETUP über dem Tester, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 ---
 
