@@ -4,7 +4,7 @@
  *        BLHeli_S read and written.
  *
  * A separate mode from the throttle tester, opened from the ESC CONFIG
- * chooser (ui_esc_config.h): entering it claims the signal pin
+ * hub (ui_esc_config.h): entering it claims the signal pin
  * (pin_claim.h), which disarms, drains and tears down the DShot driver, and
  * hands the pin to the bootloader transport. Leaving it gives the pin back.
  *
@@ -60,7 +60,7 @@ void uiAm32Exit();
  *        At scale 2 from x 8, each ends 4 px or more before BACK at x 170.
  * @{
  */
-/** @brief The screen: 12 characters, 142 px. MENU's ESC CONFIG chooser names it so too. */
+/** @brief The screen: 12 characters, 142 px. ESC CONFIG, the hub, names its entry so too. */
 #define AM32_UI_TITLE "ESC SETTINGS"
 /** @brief The hex dump of the list: 7 characters, 82 px. */
 #define AM32_UI_TITLE_HEX "ESC HEX"

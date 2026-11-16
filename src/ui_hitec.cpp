@@ -114,7 +114,7 @@ static_assert(HL_STEP_W >= UI_TAP_MIN && HL_FOOT_H >= UI_TAP_MIN && HF_BTN_H >= 
 // ---------------------------------------------------------------------------
 
 static HitecView    s_view = HitecView::Main;
-static uint8_t      s_family = HITEC_D;     /**< The family chosen on PROGRAMMER. */
+static uint8_t      s_family = HITEC_D;     /**< The family chosen on SERVO, the hub. */
 static bool         s_claimed = false;      /**< pinClaimBegin() took the claim. */
 /**
  * @brief The job starts with the claim: CLASSIC, and D SERIES with the
@@ -556,7 +556,7 @@ static void mainText(MainText *m) {
 	memset(m, 0, sizeof(*m));
 	m->stripCol = C_DIM;
 	uint8_t sig = sigGpio();
-	// The claim from the entry tap on PROGRAMMER: refused, it is asked for
+	// The claim from the entry tap on SERVO, the hub: refused, it is asked for
 	// again every frame, and DShot stays on SIG meanwhile.
 	if (!s_claimed) {
 		switch (s_refusal) {
@@ -566,7 +566,7 @@ static void mainText(MainText *m) {
 				addLine(m, a, C_AMBER);
 				addLine(m, HITEC_UI_ESC_2, C_AMBER);
 				return;
-			// Neither is reachable through the UI: the chooser opens only
+			// Neither is reachable through the UI: the hub opens the tool only
 			// while the claim is Free, and every open through `uiOpenTool()`
 			// disarms. Kept so that a refusal
 			// never leaves the view blank.
@@ -1653,7 +1653,7 @@ static bool leaveTouch() {
 			if (!pinClaimUnplugDue()) break;
 			pinClaimKeep(PinUser::Hitec);
 			cardCacheBegin(SdLogEnd::ByHitec);
-			// A new session in the family chosen on PROGRAMMER, asked for as
+			// A new session in the family chosen on the hub, asked for as
 			// the first was: at once with the switched supply or CLASSIC, else
 			// on READ, once the next servo is powered (decision 34).
 			newSession();
@@ -1849,7 +1849,7 @@ bool uiHitecTick(const TouchState *t) {
 				} else {
 					// No servo in the mode: the page opens releasing, the
 					// READ wait included, since the pin went to a servo.
-					// Refused or Stopping: PROGRAMMER, DShot resumed at once.
+					// Refused or Stopping: SERVO, the hub, DShot resumed at once.
 					if (running() && s_st.job == HitecJobState::Entering) sendOp(HitecOp::Abort);
 					if (!endClaim()) return false;
 					openLeave(UiLeavePhase::Releasing);
@@ -1918,4 +1918,4 @@ bool uiHitecTick(const TouchState *t) {
 	return true;
 }
 
-// No MENU row opens it: PROGRAMMER's entries name their entry point.
+// No MENU row opens it: SERVO's entries name their entry point.

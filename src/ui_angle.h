@@ -3,12 +3,13 @@
  * @brief ANGLE METER: the main view, SETUP and FLIP CAL, on the angle model
  *        (angle_model.h) and the QMI8658 driver (qmi8658.h).
  *
- * TOOLS opens the meter (ui_tools.h). Opening it takes ALONG AXIS, SIGN,
+ * Entry: MENU → SERVO → ANGLE METER, the second entry of the hub SERVO
+ * (ui_servo_hub.h). Opening it takes ALONG AXIS, SIGN,
  * LENGTH and the calibration from the live settings, begins a visit of the
  * model with no zero and no MAX, and opens the driver, qmi8658Start(). Every
  * frame gives the driver's newest sample to the model, which takes each
  * sample once, and ages the reading. BACK on the main view closes the driver,
- * qmi8658Stop(), which writes CTRL7 00h, and returns to TOOLS; the next visit
+ * qmi8658Stop(), which writes CTRL7 00h, and returns to SERVO; the next visit
  * starts unzeroed (docs/design/angle-meter.md, decision 4).
  *
  * The meter is open while any of its three views shows: SETUP and FLIP CAL
@@ -49,7 +50,7 @@
 
 struct TouchState;
 
-/** @brief The main view's title, and TOOLS' entry: 11 characters, 130 px at scale 2. */
+/** @brief The main view's title, and SERVO's entry: 11 characters, 130 px at scale 2. */
 #define UI_ANGLE_TITLE       "ANGLE METER"
 /** @brief SETUP's title: 11 characters, 130 px. */
 #define UI_ANGLE_SETUP_TITLE "ANGLE SETUP"

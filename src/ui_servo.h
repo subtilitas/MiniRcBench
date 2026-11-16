@@ -4,9 +4,10 @@
  *        leave page before DShot restarts.
  *
  * Servo PWM (pulse-width modulation) on the ESC pin, and on the KISS pin for
- * two servos. Entry: MENU → SERVO TESTER. The screen claims the pins
- * (pin_claim.h) and hands the servo job (servo_job.h) its profile and its
- * commands; core1 makes the pulses.
+ * two servos. Entry: MENU → SERVO → SERVO TESTER, the first entry of the
+ * hub SERVO (ui_servo_hub.h). The screen claims the pins (pin_claim.h) and
+ * hands the servo job (servo_job.h) its profile and its commands; core1
+ * makes the pulses.
  *
  * The screen has the motor screen's two states under other names. SAFE: the
  * pins bound at level 0, no pulses. HOLD TO START, 1000 ms, puts CENTRE on
@@ -30,8 +31,8 @@
 struct TouchState;
 
 /**
- * @brief The header's title on the main view and the leave page: MENU's
- *        row label, 12 characters, 142 px at scale 2, from x 8 to x 149,
+ * @brief The header's title on the main view and the leave page: the hub
+ *        entry's label, 12 characters, 142 px at scale 2, from x 8 to x 149,
  *        20 px before BACK at x 170.
  */
 #define SERVO_UI_TITLE "SERVO TESTER"

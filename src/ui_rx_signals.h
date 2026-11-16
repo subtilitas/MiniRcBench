@@ -1,6 +1,6 @@
 /**
  * @file ui_rx_signals.h
- * @brief RX SIGNALS: the chooser behind MENU's RX SIGNALS row, with MONITOR
+ * @brief RX SIGNALS: the hub behind MENU's RX SIGNALS row, with MONITOR
  *        and OUTPUT (docs/design/rx-signals.md, decision 4).
  *
  * RX SIGNALS is a hub (ui_hub.h): one 228 x 46 px button per tool at an
@@ -55,18 +55,18 @@ extern const UiHub UI_RX_HUB;
  */
 void uiRxSignalsStrip(char *buf, size_t n);
 
-/** @brief Open the chooser. */
+/** @brief Open the hub. */
 void uiRxSignalsEnter();
 
 /**
- * @brief Run one frame of the chooser.
+ * @brief Run one frame of the hub.
  * @param t This frame's touch.
  * @return false once BACK has left it.
  */
 bool uiRxSignalsTick(const TouchState *t);
 
 /**
- * @brief The chooser's controls on the current frame: BACK, MONITOR and
+ * @brief The hub's controls on the current frame: BACK, MONITOR and
  *        OUTPUT, each acting.
  * @param out At most @p max controls.
  * @param max Room in @p out.
@@ -74,5 +74,5 @@ bool uiRxSignalsTick(const TouchState *t);
  */
 uint8_t uiRxSignalsControls(UiControl *out, uint8_t max);
 
-/** @brief RX SIGNALS, the chooser. */
+/** @brief RX SIGNALS, the hub. */
 extern const UiScreen UI_RX_SIGNALS;

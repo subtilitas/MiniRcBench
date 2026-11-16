@@ -5,8 +5,8 @@
  * Hitec is a name or trademark of its owner; it is used here only to say
  * which servos this module works with.
  *
- * Entry: MENU → SERVO PROGRAMMER → HITEC D SERIES or HITEC CLASSIC
- * (ui_servo_prog.h). The entry point sets the family and claims SIG
+ * Entry: MENU → SERVO → HITEC D SERIES or HITEC CLASSIC, entries of the
+ * hub SERVO (ui_servo_hub.h). The entry point sets the family and claims SIG
  * (pin_claim.h) on the tap's frame: DShot drains and stops, and the pad is
  * left an input with the pull-up on, high and quiet. The Hitec job
  * (hitec_job.h) then runs rcbench's session on core1 for that family; this
@@ -23,7 +23,7 @@
  *
  * | View | What it shows | Leaves it |
  * |---|---|---|
- * | Main | the claim, READ for D SERIES on OWN, the entry, the read, a stall | the read: List; BACK: Leave in the mode; Leave releasing once SIG was taken; PROGRAMMER while the claim is refused or Stopping |
+ * | Main | the claim, READ for D SERIES on OWN, the entry, the read, a stall | the read: List; BACK: Leave in the mode; Leave releasing once SIG was taken; SERVO, the hub, while the claim is refused or Stopping |
  * | List | the parameters, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
  * | Files | the record, the backups, FACTORY VALUES, the files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
@@ -46,7 +46,7 @@
 struct TouchState;
 
 /**
- * @brief Open the screen for a D series servo: PROGRAMMER's HITEC D SERIES.
+ * @brief Open the screen for a D series servo: SERVO's HITEC D SERIES.
  *        Claims SIG on this frame, asked again every frame while refused.
  *        With SERVO SUPPLY at OWN the claim waits in Held for READ; with the
  *        switched supply the job starts once the claim is Held.
@@ -54,7 +54,7 @@ struct TouchState;
 void uiHitecEnterD();
 
 /**
- * @brief Open the screen for a classic servo: PROGRAMMER's HITEC CLASSIC,
+ * @brief Open the screen for a classic servo: SERVO's HITEC CLASSIC,
  *        enabled only with the switched supply. Claims SIG on this frame;
  *        the job starts once the claim is Held, and refuses the entry
  *        without the supply (hitec_job.h).
@@ -158,7 +158,7 @@ uint8_t uiHitecControls(UiControl *out, uint8_t max);
 
 struct UiScreen;
 /**
- * @brief HITEC SERVO. No MENU row opens it: PROGRAMMER's entries run
+ * @brief HITEC SERVO. No MENU row opens it: SERVO's entries run
  *        uiHitecEnterD() or uiHitecEnterClassic(). Its own `enter` is the
  *        D series entry, which needs no switched supply.
  */
