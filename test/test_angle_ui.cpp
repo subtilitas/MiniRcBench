@@ -1034,6 +1034,37 @@ static void testFits() {
 	checkTrue("toggle texts within 86 px", gfxTextW("NORMAL", 2) <= 86 && gfxTextW("INVERT", 2) <= 86);
 }
 
+/**
+ * @brief docs/design/menu-c.md slice 2: ANGLE METER returns to TOOLS, the
+ *        chooser that opened it, by BACK; TOOLS is drawn again as it was
+ *        left. The meter has no leave page.
+ */
+static void testNavOpener() {
+	section("Navigation: ANGLE METER returns to TOOLS, its opener");
+	freshBench();
+	openTools();
+	frames(1);
+	checkTrue("TOOLS: MENU, TOOLS", navIsHub(UiScreenId::Tools));
+	const uint32_t tools = fakeRegionHash(0, 0, GFX_W, GFX_H);
+	tapId(UI_FIX(ToolsCtl::Angle));
+	frames(1);
+	checkTrue("ANGLE METER: MENU, TOOLS, ANGLE METER", navIsTool(UiScreenId::Tools, UiScreenId::Angle));
+	tapId(UI_FIX(UI_BACK));
+	frames(1);
+	checkTrue("BACK: TOOLS, the stack MENU, TOOLS", navIsHub(UiScreenId::Tools));
+	checkTrue("TOOLS drawn again as it was left", fakeRegionHash(0, 0, GFX_W, GFX_H) == tools);
+	// The meter opened with no press drawn on TOOLS: the frame TOOLS last
+	// drew is the frame it draws on the return, which repaints all the same.
+	uiChooseTool(&UI_ANGLE, nullptr);
+	frames(2);
+	checkTrue("opened with no press: ANGLE METER over TOOLS", navIsTool(UiScreenId::Tools, UiScreenId::Angle));
+	tapId(UI_FIX(UI_BACK));
+	frames(1);
+	checkTrue("BACK: TOOLS drawn again, the same frame",
+	          navIsHub(UiScreenId::Tools) && fakeRegionHash(0, 0, GFX_W, GFX_H) == tools);
+	checkTrue("then MENU and the tester", backToTester());
+}
+
 void runAngleUiTests() {
 	testFits();
 	testTools();
@@ -1045,6 +1076,7 @@ void runAngleUiTests() {
 	testFlip();
 	testDefaultsKeepMeter();
 	testOnlyExit();
+	testNavOpener();
 	qmi8658Stop();
 	fakeI2cReset();
 	fakeFlashClear();

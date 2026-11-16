@@ -251,6 +251,24 @@ static inline void openEscSettings() {
 }
 
 /**
+ * @brief The navigation stack holds MENU, the chooser @p hub and its tool
+ *        @p tool, and @p tool is open (docs/design/menu-c.md, slice 2).
+ */
+static inline bool navIsTool(UiScreenId hub, UiScreenId tool) {
+	return uiNavDepth() == 3 && uiNavAt(0) == UiScreenId::Menu && uiNavAt(1) == hub &&
+	       uiNavAt(2) == tool && uiCurrentScreen() == tool;
+}
+
+/**
+ * @brief The navigation stack holds MENU and the chooser @p hub, and @p hub
+ *        is open: a tool it opened has returned to it.
+ */
+static inline bool navIsHub(UiScreenId hub) {
+	return uiNavDepth() == 2 && uiNavAt(0) == UiScreenId::Menu && uiNavAt(1) == hub &&
+	       uiCurrentScreen() == hub;
+}
+
+/**
  * @brief BACK from a hub or MENU down the navigation stack to the tester:
  *        one tap per screen, each on a live BACK. A tool's own BACK, which
  *        may open a leave page, is the test's to tap first.

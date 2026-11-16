@@ -1460,6 +1460,47 @@ static void testLateMark() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/**
+ * @brief docs/design/menu-c.md slice 2: OUTPUT returns to RX SIGNALS, the
+ *        chooser that opened it, by BACK while the claim drains and by
+ *        RESTART DSHOT, the leave page's last button.
+ */
+static void testNavOpener() {
+	section("Navigation: OUTPUT returns to RX SIGNALS, its opener");
+	freshUi();
+	openOutput();
+	fakeAdvance(25);
+	core1JobPoll();
+	uiTick();
+	checkTrue("Stopping: MENU, RX SIGNALS, S.BUS OUTPUT",
+	          navIsTool(UiScreenId::RxSignals, UiScreenId::SbusOut) &&
+	          pinClaimState() == ClaimState::Stopping);
+	UiControl b = {};
+	ctlFind(UI_FIX(UI_BACK), &b);
+	fakePress(b.rect.x + b.rect.w / 2, b.rect.y + b.rect.h / 2);
+	for (int k = 0; k < 2; k++) { fakeAdvance(25); core1JobPoll(); uiTick(); }
+	fakeRelease();
+	fakeAdvance(25);
+	core1JobPoll();
+	uiTick();
+	checkTrue("BACK while Stopping: RX SIGNALS", navIsHub(UiScreenId::RxSignals));
+	soFrames(4);
+	checkTrue("then MENU and the tester", backToTester());
+
+	freshUi();
+	openOutput();
+	soFrames(20);
+	checkTrue("the claim held: MENU, RX SIGNALS, S.BUS OUTPUT",
+	          navIsTool(UiScreenId::RxSignals, UiScreenId::SbusOut) && pinClaimHolder() == PinUser::SbusOut);
+	tapId(UI_FIX(UI_BACK));
+	for (int k = 0; k < 80 && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)); k++) soFrames(1);
+	tapId(UI_FIX(SbusOutCtl::Restart));
+	soFrames(4);
+	checkTrue("RESTART DSHOT: RX SIGNALS, the claim Free",
+	          navIsHub(UiScreenId::RxSignals) && pinClaimState() == ClaimState::Free);
+	checkTrue("then MENU and the tester", backToTester());
+}
+
 void runSbusOutUiTests() {
 	testViewChipNotes();
 	testViewRows();
@@ -1473,6 +1514,7 @@ void runSbusOutUiTests() {
 	testBootloader();
 	testUnavailable();
 	testLateMark();
+	testNavOpener();
 	noEscOnGp0();
 	noTelemetry();
 }

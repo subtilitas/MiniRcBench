@@ -4899,6 +4899,8 @@ static void testTesterReadouts() {
 		fakeRelease(); frames(1);
 		checkTrue("the tap opens SETTINGS, disarmed",
 		          uiCurrentScreen() == UiScreenId::Settings && !uiArmed() && !fakeArmed());
+		checkTrue("the stack: SETTINGS alone over the tester",
+		          uiNavDepth() == 1 && uiNavAt(0) == UiScreenId::Settings);
 		// The frame that opened SETTINGS paints none of the tester over it.
 		bool clear = true;
 		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
@@ -4907,6 +4909,8 @@ static void testTesterReadouts() {
 	frames(2);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
+	checkTrue("SETTINGS from a readout: BACK returns to the tester, the stack empty",
+	          uiCurrentScreen() == UiScreenId::Tester && uiNavDepth() == 0);
 	checkTrue("back on the tester: LATCH is off",
 	          fb[(283 + 4) * GFX_W + 116 + 4] == C_PANEL &&
 	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
@@ -8620,6 +8624,40 @@ static void testTesterKvEst() {
 	frames(2);
 }
 
+/**
+ * @brief docs/design/menu-c.md slice 2: ESC SETTINGS returns to ESC CONFIG,
+ *        the chooser that opened it, by BACK from the list and by RESTART
+ *        DSHOT, the leave page's last button after an EFM8 answer.
+ */
+static void testAm32NavOpener() {
+	section("Navigation: ESC SETTINGS returns to ESC CONFIG, its opener");
+	enterAm32(6);
+	checkTrue("the list: MENU, ESC CONFIG, ESC SETTINGS",
+	          s_state == S_LIST && navIsTool(UiScreenId::EscConfig, UiScreenId::Am32));
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("BACK: ESC CONFIG, the stack MENU, ESC CONFIG", navIsHub(UiScreenId::EscConfig));
+	checkTrue("then MENU and the tester", backToTester());
+
+	efm8Esc(0xB2, true);
+	memset(efm8Page(), 0xFF, 256);
+	enterAm32(1);
+	fakeAm32Garble(nullptr, 0);
+	for (int i = 0; i < 80 && s_connectNote != CN_EW_REFUSED; i++) frames(1);
+	frames(1);
+	checkTrue("an EFM8 page not taken: MENU, ESC CONFIG, ESC SETTINGS",
+	          navIsTool(UiScreenId::EscConfig, UiScreenId::Am32));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the leave page", s_state == S_LEAVE);
+	tapId(UI_FIX(Am32Ctl::Leave));
+	for (int i = 0; i < 80 && !ctlEnabled(UI_FIX(Am32Ctl::Restart)); i++) frames(1);
+	tapId(UI_FIX(Am32Ctl::Restart));
+	checkTrue("RESTART DSHOT: ESC CONFIG", navIsHub(UiScreenId::EscConfig));
+	for (int i = 0; i < 20 && pinClaimState() != ClaimState::Free; i++) frames(1);
+	checkTrue("the claim Free", pinClaimState() == ClaimState::Free);
+	checkTrue("then MENU and the tester", backToTester());
+}
+
 void runUiTests() {
 	// Off zero before anything is stamped. Virtual time starts at 0, and 0 is
 	// reserved for "this frame type has never arrived" -- so telemetry stamped
@@ -9427,6 +9465,7 @@ void runUiTests() {
 	testAm32WritePage();
 	testAm32PageWritesWhatItShows();
 	testAm32Guard();
+	testAm32NavOpener();
 	testTesterKvEst();
 
 	// Back to a known state for anything that runs after this.

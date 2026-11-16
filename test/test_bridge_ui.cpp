@@ -914,6 +914,35 @@ static void testFourWay() {
 	brFrames(2);
 }
 
+/**
+ * @brief docs/design/menu-c.md slice 2: USB BRIDGE returns to ESC CONFIG,
+ *        the chooser that opened it, by BACK with no claim and by RESTART
+ *        DSHOT, the leave page's last button.
+ */
+static void testNavOpener() {
+	section("Navigation: USB BRIDGE returns to ESC CONFIG, its opener");
+	freshUi();
+	fakeMscSet(MscState::Serving, 0);
+	openBridgeScreen();
+	brFrames(2);
+	checkTrue("USB DRIVE holds the card: MENU, ESC CONFIG, USB BRIDGE, no claim",
+	          navIsTool(UiScreenId::EscConfig, UiScreenId::Bridge) && pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK with no claim: ESC CONFIG", navIsHub(UiScreenId::EscConfig));
+	fakeMscSet(MscState::Idle, 0);
+	checkTrue("then MENU and the tester", backToTester());
+
+	freshUi();
+	openBridgeScreen();
+	checkTrue("the bridge open: MENU, ESC CONFIG, USB BRIDGE",
+	          untilOpen() && navIsTool(UiScreenId::EscConfig, UiScreenId::Bridge));
+	checkTrue("BACK: the leave page", backToPage());
+	restartFromPage();
+	checkTrue("RESTART DSHOT: ESC CONFIG, the claim Free",
+	          navIsHub(UiScreenId::EscConfig) && pinClaimState() == ClaimState::Free);
+	checkTrue("then MENU and the tester", backToTester());
+}
+
 void runBridgeUiTests() {
 	g_together = 0;
 	testLayout();
@@ -923,6 +952,7 @@ void runBridgeUiTests() {
 	testLostAndGp1();
 	testReadOnly();
 	testFourWay();
+	testNavOpener();
 	checkInt("DShot never up with the bridge's line", g_together, 0);
 	freshUi();
 	fakeBridgeLineReset();

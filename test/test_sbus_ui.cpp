@@ -935,6 +935,43 @@ static void testKeepClearsHold() {
 	tapId(UI_FIX(UI_BACK));
 }
 
+/**
+ * @brief docs/design/menu-c.md slice 2: MONITOR returns to RX SIGNALS, the
+ *        chooser that opened it, by BACK before a claim and by RESTART
+ *        DSHOT, the leave page's last button.
+ */
+static void testNavOpener() {
+	section("Navigation: MONITOR returns to RX SIGNALS, its opener");
+	freshUi();
+	EscTelemetry tel;
+	memset(&tel, 0, sizeof(tel));
+	tel.kissLastMs = millis();
+	fakeSetTelemetry(&tel);
+	openRx();
+	tapId(UI_FIX(RxCtl::Monitor));
+	sbFrames(1);
+	checkTrue("KISS on AUX: MENU, RX SIGNALS, S.BUS MONITOR, no claim",
+	          navIsTool(UiScreenId::RxSignals, UiScreenId::Sbus) && pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK before a claim: RX SIGNALS", navIsHub(UiScreenId::RxSignals));
+	checkTrue("then MENU and the tester", backToTester());
+	noEsc();
+
+	freshUi();
+	openRx();
+	tapId(UI_FIX(RxCtl::Monitor));
+	sbFrames(10);
+	checkTrue("the claim held: MENU, RX SIGNALS, S.BUS MONITOR",
+	          navIsTool(UiScreenId::RxSignals, UiScreenId::Sbus) && pinClaimHolder() == PinUser::Sbus);
+	tapId(UI_FIX(UI_BACK));
+	sbFrames(42);
+	tapId(UI_FIX(SbusCtl::Restart));
+	sbFrames(4);
+	checkTrue("RESTART DSHOT: RX SIGNALS, the claim Free",
+	          navIsHub(UiScreenId::RxSignals) && pinClaimState() == ClaimState::Free);
+	checkTrue("then MENU and the tester", backToTester());
+}
+
 void runSbusUiTests() {
 	testLinkState();
 	testInkAndBars();
@@ -944,4 +981,5 @@ void runSbusUiTests() {
 	testGp1Sig();
 	testRefusals();
 	testKeepClearsHold();
+	testNavOpener();
 }

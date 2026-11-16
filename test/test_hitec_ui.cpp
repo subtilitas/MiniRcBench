@@ -2133,6 +2133,76 @@ static void testBusyRefusal() {
 	freshHitec(HITEC_D, false);
 }
 
+/**
+ * @brief Through the leave page to its last button: BACK, LEAVE where the
+ *        page has it, then RESTART DSHOT once live. True once the screen
+ *        has left.
+ */
+static bool navLeaveByRestart() {
+	tapId(UI_FIX(UI_BACK));
+	for (int k = 0; k < 400 && uiCurrentScreen() == UiScreenId::Hitec; k++) {
+		if (ctlEnabled(UI_FIX(HitecCtl::Restart))) {
+			tapId(UI_FIX(HitecCtl::Restart));
+			break;
+		}
+		if (ctlEnabled(UI_FIX(HitecCtl::Leave))) tapId(UI_FIX(HitecCtl::Leave));
+		else hitecFrame();
+	}
+	hitecFrames(4);
+	return uiCurrentScreen() != UiScreenId::Hitec;
+}
+
+/**
+ * @brief docs/design/menu-c.md slice 2: HITEC D SERIES and HITEC CLASSIC
+ *        return to PROGRAMMER, the chooser that opened them, by BACK while
+ *        the claim is refused and by RESTART DSHOT, the leave page's last
+ *        button.
+ */
+static void testNavOpener() {
+	section("Navigation: HITEC D SERIES and HITEC CLASSIC return to PROGRAMMER, their opener");
+	static const struct {
+		const char *name;
+		uint8_t     family;
+		bool        switched;
+	} CASES[] = {
+		{ "HITEC D SERIES", HITEC_D, false },
+		{ "HITEC CLASSIC", HITEC_CLASSIC, true },
+	};
+	for (const auto &c : CASES) {
+		char what[96];
+		freshHitec(c.family, c.switched);
+		EscTelemetry t;
+		memset(&t, 0, sizeof(t));
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		openHitec(c.family);
+		snprintf(what, sizeof(what), "%s, an ESC answers: MENU, PROGRAMMER, HITEC SERVO, no claim", c.name);
+		checkTrue(what, navIsTool(UiScreenId::ServoProg, UiScreenId::Hitec) &&
+		                pinClaimHolder() == PinUser::None);
+		t.lastRpmMs = millis();
+		fakeSetTelemetry(&t);
+		tapId(UI_FIX(UI_BACK));
+		snprintf(what, sizeof(what), "%s: BACK while refused returns to PROGRAMMER", c.name);
+		checkTrue(what, navIsHub(UiScreenId::ServoProg) && pinClaimHolder() == PinUser::None);
+		memset(&t, 0, sizeof(t));
+		fakeSetTelemetry(&t);
+		checkTrue("then MENU and the tester", backToTester());
+
+		freshHitec(c.family, c.switched);
+		openHitec(c.family);
+		snprintf(what, sizeof(what), "%s: the claim taken, MENU, PROGRAMMER, HITEC SERVO", c.name);
+		checkTrue(what, navIsTool(UiScreenId::ServoProg, UiScreenId::Hitec) &&
+		                pinClaimHolder() == PinUser::Hitec);
+		hitecFrames(4);
+		snprintf(what, sizeof(what), "%s: the leave page's RESTART DSHOT returns to PROGRAMMER", c.name);
+		checkTrue(what, navLeaveByRestart() && navIsHub(UiScreenId::ServoProg));
+		for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
+		checkTrue("the claim Free", pinClaimState() == ClaimState::Free);
+		checkTrue("then MENU and the tester", backToTester());
+	}
+	supply(false);
+}
+
 void runHitecUiTests() {
 	testEntry();
 	testDSeriesRead();
@@ -2156,4 +2226,5 @@ void runHitecUiTests() {
 	testColourRoles();
 	testStripRoom();
 	testBusyRefusal();
+	testNavOpener();
 }
