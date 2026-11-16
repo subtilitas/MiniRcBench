@@ -14,7 +14,7 @@
  * | List | the 27 fields, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
  * | Files | the card's files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
- * | Leave | the leave page (ui_leave.h): the steps, STAY, HOLD TO REBOOT with the switched supply, LEAVE; then NEXT SERVO and RESTART DSHOT | STAY: List, or Main after a loss; LEAVE: the release; NEXT SERVO: Main, a new session; RESTART DSHOT: MENU; BACK is disabled |
+ * | Leave | the leave page (ui_leave.h): the steps, STAY, HOLD TO REBOOT with the switched supply, LEAVE; then NEXT SERVO and RESTART DSHOT | STAY: List, or Main after a loss; LEAVE: the release; NEXT SERVO: Main, a new session; RESTART DSHOT: PROGRAMMER; BACK is disabled |
  *
  * A loss of the servo, a read that answers nothing in the mode, returns
  * every view but Leave to Main, where the search runs again. A
@@ -34,6 +34,8 @@
 #pragma once
 
 #include <stdint.h>
+
+#include "ui_screen.h"
 
 struct TouchState;
 
@@ -109,4 +111,7 @@ static_assert(sizeof(KST_UI_REBOOT_LOSES_1) - 1 <= 37 && sizeof(KST_UI_REBOOT_LO
               "a leave note line is wider than a scale-1 line");
 
 /** @brief KST SERVO. */
-extern const UiScreen UI_KST;
+inline constexpr const UiScreen UI_KST = {
+	UiScreenId::Kst, "KST SERVO", PinUser::Kst, nullptr,
+	uiKstEnter, uiKstTick, nullptr, uiKstControls, nullptr, false,
+};

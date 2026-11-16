@@ -963,7 +963,3 @@ bool uiSbusOutTick(const TouchState *t) {
 	return true;
 }
 
-const UiScreen UI_SBUS_OUT = {
-	UiScreenId::SbusOut, SBOUT_UI_TITLE, PinUser::SbusOut, nullptr,
-	uiSbusOutEnter, uiSbusOutTick, nullptr, uiSbusOutControls, nullptr, false,
-};

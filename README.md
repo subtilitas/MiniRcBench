@@ -587,9 +587,14 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 programmers' chooser.*
 
 MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
-at scale 2 on the left and its state right-aligned. **BACK** returns to the
-tester. Every tool's **BACK** returns to MENU, except SETTINGS opened from
-the tester's pole count or ceiling, whose **BACK** returns to the tester.
+at scale 2 on the left and its state right-aligned. MENU's **BACK** returns
+to the tester. **BACK** returns to the screen that opened the one on show: a
+tool opened from a MENU row returns to MENU, a tool opened from a chooser
+to that chooser, and SETTINGS opened from the tester's pole count or
+ceiling to the tester. The screens form a stack of at most three over the
+tester, MENU, a chooser and its tool, and **BACK** pops one (slice 2 of
+`docs/design/menu-c.md`). The leave page's RESTART DSHOT returns where
+BACK would.
 
 - **EDT ON / EDT OFF / NO ESC**: a read-only chip on the strip under the
   title, square and 12 px tall, so it does not look like a button.
@@ -616,18 +621,19 @@ the tester's pole count or ceiling, whose **BACK** returns to the tester.
 The rows go by what sits on the signal pin: the ESC, a servo, then the
 bench. A tool row shows no state: the strip names the pins.
 
-- **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC CONFIG's
-  ESC SETTINGS claims SIG, SERVO PROGRAMMER's entries open the KST and Hitec
-  programmers, which claim SIG, RX SIGNALS' MONITOR claims GP1, ESC COMMANDS
-  needs DShot running on SIG, SETTINGS changes the wiring a claim
-  latched, and TOOLS' ANGLE METER saves to flash, which no claim may
-  share. While the
-  claim is not free, for example after RESTART DSHOT until the DShot pump
-  runs again, these rows are drawn disabled, an outline, SETTINGS under its
-  own status and the tool rows with none, a tap opens nothing, and the
-  strip's caption reads `DSHOT RESTARTING ON SIG GP0` in amber. A tool
-  opened some other way while another claim holds reads
-  `WAIT: DSHOT RESTARTING`; no path through the screens reaches that.
+- **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC COMMANDS
+  needs DShot running on SIG, and SETTINGS changes the wiring a claim
+  latched. While the claim is not free, for example after RESTART DSHOT
+  until the DShot pump runs again, these rows are drawn disabled, an
+  outline, SETTINGS under its own status and the tool rows with none, a tap
+  opens nothing, and the strip's caption reads `DSHOT RESTARTING ON SIG GP0`
+  in amber. The choosers' rows act whatever the claim: ESC CONFIG, SERVO
+  PROGRAMMER, RX SIGNALS and TOOLS open, and each draws its entries
+  disabled meanwhile, since every entry's tool claims a pin or, as ANGLE
+  METER, which saves to flash, opens only while the pins are free; the
+  chooser's strip then reads the same amber caption. A tool opened some
+  other way while another claim holds reads `WAIT: DSHOT RESTARTING`; no
+  path through the screens reaches that.
 - **Rows**: six rows fit the screen without scrolling. MENU holds eight, so
   it scrolls by 78 px, with a 3 px scroll bar at x 235. TOOLS is the sixth
   row, whole and tappable without a drag. SD LOG, the seventh, shows 6 px at
@@ -645,8 +651,8 @@ SIGNALS and TOOLS are drawn and run by one widget, the hub
 by `hubEntriesFit()`. The chooser claims nothing:
 DShot runs on SIG while it shows. A tap on an entry opens its tool through
 `uiOpenTool()`, and the tool claims SIG on that frame. **BACK** returns to
-MENU, and so do the tools' RESTART DSHOT and their BACK before a claim
-holds. The strip reads `SIG GP0  SERVO SUPPLY OWN`, or the supply's pin.
+MENU; the tools' RESTART DSHOT and their BACK before a claim holds return
+to PROGRAMMER. The strip reads `SIG GP0  SERVO SUPPLY OWN`, or the supply's pin.
 
 | Entry | Lines under it with SERVO SUPPLY at OWN | With GP28 or GP29 |
 |---|---|---|
@@ -1496,9 +1502,11 @@ scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
 `BLUEJAY, BLHELI_S: READ AND WRITTEN.`, and `USB BRIDGE` (118 px) with
 `A DESKTOP ESC TOOL OVER USB.` and `MSP, 4-WAY AND PASSTHROUGH.` under
 it ([USB bridge](#usb-bridge)). The strip reads `SIG GP0`. The chooser
-claims nothing; the tap on an entry claims SIG. Its BACK, and the tools'
-BACK and RESTART DSHOT, return to MENU. The row is drawn disabled while
-the pin claim is not free. Its titles
+claims nothing; the tap on an entry claims SIG. Its BACK returns to MENU;
+the tools' BACK and RESTART DSHOT return to ESC CONFIG. The row acts
+whatever the pin claim's state; while the claim is not free the chooser
+draws both entries disabled and its strip reads `DSHOT RESTARTING ON SIG
+GP0` in amber. Its titles
 are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
 and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
@@ -1748,7 +1756,7 @@ line, then the line parked. The page reads `LEAVING` over `THE ESC STARTS
 ITS FIRMWARE ON` / `LEAVE, THEN DSHOT RETURNS.` and, in amber,
 `KEEP THE PROPELLER OFF.`; BACK is drawn disabled. Once LEAVE went out the
 job lets SIG go and DShot returns, with no leave page, and the screen
-returns to MENU. LEAVE has no answer: whether the firmware started is not
+returns to ESC CONFIG. LEAVE has no answer: whether the firmware started is not
 seen, and not verified on an ESC, so MENU's run cue stays until an eRPM
 frame after it. A LEAVE that did not go out opens the leave page below.
 
@@ -1773,9 +1781,9 @@ under way goes on. **LEAVE** cuts the job's entry or read, sends nothing and
 lets SIG go, or lets the AM32 transport go of it; DShot stays stopped, and
 **RESTART DSHOT** takes the wide button, live 1000 ms later. Its tap
 restarts DShot, clears MENU's run cue, since the steps power-cycled the ESC,
-and returns to MENU. There is no left button after LEAVE. An AM32 session in
-which no EFM8 bootloader answered has no leave page: BACK gives DShot the
-pin at once.
+and returns to ESC CONFIG. There is no left button after LEAVE. An AM32
+session in which no EFM8 bootloader answered has no leave page: BACK gives
+DShot the pin at once.
 
 The job (`src/escwire_job.h`) stops a running entry, read or write with
 `ew_session_stop()` when core0's heartbeat lapses for 250 ms, and lets a
@@ -1801,7 +1809,7 @@ bytes, in grey: `THE BYTES AS READ. THE FIELD TABLE` /
 The backup goes to the card as the view opens, since no write follows. The
 view's one control is BACK: no row, no `WRITE...`, REVERT or HEX, and the
 screen has no transition from the view to the write. The view keeps the title
-`ESC SETTINGS`, and its BACK goes to MENU. The write itself checks the
+`ESC SETTINGS`, and its BACK goes to ESC CONFIG. The write itself checks the
 layout of the bytes as read before anything else (`writeRefused()`), so a
 way to it would still write nothing: `LAYOUT NOT KNOWN: NOT WRITTEN`.
 
@@ -1842,8 +1850,9 @@ BACK on the list with edits not written arms a guard (decision 7 of
 `docs/design/menu-b.md`): the strip reads, in amber,
 `2 CHANGES NOT WRITTEN.` over `BACK AGAIN DISCARDS THEM.`, or
 `1 CHANGE NOT WRITTEN.` over `BACK AGAIN DISCARDS IT.` A second BACK goes
-to MENU and drops the edits; a press anywhere else disarms the guard and the
-strip returns. There is no timer. Without edits BACK goes to MENU at once.
+to ESC CONFIG and drops the edits; a press anywhere else disarms the guard
+and the strip returns. There is no timer. Without edits BACK goes to ESC
+CONFIG at once.
 
 **WRITE...** opens `ESC WRITE` on a tap; nothing on the list is held. The
 page lists each field that changes, from the ESC as read to the edit: the
@@ -2552,8 +2561,8 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    disabled until the pin is let go. Then NEXT SERVO keeps the claim and
    starts a new search (`NEXT SERVO: POWER IT AFTER THE TAP.`), and RESTART
    DSHOT acts on a press that lands 1000 ms or more later, so a double tap
-   on LEAVE restarts nothing; it returns to MENU. BACK on the page is drawn
-   disabled in every phase. With the switched supply step 1 reads
+   on LEAVE restarts nothing; it returns to PROGRAMMER. BACK on the page is
+   drawn disabled in every phase. With the switched supply step 1 reads
    `LEAVE SWITCHES THE SUPPLY OFF.`: LEAVE switches it off, and the page
    reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes 2 s after
    the switch-off. Every claim end does the same once the supply was on.
@@ -2714,8 +2723,8 @@ not 0 answers ID 0 is not measured.
    the screen claims nothing and reads `AN ESC ANSWERS ON SIG GP0: UNPLUG
    IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, the strip
    `CHECKING SIG GP0 FOR AN ESC`; the claim follows once the ESC has been
-   quiet for 500 ms, and BACK meanwhile returns to MENU, as it does while
-   DShot drains. With `GP28` or `GP29`, and for CLASSIC, the Hitec job and
+   quiet for 500 ms, and BACK meanwhile returns to PROGRAMMER, as it does
+   while DShot drains. With `GP28` or `GP29`, and for CLASSIC, the Hitec job and
    the entry start once DShot has stopped: the entry switches the supply
    off for 2.0 s and on again, the strip counting `SUPPLY OFF 1.4 S`, then
    waits for the servo's start, about 1 s. With `OWN`, D SERIES reads the
@@ -2796,7 +2805,7 @@ not 0 answers ID 0 is not measured.
    NEXT SERVO starts a session for the next servo as for the first: with
    `OWN` a D series servo waits for READ
    (`NEXT SERVO: POWER IT AFTER THE TAP.`); with the switch the entry starts
-   at once. RESTART DSHOT acts 1000 ms later and returns to MENU.
+   at once. RESTART DSHOT acts 1000 ms later and returns to PROGRAMMER.
    BACK on the page is drawn disabled in every phase; BACK during the entry
    opens it at `1 UNPLUG THE SERVO.`
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
@@ -2951,8 +2960,8 @@ with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT** opens S.BUS OUTPUT ([S.BUS output](#sbus-output));
 its lines carry the output's warning, `S.BUS TO A FLIGHT CONTROLLER.`
-`ON GP0, NEVER TO AN ESC.` The row is drawn disabled while the pin claim is
-not free, as the other rows that lead to a claim.
+`ON GP0, NEVER TO AN ESC.` While the pin claim is not free the row still
+opens RX SIGNALS, which draws both entries disabled, as every chooser does.
 
 S.BUS MONITOR claims the role that is GP1 (`src/pin_claim.h`): SIG and AUX
 in the default wiring, SIG alone when SIG is GP1. Before the claim it
@@ -3007,8 +3016,8 @@ SIG GP0.` in the default wiring; `DSHOT RESTARTS ON SIG GP1, WHERE` `THE
 RECEIVER DRIVES THE LINE.` when SIG is GP1. The job lets GP1 go at once, with
 UART0 off and no inversion left on the pad. **BACK TO MONITOR** keeps the
 claim and starts again with every count at 0; **RESTART DSHOT** acts 1 s
-after the pin is let go and returns to MENU. **BACK** before the claim
-holds returns to MENU with DShot running.
+after the pin is let go and returns to RX SIGNALS. **BACK** before the
+claim holds returns to RX SIGNALS with DShot running.
 
 Not verified:
 
@@ -3152,12 +3161,12 @@ lets GP0 go after the frame on the wire, low. Step 1 reads
 `UNPLUG THE FLIGHT CONTROLLER.` with `DSHOT RESTARTS ON SIG GP0.` (the ESC's
 pin, GP1 when SIG is GP1). **BACK TO OUTPUT** keeps the claim: a new visit,
 with a new bootloader check before START. **RESTART DSHOT** acts 1 s after
-GP0 is let go and returns to MENU. After a Bluejay or BLHeli_S bootloader
-answered, BACK stops the frames and opens the page with ESC SETTINGS' first
-step, `UNPLUG THE ESC BATTERY, THEN LEAVE.`, STAY and LEAVE, and a last step
-`THEN PLUG THE ESC BACK IN.`: the bootloader waits for commands and may read
-DShot as one. **BACK** before the claim holds returns to MENU with DShot
-running.
+GP0 is let go and returns to RX SIGNALS. After a Bluejay or BLHeli_S
+bootloader answered, BACK stops the frames and opens the page with ESC
+SETTINGS' first step, `UNPLUG THE ESC BATTERY, THEN LEAVE.`, STAY and LEAVE,
+and a last step `THEN PLUG THE ESC BACK IN.`: the bootloader waits for
+commands and may read DShot as one. **BACK** before the claim holds returns
+to RX SIGNALS with DShot running.
 
 Not verified:
 
@@ -3285,9 +3294,9 @@ BACK is never sent, and the note stays.
 | When | BACK |
 |---|---|
 | a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
-| before the line is bound: Stopping, or a failed bind | returns to MENU; DShot comes back at once, or once the job has let the line go |
+| before the line is bound: Stopping, or a failed bind | returns to ESC CONFIG; DShot comes back at once, or once the job has let the line go |
 | a failed rebind after `BRIDGE` on the leave page | the leave page again, with the note if it stands: a claim that has had the page keeps it until RESTART DSHOT |
-| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, and the note stays for its next BACK until a RUN; RESTART DSHOT, live 1000 ms after the line is let go, ends the claim and the note with it and returns to MENU |
+| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `RESTART DSHOT.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, and the note stays for its next BACK until a RUN; RESTART DSHOT, live 1000 ms after the line is let go, ends the claim and the note with it and returns to ESC CONFIG |
 
 Once the line is bound the ESC may wait in its bootloader whatever the
 tool sent: one powered up while SIG is held high enters it, AM32 2.22
@@ -3493,8 +3502,9 @@ settings block, version 6 ([Using it](#using-it), SETTINGS). SETTINGS does
 not show them, and its HOLD DEFAULTS keeps them.
 
 **Pins.** The meter claims no pin: DShot keeps running on SIG, and the ESC
-is disarmed as MENU opens. TOOLS and the meter open only while the pin claim
-is free, since the meter's save writes flash.
+is disarmed as MENU opens. The meter opens only while the pin claim is
+free, since the meter's save writes flash: TOOLS opens whatever the claim
+and draws ANGLE METER disabled meanwhile.
 
 ## Device backups
 
@@ -3558,8 +3568,9 @@ In the firmware:
   SETTINGS also opens from a tap on the tester's pole count or ceiling, only
   while disarmed, and that tap runs the same disarm first. While a pin claim is
   not free, after RESTART DSHOT until the DShot pump runs again, MENU draws
-  the tools that claim the pins and SETTINGS disabled, its strip reads
-  `DSHOT RESTARTING ON SIG GP0`, and the tester's two readouts do not act.
+  the tools that claim the pins and SETTINGS disabled, a chooser draws its
+  entries disabled, the strips read `DSHOT RESTARTING ON SIG GP0`, and the
+  tester's two readouts do not act.
 - Before DShot gives up the signal pin, to the AM32 editor or for a pin
   change, it sends throttle zero for at least 250 ms after the last throttle
   frame.
@@ -3870,7 +3881,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 15,965 of 16,227 lines in 98 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 15,976 of 16,238 lines in 98 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

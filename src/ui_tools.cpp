@@ -27,5 +27,5 @@ uint8_t uiToolsControls(UiControl *out, uint8_t max) { return uiHubControls(UI_T
 
 const UiScreen UI_TOOLS = {
 	UiScreenId::Tools, UI_TOOLS_TITLE, PinUser::None, nullptr,
-	uiToolsEnter, uiToolsTick, nullptr, uiToolsControls, nullptr, true,
+	uiToolsEnter, uiToolsTick, nullptr, uiToolsControls, nullptr, false,
 };

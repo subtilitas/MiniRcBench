@@ -32,6 +32,8 @@
 #include "ui_screen.h"
 #include "ui_servo_prog.h"
 #include "ui_tools.h"
+#include "ui_kst.h"
+#include "ui_sdlog.h"
 #include "servo_supply.h"
 #include "sd_log.h"
 #include "usb_msc.h"
@@ -494,9 +496,121 @@ static void testHubFit() {
 	}
 }
 
+/**
+ * @brief docs/design/menu-c.md slice 2: a chooser opens while the pin claim
+ *        is not Free, and draws every entry whose tool claims, or opens only
+ *        while the pins are free, disabled: each reports disabled, takes no
+ *        tap and keeps its own lines, and the strip says why in amber. Once
+ *        Free, each entry acts again by its own gate.
+ */
+static void testHubClaimGate() {
+	section("hub: opened while the claim is not Free, its entries drawn disabled");
+	static const HubCase CASES[] = {
+		{ "ESC CONFIG", &UI_ESC_CONFIG, &UI_ESC_CFG_HUB, UiScreenId::EscConfig, 2 },
+		{ "PROGRAMMER", &UI_SERVO_PROG, &UI_PROG_HUB, UiScreenId::ServoProg, 3 },
+		{ "RX SIGNALS", &UI_RX_SIGNALS, &UI_RX_HUB, UiScreenId::RxSignals, 2 },
+		{ "TOOLS", &UI_TOOLS, &UI_TOOLS_HUB, UiScreenId::Tools, 1 },
+	};
+	for (const HubCase &c : CASES) {
+		char what[128];
+		freshTester();
+		setSupply(1);
+		tapId(UI_FIX(TesterCtl::Menu));
+		hubFrames(1);
+		checkTrue("another claim taken under MENU",
+		          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+		hubFrames(1);
+		snprintf(what, sizeof(what), "%s: its MENU row acts while the claim is not Free", c.name);
+		checkTrue(what, !c.screen->freePins && c.screen->pinUser == PinUser::None &&
+		                ctlEnabled(menuRow(c.screen)));
+		tapId(menuRow(c.screen));
+		hubFrames(1);
+		snprintf(what, sizeof(what), "%s opens: MENU, %s", c.name, c.name);
+		checkTrue(what, navIsHub(c.id) && pinClaimState() != ClaimState::Free);
+		char busy[40];
+		snprintf(busy, sizeof(busy), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+		snprintf(what, sizeof(what), "%s: the strip reads %s, amber", c.name, busy);
+		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, busy, UI_COL_WARN, C_BG, 1));
+		for (int i = 0; i < c.hub->count; i++) {
+			const UiHubEntry &e = c.hub->entries[i];
+			snprintf(what, sizeof(what), "%s: %s is refused by uiPinsRefuse()", c.name, e.label);
+			checkTrue(what, uiPinsRefuse(e.screen));
+			UiControl ctl;
+			snprintf(what, sizeof(what), "%s: %s reports disabled and is drawn so", c.name, e.label);
+			checkTrue(what, ctlFind(HUB_ENTRY(i), &ctl) && !ctl.enabled &&
+			                buttonIs(uiHubEntryRect(i), e.label, false));
+			const int y = uiHubEntryRect(i).y + UI_HUB_LINE_DY;
+			if (e.lines[0]) {
+				snprintf(what, sizeof(what), "%s: %s keeps its first line, dim", c.name, e.label);
+				checkTrue(what, fakeTextIs(UI_MARGIN, y, e.lines[0], C_DIM, C_BG, 1));
+			}
+			if (e.why[0]) {
+				// HITEC CLASSIC: its own gate holds with the supply, so no
+				// line says it needs the converter.
+				const int wy = y + (e.lines[0] ? UI_HUB_LINE_H : 0);
+				snprintf(what, sizeof(what), "%s: %s draws no why line: the claim, not its gate, refuses",
+				         c.name, e.label);
+				checkTrue(what, !fakeTextIs(UI_MARGIN, wy, e.why[0], UI_COL_WARN, C_BG, 1));
+			}
+			tapId(HUB_ENTRY(i), IdExpect::Disabled);
+			hubFrames(1);
+			snprintf(what, sizeof(what), "%s: a tap on %s opens nothing", c.name, e.label);
+			checkTrue(what, navIsHub(c.id) && pinClaimHolder() == PinUser::Am32);
+		}
+		checkControlTable(c.name);
+		pinClaimEnd(PinUser::Am32);
+		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) hubFrames(1);
+		hubFrames(1);
+		for (int i = 0; i < c.hub->count; i++) {
+			snprintf(what, sizeof(what), "%s, the claim Free: %s acts again", c.name,
+			         c.hub->entries[i].label);
+			checkTrue(what, ctlEnabled(HUB_ENTRY(i)) && uiHubEntryActs(*c.hub, i));
+		}
+		char strip[48];
+		c.hub->strip(strip, sizeof(strip));
+		snprintf(what, sizeof(what), "%s: the strip its own again, dim", c.name);
+		checkTrue(what, fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
+		checkTrue("BACK: MENU, then the tester", backToTester());
+	}
+	setSupply(0);
+	freshTester();
+}
+
+/**
+ * @brief The stack holds at most three screens over the tester: MENU, a
+ *        chooser, its tool. A tool that asks to open another screen at that
+ *        depth is refused and stays open.
+ */
+static void testNavDepth() {
+	section("navigation: at most three screens over the tester");
+	freshTester();
+	checkTrue("the tester: an empty stack", uiNavDepth() == 0 && uiNavAt(0) == UiScreenId::Tester);
+	openChooser();
+	tapId(PROG_ENTRY(0));
+	hubFrames(2);
+	checkTrue("MENU, PROGRAMMER, KST SERVO: three, the limit",
+	          uiNavDepth() == UI_NAV_MAX && navIsTool(UiScreenId::ServoProg, UiScreenId::Kst));
+	uiChooseTool(&UI_SDLOG, nullptr);
+	hubFrames(1);
+	checkTrue("a fourth screen asked for is refused: KST SERVO stays open",
+	          uiNavDepth() == UI_NAV_MAX && uiCurrentScreen() == UiScreenId::Kst);
+	checkTrue("uiNavAt() past the top reads the tester", uiNavAt(UI_NAV_MAX) == UiScreenId::Tester);
+	tapId(UI_FIX(UI_BACK));
+	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) {
+		if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));
+		if (ctlEnabled(UI_FIX(KstCtl::Restart))) tapId(UI_FIX(KstCtl::Restart));
+		hubFrames(1);
+	}
+	checkTrue("KST SERVO left: PROGRAMMER", navIsHub(UiScreenId::ServoProg));
+	checkTrue("then MENU and the tester", backToTester());
+	freshTester();
+}
+
 void runHubTests() {
 	testHubTables();
 	testHubDisabledEntry();
 	testHubLines();
 	testHubFit();
+	testHubClaimGate();
+	testNavDepth();
 }

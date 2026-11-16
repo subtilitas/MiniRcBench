@@ -487,7 +487,3 @@ bool uiSbusTick(const TouchState *t) {
 	return true;
 }
 
-const UiScreen UI_SBUS = {
-	UiScreenId::Sbus, SBUS_UI_TITLE, PinUser::Sbus, nullptr,
-	uiSbusEnter, uiSbusTick, nullptr, uiSbusControls, nullptr, false,
-};

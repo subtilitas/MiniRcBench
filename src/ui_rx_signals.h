@@ -10,12 +10,12 @@
  * through uiChooseTool(); the tool's own entry point asks for the pin claim
  * on that frame. OUTPUT's lines carry the output's warning,
  * `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`.
- * BACK returns to MENU, and so do the tools' BACK before a claim held and
- * their RESTART DSHOT.
+ * BACK returns to MENU. The tools' BACK before a claim held and their
+ * RESTART DSHOT return here, to RX SIGNALS.
  *
- * The screen opens only while the pin claim is Free (`freePins`): MENU draws
- * the row disabled under `DSHOT RESTARTING ON SIG GP0` meanwhile, as it does
- * PROGRAMMER's.
+ * The screen opens whatever the pin claim's state. While the claim is not
+ * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
+ * (uiHubEntryActs()).
  *
  * @see docs/design/rx-signals.md, "MENU"
  */

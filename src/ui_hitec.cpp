@@ -1848,7 +1848,7 @@ bool uiHitecTick(const TouchState *t) {
 				} else {
 					// No servo in the mode: the page opens releasing, the
 					// READ wait included, since the pin went to a servo.
-					// Refused or Stopping: MENU, DShot resumed at once.
+					// Refused or Stopping: PROGRAMMER, DShot resumed at once.
 					if (running() && s_st.job == HitecJobState::Entering) sendOp(HitecOp::Abort);
 					if (!endClaim()) return false;
 					openLeave(UiLeavePhase::Releasing);
@@ -1918,7 +1918,3 @@ bool uiHitecTick(const TouchState *t) {
 }
 
 // No MENU row opens it: PROGRAMMER's entries name their entry point.
-const UiScreen UI_HITEC = {
-	UiScreenId::Hitec, "HITEC SERVO", PinUser::Hitec, nullptr,
-	uiHitecEnterD, uiHitecTick, nullptr, uiHitecControls, nullptr, false,
-};

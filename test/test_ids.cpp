@@ -184,7 +184,8 @@ static void testMenuSettingsLog() {
 	          ctlPresent(UI_FIX(SbusOutCtl::Restart)) && !ctlEnabled(UI_FIX(SbusOutCtl::Restart)));
 	idFrames(44);
 	tapId(UI_FIX(SbusOutCtl::Restart));
-	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("RESTART DSHOT: RX SIGNALS, the opener", uiCurrentScreen() == UiScreenId::RxSignals);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	idFrames(1);
@@ -215,7 +216,8 @@ static void testMenuSettingsLog() {
 	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && !ctlEnabled(UI_FIX(BridgeCtl::Restart)));
 	idFrames(44);
 	tapId(UI_FIX(BridgeCtl::Restart));
-	checkTrue("RESTART DSHOT: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("RESTART DSHOT: ESC CONFIG, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
 	idFrames(1);
 	checkTrue("Free, the console back", pinClaimState() == ClaimState::Free && fakeConsoleOn());
@@ -252,7 +254,8 @@ static void testMenuSettingsLog() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("SETUP's BACK: the main view", uiAngleView() == AngleView::Main);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK: TOOLS, the opener", uiCurrentScreen() == UiScreenId::Tools);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	idFrames(1);
 
 	tapId(menuRow(&UI_SERVO_PROG));
@@ -406,7 +409,7 @@ static void testAm32() {
 	          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	tapId(UI_FIX(UI_BACK));
 	idFrames(20);
-	checkTrue("BACK from AM32 reaches SETTINGS", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from AM32 reaches ESC CONFIG, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
 }
 
 /** @brief Whether @p id's rectangle on the current frame is x, y, w, h. */

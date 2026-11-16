@@ -1,6 +1,8 @@
 # Menu structure C
 
-Status: proposed, not built. The owner decided its questions on 2026-11-15.
+Status: proposed; slices 1 and 2 of [the build plan](#build-plan) are built
+([slice 2 as built](#slice-2-as-built)). The owner decided its questions on
+2026-11-15.
 The two questions the answers raised are settled by the developer's calls of
 2026-11-16, pending the owner's review ([Decisions](#decisions)). The
 revision lines of [the tables below](#decisions-of-menu-bmd-this-revises)
@@ -892,6 +894,102 @@ What each slice leaves on `main`:
   lists. D2 changes every text that names a DShot restart, so no false
   safety text reaches `main`.
 - **Slices 7 and 8** merge together, so no fill carries dark ink at 3.51.
+
+## Slice 2 as built
+
+Files: the stack in `src/ui.cpp` (`s_nav`, `navPush()`, `navPop()`,
+`navTop()`, `uiNavDepth()`, `uiNavAt()`), declared with `UI_NAV_MAX` in
+`src/ui_screen.h`; the gate and the busy strip in `src/ui_hub.cpp`
+(`uiHubEntryActs()`, `uiHubResume()`); the four choosers' `freePins`,
+now false, in `src/ui_esc_config.cpp`, `src/ui_servo_prog.cpp`,
+`src/ui_rx_signals.cpp` and `src/ui_tools.cpp`.
+
+- **The stack.** It holds at most three screens over the tester, which
+  stays the root until slice 3 and is depth 0: MENU, a chooser, the
+  chooser's tool; or SETTINGS alone over the tester after a readout tap.
+  A tap that opens a screen pushes it, and BACK or the leave page's last
+  button pops it. `Level`, `s_toolFrom` and the rule that a chosen tool's
+  origin is MENU are gone. A push past three screens is refused and the
+  open screen stays; no route of the UI asks for one. Slice 3 puts MENU at
+  the bottom and the tester over it, three screens again.
+- **What a pop shows.** The tester redraws every region, as before. MENU
+  runs `uiMenuEnter()`, as before, so MENU opens again at scroll 0. A
+  chooser runs `uiHubResume()`, which repaints it and keeps its state; the
+  choosers do not scroll until slice 4, which keeps the scroll there.
+- **For D2.** `uiNavDepth()` and `uiNavAt()` read the stack, bottom first,
+  for `uiDshotWanted()` of [dshot-lifetime.md](dshot-lifetime.md#the-rule).
+  This slice changes nothing of DShot: it runs on every screen as at
+  cff09ae, and the claim's states are unchanged.
+- **The leave page's last button** keeps its label, `RESTART DSHOT`, and
+  what it does to the pin. It returns to the chooser that opened the tool.
+  D2 changes its label and what it does.
+- **The gate at the entry** ([choice 9](#decisions)). The choosers lose
+  `freePins`, so MENU never refuses their rows. An entry acts while its
+  own gate holds and `uiPinsRefuse()` does not refuse its tool. All eight
+  entries' tools claim pins or have `freePins`, so while the claim is not
+  Free every entry is drawn disabled, reports disabled and takes no tap.
+  A refused entry keeps its own lines and its power line; the amber lines
+  that say why are drawn only while the entry's own gate fails. The strip
+  then reads `DSHOT RESTARTING ON SIG GP0` in amber, MENU's text
+  (`UI_MENU_RESTARTING_FMT`, 27 characters at most, within the strip's
+  37). The note leaves the strip's text open; MENU's text is true until
+  D2, whose busy captions replace it.
+- **What stays.** MENU's rows, scroll and statuses; the tester as the root;
+  the choosers' titles and entries; the leave page's three phases, its
+  BACK drawn disabled (menu-b.md owner decision 25), its 1000 ms wait; the
+  BACK guard over unwritten edits; every hold.
+
+Tests, by control id (`navIsTool()`, `navIsHub()` and `backToTester()` in
+`test/ui_ids.h`):
+
+| Entry | Left by BACK | Left by the leave page's last button | Test |
+|---|---|---|---|
+| ESC SETTINGS | from the list | after an EFM8 page not taken | `testAm32NavOpener()`, `test/test_ui.cpp` |
+| USB BRIDGE | with no claim, USB DRIVE holding the card | from the running bridge | `testNavOpener()`, `test/test_bridge_ui.cpp` |
+| KST / CHASERVO | before a claim, an ESC answering | from the list | `testNavOpener()`, `test/test_kst_ui.cpp` |
+| HITEC D SERIES, HITEC CLASSIC | while refused, an ESC answering | after the claim, CLASSIC on the switched supply | `testNavOpener()`, `test/test_hitec_ui.cpp` |
+| MONITOR | before a claim, KISS on AUX | with the claim held | `testNavOpener()`, `test/test_sbus_ui.cpp` |
+| OUTPUT | while the claim drains | with the claim held | `testNavOpener()`, `test/test_sbus_out_ui.cpp` |
+| ANGLE METER | from the main view; the meter has no leave page | | `testNavOpener()`, `test/test_angle_ui.cpp` |
+
+Each case reads the stack while the tool is open, MENU, the chooser, the
+tool, and after it leaves, MENU and the chooser, with the chooser open.
+ANGLE METER's case also opens the meter with no press drawn on TOOLS and
+checks that TOOLS is drawn again, the same frame. SETTINGS opened from a
+readout is alone on the stack and returns to the tester
+(`test/test_ui.cpp`). `testHubClaimGate()` in `test/test_hub.cpp` opens
+each of the four choosers from MENU while another claim holds: each entry
+is refused by `uiPinsRefuse()`, reports disabled, is drawn disabled, keeps
+its first line, takes no tap; HITEC CLASSIC on the switched supply draws
+no line that says why; the strip reads the busy text in amber; once the
+claim is Free every entry acts and the strip is the chooser's own.
+`testNavDepth()` asks for a fourth screen over KST SERVO and finds it
+refused. The suites' cases that expected MENU after a chooser's tool now
+expect the chooser, and go on to MENU by one BACK more. Two cases open a
+tool past its chooser's gate with `uiChooseTool()`, to keep the tool's own
+refusal under test: S.BUS MONITOR and USB BRIDGE while another claim
+holds.
+
+Mutations, each run against the whole suite and restored:
+
+| Mutation | Result |
+|---|---|
+| A chosen tool replaces its chooser on the stack: the origin MENU | 1819 checks fail, among them every case of the table above |
+| `uiHubEntryActs()` without `uiPinsRefuse()` | 467 checks fail, among them each entry of `testHubClaimGate()` |
+| A push at three screens replaces the top | 1382 checks fail, the first "a fourth screen asked for is refused" |
+| `uiHubResume()` empty | 1 check fails: TOOLS drawn again after the meter opened with no press |
+| The chooser's own strip while the claim is not Free | 5 checks fail: the four choosers' busy strip, and ESC CONFIG's in `test/test_claim.cpp` |
+| The `why` lines drawn on the claim's refusal | 1 check fails: HITEC CLASSIC draws no why line |
+
+The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises)
+stay "Not built": each names more than this slice builds. Built now are
+the parts that a tool opened from a hub returns to the hub (menu-b.md
+decision 5's line), that a chosen tool's origin is its hub, not MENU
+(decision 19's line), and that the leave page's last button returns to the
+tool's hub ([pin-claim.md](pin-claim.md#decisions) decision 4's line).
+MENU without BACK is slice 3's; `ui_hub` in place of the choosers is slice
+1's, the loss of `UiScreenId::ServoProg` and `Tools` slice 4's; the
+button's label and park are D2's.
 
 ## Open questions
 

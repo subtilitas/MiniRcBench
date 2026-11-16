@@ -27,5 +27,5 @@ uint8_t uiRxSignalsControls(UiControl *out, uint8_t max) { return uiHubControls(
 
 const UiScreen UI_RX_SIGNALS = {
 	UiScreenId::RxSignals, UI_RX_TITLE, PinUser::None, nullptr,
-	uiRxSignalsEnter, uiRxSignalsTick, nullptr, uiRxSignalsControls, nullptr, true,
+	uiRxSignalsEnter, uiRxSignalsTick, nullptr, uiRxSignalsControls, nullptr, false,
 };

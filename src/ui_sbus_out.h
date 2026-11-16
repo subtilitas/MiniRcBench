@@ -48,9 +48,9 @@
  * docs/design/bluejay-blheli-s.md, `UNPLUG THE ESC BATTERY, THEN LEAVE.`;
  * STAY returns to the screen. BACK TO OUTPUT keeps the claim: the job binds
  * again, a new visit with a new probe. RESTART DSHOT, live 1000 ms after GP0
- * is let go, returns to MENU; after decision 8's page it also calls
+ * is let go, returns to RX SIGNALS; after decision 8's page it also calls
  * sbusOutProbeRestart(), which clears the EFM8 mark and MENU's cue. BACK
- * before a claim held, or while Stopping, returns to MENU with DShot
+ * before a claim held, or while Stopping, returns to RX SIGNALS with DShot
  * resumed.
  *
  * @see docs/design/sbus-output.md, "Screen"
@@ -59,6 +59,8 @@
 #pragma once
 
 #include <stdint.h>
+
+#include "ui_screen.h"
 
 struct TouchState;
 struct UiControl;
@@ -179,4 +181,7 @@ bool uiSbusOutTick(const TouchState *t);
 uint8_t uiSbusOutControls(UiControl *out, uint8_t max);
 
 /** @brief S.BUS OUTPUT. */
-extern const UiScreen UI_SBUS_OUT;
+inline constexpr const UiScreen UI_SBUS_OUT = {
+	UiScreenId::SbusOut, SBOUT_UI_TITLE, PinUser::SbusOut, nullptr,
+	uiSbusOutEnter, uiSbusOutTick, nullptr, uiSbusOutControls, nullptr, false,
+};

@@ -447,10 +447,9 @@ static void testChooser() {
 	tapId(UI_FIX(UI_BACK));
 	sbFrames(60);
 	tapId(UI_FIX(SbusCtl::Restart));
-	checkTrue("RESTART DSHOT returns to MENU, not the chooser", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("RESTART DSHOT returns to the chooser, its opener", uiCurrentScreen() == UiScreenId::RxSignals);
 	sbFrames(4);
 	checkTrue("DShot runs again", pinClaimState() == ClaimState::Free);
-	tapId(menuRow(&UI_RX_SIGNALS));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the chooser's BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
@@ -668,8 +667,9 @@ static void testMonitor() {
 	checkTrue("1000 ms: it acts", ctlEnabled(UI_FIX(SbusCtl::Restart)));
 	int resumes = fakeResumeCount();
 	tapId(UI_FIX(SbusCtl::Restart));
-	checkTrue("RESTART DSHOT: MENU, DShot resumed with the job idle",
-	          uiCurrentScreen() == UiScreenId::Menu && fakeResumeCount() == resumes + 1 && fakeResumeJobIdle());
+	checkTrue("RESTART DSHOT: RX SIGNALS, DShot resumed with the job idle",
+	          uiCurrentScreen() == UiScreenId::RxSignals && fakeResumeCount() == resumes + 1 && fakeResumeJobIdle());
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbFrames(4);
 	checkTrue("the claim Free, GP1 left with no inversion", pinClaimState() == ClaimState::Free &&
 	          fakePin(SBUS_GPIO).inover == GPIO_OVERRIDE_NORMAL);
@@ -733,8 +733,9 @@ static void testGp1Sig() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Restart));
 	sbFrames(4);
-	checkTrue("RESTART DSHOT: MENU, Free", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("RESTART DSHOT: RX SIGNALS, Free", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 	noEsc();
 
@@ -752,6 +753,8 @@ static void testGp1Sig() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Restart));
 	sbFrames(4);
+	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	noEsc();
 }
@@ -773,8 +776,9 @@ static void testRefusals() {
 	          leftIs(SBUS_UI_MSG_Y + SBUS_UI_MSG_H, SBUS_UI_UNPLUG_2, C_AMBER) &&
 	          leftIs(SBUS_UI_MSG_Y + 2 * SBUS_UI_MSG_H, SBUS_UI_UNPLUG_3, C_AMBER));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK before a claim: MENU, nothing claimed", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("BACK before a claim: RX SIGNALS, nothing claimed", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 	noEsc();
 
@@ -795,7 +799,8 @@ static void testRefusals() {
 	checkTrue("no RETRY", !ctlPresent(UI_FIX(SbusCtl::Retry)));
 	fakeDumpFrame("shot_sbus_no_gp1.ppm");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Free);
+	checkTrue("BACK: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 
 	// clk_peri at 1 MHz: uart_init() reaches 62,500 baud, and the bind
@@ -829,6 +834,8 @@ static void testRefusals() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Restart));
 	sbFrames(4);
+	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
 	// Backstops the UI cannot reach. Another claim holds the pins when
@@ -841,8 +848,11 @@ static void testRefusals() {
 	fakeSetTelemetry(&tel);
 	openRx();
 	checkTrue("another claim, taken by the test", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
-	tapId(UI_FIX(RxCtl::Monitor));
 	sbFrames(1);
+	checkTrue("RX SIGNALS gates MONITOR while the claim is not Free", !ctlEnabled(UI_FIX(RxCtl::Monitor)));
+	// Opened by hand past the hub's gate: the screen's own refusal.
+	uiChooseTool(&UI_SBUS, nullptr);
+	sbFrames(2);
 	checkTrue("busy, with an ESC on GP1: WAIT: DSHOT RESTARTING, not the ESC lines",
 	          leftIs(SBUS_UI_MSG_Y, UI_WAIT_RESTART_TEXT, C_AMBER) && pinClaimHolder() == PinUser::Am32);
 	tapId(UI_FIX(UI_BACK));
@@ -866,6 +876,8 @@ static void testRefusals() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Restart));
 	sbFrames(4);
+	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 
 	// BACK during Stopping: DShot resumes at once, no leave page.
@@ -880,8 +892,9 @@ static void testRefusals() {
 	framesNoPump(2);
 	fakeRelease();
 	framesNoPump(1);
-	checkTrue("BACK while Stopping: MENU, DShot resumed", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("BACK while Stopping: RX SIGNALS, DShot resumed", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          fakePinReturned());
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
@@ -917,7 +930,46 @@ static void testKeepClearsHold() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Restart));
 	sbFrames(4);
+	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(UI_BACK));
+}
+
+/**
+ * @brief docs/design/menu-c.md slice 2: MONITOR returns to RX SIGNALS, the
+ *        chooser that opened it, by BACK before a claim and by RESTART
+ *        DSHOT, the leave page's last button.
+ */
+static void testNavOpener() {
+	section("Navigation: MONITOR returns to RX SIGNALS, its opener");
+	freshUi();
+	EscTelemetry tel;
+	memset(&tel, 0, sizeof(tel));
+	tel.kissLastMs = millis();
+	fakeSetTelemetry(&tel);
+	openRx();
+	tapId(UI_FIX(RxCtl::Monitor));
+	sbFrames(1);
+	checkTrue("KISS on AUX: MENU, RX SIGNALS, S.BUS MONITOR, no claim",
+	          navIsTool(UiScreenId::RxSignals, UiScreenId::Sbus) && pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK before a claim: RX SIGNALS", navIsHub(UiScreenId::RxSignals));
+	checkTrue("then MENU and the tester", backToTester());
+	noEsc();
+
+	freshUi();
+	openRx();
+	tapId(UI_FIX(RxCtl::Monitor));
+	sbFrames(10);
+	checkTrue("the claim held: MENU, RX SIGNALS, S.BUS MONITOR",
+	          navIsTool(UiScreenId::RxSignals, UiScreenId::Sbus) && pinClaimHolder() == PinUser::Sbus);
+	tapId(UI_FIX(UI_BACK));
+	sbFrames(42);
+	tapId(UI_FIX(SbusCtl::Restart));
+	sbFrames(4);
+	checkTrue("RESTART DSHOT: RX SIGNALS, the claim Free",
+	          navIsHub(UiScreenId::RxSignals) && pinClaimState() == ClaimState::Free);
+	checkTrue("then MENU and the tester", backToTester());
 }
 
 void runSbusUiTests() {
@@ -929,4 +981,5 @@ void runSbusUiTests() {
 	testGp1Sig();
 	testRefusals();
 	testKeepClearsHold();
+	testNavOpener();
 }

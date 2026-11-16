@@ -8,10 +8,12 @@
  * amber lines that say why under it. It claims nothing: DShot runs on SIG
  * while it shows. A tap on an entry opens the entry's tool through
  * uiChooseTool(), whose own entry point runs on that frame and claims SIG
- * there. BACK returns to MENU, and so do the tools' BACK before a claim held
- * and their RESTART DSHOT.
+ * there. BACK returns to MENU. The tools' BACK before a claim held and their
+ * RESTART DSHOT return here, to PROGRAMMER.
  *
- * The screen opens only while the pin claim is Free (`freePins`).
+ * The screen opens whatever the pin claim's state. While the claim is not
+ * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
+ * (uiHubEntryActs()).
  *
  * @see docs/design/menu-b.md, "PROGRAMMER, the chooser"
  */

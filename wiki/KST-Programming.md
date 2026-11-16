@@ -82,7 +82,7 @@ frame. While it does, the strip reads `RELEASING SIG GP0`, then
 
 - If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON SIG GP0.`,
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin
-  when the ESC is gone. `BACK` meanwhile returns to `MENU`.
+  when the ESC is gone. `BACK` meanwhile returns to PROGRAMMER.
 - While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
   still in use, it says `WAIT: DSHOT RESTARTING`. Neither is reachable
   through the screens.
@@ -464,9 +464,9 @@ leaves a session that is in doubt. While the pin goes the page reads
 **Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
 the pin and starts a new search, and the page reads
 `NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** acts 1 s after
-that: the ESC driver takes the pin back and `MENU` returns. The second makes
-a double tap on `LEAVE` harmless: it lands while `RESTART DSHOT` is grey. A
-press that landed while it was grey does nothing when it lifts.
+that: the ESC driver takes the pin back and PROGRAMMER returns. The second
+makes a double tap on `LEAVE` harmless: it lands while `RESTART DSHOT` is
+grey. A press that landed while it was grey does nothing when it lifts.
 
 `BACK` on the search before any servo answered lets the pin go and opens the
 page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 RESTART DSHOT.`

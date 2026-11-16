@@ -31,5 +31,5 @@ uint8_t uiServoProgControls(UiControl *out, uint8_t max) { return uiHubControls(
 
 const UiScreen UI_SERVO_PROG = {
 	UiScreenId::ServoProg, UI_PROG_TITLE, PinUser::None, nullptr,
-	uiServoProgEnter, uiServoProgTick, nullptr, uiServoProgControls, nullptr, true,
+	uiServoProgEnter, uiServoProgTick, nullptr, uiServoProgControls, nullptr, false,
 };

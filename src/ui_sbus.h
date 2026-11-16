@@ -28,8 +28,8 @@
  * once, and the page opens releasing, as SERVO TESTER's does. Its step names
  * where DShot restarts; BACK TO MONITOR keeps the claim and binds the job
  * again, with every count at 0; RESTART DSHOT, live 1000 ms after the pin is
- * let go, returns to MENU. BACK before a claim held, or during Stopping,
- * returns to MENU with DShot resumed.
+ * let go, returns to RX SIGNALS. BACK before a claim held, or during
+ * Stopping, returns to RX SIGNALS with DShot resumed.
  *
  * @see docs/design/rx-signals.md, "Screen"
  */
@@ -37,6 +37,8 @@
 #pragma once
 
 #include <stdint.h>
+
+#include "ui_screen.h"
 
 struct TouchState;
 struct UiControl;
@@ -133,4 +135,7 @@ bool uiSbusTick(const TouchState *t);
 uint8_t uiSbusControls(UiControl *out, uint8_t max);
 
 /** @brief S.BUS MONITOR. */
-extern const UiScreen UI_SBUS;
+inline constexpr const UiScreen UI_SBUS = {
+	UiScreenId::Sbus, SBUS_UI_TITLE, PinUser::Sbus, nullptr,
+	uiSbusEnter, uiSbusTick, nullptr, uiSbusControls, nullptr, false,
+};

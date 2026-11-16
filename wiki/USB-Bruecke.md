@@ -66,7 +66,7 @@ mit `REFUSED` oder `CLOCK` statt `PIO`, und `RETRY` erscheint:
   langsam;
 - `REFUSED`: Der zweite Kern der Platine hat den Auftrag nicht übernommen.
 
-`RETRY` versucht es erneut. `BACK` führt direkt zu `MENU`, ohne
+`RETRY` versucht es erneut. `BACK` führt direkt zu ESC CONFIG, ohne
 Verlassenseite, solange DShot anhält und nach einem fehlgeschlagenen Bind:
 Die Brücke hat die Leitung nie übernommen.
 
