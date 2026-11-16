@@ -812,8 +812,10 @@ static void testEscCmdStarting() {
 	char starting[48], none[48];
 	snprintf(starting, sizeof(starting), UI_ESC_CMD_STARTING_FMT, SIG_GPIO);
 	snprintf(none, sizeof(none), UI_ESC_CMD_NO_ANSWER_FMT, SIG_GPIO);
+	char gp0[48];
+	snprintf(gp0, sizeof(gp0), UI_ESC_CMD_STARTING_FMT, 0u);
 	checkTrue("the text: DSHOT STARTING ON SIG GP0., 26 characters, 155 px",
-	          strcmp(starting, "DSHOT STARTING ON SIG GP0.") == 0 && strlen(starting) == 26 &&
+	          strcmp(gp0, "DSHOT STARTING ON SIG GP0.") == 0 && strlen(starting) == 26 &&
 	          gfxTextW(starting, 1) == 155);
 	tapId(toolEntry(&UI_ESC_CMD));
 	framesNoPump(2);
