@@ -122,7 +122,8 @@ void core1JobInit();
  * @brief Ask core1 to start a job on the given pins. Core0.
  *
  * Refused unless escTaskSuspended() is true, so the DShot pump and a job never
- * drive a pin together. Refused too for Core1Job::None, for a job that is not
+ * drive a pin together. It is true only in Release: a job never binds on a
+ * parked pin either. Refused too for Core1Job::None, for a job that is not
  * built, and while a job is not idle.
  *
  * @param job     The job.

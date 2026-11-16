@@ -81,6 +81,33 @@ protocol.
   `test/test_servo.cpp`, `testTouchLoss()` in `test/test_sbus_out_ui.cpp` and
   the driver against the CST328 model, mutation-checked; the wiki shows
   `tester-touch-lost.png` and `sbus-out-touch-lost.png`.
+- After v0.1.0-rc1: the DShot pump's three modes, slice D1 of the DShot
+  lifetime design (`docs/design/dshot-lifetime.md`). Core0 asks for Run
+  (`escTaskStart()`, which replaces `escTaskResume()`), Park
+  (`escTaskPark()`) or Release (`escTaskSuspend()`), and core1 reports
+  `escTaskRunning()`, `escTaskParked()` and `escTaskSuspended()`, the last
+  true only in Release, so no core1 job binds on a parked pin. No mode is
+  reported while core1 changes the pads, so core0 never reads "parked" with
+  SIG not driven low. Park drains for more than 250 ms after the last
+  throttle frame as a release does, then drives SIG low from the SIO
+  (single-cycle input/output) block at 2 mA, with the output value 0 set
+  before the pad becomes an output; a SIG already an SIO output keeps its
+  direction, so it is never undriven while it parks. Park puts AUX in
+  input, pull-down, input buffer off, the buffer off before the pull-down
+  goes on (RP2350-E9). Release from Park frees the pins with no frame; Run from
+  Park binds once with the EDT enable first; a wiring change in Park parks
+  again, puts the old SIG in input, pull-down, input buffer off, and writes
+  no pad whose state does not change, so SIG stays driven low across a
+  bitrate-only change (`escParkPlan()`). A configure that lands during a
+  bind or a park is rebuilt on the next pass: core0 stores the wiring
+  before the request and core1 clears the request before it reads the
+  wiring, each with a barrier; such a configure can be latched half-applied
+  for one pass, while disarmed. `escTaskBoundMs()` is the `millis()` of
+  core1's last bind, 0 before the first bind and while parked or released. A teardown clears
+  `initError`, so `DSERR` names the current bind only. Nothing calls
+  `escTaskPark()` yet: the boot asks for Run and the pin claim for Release
+  and Run, so DShot runs from boot as before. Host tests in
+  `test/test_claim.cpp`; not run on hardware.
 - After v0.1.0-rc1: the wiki shows the six screens no page showed, in both
   languages. USB BRIDGE's `RELEASING SIG GP0` strip, its failed bind
   (`SIG GP0 COULD NOT BE TAKEN (PIO)` with `RETRY`), the card held by USB

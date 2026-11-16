@@ -25,6 +25,8 @@
 
 #include <stdint.h>
 
+#include <hardware/gpio.h>
+
 #include "config.h"
 #include "dshot/dshot.h"
 #include "kiss_telem.h"
@@ -84,7 +86,8 @@ struct EscTelemetry {
 	 * The DShot driver refused the pin: no PIO block had two adjacent free
 	 * state machines and 16 free instructions, or the pad did not take the
 	 * output inversion. Nothing is sent while it is set, and the status bar
-	 * shows `DSERR` in place of the bitrate.
+	 * shows `DSERR` in place of the bitrate. A teardown clears it, so it
+	 * names the current bind only. @see escTelTeardown()
 	 */
 	bool     initError;
 
@@ -1137,37 +1140,283 @@ static inline bool escDrainDone(uint32_t lastThrottleMs, uint32_t nowMs,
 	return lastThrottleMs == 0 || (uint32_t)(nowMs - lastThrottleMs) > drainMs;
 }
 
+/**
+ * @brief What core0 asks of the pins, and what core1 last reached.
+ *
+ * Core0 asks for one mode at a time (escTaskStart(), escTaskPark(),
+ * escTaskSuspend()); core1 reaches it in escTaskPoll(), on the step
+ * escHandoverStep() decides. @see docs/design/dshot-lifetime.md
+ */
+enum class EscPinMode : uint8_t {
+	Run,     /**< The pump is bound and sends its frames. */
+	/** The pump is down, SIG is driven low and AUX is on its pull-down. */
+	Park,
+	Release, /**< The pump is down and both pins are free for the pin claim. */
+};
+
 /** @brief What core1 does with the pin on one pass. @see escHandoverStep() */
 enum class EscHandover : uint8_t {
-	Run,       /**< No request: the pump runs its frame slots. */
-	Drain,     /**< A request, and the drain is not over: a zero frame per slot. */
-	Teardown,  /**< A request, and the drain is over or nothing is bound: let go. */
+	/** Run wanted and bound, no rebuild: the pump runs its frame slots. */
+	Run,
+	/**
+	 * Bound, another mode or a rebuild wanted, the drain not over: a zero
+	 * frame per slot.
+	 */
+	Drain,
+	/**
+	 * Bound, another mode or a rebuild wanted, the drain over: let go, then
+	 * step again.
+	 */
+	Teardown,
+	/** Nothing bound and Run wanted: bind from the latched wiring. */
+	Bind,
+	/**
+	 * Nothing bound, Park wanted, the pins not parked on the latched wiring:
+	 * park them.
+	 */
+	Park,
+	/** Nothing bound, Release wanted and not reached: free the pins. */
+	Release,
+	/** Nothing bound and the wanted mode reached: nothing to do. */
+	Hold,
 };
 
 /**
  * @brief Decide the pin handover for one pass of escTaskPoll(). Pure.
  *
- * A suspend (the pin claim) and a rebuild (a SETTINGS change) both end the
- * binding. Neither takes the pin from an ESC that was given a throttle within
- * the drain: while escDrainDone() is false the pump keeps its slots and sends
- * escDrainSlot() in each. A pump that is not bound has nothing to drain, so a
- * suspend before core1's first bind tears down, and reports suspended, at
- * once.
+ * A bound pump leaves Run for Park or Release (the pin claim), or rebuilds
+ * (a SETTINGS change), only after the drain: while escDrainDone() is false
+ * it keeps its slots and sends escDrainSlot() in each. Then it tears down,
+ * and core1 steps again with the pump down, so a rebuild binds in the same
+ * pass and a Park or a Release follows the teardown at once.
  *
- * @param suspendReq     Core0 asked for a suspend.
- * @param rebuildReq     Core0 asked for a rebuild.
+ * With the pump down nothing is drained, since nothing was sent: Run binds,
+ * Park parks unless the pins are parked on the latched wiring already (a
+ * rebuild asked in Park parks again on the new wiring), and Release frees
+ * the pins unless they are free already. A rebuild asked in Release waits
+ * for the next mode: the pins are the claim's.
+ *
+ * @p reached Run with @p pumpUp false is the state before the first bind and
+ * after a teardown: nothing is bound and nothing is parked.
+ *
+ * @param want           The mode core0 asks for.
+ * @param reached        The mode core1 last reached.
+ * @param rebuildReq     Core0 asked for a rebuild: the wiring changed.
  * @param pumpUp         The pump is bound, or its bind was refused.
  * @param lastThrottleMs EscPump::lastThrottleMs.
  * @param nowMs          millis().
  * @return               What to do on this pass.
  */
-static inline EscHandover escHandoverStep(bool suspendReq, bool rebuildReq,
-                                          bool pumpUp, uint32_t lastThrottleMs,
-                                          uint32_t nowMs) {
-	if (!suspendReq && !rebuildReq) return EscHandover::Run;
-	if (pumpUp && !escDrainDone(lastThrottleMs, nowMs, ARM_ZERO_THROTTLE_MS))
-		return EscHandover::Drain;
-	return EscHandover::Teardown;
+static inline EscHandover escHandoverStep(EscPinMode want, EscPinMode reached,
+                                          bool rebuildReq, bool pumpUp,
+                                          uint32_t lastThrottleMs, uint32_t nowMs) {
+	if (pumpUp) {
+		if (want == EscPinMode::Run && !rebuildReq) return EscHandover::Run;
+		if (!escDrainDone(lastThrottleMs, nowMs, ARM_ZERO_THROTTLE_MS))
+			return EscHandover::Drain;
+		return EscHandover::Teardown;
+	}
+	switch (want) {
+		case EscPinMode::Run:
+			return EscHandover::Bind;
+		case EscPinMode::Park:
+			return reached != EscPinMode::Park || rebuildReq ? EscHandover::Park
+			                                                 : EscHandover::Hold;
+		case EscPinMode::Release:
+		default:
+			return reached != EscPinMode::Release ? EscHandover::Release
+			                                      : EscHandover::Hold;
+	}
+}
+
+/**
+ * @brief Whether core1 reports mode @p m. Pure.
+ *
+ * Run only with the pump up; Park and Release once core1 reached them, with
+ * the pump down. Between a teardown and the next mode, and before the first
+ * bind, no mode is reported. escTaskSuspended() is Release alone, so a job
+ * never binds on a parked pin.
+ *
+ * @param reached The mode core1 last reached.
+ * @param pumpUp  The pump is bound, or its bind was refused.
+ * @param m       The mode asked about.
+ * @return        True when @p m is the mode reached.
+ */
+static inline bool escModeReported(EscPinMode reached, bool pumpUp, EscPinMode m) {
+	if (m == EscPinMode::Run) return reached == EscPinMode::Run && pumpUp;
+	return reached == m && !pumpUp;
+}
+
+/** @brief No GPIO, in an EscPadPlan's inputs: nothing held yet. */
+#define ESC_NO_GPIO 0xFFu
+
+/** @brief One pad's state, as escPadSet() sets it. @see escParkPlan() */
+enum class EscPad : uint8_t {
+	/**
+	 * An SIO output driving low at 2 mA, the pad's lowest drive: SIG while
+	 * parked. A pull-down alone is not known to hold the line low against
+	 * an ESC's own pull-up, and a pad with the pull-down and the input
+	 * buffer on can latch high (RP2350-E9, `board_pins.h`).
+	 */
+	Low,
+	/**
+	 * An input with the pull-down on and the input buffer off, 4 mA: AUX
+	 * while parked, and a GPIO the wiring no longer holds. The buffer is off
+	 * whenever the pull-down is on: by the datasheet the RP2350-E9 latch
+	 * needs the buffer on (not verified on this board).
+	 */
+	Off,
+	/**
+	 * An input with the pull-up on, 4 mA: SIG handed over, as the teardown
+	 * leaves it.
+	 */
+	PullUp,
+	/** An input with the pulls off, 4 mA: AUX handed over. */
+	Input,
+};
+
+/** @brief Each GPIO's state for one mode change, in the order to set them. */
+struct EscPadPlan {
+	uint8_t gpio[4];  /**< The GPIOs, each once; SIG last. */
+	EscPad  pad[4];   /**< The state of each. */
+	uint8_t count;    /**< Entries used. */
+};
+
+/**
+ * @brief The pad states of a change to Park, to Release, or out of Park to
+ *        Run, with the wiring the pins move to: only the GPIOs whose state
+ *        changes. Pure.
+ *
+ * - SIG: Park drives it low (EscPad::Low); Release and Run put it on the
+ *   pull-up (EscPad::PullUp), as the teardown does, and the bind for Run
+ *   takes it from there.
+ * - AUX: Park and Run leave it on the pull-down with the buffer off
+ *   (EscPad::Off); Release makes it a plain input (EscPad::Input). A KISS
+ *   receiver the bind starts takes it from there.
+ * - A GPIO the old wiring held and the new one does not goes to EscPad::Off,
+ *   input, pull-down, input buffer off: after a wiring change in Park the
+ *   old SIG is no longer driven.
+ * - From Park, a GPIO already in its new state is left out: SIG still SIG
+ *   stays driven low through a re-park on unchanged pins (a bitrate-only
+ *   change), with no write that could float it, and AUX still AUX keeps its
+ *   pull-down. Out of any other mode each GPIO is set, since a job may have
+ *   left it in any state.
+ *
+ * Each GPIO appears once, with SIG last, so a swap of SIG and AUX names the
+ * old SIG once, as the new AUX. With SIG and AUX on one GPIO, SIG's state
+ * wins. @ref ESC_NO_GPIO in the old wiring, before anything was held, adds
+ * nothing.
+ *
+ * @param from   The mode reached, whose pads @p oldSig and @p oldAux hold.
+ * @param to     EscPinMode::Park, EscPinMode::Release, or EscPinMode::Run
+ *               for the pads before a bind from Park.
+ * @param oldSig SIG the pins were last held on, or @ref ESC_NO_GPIO.
+ * @param oldAux AUX the pins were last held on, or @ref ESC_NO_GPIO.
+ * @param sig    SIG of the latched wiring.
+ * @param aux    AUX of the latched wiring.
+ * @return       The plan.
+ */
+static inline EscPadPlan escParkPlan(EscPinMode from, EscPinMode to,
+                                     uint8_t oldSig, uint8_t oldAux,
+                                     uint8_t sig, uint8_t aux) {
+	EscPadPlan p = {};
+	const uint8_t order[4] = {oldSig, oldAux, aux, sig};
+	for (uint8_t i = 0; i < 4; i++) {
+		uint8_t g = order[i];
+		if (g == ESC_NO_GPIO || (g == sig && i < 3)) continue;
+		bool seen = false;
+		for (uint8_t j = 0; j < i; j++) seen = seen || order[j] == g;
+		if (seen && g != sig) continue;
+		EscPad pad;
+		if (g == sig)
+			pad = to == EscPinMode::Park ? EscPad::Low : EscPad::PullUp;
+		else
+			pad = g == aux && to == EscPinMode::Release ? EscPad::Input : EscPad::Off;
+		// What Park left on a GPIO it held: SIG low, AUX off.
+		bool held = from == EscPinMode::Park && (g == oldSig || g == oldAux);
+		EscPad was = g == oldSig ? EscPad::Low : EscPad::Off;
+		if (held && was == pad) continue;
+		p.gpio[p.count] = g;
+		p.pad[p.count]  = pad;
+		p.count++;
+	}
+	return p;
+}
+
+/**
+ * @brief Set one pad to @p pad. Core1 only, or core0 before core1 starts.
+ *
+ * The pulls go off before the SIO function turns the input buffer on, and
+ * EscPad::Off turns the buffer off before the pull-down goes on, so no pad
+ * has the pull-down on while its buffer is on (RP2350-E9).
+ *
+ * - EscPad::Low with no high glitch and no float: the SIO output value 0,
+ *   the 2 mA drive and the pulls off first. A pad that is already an SIO
+ *   output drives low from the value write on and keeps its direction, so
+ *   the line is never undriven; any other pad gets the direction in. Then
+ *   the SIO function, which turns the input buffer on with the pulls
+ *   already off and clears the overrides, and the direction out last. The
+ *   pad is never an output with the value 1, whatever value a job left in
+ *   the latch.
+ * - EscPad::Off: the pulls off, gpio_init() (an SIO input, the output value
+ *   0, the input buffer on), the buffer off, and the pull-down last.
+ * - EscPad::PullUp and EscPad::Input: the pulls off, gpio_init(), then the
+ *   pull-up or nothing.
+ *
+ * @param gpio The pad.
+ * @param pad  Its state.
+ */
+static inline void escPadSet(uint8_t gpio, EscPad pad) {
+	switch (pad) {
+		case EscPad::Low:
+			gpio_put(gpio, 0);
+			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_2MA);
+			gpio_disable_pulls(gpio);
+			if (gpio_get_function(gpio) != GPIO_FUNC_SIO || !gpio_is_dir_out(gpio))
+				gpio_set_dir(gpio, GPIO_IN);
+			gpio_set_function(gpio, GPIO_FUNC_SIO);
+			gpio_set_dir(gpio, GPIO_OUT);
+			break;
+		case EscPad::Off:
+			gpio_disable_pulls(gpio);
+			gpio_init(gpio);
+			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_4MA);
+			gpio_set_input_enabled(gpio, false);
+			gpio_pull_down(gpio);
+			break;
+		case EscPad::PullUp:
+			gpio_disable_pulls(gpio);
+			gpio_init(gpio);
+			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_4MA);
+			gpio_pull_up(gpio);
+			break;
+		case EscPad::Input:
+		default:
+			gpio_disable_pulls(gpio);
+			gpio_init(gpio);
+			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_4MA);
+			break;
+	}
+}
+
+/**
+ * @brief Set every pad of @p plan, in its order.
+ * @param plan escParkPlan()'s result.
+ */
+static inline void escPadApply(const EscPadPlan *plan) {
+	for (uint8_t i = 0; i < plan->count; i++) escPadSet(plan->gpio[i], plan->pad[i]);
+}
+
+/**
+ * @brief A teardown's change to the telemetry block. Pure.
+ *
+ * Clears `initError`, so `DSERR` names the current bind only: a refused bind
+ * is not reported once the pump is down. @see EscTelemetry::initError
+ *
+ * @param tel The block, under the lock on core1.
+ */
+static inline void escTelTeardown(EscTelemetry *tel) {
+	tel->initError = false;
 }
 
 /**
@@ -1285,43 +1534,88 @@ void escSnapshot(EscTelemetry *out);
 bool escEdtRequested();
 
 /**
- * @brief Ask core1 to tear down the DShot driver and release both pins.
+ * @brief Ask core1 for Release: the DShot driver down and both pins free.
  *
  * The pin claim's way in (pin_claim.h): the signal pin and the KISS pin are
- * free while the suspend holds. Forces a disarm first. Core1 then sends zero
- * frames until more than @ref ARM_ZERO_THROTTLE_MS have passed since the last
- * throttle frame (escHandoverStep()), stops the pump, releases the pin, which
- * leaves it a plain input with the pulls off, puts the pull-up back on it so
- * it idles high, and ends the KISS receiver. Poll escTaskSuspended() until it
- * reports true; the teardown happens on core1 so that the PIO state machines
- * are freed by the core that claimed them.
+ * free while the release holds. Forces a disarm first. From Run, core1 then
+ * sends zero frames until more than @ref ARM_ZERO_THROTTLE_MS have passed
+ * since the last throttle frame (escHandoverStep()), stops the pump, releases
+ * the pin, which leaves it a plain input with the pulls off, puts the
+ * pull-up back on it so it idles high, and ends the KISS receiver. From Park
+ * nothing was sent and nothing is drained: SIG goes on its pull-up and AUX
+ * becomes a plain input on the next pass (escParkPlan()). Poll
+ * escTaskSuspended() until it reports true; the teardown happens on core1 so
+ * that the PIO state machines are freed by the core that claimed them.
  */
 void escTaskSuspend();
 
 /**
- * @brief Withdraw the suspend.
+ * @brief Ask core1 for Run: the pump bound and sending.
  *
- * If core1 has torn the pump down, it rebuilds it from the latched wiring:
+ * If core1 has torn the pump down, it binds it again from the latched wiring:
  * disarmed, with the EDT enable as its first frames, as after a SETTINGS
- * change. A resume during the drain leaves the running pump as it is.
- * @see escTaskConfigure()
+ * change. From Park it first puts SIG on its pull-up at 4 mA. A start during
+ * the drain leaves the running pump as it is. @see escTaskConfigure()
  */
-void escTaskResume();
+void escTaskStart();
 
-/** @brief True once the driver is torn down and both pins are free. */
+/**
+ * @brief Ask core1 for Park: the pump down, SIG driven low, AUX on its
+ *        pull-down.
+ *
+ * Forces a disarm first. From Run, core1 drains as for escTaskSuspend(),
+ * tears the pump down and then parks the pins; from Release it parks them on
+ * the next pass. SIG is an SIO output driving low at 2 mA, AUX an input with
+ * the pull-down on and the input buffer off (escParkPlan(), EscPad). Poll
+ * escTaskParked() until it reports true.
+ */
+void escTaskPark();
+
+/**
+ * @brief True only in Release: the driver is torn down and both pins are
+ *        free. False while parked, so core1JobStart() never binds a job on a
+ *        parked pin.
+ */
 bool escTaskSuspended();
+
+/** @brief True only in Park: the pump is down and the pins are parked. */
+bool escTaskParked();
+
+/** @brief True only in Run: the pump is bound, or its bind was refused. */
+bool escTaskRunning();
+
+/**
+ * @brief millis() of core1's last bind, whatever its cause; 0 while the pump
+ *        is down.
+ *
+ * Core1 stamps it at the end of each bind that succeeds, the first one, a
+ * Run from Park or Release and a rebuild after escTaskConfigure() alike,
+ * with a stamp of 0 made 1. A refused bind leaves it 0. The teardown sets it
+ * to 0 first, so it is 0 while parked and while released. One aligned 32-bit
+ * word, written by core1 and read by core0, as escHeartbeatMs() crosses the
+ * cores the other way.
+ *
+ * @return The bind's millis(), never 0 while bound; 0 with no bind.
+ */
+uint32_t escTaskBoundMs();
 
 /**
  * @brief Set the pins and bitrate the DShot pump uses, and rebuild it.
  *
  * Core0 hands the values across rather than core1 reading the settings
- * struct directly: core0 owns that struct and edits it a field at a time while the
- * SETTINGS is open, so core1 reading it would see half-applied
- * combinations — a new pin against an old bitrate, for one frame.
+ * struct directly: core0 owns that struct and edits it a field at a time
+ * while the SETTINGS is open. Core1 latches the values when it binds or
+ * parks. A configure that lands during core1's reads can be latched
+ * half-applied for one pass, while disarmed, and the request still set
+ * rebuilds it on the next pass.
  *
- * Takes effect on the next escTaskPoll(): the driver releases the old pin and
- * binds the new one, after the same zero-throttle drain as a suspend
- * (escHandoverStep()). Forces a disarm, because
+ * Takes effect on the next escTaskPoll(). In Run the driver releases the old
+ * pin and binds the new one, after the same zero-throttle drain as a suspend
+ * (escHandoverStep()). In Park the pins park again on the new wiring: the old
+ * SIG becomes an input with the pull-down on and the input buffer off, and
+ * the new SIG is driven low (escParkPlan()); a GPIO whose state does not
+ * change is not written, so SIG on unchanged pins stays driven low. In
+ * Release the new wiring waits for the next mode. Forces a disarm, because
  * the ESC on the old pin stops hearing frames the moment it is released.
  *
  * Safe to call with unchanged values; it is a no-op if nothing differs, so the

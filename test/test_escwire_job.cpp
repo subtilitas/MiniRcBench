@@ -85,7 +85,7 @@ static void finish() {
 	g_alive = true;
 	core1JobStop();
 	for (int i = 0; i < 3000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 }
 
@@ -135,7 +135,7 @@ static void testBind() {
 		bool arg = ERRS[i] == EW_LINE_ERR_ARG;
 		snprintf(what, sizeof(what), arg ? "%s: the pin left alone" : "%s: SIG on its pull-up", NAMES[i]);
 		checkTrue(what, fakePin(SIG).pull == (arg ? FakePull::None : FakePull::Up));
-		escTaskResume();
+		escTaskStart();
 		fakePumpPoll();
 	}
 
@@ -349,7 +349,7 @@ static void testRelease() {
 	          fakeEwCloses() == 1 && e->aborts == aborts + 1);
 	checkTrue("its result: stopped", status().result == EW_SES_ERR_STOPPED &&
 	          status().job == EwJobState::Closed);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 
 	checkTrue("in mode", startInMode(0xB2, true));
@@ -363,7 +363,7 @@ static void testRelease() {
 	for (int i = 0; i < 1000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
 	checkTrue("then closes, 300 ms or more on", core1JobPhase() == Core1JobPhase::Idle &&
 	          fakeEwClosedUs() - t0 >= 300000u && status().left);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 
 	checkTrue("in mode", startInMode(0xB2, true));
@@ -372,7 +372,7 @@ static void testRelease() {
 	passes(1);
 	checkTrue("in mode, idle: closed at once, nothing sent", core1JobPhase() == Core1JobPhase::Idle &&
 	          fakeEwSim()->starts == starts && !fakeEwOpen());
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 }
 
@@ -745,7 +745,7 @@ static void testWriteHeartbeat() {
 	for (int i = 0; i < 4000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
 	checkTrue("verified, then closed", core1JobPhase() == Core1JobPhase::Idle && !fakeEwOpen() &&
 	          memcmp(simPage(), draft, 255) == 0 && status().result == EW_SES_OK);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 
 	section("ESC settings job: the release before the erase cuts the write");
@@ -757,7 +757,7 @@ static void testWriteHeartbeat() {
 	passes(1);
 	checkTrue("closed in one pass, nothing erased", core1JobPhase() == Core1JobPhase::Idle && e->erases == 0 &&
 	          status().result == EW_SES_ERR_STOPPED);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 }
 

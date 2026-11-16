@@ -58,7 +58,7 @@ static void startJob() {
  *        draining one runs on.
  */
 static void restore() {
-	escTaskResume();
+	escTaskStart();
 	s_state = ClaimState::Restoring;
 }
 
