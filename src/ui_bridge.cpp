@@ -78,7 +78,6 @@ static_assert(BR_LEN(BRIDGE_UI_LINE_0) <= 37 && BR_LEN(BRIDGE_UI_LINE_1) <= 37 &
               BR_LEN(UI_WAIT_RESTART_TEXT) <= 37,
               "a message line runs past x 228");
 static_assert(BR_LEN(BRIDGE_UI_LEAVE_1) <= UI_LEAVE_STEP_CHARS &&
-              BR_LEN(UI_LEAVE_RESTART) <= UI_LEAVE_STEP_CHARS &&
               BR_LEN(BRIDGE_UI_LEAVE_NOTE) <= UI_LEAVE_NOTE_CHARS,
               "a leave step or the note runs past x 232");
 static_assert(BR_W1(BR_LEN(BRIDGE_UI_BACK_TO)) + 8 <= UI_LEAVE_LEFT.w, "BRIDGE does not fit its button");
@@ -342,13 +341,13 @@ static void drawFoot(bool retry) {
 /** @brief The leave page: opened releasing, BACK having asked for the line. */
 static void drawLeave() {
 	uint32_t now = millis();
-	struct { bool back, left, wide, live, restartPress, released, write; unsigned sig; } k;
+	struct { bool back, left, wide, live, releasePress, released, write; unsigned sig; } k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.left = uiPressing(UI_LEAVE_LEFT, s_t);
 	k.wide = uiPressing(UI_LEAVE_WIDE, s_t);
-	k.live = uiLeaveRestartLive(&s_leave, now);
-	k.restartPress = s_leave.restartPress;
+	k.live = uiLeaveReleaseLive(&s_leave, now);
+	k.releasePress = s_leave.releasePress;
 	k.released = s_leave.phase == UiLeavePhase::Released;
 	k.write = usbBridgeWriteUnfinished();
 	k.sig = sigGpio();
@@ -361,7 +360,7 @@ static void drawLeave() {
 	UiLeaveText tx;
 	memset(&tx, 0, sizeof(tx));
 	tx.step[0][0] = BRIDGE_UI_LEAVE_1;
-	tx.step[1][0] = UI_LEAVE_RESTART;
+	uiLeaveBackStep(&tx, 1, uiNavOpenerTitle());
 	// The note after a write with no RUN; a session that only read has none.
 	int note = 0;
 	if (k.write) tx.note[note++] = BRIDGE_UI_LEAVE_NOTE;
@@ -380,8 +379,8 @@ uint8_t uiBridgeControls(UiControl *out, uint8_t max) {
 	if (s_view == View::Leave) {
 		uiControlAdd(out, &n, max, UI_FIX(BridgeCtl::Bridge), UI_LEAVE_LEFT,
 		             s_leave.phase == UiLeavePhase::Released);
-		uiControlAdd(out, &n, max, UI_FIX(BridgeCtl::Restart), UI_LEAVE_WIDE,
-		             uiLeaveRestartLive(&s_leave, millis()));
+		uiControlAdd(out, &n, max, UI_FIX(BridgeCtl::Release), UI_LEAVE_WIDE,
+		             uiLeaveReleaseLive(&s_leave, millis()));
 		return n;
 	}
 	const char *l[BRIDGE_UI_MSG_LINES];
@@ -434,8 +433,8 @@ bool uiBridgeTick(const TouchState *t) {
 	if (s_view == View::Leave) {
 		uiLeavePoll(&s_leave, pinClaimUnplugDue(), millis());
 		UiLeaveEv ev = uiLeaveTouch(&s_leave, s_t, millis());
-		if (ev == UiLeaveEv::Restart && pinClaimUnplugDue()) {
-			pinClaimRestart(PinUser::Bridge);
+		if (ev == UiLeaveEv::Release && pinClaimUnplugDue()) {
+			pinClaimRelease(PinUser::Bridge);
 			// The steps powered the ESC off: MENU's cue goes. The page told
 			// the user to flash the ESC again: the claim's unfinished write
 			// goes with the claim.

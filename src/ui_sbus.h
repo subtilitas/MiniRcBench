@@ -94,10 +94,16 @@ struct UiScreen;
 #define SBUS_UI_UNPLUG_3    "ONCE THE LINK CHIP SHOWS."
 /** @brief The leave page's step that unplugs the receiver: 20 characters. */
 #define SBUS_UI_UNPLUG      "UNPLUG THE RECEIVER."
-/** @brief Its detail line, SIG's GPIO for `%u`, when GP1 is AUX: 26 characters. */
-#define SBUS_UI_RESTART_FMT "DSHOT RESTARTS ON SIG GP%u."
-/** @brief Its detail lines when GP1 is SIG: 32 characters... */
-#define SBUS_UI_RESTART_GP1_1 "DSHOT RESTARTS ON SIG GP1, WHERE"
+/**
+ * @brief Its detail line, SIG's GPIO for `%u`, when GP1 is AUX: what the
+ *        next ESC TESTER or ESC COMMANDS sends on SIG. 34 characters.
+ */
+#define SBUS_UI_RESTART_FMT "ESC TESTER SENDS DSHOT ON SIG GP%u."
+/**
+ * @brief Its detail lines when GP1 is SIG: the parked SIG is driven low,
+ *        against a receiver that drives it. 26 characters...
+ */
+#define SBUS_UI_RESTART_GP1_1 "SIG GP1 IS HELD LOW, WHERE"
 /** @brief ...and 29. */
 #define SBUS_UI_RESTART_GP1_2 "THE RECEIVER DRIVES THE LINE."
 /** @brief The leave page's left button after the tap on BACK: 15 characters, 89 px. */
@@ -108,7 +114,7 @@ struct UiScreen;
 enum class SbusCtl : uint8_t {
 	Retry = 1,      /**< RETRY, the wide button, after a failed bind. */
 	BackToMonitor,  /**< BACK TO MONITOR on the leave page: the claim kept, the job bound again. */
-	Restart,        /**< RESTART DSHOT on the leave page, live 1000 ms after the pin is let go. */
+	Release,        /**< The hub's title on the leave page: parks the pins and returns to the hub, live 1000 ms after the pin is let go. */
 };
 
 /**

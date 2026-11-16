@@ -380,6 +380,9 @@ static void testHelpers() {
 
 /** @brief The wiring, the pump bound and past any drain, no ESC, no KISS. */
 static void freshPump(uint8_t sig, uint8_t aux, bool kiss = true) {
+	// A hub's frame: Run not wanted, so a claim is not Busy
+	// (docs/design/dshot-lifetime.md).
+	pinClaimDshot(false);
 	escTaskConfigure(sig, 600, kiss, aux);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -415,7 +418,7 @@ static bool claimEnd() {
 	core1JobPoll();
 	pinClaimPoll();
 	bool due = pinClaimUnplugDue();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	return due && pinClaimState() == ClaimState::Free;
 }
@@ -550,7 +553,7 @@ static void testJob() {
 	checkTrue("the status after the release reads empty",
 	          st.frames == 0 && st.bytes == 0 && st.parityErr == 0 && st.lostFrames == 0 &&
 	          st.failsafeFrames == 0 && !st.failsafe && st.channel[0] == 0 && st.lastFrameMs == 0);
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("RESTART DSHOT: free", pinClaimState() == ClaimState::Free);
 	checkTrue("the job was idle before DShot resumed", fakeResumeJobIdle());
@@ -719,7 +722,7 @@ static void testJobWirings() {
 	          samePin(fakePin(1), gp1Before) && fakeUart().inits == 0);
 	pinClaimEnd(PinUser::Sbus);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
 
@@ -738,7 +741,7 @@ static void testJobWirings() {
 	checkTrue("neither pin touched", gp0Untouched(gp0) && samePin(p1, gp1));
 	pinClaimEnd(PinUser::Sbus);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
 
@@ -767,7 +770,7 @@ static void testJobWirings() {
 	fakeClockSet(clk_peri, 150000000u);
 	pinClaimEnd(PinUser::Sbus);
 	pinClaimPoll();
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	fakePumpPoll();
 	checkTrue("BACK: free", pinClaimState() == ClaimState::Free);
 }

@@ -89,8 +89,8 @@ HitecView uiHitecView();
 #define HITEC_UI_POWER_READ "POWER THE SERVO UP, THEN TAP READ."
 /** @brief The main view's first line while an ESC answers on SIG: amber. */
 #define HITEC_UI_ESC_FMT "AN ESC ANSWERS ON SIG GP%u: UNPLUG IT."
-/** @brief The line under it. */
-#define HITEC_UI_ESC_2 "DSHOT STAYS ON THE PIN UNTIL THEN."
+/** @brief The line under it: 27 characters. */
+#define HITEC_UI_ESC_2 "NOTHING IS SENT UNTIL THEN."
 /**
  * @brief The editor bar's note while the D series ID draft is not 0: three
  *        lines of 22 characters. Whether a servo with another ID answers
@@ -141,7 +141,7 @@ enum class HitecCtl : uint8_t {
 	RetryMount,  /**< RETRY MOUNT with no card. */
 	LeaveRead,   /**< READ AGAIN on the leave page, before LEAVE. */
 	Leave,       /**< LEAVE on the leave page, before the release. */
-	Restart,     /**< RESTART DSHOT in LEAVE's place, live 1000 ms after the pin is let go. */
+	Release,     /**< The hub's title in LEAVE's place: parks the pins and returns to the hub, live 1000 ms after the pin is let go. */
 	Stay,        /**< STAY on the leave page: back to the list, or to the main view. */
 	NextServo,   /**< NEXT SERVO on the leave page: the claim kept, a new session. */
 };

@@ -540,6 +540,19 @@
 #define ARM_HOLD_MS            1000
 
 /**
+ * @brief The arm gate: HOLD TO ARM is refused until this long after core1's
+ *        last bind, escTaskBoundMs(), in ms.
+ *
+ * Every open of ESC TESTER binds DShot afresh, and AM32 takes a throttle only
+ * after more than 1 s of zero input; @ref ESC_CMD_SETTLE_MS's 500 ms margin
+ * on that. The gate starts again at every bind: the open, a rebuild after a
+ * SETUP change over the tester. With @ref ARM_HOLD_MS the earliest arm is
+ * 2500 ms after the bind (docs/design/dshot-lifetime.md, decisions 10 and 12).
+ * Bluejay's and BLHeli_S's times are not recorded; not measured.
+ */
+#define ARM_GATE_MS            1500
+
+/**
  * @brief Drag sensitivity on the throttle gauge with LATCH on, as a percentage.
  *
  * With LATCH on the gauge moves the throttle *relatively* — by how far your

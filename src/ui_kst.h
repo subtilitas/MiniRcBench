@@ -81,7 +81,7 @@ enum class KstCtl : uint8_t {
 	Restore,     /**< RESTORE...: a tap opens the restore page of the session's backup. */
 	RetryMount,  /**< RETRY MOUNT with no card. */
 	Leave,       /**< LEAVE on the leave page, before the release. */
-	Restart,     /**< RESTART DSHOT in LEAVE's place, live 1000 ms after the pin is let go. */
+	Release,     /**< The hub's title in LEAVE's place: parks the pins and returns to the hub, live 1000 ms after the pin is let go. */
 	Reboot,      /**< HOLD TO REBOOT on the leave page: switched supply only. */
 	Stay,        /**< STAY on the leave page: back to the list, or to the search. */
 	NextServo,   /**< NEXT SERVO on the leave page: the claim kept, a new session. */

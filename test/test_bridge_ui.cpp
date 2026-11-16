@@ -155,7 +155,7 @@ static const uint8_t RUN[]      = {0x00, 0x00, 0x00, 0x00};   // 00 00 and its C
 /** @brief The tester, default settings, no ESC, no card, the PC on the port with DTR clear. */
 static void freshUi(FakeEscReply r = escAck) {
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) {
-		pinClaimRestart(pinClaimHolder());
+		pinClaimRelease(pinClaimHolder());
 		brFrames(1);
 	}
 	brFrames(2);
@@ -197,7 +197,7 @@ static bool untilOpen(int n = 20) {
 /** @brief From the leave page: RESTART DSHOT once live, then frames until Free. */
 static void restartFromPage() {
 	brFrames(44);
-	tapId(UI_FIX(BridgeCtl::Restart));
+	tapId(UI_FIX(BridgeCtl::Release));
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
 	brFrames(1);
 }
@@ -219,7 +219,7 @@ static bool bridgeAgain() {
 static bool backToPage() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
-	return uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
+	return uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Release)) &&
 	       ctlEnabled(UI_FIX(BridgeCtl::Bridge));
 }
 
@@ -230,7 +230,7 @@ static bool backToPage() {
 static void leaveBridge() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
-	if (uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart))) restartFromPage();
+	if (uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Release))) restartFromPage();
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
 	checkTrue("the bridge left: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
@@ -288,7 +288,7 @@ static void testLayout() {
 	checkTrue("the last line ends at y 235: nothing below", allOf(0, 236, GFX_W, GFX_H - 236, C_BG));
 	checkTrue("BACK live", backLook() == BackLook::Live && ctlEnabled(UI_FIX(UI_BACK)));
 	checkTrue("no RETRY, nothing else in the table", !ctlPresent(UI_FIX(BridgeCtl::Retry)) &&
-	          !ctlPresent(UI_FIX(BridgeCtl::Bridge)) && !ctlPresent(UI_FIX(BridgeCtl::Restart)));
+	          !ctlPresent(UI_FIX(BridgeCtl::Bridge)) && !ctlPresent(UI_FIX(BridgeCtl::Release)));
 	checkControlTable("USB BRIDGE, waiting");
 	fakeDumpFrame("shot_bridge_waiting.ppm");
 	fakeCdcDtr(true);
@@ -297,7 +297,7 @@ static void testLayout() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	checkTrue("BACK with nothing sent: the leave page, the console still off",
-	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
+	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Release)) &&
 	          !fakeConsoleOn());
 	restartFromPage();
 	checkTrue("RESTART DSHOT: ESC CONFIG, Free, the console back", uiCurrentScreen() == UiScreenId::EscConfig &&
@@ -359,7 +359,7 @@ static void testTraffic() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	checkTrue("BACK after a RUN: the leave page all the same, no FLASH note",
-	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
+	          ctlPresent(UI_FIX(BridgeCtl::Release)) && allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
 	restartFromPage();
 	tapId(UI_FIX(UI_BACK));
 }
@@ -395,7 +395,7 @@ static void testWriteAndLeave() {
 	checkTrue("its first step, current: POWER THE ESC OFF., 107 px",
 	          leaveStepIs(UI_LEAVE_STEP_Y, '1', BRIDGE_UI_LEAVE_1, true) &&
 	          gfxTextW(BRIDGE_UI_LEAVE_1, 1) == 107);
-	checkTrue("the second: RESTART DSHOT.", leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', UI_LEAVE_RESTART, false));
+	checkTrue("the second: BACK TO ESC CONFIG.", leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', "BACK TO ESC CONFIG.", false));
 	checkTrue("the note at y 158, 185 px", fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y, BRIDGE_UI_LEAVE_NOTE, C_DIM,
 	                                                   C_BG, 1) &&
 	          gfxTextW(BRIDGE_UI_LEAVE_NOTE, 1) == 185);
@@ -406,13 +406,13 @@ static void testWriteAndLeave() {
 	                                                                UI_LEAVE_RELEASING, C_DIM, C_BG, 1));
 	brFrames(1);
 	checkTrue("BRIDGE live once the line is let go; RESTART DSHOT not yet",
-	          ctlEnabled(UI_FIX(BridgeCtl::Bridge)) && !ctlEnabled(UI_FIX(BridgeCtl::Restart)));
+	          ctlEnabled(UI_FIX(BridgeCtl::Bridge)) && !ctlEnabled(UI_FIX(BridgeCtl::Release)));
 	checkTrue("its label in the left button", fakeTextIs(UI_LEAVE_LEFT.x + (UI_LEAVE_LEFT.w - gfxTextW("BRIDGE", 1)) / 2,
 	                                                      UI_LEAVE_LEFT.y + 19, "BRIDGE", C_TEXT, C_PANEL, 1));
 	checkTrue("DShot down, the console off", escTaskSuspended() && !fakeConsoleOn());
 	checkControlTable("USB BRIDGE, leave page");
 	fakeDumpFrame("shot_bridge_leave.ppm");
-	tapId(UI_FIX(BridgeCtl::Restart), IdExpect::Disabled);
+	tapId(UI_FIX(BridgeCtl::Release), IdExpect::Disabled);
 	checkTrue("RESTART DSHOT early: nothing", uiCurrentScreen() == UiScreenId::Bridge && escTaskSuspended());
 
 	tapId(UI_FIX(BridgeCtl::Bridge));
@@ -424,13 +424,13 @@ static void testWriteAndLeave() {
 	}());
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK with no write since: the page all the same, the claim keeps it",
-	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)));
+	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Release)));
 	brFrames(1);
 	checkTrue("the PROGRAM before BRIDGE had no RUN: FLASH THE ESC AGAIN BEFORE USE. on this page too",
 	          flashNote() && usbBridgeWriteUnfinished());
 	brFrames(43);
-	checkTrue("1000 ms after the line was let go: RESTART DSHOT live", ctlEnabled(UI_FIX(BridgeCtl::Restart)));
-	tapId(UI_FIX(BridgeCtl::Restart));
+	checkTrue("1000 ms after the line was let go: RESTART DSHOT live", ctlEnabled(UI_FIX(BridgeCtl::Release)));
+	tapId(UI_FIX(BridgeCtl::Release));
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
@@ -498,7 +498,7 @@ static void testWriteAndLeave() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	checkTrue("PROGRAM, then RUN: the leave page without the FLASH note",
-	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && pinClaimLeavePage() &&
+	          ctlPresent(UI_FIX(BridgeCtl::Release)) && pinClaimLeavePage() &&
 	          allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG) && usbBridgeRunCue(0));
 	restartFromPage();
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
@@ -731,14 +731,14 @@ static void testReadOnly() {
 		tapId(UI_FIX(UI_BACK));
 		brFrames(1);
 		checkTrue("BACK: the leave page, DShot down", uiCurrentScreen() == UiScreenId::Bridge &&
-		          ctlPresent(UI_FIX(BridgeCtl::Restart)) && escTaskSuspended());
+		          ctlPresent(UI_FIX(BridgeCtl::Release)) && escTaskSuspended());
 		checkTrue("its steps; no FLASH note after a session with no write",
 		          leaveStepIs(UI_LEAVE_STEP_Y, '1', BRIDGE_UI_LEAVE_1, true) &&
-		          leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', UI_LEAVE_RESTART, false) &&
+		          leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', "BACK TO ESC CONFIG.", false) &&
 		          allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
 		if (g_efm8) fakeDumpFrame("shot_bridge_leave_read.ppm");
 		brFrames(44);
-		tapId(UI_FIX(BridgeCtl::Restart));
+		tapId(UI_FIX(BridgeCtl::Release));
 		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
 		checkTrue("RESTART DSHOT: ESC CONFIG, Free, the cue gone", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free && !usbBridgeRunCue(0));
@@ -814,10 +814,10 @@ static void testReadOnly() {
 			"BACK between the INIT's handover and its answer: the leave page",
 			"MSP alone, nothing answered: the leave page",
 		};
-		checkTrue(WHAT[c], uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Restart)) &&
+		checkTrue(WHAT[c], uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Release)) &&
 		          escTaskSuspended() && allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
 		brFrames(44);
-		tapId(UI_FIX(BridgeCtl::Restart));
+		tapId(UI_FIX(BridgeCtl::Release));
 		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
 		checkTrue("RESTART DSHOT: ESC CONFIG, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free);
@@ -907,7 +907,7 @@ static void testFourWay() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	checkTrue("BACK: the leave page with FLASH THE ESC AGAIN BEFORE USE.",
-	          ctlPresent(UI_FIX(BridgeCtl::Restart)) && flashNote());
+	          ctlPresent(UI_FIX(BridgeCtl::Release)) && flashNote());
 	checkTrue("BRIDGE: open again, Waiting", bridgeAgain() && usbBridgeMode() == BridgeMode::Waiting);
 	checkTrue("BACK with nothing sent since: the FLASH note still there", backToPage() && flashNote());
 	checkTrue("BRIDGE again", bridgeAgain());

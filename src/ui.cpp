@@ -36,6 +36,7 @@
 #include "touch.h"
 #include "st7789.h"
 #include "esc_task.h"
+#include "pin_claim.h"
 #include "esc_merge.h"
 #include "rpm_filter.h"
 #include "kv_est.h"
@@ -266,6 +267,12 @@ static uint32_t s_armPressStart = 0;
  *        arm when it is kept on the button. Cleared on a lift and on arming.
  */
 static bool     s_armLive = false;
+/**
+ * @brief escTaskBoundMs() when the press under way landed: a stamp that
+ *        moves, a rebind, cancels the press (docs/design/dshot-lifetime.md,
+ *        decision 12).
+ */
+static uint32_t s_armStamp = 0;
 static uint32_t s_zeroSince = 0;
 static uint32_t s_lastTouchMs = 0;
 static bool     s_dragging = false;
@@ -464,6 +471,9 @@ static bool telemetryAlive() {
  *        the pin claim. Drawn underlined exactly then. @see ui_readouts
  */
 static bool readoutsAct() { return !s_armed && !uiPinsRefuse(&UI_SETTINGS); }
+
+/** @brief The arm gate on this frame: uiArmGated() on core1's bind stamp. */
+static bool armGatedNow() { return uiArmGated(escTaskBoundMs(), millis()); }
 
 /** @brief The pole count is drawn: the 3D note does not take its row. */
 static bool polesShown() { return !esc3dNote(); }
@@ -917,7 +927,9 @@ static void drawTelemetry() {
 static void drawThrottle() {
 	int pct = (int)((uint32_t)s_throttle * 100 / 2000);
 	int maxPct = (int)((uint32_t)s_maxThrottle * 100 / 2000);
-	int card = mscHoldsCard(mscGetState()) ? 1 : 0;
+	// Why HOLD TO ARM is drawn disabled, as the track says it: 1 a USB
+	// host holds the card, 2 the arm gate holds.
+	int card = mscHoldsCard(mscGetState()) ? 1 : armGatedNow() ? 2 : 0;
 	int readout = readoutsAct() ? 1 : 0;
 
 	if (s_shown.throttleRaw == (int)s_throttle && s_shown.maxPct == maxPct &&
@@ -980,17 +992,23 @@ static void drawThrottle() {
 	}
 
 	gfxRoundFrame(THR_TRACK_X, THR_TRACK_Y, THR_TRACK_W, THR_TRACK_H, 5, C_GRID);
-	// While a USB host holds the card HOLD TO ARM is drawn disabled, and the
-	// track says why: a greyed button with no reason reads as a fault.
+	// While a USB host holds the card, or while the arm gate holds, HOLD TO
+	// ARM is drawn disabled, and the track says why: a greyed button with no
+	// reason reads as a fault.
 	if (!s_armed) {
+		const char *why = card == 1 ? UI_TESTER_CARD_TEXT
+		                : card == 2 ? UI_TESTER_GATE_TEXT : "ARM TO ENABLE";
 		gfxText(THR_TRACK_X + 8, THR_TRACK_Y + (THR_TRACK_H - 7) / 2,
-		        card ? UI_TESTER_CARD_TEXT : "ARM TO ENABLE", card ? C_AMBER : C_DIM, 1);
+		        why, card ? C_AMBER : C_DIM, 1);
 	}
 }
 
 /** @brief The track's text while a USB host holds the card: 26 characters, 155 px. */
 static_assert(8 + (6 * (int)(sizeof(UI_TESTER_CARD_TEXT) - 1) - 1) + 8 <= THR_TRACK_W,
               "the card text runs off the throttle track");
+/** @brief The track's text while the arm gate holds: 26 characters, 155 px. */
+static_assert(sizeof(UI_TESTER_GATE_TEXT) == sizeof(UI_TESTER_CARD_TEXT),
+              "the arm gate's text is not the card text's length");
 
 /** @brief ARM/DISARM, LATCH and MENU buttons. */
 static void drawButtons() {
@@ -1001,8 +1019,11 @@ static void drawButtons() {
 	               (pressing(BTN_MENU, s_touch) ? 4 : 0);
 	// ARM is gated on the card in handleMainTouch() and in the control table;
 	// it is drawn on the same expression. @see ui_widgets.h
-	// Drawn disabled, too, while a touch that does not answer refuses arming.
-	int cardFree = mscHoldsCard(mscGetState()) || s_touchLost ? 0 : 1;
+	// Drawn disabled, too, while a touch that does not answer refuses arming,
+	// and while the arm gate holds (docs/design/dshot-lifetime.md, decision
+	// 12). DISARM is not gated: the gate refuses arming only.
+	int cardFree = mscHoldsCard(mscGetState()) || s_touchLost ||
+	               (!s_armed && armGatedNow()) ? 0 : 1;
 	if (s_shown.latchOn == (int)s_latch && s_shown.btnArmed == (int)s_armed &&
 	    s_shown.config == 0 && s_shown.btnPress == pressKey && s_shown.btnCard == cardFree)
 		return;
@@ -1198,11 +1219,23 @@ static void handleMainTouch() {
 	// cannot be recorded and whose interlocks assume a logger that is not
 	// listening. @see usb_msc.h
 	// Only a press that lands on ARM while arming is allowed is timed.
+	// The arm gate refuses a press that lands while it holds, as the card
+	// does: the finger lifts and presses again once the button is live. A
+	// bind stamp that moves under a timed press cancels it: the ESC hears
+	// DShot afresh (docs/design/dshot-lifetime.md, decision 12).
 	bool cardHeld = mscHoldsCard(mscGetState());
-	if (!s_touch.down)
+	uint32_t stamp = escTaskBoundMs();
+	bool gated = uiArmGated(stamp, millis());
+	if (!s_touch.down) {
 		s_armLive = false;
-	else if (s_touch.pressed)
-		s_armLive = !s_armed && pressing(BTN_ARM, s_touch);
+	} else if (s_touch.pressed) {
+		s_armLive = !s_armed && !gated && pressing(BTN_ARM, s_touch);
+		s_armStamp = stamp;
+	}
+	if (s_armLive && stamp != s_armStamp) {
+		s_armLive = false;
+		s_armPressing = false;
+	}
 	if (cardHeld) {
 		s_armPressing = false;
 		s_armLive = false;
@@ -1213,7 +1246,7 @@ static void handleMainTouch() {
 			// cancel gesture, and the button whose job is "stop the motor now"
 			// cannot.
 			if (s_touch.pressed) testerStop();
-		} else if (!s_armLive || s_touchLost) {
+		} else if (!s_armLive || s_touchLost || gated) {
 			// A touch that does not answer refuses arming. A backstop: the
 			// real driver reports the finger up from the 2nd failed read,
 			// before the touch counts as lost at the 4th, so no press
@@ -1280,6 +1313,7 @@ static void testerEnter() {
 	s_testerLeave = false;
 	s_armPressing = false;
 	s_armLive = false;
+	s_armStamp = 0;
 	s_dragging = false;
 	s_padDragging = false;
 	s_padEngaged = false;
@@ -1345,7 +1379,7 @@ static bool testerTick(const TouchState *) {
  */
 static uint8_t testerControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	bool armOk = !mscHoldsCard(mscGetState()) && !s_touchLost;
+	bool armOk = !mscHoldsCard(mscGetState()) && !s_touchLost && (s_armed || !armGatedNow());
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, armOk);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Latch), BTN_LATCH, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
@@ -1405,6 +1439,32 @@ UiScreenId uiNavAt(uint8_t i) {
 	return i < s_navDepth ? s_nav[i]->id : UiScreenId::Menu;
 }
 
+const char *uiNavOpenerTitle() {
+	if (s_navDepth < 2 || !s_nav[s_navDepth - 2]->title) return UI_MENU_SCREEN.title;
+	return s_nav[s_navDepth - 2]->title;
+}
+
+bool uiDshotRule(const UiScreenId *stack, uint8_t depth, bool cueHolds) {
+	if (depth == 0 || cueHolds) return false;
+	UiScreenId top = stack[depth - 1];
+	if (top == UiScreenId::Tester || top == UiScreenId::EscCmd) return true;
+	// SETUP over the tester keeps DShot up (decision 6).
+	return top == UiScreenId::Settings && depth >= 2 &&
+	       stack[depth - 2] == UiScreenId::Tester;
+}
+
+bool uiDshotWanted() {
+	UiScreenId ids[UI_NAV_MAX];
+	for (uint8_t i = 0; i < s_navDepth; i++) ids[i] = s_nav[i]->id;
+	// MENU's run cue holds DShot back from slice D3 on (decision 8); until
+	// then ESC TESTER and ESC COMMANDS open with DShot while it stands.
+	return uiDshotRule(ids, s_navDepth, false);
+}
+
+bool uiArmGated(uint32_t boundMs, uint32_t nowMs) {
+	return boundMs == 0 || (uint32_t)(nowMs - boundMs) < ARM_GATE_MS;
+}
+
 uint8_t uiControls(UiControl *out, uint8_t max) {
 	UiScreenId id = uiCurrentScreen();
 	for (const auto &e : SCREENS)
@@ -1423,12 +1483,9 @@ void uiDrawSplash() {
 	// The board this image is built for, and the firmware's version.
 	gfxTextCenter(248, g_board->label, C_GRID, 1);
 	gfxTextCenter(260, "VERSION " FW_VERSION_STRING, C_GRID, 1);
-	// DShot starts on the ESC pin when this ends (main() launches core1
-	// after setup()), and a servo left there takes the frames as pulses and
-	// moves. The warning names the pin before that happens.
-	char pin[40];
-	snprintf(pin, sizeof(pin), UI_SPLASH_PIN_FMT, (unsigned)settings()->dshotPin);
-	gfxTextCenter(288, pin, C_AMBER, 1);
+	// No pin line: no DShot frame leaves the board at power-up, and SIG is
+	// held low until ESC TESTER or ESC COMMANDS opens
+	// (docs/design/dshot-lifetime.md, slice D2).
 	// Settings a firmware of another layout version wrote: carried over from
 	// versions 2 to 5, else discarded whole at load, every setting at its
 	// default (settings.h). Two lines at y 40 and 52, above the name; y 64 to
@@ -1489,6 +1546,7 @@ void uiInit() {
 	s_throttle = 0;
 	s_armPressing = false;
 	s_armLive = false;
+	s_armStamp = 0;
 	s_dragging = false;
 	s_padDragging = false;
 	s_padEngaged = false;
@@ -1524,10 +1582,13 @@ void uiInit() {
 
 	// MENU is the first screen after the splash, the root of the stack
 	// (docs/design/menu-c.md owner decision 1, slice 3). Its first frame
-	// draws it whole. DShot still runs from boot behind it until slice D2
-	// of docs/design/dshot-lifetime.md.
+	// draws it whole. DShot is parked behind it: escTaskInit() parked SIG,
+	// and uiDshotWanted() is false on MENU (docs/design/dshot-lifetime.md).
 	navPush(&UI_MENU_SCREEN);
 	uiMenuEnter();
+	// The lifetime's rule from the first frame on: on MENU, Park. At boot
+	// the claim is Free and Run was never wanted, so this asks for nothing.
+	pinClaimDshot(uiDshotWanted());
 }
 
 void uiTick() {
@@ -1566,6 +1627,12 @@ void uiTick() {
 		if (s_blDip) want = (uint8_t)(want / BL_DIP_DIV);
 		st7789SetBacklight(want);
 	}
+
+	// The DShot lifetime, once a frame, before the screen's tick: Run while
+	// ESC TESTER or ESC COMMANDS is on top, or SETUP over the tester, Park
+	// everywhere else. A tap that changes the stack takes effect on the next
+	// frame (docs/design/dshot-lifetime.md, "The rule").
+	pinClaimDshot(uiDshotWanted());
 
 	// A screen owns the whole panel, and a tool the pins it claims, while it
 	// runs. A screen returns false once it has left, by BACK, by the leave

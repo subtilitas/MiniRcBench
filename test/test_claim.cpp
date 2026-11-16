@@ -148,12 +148,18 @@ static void pump() { fakePumpPoll(); }
 
 /** @brief The board's default wiring, KISS on, the pump bound, past any drain. */
 static void freshPump() {
+	// A hub's frame: Run not wanted, so a claim is not Busy
+	// (docs/design/dshot-lifetime.md).
+	pinClaimDshot(false);
 	escTaskConfigure(SIG_GPIO, 600, true, AUX_GPIO);
 	quiet();
 	pump();
 	fakeAdvance(1000);
 	pump();
 }
+
+static bool padLow(unsigned gpio);
+static bool padOff(unsigned gpio);
 
 /**
  * @brief Drive any claim back to Free, playing both cores and the unplug
@@ -166,7 +172,7 @@ static bool toFree() {
 		pump();
 		core1JobPoll();
 		pinClaimPoll();
-		pinClaimRestart(who);
+		pinClaimRelease(who);
 	}
 	return pinClaimState() == ClaimState::Free;
 }
@@ -182,16 +188,18 @@ static void frames(int n) {
 /**
  * @brief Whether MENU row @p id is drawn refused: an outline with the
  *        background inside, where a live row has the panel fill, and the
- *        strip reads DSHOT RESTARTING ON SIG GPn in amber.
+ *        strip reads the busy caption in amber.
  */
 static bool busyShown(UiControlId id) {
 	UiRect r = ctlRect(id);
 	char want[40];
-	snprintf(want, sizeof(want), UI_MENU_RESTARTING_FMT, (unsigned)settings()->dshotPin);
+	uiBusyCaption(want, sizeof(want));
 	// On the first line of two while MENU's AM32 run cue stands under it.
+	// A hub draws it as the strip's second line.
 	return gfxBuffer()[(r.y + 8) * GFX_W + r.x + 5] == C_BG &&
 	       (fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, want, C_AMBER, C_BG, 1) ||
-	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_AMBER, C_BG, 1));
+	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE1_Y, want, C_AMBER, C_BG, 1) ||
+	        fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, want, C_AMBER, C_BG, 1));
 }
 
 // ---------------------------------------------------------------------------
@@ -266,8 +274,8 @@ static void testCheckRules() {
 static void testBeginRefusals() {
 	section("Pin claim: refusals change nothing");
 
-	uiInitTester();
 	freshPump();
+	uiInitTester();
 	removeJobs();
 	checkControlTable("tester, disarmed");
 
@@ -277,16 +285,27 @@ static void testBeginRefusals() {
 	fakeRelease(); frames(2);
 	checkTrue("armed through the UI", uiArmed());
 	checkControlTable("tester, armed");
-	int resumes = fakeResumeCount();
+	int parks = fakeParkCount();
 	checkTrue("armed: refused", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::Armed);
 	checkTrue("the claim stays free", pinClaimState() == ClaimState::Free);
-	checkTrue("DShot keeps the pins", fakePinReturned());
+	checkTrue("DShot keeps the pins", fakePinReturned() && escTaskRunning());
 	checkTrue("and the claim does not disarm", fakeArmed() && uiArmed());
 	pressId(UI_FIX(TesterCtl::Arm));
 	fakeRelease(); frames(2);
 	checkTrue("disarmed again", !uiArmed());
+	// Run is wanted while the tester is open: Busy, a backstop, since no
+	// route opens a claim from ESC TESTER (docs/design/dshot-lifetime.md).
+	checkTrue("disarmed on the tester, Run wanted: busy",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::Busy);
+	checkTrue("DShot runs on", fakePinReturned() && escTaskRunning() && fakeParkCount() == parks);
 
+	// MENU: Run is no longer wanted, and the pump parks.
+	tapId(UI_FIX(TesterCtl::Menu));
+	frames(2);
+	checkTrue("MENU: parked", uiCurrentScreen() == UiScreenId::Menu && escTaskParked() &&
+	          fakeParkCount() == parks + 1);
 	fakeAdvance(1000);
+	parks = fakeParkCount();
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	checkTrue("a second AM32 claim: busy",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::Busy);
@@ -295,13 +314,15 @@ static void testBeginRefusals() {
 	checkTrue("the holder is AM32", pinClaimHolder() == PinUser::Am32);
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK from a screen that does not hold it does nothing",
-	          pinClaimHolder() == PinUser::Am32 && fakeResumeCount() == resumes);
+	          pinClaimHolder() == PinUser::Am32 && fakeParkCount() == parks);
 	checkTrue("back to free", toFree());
 
+	// The ESC check: with DShot parked nothing answers, so it refuses only
+	// within 500 ms of the last answer (decision 7).
 	escAnswered(499);
 	checkTrue("ESC answering: SERVO waits",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::EscAnswering);
-	checkTrue("DShot still runs", fakePinReturned());
+	checkTrue("DShot stays parked", escTaskParked() && !fakePinReturned());
 	fakeAdvance(1);
 	checkTrue("500 ms after the last eRPM: it claims",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
@@ -558,80 +579,105 @@ static void testHandoverSlots() {
 	          h->suspended && h->teardownMs == at);
 }
 
-/** @brief The drain, through the claim and the fake pump. */
+/**
+ * @brief The drain after a running tester, through the claim and the fake
+ *        pump: Busy while Run is wanted; after pinClaimDshot(false) a claim
+ *        waits in Stopping for the rest of the drain, then Held. With no
+ *        drain owed a claim is Held on the first pass.
+ */
 static void testDrain() {
-	section("Pin claim: the drain before teardown");
+	section("Pin claim: the drain after a running tester");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	removeJobs();
+	pinClaimDshot(true);
+	pump();
+	checkTrue("Run: the pump binds", escTaskRunning() && pinClaimDshotRunning());
+	checkTrue("Run wanted: a claim is busy",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::Busy);
 	escSetArmed(true);
 	escSetThrottle(300);
 	pump();
 	uint32_t stamp = fakeLastThrottleMs();
 	checkInt("one throttle frame out", stamp, millis());
-	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
-	checkTrue("the claim forces a disarm", !fakeArmed() && fakeThrottle() == 0);
+	int parks = fakeParkCount();
+	fakeAdvance(100);
+	pinClaimDshot(false);
+	checkTrue("Run no longer wanted: Park asked, the tester disarmed",
+	          fakeParkCount() == parks + 1 && !fakeArmed() && fakeThrottle() == 0);
+	checkTrue("not running", !pinClaimDshotRunning());
+	checkTrue("100 ms after the throttle frame: the claim is not busy",
+	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	checkTrue("stopping", pinClaimPoll() == ClaimState::Stopping);
-	fakeAdvance(250);
+	fakeAdvance(150);
 	pump();
-	checkTrue("no teardown 250 ms after the throttle frame",
+	checkTrue("still stopping 250 ms after the throttle frame",
 	          pinClaimPoll() == ClaimState::Stopping && !escTaskSuspended());
+	checkTrue("zero frames meanwhile", fakeLastFrame().throttle == 0 && !fakeLastFrame().sendCommand);
 	checkTrue("no GPIO latched yet", pinClaimGpio(PIN_SIG) == PIN_CLAIM_NO_GPIO);
 	fakeAdvance(1);
 	pump();
 	checkTrue("held at 251 ms", pinClaimPoll() == ClaimState::Held);
 	checkTrue("back to free", toFree());
+	checkTrue("parked", escTaskParked());
 
 	fakeAdvance(5000);
-	checkTrue("after a long disarm", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
+	checkTrue("no drain owed: claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	checkTrue("held after one pump pass", pinClaimPoll() == ClaimState::Held);
 	checkTrue("back to free", toFree());
 }
 
-/** @brief Restoring lasts until core1 has rebuilt the pump. */
+/** @brief Parking lasts until core1 has parked the pins; no bind. */
 static void testRestoring() {
-	section("Pin claim: restoring until the pump runs");
+	section("Pin claim: parking until the pins are parked");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	removeJobs();
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
+	int parks = fakeParkCount();
 	int resumes = fakeResumeCount();
 	int rebuilds = fakeRebuildCount();
 	pinClaimEnd(PinUser::Am32);
-	checkInt("BACK asks for DShot", fakeResumeCount(), resumes + 1);
-	checkTrue("restoring until core1 rebuilds the pump",
-	          pinClaimState() == ClaimState::Restoring);
+	checkInt("BACK asks for Park", fakeParkCount(), parks + 1);
+	checkInt("and not for Run", fakeResumeCount(), resumes);
+	checkTrue("parking until core1 parks the pins",
+	          pinClaimState() == ClaimState::Parking);
 	checkTrue("still AM32's", pinClaimHolder() == PinUser::Am32);
-	checkTrue("a SERVO claim while restoring: busy",
+	checkTrue("a SERVO claim while parking: busy",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::Busy);
-	checkTrue("a new AM32 claim while restoring: busy",
+	checkTrue("a new AM32 claim while parking: busy",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::Busy);
+	pinClaimDshot(true);
+	checkTrue("Run while parking does nothing", fakeResumeCount() == resumes &&
+	          pinClaimState() == ClaimState::Parking);
 	pinClaimEnd(PinUser::Am32);
-	checkTrue("BACK while restoring does nothing",
-	          pinClaimState() == ClaimState::Restoring && fakeResumeCount() == resumes + 1);
-	checkTrue("nor does a poll", pinClaimPoll() == ClaimState::Restoring);
+	checkTrue("BACK while parking does nothing",
+	          pinClaimState() == ClaimState::Parking && fakeParkCount() == parks + 1);
+	checkTrue("nor does a poll", pinClaimPoll() == ClaimState::Parking);
 	pump();
-	checkInt("no GPIO once the pump runs, asked before anything else",
+	checkInt("no GPIO once parked, asked before anything else",
 	         pinClaimGpio(PIN_SIG), PIN_CLAIM_NO_GPIO);
-	checkInt("core1 rebuilds once", fakeRebuildCount(), rebuilds + 1);
-	checkTrue("free once the pump runs", pinClaimState() == ClaimState::Free &&
-	                                     pinClaimHolder() == PinUser::None);
+	checkInt("core1 binds nothing", fakeRebuildCount(), rebuilds);
+	checkTrue("SIG driven low, AUX on its pull-down", escTaskParked() &&
+	          padLow(SIG_GPIO) && padOff(AUX_GPIO));
+	checkTrue("free once parked", pinClaimState() == ClaimState::Free &&
+	                              pinClaimHolder() == PinUser::None);
 }
 
 /** @brief The order of the two cores' steps through a SERVO claim. */
 static void testOrder() {
 	section("Pin claim: order of the handover");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	installJobs();
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 
 	checkTrue("two servos claim",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG | PIN_AUX) == ClaimRefusal::None);
@@ -660,9 +706,9 @@ static void testOrder() {
 	checkTrue("the job is asked to stop", core1JobPhase() == Core1JobPhase::Stopping);
 	checkTrue("leaving until core1 releases", pinClaimPoll() == ClaimState::Leaving);
 	checkTrue("no unplug page while the job holds the pins", !pinClaimUnplugDue());
-	pinClaimRestart(PinUser::Servo);
-	checkInt("RESTART DSHOT before the job is idle does nothing",
-	         fakeResumeCount(), resumes);
+	pinClaimRelease(PinUser::Servo);
+	checkInt("the last button before the job is idle does nothing",
+	         fakeParkCount(), resumes);
 
 	core1JobPoll();
 	checkInt("core1 releases once", g_servoJob.releases, 1);
@@ -671,17 +717,19 @@ static void testOrder() {
 	checkTrue("the unplug page is due", pinClaimUnplugDue());
 	pinClaimPoll();
 	pinClaimPoll();
-	checkInt("no DShot until RESTART DSHOT", fakeResumeCount(), resumes);
-	pinClaimRestart(PinUser::Am32);
-	checkInt("RESTART from a screen that does not hold it does nothing",
-	         fakeResumeCount(), resumes);
+	checkInt("no park until the last button", fakeParkCount(), resumes);
+	pinClaimRelease(PinUser::Am32);
+	checkInt("the last button from a screen that does not hold it does nothing",
+	         fakeParkCount(), resumes);
 
-	pinClaimRestart(PinUser::Servo);
-	checkInt("RESTART DSHOT resumes the pump", fakeResumeCount(), resumes + 1);
-	checkTrue("with the job idle", fakeResumeJobIdle());
-	checkTrue("restoring", pinClaimPoll() == ClaimState::Restoring);
+	int binds = fakeRebuildCount();
+	pinClaimRelease(PinUser::Servo);
+	checkInt("the last button parks the pins", fakeParkCount(), resumes + 1);
+	checkTrue("with the job idle", fakeParkJobIdle());
+	checkTrue("parking", pinClaimPoll() == ClaimState::Parking);
 	pump();
-	checkTrue("free once the pump runs", pinClaimPoll() == ClaimState::Free);
+	checkTrue("free once parked, no bind", pinClaimPoll() == ClaimState::Free &&
+	          escTaskParked() && fakeRebuildCount() == binds);
 	checkTrue("nothing held", pinClaimHolder() == PinUser::None);
 	checkInt("no GPIO is latched after Free", pinClaimGpio(PIN_SIG), PIN_CLAIM_NO_GPIO);
 
@@ -701,8 +749,8 @@ static void testOrder() {
 	checkTrue("KST gets the unplug page too", pinClaimUnplugDue());
 	checkTrue("back to free", toFree());
 
-	// AM32: no job, no unplug page, DShot asked for within the BACK call.
-	resumes = fakeResumeCount();
+	// AM32: no job, no unplug page, Park asked for within the BACK call.
+	resumes = fakeParkCount();
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
@@ -711,7 +759,7 @@ static void testOrder() {
 	checkTrue("AM32 stays held", pinClaimState() == ClaimState::Held);
 	pinClaimEnd(PinUser::Am32);
 	checkTrue("AM32 gets no unplug page", !pinClaimUnplugDue());
-	checkInt("DShot resumes within BACK", fakeResumeCount(), resumes + 1);
+	checkInt("parks within BACK", fakeParkCount(), resumes + 1);
 	pump();
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	removeJobs();
@@ -721,7 +769,7 @@ static void testOrder() {
 static void testJobGuard() {
 	section("Core1 jobs: start is refused unless DShot is down");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	installJobs();
 
@@ -815,37 +863,45 @@ static void heldWithBind() {
 static void testBackEveryState() {
 	section("Pin claim: BACK in every state");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	installJobs();
 	int resumes;
 
-	// Stopping: a throttle frame went out on the last pump pass, so the drain
-	// holds the claim.
+	// Stopping: the tester ran and sent a throttle frame on the last pump
+	// pass, and was left, so the drain holds the claim.
+	pinClaimDshot(true);
+	pump();
 	escSetArmed(true);
 	escSetThrottle(200);
 	pump();
-	resumes = fakeResumeCount();
+	pinClaimDshot(false);
+	resumes = fakeParkCount();
 	checkTrue("SERVO claims during a drain",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	checkTrue("stopping", pinClaimPoll() == ClaimState::Stopping);
 	pinClaimEnd(PinUser::Servo);
-	checkInt("BACK while stopping: DShot back at once", fakeResumeCount(), resumes + 1);
-	checkTrue("free: the pump never let go", pinClaimState() == ClaimState::Free);
+	checkInt("BACK while stopping: Park asked at once", fakeParkCount(), resumes + 1);
+	checkTrue("parking while the drain runs on", pinClaimState() == ClaimState::Parking &&
+	          !escTaskParked());
+	fakeAdvance(251);
+	pump();
+	checkTrue("free once the drain is out and the pins parked",
+	          pinClaimState() == ClaimState::Free && escTaskParked());
 	checkInt("and no job was ever bound", g_servoJob.binds, 0);
 	fakeAdvance(1000);
 
 	// Stopping, with the pump torn down before any poll has seen it.
 	checkTrue("claims", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	pump();
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	pinClaimEnd(PinUser::Servo);
-	checkTrue("BACK while stopping after the teardown: restoring",
-	          fakeResumeCount() == resumes + 1 &&
-	          pinClaimState() == ClaimState::Restoring);
+	checkTrue("BACK while stopping after the release: parking",
+	          fakeParkCount() == resumes + 1 &&
+	          pinClaimState() == ClaimState::Parking);
 	pump();
-	checkTrue("free once the pump runs", pinClaimState() == ClaimState::Free);
+	checkTrue("free once parked", pinClaimState() == ClaimState::Free);
 	checkInt("still no job bound", g_servoJob.binds, 0);
 
 	// Held, the job asked for and not yet bound.
@@ -860,7 +916,7 @@ static void testBackEveryState() {
 	checkTrue("unplug page", pinClaimUnplugDue());
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK again while leaving does nothing", pinClaimState() == ClaimState::Leaving);
-	pinClaimRestart(PinUser::Servo);
+	pinClaimRelease(PinUser::Servo);
 	pump();
 	checkTrue("free", pinClaimPoll() == ClaimState::Free);
 	pinClaimEnd(PinUser::Servo);
@@ -874,14 +930,14 @@ static void testBackEveryState() {
 	checkTrue("binds nothing, so releases nothing", g_servoJob.releases == 0 &&
 	                                               core1JobPhase() == Core1JobPhase::Idle);
 	checkTrue("and core1 holds no job", core1JobRunning() == Core1Job::None);
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK after a failed bind: the unplug page", pinClaimUnplugDue());
 	pinClaimRetry(PinUser::Servo);
 	checkTrue("RETRY while leaving does nothing",
 	          core1JobPhase() == Core1JobPhase::Idle && pinClaimUnplugDue());
-	pinClaimRestart(PinUser::Servo);
-	checkInt("then DShot", fakeResumeCount(), resumes + 1);
+	pinClaimRelease(PinUser::Servo);
+	checkInt("then the park", fakeParkCount(), resumes + 1);
 	pump();
 	checkTrue("free", pinClaimPoll() == ClaimState::Free);
 	checkTrue("the next claim starts with no error",
@@ -893,7 +949,7 @@ static void testBackEveryState() {
 	heldWithBind();
 	checkInt("failed again", pinClaimJobError(), CORE1_JOB_PWM);
 	int binds = g_servoJob.binds;
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	pinClaimRetry(PinUser::Am32);
 	checkTrue("RETRY from a screen that does not hold it does nothing",
 	          core1JobPhase() == Core1JobPhase::Idle);
@@ -909,7 +965,7 @@ static void testBackEveryState() {
 	checkTrue("it binds", g_servoJob.binds == binds + 1 &&
 	                      pinClaimPoll() == ClaimState::Running);
 	checkInt("and the last failure is cleared", core1JobError(), CORE1_JOB_OK);
-	checkInt("DShot stayed down", fakeResumeCount(), resumes);
+	checkInt("no park meanwhile", fakeParkCount(), resumes);
 	pinClaimRetry(PinUser::Servo);
 	checkTrue("RETRY while running does nothing", pinClaimState() == ClaimState::Running &&
 	                                              core1JobPhase() == Core1JobPhase::Running);
@@ -930,7 +986,7 @@ static void testBackEveryState() {
 	checkInt("RETRY is refused the same way", pinClaimJobError(), CORE1_JOB_REFUSED);
 	pinClaimEnd(PinUser::Servo);
 	checkTrue("BACK: the unplug page", pinClaimUnplugDue());
-	pinClaimRestart(PinUser::Servo);
+	pinClaimRelease(PinUser::Servo);
 	pump();
 	checkTrue("free", pinClaimPoll() == ClaimState::Free);
 	installJobs();
@@ -944,14 +1000,14 @@ static void testBackEveryState() {
 	pinClaimEnd(PinUser::Servo);
 	core1JobPoll();
 	pinClaimPoll();
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	pinClaimKeep(PinUser::Am32);
 	checkTrue("KEEP from a screen that does not hold it does nothing", pinClaimUnplugDue());
 	pinClaimKeep(PinUser::Servo);
 	checkTrue("BACK on the unplug page: held again", pinClaimState() == ClaimState::Held);
-	checkInt("DShot stays down", fakeResumeCount(), resumes);
-	pinClaimRestart(PinUser::Servo);
-	checkTrue("RESTART is not due while held", pinClaimState() == ClaimState::Held);
+	checkInt("no park", fakeParkCount(), resumes);
+	pinClaimRelease(PinUser::Servo);
+	checkTrue("the last button is not due while held", pinClaimState() == ClaimState::Held);
 	core1JobPoll();
 	checkTrue("the job binds again", g_servoJob.binds == 2 &&
 	                                 pinClaimPoll() == ClaimState::Running);
@@ -975,7 +1031,7 @@ static const Core1JobOps FAKE_HITEC = { hitecBind, hitecStep, hitecRelease, null
 static void testDeferredJob() {
 	section("Pin claim: HITEC holds SIG before its job");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	installJobs();
 	memset(&g_hitecJob, 0, sizeof(g_hitecJob));
@@ -983,7 +1039,7 @@ static void testDeferredJob() {
 	checkTrue("HITEC and ESC SETTINGS defer their jobs", pinUserInfo(PinUser::Hitec).deferJob &&
 	          !pinUserInfo(PinUser::Servo).deferJob && !pinUserInfo(PinUser::Kst).deferJob &&
 	          pinUserInfo(PinUser::Am32).deferJob);
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 	checkTrue("HITEC claims", pinClaimBegin(PinUser::Hitec, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	checkTrue("held", pinClaimPoll() == ClaimState::Held);
@@ -1009,7 +1065,7 @@ static void testDeferredJob() {
 	checkTrue("BACK on the unplug page: held, still no job",
 	          pinClaimPoll() == ClaimState::Held && g_hitecJob.binds == 0 &&
 	          core1JobPhase() == Core1JobPhase::Idle);
-	checkInt("DShot stayed down", fakeResumeCount(), resumes);
+	checkInt("DShot stayed down", fakeParkCount(), resumes);
 
 	// The tap: the job starts and binds.
 	pinClaimStartJob(PinUser::Hitec);
@@ -1063,9 +1119,9 @@ static void testDeferredJob() {
 
 /** @brief The rebuild after a claim uses the wiring from before it. */
 static void testRestore() {
-	section("Pin claim: DShot comes back as it was");
+	section("Pin claim: the pins park as they were, and DShot binds them so");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	installJobs();
 	escTaskConfigure(SIG_GPIO, 300, true, AUX_GPIO);
@@ -1081,9 +1137,15 @@ static void testRestore() {
 	core1JobPoll();
 	pinClaimPoll();
 	checkTrue("back to free", toFree());
+	checkTrue("parked on the same SIG", escTaskParked() && padLow(before.dshotPin));
 
+	// The next ESC TESTER or ESC COMMANDS binds the wiring as it was.
+	pinClaimDshot(true);
+	pump();
 	FakeWiring at = fakeResumeWiring();
-	checkInt("the rebuild binds the same ESC pin", at.dshotPin, before.dshotPin);
+	pinClaimDshot(false);
+	pump();
+	checkInt("the next bind takes the same ESC pin", at.dshotPin, before.dshotPin);
 	checkInt("at the same bitrate", at.dshotKbaud, before.dshotKbaud);
 	checkTrue("with KISS as it was", at.kissEnable == before.kissEnable);
 	checkInt("on the same KISS pin", at.kissPin, before.kissPin);
@@ -1121,7 +1183,7 @@ static void testHeartbeat() {
 	checkTrue("a stamp 0x90000000 ms old: dead", !escUiAlive(0x90000000u, 0u));
 	checkTrue("a stamp 2^32 - 251 ms old: dead", !escUiAlive(0xFFFFFF05u, 0u));
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	installJobs();
 
@@ -1168,7 +1230,7 @@ static void testHeartbeat() {
 static void testNoSaveDuringClaim() {
 	section("Pin claim: no flash write while it holds");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	fakeFlashClear();
 	settingsLoad();
@@ -1198,7 +1260,7 @@ static void testNoSaveDuringClaim() {
 static void testLeavePagePerClaim() {
 	section("Pin claim: the leave page per claim");
 
-	uiInitTester();
+	uiInitMenu();
 	freshPump();
 	installJobs();
 
@@ -1207,7 +1269,7 @@ static void testLeavePagePerClaim() {
 	checkTrue("asked for while Free: nothing", !pinClaimLeavePage());
 
 	// An AM32 claim as before: DShot within BACK.
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 	checkTrue("AM32 claims", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	checkTrue("its user's row: no leave page", !pinClaimLeavePage());
 	pump();
@@ -1215,15 +1277,15 @@ static void testLeavePagePerClaim() {
 	pinClaimWantLeavePage(PinUser::Servo);
 	checkTrue("asked for by a screen that does not hold it: nothing", !pinClaimLeavePage());
 	pinClaimEnd(PinUser::Am32);
-	checkInt("no EFM8 answer: DShot resumes within pinClaimEnd()", fakeResumeCount(), resumes + 1);
-	checkTrue("restoring, no page due", pinClaimState() == ClaimState::Restoring && !pinClaimUnplugDue());
+	checkInt("no EFM8 answer: DShot resumes within pinClaimEnd()", fakeParkCount(), resumes + 1);
+	checkTrue("restoring, no page due", pinClaimState() == ClaimState::Parking && !pinClaimUnplugDue());
 	pinClaimWantLeavePage(PinUser::Am32);
 	checkTrue("asked for after the end: nothing", !pinClaimLeavePage());
 	pump();
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
 	// The same user, given the page while Held: DShot waits.
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	checkTrue("AM32 claims again", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	pinClaimWantLeavePage(PinUser::Am32);
 	checkTrue("given while Stopping: the page", pinClaimLeavePage());
@@ -1232,30 +1294,30 @@ static void testLeavePagePerClaim() {
 	checkTrue("no job", core1JobRunning() == Core1Job::None);
 	pinClaimEnd(PinUser::Am32);
 	checkTrue("BACK: leaving, DShot not asked", pinClaimState() == ClaimState::Leaving &&
-	          fakeResumeCount() == resumes);
+	          fakeParkCount() == resumes);
 	checkTrue("the page is due at once: no job to wait for", pinClaimUnplugDue());
 	for (int i = 0; i < 3; i++) { pump(); pinClaimPoll(); }
 	checkTrue("and stays due, DShot down", pinClaimState() == ClaimState::Leaving &&
-	          fakeResumeCount() == resumes && escTaskSuspended());
+	          fakeParkCount() == resumes && escTaskSuspended());
 	pinClaimKeep(PinUser::Servo);
-	pinClaimRestart(PinUser::Servo);
+	pinClaimRelease(PinUser::Servo);
 	checkTrue("RESTART from another screen: nothing", pinClaimState() == ClaimState::Leaving &&
-	          fakeResumeCount() == resumes);
-	pinClaimRestart(PinUser::Am32);
-	checkInt("RESTART DSHOT resumes the pump", fakeResumeCount(), resumes + 1);
-	checkTrue("restoring", pinClaimState() == ClaimState::Restoring);
+	          fakeParkCount() == resumes);
+	pinClaimRelease(PinUser::Am32);
+	checkInt("RESTART DSHOT resumes the pump", fakeParkCount(), resumes + 1);
+	checkTrue("restoring", pinClaimState() == ClaimState::Parking);
 	pump();
 	checkTrue("free, the page gone with the claim", pinClaimState() == ClaimState::Free &&
 	          !pinClaimLeavePage());
 
 	// The next AM32 claim starts without it.
-	resumes = fakeResumeCount();
+	resumes = fakeParkCount();
 	checkTrue("AM32 claims a third time", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	pump();
 	pinClaimPoll();
 	checkTrue("no page from the claim before", !pinClaimLeavePage());
 	pinClaimEnd(PinUser::Am32);
-	checkInt("DShot within pinClaimEnd() again", fakeResumeCount(), resumes + 1);
+	checkInt("DShot within pinClaimEnd() again", fakeParkCount(), resumes + 1);
 	pump();
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
@@ -1273,7 +1335,7 @@ static void testAm32Screen() {
 	uiInitTester();
 	freshPump();
 	frames(2);
-	int resumes = fakeResumeCount();
+	int resumes = fakeParkCount();
 
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
@@ -1291,17 +1353,17 @@ static void testAm32Screen() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from AM32 returns to ESC CONFIG, its opener",
 	          uiCurrentScreen() == UiScreenId::EscConfig);
-	checkTrue("BACK gives DShot the pin, no unplug page",
-	          fakePinReturned() && !pinClaimUnplugDue());
-	checkTrue("the transport let go before DShot was asked back",
+	checkTrue("BACK parks the pins, no unplug page, no DShot",
+	          !fakePinReturned() && !pinClaimUnplugDue());
+	checkTrue("the transport let go before the park was asked",
 	          fakeAm32EndBeforeResume());
-	checkInt("resumed once", fakeResumeCount(), resumes + 1);
-	checkTrue("restoring until core1's next pass",
-	          pinClaimState() == ClaimState::Restoring);
+	checkInt("parked once", fakeParkCount(), resumes + 1);
+	checkTrue("parking until core1's next pass",
+	          pinClaimState() == ClaimState::Parking);
 	frames(1);
 
 	// Out to the tester and into AM32 again, with no claim call from the test
-	// in between: only the screens' own calls see Restoring end.
+	// in between: only the screens' own calls see Parking end.
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from ESC CONFIG returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	openTester();
@@ -1365,7 +1427,7 @@ static void testAm32Screen() {
 	frames(1);
 	checkControlTable("ESC CONFIG, the pins busy");
 	const UiControlId entry = UI_FIX(EscCfgCtl::Settings);
-	checkTrue("ESC CONFIG: ESC SETTINGS drawn disabled, the strip DSHOT RESTARTING", busyShown(entry));
+	checkTrue("ESC CONFIG: ESC SETTINGS drawn disabled, the strip's busy caption", busyShown(entry));
 	checkTrue("and its entry does not act", !ctlEnabled(entry));
 	tapId(entry, IdExpect::Disabled);
 	frames(1);
@@ -1888,6 +1950,7 @@ static void testBoundMs() {
 	checkInt("0 before the first bind", escTaskBoundMs(), 0);
 	checkTrue("and no mode reported",
 	          !escTaskRunning() && !escTaskParked() && !escTaskSuspended());
+	escTaskStart();
 	freshPump();
 	removeJobs();
 	fakePwmReset();

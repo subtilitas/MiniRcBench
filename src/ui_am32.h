@@ -228,8 +228,8 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_EXIT_HEAD "LEAVING"
 /** @brief Under it, first line: 30 characters. */
 #define AM32_UI_EXIT_1 "THE ESC STARTS ITS FIRMWARE ON"
-/** @brief Second line: 26 characters. */
-#define AM32_UI_EXIT_2 "LEAVE, THEN DSHOT RETURNS."
+/** @brief Second line: 31 characters. ESC TESTER's DShot runs it, not the leave. */
+#define AM32_UI_EXIT_2 "LEAVE. ESC TESTER THEN RUNS IT."
 /** @brief Third line: 23 characters. */
 #define AM32_UI_EXIT_3 "KEEP THE PROPELLER OFF."
 /** @brief The status while LEAVE runs: 20 characters. */
@@ -251,8 +251,13 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_LEAVE_1A "ITS BOOTLOADER WAITS FOR COMMANDS"
 /** @brief Step 1's second detail line: 26 characters, 155 px. */
 #define AM32_UI_LEAVE_1B "AND MAY READ DSHOT AS ONE."
-/** @brief Step 2: 31 characters, 185 px. */
-#define AM32_UI_LEAVE_2 "PLUG IT IN AFTER RESTART DSHOT."
+/**
+ * @brief Step 2, with the title of the hub ESC SETTINGS returns to for `%s`:
+ *        `PLUG IT IN ONCE ESC CONFIG SHOWS.`, 33 characters. SIG is parked
+ *        low by then, where an EFM8 does not enter its bootloader (from
+ *        source, not measured).
+ */
+#define AM32_UI_LEAVE_2 "PLUG IT IN ONCE %s SHOWS."
 /** @} */
 
 /** @brief The connect page's last line under a reply it could not parse. */
@@ -294,7 +299,7 @@ enum class Am32Ctl : uint8_t {
 	WriteHold,                /**< ESC WRITE's HOLD TO WRITE, 1000 ms: the write. */
 	Stay,                     /**< STAY on the leave page, before LEAVE: back to the screen. */
 	Leave,                    /**< LEAVE on the leave page: the transport lets go of SIG. */
-	Restart,                  /**< RESTART DSHOT in LEAVE's place, live 1000 ms after SIG is let go. */
+	Release,                  /**< The hub's title in LEAVE's place: parks the pins and returns to the hub, live 1000 ms after SIG is let go. */
 	ReadAgain,                /**< READ AGAIN in WRITE...'s place on the EFM8 list, after a write that needs a read. */
 	OldPage,                  /**< OLD PAGE on the connect page: the page kept from a session that ended half written. */
 };

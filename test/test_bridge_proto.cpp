@@ -61,6 +61,9 @@ static void run(uint32_t ms) {
 }
 
 static void freshPump() {
+	// A hub's frame: Run not wanted, so a claim is not Busy
+	// (docs/design/dshot-lifetime.md).
+	pinClaimDshot(false);
 	escTaskConfigure(0, 600, true, 1);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -84,7 +87,7 @@ static bool openBridge() {
 static void endBridge() {
 	pinClaimEnd(PinUser::Bridge);
 	for (int i = 0; i < 2000 && pinClaimState() != ClaimState::Free; i++) {
-		pinClaimRestart(PinUser::Bridge);
+		pinClaimRelease(PinUser::Bridge);
 		pass();
 	}
 	usbBridgeWriteUnfinishedClear();
@@ -94,7 +97,7 @@ static void endBridge() {
 static void fresh(FakeEscReply r) {
 	for (int k = 0; k < 2000 && pinClaimState() != ClaimState::Free; k++) {
 		pinClaimEnd(PinUser::Bridge);
-		pinClaimRestart(PinUser::Bridge);
+		pinClaimRelease(PinUser::Bridge);
 		pass();
 	}
 	// Ends the claim, then clears the unfinished write as the screen's

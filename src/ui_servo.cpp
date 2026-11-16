@@ -1387,15 +1387,15 @@ static void setTouch() {
 static void drawLeave() {
 	uint32_t now = millis();
 	struct {
-		bool    back, left, wide, live, restartPress, released, two;
+		bool    back, left, wide, live, releasePress, released, two;
 		uint8_t sig, aux;
 	} k;
 	memset(&k, 0, sizeof(k));
 	k.back = uiPressing(uiBackRect(), s_t);
 	k.left = uiPressing(UI_LEAVE_LEFT, s_t);
 	k.wide = uiPressing(UI_LEAVE_WIDE, s_t);
-	k.live = uiLeaveRestartLive(&s_leave, now);
-	k.restartPress = s_leave.restartPress;
+	k.live = uiLeaveReleaseLive(&s_leave, now);
+	k.releasePress = s_leave.releasePress;
 	k.released = s_leave.phase == UiLeavePhase::Released;
 	k.two = pinClaimGpio(PIN_AUX) != PIN_CLAIM_NO_GPIO;
 	k.sig = gpioOf(PIN_SIG);
@@ -1410,8 +1410,8 @@ static void drawLeave() {
 	static char dshot[40];
 	UiLeaveText tx;
 	memset(&tx, 0, sizeof(tx));
-	uiLeaveUnplugSteps(&tx, 0, k.sig, dshot, sizeof(dshot));
-	tx.next = "BACK TO SERVO";
+	uiLeaveUnplugSteps(&tx, 0, k.sig, uiNavOpenerTitle(), dshot, sizeof(dshot));
+	tx.next = "NEXT SERVO";
 	if (!k.released) tx.note[0] = k.two ? SERVO_UI_RELEASING_TWO : UI_LEAVE_RELEASING;
 	uiLeaveDraw(&s_leave, tx, s_t, now);
 }
@@ -1424,10 +1424,10 @@ uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	if (s_view == View::Leave) {
 		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
-		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::BackToServo), UI_LEAVE_LEFT,
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::NextServo), UI_LEAVE_LEFT,
 		             s_leave.phase == UiLeavePhase::Released);
-		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Restart), UI_LEAVE_WIDE,
-		             uiLeaveRestartLive(&s_leave, millis()));
+		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Release), UI_LEAVE_WIDE,
+		             uiLeaveReleaseLive(&s_leave, millis()));
 		return n;
 	}
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
@@ -1540,7 +1540,7 @@ bool uiServoTick(const TouchState *t) {
 			startStepsDrop();
 			pinClaimEnd(PinUser::Servo);
 			ClaimState cs = pinClaimState();
-			if (cs == ClaimState::Free || cs == ClaimState::Restoring) return false;
+			if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
 			s_view = View::Leave;
 			// RESTART DSHOT waits 1000 ms after the pins are let go: about
 			// 41 ms after BACK at 50 Hz, so a double tap restarts nothing.
@@ -1554,10 +1554,10 @@ bool uiServoTick(const TouchState *t) {
 	if (s_view == View::Leave) {
 		uiLeavePoll(&s_leave, pinClaimUnplugDue(), millis());
 		UiLeaveEv ev = uiLeaveTouch(&s_leave, s_t, millis());
-		// pinClaimKeep() and pinClaimRestart() act only while the pins are
+		// pinClaimKeep() and pinClaimRelease() act only while the pins are
 		// let go.
-		if (ev == UiLeaveEv::Restart && pinClaimUnplugDue()) {
-			pinClaimRestart(PinUser::Servo);
+		if (ev == UiLeaveEv::Release && pinClaimUnplugDue()) {
+			pinClaimRelease(PinUser::Servo);
 			return false;
 		}
 		if (ev == UiLeaveEv::Next && pinClaimUnplugDue()) {

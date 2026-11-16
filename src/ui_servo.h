@@ -187,8 +187,8 @@ enum class ServoCtl : uint8_t {
 	EditMinus, EditPlus,          /**< SET's editor bar, while a row is selected. */
 	Apply,                        /**< HOLD TO APPLY. */
 	Defaults,                     /**< DEFAULTS, or STOP. */
-	Restart,                      /**< RESTART DSHOT on the leave page, live 1000 ms after the pins are let go. */
-	BackToServo,                  /**< BACK TO SERVO on the leave page: the claim kept, SERVO TESTER SAFE. */
+	Release,                      /**< The hub's title on the leave page: parks the pins and returns to the hub, live 1000 ms after the pins are let go. */
+	NextServo,                    /**< NEXT SERVO on the leave page: the claim kept, SERVO TESTER SAFE. */
 };
 
 

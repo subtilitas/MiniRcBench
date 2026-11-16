@@ -25,17 +25,23 @@ static bool       s_jobPending = false;
 /** @brief Held starts the job: from pinClaimBegin(), or pinClaimStartJob() for a deferring user. */
 static bool       s_jobWanted = false;
 /**
- * @brief This claim shows the leave page before DShot restarts: its user's
+ * @brief This claim shows the leave page before the pins park: its user's
  *        PinUserInfo::unplug from pinClaimBegin(), or pinClaimWantLeavePage().
  */
 static bool       s_unplug = false;
+/**
+ * @brief Run is wanted: the claim's own record of its last pinClaimDshot()
+ *        that acted, not the pump's state. True from pinClaimDshot(true)
+ *        to pinClaimDshot(false); a claim is Busy meanwhile.
+ */
+static bool       s_dshotWanted = false;
 /** @} */
 
 /** @brief The core1 job a screen runs. @see PIN_USERS */
 static Core1Job jobFor(PinUser who) { return pinUserInfo(who).job; }
 
 /**
- * @brief The claim shows the leave page before DShot restarts: SERVO, KST,
+ * @brief The claim shows the leave page before the pins park: SERVO, KST,
  *        HITEC and the S.BUS monitor always, AM32 once an EFM8 bootloader
  *        answered, the USB bridge once it asks. @see PIN_USERS,
  *        pinClaimWantLeavePage()
@@ -54,26 +60,28 @@ static void startJob() {
 }
 
 /**
- * @brief DShot back. A torn-down pump rebuilds from the latched wiring; a
- *        draining one runs on.
+ * @brief The pins back to the pump, parked: core1 parks SIG low and AUX on
+ *        its pull-down, and the claim is Free once escTaskParked(). No
+ *        DShot starts (docs/design/dshot-lifetime.md, "The pin claim").
  */
 static void restore() {
-	escTaskStart();
-	s_state = ClaimState::Restoring;
+	escTaskPark();
+	s_state = ClaimState::Parking;
 }
 
 /**
- * @brief Leaving: restore once the job is idle, unless the leave page is due.
+ * @brief Leaving: park once the job is idle, unless the leave page is due.
  *
- * SERVO, KST, HITEC and the S.BUS monitor wait for RESTART DSHOT, which
+ * SERVO, KST, HITEC and the S.BUS monitor wait for the page's last button,
+ * which
  * pinClaimUnplugDue() offers only once their job is idle; so does an AM32
  * claim after an EFM8 bootloader answered (pinClaimWantLeavePage()), which
  * ESC SETTINGS asks for before it starts its job. Any other AM32 claim has
- * neither a job nor the page, so it restores within the call that ended it.
- * The USB bridge has a job and no page: it restores on
- * the first look at the claim that finds its job idle, settle()'s included,
- * so DShot is never rebuilt on a pin the job's state machines still drive,
- * and comes back after a screen that ended the claim and closed.
+ * neither a job nor the page, so it parks within the call that ended it.
+ * The USB bridge has a job and no page: it parks on the first look at the
+ * claim that finds its job idle, settle()'s included, so the park never
+ * touches a pin the job's state machines still drive, and follows a screen
+ * that ended the claim and closed.
  */
 static void leaveStep() {
 	if (needsUnplug()) return;
@@ -83,14 +91,14 @@ static void leaveStep() {
 
 /**
  * @brief Leaving moves on without its screen: a claim without the leave page
- *        restores once its job is idle. Restoring ends when the pump runs
- *        again. Run by every call that reads or changes the claim, so a
+ *        parks once its job is idle. Parking ends when core1 reports the
+ *        pins parked. Run by every call that reads or changes the claim, so a
  *        screen that ended the claim and closed, as ESC SETTINGS does,
  *        leaves no claim behind for MENU's look at it.
  */
 static void settle() {
 	if (s_state == ClaimState::Leaving) leaveStep();
-	if (s_state != ClaimState::Restoring || escTaskSuspended()) return;
+	if (s_state != ClaimState::Parking || !escTaskParked()) return;
 	s_state = ClaimState::Free;
 	s_who   = PinUser::None;
 	s_roles = 0;
@@ -104,7 +112,10 @@ ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles) {
 	escSnapshot(&tel);
 	ClaimFacts f;
 	f.armed      = uiArmed();
-	f.held       = s_state != ClaimState::Free;
+	// Busy while Run is wanted, a backstop: no route opens a claim from ESC
+	// TESTER or ESC COMMANDS. After pinClaimDshot(false) the rest of a
+	// drain waits in Stopping.
+	f.held       = s_state != ClaimState::Free || s_dshotWanted;
 	f.nowMs      = millis();
 	f.lastRpmMs  = tel.lastRpmMs;
 	f.kissLastMs = tel.kissLastMs;
@@ -158,7 +169,7 @@ ClaimState pinClaimPoll() {
 
 		case ClaimState::Free:
 		case ClaimState::Running:
-		case ClaimState::Restoring:
+		case ClaimState::Parking:
 			break;
 	}
 	return s_state;
@@ -189,8 +200,8 @@ void pinClaimEnd(PinUser who) {
 	if (who != s_who) return;
 	switch (s_state) {
 		case ClaimState::Stopping:
-			// No job started and the pins went to nobody: DShot comes back at
-			// once, drained or not.
+			// No job started and the pins went to nobody: they park at once;
+			// the rest of a drain, if one is owed, goes out first.
 			restore();
 			break;
 		case ClaimState::Held:
@@ -202,7 +213,7 @@ void pinClaimEnd(PinUser who) {
 			break;
 		case ClaimState::Free:
 		case ClaimState::Leaving:
-		case ClaimState::Restoring:
+		case ClaimState::Parking:
 			break;
 	}
 }
@@ -225,9 +236,26 @@ bool pinClaimLeavePage() {
 	return s_state != ClaimState::Free && needsUnplug();
 }
 
-void pinClaimRestart(PinUser who) {
+void pinClaimRelease(PinUser who) {
 	if (who != s_who || !pinClaimUnplugDue()) return;
 	restore();
+}
+
+void pinClaimDshot(bool on) {
+	settle();
+	if (s_state != ClaimState::Free) return;
+	if (on && !s_dshotWanted) {
+		escTaskStart();
+		s_dshotWanted = true;
+	} else if (!on && s_dshotWanted) {
+		escTaskPark();
+		s_dshotWanted = false;
+	}
+}
+
+bool pinClaimDshotRunning() {
+	settle();
+	return s_state == ClaimState::Free && s_dshotWanted && escTaskRunning();
 }
 
 void pinClaimStartJob(PinUser who) {

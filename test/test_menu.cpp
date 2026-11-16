@@ -166,10 +166,10 @@ static void testEveryEntry() {
 		tapId(s == &UI_TESTER ? UI_FIX(TesterCtl::Menu) : UI_FIX(UI_BACK));
 		// SERVO TESTER passes the leave page once its job has held the
 		// pins: RESTART DSHOT acts 1000 ms after the release.
-		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(ServoCtl::Restart)) == false &&
+		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(ServoCtl::Release)) == false &&
 		                uiCurrentScreen() == UiScreenId::Servo; k++)
 			menuFrames(1);
-		if (uiCurrentScreen() == UiScreenId::Servo) tapId(UI_FIX(ServoCtl::Restart));
+		if (uiCurrentScreen() == UiScreenId::Servo) tapId(UI_FIX(ServoCtl::Release));
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 		snprintf(what, sizeof(what), "BACK from %s lands on MENU", e[i].label);
 		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);
@@ -319,8 +319,8 @@ static void testPinsBusy() {
 	menuFrames(4);
 	checkTrue("its claim runs", pinClaimState() == ClaimState::Running);
 	tapId(UI_FIX(UI_BACK));
-	for (int k = 0; k < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); k++) menuFrames(1);
-	pressId(UI_FIX(ServoCtl::Restart));
+	for (int k = 0; k < 200 && !ctlEnabled(UI_FIX(ServoCtl::Release)); k++) menuFrames(1);
+	pressId(UI_FIX(ServoCtl::Release));
 	fakeRelease();
 	// The release frame leaves for SERVO, the hub. Without the pump's pass
 	// the claim stays Restoring, the state RESTART DSHOT leaves it in.
@@ -341,7 +341,7 @@ static void testPinsBusy() {
 		fakeRelease();
 		framesNoPump(1);
 		checkTrue("a tap on SERVO TESTER while busy opens nothing",
-		          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Restoring);
+		          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Parking);
 		// BACK to MENU, with no pump pass, so the claim stays Restoring.
 		const UiRect b = uiBackRect();
 		fakePress(b.x + b.w / 2, b.y + b.h / 2);
@@ -349,7 +349,7 @@ static void testPinsBusy() {
 		fakeRelease();
 		framesNoPump(2);
 		checkTrue("BACK: MENU, the claim still restoring",
-		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Restoring);
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Parking);
 		// The six rows are whole at scroll 0: no drag reaches a row.
 		const UiControlId testerRow = UI_ROW(uiMenuRowOf(&UI_TESTER), Row);
 		checkTrue("ESC TESTER, whose DShot needs the pin, does not act",
@@ -384,14 +384,14 @@ static void testPinsBusy() {
 		fakeRelease();
 		framesNoPump(1);
 		checkTrue("a tap on SETTINGS while the claim restores opens nothing",
-		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Restoring);
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Parking);
 		ctlFind(testerRow, &c);
 		fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
 		framesNoPump(2);
 		fakeRelease();
 		framesNoPump(1);
 		checkTrue("nor does a tap on ESC TESTER while the claim restores",
-		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Restoring);
+		          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Parking);
 	}
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	if (uiCurrentScreen() != UiScreenId::Menu) tapId(UI_FIX(UI_BACK));
@@ -845,7 +845,7 @@ static void testEscConfig() {
 		pinClaimEnd(PinUser::Servo);
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) {
 			menuFrames(1);
-			pinClaimRestart(PinUser::Servo);
+			pinClaimRelease(PinUser::Servo);
 		}
 		menuFrames(1);
 		checkTrue("Free again: it acts", ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_PANEL);
@@ -907,7 +907,7 @@ static void testEscConfig() {
 	if (uiCurrentScreen() == UiScreenId::Bridge) {
 		// The bridge ran: its leave page; RESTART DSHOT once live.
 		menuFrames(44);
-		tapId(UI_FIX(BridgeCtl::Restart));
+		tapId(UI_FIX(BridgeCtl::Release));
 	}
 	checkTrue("USB BRIDGE's BACK, or its RESTART DSHOT, returns to the hub, its opener",
 	          uiCurrentScreen() == UiScreenId::EscConfig);
@@ -2036,7 +2036,7 @@ static void testAm32WaitsBesideAClaim() {
 	bool claimed = false;
 	for (int i = 0; i < 200 && !claimed; i++) {
 		fakeAdvance(25); fakePumpPoll(); core1JobPoll();
-		if (pinClaimState() == ClaimState::Leaving) pinClaimRestart(PinUser::Servo);
+		if (pinClaimState() == ClaimState::Leaving) pinClaimRelease(PinUser::Servo);
 		uiAm32Tick(&none);
 		claimed = pinClaimHolder() == PinUser::Am32;
 	}
@@ -2116,12 +2116,12 @@ static void testToolSectionsWalkHubs() {
 	                                    nullptr, nullptr, nullptr, false };
 	// B stands behind two entries, as HITEC SERVO does behind two of SERVO's.
 	static const UiHubEntry entries[] = {
-		{ "PLAIN", { nullptr, nullptr }, &plain, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
-		{ "B ONE", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
-		{ "A", { nullptr, nullptr }, &a, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
-		{ "B TWO", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
+		{ "PLAIN", { nullptr, nullptr }, &plain, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
+		{ "B ONE", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
+		{ "A", { nullptr, nullptr }, &a, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
+		{ "B TWO", { nullptr, nullptr }, &b, nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 	};
-	static const UiHub hub = { "HUB", noStrip, entries, 4 };
+	static const UiHub hub = { "HUB", noStrip, entries, 4, nullptr };
 	static const UiMenuEntry rows[] = {
 		{ "P", 0, &plain }, { "HUB", 0, &hubScreen }, { "C", 0, &c }, { "A", 0, &a },
 	};

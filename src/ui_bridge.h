@@ -144,7 +144,7 @@ struct UiScreen;
 enum class BridgeCtl : uint8_t {
 	Retry = 1,  /**< RETRY, the wide button, after a failed bind. */
 	Bridge,     /**< BRIDGE on the leave page: the claim kept, the bridge open again. */
-	Restart,    /**< RESTART DSHOT on the leave page, live 1000 ms after the line is let go. */
+	Release,    /**< The hub's title on the leave page: parks the pins and returns to the hub, live 1000 ms after the line is let go. */
 };
 
 /** @brief Open the screen and ask for SIG, unless USB DRIVE holds the card. */

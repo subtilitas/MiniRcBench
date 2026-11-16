@@ -26,9 +26,18 @@
  * uiHubEntryActs(): its own gate holds and uiPinsRefuse() does not refuse
  * its tool. An entry whose own gate fails is drawn disabled with its `why`
  * lines in amber. While the claim refuses, the refused entries are drawn
- * disabled with their own lines, and the strip reads
- * @ref UI_MENU_RESTARTING_FMT in amber, as MENU's does. A disabled entry
+ * disabled with their own lines, and the strip's second line reads the busy
+ * caption in amber, as MENU's does (uiBusyCaption()). A disabled entry
  * reports disabled and takes no tap.
+ *
+ * SERVO and RX SIGNALS carry a warning as the strip's second line while the
+ * claim is Free (@ref UiHub::warn): `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in
+ * `C_AMBER`. With DShot parked no ESC answers, so the claim's ESC check
+ * passes; the line stands before every entry tap, and KST and Hitec entries
+ * send on their tap (docs/design/dshot-lifetime.md, decisions 7 and 11). ESC
+ * CONFIG draws none: its tools need the ESC on SIG. An entry's @ref
+ * UiHubEntry::note is an amber line under its plain lines while its
+ * condition holds: MONITOR's while SIG is GP1.
  *
  * The three screens keep a file each (ui_esc_config.h, ui_servo_hub.h,
  * ui_rx_signals.h) with the title, the strip and the `UiScreen`; their
@@ -94,6 +103,10 @@ struct UiHubEntry {
 	 *        enable GPIO; null: the entry has no power line.
 	 */
 	const char     *powerSwitchedFmt;
+	/** @brief A `C_AMBER` line under the plain lines while @ref noteWhen holds; null for none. */
+	const char     *note;
+	/** @brief When @ref note shows; null: never. */
+	bool          (*noteWhen)();
 };
 
 /** @brief A hub: what its screen shows. */
@@ -103,7 +116,20 @@ struct UiHub {
 	void            (*strip)(char *buf, size_t n);
 	const UiHubEntry *entries;  /**< Top to bottom. */
 	uint8_t           count;    /**< How many, 1 to @ref UI_HUB_MAX_ENTRIES. */
+	/**
+	 * @brief The strip's second line while the claim is Free, `C_AMBER`, at
+	 *        most @ref UI_HUB_LINE_CHARS characters; null for none. The busy
+	 *        caption takes its place while the claim is not Free.
+	 */
+	const char       *warn;
 };
+
+/**
+ * @brief The second strip line of SERVO and RX SIGNALS while the claim is
+ *        Free (docs/design/dshot-lifetime.md, decisions 7 and 11): 35
+ *        characters, 209 px.
+ */
+#define UI_HUB_NO_ESC_CHECK "NO ESC CHECK: UNPLUG ANY ESC FIRST."
 
 /** @brief A hub's controls besides BACK: entry i is `HUB_ENTRY(i)`. */
 enum class HubCtl : uint8_t {
@@ -139,7 +165,8 @@ constexpr int uiHubContentPx(int count) {
  * two-digit GPIO for its `%u`), and when the lines under it end 4 px or more
  * above the next entry, the last entry's inside the content. The lines under
  * an entry are its plain lines and the taller of its power line and its
- * `why` lines. Their last line ends at the entry's top + 50 px + 12 px per
+ * `why` lines, and the note under the plain lines. Their last line ends at
+ * the entry's top + 50 px + 12 px per
  * line after the first + 7 px, which must be at most 76 px below the entry's
  * top (an entry above another: two lines) or at most 84 px, the content's
  * end (the last entry: three lines).
@@ -147,14 +174,16 @@ constexpr int uiHubContentPx(int count) {
  * It fails for an entry with a gate and no line that says why, which the hub
  * would draw disabled without a reason; for a power line at OWN with none
  * for the switched supply; for a plain line after a null one, which the hub
- * would not draw; and for a hub of no entry or of more than
- * @ref UI_HUB_MAX_ENTRIES.
+ * would not draw; for a note without its condition or a condition without
+ * its note; for a strip warning longer than a line; and for a hub of no
+ * entry or of more than @ref UI_HUB_MAX_ENTRIES.
  *
  * @param h The hub.
  * @return true when every text fits.
  */
 constexpr bool hubEntriesFit(const UiHub &h) {
 	if (h.count < 1 || h.count > UI_HUB_MAX_ENTRIES) return false;
+	if (uiHubTextLen(h.warn) > UI_HUB_LINE_CHARS) return false;
 	for (int i = 0; i < h.count; i++) {
 		const UiHubEntry &e = h.entries[i];
 		if (uiHubTextLen(e.label) < 1 || uiHubTextLen(e.label) > UI_HUB_LABEL_CHARS) return false;
@@ -172,6 +201,9 @@ constexpr bool hubEntriesFit(const UiHub &h) {
 			why += e.why[k] != nullptr;
 		}
 		if (e.enabled && why == 0) return false;
+		if (uiHubTextLen(e.note) > UI_HUB_LINE_CHARS) return false;
+		if (!e.note != !e.noteWhen) return false;
+		lines += e.note ? 1 : 0;
 		if (e.powerOwn && !e.powerSwitchedFmt) return false;
 		if (uiHubTextLen(e.powerOwn) > UI_HUB_LINE_CHARS) return false;
 		if (uiHubTextLen(e.powerSwitchedFmt) > UI_HUB_LINE_CHARS) return false;

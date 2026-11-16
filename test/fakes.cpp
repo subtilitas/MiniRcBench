@@ -889,7 +889,7 @@ const char *am32BlEscTypeName() { return "F051"; }
 // ---------------------------------------------------------------------------
 static uint16_t g_throttle = 0;
 static bool     g_armed = false;
-static EscPinMode g_want = EscPinMode::Run;
+static EscPinMode g_want = EscPinMode::Park;
 static EscPinMode g_reached = EscPinMode::Run;
 static bool     g_rebuildReq = false;
 static EscTelemetry g_tel;
@@ -993,6 +993,11 @@ void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 // suspend, a drain and a rebuild each take as many passes as a test gives them.
 static EscPump    g_pump;
 static bool       g_pumpUp = false;
+// The wiring, seeded to a pin the board does not offer: see escTaskConfigure().
+static uint8_t  g_dshotPin = 255;
+static uint16_t g_dshotKbaud = DSHOT_SPEED_KBAUD;
+static bool     g_kissEnable = false;
+static uint8_t  g_kissPin = 255;
 static int        g_resumes = 0;
 static int        g_rebuilds = 0;
 static FakeWiring g_rebuildWiring = {};
@@ -1011,7 +1016,7 @@ uint32_t escTaskBoundMs() { return g_boundMs; }
 void fakePumpPowerOn() {
 	g_pump = EscPump{};
 	g_pumpUp = false;
-	g_want = EscPinMode::Run;
+	g_want = EscPinMode::Park;
 	g_reached = EscPinMode::Run;
 	g_rebuildReq = false;
 	g_boundMs = 0;
@@ -1098,10 +1103,16 @@ int fakeFrameCount() { return g_frames; }
 EscFrame fakeLastFrame() { return g_lastFrame; }
 bool escTaskParked() { return escModeReported(g_reached, g_pumpUp, EscPinMode::Park); }
 bool escTaskRunning() { return escModeReported(g_reached, g_pumpUp, EscPinMode::Run); }
+static int g_parks = 0;
+static bool g_parkJobIdle = true;
 void escTaskPark() {
 	escSetArmed(false);
 	g_want = EscPinMode::Park;
+	g_parks++;
+	g_parkJobIdle = core1JobPhase() == Core1JobPhase::Idle;
 }
+int fakeParkCount() { return g_parks; }
+bool fakeParkJobIdle() { return g_parkJobIdle; }
 
 uint32_t fakeLastThrottleMs() { return g_pump.lastThrottleMs; }
 
@@ -1129,6 +1140,21 @@ void escTaskStart() {
 	g_resumeJobIdle = core1JobPhase() == Core1JobPhase::Idle;
 }
 int fakeResumeCount() { return g_resumes; }
+
+// escTaskInit()'s part that is the pump's: the wiring from the stored
+// settings, Park asked for, and the pads parked on core0, as esc_task.cpp
+// does before core1 starts. The critical section and the telemetry block
+// have no fake.
+void escTaskInit() {
+	const Settings *cfg = settings();
+	g_dshotPin = cfg->dshotPin;
+	g_dshotKbaud = cfg->dshotKbaud;
+	g_kissEnable = cfg->kissEnable;
+	g_kissPin = cfg->kissPin;
+	g_rebuildReq = false;
+	g_want = EscPinMode::Park;
+	fakePadsTo(EscPinMode::Park);
+}
 int fakeRebuildCount() { return g_rebuilds; }
 FakeWiring fakeResumeWiring() { return g_rebuildWiring; }
 bool fakeResumeJobIdle() { return g_resumeJobIdle; }
@@ -1144,10 +1170,7 @@ bool fakeResumeJobIdle() { return g_resumeJobIdle; }
 // units. Every test enters through uiInit(), which configures this
 // before anything reads it; 255 is what a test that forgot would see, and it is
 // unmistakable. @see cfg_pin_defaults
-static uint8_t  g_dshotPin = 255;
-static uint16_t g_dshotKbaud = DSHOT_SPEED_KBAUD;
-static bool     g_kissEnable = false;
-static uint8_t  g_kissPin = 255;
+
 static int      g_configures = 0;
 int fakeConfigureCount() { return g_configures; }
 uint16_t fakeDshotKbaud() { return g_dshotKbaud; }

@@ -4,7 +4,9 @@
  *
  * The RP2350-Touch-LCD-2.8 brings out two signal pins. Both belong to the
  * ESC task, the DShot pump on one and the KISS receiver on the other, until a
- * screen that needs them claims them. The claim names pins by role, because
+ * screen that needs them claims them. The pump is parked unless ESC TESTER
+ * or ESC COMMANDS is open: SIG driven low, AUX on its pull-down
+ * (docs/design/dshot-lifetime.md). The claim names pins by role, because
  * the GPIO number is a setting:
  *
  * | Role | Pin | Claimed by |
@@ -12,10 +14,13 @@
  * | @ref PIN_SIG | the ESC signal wire, `settings()->dshotPin` | ESC settings (AM32), servo A, KST and Hitec programming; the S.BUS monitor; the USB bridge; the S.BUS output |
  * | @ref PIN_AUX | the KISS wire, `settings()->kissPin` | servo B, two-servo mode; the S.BUS monitor when AUX is GP1; the S.BUS output when AUX is GP0 |
  *
- * Every claim is escTaskSuspend(): with the signal pin gone the ESC hears no
- * frames and disarms, and with no frames there is no KISS request, so both
- * pins are free while a claim holds. The roles decide only which pins the
- * screen's core1 job binds.
+ * The claim alone asks core1 for the pump's three modes: Run and Park through
+ * pinClaimDshot(), which the UI calls once a frame with uiDshotWanted(), and
+ * Release through every claim, escTaskSuspend(). The pump a claim releases is
+ * parked, or, within 250 ms of leaving a running tester, still finishing the
+ * drain that leaving started; with no frames there is no KISS request, so
+ * both pins are free while a claim holds. The roles decide only which pins
+ * the screen's core1 job binds.
  *
  * Core0 runs the claim as a state machine, one step per UI frame, from the
  * screen that holds it. Core1 makes every PIO change on the two signal pins:
@@ -26,12 +31,12 @@
  *
  * | State | What happens | Next |
  * |---|---|---|
- * | Free | DShot runs on both pins | pinClaimBegin() |
- * | Stopping | core1 drains, stops and releases the pump | Held when escTaskSuspended() |
+ * | Free | DShot parked, or running for ESC TESTER and ESC COMMANDS (pinClaimDshot()) | pinClaimBegin(), not while Run is wanted |
+ * | Stopping | core1 releases the parked pump, after the rest of a drain if one is owed | Held when escTaskSuspended() |
  * | Held | both pins free; the GPIOs are latched; SERVO, KST, the S.BUS monitor, the USB bridge and the S.BUS output start their job; HITEC as its entry asks, ESC SETTINGS when an EFM8 bootloader answered (pinClaimStartJob()) | Running once it binds |
  * | Running | the job holds its pins | Leaving on pinClaimEnd() |
- * | Leaving | the job releases its pins; SERVO, KST, HITEC, the S.BUS monitor and the S.BUS output show the leave page (ui_leave.h), and AM32 after an EFM8 bootloader answered | Restoring: on RESTART DSHOT with the leave page, else once the job is idle |
- * | Restoring | core1 rebuilds the pump from the latched wiring | Free |
+ * | Leaving | the job releases its pins; SERVO, KST, HITEC, the S.BUS monitor and the S.BUS output show the leave page (ui_leave.h), and AM32 after an EFM8 bootloader answered | Parking: on the leave page's last button, pinClaimRelease(), else once the job is idle |
+ * | Parking | core1 parks SIG low and AUX on its pull-down, from the latched wiring | Free when escTaskParked() |
  *
  * ESC SETTINGS (PinUser::Am32) defers its job: its AM32 bootloader
  * transport runs on core0 (am32_bl.cpp) and binds the pin itself, so the
@@ -51,14 +56,14 @@
  * after a write-class frame with no RUN behind it
  * (docs/design/usb-bridge.md, decision 10); nothing opens the bridge yet.
  *
- * A claim without the leave page restores DShot only once its job is idle:
- * the job lets its pins and state machines go first, so DShot is never
- * rebuilt on a pin a job still drives. The USB bridge is the one such user
+ * A claim without the leave page parks the pins only once its job is idle:
+ * the job lets its pins and state machines go first, so the park never
+ * touches a pin a job still drives. The USB bridge is the one such user
  * with a job; its release finishes the frame under way, at most
  * @ref BRIDGE_RELEASE_MAX_MS. Every call that reads or changes the claim
- * moves Leaving on, pinClaimState() among them, so DShot comes back once the
+ * moves Leaving on, pinClaimState() among them, so the pins park once the
  * job is idle whether or not the screen still polls. An AM32 claim no EFM8
- * bootloader answered has started no job and restores at once.
+ * bootloader answered has started no job and parks at once.
  *
  * HITEC defers its job too: the entry tap on SERVO, the hub, claims SIG, and the
  * screen calls pinClaimStartJob() at once for CLASSIC and for D SERIES with
@@ -66,7 +71,7 @@
  * pinClaimKeep() leaves it unasked again. Until then the
  * claim stays in Held with no job, the pad an input with the pull-up
  * esc_task.cpp leaves on it. BACK from there is pinClaimEnd(): the pin went
- * to a servo, so the leave page comes before DShot restarts.
+ * to a servo, so the leave page comes before the pins park.
  *
  * @see docs/design/pin-claim.md
  */
@@ -104,7 +109,7 @@ enum class PinUser : uint8_t {
 struct PinUserInfo {
 	PinUser  who;
 	Core1Job job;       /**< The core1 job; None: no job. */
-	bool     unplug;    /**< The leave page comes before DShot restarts, from the claim's start; pinClaimWantLeavePage() sets it later. */
+	bool     unplug;    /**< The leave page comes before the pins park, from the claim's start; pinClaimWantLeavePage() sets it later. */
 	bool     escCheck;  /**< Refused while an ESC answers on SIG (@ref ClaimRefusal::EscAnswering). */
 	bool     deferJob;  /**< Held starts no job until pinClaimStartJob(). */
 };
@@ -121,7 +126,7 @@ static constexpr PinUserInfo PIN_USERS[] = {
 	{ PinUser::Sbus,  Core1Job::Sbus,  true,  false, false },
 	// The bridge needs the ESC on the pin and answering, as AM32 does. BACK
 	// of a running bridge gives the leave page through
-	// pinClaimWantLeavePage(); BACK before the first bind gives DShot back,
+	// pinClaimWantLeavePage(); BACK before the first bind parks the pins,
 	// but a claim that has had the page keeps it, so BACK after a failed
 	// rebind from the page's BRIDGE gives the page again
 	// (docs/design/usb-bridge.md, "The pin", decision 10).
@@ -155,19 +160,19 @@ static_assert(pinUsersComplete(), "a pin user has no row in PIN_USERS, or two");
 
 /** @brief Where the claim is. See the table in this file's description. */
 enum class ClaimState : uint8_t {
-	Free,       /**< No claim; DShot owns the pins. */
-	Stopping,   /**< The pump drains and releases. */
+	Free,       /**< No claim; the pump owns the pins, parked or running. */
+	Stopping,   /**< The pump releases, after the rest of a drain if one is owed. */
 	Held,       /**< Both pins free, no job bound; HITEC on OWN waits here for READ. */
 	Running,    /**< The job holds its pins. */
 	Leaving,    /**< The job releases; a claim with the leave page shows it (pinClaimLeavePage()). */
-	Restoring,  /**< The pump rebuilds. */
+	Parking,    /**< Core1 parks the pins: SIG low, AUX on its pull-down. */
 };
 
 /** @brief Why pinClaimBegin() refused. */
 enum class ClaimRefusal : uint8_t {
 	None,          /**< Not refused; the claim is Stopping. */
 	Armed,         /**< The tester is armed. */
-	Busy,          /**< A claim holds, or is still restoring. */
+	Busy,          /**< A claim holds or is still parking, or Run is wanted (pinClaimDshot()). */
 	EscAnswering,  /**< An eRPM frame within @ref ESC_LINK_STALE_MS (500 ms). SERVO, KST, HITEC and the S.BUS output; AM32, the S.BUS monitor and the USB bridge are exempt. */
 	KissLive,      /**< A KISS frame within @ref KISS_STALE_MS (500 ms), AUX asked for. */
 	SamePin,       /**< AUX asked for, and SIG and AUX are the same GPIO. */
@@ -176,7 +181,7 @@ enum class ClaimRefusal : uint8_t {
 /** @brief What pinClaimCheck() judges a claim against. */
 struct ClaimFacts {
 	bool     armed;       /**< uiArmed(). */
-	bool     held;        /**< A claim is not Free. */
+	bool     held;        /**< A claim is not Free, or Run is wanted. */
 	uint32_t nowMs;       /**< millis(). */
 	uint32_t lastRpmMs;   /**< EscTelemetry::lastRpmMs. */
 	uint32_t kissLastMs;  /**< EscTelemetry::kissLastMs. */
@@ -194,9 +199,13 @@ struct ClaimFacts {
  *   the UI this never fires; a route added later that reaches a claim while
  *   armed shows up as a refusal in a test, not as a motor stopped by
  *   navigation.
- * - **Busy.** One claim at a time, and not before the last one has restored
- *   DShot.
- * - **EscAnswering**, SERVO, KST, HITEC and the S.BUS output. Servo pulses
+ * - **Busy.** One claim at a time, not before the last one has parked the
+ *   pins, and not while Run is wanted for ESC TESTER or ESC COMMANDS.
+ * - **EscAnswering**, SERVO, KST, HITEC and the S.BUS output. With the pump
+ *   parked nothing answers, so it refuses only within 500 ms of the last
+ *   answer after ESC TESTER or ESC COMMANDS closed; the hubs SERVO and RX
+ *   SIGNALS warn `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in its place
+ *   (docs/design/dshot-lifetime.md, decisions 7 and 11). Servo pulses
  *   of 1000 to 2000 us are a valid PWM throttle signal, a KST or Hitec entry
  *   sends frames into whatever is on the wire, and S.BUS frames must not
  *   reach an ESC: the output checks in either wiring, GP0 as SIG or as AUX,
@@ -238,8 +247,8 @@ static inline ClaimRefusal pinClaimCheck(PinUser who, uint8_t roles,
  * @brief Claim the pins for a screen. Core0.
  *
  * Judges the claim with pinClaimCheck() against the live state. On a refusal
- * nothing changes and DShot keeps running, so a screen may ask again every
- * frame. Otherwise it calls escTaskSuspend() and the claim is Stopping.
+ * nothing changes, so a screen may ask again every frame. Otherwise it calls
+ * escTaskSuspend() and the claim is Stopping.
  *
  * @param who   The screen.
  * @param roles @ref PIN_SIG, or @ref PIN_SIG | @ref PIN_AUX.
@@ -254,8 +263,8 @@ ClaimRefusal pinClaimBegin(PinUser who, uint8_t roles);
 ClaimState pinClaimPoll();
 
 /**
- * @brief The claim's state, without a step. Settles Restoring into Free once
- *        the pump runs again.
+ * @brief The claim's state, without a step. Settles Parking into Free once
+ *        the pins are parked.
  * @return The state.
  */
 ClaimState pinClaimState();
@@ -283,9 +292,9 @@ uint8_t pinClaimJobError();
 /**
  * @brief BACK: leave the claim. Core0. The poll finishes it.
  *
- * From Stopping, DShot is resumed at once. From Held and Running the job is
+ * From Stopping, the pins park at once. From Held and Running the job is
  * asked to stop and the claim is Leaving. A claim without the leave page
- * (pinClaimLeavePage()) resumes DShot once its job is idle: an AM32 claim no
+ * (pinClaimLeavePage()) parks the pins once its job is idle: an AM32 claim no
  * EFM8 bootloader answered, which has started no job, within this call; the USB
  * bridge on the first call into the claim after its job let the pin go,
  * pinClaimPoll() or pinClaimState() alike. A call from a screen that does
@@ -316,20 +325,20 @@ void pinClaimStartJob(PinUser who);
  *
  * Acts only while @p who holds the claim, the claim is Held and
  * pinClaimJobError() names a failure, which also means no start is pending.
- * The claim and its pins are kept; DShot stays down. BACK instead is
- * pinClaimEnd(), which shows the leave page before DShot restarts.
+ * The claim and its pins are kept; the pump stays down. BACK instead is
+ * pinClaimEnd(), which shows the leave page before the pins park.
  *
  * @param who The screen.
  */
 void pinClaimRetry(PinUser who);
 
 /**
- * @brief Give the claim the leave page: from pinClaimEnd() on, DShot
- *        restarts only on RESTART DSHOT. Core0.
+ * @brief Give the claim the leave page: from pinClaimEnd() on, the pins
+ *        park only on the page's last button, pinClaimRelease(). Core0.
  *
  * Acts only while @p who holds the claim and it is Stopping, Held or
  * Running. It lasts until the claim is Free. A claim still Stopping has
- * driven nothing on SIG and resumes at once. ESC SETTINGS calls it when an
+ * driven nothing on SIG and parks at once. ESC SETTINGS calls it when an
  * EFM8 bootloader answers its greeting; the USB bridge is to call it after a
  * write-class frame (docs/design/usb-bridge.md, decision 10).
  *
@@ -338,7 +347,7 @@ void pinClaimRetry(PinUser who);
 void pinClaimWantLeavePage(PinUser who);
 
 /**
- * @brief Whether the claim shows the leave page before DShot restarts:
+ * @brief Whether the claim shows the leave page before the pins park:
  *        its user's PinUserInfo::unplug, or pinClaimWantLeavePage().
  * @return false while Free.
  */
@@ -346,29 +355,57 @@ bool pinClaimLeavePage();
 
 /**
  * @brief True while the job has let the pins go and SERVO, KST, HITEC, the
- *        S.BUS monitor or ESC SETTINGS waits on its leave page for RESTART
- *        DSHOT, or for NEXT SERVO, BACK TO SERVO or BACK TO MONITOR.
+ *        S.BUS monitor or ESC SETTINGS waits on its leave page for its last
+ *        button, the hub's title, or for NEXT SERVO or BACK TO MONITOR.
  *
- * Leaving, with the job idle and DShot not yet restarted. DShot idles the
- * line high and pulls it low for about 27 us per 1000 us frame, which a PWM
- * servo reads as a pulse of about 970 us at 1000 Hz.
+ * Leaving, with the job idle and the pins not yet parked. ESC TESTER's
+ * DShot idles the line high and pulls it low for about 27 us per 1000 us
+ * frame, which a PWM servo reads as a pulse of about 970 us at 1000 Hz: the
+ * page asks for the servo to be unplugged before it.
  *
- * @return True while RESTART DSHOT is what the claim waits for.
+ * @return True while the page's last button is what the claim waits for.
  */
 bool pinClaimUnplugDue();
 
 /**
- * @brief RESTART DSHOT on the leave page: resume DShot. Core0.
+ * @brief The leave page's last button, the hub's title: park the pins and
+ *        end the claim. Core0. Starts no DShot.
  *
- * Acts only while pinClaimUnplugDue() is true and @p who holds the claim. The
- * leave page takes the tap only 1000 ms or more after that turned true.
+ * Acts only while pinClaimUnplugDue() is true and @p who holds the claim; the
+ * claim is then Parking, and Free once core1 has parked the pins. The leave
+ * page takes the tap only 1000 ms or more after that turned true.
  *
  * @param who The screen.
  */
-void pinClaimRestart(PinUser who);
+void pinClaimRelease(PinUser who);
 
 /**
- * @brief NEXT SERVO, or BACK TO SERVO, on the leave page: keep the claim.
+ * @brief Run or Park, as the UI wants it on this frame: uiTick() calls it
+ *        once a frame with uiDshotWanted(), before the screen's tick.
+ *        Core0.
+ *
+ * Acts only while the claim is Free. With @p on, and Run not yet wanted, it
+ * asks core1 for Run (escTaskStart()), and from then on Run is wanted.
+ * Without @p on, and Run wanted, it asks for Park (escTaskPark(), which
+ * disarms): core1 sends zero frames until more than 250 ms after the last
+ * throttle frame, then parks SIG low and AUX on its pull-down, and from then
+ * on Run is not wanted, whether core1 still drains or has parked. "Run is
+ * wanted" is the claim's own record, not the pump's state; pinClaimBegin()
+ * refuses as Busy while it holds. @see docs/design/dshot-lifetime.md
+ *
+ * @param on DShot wanted on this frame: ESC TESTER or ESC COMMANDS is open.
+ */
+void pinClaimDshot(bool on);
+
+/**
+ * @brief Whether DShot runs for ESC TESTER or ESC COMMANDS: the claim is
+ *        Free, Run is wanted and core1 reports the pump running.
+ * @return false while parked, draining to Park, or under a claim.
+ */
+bool pinClaimDshotRunning();
+
+/**
+ * @brief NEXT SERVO, or BACK TO MONITOR, on the leave page: keep the claim.
  *        Core0. BACK on the leave page is disabled.
  *
  * Acts only while pinClaimUnplugDue() is true and @p who holds the claim. The

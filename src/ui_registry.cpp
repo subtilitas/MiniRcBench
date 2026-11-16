@@ -8,6 +8,7 @@
 #include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
 #include "ui_hub.h"
+#include "ui_leave.h"
 #include "ui_bridge.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
@@ -68,16 +69,17 @@ static constexpr bool hubHasStrip(const UiHub &h) {
  */
 constexpr UiHubEntry UI_ESC_CFG_ENTRIES[] = {
 	{ UI_ESC_CMD_TITLE, { "BEEP 1 TO 5, DIRECTION, 3D MODE.", "SENT AS DSHOT COMMANDS." }, &UI_ESC_CMD,
-	  nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
+	  nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 	{ AM32_UI_TITLE, { "AM32 SETTINGS, READ AND WRITTEN.", "BLUEJAY, BLHELI_S: READ AND WRITTEN." }, &UI_AM32,
-	  nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
+	  nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 	{ BRIDGE_UI_TITLE, { "A DESKTOP ESC TOOL OVER USB.", "MSP, 4-WAY AND PASSTHROUGH." }, &UI_BRIDGE,
-	  nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr },
+	  nullptr, nullptr, { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 };
 constexpr uint8_t UI_ESC_CFG_ENTRIES_COUNT =
 	(uint8_t)(sizeof(UI_ESC_CFG_ENTRIES) / sizeof(UI_ESC_CFG_ENTRIES[0]));
+// No NO ESC CHECK line: ESC CONFIG's tools need the ESC on SIG.
 constexpr UiHub UI_ESC_CFG_HUB = { UI_ESC_CFG_TITLE, uiEscConfigStrip, UI_ESC_CFG_ENTRIES,
-                                   UI_ESC_CFG_ENTRIES_COUNT };
+                                   UI_ESC_CFG_ENTRIES_COUNT, nullptr };
 static_assert(hubEntriesFit(UI_ESC_CFG_HUB), "an ESC CONFIG line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_ESC_CFG_HUB), "the hub has no strip, which uiHubTick calls");
 static_assert(hubScreensGuardPins(UI_ESC_CFG_HUB), "a hub entry's screen has no pinUser and no freePins");
@@ -97,20 +99,21 @@ static_assert(UI_ESC_CFG_ENTRIES_COUNT == 3 && UI_ESC_CFG_ENTRIES[0].screen == &
  */
 constexpr UiHubEntry UI_SERVO_ENTRIES[] = {
 	{ SERVO_UI_TITLE, { "ONE SERVO ON SIG, OR TWO WITH AUX.", nullptr }, &UI_SERVO, nullptr, nullptr,
-	  { nullptr, nullptr }, nullptr, nullptr },
+	  { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 	{ UI_ANGLE_TITLE, { "INCIDENCE, DECALAGE, DIHEDRAL, THROW", nullptr }, &UI_ANGLE, nullptr, nullptr,
-	  { nullptr, nullptr }, nullptr, nullptr },
+	  { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 	{ "KST / CHASERVO", { nullptr, nullptr }, &UI_KST, uiKstEnter, nullptr, { nullptr, nullptr },
-	  UI_PROG_POWER_AFTER, UI_PROG_SWITCHED_FMT },
+	  UI_PROG_POWER_AFTER, UI_PROG_SWITCHED_FMT, nullptr, nullptr },
 	{ "HITEC D SERIES", { "D485HW, D645MW AND THE OTHERS", nullptr }, &UI_HITEC, uiHitecEnterD, nullptr,
-	  { nullptr, nullptr }, UI_PROG_POWER_AFTER, UI_PROG_SWITCHED_FMT },
+	  { nullptr, nullptr }, UI_PROG_POWER_AFTER, UI_PROG_SWITCHED_FMT, nullptr, nullptr },
 	{ "HITEC CLASSIC", { "HS-5XXX, HS-7XXX", nullptr }, &UI_HITEC, uiHitecEnterClassic, servoSupplyFitted,
 	  { "NEEDS THE CONVERTER OF WIRING PART C", "AND SETTINGS > SERVO SUPPLY GP28/29." },
-	  nullptr, UI_PROG_SWITCHED_FMT },
+	  nullptr, UI_PROG_SWITCHED_FMT, nullptr, nullptr },
 };
 constexpr uint8_t UI_SERVO_ENTRIES_COUNT =
 	(uint8_t)(sizeof(UI_SERVO_ENTRIES) / sizeof(UI_SERVO_ENTRIES[0]));
-constexpr UiHub UI_SERVO_HUB = { UI_SERVO_HUB_TITLE, uiServoHubStrip, UI_SERVO_ENTRIES, UI_SERVO_ENTRIES_COUNT };
+constexpr UiHub UI_SERVO_HUB = { UI_SERVO_HUB_TITLE, uiServoHubStrip, UI_SERVO_ENTRIES, UI_SERVO_ENTRIES_COUNT,
+                                 UI_HUB_NO_ESC_CHECK };
 static_assert(hubEntriesFit(UI_SERVO_HUB), "a SERVO line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_SERVO_HUB), "the hub has no strip, which uiHubTick calls");
 static_assert(hubScreensGuardPins(UI_SERVO_HUB), "a hub entry's screen has no pinUser and no freePins");
@@ -131,16 +134,27 @@ static_assert(uiHubContentPx(UI_SERVO_ENTRIES_COUNT) - (GFX_H - UI_HUB_ENTRY_Y) 
  *        (docs/design/sbus-output.md, "Warnings").
  */
 constexpr UiHubEntry UI_RX_ENTRIES[] = {
+	// MONITOR's amber line while SIG is GP1: the parked SIG is driven low
+	// until the tap claims it, and a receiver plugged in before would drive
+	// against it (docs/design/dshot-lifetime.md, "What it costs").
 	{ "MONITOR", { "S.BUS FROM A RECEIVER, ON GP1.", nullptr }, &UI_SBUS, nullptr, nullptr,
-	  { nullptr, nullptr }, nullptr, nullptr },
+	  { nullptr, nullptr }, nullptr, nullptr, UI_RX_MONITOR_GP1, uiRxSigIsGp1 },
 	{ "OUTPUT", { "S.BUS TO A FLIGHT CONTROLLER.", "ON GP0, NEVER TO AN ESC." }, &UI_SBUS_OUT, nullptr, nullptr,
-	  { nullptr, nullptr }, nullptr, nullptr },
+	  { nullptr, nullptr }, nullptr, nullptr, nullptr, nullptr },
 };
 constexpr uint8_t UI_RX_ENTRIES_COUNT = (uint8_t)(sizeof(UI_RX_ENTRIES) / sizeof(UI_RX_ENTRIES[0]));
-constexpr UiHub UI_RX_HUB = { UI_RX_TITLE, uiRxSignalsStrip, UI_RX_ENTRIES, UI_RX_ENTRIES_COUNT };
+constexpr UiHub UI_RX_HUB = { UI_RX_TITLE, uiRxSignalsStrip, UI_RX_ENTRIES, UI_RX_ENTRIES_COUNT,
+                              UI_HUB_NO_ESC_CHECK };
 static_assert(hubEntriesFit(UI_RX_HUB), "an RX SIGNALS line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_RX_HUB), "the hub has no strip, which uiHubTick calls");
 static_assert(hubScreensGuardPins(UI_RX_HUB), "a hub entry's screen has no pinUser and no freePins");
+
+// The leave page's last button and step name the hub a tool returns to
+// (docs/design/dshot-lifetime.md, decision 9).
+static_assert(uiHubTextLen(UI_ESC_CFG_TITLE) <= UI_LEAVE_HUB_CHARS &&
+              uiHubTextLen(UI_SERVO_HUB_TITLE) <= UI_LEAVE_HUB_CHARS &&
+              uiHubTextLen(UI_RX_TITLE) <= UI_LEAVE_HUB_CHARS,
+              "a hub's title does not fit the leave page's last button");
 
 /** @brief The three hubs, each with the screen that shows it. */
 static constexpr struct { const UiScreen *screen; const UiHub *hub; } UI_HUBS[] = {

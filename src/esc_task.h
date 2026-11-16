@@ -129,15 +129,22 @@ struct EscTelemetry {
  * an uninitialised spin lock.
  *
  * The symptom is a board that shows the splash and then nothing at all.
+ *
+ * It also asks for Park and parks the pins on core0: SIG an SIO output
+ * driving low at 2 mA, AUX an input on its pull-down with the input buffer
+ * off (escParkPlan()). No DShot frame leaves the board at power-up; the
+ * pump binds only when the pin claim asks for Run, for ESC TESTER and ESC
+ * COMMANDS (pinClaimDshot(), docs/design/dshot-lifetime.md).
  */
 void escTaskInit();
 
 /**
  * @brief Start the frame pump. Call from core1.
  *
- * Does not itself claim the PIO state machines: the driver is bound on the
- * first escTaskPoll(), from whatever configuration escTaskConfigure() last
- * supplied, and that same path binds it again after a suspend or a pin change.
+ * Does not itself claim the PIO state machines: the driver is bound by the
+ * first escTaskPoll() that finds Run wanted, from whatever configuration
+ * escTaskConfigure() last supplied, and that same path binds it again after a
+ * park, a suspend or a pin change.
  * One construction site rather than two is the point: two sites can disagree
  * about the order of the bind and the `initError` it reports.
  *

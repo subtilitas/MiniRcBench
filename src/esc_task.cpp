@@ -309,8 +309,11 @@ bool escEdtRequested() { return s_edtRequested; }
  * @see pin_claim.h, escHandoverStep()
  * @{
  */
-/** The mode core0 asks for. Run from boot. */
-static volatile EscPinMode s_want = EscPinMode::Run;
+/**
+ * The mode core0 asks for. Park from escTaskInit() on: no DShot frame at
+ * power-up (docs/design/dshot-lifetime.md, owner decision 2).
+ */
+static volatile EscPinMode s_want = EscPinMode::Park;
 
 void escTaskSuspend() {
 	escSetArmed(false);
@@ -340,6 +343,8 @@ void escSnapshot(EscTelemetry *out) {
 	critical_section_exit(&s_cs);
 }
 
+static void padsTo(EscPinMode to);
+
 void escTaskInit() {
 	// Core0 owns this, and must do it before core1 is launched. See the note in
 	// esc_task.h: core0's first uiTick() calls escSnapshot(), which enters this
@@ -355,6 +360,15 @@ void escTaskInit() {
 	s_kissEnable = cfg->kissEnable;
 	s_kissPin    = cfg->kissPin;
 	s_rebuildReq = false;
+
+	// Parked from here on: no DShot frame at power-up, and SIG driven low
+	// at 2 mA, AUX on its pull-down (docs/design/dshot-lifetime.md, "What
+	// changes at boot"). Core0 sets the pads itself, as servoSupplyInit()
+	// sets its enable pin: core1 is not running yet, and a park is a GPIO
+	// setting, not a PIO claim. Core1's first escTaskPoll() then finds Park
+	// wanted and reached, and binds nothing.
+	s_want = EscPinMode::Park;
+	padsTo(EscPinMode::Park);
 }
 
 void escTaskConfigure(uint8_t dshotPin, uint16_t dshotKbaud,
@@ -510,7 +524,8 @@ static void pumpBind() {
 
 /**
  * @brief Set the pads for Park or Release from the latched wiring, and
- *        report the mode. Core1 only.
+ *        report the mode. Core1 only, or core0 in escTaskInit() before
+ *        core1 starts.
  *
  * Release touches the pads only out of Park: from Run the teardown left them
  * in today's handover state, and before anything was held they are in the

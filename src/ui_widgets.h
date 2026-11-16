@@ -132,12 +132,12 @@ struct TouchState;
 /** @} */
 
 /**
- * @brief A tool's refusal while another claim still holds or restores the
- *        signal pins. Unreachable through MENU, which draws the tool's row
- *        disabled then (ui_menu.h); kept so that a refusal never leaves the
- *        screen blank. 22 characters, 131 px at scale 1.
+ * @brief A tool's refusal while another claim still holds or parks the
+ *        signal pins. Unreachable through a hub, which draws the tool's
+ *        entry disabled then (ui_hub.h); kept so that a refusal never leaves
+ *        the screen blank. 23 characters, 137 px at scale 1.
  */
-#define UI_WAIT_RESTART_TEXT "WAIT: DSHOT RESTARTING"
+#define UI_WAIT_RESTART_TEXT "WAIT: THE PINS ARE BUSY"
 
 /**
  * @defgroup uiw_roles Colour roles

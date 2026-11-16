@@ -137,8 +137,11 @@ struct UiScreen;
 #define SBOUT_UI_SET_START "START TO SET THE FLAGS."
 /** @brief The leave page's step that unplugs the FC: 29 characters. */
 #define SBOUT_UI_UNPLUG    "UNPLUG THE FLIGHT CONTROLLER."
-/** @brief Its detail line, SIG's GPIO for `%u`: 26 characters. */
-#define SBOUT_UI_RESTART_FMT "DSHOT RESTARTS ON SIG GP%u."
+/**
+ * @brief Its detail line, SIG's GPIO for `%u`: what the next ESC TESTER or
+ *        ESC COMMANDS sends on SIG. 34 characters.
+ */
+#define SBOUT_UI_RESTART_FMT "ESC TESTER SENDS DSHOT ON SIG GP%u."
 /** @brief After an EFM8 answer, the last step's detail line: 26 characters. */
 #define SBOUT_UI_PLUG_ESC  "THEN PLUG THE ESC BACK IN."
 /** @brief The leave page's left button after LEAVE: 14 characters, 83 px. */
@@ -158,7 +161,7 @@ enum class SbusOutCtl : uint8_t {
 	Stay,          /**< STAY on the leave page before LEAVE, after an EFM8 answer. */
 	Leave,         /**< LEAVE there. */
 	BackToOutput,  /**< BACK TO OUTPUT on the leave page: the claim kept, a new probe. */
-	Restart,       /**< RESTART DSHOT on the leave page, live 1000 ms after GP0 is let go. */
+	Release,       /**< The hub's title on the leave page: parks the pins and returns to the hub, live 1000 ms after GP0 is let go. */
 };
 
 /** @brief Open the screen: the START frame on the sliders, page 1, and a claim of GP0's role. */

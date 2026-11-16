@@ -33,6 +33,13 @@ struct TouchState;
 #define UI_RX_TITLE "RX SIGNALS"
 /** @brief The strip, `C_DIM`, with SIG's and AUX's GPIO: `SIG GP0  AUX GP1`, 16 characters. */
 #define UI_RX_STRIP_FMT "SIG GP%u  AUX GP%u"
+/**
+ * @brief MONITOR's amber line while SIG is GP1 (uiRxSigIsGp1()): the parked
+ *        SIG is driven low until the tap claims it and gives the pad to the
+ *        monitor's input. 34 characters, 203 px
+ *        (docs/design/dshot-lifetime.md, "What it costs").
+ */
+#define UI_RX_MONITOR_GP1 "GP1 IS SIG: PLUG IN AFTER THE TAP."
 
 /** @brief RX SIGNALS' controls besides BACK. */
 enum class RxCtl : uint8_t {
@@ -54,6 +61,13 @@ extern const UiHub UI_RX_HUB;
  * @param n   Room in @p buf.
  */
 void uiRxSignalsStrip(char *buf, size_t n);
+
+/**
+ * @brief Whether SIG is GP1, the monitor's other wiring: MONITOR draws
+ *        @ref UI_RX_MONITOR_GP1 then.
+ * @return true while escTaskDshotPin() is 1.
+ */
+bool uiRxSigIsGp1();
 
 /** @brief Open the hub. */
 void uiRxSignalsEnter();

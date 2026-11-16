@@ -1623,7 +1623,7 @@ static void leaveText(UiLeaveText *tx) {
 		}
 		first = 1;
 	}
-	uiLeaveUnplugSteps(tx, first, sigGpio(), dshot, sizeof(dshot));
+	uiLeaveUnplugSteps(tx, first, sigGpio(), uiNavOpenerTitle(), dshot, sizeof(dshot));
 	tx->next = "NEXT SERVO";
 	int k = 0;
 	if (s_leave.phase == UiLeavePhase::Before) {
@@ -1687,7 +1687,7 @@ static bool endClaim() {
 	cardCacheEnd();
 	pinClaimEnd(PinUser::Kst);
 	ClaimState cs = pinClaimState();
-	return cs != ClaimState::Free && cs != ClaimState::Restoring;
+	return cs != ClaimState::Free && cs != ClaimState::Parking;
 }
 
 /** @brief One frame of the leave page's touch. @return false when the screen left. */
@@ -1724,9 +1724,9 @@ static bool leaveTouch() {
 			newSession();
 			go(KstView::Main);
 			break;
-		case UiLeaveEv::Restart:
+		case UiLeaveEv::Release:
 			if (!pinClaimUnplugDue()) break;
-			pinClaimRestart(PinUser::Kst);
+			pinClaimRelease(PinUser::Kst);
 			return false;
 		case UiLeaveEv::None:
 			break;
@@ -1790,8 +1790,8 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 			} else {
 				uiControlAdd(out, &n, max, UI_FIX(KstCtl::NextServo), UI_LEAVE_LEFT,
 				             s_leave.phase == UiLeavePhase::Released);
-				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Restart), UI_LEAVE_WIDE,
-				             uiLeaveRestartLive(&s_leave, millis()));
+				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Release), UI_LEAVE_WIDE,
+				             uiLeaveReleaseLive(&s_leave, millis()));
 			}
 			return n;
 	}
@@ -1859,7 +1859,7 @@ static uint32_t frameKey() {
 	if (s_view == KstView::Leave)
 		h = mix(h, ((uint32_t)s_leave.phase << 8) | ((uint32_t)s_leave.before << 4) |
 		           ((uint32_t)s_leave.leaveEnabled << 3) | ((uint32_t)s_leave.leavePress << 2) |
-		           ((uint32_t)s_leave.restartPress << 1) | (uint32_t)uiLeaveRestartLive(&s_leave, millis()));
+		           ((uint32_t)s_leave.releasePress << 1) | (uint32_t)uiLeaveReleaseLive(&s_leave, millis()));
 	if (s_view == KstView::Main && s_st.job == KstJobState::Searching) h = mix(h, millis() / 150);
 	if (s_view == KstView::Main) {
 		// The main view's strip as composed: the current counts only in the

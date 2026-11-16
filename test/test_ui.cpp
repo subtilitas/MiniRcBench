@@ -4343,8 +4343,8 @@ static void testMenuDestinations() {
 	frames(1);
 	checkTrue("BACK: the leave page, the pins let go", pinClaimUnplugDue());
 	// RESTART DSHOT takes a press 1000 ms after the release.
-	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); k++) frames(1);
-	tapId(UI_FIX(ServoCtl::Restart));   // RESTART DSHOT
+	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(ServoCtl::Release)); k++) frames(1);
+	tapId(UI_FIX(ServoCtl::Release));   // RESTART DSHOT
 	frames(2);
 	checkTrue("RESTART DSHOT: DShot back, SERVO up, its entry live again",
 	          pinClaimState() == ClaimState::Free && ctlEnabled(HUB_ENTRY(0)));
@@ -6430,7 +6430,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
@@ -6591,7 +6591,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot back once", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeResumeCount() == resumes + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
@@ -6631,7 +6631,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
@@ -6732,7 +6732,7 @@ static void testEfm8Write() {
 	checkTrue("BACK: the leave page", s_state == S_LEAVE);
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	frames(2);
@@ -6801,7 +6801,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeResumeCount() == resumes + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
@@ -6879,7 +6879,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
@@ -6903,7 +6903,7 @@ static void testEfm8Write() {
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
@@ -6952,7 +6952,7 @@ static void testEfm8Write() {
 	          !s_ewKeptOnCard);
 	tapId(UI_FIX(Am32Ctl::Leave));
 	frames(45);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	tapId(UI_FIX(Am32Ctl::Release));
 	frames(2);
 	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
@@ -7426,15 +7426,15 @@ static void testAm32Efm8() {
 		};
 		checkTrue("no left button after LEAVE", !ctlPresent(UI_FIX(Am32Ctl::Stay)) && leftBlank());
 		checkTrue("RESTART DSHOT drawn disabled", leaveWideIs("RESTART DSHOT", false) &&
-		          !ctlEnabled(UI_FIX(Am32Ctl::Restart)));
-		tapId(UI_FIX(Am32Ctl::Restart), IdExpect::Disabled);
+		          !ctlEnabled(UI_FIX(Am32Ctl::Release)));
+		tapId(UI_FIX(Am32Ctl::Release), IdExpect::Disabled);
 		checkTrue("a tap before 1000 ms restarts nothing", fakeResumeCount() == resumes &&
 		          s_state == S_LEAVE);
 		frames(37);
-		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Restart)) &&
+		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Release)) &&
 		          leaveWideIs("RESTART DSHOT", true));
 		checkTrue("the run cue still stands", uiAm32RunCue(0));
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		checkInt("DShot asked back once", fakeResumeCount(), resumes + 1);
@@ -7463,7 +7463,7 @@ static void testAm32Efm8() {
 		checkTrue("BACK: the leave page", s_state == S_LEAVE);
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
@@ -7498,7 +7498,7 @@ static void testAm32Efm8() {
 		checkTrue("LEAVE while entering: the job cut, SIG let go, DShot waits",
 		          !fakeEwOpen() && core1JobPhase() == Core1JobPhase::Idle && fakeResumeCount() == resumes);
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          fakeResumeCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
@@ -7562,7 +7562,7 @@ static void testAm32Efm8() {
 		checkTrue("the guard's second BACK again: the leave page", s_state == S_LEAVE);
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot asked back once",
 		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
@@ -7593,7 +7593,7 @@ static void testAm32Efm8() {
 		checkTrue("BACK again: the leave page", s_state == S_LEAVE);
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, DShot asked back once",
 		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
@@ -7619,7 +7619,7 @@ static void testAm32Efm8() {
 		checkTrue("BACK: the leave page", s_state == S_LEAVE);
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          fakeResumeCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
@@ -7677,7 +7677,7 @@ static void testAm32Efm8() {
 		checkTrue("BACK: the leave page", s_state == S_LEAVE);
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
@@ -7708,7 +7708,7 @@ static void testAm32Efm8() {
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, strip, C_DIM, C_BG, 1));
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG, the cue cleared",
 		          uiCurrentScreen() == UiScreenId::EscConfig && fakeResumeCount() == resumes + 1 && !s_blReached);
 		tapId(UI_FIX(UI_BACK));  // to MENU
@@ -7736,7 +7736,7 @@ static void testAm32Efm8() {
 		checkTrue("BACK: the leave page", s_state == S_LEAVE);
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("LEAVE, then RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          fakeResumeCount() == resumes + 1);
 		tapId(UI_FIX(UI_BACK));  // to MENU
@@ -7758,7 +7758,7 @@ static void testAm32Efm8() {
 		tapId(UI_FIX(UI_BACK));
 		tapId(UI_FIX(Am32Ctl::Leave));
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Restart));
+		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("BACK, LEAVE, RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		fakeEwRefuse(0);
@@ -8747,8 +8747,8 @@ static void testAm32NavOpener() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: the leave page", s_state == S_LEAVE);
 	tapId(UI_FIX(Am32Ctl::Leave));
-	for (int i = 0; i < 80 && !ctlEnabled(UI_FIX(Am32Ctl::Restart)); i++) frames(1);
-	tapId(UI_FIX(Am32Ctl::Restart));
+	for (int i = 0; i < 80 && !ctlEnabled(UI_FIX(Am32Ctl::Release)); i++) frames(1);
+	tapId(UI_FIX(Am32Ctl::Release));
 	checkTrue("RESTART DSHOT: ESC CONFIG", navIsHub(UiScreenId::EscConfig));
 	for (int i = 0; i < 20 && pinClaimState() != ClaimState::Free; i++) frames(1);
 	checkTrue("the claim Free", pinClaimState() == ClaimState::Free);

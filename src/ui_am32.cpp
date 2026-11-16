@@ -167,7 +167,7 @@ static_assert(UI_MARGIN + 12 * (int)(sizeof(AM32_UI_TITLE) - 1) - 2 + 4 <= UI_BA
 static_assert(sizeof(AM32_UI_LEAVE_1) - 1 <= UI_LEAVE_STEP_CHARS &&
               sizeof(AM32_UI_LEAVE_1A) - 1 <= UI_LEAVE_STEP_CHARS &&
               sizeof(AM32_UI_LEAVE_1B) - 1 <= UI_LEAVE_STEP_CHARS &&
-              sizeof(AM32_UI_LEAVE_2) - 1 <= UI_LEAVE_STEP_CHARS,
+              sizeof(AM32_UI_LEAVE_2) - 1 - 2 + UI_LEAVE_HUB_CHARS <= UI_LEAVE_STEP_CHARS,
               "a leave step runs past x 232");
 // The read-only view's lines: the layout is one digit (am32Plausible() takes
 // 1 to 8), "%u" two characters; the backup's name five characters.
@@ -1196,16 +1196,21 @@ static uint8_t cardSeen();
 
 /**
  * @brief The leave page of decision 8 of docs/design/bluejay-blheli-s.md:
- *        unplug the ESC's battery, then LEAVE; plug it in after RESTART
- *        DSHOT. No left button after LEAVE: there is no next device.
+ *        unplug the ESC's battery, then LEAVE; plug it in once the hub
+ *        shows, the pins parked. The wide button reads the hub's title
+ *        (docs/design/dshot-lifetime.md, decision 9). No left button after
+ *        LEAVE: there is no next device.
  */
 static void drawLeave() {
+	static char plug[UI_LEAVE_STEP_CHARS + 1];
 	UiLeaveText tx;
 	memset(&tx, 0, sizeof(tx));
 	tx.step[0][0] = AM32_UI_LEAVE_1;
 	tx.step[0][1] = AM32_UI_LEAVE_1A;
 	tx.step[0][2] = AM32_UI_LEAVE_1B;
-	tx.step[1][0] = AM32_UI_LEAVE_2;
+	tx.hub = uiNavOpenerTitle();
+	snprintf(plug, sizeof(plug), AM32_UI_LEAVE_2, tx.hub);
+	tx.step[1][0] = plug;
 	tx.next = nullptr;
 	if (s_leave.phase == UiLeavePhase::Releasing) tx.note[0] = UI_LEAVE_RELEASING;
 	uiLeaveDraw(&s_leave, tx, s_frameTouch, millis());
@@ -1227,7 +1232,7 @@ static void openLeave(Am32Screen from) {
 /**
  * @brief One frame of the leave page.
  * @param t This frame's touch.
- * @return false once RESTART DSHOT gave SIG back to DShot: the screen leaves.
+ * @return false once the hub's title parked SIG: the screen leaves.
  */
 static bool leaveTick(const TouchState *t) {
 	uint32_t now = millis();
@@ -1237,12 +1242,12 @@ static bool leaveTick(const TouchState *t) {
 			s_state = s_leaveFrom;
 			break;
 		case UiLeaveEv::Leave:
-			// The claim has the leave page: DShot waits for RESTART DSHOT.
+			// The claim has the leave page: the park waits for its last button.
 			endClaim();
 			break;
-		case UiLeaveEv::Restart:
+		case UiLeaveEv::Release:
 			if (!pinClaimUnplugDue()) break;
-			pinClaimRestart(PinUser::Am32);
+			pinClaimRelease(PinUser::Am32);
 			// The steps power-cycled the ESC: MENU's cue goes.
 			s_blReached = false;
 			s_state = S_HANDOVER;
@@ -1251,7 +1256,7 @@ static bool leaveTick(const TouchState *t) {
 		case UiLeaveEv::None:
 			break;
 	}
-	// RESTART DSHOT turns live by the clock: the page repaints every frame,
+	// The hub's title turns live by the clock: the page repaints every frame,
 	// as the connect page does.
 	s_redraw = true;
 	return true;
@@ -1637,7 +1642,7 @@ static bool exitTick() {
 	}
 	// The job lets SIG go first; DShot restarts once it is idle.
 	if (!pinClaimUnplugDue()) return true;
-	pinClaimRestart(PinUser::Am32);
+	pinClaimRelease(PinUser::Am32);
 	s_state = S_HANDOVER;
 	return false;
 }
@@ -2203,8 +2208,8 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Stay), UI_LEAVE_LEFT, true);
 			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Leave), UI_LEAVE_WIDE, s_leave.leaveEnabled);
 		} else {
-			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Restart), UI_LEAVE_WIDE,
-			             uiLeaveRestartLive(&s_leave, millis()));
+			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Release), UI_LEAVE_WIDE,
+			             uiLeaveReleaseLive(&s_leave, millis()));
 		}
 		return n;
 	}

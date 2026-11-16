@@ -1448,7 +1448,7 @@ static void testLeavePhases() {
 	checkInt("and still step 0 once released", uiLeaveCurrent(&l), 0);
 	uiLeaveOpen(&l, UiLeavePhase::Released, 1000);
 	checkTrue("opened released: releasing until the poll",
-	          l.phase == UiLeavePhase::Releasing && !uiLeaveRestartLive(&l, 5000));
+	          l.phase == UiLeavePhase::Releasing && !uiLeaveReleaseLive(&l, 5000));
 	idle();
 }
 
@@ -1474,13 +1474,13 @@ static void testLeaveRestartWait() {
 	UiLeave l;
 	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
 	uiLeavePoll(&l, true, 5000);
-	checkTrue("999 ms in: not live", !uiLeaveRestartLive(&l, 5999));
-	checkTrue("1000 ms in: live", uiLeaveRestartLive(&l, 6000));
+	checkTrue("999 ms in: not live", !uiLeaveReleaseLive(&l, 5999));
+	checkTrue("1000 ms in: live", uiLeaveReleaseLive(&l, 6000));
 	const UiRect &w = UI_LEAVE_WIDE;
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 5999);
 	checkTrue("a press that landed at 999 ms and lifts at 1100 ms: nothing",
 	          uiLeaveTouch(&l, lift(), 6100) == UiLeaveEv::None);
-	checkTrue("a press that lands at 1000 ms: Restart", tapLeave(&l, w, 6000) == UiLeaveEv::Restart);
+	checkTrue("a press that lands at 1000 ms: Restart", tapLeave(&l, w, 6000) == UiLeaveEv::Release);
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 6000);
 	move(w.x + 20, w.y - 40);
 	checkTrue("slid off before the lift: nothing", uiLeaveTouch(&l, lift(), 6100) == UiLeaveEv::None);
@@ -1491,19 +1491,19 @@ static void testLeaveRestartWait() {
 
 	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
 	uiLeavePoll(&l, true, 0xFFFFFF00u);
-	checkTrue("16 ms in, before the wrap: not live", !uiLeaveRestartLive(&l, 0xFFFFFF10u));
+	checkTrue("16 ms in, before the wrap: not live", !uiLeaveReleaseLive(&l, 0xFFFFFF10u));
 	checkTrue("across a millis() wrap: 999 ms not live, 1000 ms live",
-	          !uiLeaveRestartLive(&l, 0xFFFFFF00u + 999u) && uiLeaveRestartLive(&l, 0xFFFFFF00u + 1000u));
+	          !uiLeaveReleaseLive(&l, 0xFFFFFF00u + 999u) && uiLeaveReleaseLive(&l, 0xFFFFFF00u + 1000u));
 
 	uiLeaveOpen(&l, UiLeavePhase::Before, 0);
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 100);
 	checkTrue("no wait: LEAVE's tap leaves", uiLeaveTouch(&l, lift(), 150) == UiLeaveEv::Leave);
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 200);
 	uiLeavePoll(&l, true, 250);
-	checkTrue("live with the released phase", uiLeaveRestartLive(&l, 250));
+	checkTrue("live with the released phase", uiLeaveReleaseLive(&l, 250));
 	checkTrue("but a second press that landed while releasing restarts nothing",
 	          uiLeaveTouch(&l, lift(), 300) == UiLeaveEv::None);
-	checkTrue("the next press does", tapLeave(&l, w, 400) == UiLeaveEv::Restart);
+	checkTrue("the next press does", tapLeave(&l, w, 400) == UiLeaveEv::Release);
 	idle();
 }
 

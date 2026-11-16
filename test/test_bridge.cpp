@@ -399,6 +399,9 @@ static void testRelease() {
 
 /** @brief The wiring, the pump bound and past any drain, no ESC answering. */
 static void freshPump(uint8_t sig, uint8_t aux, bool kiss) {
+	// A hub's frame: Run not wanted, so a claim is not Busy
+	// (docs/design/dshot-lifetime.md).
+	pinClaimDshot(false);
 	escTaskConfigure(sig, 600, kiss, aux);
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
@@ -592,9 +595,9 @@ static void testLeavePageAndRetry() {
 	pinClaimEnd(PinUser::Bridge);
 	for (int k = 0; k < 20; k++) pass();
 	checkTrue("due again", pinClaimUnplugDue());
-	pinClaimRestart(PinUser::Sbus);
+	pinClaimRelease(PinUser::Sbus);
 	checkInt("RESTART from another screen: nothing", fakeResumeCount(), resumes);
-	pinClaimRestart(PinUser::Bridge);
+	pinClaimRelease(PinUser::Bridge);
 	checkInt("RESTART DSHOT resumes", fakeResumeCount(), resumes + 1);
 	for (int k = 0; k < 3 && pinClaimState() != ClaimState::Free; k++) pass();
 	checkTrue("Free, the page gone", pinClaimState() == ClaimState::Free && !pinClaimLeavePage());

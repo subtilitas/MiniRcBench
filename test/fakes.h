@@ -244,6 +244,12 @@ int fakeResumeCount();
 /** @brief How many times the fake pump has bound. */
 int fakeRebuildCount();
 
+/** @brief How many times escTaskPark() has been called. */
+int fakeParkCount();
+
+/** @brief Whether the core1 job was idle at the last escTaskPark(). */
+bool fakeParkJobIdle();
+
 /** @brief The wiring the fake pump's last bind used. */
 FakeWiring fakeResumeWiring();
 
@@ -256,9 +262,9 @@ void fakeSetBindHook(void (*hook)());
 
 /**
  * @brief Put core1's side of the fake pump back to its power-on state, as
- *        esc_task.cpp's static initialisers leave it: no bind, Run wanted
- *        and reached, the bind stamp 0, nothing held, no rebuild pending.
- *        The wiring is left as configured.
+ *        esc_task.cpp's static initialisers leave it: no bind, Park
+ *        wanted, Run reached with nothing bound, the bind stamp 0, nothing
+ *        held, no rebuild pending. The wiring is left as configured.
  */
 void fakePumpPowerOn();
 
