@@ -182,7 +182,7 @@ static uint32_t s_captionKey = 0;
 
 /** @brief Cached LINK values, so the live row repaints only when it changes. */
 static int s_shownRate = -1, s_shownErr = -1;
-/** @brief LINK last read @ref UI_SETTINGS_LINK_OFF: the pump was parked. */
+/** @brief LINK last read @ref UI_SETTINGS_LINK_OFF, the pump being parked. */
 static bool s_shownOff = false;
 /** @brief The uptime second last drawn, so UPTIME repaints once a second. */
 static uint32_t s_shownUptime = 0;
@@ -728,7 +728,7 @@ static bool resetNoteShown() {
  * SETUP over ESC TESTER keeps DShot running (docs/design/dshot-lifetime.md,
  * decision 6), and a SIG PIN change there binds it on the new pin at once
  * (applyLive()). While it runs (pinClaimDshotRunning()) the line names the
- * pin the pump runs on, escTaskDshotPin(), with @ref UI_SPLASH_PIN_FMT:
+ * pin the pump runs on, escTaskDshotPin(), with @ref UI_SPLASH_PIN_FMT,
  * `UNPLUG ANY SERVO FROM GP0 NOW`. Opened from MENU, DShot is parked, nothing
  * is sent, and the line does not show, whatever the pin: no frame leaves the
  * board at power-up, and ESC TESTER is the next screen to send.
