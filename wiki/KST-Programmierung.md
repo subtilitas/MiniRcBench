@@ -196,8 +196,8 @@ unten, um zu verschieben.
   `RAW` und die Zahl.
 - LOCKED-Felder sind nur lesbar. Sie sind grau gezeichnet, und ein Tippen
   darauf wählt nichts aus.
-- Ein geänderter Wert ist cyan, mit einem 3 px breiten cyanfarbenen Balken am
-  linken Rand seiner Zeile. Ein Wert, wie er gelesen wurde, steht in der
+- Ein geänderter Wert steht dunkel auf einer cyanfarbenen Fläche, mit einem
+  3 px breiten cyanfarbenen Balken am linken Rand seiner Zeile. Ein Wert, wie er gelesen wurde, steht in der
   Textfarbe, ausgewählt oder nicht: Die Auswahl hellt die Zeile und ihren
   Namen auf, nicht den Wert.
 
@@ -207,8 +207,8 @@ unten, um zu verschieben.
 
 1. Tippe auf eine änderbare Zeile. Die Editorleiste unter der Liste zeigt das
    Feld, den gespeicherten und den vorgemerkten Wert, zum Beispiel
-   `DEAD BAND  2.0 US ->` über `2.2 US`, den vorgemerkten Wert in Cyan, sobald
-   er abweicht. Ist keine Zeile gewählt, zeigt die Leiste
+   `DEAD BAND  2.0 US ->` über `2.2 US`, den vorgemerkten Wert als
+   cyanfarbenen Text, sobald er abweicht. Ist keine Zeile gewählt, zeigt die Leiste
    `TAP A ROW TO EDIT IT` und `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tippe auf `-` oder `+` (44 × 44 px), um den Wert zu verstellen. Gedrückt
    halten wiederholt den Schritt. `+` erhöht den angezeigten Wert und `-`
@@ -229,7 +229,8 @@ Zwei Arten von Grenzen gelten:
   `MAX. DUTY` hält zum Beispiel bei 98 % an. Ist kein weiterer Schritt
   zulässig, ist die Schaltfläche abgeblendet gezeichnet.
 - **Eine weiche Regel** wird übernommen. Der Balken der Zeile wird
-  bernsteinfarben, der Wert bleibt cyan, und die Editorleiste zeigt den Text
+  bernsteinfarben, der Wert bleibt auf seiner cyanfarbenen Fläche, und die
+  Editorleiste zeigt den Text
   der Regel in Bernstein, zum Beispiel
   `WITHOUT SOFT START THE SERVO JUMPS AT POWER-ON.`
 

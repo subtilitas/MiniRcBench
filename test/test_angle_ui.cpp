@@ -501,7 +501,8 @@ static void testZeroAndMax() {
 // SETUP
 // ---------------------------------------------------------------------------
 
-/** @brief SETUP's row @p i, label and caption, from x 8. */
+/** @brief SETUP's row @p i, label and caption, from x 8; its button's label
+ *         C_TEXT on C_PANEL, a button's and not a value drawn as text. */
 static bool setupRowIs(int i, const char *label, const char *cap, const char *value) {
 	int y = 40 + 50 * i;
 	const UiRect t = { 138, (int16_t)y, 94, 44 };
@@ -530,9 +531,9 @@ static void testSetup() {
 	checkTrue("its title, ANGLE SETUP",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_ANGLE_SETUP_TITLE, C_TEXT, C_PANEL, 2));
 	checkTrue("ALONG AXIS: LONG, LONG EDGE ON AXIS", setupRowIs(0, "ALONG AXIS", "LONG EDGE ON AXIS", "LONG"));
-	checkTrue("LENGTH, MM: OFF at scale 2 ending at x 132, HINGE TO EDGE under it",
+	checkTrue("LENGTH, MM: OFF in C_CYAN at scale 2 ending at x 132, HINGE TO EDGE under it",
 	          lineIs(90 + 18, "LENGTH, MM", C_DIM) &&
-	          fakeTextIs(132 - gfxTextW("OFF", 2), 98, "OFF", C_TEXT, C_BG, 2) &&
+	          fakeTextIs(132 - gfxTextW("OFF", 2), 98, "OFF", C_CYAN, C_BG, 2) &&
 	          fakeTextIs(132 - gfxTextW("HINGE TO EDGE", 1), 117, "HINGE TO EDGE", C_DIM, C_BG, 1));
 	checkTrue("SIGN: NORMAL", setupRowIs(2, "SIGN", nullptr, "NORMAL"));
 	checkTrue("CALIBRATION: FLIP, NOT CALIBRATED", setupRowIs(3, "CALIBRATION", UI_ANGLE_CAL_NO, "FLIP"));
@@ -553,7 +554,7 @@ static void testSetup() {
 	tapId(UI_FIX(AngleCtl::Setup));
 	tapId(UI_FIX(AngleCtl::LenPlus));
 	checkTrue("+ from OFF: 10", settings()->angleLengthMm == 10 &&
-	          fakeTextIs(132 - gfxTextW("10", 2), 98, "10", C_TEXT, C_BG, 2));
+	          fakeTextIs(132 - gfxTextW("10", 2), 98, "10", C_CYAN, C_BG, 2));
 	tapId(UI_FIX(AngleCtl::LenMinus));
 	checkTrue("- from 10: OFF", settings()->angleLengthMm == 0);
 	tapId(UI_FIX(AngleCtl::LenMinus));
@@ -563,7 +564,7 @@ static void testSetup() {
 	fakeRelease();
 	frames(1);
 	checkTrue("held: up to 500 and no further", settings()->angleLengthMm == 500 &&
-	          fakeTextIs(132 - gfxTextW("500", 2), 98, "500", C_TEXT, C_BG, 2));
+	          fakeTextIs(132 - gfxTextW("500", 2), 98, "500", C_CYAN, C_BG, 2));
 	tapId(UI_FIX(AngleCtl::LenPlus));
 	checkInt("+ at 500: 500", settings()->angleLengthMm, 500);
 	checkTrue("nothing written while stepping", fakeFlashWrites() == writes);

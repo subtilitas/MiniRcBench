@@ -1019,7 +1019,7 @@ static void testSettingsDiagnostics() {
 	UiRect last = ctlRect(UI_ROW(SettingsRowId::LastRestart, Row));
 	checkInt("LAST RESTART at y 140 at the end of the list", last.y, 140);
 	checkTrue("DIAGNOSTICS' caption at y 128, 8 px into it",
-	          fakeTextIs(UI_MARGIN, 128, "DIAGNOSTICS", C_TEXT, C_BG, 1));
+	          fakeTextIs(UI_MARGIN, 128, "DIAGNOSTICS", C_CYAN, C_BG, 1));
 	checkTrue("LAST RESTART's label",
 	          fakeTextIs(UI_MARGIN, 140 + 18, "LAST RESTART", C_DIM, C_BG, 1));
 	checkTrue("a brown-out reads BROWN-OUT in amber, right-aligned to x 232",
@@ -1965,32 +1965,60 @@ static void testSettingsValueWidths() {
  *        live reading.
  */
 static void testSettingsValueColours() {
-	section("SETTINGS: values in the text colour, no cyan or lime");
+	section("SETUP: a setting's value and a section caption cyan, a warning and a read-only value not");
 	openSettings();
 	const SettingsSection *secs[16];
 	uint8_t ns = uiSettingsSections(secs, 16);
 	Settings keep = *settings();
 	settings()->kissEnable = 1;
 	settings()->kissPin = (uint8_t)(settings()->dshotPin == 0 ? 1 : 0);
-	int named = 0;
-	bool neutral = true;
+	int named = 0, steppers = 0, readOnly = 0;
+	bool settingsCyan = true, readOnlyPlain = true, noText = true, noLime = true;
 	char what[64];
 	for (uint8_t i = 0; i < ns; i++)
 		for (uint8_t r = 0; r < secs[i]->count; r++) {
 			const SettingsRow &row = secs[i]->rows[r];
 			char b[40];
-			uint16_t col;
+			uint16_t col = 0;
 			row.value(b, sizeof(b), &col);
-			if (col == C_CYAN || col == C_LIME) neutral = false;
+			if (col == C_TEXT) noText = false;
+			if (col == C_LIME) noLime = false;
+			if (row.kind == SettingsKind::Stepper) {
+				steppers++;
+				if (col != C_CYAN) settingsCyan = false;
+			} else if (row.kind == SettingsKind::ReadOnly) {
+				readOnly++;
+				if (col == C_CYAN) readOnlyPlain = false;
+			}
 			if (!strcmp(row.label, "MAX THROTTLE") || !strcmp(row.label, "SIG PIN") ||
 			    !strcmp(row.label, "AUX PIN") || !strcmp(row.label, "SERVO SUPPLY")) {
-				snprintf(what, sizeof(what), "%s: %s in the text colour", row.label, b);
-				checkTrue(what, col == C_TEXT);
+				snprintf(what, sizeof(what), "%s: %s in C_CYAN", row.label, b);
+				checkTrue(what, col == C_CYAN);
 				named++;
 			}
 		}
 	checkInt("the four rows found", named, 4);
-	checkTrue("no value cyan or lime", neutral);
+	checkInt("every value drawn as text beside - and + is C_CYAN: the rows", steppers, 7);
+	checkTrue("and each of them", settingsCyan);
+	checkTrue("a read-only value is never C_CYAN: BUILT FOR, VERSION, CLOCK, LAST RESTART, UPTIME",
+	          readOnly == 5 && readOnlyPlain);
+	checkTrue("no value in the text colour, none lime", noText && noLime);
+
+	// On the panel: the first section's caption and its first value, and
+	// the toggle beside them, which keeps a button's label.
+	menuFrames(2);
+	char poles[8];
+	snprintf(poles, sizeof(poles), "%u", (unsigned)settings()->poles);
+	checkTrue("the caption ESC TESTER in C_CYAN at scale 1",
+	          fakeTextIs(UI_MARGIN, ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y - 20 + 8, secs[0]->caption,
+	                     C_CYAN, C_BG, 1) && !strcmp(secs[0]->caption, "ESC TESTER"));
+	UiRect pr = ctlRect(UI_ROW(SettingsRowId::Poles, Row));
+	checkTrue("MOTOR POLES: its value in C_CYAN at scale 2, its label C_DIM",
+	          fakeTextIs(132 - gfxTextW(poles, 2), pr.y + 15, poles, C_CYAN, C_BG, 2) &&
+	          fakeTextIs(UI_MARGIN, pr.y + 18, "MOTOR POLES", C_DIM, C_BG, 1));
+	UiRect m = ctlRect(UI_ROW(SettingsRowId::Poles, Minus));
+	checkTrue("its - stays a neutral button: C_TEXT on C_PANEL",
+	          fakeTextIs(m.x + (m.w - gfxTextW("-", 2)) / 2, m.y + (m.h - 14) / 2, "-", C_TEXT, C_PANEL, 2));
 	*settings() = keep;
 	tapId(UI_FIX(UI_BACK));
 	openTester();

@@ -32,6 +32,7 @@
 #include "ui.h"
 #include "ui_leave.h"
 #include "ui_widgets.h"
+#include "ui_list.h"
 #include "gfx.h"
 #include "theme.h"
 
@@ -507,7 +508,7 @@ static inline bool backToTester() {
 
 /** @brief How the header's BACK looks on the panel. */
 enum class BackLook : uint8_t {
-	Live,      /**< Panel fill, the label in C_TEXT, at rest or pressed. */
+	Live,      /**< The home tag: a C_CYAN fill, the label in C_ONACCENT, at rest or pressed. */
 	Disabled,  /**< uiButton()'s disabled look: an outline, C_BG inside, the label in C_GRID. */
 	Other,     /**< Neither: not drawn, or drawn some other way. */
 };
@@ -519,8 +520,8 @@ static inline BackLook backLook() {
 	const uint16_t fill = fb[(r.y + r.h / 2) * GFX_W + r.x + 4];
 	const uint16_t edge = fb[r.y * GFX_W + r.x + r.w / 2];
 	const int lx = r.x + (r.w - gfxTextW("BACK", 1)) / 2, ly = r.y + (r.h - 7) / 2;
-	if (fill == C_PANEL && (fakeTextIs(lx, ly, "BACK", C_TEXT, C_PANEL, 1) ||
-	                        fakeTextIs(lx + 1, ly + 1, "BACK", C_TEXT, C_PANEL, 1)))
+	if (fill == C_CYAN && (fakeTextIs(lx, ly, "BACK", C_ONACCENT, C_CYAN, 1) ||
+	                       fakeTextIs(lx + 1, ly + 1, "BACK", C_ONACCENT, C_CYAN, 1)))
 		return BackLook::Live;
 	if (fill == C_BG && edge == C_GRID && fakeTextIs(lx, ly, "BACK", C_GRID, C_BG, 1))
 		return BackLook::Disabled;
@@ -564,6 +565,43 @@ static inline int buttonCornersClear(const UiControl *t, uint8_t n) {
 	return buttons;
 }
 
+/**
+ * @brief Walk the rows of @p t, the controls as wide as the panel, and find
+ *        each changed value's rectangle: `C_CYAN` in column 234, where the
+ *        rectangle of a value right-aligned to x 231 ends
+ *        (uiListDrawValue()). The 4 px before the rectangle hold the row's
+ *        ground over the rectangle's height: no pixel of the label or of
+ *        the group caption (slice 10 of menu-c.md's build plan).
+ * @return The rectangles found, or -1 when one starts less than 4 px after
+ *         the row's text, or at the panel's left edge.
+ */
+static inline int changedFillsClear(const UiControl *t, uint8_t n) {
+	const uint16_t *fb = gfxBuffer();
+	auto at = [fb](int x, int y) { return fb[y * GFX_W + x]; };
+	const int xr = GFX_W - UI_MARGIN + UI_FIELD_FILL_DX - 1;
+	int found = 0;
+	for (uint8_t i = 0; i < n; i++) {
+		const UiRect &r = t[i].rect;
+		if (r.x != 0 || r.w != GFX_W || r.h <= 0) continue;
+		int y0 = -1, y1 = -1;
+		for (int y = r.y; y < r.y + r.h; y++)
+			if (at(xr, y) == C_CYAN) {
+				if (y0 < 0) y0 = y;
+				y1 = y;
+			}
+		if (y0 < 0) continue;
+		found++;
+		int left = xr;
+		while (left > 0 && at(left - 1, y0) == C_CYAN) left--;
+		if (left < 4) return -1;
+		const uint16_t ground = at(left - 1, y0);
+		for (int y = y0; y <= y1; y++)
+			for (int x = left - 4; x < left; x++)
+				if (at(x, y) != ground) return -1;
+	}
+	return found;
+}
+
 /** @brief @p a and @p b are a tester readout and the pad or the track, either way round. */
 static inline bool readoutOverPad(UiControlId a, UiControlId b) {
 	if (uiCurrentScreen() != UiScreenId::Tester) return false;
@@ -582,8 +620,10 @@ static inline bool readoutOverPad(UiControlId a, UiControlId b) {
  *        overlapping, no BACK on the tester and on MENU, the root, and
  *        BACK at uiBackRect() on every other screen, drawn live where the
  *        table says it acts and disabled where it says it does not, over
- *        the header's rule at y 35, and every button with its rounded
- *        corners left to the ground (buttonCornersClear()). The one
+ *        the header's rule at y 35, every button with its rounded
+ *        corners left to the ground (buttonCornersClear()), and every
+ *        changed value's rectangle clear of its row's text
+ *        (changedFillsClear()). The one
  *        overlap allowed is the tester's
  *        readouts (`TesterCtl::Poles`, `TesterCtl::Max`) over the pad
  *        and the track, never with both acting.
@@ -621,6 +661,10 @@ static inline void checkControlTable(const char *where) {
 	checkTrue(what, apart);
 	snprintf(what, sizeof(what), "%s: every button's corner pixels are the ground's", where);
 	checkTrue(what, buttonCornersClear(t, n) >= 0);
+	const int fills = changedFillsClear(t, n);
+	if (fills > 0) fakeChangedWalked() += fills;
+	snprintf(what, sizeof(what), "%s: a changed value's rectangle starts 4 px or more after its row's text", where);
+	checkTrue(what, fills >= 0);
 	if (uiCurrentScreen() == UiScreenId::Tester || uiCurrentScreen() == UiScreenId::Menu) {
 		snprintf(what, sizeof(what), "%s: no BACK in the table", where);
 		checkTrue(what, !ctlPresent(UI_FIX(UI_BACK)));

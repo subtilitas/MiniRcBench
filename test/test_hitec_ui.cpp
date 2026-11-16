@@ -2031,20 +2031,31 @@ static void testColourRoles() {
 	hitecFrames(1);
 	UiRect r = ctlRect(UI_ROW(sp, Row));
 	auto valueHas = [&](const UiRect &q, uint16_t col) { return regionHas(120, q.y + 13, 112, 14, col); };
-	checkTrue("selected, as read: the value in the text colour, never lime; no bar",
-	          valueHas(r, C_TEXT) && !valueHas(r, C_LIME) && pixel(1, r.y + 5) == C_PANEL);
+	checkTrue("selected, as read: the value in the text colour, never lime or cyan; no bar",
+	          valueHas(r, C_TEXT) && !valueHas(r, C_LIME) && !valueHas(r, C_CYAN) && pixel(1, r.y + 5) == C_PANEL);
 	checkTrue("the editor bar's value in the text colour",
 	          regionHas(52, 234, 136, 14, C_TEXT) && !regionHas(52, 234, 136, 14, C_LIME));
 	tapId(UI_FIX(HitecCtl::EditMinus));
 	hitecFrames(1);
 	r = ctlRect(UI_ROW(sp, Row));
-	checkTrue("-: changed, the value cyan, a 3 px cyan bar",
-	          valueHas(r, C_CYAN) && !valueHas(r, C_TEXT) && pixel(0, r.y + 5) == C_CYAN &&
+	// SPEED's value is drawn at scale 1: 7 px of text from y + 16, its
+	// rectangle from y + 14 to y + 24.
+	checkTrue("-: changed, the value dark on a cyan rectangle that ends at x 234, a 3 px cyan bar",
+	          valueHas(r, C_CYAN) && valueHas(r, C_ONACCENT) && !valueHas(r, C_TEXT) &&
+	          pixel(234, r.y + 14) == C_CYAN && pixel(234, r.y + 24) == C_CYAN &&
+	          pixel(234, r.y + 13) == C_PANEL && pixel(234, r.y + 25) == C_PANEL &&
+	          pixel(235, r.y + 14) == C_PANEL && pixel(0, r.y + 5) == C_CYAN &&
 	          pixel(2, r.y + 5) == C_CYAN && pixel(3, r.y + 5) == C_PANEL);
 	checkTrue("the label carries no *: SPEED from x 8 in the text colour",
 	          fakeTextIs(UI_MARGIN, r.y + 21, "SPEED", C_TEXT, C_PANEL, 1));
-	checkTrue("the editor bar's value cyan",
-	          regionHas(52, 234, 136, 14, C_CYAN) && !regionHas(52, 234, 136, 14, C_LIME));
+	checkTrue("the editor bar's value cyan text after the old value's arrow, no rectangle",
+	          regionHas(52, 234, 136, 14, C_CYAN) && !regionHas(52, 232, 136, 18, C_ONACCENT) &&
+	          !regionHas(52, 234, 136, 14, C_LIME));
+	{
+		int walked = fakeChangedWalked();
+		checkControlTable("HITEC SERVO, SPEED changed");
+		checkTrue("the walk met the changed value", fakeChangedWalked() > walked);
+	}
 	const UiRect rv = ctlRect(UI_FIX(HitecCtl::Revert));
 	checkTrue("REVERT's label amber",
 	          fakeTextIs(rv.x + (rv.w - gfxTextW("REVERT", 1)) / 2, rv.y + (rv.h - 7) / 2,
@@ -2055,8 +2066,8 @@ static void testColourRoles() {
 	tapId(UI_FIX(ctlEnabled(UI_FIX(HitecCtl::EditMinus)) ? HitecCtl::EditMinus : HitecCtl::EditPlus));
 	hitecFrames(1);
 	r = ctlRect(UI_ROW(db, Row));
-	checkTrue("DIRECTION reversed, a soft rule: the bar amber, the value cyan",
-	          valueHas(r, C_CYAN) && pixel(1, r.y + 5) == C_AMBER);
+	checkTrue("DIRECTION reversed, a soft rule: the bar amber, the value on its cyan rectangle",
+	          valueHas(r, C_ONACCENT) && pixel(234, r.y + 19) == C_CYAN && pixel(1, r.y + 5) == C_AMBER);
 	checkTrue("the rule's top line in cyan, the new value", regionHas(52, 220, 136, 7, C_CYAN));
 	tapId(UI_FIX(HitecCtl::Revert));
 	HitecRow rows[HITEC_ROWS_MAX];

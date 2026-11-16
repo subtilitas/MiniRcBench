@@ -760,6 +760,10 @@ y   0 | HITEC SERVO                      [ BACK ]|
   ([menu-b.md](menu-b.md), decision 8); selection fills the row and lights
   the label, never the value. The editor bar's value follows the same
   colours.
+  Revised by [ui-theme.md](ui-theme.md#slice-10-as-built), slice 10 of
+  [menu-c.md](menu-c.md#build-plan): in the row the changed value is
+  `C_ONACCENT` on a `C_CYAN` rectangle; the bar and the editor bar's `C_CYAN`
+  text are as above.
 - The strip names, two spaces apart, the model (`hitec_identify()`,
   `hitec_model_name()`), the backup file once the first write has saved it,
   `BACKUP IN RAM` before, and the pin. A classic strip adds the version,

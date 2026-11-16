@@ -552,7 +552,10 @@ edits, `WRITE...` opening the write page on a tap and only its 1000 ms
 HOLD TO WRITE writing, BACK drawn disabled while a write runs, the BOARD
 voltage refusal, the page writing what it shows. HEX lists the 112 or 255
 bytes, 8 a line, in a scrolling list. A coarse step on a field of 0 to 255
-is 24, as on AM32.
+is 24, as on AM32. Revised by
+[ui-theme.md](ui-theme.md#slice-10-as-built), slice 10 of
+[menu-c.md](menu-c.md#build-plan): in a row the changed value is
+`C_ONACCENT` on a `C_CYAN` rectangle, with its bar.
 
 Strip notes, two amber lines in place of the caption, the selected row's
 first:

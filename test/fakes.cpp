@@ -1322,6 +1322,28 @@ bool fakeChangeIs(int y, const char *old, const char *now, uint16_t bg) {
 	       fakeTextIs(x + 6 * (int)strlen(head), y, now, C_CYAN, bg, 1);
 }
 
+int &fakeChangedWalked() {
+	static int n = 0;
+	return n;
+}
+
+bool fakeChangedIs(int x, int y, const char *text, uint16_t ground, int scale) {
+	if (!fakeTextIs(x, y, text, C_ONACCENT, C_CYAN, scale)) return false;
+	const uint16_t *fb = gfxBuffer();
+	const int fx = x - 3, fy = y - 2, fw = gfxTextW(text, scale) + 6, fh = 7 * scale + 4;
+	for (int j = -1; j <= fh; j++) {
+		for (int i = -1; i <= fw; i++) {
+			int px = fx + i, py = fy + j;
+			if (px < 0 || px >= GFX_W || py < 0 || py >= GFX_H) continue;
+			uint16_t c = fb[py * GFX_W + px];
+			bool ring = i < 0 || i >= fw || j < 0 || j >= fh;
+			if (ring ? c != ground : (c != C_CYAN && c != C_ONACCENT)) return false;
+		}
+	}
+	// The rectangle's own corners and edges hold the fill, not ink.
+	return fb[fy * GFX_W + fx] == C_CYAN && fb[(fy + fh - 1) * GFX_W + fx + fw - 1] == C_CYAN;
+}
+
 bool fakeInkExtent(int y, int h, uint16_t bg, int *x0, int *x1) {
 	const uint16_t *fb = gfxBuffer();
 	int lo = GFX_W, hi = -1;

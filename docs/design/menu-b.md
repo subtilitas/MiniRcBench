@@ -835,8 +835,9 @@ change.
      and that note's choice 7, which the owner has not decided: a changed
      value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px bar
      stays. Cyan text without a fill is a settings value. The editor
-     bar's and the write page's new value stay `C_CYAN` text after `old ->`. Not
-     built.
+     bar's and the write page's new value stay `C_CYAN` text after `old ->`.
+     Built: slice 10 of [menu-c.md](menu-c.md#build-plan)
+     ([ui-theme.md](ui-theme.md#slice-10-as-built)).
 9. **SERVO SUPPLY is a core section** (item 5). The section holds two
    rows, SERVO SUPPLY and CURRENT SENSE. `ROWS_SUPPLY`, `SEC_SUPPLY`,
    `supplyValue()`, `supplyStep()`, `senseValue()`, `senseOn()`,
@@ -960,7 +961,10 @@ change.
       by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
       row that opens a hub, a selected tab's label, a settings value and a
       section caption. "Changed" is the cyan fill and the bar of decision 8.
-      SETUP's captions and values are `C_CYAN`. Not built.
+      SETUP's captions and values are `C_CYAN`. Not built: the leave page's
+      button to the hub is slice 11's, and no screen has a tab. The other
+      uses are built by slice 10 of [menu-c.md](menu-c.md#build-plan)
+      ([ui-theme.md](ui-theme.md#slice-10-as-built)).
     - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15
       and that note's choices 10 and 11, which the owner has not decided:
       `C_GREEN` as a button's fill says that a press starts an output: HOLD TO
@@ -1152,7 +1156,9 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     that note's choice 7, which the owner has not decided: a changed value in a
     list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px bar stays. Cyan
     text without a fill is a settings value. The editor bar's and the write
-    page's new value stay `C_CYAN` text after `old ->`. Not built.
+    page's new value stay `C_CYAN` text after `old ->`. Built: slice 10 of
+    [menu-c.md](menu-c.md#build-plan)
+    ([ui-theme.md](ui-theme.md#slice-10-as-built)).
 27. **Docs between slices** (question 5). Each slice updates its own
     README.md and wiki lines and images, not all in slice 10. This is
     against the note's recommendation, which was to change them in slice

@@ -158,6 +158,10 @@ static void testValues() {
 	}
 	printf("  the narrowest gap: %s\n", worstAt);
 	checkInt("label to value: the narrowest gap, px", worst, 23);
+	// A changed value's rectangle reaches 3 px to the left of its text
+	// (slice 10 of menu-c.md's build plan): 4 px or more stay.
+	checkTrue("label to a changed value's rectangle: 20 px, 4 px or more", worst - UI_FIELD_FILL_DX == 20 &&
+	          worst - UI_FIELD_FILL_DX >= 4);
 }
 
 static void testStrip() {

@@ -118,6 +118,12 @@ int main() {
 	runBridgeUiTests();
 	runBridgeProtoTests();
 
+	// checkControlTable() walks each frame's changed values; a walk that met
+	// none would pass whatever the rows drew.
+	section("Changed values: the frames checkControlTable() walked");
+	printf("  changed values walked: %d\n", fakeChangedWalked());
+	checkTrue("ESC SETTINGS, KST SERVO, HITEC SERVO and SERVO SET each showed one or more", fakeChangedWalked() >= 4);
+
 	section("Critical sections");
 	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);
 

@@ -83,7 +83,8 @@ enum ThemeColor : uint8_t {
 	TC_REDDARK,   /**< Dead-telemetry digit. Reads as "off but present". */
 	TC_GHOST,     /**< Unlit seven-segment digits. */
 	TC_BLUE,      /**< Latched: LATCH on, a toggle on, PROG MODE, servo B. */
-	TC_CYAN,      /**< Changed: a value edited and not yet written. */
+	TC_CYAN,      /**< The accent: the way back, a hub row's mark, a setting's
+	               *   value, a section caption; as a fill, a changed value. */
 	TC_MAGENTA,   /**< Alert: the ESC status alert, STALLED. */
 	TC_COUNT      /**< Number of entries. Not a colour. */
 };

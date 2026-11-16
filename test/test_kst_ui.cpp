@@ -2287,11 +2287,19 @@ static void testColourRoles() {
 	tapId(UI_FIX(KstCtl::EditPlus));
 	kstFrames(1);
 	r = ctlRect(UI_ROW(row, Row));
-	checkTrue("+: changed, the value cyan and a 3 px cyan bar",
-	          valueHas(C_CYAN) && !valueHas(C_TEXT) && pixel(0, r.y + 5) == C_CYAN &&
+	checkTrue("+: changed, the value dark on a cyan rectangle that ends at x 234, and a 3 px cyan bar",
+	          valueHas(C_CYAN) && valueHas(C_ONACCENT) && !valueHas(C_TEXT) &&
+	          pixel(234, r.y + 11) == C_CYAN && pixel(234, r.y + 28) == C_CYAN &&
+	          pixel(234, r.y + 10) == C_PANEL && pixel(235, r.y + 11) == C_PANEL && pixel(0, r.y + 5) == C_CYAN &&
 	          pixel(2, r.y + 5) == C_CYAN && pixel(3, r.y + 5) == C_PANEL);
-	checkTrue("the editor bar's value cyan",
-	          regionHas(52, 234, 136, 14, C_CYAN) && !regionHas(52, 234, 136, 14, C_LIME));
+	checkTrue("the editor bar's value cyan text after the old value's arrow, no rectangle",
+	          regionHas(52, 234, 136, 14, C_CYAN) && !regionHas(52, 232, 136, 18, C_ONACCENT) &&
+	          !regionHas(52, 234, 136, 14, C_LIME));
+	{
+		int walked = fakeChangedWalked();
+		checkControlTable("KST SERVO, DEAD BAND changed");
+		checkTrue("the walk met the changed value", fakeChangedWalked() > walked);
+	}
 	checkTrue("REVERT's label amber",
 	          fakeTextIs(rv.x + (rv.w - gfxTextW("REVERT", 1)) / 2, rv.y + (rv.h - 7) / 2,
 	                     "REVERT", C_AMBER, C_PANEL, 1));
@@ -2299,8 +2307,8 @@ static void testColourRoles() {
 	tapId(UI_FIX(KstCtl::EditMinus));
 	kstFrames(1);
 	r = ctlRect(UI_ROW(row, Row));
-	checkTrue("- below the backup narrows the band, a soft rule: the bar amber, the value cyan",
-	          valueHas(C_CYAN) && pixel(1, r.y + 5) == C_AMBER);
+	checkTrue("- below the backup narrows the band, a soft rule: the bar amber, the value on its cyan rectangle",
+	          valueHas(C_ONACCENT) && pixel(234, r.y + 11) == C_CYAN && pixel(1, r.y + 5) == C_AMBER);
 	checkTrue("the rule's top line in cyan, the new value", regionHas(52, 220, 136, 7, C_CYAN));
 	int lockRow = kstRowOf(KST_F_LOCK);
 	revealRow(lockRow);

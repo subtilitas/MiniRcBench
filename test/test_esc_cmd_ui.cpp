@@ -596,7 +596,7 @@ static void testBackCancels() {
 	ecFrames(1);
 	checkTrue("expired: the amber line, BACK live, drawn filled",
 	          lineIs(0, UI_ESC_CMD_EXPIRED, C_AMBER) && ctlEnabled(UI_FIX(UI_BACK)) &&
-	          px(back.x + 6, back.y + back.h - 5) == C_PANEL);
+	          px(back.x + 6, back.y + back.h - 5) == C_CYAN);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK cancels again", fakeCommandCancels() == cancels + 2);
 	backToTester();

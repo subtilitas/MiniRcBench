@@ -79,9 +79,16 @@ drops the changes, and any other touch keeps them.
 fill, the servo pulse, a hold's progress bar. Red is output on or a failure:
 `ARMED`, `RUNNING`, `STOP`, a tool's hold button while it is held, `REC`, a
 write in doubt. Amber is a warning or the step to take now. Magenta is an alert,
-such as `STALLED`. Cyan is a value changed and not yet written or applied, with
-a cyan bar at its row's left edge. Blue is a setting that stays on: `LATCH`, a
-toggle that is on, `PROG MODE`, servo B. Labels, captions and the buttons that
+such as `STALLED`. Blue is a setting that stays on: `LATCH`, a
+toggle that is on, `PROG MODE`, servo B. Cyan is the accent, as on rcbench,
+and has four uses. It is the way back: `BACK` in a header and the tester's
+`MENU` button are cyan with a dark label, and a `BACK` that does nothing is
+drawn disabled, not cyan. It is the mark `>` on a `MENU` row that opens a
+hub. It is a setting of the bench, as cyan text: the values and section
+captions of SETTINGS, the values of SERVO SET and OUTPUT SET, LENGTH on ANGLE
+SETUP. And it is a value changed and not yet written or applied: dark text
+on a cyan fill, with a cyan bar at its row's left edge. A value read from an
+ESC or a servo is in the text colour. Labels, captions and the buttons that
 open or command something are in the text colour or grey. A button has
 rounded corners. A chip on the strip under a title is square, so it does not
 look like a button; the tester's arm badge and its `SDERR` chip are square
@@ -102,7 +109,8 @@ two blue-grey neutrals. The colours are computed and not seen on the panel:
 how the panel shows them is not measured. High contrast keeps its own
 colours. Its frames and labels are near black, so a button that does not
 act has a dashed frame there, with its rounded corners whole, and a slider
-that does not act a hollow thumb.
+that does not act a hollow thumb. Cyan is a dark cyan there: `BACK` has a
+white label, and a changed value is white text on a dark cyan fill.
 
 ---
 
@@ -511,7 +519,9 @@ See [RX Signals](RX-Signals).
 Motor and wiring settings, display settings, the board, diagnostics, and the
 button that writes all settings to flash. One list, in sections, scrolls under
 a finger. It opens from `MENU`, or from a tap on the tester's pole count or
-ceiling while disarmed; `BACK` returns to where it was opened from.
+ceiling while disarmed; `BACK` returns to where it was opened from. The
+section names and the values beside `-` and `+` are cyan, the colour of a
+setting; read-only values are grey.
 
 | Section | Row | What it does |
 |---|---|---|

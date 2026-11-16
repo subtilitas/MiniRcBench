@@ -950,9 +950,9 @@ static void testSet() {
 	checkTrue("the footer: NEVER TO AN ESC. PROPS OFF. at (8, 287), amber, no STOP",
 	          leftIs(SBOUT_UI_FOOT_TEXT_Y, "NEVER TO AN ESC. PROPS OFF.", UI_COL_WARN) &&
 	          !ctlPresent(UI_FIX(SbusOutCtl::Stop)) && allOf(170, UI_FOOT_Y, 64, UI_FOOT_H, C_BG));
-	checkTrue("the rows from y 62: CHANNEL first, CH3 at scale 2 right-aligned to x 231",
+	checkTrue("the rows from y 62: CHANNEL first, CH3 in C_CYAN at scale 2 right-aligned to x 231",
 	          ctlPresent(UI_ROW(0, Row)) && ctlRect(UI_ROW(0, Row)).y == UI_BODY_Y &&
-	          fakeTextIs(232 - gfxTextW("CH3", 2), UI_BODY_Y + 13, "CH3", C_TEXT, C_BG, 2));
+	          fakeTextIs(232 - gfxTextW("CH3", 2), UI_BODY_Y + 13, "CH3", C_CYAN, C_BG, 2));
 	checkTrue("no row selected: the bar's hint in C_DIM, TAP A ROW TO EDIT IT",
 	          !ctlPresent(UI_FIX(SbusOutCtl::EditPlus)) &&
 	          fakeTextCentredIs(218 + 19, "TAP A ROW TO EDIT IT", C_DIM, C_BG, 1));

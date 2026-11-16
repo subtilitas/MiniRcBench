@@ -241,8 +241,9 @@ oder unten, um zu verschieben.
 - Nur lesbare Zeilen sind grau gezeichnet, ein `RAW`-Wert darin aber in
   Bernstein, und ein Tippen darauf wählt nichts aus: `SENSITIVITY` und jede
   INFO-Zeile außer `ID`.
-- Ein geänderter Wert ist cyan, mit einem 3 px breiten cyanfarbenen Balken am
-  linken Rand seiner Zeile; der Name trägt kein Zeichen. Ein Wert, wie er
+- Ein geänderter Wert steht dunkel auf einer cyanfarbenen Fläche, mit einem
+  3 px breiten cyanfarbenen Balken am linken Rand seiner Zeile; der Name
+  trägt kein Zeichen. Ein Wert, wie er
   gelesen wurde, steht in der Textfarbe, ausgewählt oder nicht: Die Auswahl
   hellt die Zeile und ihren Namen auf, nicht den Wert.
 
@@ -252,8 +253,8 @@ oder unten, um zu verschieben.
 
 1. Tippe auf eine änderbare Zeile. Die Editorleiste unter der Liste zeigt den
    Parameter, den gespeicherten und den vorgemerkten Wert, zum Beispiel
-   `SPEED  100 % (4095) ->` über `90 % (18)`, den vorgemerkten Wert in Cyan,
-   sobald er abweicht. Ist keine Zeile gewählt, zeigt
+   `SPEED  100 % (4095) ->` über `90 % (18)`, den vorgemerkten Wert als
+   cyanfarbenen Text, sobald er abweicht. Ist keine Zeile gewählt, zeigt
    die Leiste `TAP A ROW TO EDIT IT` und `SWIPE IT SIDEWAYS FOR COARSE`.
 2. Tippe auf `-` oder `+` (44 × 44 px), um den Wert auf den nächsten Wert zu
    stellen, den seine Codierung annimmt. Gedrückt halten wiederholt den
@@ -278,7 +279,8 @@ Zwei Arten von Grenzen gelten:
   Reihenfolge `LEFT END` unter `NEUTRAL` unter `RIGHT END`. Ist kein weiterer
   Schritt zulässig, ist die Schaltfläche abgeblendet gezeichnet.
 - **Eine weiche Regel** wird übernommen. Der Balken der Zeile wird
-  bernsteinfarben, der Wert bleibt cyan, und die Editorleiste zeigt den Text
+  bernsteinfarben, der Wert bleibt auf seiner cyanfarbenen Fläche, und die
+  Editorleiste zeigt den Text
   der Regel in Bernstein. Es sind die sieben Regeln von rcbench,
   verglichen mit dem zuletzt gelesenen Servo:
 

@@ -86,11 +86,19 @@ laufender Messwert: die Drehzahl, die Gasfüllung, der Servoimpuls, der
 Fortschrittsbalken beim Halten. Rot heißt Ausgang an oder ein Fehler: `ARMED`,
 `RUNNING`, `STOP`, die Halte-Schaltfläche eines Werkzeugs, solange sie gehalten
 wird, `REC`, ein Schreiben mit unklarem Ausgang. Bernstein ist eine Warnung oder
-der Schritt, der jetzt dran ist. Magenta ist ein Alarm, etwa `STALLED`. Cyan ist
-ein geänderter Wert, der noch nicht geschrieben oder übernommen ist, mit einem
-cyanfarbenen Balken am linken Rand seiner Zeile. Blau ist eine
-Einstellung, die an bleibt: `LATCH`, ein eingeschalteter Schalter, `PROG MODE`,
-Servo B. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
+der Schritt, der jetzt dran ist. Magenta ist ein Alarm, etwa `STALLED`. Blau
+ist eine Einstellung, die an bleibt: `LATCH`, ein eingeschalteter Schalter,
+`PROG MODE`, Servo B. Cyan ist die Akzentfarbe, wie bei rcbench, und hat vier
+Verwendungen. Es ist der Weg zurück: `BACK` in einem Kopfbereich und die
+Schaltfläche `MENU` des Testers sind cyan mit dunkler Beschriftung, und ein
+`BACK`, das nichts auslöst, ist deaktiviert gezeichnet, nicht cyan. Es ist
+das Zeichen `>` an einer Zeile von `MENU`, die eine Auswahl öffnet. Es ist
+eine Einstellung der Werkbank, als cyanfarbener Text: die Werte und die
+Abschnittsnamen von SETTINGS, die Werte von SERVO SET und OUTPUT SET, LENGTH
+auf ANGLE SETUP. Und es ist ein geänderter Wert, der noch nicht
+geschrieben oder übernommen ist: dunkler Text auf einer cyanfarbenen Fläche,
+mit einem cyanfarbenen Balken am linken Rand seiner Zeile. Ein Wert, der aus
+einem ESC oder einem Servo gelesen wurde, steht in der Textfarbe. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
 oder auslösen, stehen in der Textfarbe oder in Grau. Eine Schaltfläche hat
 abgerundete Ecken. Ein Feld auf der Leiste unter einem Titel ist eckig, damit
 es nicht wie eine Schaltfläche aussieht; das Scharf-Feld des Testers und sein
@@ -115,7 +123,9 @@ berechnet und nicht auf dem Display gesehen: Wie das Display sie zeigt, ist
 nicht gemessen. Hoher Kontrast behält seine eigenen Farben. Rahmen und
 Beschriftungen sind dort fast schwarz; deshalb hat eine Schaltfläche, die
 nichts auslöst, dort einen gestrichelten Rahmen mit ganzen, abgerundeten
-Ecken und ein Schieberegler, der nichts auslöst, einen hohlen Griff.
+Ecken und ein Schieberegler, der nichts auslöst, einen hohlen Griff. Cyan
+ist dort ein dunkles Cyan: `BACK` hat eine weiße Beschriftung, und ein
+geänderter Wert ist weißer Text auf einer dunkelcyanfarbenen Fläche.
 
 ---
 
@@ -566,6 +576,8 @@ Diagnose und die Schaltfläche, die alle Einstellungen ins Flash schreibt. Eine
 Liste in Abschnitten, die sich mit dem Finger verschieben lässt. Sie öffnet
 über `MENU` oder, entschärft, über ein Tippen auf die Polzahl oder die
 Obergrenze des Testers; `BACK` führt dorthin zurück, wo sie geöffnet wurde.
+Die Abschnittsnamen und die Werte neben `-` und `+` sind cyan, die Farbe
+einer Einstellung; nur lesbare Werte sind grau.
 
 | Abschnitt | Zeile | Bedeutung |
 |---|---|---|
