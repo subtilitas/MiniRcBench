@@ -76,12 +76,16 @@
 
 static bool s_prevDown = false;        /**< Contact state at the previous poll. */
 static bool s_answered = false;        /**< A read completed since touchInit(). */
-
-bool touchAnswered() { return s_answered; }
-
 /** @brief millis() of the last answer; core0 writes it, core1 reads it. */
 static volatile uint32_t s_answeredMs = 0;
 
+/** @brief Record an answer: for touchAnswered() and touchAnsweredMs(). */
+static void noteAnswer() {
+	s_answered = true;
+	s_answeredMs = millis();
+}
+
+bool touchAnswered() { return s_answered; }
 uint32_t touchAnsweredMs() { return s_answeredMs; }
 static int16_t s_downX = 0, s_downY = 0; /**< Where the current press started. */
 
@@ -120,6 +124,13 @@ static bool rdRegs(uint16_t reg, uint8_t *buf, uint8_t n) {
 	senseNote(rc, n);
 	return rc == n;
 }
+
+/**
+ * @brief How many polls in a row the controller has failed to answer,
+ *        held at 255; touchInit() starts it at 0. touchFailedReads()
+ *        reports it.
+ */
+static uint8_t s_pollFails = 0;
 
 bool touchInit() {
 	gpio_init(g_board->tpInt);
@@ -161,16 +172,17 @@ bool touchInit() {
 	// refusing to poll would turn a cosmetic problem into a dead panel.
 	wrCmd(REG_MODE_NORMAL);
 
-	s_answered = ok;
-	if (ok) s_answeredMs = millis();
+	// A new record: no answer and no failed read yet.
+	s_answered = false;
+	s_pollFails = 0;
+	if (ok) noteAnswer();
 	return ok;
 }
 
 /** @brief Consecutive failed polls before a glitch counts as a release. */
 #define POLL_FAIL_LIMIT 2
 
-/** @brief How many polls in a row the controller has failed to answer. */
-static uint8_t s_pollFails = 0;
+uint8_t touchFailedReads() { return s_pollFails; }
 
 void touchPoll(TouchState *t) {
 	uint8_t b[5];
@@ -179,8 +191,7 @@ void touchPoll(TouchState *t) {
 
 	if (rdRegs(REG_FINGER_1, b, 5)) {
 		s_pollFails = 0;
-		s_answered = true;
-		s_answeredMs = millis();
+		noteAnswer();
 		if ((b[0] & 0x0F) == FINGER_STATE_DOWN) {
 			int16_t nx = (int16_t)(((uint16_t)b[1] << 4) | (b[3] >> 4));
 			int16_t ny = (int16_t)(((uint16_t)b[2] << 4) | (b[3] & 0x0F));
@@ -195,7 +206,7 @@ void touchPoll(TouchState *t) {
 		// resting -- under the fire-on-release rule that is a commit, not a
 		// repeat -- so a single failure holds the previous state, and only
 		// POLL_FAIL_LIMIT consecutive ones report the finger up.
-		if (s_pollFails < POLL_FAIL_LIMIT) s_pollFails++;
+		if (s_pollFails < 255) s_pollFails++;
 		if (s_pollFails < POLL_FAIL_LIMIT) down = s_prevDown;
 	}
 

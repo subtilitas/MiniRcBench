@@ -142,7 +142,7 @@ hardware.
 
 ## The motor stops on its own
 
-Three interlocks stop the motor, and each one shows on screen:
+Four interlocks stop the motor, and each one shows on screen:
 
 - **Idle interlock.** 30 s without a contact reported by the touch
   controller while armed disarms the tester. A wet screen or something
@@ -150,6 +150,12 @@ Three interlocks stop the motor, and each one shows on screen:
   `IDLE ns` counts down in the top right during the last 5 s. The backlight
   dims briefly when it disarms.
 - **Opening `MENU`.** Opening it always disarms.
+- **Touch not answering.** Four failed reads of the touch controller in
+  a row, over 100 ms or more, disarm an armed tester.
+  `TOUCH NOT ANSWERING` shows in amber under the RPM readout until it
+  answers again.
+  A loose flex cable to the panel or a stuck I2C (Inter-Integrated
+  Circuit) bus can cause it; which one is not told apart.
 - **Heartbeat backstop.** If the display firmware stops, the second core sets
   the throttle to zero after 250 ms. The screen would also be frozen.
 

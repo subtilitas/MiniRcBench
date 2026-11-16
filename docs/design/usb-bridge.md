@@ -525,8 +525,8 @@ copied it, and not its guard or session.
 | `PROPELLER OFF.` on the screen | the screen | below |
 
 With DShot off, a touch controller that stops answering only leaves the
-bridge open: there is no motor to stop. The touch-loss stop of pull request
-#49 is not merged (STATUS.md item 23).
+bridge open: there is no motor to stop. The touch-loss stop (STATUS.md
+item 23) does not act on the bridge, so a write is not cut.
 
 **Bytes on SIG are not a throttle, but not nothing either.** In
 passthrough the PC decides every byte. 19200 baud 8N1 holds the line low

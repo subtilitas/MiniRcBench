@@ -315,14 +315,14 @@ static void send(SbusOutCmdKind kind) {
 }
 
 /**
- * @brief HOLD TO START is live: the frames are off and the probe's gate
- *        holds, a cycle with no answer passed in this bind. This is the only
- *        gate to START. The gate holds only while this claim's job is bound
- *        in its UART phase, so the claim runs with no bind error whenever it
- *        does.
+ * @brief HOLD TO START is live: the frames are off, the probe's gate holds,
+ *        a cycle with no answer passed in this bind, and the touch
+ *        controller answers (uiTouchLost()). This is the only gate to START.
+ *        The probe's gate holds only while this claim's job is bound in its
+ *        UART phase, so the claim runs with no bind error whenever it does.
  */
 static bool startAllowed() {
-	return !s_st.running && sbusOutProbePassed();
+	return !s_st.running && !uiTouchLost() && sbusOutProbePassed();
 }
 
 /**
@@ -919,9 +919,14 @@ bool uiSbusOutTick(const TouchState *t) {
 	if (s_view == View::Set) setTouch();
 	else if (!retry) mainTouch();
 
-	// The idle rule, in either view.
+	// The stops of the screen's own, in either view: a touch that does not
+	// answer, which cannot press STOP, sent every frame until the job reports
+	// the frames off; then the idle rule.
 	sbus_frame_t want = wantFrame();
-	if (sbusOutIdleDue(s_st.running, &want, s_thrCh, now, s_touchMs)) {
+	if (s_st.running && uiTouchLost()) {
+		send(SbusOutCmdKind::Safe);
+		s_stop = SbusOutStop::Touch;
+	} else if (sbusOutIdleDue(s_st.running, &want, s_thrCh, now, s_touchMs)) {
 		send(SbusOutCmdKind::Safe);
 		s_stop = SbusOutStop::Idle;
 	} else if (memcmp(&want, &s_sentFrame, sizeof(want)) != 0) {

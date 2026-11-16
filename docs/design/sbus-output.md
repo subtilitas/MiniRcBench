@@ -454,7 +454,7 @@ The rules are the servo tester's ([servo-tester.md](servo-tester.md),
 | Other channels | raw 172 to 1811, 1000 µs to 2000 µs |
 | Stopping | STOP, on press: no frame after the one on the wire, which ends within 3,000 µs |
 | UI stalls 250 ms | `core1UiAlive()` false while RUNNING: frames stop, `Tripped` latched, chip `STALLED`, a new HOLD TO START needed |
-| Touch lost | the frames stop on the touch-loss rule pull request #49 brings to the tester and the servo tester, once it is merged ([STATUS.md](../../STATUS.md) open item 23); until then the idle stop below is the backstop, since a controller that stops answering reads as no touch |
+| Touch lost | the frames stop by STOP's command on the touch-loss rule of the tester and the servo tester (`uiTouchLost()`: 4 failed reads in a row and 100 ms since the last answer), on the main view and on SET; the note reads `STOPPED: TOUCH DID NOT ANSWER` until the next HOLD TO START, which is refused while the touch does not answer; not tested on hardware ([STATUS.md](../../STATUS.md) open item 23) |
 | Idle | more than `IDLE_DISARM_MS`, 30 s, with no touch while the throttle channel is above raw 172, or any of channels 5 to 16, CH17 and CH18 differs from the START frame: frames stop, as the tester disarms; the note says why |
 | BACK | the leave: frames stop, the last one completes, GP0 is let go low ([UART0 on GP0](#uart0-on-gp0)); during the probe, GP0 is let go high on the pull-up |
 
@@ -636,7 +636,7 @@ y   0 +------------------------------------------+
 |---|---|---|
 | Strip caption | 8, 44, 137, 7 | `SIG GP0  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `AUX GP0  100 KBAUD  8E2` when GP0 is AUX. With `  14 MS` it would be 30 characters and end at x 186, past the chip, so by menu-b.md decision 14 the period goes, the item at the right; it is fixed, and the README states it |
 | Strip chip | 179, 42, 53, 12 at its widest | `uiChip()`: `SAFE` on `UI_COL_SAFE`, `RUNNING` on `UI_COL_ON`, `STALLED` on `UI_COL_ALERT`; at most 7 characters, 41 px, plus 6 px each side, right edge x 231. The caption ends at x 144, 34 px clear. Drawn only while the job runs |
-| Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` for the heartbeat, `UI_COL_WARN` for the idle rule and a refused frame |
+| Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` for the heartbeat, `UI_COL_WARN` for the idle rule, a refused frame and a touch that does not answer |
 | Note 2 | 8, 70, at most 215, 7 | SAFE: `NEVER TO AN ESC. PROPS OFF.`, 27 characters, 161 px, `UI_COL_WARN`. RUNNING: `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, at most 36 characters, 215 px, `C_TEXT`, `UI_COL_WARN` while a flag is on. After a stop: `NEVER TO AN ESC. PROPS OFF.`, `UI_COL_WARN`, as while SAFE, ending at x 168 |
 | Row i, i = 0 to 7 | 8, 80 + 25i, 224, 22 | label, slider, value; 22 px is `UI_TAP_MIN` |
 | Label | 8, y + 8, at most 41, 7 | `CH1` to `CH16`; `CH3 THR` on the throttle channel, 7 characters, 41 px, `UI_COL_WARN` |
@@ -671,6 +671,7 @@ next START.
 | Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
 | Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
 | Encoder refused | `SAFE` | `STOPPED: FRAME REFUSED.` (23 characters, 137 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled |
+| Stopped by a touch that does not answer | `SAFE` | `STOPPED: TOUCH DID NOT ANSWER` (29 characters, 173 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
 
 ### SET
 
@@ -810,7 +811,7 @@ it, so the warnings stay wherever START can be reached:
 | Where | Text |
 |---|---|
 | Main view, SAFE | `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` |
-| Main view, after a stop | the stop's reason, then `NEVER TO AN ESC. PROPS OFF.`: HOLD TO START is live and no probe runs before it |
+| Main view, after a stop | the stop's reason, then `NEVER TO AN ESC. PROPS OFF.`: HOLD TO START is live, except while the touch does not answer, and no probe runs before it |
 | SET, SAFE | `NEVER TO AN ESC. PROPS OFF.` in the footer |
 | RX SIGNALS, under OUTPUT | `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` |
 
@@ -1603,4 +1604,6 @@ None open.
   invalid commands on an ESC; by the source at 578ff29 they do not
   ([slice 3 as built](#slice-3-as-built)).
 - Betaflight's behaviour, read and not run; ArduPilot and INAV not read.
-- Pull request #49's touch-loss rule, not merged.
+- Whether the CST328 answers its finger reads with no finger on the glass
+  for minutes, on which the touch-loss stop depends
+  ([STATUS.md](../../STATUS.md) open item 23).

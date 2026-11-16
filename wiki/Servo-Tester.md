@@ -141,6 +141,16 @@ restarts until you hold `HOLD TO START` again.
 
 <img src="img/servo-stalled.png" width="240" alt="Stopped after a stall">
 
+If four reads of the touch controller in a row have failed, over 100 ms or more,
+a running servo stops as on `STOP`, sweeping or holding a position, on the main
+screen and on SET. A touch that does not answer cannot reach `STOP`, and the
+servo tester has no idle stop. The dial reads `TOUCH NOT ANSWERING` in amber
+until the controller answers, over `THE SERVO IS STOPPED.` when this stop or the
+cut after 250 ms of a stalled screen or, with the switched supply, of a silent
+touch panel ended a run, and over `HOLD TO START WORKS ONCE IT ANSWERS.`
+otherwise; `HOLD TO START` is drawn disabled meanwhile. This note comes before
+every other note on the dial, `PREPARING THE LOG...` included.
+
 ---
 
 ## Moving the servo
@@ -332,8 +342,9 @@ switch the supply.
   blackbox logs' `LOGnnnnn.BFL`.
 - After `HOLD TO START` the dial reads `PREPARING THE LOG...` and `THE SERVO
   STARTS AFTER IT.` while the bench opens the file; the servo starts right
-  after. A card that takes longer than 2 s for that gets no log: `NO LOG: CARD
-  TOO SLOW`, and the servo starts without one.
+  after, unless the touch controller stops answering meanwhile. A card that
+  takes longer than 2 s for that gets no log: `NO LOG: CARD TOO SLOW`, and the
+  servo starts without one.
 - While the servo runs, the dial's second line reads `LOGGING TO SRV00012.CSV`
   in grey. In amber: `SRV00012.CSV: 12 ROWS DROPPED` (the card was slower than
   the readings), `LOG STOPPED AT 4 MIB` (the file's limit, about an hour), `LOG

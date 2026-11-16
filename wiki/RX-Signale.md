@@ -247,8 +247,17 @@ verfügbar.
   scharfgeschalteter FC dreht seine Motoren auch bei Gas null im Leerlauf.
   Steht alles auf dem ersten Frame, laufen die Frames weiter, so kann die
   Empfängerseite des FC offen bleiben.
+- **Der Touch-Controller antwortet nicht**: Vier Lesungen in Folge
+  schlagen über 100 ms oder länger fehl, `STOP` lässt sich also nicht
+  drücken. Die Frames hören auf wie bei `STOP`, in der Hauptansicht und
+  unter SET, der Hinweis zeigt `STOPPED: TOUCH DID NOT ANSWER` bis zum
+  nächsten START, und `HOLD TO START` ist als Umriss gezeichnet, bis der
+  Controller wieder antwortet. Der Tester und der Servotester halten nach
+  derselben Regel an (siehe [Die Bildschirme](Die-Bildschirme#der-tester)).
 
 Nach jedem Stopp halte START erneut; der erste Frame ist wieder der feste.
+
+<img src="img/sbus-out-touch-lost.png" width="240" alt="S.BUS OUTPUT, nachdem der Touch-Controller nicht mehr antwortete: der Chip SAFE, STOPPED: TOUCH DID NOT ANSWER und NEVER TO AN ESC. PROPS OFF. in Bernstein, HOLD TO START als Umriss">
 
 <img src="img/sbus-out-stalled.png" width="240" alt="S.BUS OUTPUT, nachdem der Bildschirm hing: der Chip STALLED, STOPPED: SCREEN STALLED in Magenta, NEVER TO AN ESC. PROPS OFF. in Bernstein">
 

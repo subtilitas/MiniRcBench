@@ -166,6 +166,11 @@ trotzdem als Tippen auf eine Schaltfläche, die beim Loslassen auslöst, etwa
 öffnet das Heben SETTINGS. Hast du beim Einschalten den Bildschirm berührt,
 hebe den Finger vor `HOLD TO ARM`.
 
+Antwortet der Touch-Controller im scharfen Zustand nicht mehr, entschärft der
+Tester, sobald vier Lesungen in Folge über 100 ms oder länger fehlgeschlagen
+sind, setzt das Gas auf null, schaltet `LATCH` aus und zeigt
+`TOUCH NOT ANSWERING`.
+
 ---
 
 ## Gas geben

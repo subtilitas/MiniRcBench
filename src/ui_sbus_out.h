@@ -29,9 +29,11 @@
  * MAX THROTTLE, sbusOutCeilRaw(): the throttle row's knob stops at the
  * ceiling's mark. Core1 clamps both again. STOP acts on press, on the main
  * view and on SET. Frames stop when the UI stops for 250 ms (the job's
- * heartbeat: `STALLED`), and when no touch came for more than 30 s while
+ * heartbeat: `STALLED`), when no touch came for more than 30 s while
  * the frame is off its START values on the throttle, channels 5 to 16, CH17
- * or CH18 (sbusOutIdleDue()). Either needs a new HOLD TO START.
+ * or CH18 (sbusOutIdleDue()), and when the touch controller does not answer
+ * (uiTouchLost(): `STOPPED: TOUCH DID NOT ANSWER`), which also refuses HOLD
+ * TO START while it lasts. Each needs a new HOLD TO START.
  *
  * **The warnings.** While SAFE the main view's two notes read
  * `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.`, and

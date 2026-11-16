@@ -133,7 +133,9 @@ aus der vom ESC (Electronic Speed Controller, Motorregler) gemeldeten eRPM
 (elektrische Drehzahl) und der Polzahl. Der `ERPM`-Wert und die Polzahl, zum
 Beispiel `14 POLES`, stehen darunter. Grüne Ziffern: eRPM ist in den letzten
 500 ms eingetroffen.
-Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`.
+Dunkelrote Null: nicht, und die Zeile zeigt `NO TELEMETRY`. Die Zeile
+darunter, rechts, ist der Wisch-Hinweis: `SWIPE = THROTTLE`, oder
+`SWIPE ACTIVE`, solange ein Wischer das Gas bewegt.
 
 **RPM/V und die kV-Schätzung.** Scharf zeigt die `ERPM`-Zeile zusätzlich
 `RPM/V`, die Drehzahl geteilt durch die Versorgungsspannung des ESC, den Wert
@@ -201,10 +203,11 @@ DIRECTION auf 3D (bestätigt oder halb geschrieben), oder kam
 Wisch-Hinweises, scharf oder nicht; `NO TELEMETRY` bleibt auf seiner eigenen
 Zeile darüber. Solange ein Wischer auf der Gasfläche greift, steht
 `SWIPE ACTIVE` in Grün in der Zeile, und nach dem Loslassen kehrt der Hinweis
-zurück. Im 3D-Modus dreht 0 bis 50 % Gas des Testers den Motor entgegen
-seiner eingestellten Richtung mit doppeltem Gas, 50 % ist also volle Leistung
-rückwärts; über 50 % dreht er in der eingestellten Richtung, von unten
-beginnend. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
+zurück; auch `TOUCH NOT ANSWERING` (Berührung, unten) nimmt die Zeile ein, bis
+der Controller antwortet. Im 3D-Modus dreht 0 bis 50 % Gas des Testers den
+Motor entgegen seiner eingestellten Richtung mit doppeltem Gas, 50 % ist also
+volle Leistung rückwärts; über 50 % dreht er in der eingestellten Richtung,
+von unten beginnend. Den Propeller abnehmen. Scharfschalten wird deswegen nicht
 verweigert. Der Hinweis weiß nicht, ob der ESC am Pin gegen einen anderen
 getauscht wurde; nur ein bestätigtes Schreiben oder ein Lesen, das die Liste
 öffnet, mit 3D MODE aus oder DIRECTION auf NORMAL oder REVERSED, oder ein
@@ -255,6 +258,24 @@ zwei Finger auf dem Glas liegen, ist nicht gemessen; ein Druck, während der
 Gas-Finger aufliegt, kommt also womöglich nicht an. Erst den Gas-Finger
 heben, dann `DISARM` drücken. Ein nasser Bildschirm oder ein Kabel, das auf
 dem Glas liegt, kann als Finger zählen und jedes Tippen blockieren.
+
+Hat der Touch-Controller vier Lesungen in Folge verpasst und seit 100 ms
+oder länger nicht geantwortet, ersetzt `TOUCH NOT ANSWERING` in Bernstein
+den Wisch-Hinweis; `NO TELEMETRY` behält seine Zeile. Solange der Hinweis
+steht, lässt sich der Tester nicht scharf schalten, `HOLD TO ARM` ist als
+Umriss gezeichnet, und ein scharfer Tester entschärft: Das Gas geht auf
+null und `LATCH` aus, wie beim Entschärfen durch die Leerlaufsperre. Der
+Hinweis verschwindet, wenn der Controller wieder antwortet; der Tester
+bleibt entschärft. SERVO TESTER und S.BUS OUTPUT halten nach derselben
+Regel an (unten).
+
+Nicht gemessen: ob der Touch-Controller ohne Finger auf dem Glas über
+Minuten weiter antwortet. Tut er es nicht, erschiene dieser Hinweis, und
+ein mit `LATCH` gehaltener Motor bliebe kurz nach dem Abheben des Fingers
+stehen. Die Prüfung am Prüfstand steht in STATUS.md im Repository, offener
+Punkt 23.
+
+<img src="img/tester-touch-lost.png" width="240" alt="Der Tester mit TOUCH NOT ANSWERING in Bernstein unter der Drehzahl">
 
 ---
 
@@ -608,7 +629,10 @@ Steuert ein oder zwei Servos mit Servoimpulsen auf SIG und AUX an, dem ESC-
 und dem KISS-Pin. Die Leiste nennt sie, `SIG GP0  50 HZ  1000-2000 US`, oder
 `SIG+AUX  50 HZ  1000-2000 US` mit zwei Servos. Er startet in SAFE;
 `HOLD TO START` 1 s lang gehalten startet die Impulse in der Mitte, `STOP`
-wirkt beim Berühren. In SAFE mit einem Servo zeigt die
+wirkt beim Berühren. Sind vier Lesungen des Touch-Controllers in Folge
+fehlgeschlagen, über 100 ms oder länger, hält ein laufendes Servo an wie bei
+`STOP`, die Skala zeigt `TOUCH NOT ANSWERING`, bis er wieder antwortet, und
+`HOLD TO START` ist als Umriss gezeichnet. In SAFE mit einem Servo zeigt die
 Anzeigezeile `TWO SERVOS:` und `SET > SERVOS`: Dort wird das zweite Servo
 eingeschaltet. Mit SERVO SUPPLY auf `GP28` oder `GP29` schaltet der
 Bildschirm den Wandler: ein bei `HOLD TO START`, aus bei `STOP`, bei einem
@@ -704,8 +728,10 @@ Kanäle an Schiebereglern auf zwei Seiten, und unter SET den Gaskanal, CH17,
 CH18 und die Flags für Failsafe und verlorenen Frame. Er nimmt GP0 von DShot
 und prüft den Pin auf den Bootloader eines ESC, bevor `HOLD TO START`
 angeboten wird. Der Gaskanal hält an der Obergrenze von MAX THROTTLE.
-`STOP`, ein hängender Bildschirm und 30 s ohne Berührung abseits des ersten
-Frames halten die Frames an. `BACK` öffnet die Verlassenseite bei
+`STOP`, ein hängender Bildschirm, 30 s ohne Berührung abseits des ersten
+Frames und ein Touch-Controller, der nicht antwortet, wie beim Tester,
+halten die Frames an; der letzte Fall zeigt `STOPPED: TOUCH DID NOT ANSWER`.
+`BACK` öffnet die Verlassenseite bei
 `1 UNPLUG THE FLIGHT CONTROLLER.`; `BACK TO OUTPUT` prüft GP0 erneut, und
 `RESTART DSHOT` führt zu `MENU`. Siehe [RX-Signale](RX-Signale).
 
