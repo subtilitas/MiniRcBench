@@ -11,8 +11,9 @@ tools. Every tool is two taps from `MENU`. A tool is left with `BACK`,
 which returns to the hub that opened it, and the hub's `BACK` returns to
 `MENU`.
 SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
-returns to the tester. DShot runs from the end of the splash on every screen, `MENU`
-included, except while a tool holds the signal pins.
+returns to the tester. DShot runs only while `ESC TESTER` or `ESC COMMANDS` is
+open, or SETTINGS over the tester. Everywhere else, `MENU` included and from
+power-up on, the ESC signal pin is held low and nothing is sent.
 
 ```
 Splash ──3 s──> MENU (the root, no BACK)
@@ -22,20 +23,20 @@ MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
        │    ├── ESC COMMANDS ──BACK──> ESC CONFIG
        │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
        │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> ESC CONFIG)
-       │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> ESC CONFIG)
+       │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, ESC CONFIG──> ESC CONFIG)
        │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
-       │        (once the line is bound: BACK──> leave page ──RESTART DSHOT──> ESC CONFIG)
+       │        (once the line is bound: BACK──> leave page ──ESC CONFIG──> ESC CONFIG)
        ├── SERVO > ──> SERVO ──BACK──> MENU
-       │    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> SERVO
+       │    ├── SERVO TESTER ──BACK──> leave page ──SERVO──> SERVO
        │    ├── ANGLE METER ──BACK──> SERVO   (SETUP, FLIP CAL: BACK goes one level up)
-       │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, RESTART DSHOT──> SERVO
-       │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> leave page ──LEAVE, RESTART DSHOT──> SERVO
+       │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, SERVO──> SERVO
+       │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> leave page ──LEAVE, SERVO──> SERVO
        │    └── HITEC CLASSIC  ──> HITEC SERVO, as D SERIES
        │   (with no servo in programming mode the leave page opens at UNPLUG THE SERVO.)
        │   (ESC HEX, ESC WRITE, SET: BACK goes one level up)
        ├── RX SIGNALS > ──> RX SIGNALS ──BACK──> MENU
-       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RESTART DSHOT──> RX SIGNALS
-       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> leave page ──RESTART DSHOT──> RX SIGNALS   (SET: BACK goes one level up)
+       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RX SIGNALS──> RX SIGNALS
+       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> leave page ──RX SIGNALS──> RX SIGNALS   (SET: BACK goes one level up)
        ├── SD LOG       ──BACK──> MENU
        └── SETTINGS     ──BACK──> MENU
 ```
@@ -47,22 +48,25 @@ nothing lies behind it. The tester has no header; its `MENU` button is its
 way back. On the leave page of SERVO TESTER, KST SERVO, HITEC
 SERVO, S.BUS MONITOR and ESC SETTINGS, `BACK` is drawn disabled, an outline with
 a grey label, and a tap on it does nothing: each way on is a labelled button,
-`STAY`, `NEXT SERVO`, `BACK TO SERVO`, `BACK TO MONITOR` or `RESTART DSHOT`. The
+`STAY`, `NEXT SERVO`, `BACK TO MONITOR` or the hub's title. The
 same holds on `ESC WRITE`, `KST WRITE` and `HITEC WRITE` while a write runs or
 waits for the SD card: no `BACK` leaves a device half written.
 
 **The leave page** is one page from the last step on a servo, on a receiver, or
-on an ESC whose Bluejay or BLHeli_S bootloader answered, to DShot on SIG again.
-It numbers its steps; the current one is amber with a bar at the left edge.
-Before `LEAVE` the buttons read `STAY`, which returns to the tool, and `LEAVE`.
-After `LEAVE` the next step is current, and the wide button reads `RESTART
-DSHOT` in `LEAVE`'s place. It and the left button, `NEXT SERVO`, `BACK TO SERVO`
-or `BACK TO MONITOR` (none on ESC SETTINGS), are drawn disabled until the pin is
-let go; `RESTART DSHOT` then waits 1 s more, so a double tap on `LEAVE` never
-restarts DShot into a servo still on the lead. A press that landed during the
-wait does nothing when it lifts.
+on an ESC whose Bluejay or BLHeli_S bootloader answered, back to the hub with
+the signal pin held low. It numbers its steps; the current one is amber with a
+bar at the left edge. Before `LEAVE` the buttons read `STAY`, which returns to
+the tool, and `LEAVE`. After `LEAVE` the next step is current, and the wide
+button reads the hub's title, `SERVO`, `RX SIGNALS` or `ESC CONFIG`, in
+`LEAVE`'s place; the last step reads `BACK TO` and that title. It and the left
+button, `NEXT SERVO` or `BACK TO MONITOR` (none on ESC SETTINGS or USB
+BRIDGE), are drawn disabled until the pin is let go; the hub's title then
+waits 1 s more, so a double tap on `LEAVE` never ends the claim. A press that
+landed during the wait does nothing when it lifts. The last button holds the
+pin low and starts no DShot: a servo left on SIG meets DShot at the next
+`ESC TESTER` or `ESC COMMANDS`, which the unplug step names.
 
-<img src="img/leave-kst.png" width="240" alt="The KST leave page before LEAVE: step 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="The KST leave page after LEAVE: step 2 current, NEXT SERVO live, RESTART DSHOT still grey">
+<img src="img/leave-kst.png" width="240" alt="The KST leave page before LEAVE: step 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="The KST leave page after LEAVE: step 2 current, NEXT SERVO live, SERVO still grey">
 
 **BACK names what it would drop.** On ESC SETTINGS' list with changes not
 written, and on SERVO SET with a change waiting for `HOLD TO APPLY`, the
@@ -111,6 +115,15 @@ at throttle 0, with `LATCH` off, every time. It has no header: its `MENU`
 button, at the bottom right, returns to `MENU` and first disarms, sets the
 throttle to 0 and turns `LATCH` off. While the signal pins are in use, the
 `ESC TESTER` row is drawn as an outline and a tap on it opens nothing.
+
+DShot starts when the tester opens: the ESC hears the EDT enable, then
+throttle 0, and `HOLD TO ARM` waits 1.5 s after DShot started, so the ESC has
+seen DShot before it can arm. Meanwhile `HOLD TO ARM` is drawn as an outline
+and the bar reads `DSHOT STARTING: WAIT 1.5 S` in amber; a press that lands
+then does nothing, so lift and press again once the button is live. The
+earliest arm is 2.5 s after the tester opens. `MENU` stops DShot: the ESC
+hears throttle 0 for at least 250 ms after the last throttle, then nothing,
+and the pin is held low.
 
 **Top row.** From left to right:
 
@@ -251,7 +264,9 @@ finger leaves it; blue while on), `MENU`.
 While a computer holds the SD card over USB, arming is refused: `HOLD TO ARM`
 is drawn as an outline, and the bar reads `EJECT THE USB DRIVE TO ARM` in
 amber. Eject the drive on the computer, or press `EJECT` on SD LOG, and the
-button is live again (see [SD Logging](SD-Logging)).
+button is live again (see [SD Logging](SD-Logging)). Arming is refused the
+same way for 1.5 s after DShot starts, and while the touch controller does
+not answer.
 
 <img src="img/tester-card-held.png" width="240" alt="The tester while a computer holds the card: HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
 
@@ -286,31 +301,19 @@ bench check is listed in STATUS.md in the repository, open item 23.
 
 The first screen after the splash, and the root: the header reads `MENU`
 and has no `BACK`. The tester's `MENU` button returns here and first
-**disarms**, sets the throttle to 0 and turns `LATCH` off. DShot runs from
-the end of the splash behind `MENU`, so the strip's chip reads the ESC's telemetry.
+**disarms**, sets the throttle to 0 and turns `LATCH` off. DShot is off on
+`MENU`: the ESC signal pin is held low, and `MENU` shows no EDT chip. The
+chip is on [ESC COMMANDS](#esc-commands), which runs DShot.
 
 Under the title, a strip names the two signal pins, SIG for the ESC and AUX
-for the KISS wire or a second servo, and the DShot rate, for example
-`SIG GP0  AUX GP1  DSHOT600`, and shows the EDT chip. The chip is read-only,
-square and 12 px tall:
-
-| Chip | When |
-|---|---|
-| `EDT ON`, green | Extended DShot Telemetry frames arrive |
-| `EDT OFF`, red | eRPM frames arrive and EDT frames do not |
-| `NO ESC`, a frame with a dim label, no fill | no eRPM frame for 500 ms: no ESC connected, or none answering |
+for the KISS wire or a second servo, and the DShot rate the tester uses, for
+example `SIG GP0  AUX GP1  DSHOT600`.
 
 After an ESC SETTINGS session in which the ESC's bootloader answered, a second
 line under the caption reads `POWER-CYCLE THE ESC TO RUN IT` in amber, until
-an eRPM frame arrives, RESTART DSHOT on ESC SETTINGS' leave page is tapped,
-or the board restarts ([AM32 Configuration](AM32-Configuration#leaving)).
-
-<img src="img/menu-no-esc.png" width="240" alt="MENU with no ESC connected: the chip reads NO ESC"> <img src="img/menu-edt-off.png" width="240" alt="MENU with an ESC that sends eRPM and no EDT: the chip reads EDT OFF in red">
-
-There is no enable button. The firmware sends the enable to every ESC that
-starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
-The ESC does not acknowledge the enable, so the chip shows *received frames*,
-not sent commands.
+an eRPM frame arrives on ESC TESTER or ESC COMMANDS, the last button of ESC
+SETTINGS' leave page is tapped, or the board restarts
+([AM32 Configuration](AM32-Configuration#leaving)).
 
 Below the strip is a list of six rows, 40 px tall at a 42 px pitch:
 `ESC TESTER` first, then one row for each kind of device on the signal pin,
@@ -334,16 +337,16 @@ a tap at once. MENU has no scroll bar, and a drag moves nothing.
 Every tool is two taps from MENU: the hub's row, then the tool's entry.
 `BACK` on a tool returns to its hub, and `BACK` on the hub to `MENU`.
 
-While the signal pins are still in use, for example while DShot restarts
-after the servo tester, the KST programmer or the Hitec programmer, the strip
-reads `DSHOT RESTARTING ON SIG GP0` in amber. ESC TESTER and SETTINGS are
-then drawn as an outline under their usual state, and a tap on such a row
-opens nothing. They act again once DShot runs. SD LOG claims no pin and
-stays available. ESC CONFIG, SERVO and RX SIGNALS open as always; the hub
-draws its entries as outlines meanwhile, with the same amber line on its
-strip.
+While the signal pins are still in use, the strip reads in amber
+`SETTING SIG GP0 LOW` for the moment the pin is set low after a leave page,
+or `RELEASING SIG GP0` while a tool lets the pin go, as the USB bridge does
+for up to 250 ms. ESC TESTER and SETTINGS are then drawn as an outline under
+their usual state, and a tap on such a row opens nothing. They act again once
+the pin is free. SD LOG claims no pin and stays available. ESC CONFIG, SERVO
+and RX SIGNALS open as always; the hub draws its entries as outlines
+meanwhile, with the same amber line as its strip's second line.
 
-<img src="img/menu-restarting.png" width="240" alt="MENU while DShot restarts: DSHOT RESTARTING ON SIG GP0 on the strip, ESC TESTER and SETTINGS drawn as outlines, ESC CONFIG, SERVO and RX SIGNALS filled, each with its mark">
+<img src="img/menu-parking.png" width="240" alt="MENU while the pin is set low: SETTING SIG GP0 LOW on the strip, ESC TESTER and SETTINGS drawn as outlines, ESC CONFIG, SERVO and RX SIGNALS filled, each with its mark">
 
 `UNSAVED` on the SETTINGS row means a value differs from flash. The save button
 is on SETTINGS.
@@ -378,9 +381,9 @@ tool reach the ESC, with `A DESKTOP ESC TOOL OVER USB.` and
 `MSP, 4-WAY AND PASSTHROUGH.` under it. The strip names the signal pin,
 `SIG GP0`. ESC CONFIG takes no pin; the tap on ESC SETTINGS or USB BRIDGE
 takes SIG, and ESC COMMANDS takes none. `BACK` returns to `MENU`; `BACK` on
-any of the three tools returns to ESC CONFIG. While DShot restarts the
-three entries are outlines and the strip reads
-`DSHOT RESTARTING ON SIG GP0` in amber. See [ESC COMMANDS](#esc-commands)
+any of the three tools returns to ESC CONFIG. While the signal pin is still
+in use the three entries are outlines and the strip's second line reads
+`RELEASING SIG GP0` or `SETTING SIG GP0 LOW` in amber. See [ESC COMMANDS](#esc-commands)
 below, [AM32 Configuration](AM32-Configuration) and
 [USB Bridge](USB-Bridge).
 
@@ -389,9 +392,13 @@ below, [AM32 Configuration](AM32-Configuration) and
 <img src="img/esccmd.png" width="240" alt="ESC COMMANDS at rest: BEEP 1 to 5, NORMAL and REVERSED, 3D OFF and 3D ON, and the six dim lines"> <img src="img/esccmd-3d-on.png" width="240" alt="ESC COMMANDS after 3D ON: SENT 10 (3D ON), THEN 12 (SAVE). and three amber lines">
 
 `MENU → ESC CONFIG → ESC COMMANDS` sends DShot commands to the ESC on SIG.
-It takes no pin: DShot keeps running while it shows. `BACK` returns to ESC
-CONFIG. The strip reads `SIG GP0  DSHOT600`
-and carries MENU's EDT chip.
+It takes no pin. DShot starts on SIG when it opens and stops when `BACK`
+returns to ESC CONFIG; the pin is then held low. The strip reads
+`SIG GP0  DSHOT600` and carries the EDT chip: `EDT ON` in green while
+Extended DShot Telemetry frames arrive, `EDT OFF` in red while eRPM frames
+arrive and EDT frames do not, and `NO ESC`, a frame with a dim label, while no
+eRPM frame has arrived for 500 ms. The firmware sends the EDT enable itself;
+the chip shows received frames.
 
 - **BEEP 1 to 5**, a tap each: the ESC plays its beacon tone 1 to 5. Use it
   to hear which ESC is connected and that it takes commands.
@@ -441,8 +448,10 @@ of use: **SERVO TESTER** drives a servo, **ANGLE METER** measures a
 surface's throw, and **KST / CHASERVO**, **HITEC D SERIES** and
 **HITEC CLASSIC** program a servo. The strip reads
 `SIG GP0  AUX GP1  SERVO SUPPLY OWN`, or the pin of the switched supply.
-SERVO takes no pin: DShot keeps running on SIG while it shows, so connect
-the servo unpowered, or let the bench power it. The tap on an entry opens
+SERVO takes no pin, and DShot is off while it shows: SIG is held low. A
+second line on the strip reads `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in
+amber: with DShot off the bench cannot see an ESC on SIG, and a servo pulse
+is a valid throttle for one. Unplug any ESC before you tap an entry. The tap on an entry opens
 the tool, and a tool that needs SIG takes it on that tap.
 
 **Scrolling.** Three entries fit the screen. SERVO TESTER, ANGLE METER and
@@ -456,8 +465,7 @@ Under each button a line says what the tool does or which servos it
 programs. Under the three programmers a line says when the servo is
 powered: `POWER THE SERVO UP AFTER THE TAP.` with SERVO SUPPLY at `OWN`, or
 `THE BENCH SWITCHES IT ON GP28.` with the switched supply. A servo powered
-before the tap would take DShot's frames as a 970 µs pulse at 1000 Hz and
-move. HITEC CLASSIC needs the switched supply: under `OWN` it is drawn as an
+before the tap would see the programmer's first frames on its tap. HITEC CLASSIC needs the switched supply: under `OWN` it is drawn as an
 outline, does nothing, and says why in amber,
 `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
@@ -470,12 +478,13 @@ outline, does nothing, and says why in amber,
 | **HITEC D SERIES** | `D485HW, D645MW AND THE OTHERS`, the power line | [Hitec Programming](Hitec-Programming) |
 | **HITEC CLASSIC** | `HS-5XXX, HS-7XXX`, the power line or the two amber lines | [Hitec Programming](Hitec-Programming#classic-servos) |
 
-`BACK` returns to `MENU`. `RESTART DSHOT` at the end of a session of the
-servo tester or a programmer, and `BACK` in a tool before it holds SIG,
-return to SERVO; so does `BACK` on the angle meter. While DShot restarts,
-SERVO opens with its entries drawn as outlines and
-`DSHOT RESTARTING ON SIG GP0` on its strip in amber; a tap on an entry
-opens nothing until DShot runs.
+`BACK` returns to `MENU`. `SERVO`, the last button of the leave page at the
+end of a session of the servo tester or a programmer, and `BACK` in a tool
+before it holds SIG, return to SERVO; so does `BACK` on the angle meter.
+While the signal pin is still in use, SERVO opens with its entries drawn as
+outlines and `SETTING SIG GP0 LOW` or `RELEASING SIG GP0` in amber in place
+of the NO ESC CHECK line; a tap on an entry opens nothing until the pin is
+free.
 
 ### RX SIGNALS
 
@@ -485,9 +494,13 @@ opens nothing until DShot runs.
 which opens S.BUS MONITOR, and **OUTPUT**, which opens S.BUS OUTPUT, an
 S.BUS output to a flight controller, with its warning under it:
 `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` The strip names
-both signal pins, `SIG GP0  AUX GP1`. RX SIGNALS takes no pin. `BACK`
-returns to `MENU`; `RESTART DSHOT` at the end of either tool returns to RX
-SIGNALS. While DShot restarts both entries are outlines, as on SERVO.
+both signal pins, `SIG GP0  AUX GP1`, over the amber line
+`NO ESC CHECK: UNPLUG ANY ESC FIRST.`, as on SERVO. RX SIGNALS takes no pin,
+and DShot is off while it shows. With SIG on GP1 MONITOR carries a second
+line, `GP1 IS SIG: PLUG IN AFTER THE TAP.`: GP1 is held low until the tap.
+`BACK` returns to `MENU`; `RX SIGNALS`, the last button of either tool's
+leave page, returns to RX SIGNALS. While the signal pin is still in use both
+entries are outlines, as on SERVO.
 See [RX Signals](RX-Signals).
 
 ---
@@ -505,7 +518,7 @@ ceiling while disarmed; `BACK` returns to where it was opened from.
 |---|---|---|
 | ESC TESTER | **MOTOR POLES** | 2–28, even values. The RPM readout divides the eRPM by half of it |
 | ESC TESTER | **MAX THROTTLE** | The throttle ceiling, `5%` to `100%` in steps of 5 % |
-| WIRING | **SIG PIN** | SIG, the GPIO (general-purpose input/output pin) of the ESC's signal wire, with its connector pin under it: `GP0` over `J5 PIN 2`, `GP1` over `J5 PIN 1`. Only the board's two free GPIOs are offered, GP0 and GP1, so a step swaps SIG and AUX. DShot moves to the new pin at once; see the note line below |
+| WIRING | **SIG PIN** | SIG, the GPIO (general-purpose input/output pin) of the ESC's signal wire, with its connector pin under it: `GP0` over `J5 PIN 2`, `GP1` over `J5 PIN 1`. Only the board's two free GPIOs are offered, GP0 and GP1, so a step swaps SIG and AUX. Over the tester DShot moves to the new pin at once; from MENU the next ESC TESTER uses it; see the note line below |
 | WIRING | **DSHOT** | The DShot rate in kbit/s: 150 / 300 / 600 / 1200. Lower it if the `LINK` error rate rises |
 | WIRING | **KISS TELEM** | Whether to listen on the optional third telemetry wire, on AUX |
 | WIRING | **AUX PIN** | AUX, the GPIO of the KISS wire and of the servo tester's second servo, with its J5 pin under it. Acts whether KISS TELEM is on or off. A step swaps SIG and AUX, so the two never share a pin |
@@ -531,10 +544,10 @@ of it show.
 Under the list, these stay in place:
 
 - **The ESC pin's warning**, at y 230, only while the ESC pin is not the one
-  the splash named at start-up: the splash's warning for the new pin in
-  amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`. DShot runs on that pin
-  from the step, and a servo left there, for example after the two-servo
-  tester, moves. The list then ends 12 px higher, at y 227, and scrolls
+  in use at start-up: in amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`.
+  Opened over the tester, DShot runs on that pin from the step; opened from
+  MENU, the next ESC TESTER sends DShot there. A servo left there, for
+  example after the two-servo tester, moves. The list then ends 12 px higher, at y 227, and scrolls
   12 px further; its top rows stay where they are. With KISS TELEM on, the
   step swapped SIG and AUX, so DShot now runs on the wire the ESC's KISS pad
   was on: the line reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` instead.
@@ -639,9 +652,8 @@ it is, in amber: `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`,
 reads more than 2.5 V 2 s after the switch-off. `SET` opens the profile and
 sweep settings; its `BACK` with a change waiting for `HOLD TO APPLY` warns
 first, `1 CHANGE NOT APPLIED.`
-`BACK` opens the leave page at `1 UNPLUG THE SERVO.` before the ESC driver
-takes the pins back; `BACK TO SERVO` returns to the tester, and
-`RESTART DSHOT` returns to SERVO, the hub. With CURRENT SENSE at `INA219` the
+`BACK` opens the leave page at `1 UNPLUG THE SERVO.`; `NEXT SERVO` returns
+to the tester, and `SERVO` holds the pins low and returns to SERVO, the hub. With CURRENT SENSE at `INA219` the
 row under the dial shows the servo supply's current and voltage in place of
 the two-servo hint, and the sensor's readings stop the servo: the chip then
 reads `OVERCURRENT`, `STALL`, `LOW SUPPLY` or `NO SENSOR` in magenta. See
@@ -660,8 +672,8 @@ its 32 registers, and lists 27 fields to step. A tap on `WRITE...` opens
 the write page, and its `HOLD TO WRITE`, 1 s, writes, with a backup on the SD
 card first. `BACK` opens the leave page, whose first step asks you to power
 the servo off; `LEAVE` then makes `UNPLUG THE SERVO.` the current step,
-`NEXT SERVO` starts a new search, and `RESTART DSHOT` returns to
-SERVO, the hub. With CURRENT SENSE at `INA219` the strip shows the current
+`NEXT SERVO` starts a new search, and `SERVO` holds the pin low and returns
+to SERVO, the hub. With CURRENT SENSE at `INA219` the strip shows the current
 after the supply's state, `SUPPLY ON 0.08 A`. See [KST
 Programming](KST-Programming).
 
@@ -690,8 +702,8 @@ parameters, 11 of them editable. One servo goes on the lead, with no pull-up
 resistor. A tap on `WRITE...` opens the write page, and its `HOLD TO WRITE`, 1
 s, writes, with a backup on the SD card first. `BACK` opens the leave page;
 `LEAVE` then makes `UNPLUG THE SERVO.` the current step, `NEXT SERVO` starts
-a new session for the same family, and `RESTART DSHOT` returns to
-SERVO, the hub.
+a new session for the same family, and `SERVO` holds the pin low and returns
+to SERVO, the hub.
 With CURRENT SENSE at `INA219` the strip shows the current after `SUPPLY ON`.
 Not tested on hardware. See [Hitec Programming](Hitec-Programming).
 
@@ -703,11 +715,11 @@ Not tested on hardware. See [Hitec Programming](Hitec-Programming).
 
 Shows a receiver's S.BUS output on GP1: the link chip on the strip, 16
 channel bars over the raw value with the value in µs, the digital channels
-CH17 and CH18, the frame rate and the error counts. It takes GP1 from
-DShot: as AUX in the default wiring, as SIG when SIG PIN is GP1, where it
-waits while an ESC answers. `BACK` opens the leave page at
-`1 UNPLUG THE RECEIVER.`; `BACK TO MONITOR` starts again with every count at
-0, and `RESTART DSHOT` returns to RX SIGNALS. See [RX Signals](RX-Signals).
+CH17 and CH18, the frame rate and the error counts. It takes GP1: as AUX in
+the default wiring, as SIG when SIG PIN is GP1, where it waits while an ESC
+answers. `BACK` opens the leave page at `1 UNPLUG THE RECEIVER.`;
+`BACK TO MONITOR` starts again with every count at 0, and `RX SIGNALS` holds
+the pins low and returns to RX SIGNALS. See [RX Signals](RX-Signals).
 
 ---
 
@@ -717,14 +729,15 @@ waits while an ESC answers. `BACK` opens the leave page at
 
 Sends S.BUS frames on GP0 to a flight controller, never to an ESC: 16
 channels on sliders over two pages, and on SET the throttle channel, CH17,
-CH18 and the failsafe and frame-lost flags. It takes GP0 from DShot, then
+CH18 and the failsafe and frame-lost flags. It takes GP0, then
 checks it for an ESC's bootloader before `HOLD TO START` is offered. The
 throttle channel stops at MAX THROTTLE's ceiling. `STOP`, a stalled screen,
 30 s without touch away from the first frame, and a touch controller that
 does not answer, as on the tester, stop the frames; the last reads
 `STOPPED: TOUCH DID NOT ANSWER`. `BACK`
 opens the leave page at `1 UNPLUG THE FLIGHT CONTROLLER.`; `BACK TO OUTPUT`
-checks GP0 again, and `RESTART DSHOT` returns to RX SIGNALS. See
+checks GP0 again, and `RX SIGNALS` holds the pins low and returns to RX
+SIGNALS. See
 [RX Signals](RX-Signals).
 
 ---
