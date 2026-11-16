@@ -4,7 +4,7 @@
  *        shared I2C (Inter-Integrated Circuit) bus I2C1, read on core0 once
  *        per UI (user interface) frame after the touch read.
  *
- * Optional. `CURRENT SENSE` in SETTINGS (@ref Settings::currentSense) says
+ * Optional. `CURRENT SENSE` in SETUP (@ref Settings::currentSense) says
  * whether a sensor is declared: @ref SenseMode::None, the default, sends
  * nothing to @ref INA219_ADDR; @ref SenseMode::Ina219 probes the part at boot
  * and again every 1000 ms while it is not online.
@@ -144,7 +144,7 @@ static_assert(INA219_CONFIG_BENCH == 0x19EFu, "the bench configuration is not 19
 
 /** @} */
 
-/** @brief What SETTINGS says is fitted: the value of @ref Settings::currentSense. */
+/** @brief What SETUP says is fitted: the value of @ref Settings::currentSense. */
 enum class SenseMode : uint8_t {
 	None   = 0,  /**< No sensor: nothing is sent to its address. */
 	Ina219 = 1,  /**< An INA219 at @ref INA219_ADDR. */
@@ -269,7 +269,7 @@ int32_t senseEndUa();
 void senseInit();
 
 /**
- * @brief From SETTINGS: the mode of @p mode. A new mode with
+ * @brief From SETUP: the mode of @p mode. A new mode with
  *        @ref SenseMode::Ina219 is probed on the next senseTick().
  * @param mode The value of @ref Settings::currentSense; another value reads
  *             as None.

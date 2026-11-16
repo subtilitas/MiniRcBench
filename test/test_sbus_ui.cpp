@@ -1,6 +1,6 @@
 /**
  * @file test_sbus_ui.cpp
- * @brief S.BUS MONITOR and RX SIGNALS, its chooser: the formatter of
+ * @brief S.BUS MONITOR and RECEIVER, its chooser: the formatter of
  *        sbus_view.h at its boundaries, and the screens through the real UI,
  *        the pin claim, the S.BUS job and the UART0 fake.
  *
@@ -326,7 +326,7 @@ static void freshUi() {
 	sbFrames(2);
 }
 
-/** @brief From the tester through MENU to RX SIGNALS, the chooser. */
+/** @brief From the tester through MENU to RECEIVER, the chooser. */
 static void openRx() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	sbFrames(1);
@@ -401,17 +401,17 @@ static SbusStatus jobStatus() {
 }
 
 static void testChooser() {
-	section("RX SIGNALS: the chooser, MONITOR and OUTPUT");
+	section("RECEIVER: the chooser, MONITOR and OUTPUT");
 	freshUi();
 	openRx();
-	checkTrue("the RX SIGNALS row opens RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("the RECEIVER row opens RECEIVER", uiCurrentScreen() == UiScreenId::RxSignals);
 	checkTrue("it claims nothing: DShot parked", pinClaimState() == ClaimState::Free &&
 	          !escTaskSuspended() && !fakePinReturned());
 	sbFrames(20);
 	checkTrue("half a second on, still nothing claimed", pinClaimState() == ClaimState::Free);
-	checkTrue("the title reads RX SIGNALS, 118 px",
+	checkTrue("the title reads RECEIVER, 94 px",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_RX_TITLE, C_TEXT, C_PANEL, 2) &&
-	          gfxTextW(UI_RX_TITLE, 2) == 118);
+	          gfxTextW(UI_RX_TITLE, 2) == 94);
 	checkTrue("the strip: SIG GP0  AUX GP1, dim", leftIs(UI_STRIP_LINE1_Y, "SIG GP0  AUX GP1", C_DIM));
 	checkInt("two entries", UI_RX_ENTRIES_COUNT, 2);
 	const UiRect mon = ctlRect(UI_FIX(RxCtl::Monitor)), out = ctlRect(UI_FIX(RxCtl::Output));
@@ -433,7 +433,7 @@ static void testChooser() {
 		          fakeInkExtent(UI_BODY_Y, GFX_H - UI_BODY_Y, C_BG, &x0, &x1) && x0 >= 6 && x1 < GFX_W - 6);
 		checkTrue("the last line ends at y 210", !fakeInkExtent(212, GFX_H - 212, C_BG, &x0, &x1));
 	}
-	checkControlTable("RX SIGNALS");
+	checkControlTable("RECEIVER");
 	fakeDumpFrame("shot_rx_chooser.ppm");
 	fakePress(mon.x + mon.w / 2, mon.y + mon.h / 2);
 	sbFrames(1);
@@ -640,7 +640,7 @@ static void testMonitor() {
 	checkTrue("the pin is let go at once", pinClaimUnplugDue());
 	checkTrue("step 1, current: UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0.",
 	          leaveStepIs(66, '1', SBUS_UI_UNPLUG, true) && leaveStepIs(78, 0, "ESC TESTER SENDS DSHOT ON SIG GP0.", true));
-	checkTrue("step 2: BACK TO RX SIGNALS.", leaveStepIs(92, '2', "BACK TO RX SIGNALS.", false));
+	checkTrue("step 2: BACK TO RECEIVER.", leaveStepIs(92, '2', "BACK TO RECEIVER.", false));
 	checkTrue("the strip: SIG GP0  AUX GP1, dim", leftIs(UI_STRIP_Y + 4, "SIG GP0  AUX GP1", C_DIM));
 	checkTrue("BACK TO MONITOR acts once the pin is let go", ctlEnabled(UI_FIX(SbusCtl::BackToMonitor)));
 	checkTrue("its label fits the 110 px button: 89 px", gfxTextW(SBUS_UI_BACK_TO, 1) == 89 &&
@@ -667,7 +667,7 @@ static void testMonitor() {
 	checkTrue("1000 ms: it acts", ctlEnabled(UI_FIX(SbusCtl::Release)));
 	int resumes = fakeParkCount();
 	tapId(UI_FIX(SbusCtl::Release));
-	checkTrue("RESTART DSHOT: RX SIGNALS, the pins parked with the job idle",
+	checkTrue("RESTART DSHOT: RECEIVER, the pins parked with the job idle",
 	          uiCurrentScreen() == UiScreenId::RxSignals && fakeParkCount() == resumes + 1 && fakeParkJobIdle());
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbFrames(4);
@@ -726,14 +726,14 @@ static void testGp1Sig() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the leave page's step 1 names DShot on GP1, where the receiver drives",
 	          leaveStepIs(66, '1', SBUS_UI_UNPLUG, true) && leaveStepIs(78, 0, SBUS_UI_RESTART_GP1_1, true) &&
-	          leaveStepIs(90, 0, SBUS_UI_RESTART_GP1_2, true) && leaveStepIs(104, '2', "BACK TO RX SIGNALS.", false));
+	          leaveStepIs(90, 0, SBUS_UI_RESTART_GP1_2, true) && leaveStepIs(104, '2', "BACK TO RECEIVER.", false));
 	checkTrue("the strip: SIG GP1", leftIs(UI_STRIP_Y + 4, "SIG GP1", C_DIM) &&
 	          allOf(60, UI_STRIP_Y, 120, UI_STRIP_H, C_BG));
 	fakeDumpFrame("shot_sbus_leave_sig.ppm");
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Release));
 	sbFrames(4);
-	checkTrue("RESTART DSHOT: RX SIGNALS, Free", uiCurrentScreen() == UiScreenId::RxSignals &&
+	checkTrue("RESTART DSHOT: RECEIVER, Free", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	openTester();
@@ -753,7 +753,7 @@ static void testGp1Sig() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Release));
 	sbFrames(4);
-	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("RESTART DSHOT: RECEIVER", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
 	openTester();
 	noEsc();
@@ -776,13 +776,13 @@ static void testRefusals() {
 	          leftIs(SBUS_UI_MSG_Y + SBUS_UI_MSG_H, SBUS_UI_UNPLUG_2, C_AMBER) &&
 	          leftIs(SBUS_UI_MSG_Y + 2 * SBUS_UI_MSG_H, SBUS_UI_UNPLUG_3, C_AMBER));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK before a claim: RX SIGNALS, nothing claimed", uiCurrentScreen() == UiScreenId::RxSignals &&
+	checkTrue("BACK before a claim: RECEIVER, nothing claimed", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	openTester();
 	noEsc();
 
-	// No role on GP1: unreachable through SETTINGS, whose steppers swap.
+	// No role on GP1: unreachable through SETUP, whose steppers swap.
 	freshUi();
 	wiring(0, 0);
 	openRx();
@@ -793,13 +793,13 @@ static void testRefusals() {
 	          uiCurrentScreen() == UiScreenId::Sbus);
 	checkTrue("the caption with no role on GP1: GP1  100 KBAUD  8E2",
 	          leftIs(UI_STRIP_Y + 4, "GP1  100 KBAUD  8E2", C_DIM));
-	checkTrue("S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETTINGS., amber",
+	checkTrue("S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETUP., amber",
 	          leftIs(SBUS_UI_MSG_Y, SBUS_UI_NO_GP1_1, C_AMBER) &&
 	          leftIs(SBUS_UI_MSG_Y + SBUS_UI_MSG_H, SBUS_UI_NO_GP1_2, C_AMBER));
 	checkTrue("no RETRY", !ctlPresent(UI_FIX(SbusCtl::Retry)));
 	fakeDumpFrame("shot_sbus_no_gp1.ppm");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free);
+	checkTrue("BACK: RECEIVER", uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	openTester();
 
@@ -834,7 +834,7 @@ static void testRefusals() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Release));
 	sbFrames(4);
-	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("RESTART DSHOT: RECEIVER", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
 	openTester();
 
@@ -849,7 +849,7 @@ static void testRefusals() {
 	openRx();
 	checkTrue("another claim, taken by the test", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	sbFrames(1);
-	checkTrue("RX SIGNALS gates MONITOR while the claim is not Free", !ctlEnabled(UI_FIX(RxCtl::Monitor)));
+	checkTrue("RECEIVER gates MONITOR while the claim is not Free", !ctlEnabled(UI_FIX(RxCtl::Monitor)));
 	// Opened by hand past the hub's gate: the screen's own refusal.
 	uiChooseTool(&UI_SBUS, nullptr);
 	sbFrames(2);
@@ -876,7 +876,7 @@ static void testRefusals() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Release));
 	sbFrames(4);
-	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("RESTART DSHOT: RECEIVER", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
 	openTester();
 
@@ -892,7 +892,7 @@ static void testRefusals() {
 	framesNoPump(2);
 	fakeRelease();
 	framesNoPump(1);
-	checkTrue("BACK while Stopping: RX SIGNALS, the pins parked", uiCurrentScreen() == UiScreenId::RxSignals &&
+	checkTrue("BACK while Stopping: RECEIVER, the pins parked", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          !fakePinReturned());
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbFrames(4);
@@ -930,18 +930,18 @@ static void testKeepClearsHold() {
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Release));
 	sbFrames(4);
-	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("RESTART DSHOT: RECEIVER", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
 	openTester();
 }
 
 /**
- * @brief docs/design/menu-c.md slice 2: MONITOR returns to RX SIGNALS, the
+ * @brief docs/design/menu-c.md slice 2: MONITOR returns to RECEIVER, the
  *        chooser that opened it, by BACK before a claim and by RESTART
  *        DSHOT, the leave page's last button.
  */
 static void testNavOpener() {
-	section("Navigation: MONITOR returns to RX SIGNALS, its opener");
+	section("Navigation: MONITOR returns to RECEIVER, its opener");
 	freshUi();
 	EscTelemetry tel;
 	memset(&tel, 0, sizeof(tel));
@@ -950,10 +950,10 @@ static void testNavOpener() {
 	openRx();
 	tapId(UI_FIX(RxCtl::Monitor));
 	sbFrames(1);
-	checkTrue("KISS on AUX: MENU, RX SIGNALS, S.BUS MONITOR, no claim",
+	checkTrue("KISS on AUX: MENU, RECEIVER, S.BUS MONITOR, no claim",
 	          navIsTool(UiScreenId::RxSignals, UiScreenId::Sbus) && pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK before a claim: RX SIGNALS", navIsHub(UiScreenId::RxSignals));
+	checkTrue("BACK before a claim: RECEIVER", navIsHub(UiScreenId::RxSignals));
 	checkTrue("then MENU and the tester", backToTester());
 	noEsc();
 
@@ -961,13 +961,13 @@ static void testNavOpener() {
 	openRx();
 	tapId(UI_FIX(RxCtl::Monitor));
 	sbFrames(10);
-	checkTrue("the claim held: MENU, RX SIGNALS, S.BUS MONITOR",
+	checkTrue("the claim held: MENU, RECEIVER, S.BUS MONITOR",
 	          navIsTool(UiScreenId::RxSignals, UiScreenId::Sbus) && pinClaimHolder() == PinUser::Sbus);
 	tapId(UI_FIX(UI_BACK));
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Release));
 	sbFrames(4);
-	checkTrue("RESTART DSHOT: RX SIGNALS, the claim Free",
+	checkTrue("RESTART DSHOT: RECEIVER, the claim Free",
 	          navIsHub(UiScreenId::RxSignals) && pinClaimState() == ClaimState::Free);
 	checkTrue("then MENU and the tester", backToTester());
 }

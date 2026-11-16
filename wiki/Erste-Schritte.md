@@ -48,7 +48,7 @@ das ESC-Kabel braucht also ein Adapterkabel mit JST-SH-Stecker.
 
 GP steht für GPIO (General Purpose Input/Output, frei verwendbarer Pin). Der
 ESC-Pin heißt SIG; ein KISS-Telemetriekabel, falls vorhanden, kommt an AUX,
-GP1. Beide lassen sich später unter **MENU → SETTINGS → SIG PIN** und
+GP1. Beide lassen sich später unter **MENU → SETUP → SIG PIN** und
 **AUX PIN** ändern, wo ein Schritt die beiden tauscht, und werden im Flash
 gespeichert.
 
@@ -69,7 +69,7 @@ gespeichert.
 
 Halte das Signalkabel kurz. Die größte funktionierende Länge ist nicht
 gemessen. Steigt die Fehlerrate unter `LINK`, stelle **DSHOT** unter
-**MENU → SETTINGS** auf 300.
+**MENU → SETUP** auf 300.
 
 ---
 
@@ -93,17 +93,17 @@ DShot startet erst, wenn du `ESC TESTER` oder `ESC COMMANDS` öffnest.
 Nach einem Firmware-Update, das den Aufbau der gespeicherten Einstellungen
 von Version 2, 3, 4 oder 5 geändert hat, werden die gespeicherten Einstellungen
 übernommen: Der Startbildschirm zeigt `SETTINGS CARRIED OVER FROM AN UPDATE`
-und `CHECK MENU > SETTINGS, THEN SAVE` in Bernstein über dem Namen. Prüfe
-sie in SETTINGS und halte `HOLD TO SAVE`
+und `CHECK MENU > SETUP, THEN SAVE` in Bernstein über dem Namen. Prüfe
+sie in SETUP und halte `HOLD TO SAVE`
 ([Fehlersuche](Fehlersuche#meine-einstellungen-setzen-sich-zurück)).
 
 Nach einem Update von einem Format, das die Firmware nicht kennt, werden die
 gespeicherten Einstellungen verworfen, und jede Einstellung beginnt mit ihrer
 Voreinstellung. Der Startbildschirm zeigt dann über dem Namen zwei Zeilen in
-Bernstein: `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`. Prüfe
+Bernstein: `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETUP`. Prüfe
 mindestens Polzahl, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` und
 `CURRENT SENSE` und halte dann `HOLD TO SAVE`. Bis ein Speichern gelingt,
-zeigt die Zeile SETTINGS in MENU `UPDATED`, nach einer Übernahme wie nach
+zeigt die Zeile SETUP in MENU `UPDATED`, nach einer Übernahme wie nach
 einem Verwerfen. Eine Platine, die nie Einstellungen gespeichert hatte,
 zeigt nichts davon.
 
@@ -218,13 +218,13 @@ loslässt. Der Balken zeigt einen Griff, und seine Beschriftung lautet
 ## Die Obergrenze anheben
 
 `MENU` auf dem Tester führt zur Liste der Werkzeuge zurück und entschärft
-dabei immer. `SETTINGS` ist die letzte Zeile, ohne Ziehen sichtbar: Tippe
+dabei immer. `SETUP` ist die letzte Zeile, ohne Ziehen sichtbar: Tippe
 darauf. Oder tippe entschärft auf `MAX 20%`
 oder `14 POLES` im Tester, unterstrichen, solange ein Tippen darauf wirkt:
-Das Tippen entschärft genauso und öffnet SETTINGS, und `BACK` führt dort zum
+Das Tippen entschärft genauso und öffnet SETUP, und `BACK` führt dort zum
 Tester zurück.
 
-<img src="img/settings.png" width="240" alt="SETTINGS nach einer Änderung: MOTOR POLES auf 16 und UNSAVED - HOLD SAVE TO KEEP">
+<img src="img/settings.png" width="240" alt="SETUP nach einer Änderung: MOTOR POLES auf 16 und UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: rechnet die gemeldete eRPM (elektrische Drehzahl) mit
   `RPM = eRPM / (Pole / 2)` in die Drehzahl um. Bereich 2–28, nur gerade
@@ -236,7 +236,7 @@ Tester zurück.
 Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `HOLD TO SAVE` unter der Liste gespeichert. Bis dahin zeigt die Hinweiszeile
 `UNSAVED - HOLD SAVE TO KEEP`, und `MENU` zeigt `UNSAVED` in der Zeile
-`SETTINGS`.
+`SETUP`.
 
 `SIG PIN`, weiter unten, legt den ESC-Pin sofort auf den anderen GPIO: Über dem
 Tester wechselt DShot mit, von `MENU` aus nimmt ihn der nächste Tester. Solange
@@ -244,7 +244,7 @@ es nicht der Pin ist, der beim Einschalten galt, zeigt eine eigene Zeile über
 `LINK` in Bernstein `UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter
 sagt weiter, ob die Einstellungen gespeichert sind.
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+<img src="img/settings-pin.png" width="240" alt="SETUP, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 ---
 

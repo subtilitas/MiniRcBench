@@ -2,6 +2,9 @@
 
 # Einrichtung
 
+Diese Seite behandelt die ersten Schritte. Den Bildschirm SETUP beschreibt
+[Die Bildschirme](Die-Bildschirme#setup).
+
 Vom leeren Tisch bis zum Startbildschirm: was du brauchst, das Adapterkabel
 und das Aufspielen der Firmware. [Erste Schritte](Erste-Schritte) macht dort
 weiter.
@@ -32,7 +35,7 @@ Für jedes Werkzeug brauchst du außerdem:
 | KST-Programmierung | Ein KST- oder Chaservo-Servo und eine schaltbare 5-V-Versorgung: ein Stecker oder ein Schalter in der Plusleitung |
 | Hitec-Programmierung, D-Serie | Ein Hitec-Servo der D-Serie und eine 5-V-Versorgung |
 | Hitec-Programmierung, klassisch | Ein klassisches Hitec-Servo (HS-5xxx, HS-7xxx) und die geschaltete Versorgung aus [Verdrahtung](Verdrahtung), Teil C: der Aufwärtswandler oben, 5 V, mit EN und Ausgangstrennung, seine LiPo-Zelle und ein Pull-down-Widerstand von 10 kΩ von EN nach Masse |
-| RX-Signale, MONITOR | Ein Empfänger mit S.BUS-Ausgang, an seinen Sender gebunden, und seine eigene Versorgung. Siehe [RX-Signale](RX-Signale#verdrahtung) |
+| RECEIVER, MONITOR | Ein Empfänger mit S.BUS-Ausgang, an seinen Sender gebunden, und seine eigene Versorgung. Siehe [Empfänger](Empfaenger#verdrahtung) |
 | Winkelmesser | Nichts außer der Platine, betrieben mit ihrem LiPo; eine gerade Leiste für den Einstellwinkel. Siehe [Winkelmesser](Winkelmesser#die-platine-halten) |
 
 ---

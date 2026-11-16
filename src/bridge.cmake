@@ -13,7 +13,7 @@
 #
 # Slice 2: the USB side on core0 (src/usb_bridge.cpp), the traffic log, a
 # build option off by default (src/bridge_log.cpp), and the screen USB
-# BRIDGE (src/ui_bridge.cpp), opened from ESC CONFIG.
+# BRIDGE (src/ui_bridge.cpp), opened from ESC PROGRAM.
 #
 # Slice 3: MSP (src/bridge_msp.cpp) and the 4-way interface
 # (src/bridge_4way.cpp), whose bootloader frames are escwire's

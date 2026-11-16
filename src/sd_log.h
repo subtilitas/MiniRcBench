@@ -40,12 +40,12 @@ enum class SdLogState : uint8_t {
 };
 
 /**
- * @brief Why the last log ended, when it was not STOP on SD LOG.
+ * @brief Why the last log ended, when it was not STOP on LOGS.
  *
  * Kept until the next start. A mount (sdLogBegin(), which RETRY MOUNT, the
  * end of USB DRIVE and a tool's remount run) forgets a card's fault, as the
  * card in the slot may be another one by then, and keeps a tool's stop
- * (sdLogMountForget()). SD LOG prints it on its note lines.
+ * (sdLogMountForget()). LOGS prints it on its note lines.
  */
 enum class SdLogEnd : uint8_t {
 	None = 0,     /**< Nothing to report: no log yet, a STOP, or a start or mount since. */
@@ -284,7 +284,7 @@ void sdLogStop();
 
 /**
  * @brief Stop a running log for a tool that takes the card, and record which
- *        one: SD LOG then reads `RECORDING STOPPED BY` and the tool's name
+ *        one: LOGS then reads `RECORDING STOPPED BY` and the tool's name
  *        until the next start; a mount keeps it (sdLogMountForget()).
  *        No-op when no log runs.
  *

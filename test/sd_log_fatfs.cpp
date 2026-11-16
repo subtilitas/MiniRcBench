@@ -94,7 +94,7 @@ static void clockSetTo(uint32_t sets, ClockTime t) {
 	g_clockUs = g_us;
 }
 
-/** @brief run_summary.cpp's SD LOG rows use it; this program draws none. */
+/** @brief run_summary.cpp's LOGS rows use it; this program draws none. */
 void diagUptimeText(char *buf, size_t n, uint32_t seconds) {
 	snprintf(buf, n, "%lu", (unsigned long)seconds);
 }

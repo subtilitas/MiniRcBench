@@ -1,8 +1,8 @@
-[English](RX-Signals) | **Deutsch**
+[English](Receiver) | **Deutsch**
 
-# RX-Signale
+# Empfänger
 
-`MENU → RX SIGNALS` enthält die Werkzeuge für die Signale eines Empfängers.
+`MENU → RECEIVER` enthält die Werkzeuge für die Signale eines Empfängers.
 **MONITOR** zeigt, was ein Empfänger an seinem S.BUS-Ausgang sendet: die 16
 Kanäle, die zwei digitalen Kanäle, ob die Verbindung steht, die Framerate
 und die Fehler auf der Leitung. Er sendet nichts. **OUTPUT** sendet S.BUS
@@ -13,7 +13,7 @@ S.BUS ist Futabas serieller Bus für Empfängerkanäle.
 Nicht auf Hardware getestet: Noch kein Empfänger und kein Flugcontroller war
 an einem Pin dieser Platine.
 
-<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT mit S.BUS TO A FLIGHT CONTROLLER. und ON GP0, NEVER TO AN ESC."> <img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR mit Frames alle 14 ms: der Chip OK, 16 lindgrüne Balken mit ihren Werten in Mikrosekunden, 14.0 MS 71.4 HZ">
+<img src="img/rx-chooser.png" width="240" alt="RECEIVER: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT mit S.BUS TO A FLIGHT CONTROLLER. und ON GP0, NEVER TO AN ESC."> <img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR mit Frames alle 14 ms: der Chip OK, 16 lindgrüne Balken mit ihren Werten in Mikrosekunden, 14.0 MS 71.4 HZ">
 
 ---
 
@@ -33,7 +33,7 @@ und Masse.
   GP1 = J5 Pin 1 oder J4 Pin 10, GND = J5 Pin 4 oder J4 Pin 1 oder 5
 ```
 
-- GP1 ist AUX, der KISS-Pin, außer SETTINGS → SIG PIN steht auf GP1. Der
+- GP1 ist AUX, der KISS-Pin, außer SETUP → SIG PIN steht auf GP1. Der
   Monitor liest GP1 in jeder Rolle: Es ist der einzige Pin, den der
   serielle Empfänger der Platine lesen kann.
 - Versorge den Empfänger nie aus den 3,3-V- oder 5-V-Pins der Platine.
@@ -52,7 +52,7 @@ Siehe auch [Verdrahtung](Verdrahtung).
 
 ## Die Auswahl
 
-`MENU → RX SIGNALS` öffnet eine Auswahl, eine Seite mit zwei Schaltflächen.
+`MENU → RECEIVER` öffnet eine Auswahl, eine Seite mit zwei Schaltflächen.
 Die Leiste nennt beide Signalpins, `SIG GP0  AUX GP1`, so siehst du vor dem
 Tippen, welche Rolle GP1 hat. Die Seite belegt keinen Pin, und DShot ist
 aus, solange sie zu sehen ist.
@@ -62,14 +62,14 @@ aus, solange sie zu sehen ist.
   Warnung: `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`
 
 Unter den Pins der Leiste zeigt eine zweite Zeile
-`NO ESC CHECK: UNPLUG ANY ESC FIRST.` in Bernstein. DShot ist auf RX SIGNALS
+`NO ESC CHECK: UNPLUG ANY ESC FIRST.` in Bernstein. DShot ist auf RECEIVER
 aus, daher sieht der Prüfstand keinen ESC an den Pins: Zieh jeden ESC ab,
 bevor du einen Eintrag antippst. Mit SIG auf GP1 trägt MONITOR
 `GP1 IS SIG: PLUG IN AFTER THE TAP.` in Bernstein: GP1 liegt bis zum Tippen
 auf Low, steck den Empfänger also danach ein.
 
 `BACK` führt zu `MENU` zurück. Solange die Pins nach einem anderen Werkzeug
-noch belegt sind, öffnet RX SIGNALS wie immer, MONITOR und OUTPUT sind
+noch belegt sind, öffnet RECEIVER wie immer, MONITOR und OUTPUT sind
 Umrisse und tun nichts, und die zweite Zeile der Leiste zeigt
 `SETTING SIG GP0 LOW` oder `RELEASING SIG GP0` in Bernstein.
 
@@ -133,7 +133,7 @@ Balken ist über dem Rohwert gezeichnet und in beiden Fällen gleich.
 |---|---|---|
 | `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG liegt auf GP1, und dort antwortet ein ESC. Der Empfänger würde den Signaleingang des ESC treiben | Zieh den ESC ab. Der Bildschirm nimmt den Pin 500 ms, nachdem der ESC verstummt; steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint. Der Chip erscheint erst, wenn der Pin belegt ist und der Job läuft; bis dahin liegt GP1 auf Low |
 | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | auf GP1 kommt KISS-Telemetrie an | Zieh die Telemetrieleitung ab. Steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint |
-| `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | weder SIG noch AUX liegt auf GP1 | Setze SIG PIN oder AUX PIN auf GP1. SETTINGS tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
+| `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETUP.` | weder SIG noch AUX liegt auf GP1 | Setze SIG PIN oder AUX PIN auf GP1. SETUP tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
 | `AUX GP1 COULD NOT BE TAKEN (CLOCK)` | der serielle Empfänger der Platine konnte 100.000 Baud nicht erreichen | `RETRY` |
 
 Die ESC-Prüfung übersieht einen ESC, der nicht in bidirektionalem DShot
@@ -141,7 +141,7 @@ antwortet. Da DShot außerhalb von ESC TESTER und ESC COMMANDS aus ist,
 antwortet ein ESC nur innerhalb von 500 ms nach dem Verlassen eines davon:
 Die Zeile `NO ESC CHECK` der Auswahl ist die Prüfung, die bleibt.
 
-<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR wartet: AN ESC ANSWERS ON SIG GP1. und UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in Bernstein"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR ohne Rolle auf GP1: S.BUS NEEDS GP1. und SET A PIN TO GP1 IN SETTINGS. in Bernstein">
+<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR wartet: AN ESC ANSWERS ON SIG GP1. und UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in Bernstein"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR ohne Rolle auf GP1: S.BUS NEEDS GP1. und SET A PIN TO GP1 IN SETUP. in Bernstein">
 
 ---
 
@@ -156,13 +156,13 @@ gegeneinander treiben.
 
 - `BACK TO MONITOR` behält den Pin und kehrt zum Monitor zurück, jeder
   Zähler auf 0.
-- `RX SIGNALS`, der Titel der Auswahl, führt zu RX SIGNALS und legt die
+- `RECEIVER`, der Titel der Auswahl, führt zu RECEIVER und legt die
   Pins auf Low; kein DShot startet. Es wartet 1 s, nachdem der Pin
   freigegeben ist.
 
 `BACK` auf der Seite ist ein Umriss und tut nichts.
 
-<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RX SIGNALS noch grau"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER noch grau"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 
@@ -196,7 +196,7 @@ feste, wiederholbare Werte senden.
   GP0 = J5 Pin 2 oder J4 Pin 9, GND = J5 Pin 4 oder J4 Pin 1 oder 5
 ```
 
-- GP0 ist SIG, der ESC-Pin, außer SETTINGS → SIG PIN steht auf GP1. In der
+- GP0 ist SIG, der ESC-Pin, außer SETUP → SIG PIN steht auf GP1. In der
   Standardverdrahtung kommt die FC-Leitung dorthin, wo der ESC war: Zieh
   zuerst den ESC ab.
 - Die Platine liefert nur Signal und Masse. Der FC bekommt Strom über seinen
@@ -220,7 +220,7 @@ verfügbar.
 | `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | ein Bootloader von Bluejay, BLHeli_S oder AM32 hat geantwortet: Ein ESC hängt an GP0 | Zieh den Akku des ESC und seine Leitung ab. START bleibt aus, bis eine Runde der Prüfung keine Antwort bekommt. `MENU` zeigt `POWER-CYCLE THE ESC TO RUN IT` |
 | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | ein ESC antwortet auf SIG mit DShot | Zieh ihn ab. Der Bildschirm nimmt den Pin 500 ms, nachdem er verstummt |
 | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | SIG ist GP1, GP0 ist AUX, und dort kommt KISS-Telemetrie an | Zieh die Telemetrieleitung ab. Steck den FC an, sobald der Chip `SAFE` erscheint |
-| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | weder SIG noch AUX ist GP0 | Stell SIG PIN oder AUX PIN auf GP0. SETTINGS tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
+| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETUP.` | weder SIG noch AUX ist GP0 | Stell SIG PIN oder AUX PIN auf GP0. SETUP tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
 | `SIG GP0 COULD NOT BE TAKEN (CLOCK)` | die serielle Schnittstelle erreicht keine 100.000 Baud, oder die Leitung der Prüfung bekam ihren Takt nicht | `RETRY` |
 | `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` oder `(REFUSED)` | die Leitung der Prüfung fand keine freie PIO-Zustandsmaschine oder keinen freien DMA-Kanal, oder ihr Treiber nahm den Pin nicht | `RETRY` |
 
@@ -245,7 +245,7 @@ verfügbar.
   springen dorthin.
 - **Die Regler** bewegen sich nur, solange Frames laufen, durch Ziehen, in
   Schritten von 5 µs. Ein Tippen allein ändert nichts.
-- **Der Gaskanal** hält an der Obergrenze von SETTINGS → MAX THROTTLE: bei
+- **Der Gaskanal** hält an der Obergrenze von SETUP → MAX THROTTLE: bei
   den voreingestellten 20 % sind das 1200 µs. Die Grenze begrenzt den Kanal,
   nicht die Motoren eines scharfen FC, der Leerlauf und Stabilisierung
   dazurechnet.
@@ -295,7 +295,7 @@ Der nächste ESC TESTER oder ESC COMMANDS treibt diesen Pin.
 
 - `BACK TO OUTPUT` behält den Pin und führt zum Bildschirm zurück; vor START
   läuft die Bootloader-Prüfung erneut.
-- `RX SIGNALS`, der Titel der Auswahl, führt zu RX SIGNALS zurück und legt
+- `RECEIVER`, der Titel der Auswahl, führt zu RECEIVER zurück und legt
   den Pin auf Low; kein DShot startet. Es wartet 1 s, nachdem der Pin
   freigegeben ist.
 
@@ -304,9 +304,9 @@ zeigt `BACK` zuerst den Schritt von ESC SETTINGS:
 `UNPLUG THE ESC BATTERY, THEN LEAVE.` Der ESC wartet in seinem Bootloader und
 könnte DShot als Befehl lesen. `STAY` führt zum Bildschirm zurück, `LEAVE`
 gibt den Pin frei; der letzte Schritt erinnert daran, den ESC wieder
-anzustecken, sobald RX SIGNALS zu sehen ist.
+anzustecken, sobald RECEIVER zu sehen ist.
 
-<img src="img/sbus-out-leave.png" width="240" alt="Die Verlassenseite von S.BUS OUTPUT: 1 UNPLUG THE FLIGHT CONTROLLER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO OUTPUT, RX SIGNALS"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="Die Verlassenseite, nachdem ein Bootloader von Bluejay oder BLHeli_S geantwortet hat: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
+<img src="img/sbus-out-leave.png" width="240" alt="Die Verlassenseite von S.BUS OUTPUT: 1 UNPLUG THE FLIGHT CONTROLLER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO OUTPUT, RECEIVER"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="Die Verlassenseite, nachdem ein Bootloader von Bluejay oder BLHeli_S geantwortet hat: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
 
 ---
 

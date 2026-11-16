@@ -11,7 +11,7 @@
 # output's core1 job (src/sbus_out_job.cpp) probes GP0 for an ESC's bootloader
 # on the escwire line (src/escwire.cmake), then sends the encoder's frames from
 # UART0's TX on GP0. The header is on the target's include path because
-# core1_job.cpp includes both jobs' headers. The screens: RX SIGNALS, the
+# core1_job.cpp includes both jobs' headers. The screens: RECEIVER, the
 # chooser (src/ui_rx_signals.cpp), S.BUS MONITOR (src/ui_sbus.cpp) with its
 # formatter (src/sbus_view.cpp), and S.BUS OUTPUT (src/ui_sbus_out.cpp) with
 # its formatter (src/sbus_out_view.cpp).

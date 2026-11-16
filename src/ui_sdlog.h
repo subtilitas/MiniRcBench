@@ -1,6 +1,6 @@
 /**
  * @file ui_sdlog.h
- * @brief The SD LOG screen: the logger's state and counters, START and STOP,
+ * @brief The LOGS screen: the logger's state and counters, START and STOP,
  *        RETRY for a card inserted after boot, and USB DRIVE, which hands the
  *        card to a computer over USB (Universal Serial Bus).
  *
@@ -17,7 +17,7 @@
 
 struct TouchState;
 
-/** @brief The SD LOG controls. @see ui_screen.h */
+/** @brief The LOGS controls. @see ui_screen.h */
 enum class SdLogCtl : uint8_t {
 	Toggle = 1,  /**< START or STOP; EJECT while a host holds the card. */
 	Retry,       /**< RETRY, absent while a host holds the card. */
@@ -27,7 +27,7 @@ enum class SdLogCtl : uint8_t {
 struct SdLogStatus;
 
 /**
- * @brief SD LOG's note for how the last log ended, two lines, or false.
+ * @brief LOGS' note for how the last log ended, two lines, or false.
  *
  * Shown above START from the end (@ref SdLogEnd): a write that found the
  * card full, a write, sync or close that failed, a file that did not open,
@@ -53,5 +53,5 @@ void uiSdLogEnter();
  */
 bool uiSdLogTick(const TouchState *t);
 
-/** @brief SD LOG. */
+/** @brief LOGS. */
 extern const UiScreen UI_SDLOG;

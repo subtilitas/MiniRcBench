@@ -178,11 +178,11 @@ static const UiRect BTN_LATCH = { 116, BTN_ROW_Y, 54, BTN_ROW_H };
 static const UiRect BTN_MENU = { 176, BTN_ROW_Y, 58, BTN_ROW_H };
 
 /**
- * @defgroup ui_readouts The readouts that open SETTINGS
+ * @defgroup ui_readouts The readouts that open SETUP
  * @brief The pole count and the ceiling, with their tap targets and
  *        underlines: slice 7 of docs/design/menu-b.md, "The tester", owner
  *        decision 4 and decisions 11 (the MAX row), 15 a to c, 17, 19 and
- *        20. A tap on either opens SETTINGS through uiOpenTool(), while
+ *        20. A tap on either opens SETUP through uiOpenTool(), while
  *        disarmed and while the pin claim is Free; otherwise they are inert
  *        and drawn without the underline. The pole
  *        target lies in the throttle pad and the MAX target over the pad's
@@ -236,7 +236,7 @@ static bool     s_latch = false;
  *        first: at most @ref UI_NAV_MAX screens, MENU, the root, at the
  *        bottom from uiInit() on. A screen pushes the one it opens and BACK
  *        pops it: the tester, a hub or a tool over MENU, a hub's tool over
- *        its hub, SETTINGS over the tester from a readout. MENU is never
+ *        its hub, SETUP over the tester from a readout. MENU is never
  *        popped: it draws no BACK.
  */
 static const UiScreen *s_nav[UI_NAV_MAX] = {};
@@ -253,7 +253,7 @@ static void          (*s_chosenEnter)() = nullptr;
 static uint16_t s_throttle = 0;
 
 // Pole count and throttle ceiling live in the persisted settings rather than in
-// file statics here, so the -/+ buttons and the HOLD TO SAVE on SETTINGS act
+// file statics here, so the -/+ buttons and the HOLD TO SAVE on SETUP act
 // on one value. These two read through to it.
 #define s_maxThrottle (settings()->maxThrottle)
 #define s_poles       (settings()->poles)
@@ -467,7 +467,7 @@ static bool telemetryAlive() {
 }
 
 /**
- * @brief The readouts open SETTINGS: disarmed, and SETTINGS not refused for
+ * @brief The readouts open SETUP: disarmed, and SETUP not refused for
  *        the pin claim. Drawn underlined exactly then. @see ui_readouts
  */
 static bool readoutsAct() { return !s_armed && !uiPinsRefuse(&UI_SETTINGS); }
@@ -617,7 +617,7 @@ static void drawStatusBar() {
 	}
 #endif
 
-	// The bitrate the pump is running at, not the compiled default: SETTINGS
+	// The bitrate the pump is running at, not the compiled default: SETUP
 	// changes it, and the label follows.
 	int kbaud = (int)escTaskDshotKbaud();
 	int pumpErr = s_tel.initError ? 1 : 0;
@@ -806,7 +806,7 @@ static void drawRpm() {
 		return;
 	}
 
-	// The pole count, a readout that opens SETTINGS: underlined while a tap
+	// The pole count, a readout that opens SETUP: underlined while a tap
 	// on it acts. @see ui_readouts. While armed the kV estimate takes its
 	// place until the disarm (decision 6); the pole count is inert then.
 	if (!esc3d && s_armed) {
@@ -956,7 +956,7 @@ static void drawThrottle() {
 
 	char buf[24];
 	gfxText(THR_TRACK_X, MAX_TEXT_Y, s_latch ? UI_TESTER_LATCHED_TEXT : "THROTTLE", C_DIM, 1);
-	// The ceiling, a readout that opens SETTINGS: underlined while a tap on
+	// The ceiling, a readout that opens SETUP: underlined while a tap on
 	// it acts. @see ui_readouts
 	snprintf(buf, sizeof(buf), "MAX %d%%", maxPct);
 	gfxText(MAX_TEXT_X, MAX_TEXT_Y, buf, C_TEXT, 1);
@@ -1088,7 +1088,7 @@ static void testerStop() {
 /**
  * @brief Push @p s over the open screen. Every route that opens a screen
  *        comes here, so none passes @ref UI_NAV_MAX screens. uiInit()
- *        pushes MENU, MENU a row, the tester SETTINGS, a hub one of its
+ *        pushes MENU, MENU a row, the tester SETUP, a hub one of its
  *        entries.
  * @return false, with nothing pushed, when the stack is full.
  */
@@ -1110,8 +1110,8 @@ static const UiScreen *navTop() {
  *        scroll 0, as it did before the stack; the tester redraws every
  *        region; a hub resumes as it was left (uiHubResume()), the entry
  *        that opened the tool where it was. Only a hub opens a tool over
- *        itself, through uiChooseTool(), and the tester only SETTINGS, so a
- *        screen under another is MENU, the tester or a hub. SETTINGS, the
+ *        itself, through uiChooseTool(), and the tester only SETUP, so a
+ *        screen under another is MENU, the tester or a hub. SETUP, the
  *        theme, and the pin can change under a tool, so every cached region
  *        is invalidated.
  */
@@ -1309,9 +1309,9 @@ static void handleMainTouch() {
 		s_testerLeave = true;
 	} else if (readoutsAct() &&
 	           ((polesShown() && tapped(TGT_POLES, s_touch)) || tapped(TGT_MAX, s_touch))) {
-		// A readout: SETTINGS, and BACK there returns here. Inert while
+		// A readout: SETUP, and BACK there returns here. Inert while
 		// armed, where the pad and the track take the press, and while the
-		// claim refuses SETTINGS. @see ui_readouts
+		// claim refuses SETUP. @see ui_readouts
 		uiOpenTool(&UI_SETTINGS);
 	}
 }
@@ -1510,7 +1510,7 @@ void uiDrawSplash() {
 		gfxTextCenter(UI_SPLASH_RESET_Y + 12, UI_SPLASH_CARRIED_TEXT2, C_AMBER, 1);
 	} else if (settingsResetByUpdate()) {
 		gfxTextCenter(UI_SPLASH_RESET_Y, "SETTINGS RESET BY UPDATE", C_AMBER, 1);
-		gfxTextCenter(UI_SPLASH_RESET_Y + 12, "CHECK MENU > SETTINGS", C_AMBER, 1);
+		gfxTextCenter(UI_SPLASH_RESET_Y + 12, "CHECK MENU > SETUP", C_AMBER, 1);
 	}
 	// Not found: no answer since touchInit().
 	s_splashNoTouch = !touchAnswered();
@@ -1653,7 +1653,7 @@ void uiTick() {
 	// runs. A screen returns false once it has left, by BACK, by the leave
 	// page's last button or by the tester's MENU button, and the stack pops
 	// it to the screen that opened it: MENU, the hub it was chosen on, or
-	// the tester for SETTINGS opened from a readout (navPop()). A tool
+	// the tester for SETUP opened from a readout (navPop()). A tool
 	// chosen on a hub is pushed after the hub's tick, over the hub.
 	const UiScreen *top = navTop();
 	if (top != &UI_MENU_SCREEN) {

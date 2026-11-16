@@ -1268,6 +1268,22 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: four screens take rcbench's names, slice 5 of
+  [menu-c.md](docs/design/menu-c.md#slice-5-as-built), by owner decision 6 of
+  2026-11-15: ESC CONFIG reads ESC PROGRAM, RX SIGNALS reads RECEIVER, SD LOG
+  reads LOGS and SETTINGS reads SETUP, on MENU's rows, the screens' titles,
+  the splash, the hubs' lines, the leave pages' last step and button, and the
+  texts that send the user to SETTINGS. ANGLE METER's footer button SETUP
+  reads SET and its view ANGLE SET, so SETUP names one screen (developer's
+  call 17, pending the owner's review). Identifiers and file names keep their
+  words. README.md, the wiki, `docs/bench-plan.md`, the wiring drawing, the
+  release text, the previews and the tests read the new names. The wiki pages
+  RX-Signals and RX-Signale are now Receiver and Empfaenger, and the pages
+  Setup and Einrichtung point to the screen SETUP (developer's call 18,
+  pending the owner's review). Rule 9 of `test/check_docs.py` refuses the old
+  names. `kstWrap()` never starts a line with a lone `>`, so KST SERVO's
+  note breaks before `SETUP > SERVO SUPPLY AT OWN.`. Host tests only; not
+  tested on hardware.
 - After v0.1.0-rc1: no DShot frame at power-up, and DShot only while ESC
   TESTER or ESC COMMANDS is open, or SETTINGS over the tester, slice D2 of
   [dshot-lifetime.md](docs/design/dshot-lifetime.md#d2-as-built), by owner

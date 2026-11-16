@@ -71,7 +71,7 @@ int main() {
 	core1JobInit();
 
 	runAm32Tests();
-	// Before the UI suite, whose SETTINGS tests configure the supply.
+	// Before the UI suite, whose SETUP tests configure the supply.
 	runServoSupplyTests();
 	runSenseTests();
 	runSupplyGuardTests();

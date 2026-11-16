@@ -2,7 +2,7 @@
 
 # USB-Brücke
 
-`MENU → ESC CONFIG → USB BRIDGE` lässt ein ESC-Programm auf deinem
+`MENU → ESC PROGRAM → USB BRIDGE` lässt ein ESC-Programm auf deinem
 Computer über den seriellen Anschluss der Platine den Bootloader des ESC am
 Signaldraht erreichen. Die Platine arbeitet auf eine von zwei Arten, die das
 erste Byte des Programms wählt:
@@ -43,7 +43,7 @@ Die Platine erkennt die Art am ersten Byte des Programms; du wählst nichts.
 1. Den ESC wie für DShot an SIG und GND anschließen, an seinem eigenen
    Akku. Den Propeller abnehmen.
 2. Die Platine per USB mit dem Computer verbinden.
-3. `MENU → ESC CONFIG` öffnen und `USB BRIDGE` antippen. Die Platine nimmt SIG;
+3. `MENU → ESC PROGRAM` öffnen und `USB BRIDGE` antippen. Die Platine nimmt SIG;
    die Leiste zeigt kurz `RELEASING SIG GP0`, dann `SIG GP0  19200 8N1`.
 4. Im Programm den seriellen Anschluss der Platine wählen, denselben, den
    die Konsole der Platine benutzt, und verbinden. Der Chip zeigt
@@ -66,7 +66,7 @@ SIG nicht übernehmen, steht eine Zeile in Bernstein:
   langsam;
 - `REFUSED`: Der zweite Kern der Platine hat den Auftrag nicht übernommen.
 
-`RETRY` versucht es erneut. `BACK` führt direkt zu ESC CONFIG, ohne
+`RETRY` versucht es erneut. `BACK` führt direkt zu ESC PROGRAM, ohne
 Verlassenseite, solange die Platine SIG nimmt und nach einem
 fehlgeschlagenen Bind: Die Brücke hat die Leitung nie übernommen.
 
@@ -74,7 +74,7 @@ Solange die Brücke offen ist, ist die Konsole der Platine aus: Keine
 Telemetriezeile erreicht den Anschluss. Sie kommt zurück, sobald die Brücke
 beendet ist.
 
-Hält `USB DRIVE` auf SD LOG die Karte, startet die Brücke nicht und zeigt
+Hält `USB DRIVE` auf LOGS die Karte, startet die Brücke nicht und zeigt
 `EJECT THE USB DRIVE FIRST.` (erst das USB-Laufwerk auswerfen). Nach dem
 Auswerfen startet sie.
 
@@ -110,7 +110,7 @@ Lesen von ausgeschaltetem.
 
 ## Schreiben und Verlassen
 
-<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE beim Schreiben: WRITING: DO NOT UNPLUG ESC OR USB. in Bernstein, BACK grau"> <img src="img/bridge-leave.png" width="240" alt="Die Verlassenseite: 1 POWER THE ESC OFF., 2 BACK TO ESC CONFIG., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC CONFIG und BACK grau">
+<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE beim Schreiben: WRITING: DO NOT UNPLUG ESC OR USB. in Bernstein, BACK grau"> <img src="img/bridge-leave.png" width="240" alt="Die Verlassenseite: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC PROGRAM und BACK grau">
 
 Während der ESC seinen Flash schreibt oder löscht, zeigt die erste Zeile
 `WRITING: DO NOT UNPLUG ESC OR USB.` (schreibt: ESC und USB nicht
@@ -124,19 +124,19 @@ Bei laufender Brücke öffnet `BACK` jedes Mal eine Verlassenseite, gleich was
 das Programm tat: Der ESC kann in seinem Bootloader sitzen, beim Einschalten
 oder von selbst dorthin gelangt, und DShot-Frames beim nächsten ESC TESTER
 oder ESC COMMANDS können als seine Befehle durchgehen. Den ESC ausschalten,
-dann `ESC CONFIG`, den Titel der Auswahl, antippen, aktiv 1 s nach dem
+dann `ESC PROGRAM`, den Titel der Auswahl, antippen, aktiv 1 s nach dem
 Öffnen der Seite: Es legt den Signalpin auf Low, startet kein DShot und
-führt zu ESC CONFIG zurück. `BRIDGE` führt stattdessen zur Brücke zurück.
+führt zu ESC PROGRAM zurück. `BRIDGE` führt stattdessen zur Brücke zurück.
 Nach einem Schreiben ohne anschließenden Start der Firmware zeigt die Seite
 zusätzlich `FLASH THE ESC AGAIN BEFORE USE.` (den ESC vor dem Einsatz neu
 flashen).
 In der 4-Way-Schnittstelle zählt nur das Zurücksetzen des ESC durch das
 Programm als dieser Start, nicht sein Trennen. Der Hinweis bleibt nach
 `BRIDGE`: Jedes spätere `BACK` zeigt ihn wieder, bis das Programm die
-Firmware startet. `ESC CONFIG` beendet die Sitzung, und das nächste
+Firmware startet. `ESC PROGRAM` beendet die Sitzung, und das nächste
 `USB BRIDGE` beginnt ohne den Hinweis.
 
-<img src="img/bridge-leave-read.png" width="240" alt="Die Verlassenseite nach einer Sitzung, die nur las: 1 POWER THE ESC OFF., 2 BACK TO ESC CONFIG., ohne FLASH-Hinweis, BRIDGE, ESC CONFIG und BACK grau">
+<img src="img/bridge-leave-read.png" width="240" alt="Die Verlassenseite nach einer Sitzung, die nur las: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., ohne FLASH-Hinweis, BRIDGE, ESC PROGRAM und BACK grau">
 
 Ohne ein solches Schreiben, etwa nach einer Sitzung, die nur las, oder nach
 einem Schreiben mit anschließendem Start, zeigt die Seite die zwei Schritte

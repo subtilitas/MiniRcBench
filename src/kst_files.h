@@ -36,7 +36,7 @@
  * - A write error that persists, as a card that refuses writes gives:
  *   FatFs keeps the sector it could not write in its window, the create's
  *   remove fails with FR_DISK_ERR, and every later call that moves the window
- *   fails with FR_DISK_ERR until the card is mounted again (SD LOG's RETRY,
+ *   fails with FR_DISK_ERR until the card is mounted again (LOGS' RETRY,
  *   the USB card reader's hand-back or a power cycle), the list, LOAD and
  *   the record lookup among them. The new file's 0-byte entry stays in
  *   that sector and reaches the card if writes work again before a remount.

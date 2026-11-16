@@ -372,7 +372,7 @@ static void stopLog(RunSumEnd how) {
 		writeSummary();
 		s_state = SdLogState::Idle;
 	}
-	// The file's number stays, for SD LOG's FILE row, until the next start.
+	// The file's number stays, for LOGS' FILE row, until the next start.
 	if (s_state == SdLogState::Idle) s_autoStarted = false;
 }
 

@@ -1361,7 +1361,8 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    Revised by [menu-c.md](menu-c.md#decisions) owner decisions 4 and 6 of
    2026-11-15 and choice 8: the hub reads ESC PROGRAM (owner decision 6);
    owner decision 4 puts ESC COMMANDS in a hub, and choice 8, which the
-   owner has not decided, makes it this hub's first entry. Not built.
+   owner has not decided, makes it this hub's first entry. Built (slices 4
+   and 5).
 2. **Which modes.** Option (a): both, passthrough first as slice 2, MSP and
    the 4-way interface as slice 3. This is the recommendation.
 3. **How the mode is chosen.** Option (a): from the PC's first byte.

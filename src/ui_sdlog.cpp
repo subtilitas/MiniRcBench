@@ -1,6 +1,6 @@
 /**
  * @file ui_sdlog.cpp
- * @brief The SD LOG screen: card state, counters, START and STOP, RETRY
+ * @brief The LOGS screen: card state, counters, START and STOP, RETRY
  *        MOUNT and USB DRIVE. @see ui_sdlog.h
  */
 
@@ -409,7 +409,7 @@ static void drawLogScreen() {
 	sumKeep(st);
 
 	gfxFill(C_BG);
-	uiHeader("SD LOG", &s_touch);
+	uiHeader("LOGS", &s_touch);
 
 	if (msc != MscState::Idle) {
 		drawUsbPanel(msc);
@@ -527,7 +527,7 @@ static bool handleLogTouch() {
 	}
 	return true;
 }
-/** @brief The SD LOG controls, gated as handleLogTouch() gates them. */
+/** @brief The LOGS controls, gated as handleLogTouch() gates them. */
 static uint8_t sdLogControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
@@ -563,7 +563,7 @@ bool uiSdLogTick(const TouchState *t) {
 	return true;
 }
 
-/** @brief SD LOG's MENU status: the card's state, or USB DRIVE while a host has it. */
+/** @brief LOGS' MENU status: the card's state, or USB DRIVE while a host has it. */
 static void sdLogMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 	MscState msc = mscGetState();
 	if (msc != MscState::Idle) {
@@ -582,6 +582,6 @@ static void sdLogMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 }
 
 const UiScreen UI_SDLOG = {
-	UiScreenId::SdLog, "SD LOG", PinUser::None, sdLogMenuStatus,
+	UiScreenId::SdLog, "LOGS", PinUser::None, sdLogMenuStatus,
 	uiSdLogEnter, uiSdLogTick, nullptr, sdLogControls, nullptr, false,
 };

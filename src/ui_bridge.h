@@ -4,7 +4,7 @@
  *        reaches the ESC's bootloader on SIG (docs/design/usb-bridge.md,
  *        "Screen", slices 2 and 3).
  *
- * Entry: MENU → ESC CONFIG → USB BRIDGE (ui_esc_config.h, decision 1). The
+ * Entry: MENU → ESC PROGRAM → USB BRIDGE (ui_esc_config.h, decision 1). The
  * screen claims SIG for PinUser::Bridge on its first frame. The claim has no
  * ESC check: the bridge needs the ESC on the pin. While USB DRIVE holds the
  * card the claim is not begun and the screen reads
@@ -25,15 +25,15 @@
  *
  * | When | BACK |
  * |---|---|
- * | no claim: refused, USB DRIVE | to ESC CONFIG |
- * | Stopping, or Held after a failed bind | pinClaimEnd(): the pins park at once; to ESC CONFIG, and MENU's run cue stands from the claim's begin |
+ * | no claim: refused, USB DRIVE | to ESC PROGRAM |
+ * | Stopping, or Held after a failed bind | pinClaimEnd(): the pins park at once; to ESC PROGRAM, and MENU's run cue stands from the claim's begin |
  * | a write-class frame waits for its answer, at most 3000 ms | drawn disabled (decision 7) |
- * | Held, the line binding | pinClaimEnd(), to ESC CONFIG: the pins park once the job is idle, by the claim's rule, whether or not a screen polls it |
+ * | Held, the line binding | pinClaimEnd(), to ESC PROGRAM: the pins park once the job is idle, by the claim's rule, whether or not a screen polls it |
  * | Running | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page, as the servo tools give it (decision 10 as revised): the ESC may wait in its bootloader whatever the tool sent |
  *
  * Nothing is sent at BACK, no RUN among it (decision 6). The leave page is
  * ui_leave.h's, opened releasing, as the job lets go of the line at once:
- * `POWER THE ESC OFF.`, `BACK TO ESC CONFIG.` and, after a write in this claim
+ * `POWER THE ESC OFF.`, `BACK TO ESC PROGRAM.` and, after a write in this claim
  * with no RUN behind it, the note `FLASH THE ESC AGAIN BEFORE USE.`
  * (usbBridgeWriteUnfinished()). Its left button, `BRIDGE`, keeps the claim
  * and returns to the bridge, its counts at 0 (pinClaimKeep()); the
@@ -41,7 +41,7 @@
  * RUN. The last button, live 1000 ms after the line is let go, clears MENU's
  * run cue (usbBridgeRunCueClear()) and the unfinished write
  * (usbBridgeWriteUnfinishedClear()), parks the pins and returns to ESC
- * CONFIG, the screen that opened the bridge: the
+ * PROGRAM, the screen that opened the bridge: the
  * next entry starts with no note.
  * BACK on the page is drawn disabled. A claim that has had the page keeps it
  * until it is Free.

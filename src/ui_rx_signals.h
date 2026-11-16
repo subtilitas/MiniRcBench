@@ -1,9 +1,9 @@
 /**
  * @file ui_rx_signals.h
- * @brief RX SIGNALS: the hub behind MENU's RX SIGNALS row, with MONITOR
+ * @brief RECEIVER: the hub behind MENU's RECEIVER row, with MONITOR
  *        and OUTPUT (docs/design/rx-signals.md, decision 4).
  *
- * RX SIGNALS is a hub (ui_hub.h): one 228 x 46 px button per tool at an
+ * RECEIVER is a hub (ui_hub.h): one 228 x 46 px button per tool at an
  * 80 px pitch, with its lines under it. It claims
  * nothing; no DShot runs while it shows. A tap on MONITOR opens S.BUS
  * MONITOR (ui_sbus.h), a tap on OUTPUT S.BUS OUTPUT (ui_sbus_out.h), each
@@ -11,7 +11,7 @@
  * on that frame. OUTPUT's lines carry the output's warning,
  * `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`.
  * BACK returns to MENU. The tools' BACK before a claim held and their leave
- * page's last button return here, to RX SIGNALS.
+ * page's last button return here, to RECEIVER.
  *
  * The screen opens whatever the pin claim's state. While the claim is not
  * Free it draws its entries disabled under the busy caption,
@@ -30,7 +30,7 @@
 struct TouchState;
 
 /** @brief The header's title, MENU's label: 10 characters, 118 px at scale 2. */
-#define UI_RX_TITLE "RX SIGNALS"
+#define UI_RX_TITLE "RECEIVER"
 /** @brief The strip, `C_DIM`, with SIG's and AUX's GPIO: `SIG GP0  AUX GP1`, 16 characters. */
 #define UI_RX_STRIP_FMT "SIG GP%u  AUX GP%u"
 /**
@@ -41,7 +41,7 @@ struct TouchState;
  */
 #define UI_RX_MONITOR_GP1 "GP1 IS SIG: PLUG IN AFTER THE TAP."
 
-/** @brief RX SIGNALS' controls besides BACK. */
+/** @brief RECEIVER's controls besides BACK. */
 enum class RxCtl : uint8_t {
 	Monitor = (uint8_t)HubCtl::Entry,  /**< MONITOR: opens S.BUS MONITOR. */
 	Output,       /**< OUTPUT: opens S.BUS OUTPUT. */
@@ -51,11 +51,11 @@ enum class RxCtl : uint8_t {
 extern const UiHubEntry UI_RX_ENTRIES[];
 /** @brief How many. */
 extern const uint8_t UI_RX_ENTRIES_COUNT;
-/** @brief RX SIGNALS as a hub: its title, uiRxSignalsStrip() and `UI_RX_ENTRIES`. */
+/** @brief RECEIVER as a hub: its title, uiRxSignalsStrip() and `UI_RX_ENTRIES`. */
 extern const UiHub UI_RX_HUB;
 
 /**
- * @brief RX SIGNALS' strip: @ref UI_RX_STRIP_FMT with DShot's and KISS
+ * @brief RECEIVER's strip: @ref UI_RX_STRIP_FMT with DShot's and KISS
  *        telemetry's pins, which are SIG and AUX.
  * @param buf The text.
  * @param n   Room in @p buf.
@@ -88,5 +88,5 @@ bool uiRxSignalsTick(const TouchState *t);
  */
 uint8_t uiRxSignalsControls(UiControl *out, uint8_t max);
 
-/** @brief RX SIGNALS, the hub. */
+/** @brief RECEIVER, the hub. */
 extern const UiScreen UI_RX_SIGNALS;

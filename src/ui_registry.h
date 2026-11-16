@@ -8,13 +8,13 @@
  * MENU row holds its label and its widest status, and a build-time check
  * keeps every label clear of its status, or of the mark `>` of a row that
  * opens a hub, on the 240 px panel. A tool's persisted settings rows,
- * `UiScreen::settings`, join SETTINGS between SERVO SUPPLY and DISPLAY in
+ * `UiScreen::settings`, join SETUP between SERVO SUPPLY and DISPLAY in
  * the order of the rows, a hub's entries in the hub's place.
  *
  * MENU has six rows and does not scroll (docs/design/menu-c.md owner
- * decisions 1 and 4, slices 3 and 4): ESC TESTER, the tester; ESC CONFIG,
- * SERVO and RX SIGNALS, which open their hubs and carry `>`; SD LOG and
- * SETTINGS. The hubs' entries are `UI_ESC_CFG_ENTRIES` (ui_esc_config.h):
+ * decisions 1 and 4, slices 3 and 4): ESC TESTER, the tester; ESC PROGRAM,
+ * SERVO and RECEIVER, which open their hubs and carry `>`; LOGS and
+ * SETUP. The hubs' entries are `UI_ESC_CFG_ENTRIES` (ui_esc_config.h):
  * ESC COMMANDS, ESC SETTINGS, USB BRIDGE; `UI_SERVO_ENTRIES`
  * (ui_servo_hub.h): SERVO TESTER, ANGLE METER, KST / CHASERVO, HITEC D
  * SERIES, HITEC CLASSIC; and `UI_RX_ENTRIES` (ui_rx_signals.h): MONITOR,
@@ -43,7 +43,7 @@ struct UiHub;
 
 /**
  * @brief The hub that @p s shows: MENU draws `>` on the row of such a
- *        screen, and SETTINGS walks its entries for a tool's section.
+ *        screen, and SETUP walks its entries for a tool's section.
  * @param s A screen.
  * @return Its hub; null for a screen that is not a hub.
  */

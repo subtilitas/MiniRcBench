@@ -19,7 +19,7 @@ extern "C" {
  * @name Port
  * RP2350 has one full-speed device controller. Full speed, not high: the
  * ceiling on reading the card over USB is about 1 MB/s, which is what makes the
- * progress figure on the SD LOG screen worth showing.
+ * progress figure on the LOGS screen worth showing.
  * @{
  */
 #define CFG_TUSB_MCU          OPT_MCU_RP2040   /**< The RP2350 shares this port. */

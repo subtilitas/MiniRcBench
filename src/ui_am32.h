@@ -3,7 +3,7 @@
  * @brief ESC SETTINGS, the ESC settings screen: AM32, Bluejay and
  *        BLHeli_S read and written.
  *
- * A separate mode from the throttle tester, opened from the ESC CONFIG
+ * A separate mode from the throttle tester, opened from the ESC PROGRAM
  * hub (ui_esc_config.h): entering it claims the signal pin
  * (pin_claim.h), which disarms, drains and tears down the DShot driver, and
  * hands the pin to the bootloader transport. Leaving it gives the pin back.
@@ -61,7 +61,7 @@ void uiAm32Exit();
  *        At scale 2 from x 8, each ends 4 px or more before BACK at x 170.
  * @{
  */
-/** @brief The screen: 12 characters, 142 px. ESC CONFIG, the hub, names its entry so too. */
+/** @brief The screen: 12 characters, 142 px. ESC PROGRAM, the hub, names its entry so too. */
 #define AM32_UI_TITLE "ESC SETTINGS"
 /** @brief The hex dump of the list: 7 characters, 82 px. */
 #define AM32_UI_TITLE_HEX "ESC HEX"
@@ -254,7 +254,7 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_LEAVE_1B "AND MAY READ DSHOT AS ONE."
 /**
  * @brief Step 2, with the title of the hub ESC SETTINGS returns to in
- *        place of the format's string: PLUG IT IN ONCE ESC CONFIG SHOWS.,
+ *        place of the format's string: PLUG IT IN ONCE ESC PROGRAM SHOWS.,
  *        33 characters. SIG is parked
  *        low by then, where an EFM8 does not enter its bootloader (from
  *        source, not measured).

@@ -27,7 +27,7 @@ static CardCache stateOf(int st) {
 
 bool cardCacheBegin(SdLogEnd tool) {
 	// A log has nothing to record while a claim holds the pins, and its
-	// writes would fill the queue behind the backup. SD LOG names the tool.
+	// writes would fill the queue behind the backup. LOGS names the tool.
 	sdLogStopFor(tool);
 	if (!cardMounted() || !card()) return false;
 	uint32_t lba = 0, off = 0;

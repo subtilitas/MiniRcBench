@@ -39,7 +39,7 @@ unten. Nach einem Update, das die
 Einstellungen zurückgesetzt hat, steht sie unter den beiden Zeilen zu den
 Einstellungen.
 
-<img src="img/splash-reset-no-touch.png" width="240" alt="Der Startbildschirm mit SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS und TOUCH CONTROLLER NOT FOUND über dem Namen">
+<img src="img/splash-reset-no-touch.png" width="240" alt="Der Startbildschirm mit SETTINGS RESET BY UPDATE, CHECK MENU > SETUP und TOUCH CONTROLLER NOT FOUND über dem Namen">
 
 Ohne Berührung lässt sich die Platine nicht bedienen: Scharfschalten,
 `DISARM`, `LATCH` und `MENU` brauchen sie alle. Die Leerlaufsperre
@@ -78,8 +78,8 @@ dieser Reihenfolge:
    ESC-Firmware zu starten, und was der ESC dann tut, ist nicht
    aufgezeichnet. Starte den ESC neu, bevor du ihn testest:
    [AM32-Konfiguration](AM32-Konfiguration#verlassen).
-2. **Falscher Pin.** Vergleiche **SETTINGS → SIG PIN** damit, wo das Kabel
-   steckt; der J5-Pin steht unter dem Wert. Öffne SETTINGS vom Tester aus,
+2. **Falscher Pin.** Vergleiche **SETUP → SIG PIN** damit, wo das Kabel
+   steckt; der J5-Pin steht unter dem Wert. Öffne SETUP vom Tester aus,
    mit einem Tippen auf `MAX` im entschärften Zustand: Dort läuft DShot
    weiter, und die `LINK`-Zeile ist live. Eine Paketrate über null heißt, der
    Pin stimmt.
@@ -142,15 +142,15 @@ bei Gas null fehlt. Die Ursache ist unbekannt. Ein Behelf ist nicht bekannt.
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM als Umriss, der Balken zeigt EJECT THE USB DRIVE TO ARM">
 
 Der Gasbalken zeigt `EJECT THE USB DRIVE TO ARM`: Ein Computer hält die SD-Karte
-über USB (**MENU → SD LOG → USB DRIVE**), und Scharfschalten ist gesperrt,
+über USB (**MENU → LOGS → USB DRIVE**), und Scharfschalten ist gesperrt,
 bis er sie freigibt. Wirf
-das Laufwerk am Computer aus oder drücke `EJECT` in SD LOG. Siehe
+das Laufwerk am Computer aus oder drücke `EJECT` in LOGS. Siehe
 [SD-Aufzeichnung](SD-Aufzeichnung).
 
 Ein Computer, der das Laufwerk abmeldet, gibt die Karte ebenfalls zurück. Ein
 gezogenes Kabel bei einer Platine am Akku tut das nicht: Der USB-Stack dieser
 Firmware sieht ein gezogenes Kabel wie einen Computer, der schlafen ging, und
-ein schlafender Computer behält die Karte. Drücke dann `EJECT` in SD LOG.
+ein schlafender Computer behält die Karte. Drücke dann `EJECT` in LOGS.
 Beides ist auf der Hardware nicht geprüft.
 
 ---
@@ -185,11 +185,11 @@ Bleibt der Motor ohne eines davon stehen, prüfe die Schutzfunktionen des ESC
 
 ## Die Platine startet von selbst neu
 
-Öffne **MENU → SETTINGS** und verschiebe bis DIAGNOSTICS. `LAST RESTART`
+Öffne **MENU → SETUP** und verschiebe bis DIAGNOSTICS. `LAST RESTART`
 nennt, warum die Platine zuletzt gestartet ist. `BROWN-OUT` oder `GLITCH` in
 Bernstein nach einem Neustart bei laufendem Motor weist auf die Versorgung
 der Platine: Betreibe den ESC an seinem eigenen Akku und die Platine über
-USB. Siehe [Die Bildschirme](Die-Bildschirme#settings).
+USB. Siehe [Die Bildschirme](Die-Bildschirme#setup).
 
 ---
 
@@ -222,7 +222,7 @@ wenn die Drehzahlanzeige funktioniert.
 
 <img src="img/log-nocard.png" width="240" alt="Keine Karte">
 
-Sieh auf die `MOUNT`-Zeile des SD-LOG-Bildschirms.
+Sieh auf die `MOUNT`-Zeile des LOGS-Bildschirms.
 
 - **`3 NOT READY`**: Die Karte ist nicht angelaufen. Mit
   `INSERT A CARD, THEN RETRY MOUNT` hat nichts geantwortet: keine Karte, oder
@@ -260,7 +260,7 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
   geantwortet, und der Bildschirm liest seine Einstellungen; Bluejay 0.21
   und BLHeli_S 16.3 bis 16.7 lassen sich schreiben. `BACK` aus seiner Liste
   sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine
-  Verlassenseite: ESC-Akku abziehen, `LEAVE`, `ESC CONFIG`, dann wieder
+  Verlassenseite: ESC-Akku abziehen, `LEAVE`, `ESC PROGRAM`, dann wieder
   anstecken ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
 - **`HALF WRITTEN: KEEP THE ESC POWERED.`** oder
   **`NO ANSWER IN THE WRITE: KEEP POWER.`**: Ein Schreiben auf Bluejay oder
@@ -296,9 +296,9 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
 
 Sie wurden nicht gespeichert, oder eine neue Firmware konnte das Format der
 Einstellungen im Flash nicht lesen. Polzahl und Gasobergrenze werden unter
-**MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
+**MENU → SETUP** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
-ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`, der
+ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETUP`, der
 letzten.
 
 Die Firmware speichert ihre Einstellungen im Format Version 6. Einstellungen,
@@ -326,21 +326,21 @@ Voreinstellung. Also:
   auf ihrer Voreinstellung: `LONG`, `OFF`, `NORMAL` und keine.
 
 Eine Übernahme wird angezeigt: Der Startbildschirm zeigt
-`SETTINGS CARRIED OVER FROM AN UPDATE` und `CHECK MENU > SETTINGS, THEN SAVE`,
-die Zeile `SETTINGS` in MENU zeigt `UPDATED`, und die Hinweiszeile in
-SETTINGS zeigt `CARRIED OVER BY UPDATE - CHECK, SAVE`. Prüfe die Werte und
+`SETTINGS CARRIED OVER FROM AN UPDATE` und `CHECK MENU > SETUP, THEN SAVE`,
+die Zeile `SETUP` in MENU zeigt `UPDATED`, und die Hinweiszeile in
+SETUP zeigt `CARRIED OVER BY UPDATE - CHECK, SAVE`. Prüfe die Werte und
 speichere mit `HOLD TO SAVE`; das Speichern schreibt auch ohne Änderung. Bis
 dahin behält das Flash den alten Block, und jeder Start übernimmt ihn erneut.
 
-<img src="img/splash-carried.png" width="240" alt="Der Startbildschirm mit SETTINGS CARRIED OVER FROM AN UPDATE und CHECK MENU > SETTINGS, THEN SAVE über dem Namen">
+<img src="img/splash-carried.png" width="240" alt="Der Startbildschirm mit SETTINGS CARRIED OVER FROM AN UPDATE und CHECK MENU > SETUP, THEN SAVE über dem Namen">
 
 Einstellungen eines Formats, das die Firmware nicht kennt, Version 1 oder das
 einer späteren Firmware, werden verworfen: Alle Einstellungen stehen wieder
 auf der Voreinstellung, auch der ESC-Pin. Stelle sie neu ein und speichere
 mit `HOLD TO SAVE`. Ein solches Zurücksetzen wird angezeigt: Der
-Startbildschirm zeigt `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETTINGS`,
-die Zeile `SETTINGS` in MENU zeigt `UPDATED`, und die Hinweiszeile in
-SETTINGS zeigt `RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt.
+Startbildschirm zeigt `SETTINGS RESET BY UPDATE` und `CHECK MENU > SETUP`,
+die Zeile `SETUP` in MENU zeigt `UPDATED`, und die Hinweiszeile in
+SETUP zeigt `RESET BY UPDATE - CHECK AND SAVE`, bis ein Speichern gelingt.
 Ein beschädigter Block, statt eines von einer anderen Version geschriebenen,
 wird ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
 `NOTHING SAVED: DEFAULTS IN USE`.
@@ -349,7 +349,7 @@ wird ohne diese Hinweise verworfen; die Hinweiszeile zeigt dann
 
 ## `SDERR` auf dem Tester, oder eine Aufzeichnung, die anhielt
 
-Die Aufzeichnung endete ohne `STOP`. **MENU → SD LOG** sagt über `START`,
+Die Aufzeichnung endete ohne `STOP`. **MENU → LOGS** sagt über `START`,
 wie: eine volle Karte, ein fehlgeschlagener Schreibvorgang, eine Datei, die
 sich nicht öffnen ließ, oder das Werkzeug (KST SERVO, HITEC SERVO, AM32
 CONFIG), das die Karte nahm. Siehe
@@ -369,7 +369,7 @@ nicht gemessen; zeigt er dort Rot, setze eine geladene Zelle ein.
 
 ## KISS-Telemetrie ist aus
 
-Das ist die Voreinstellung. Einschalten unter **MENU → SETTINGS → KISS TELEM**.
+Das ist die Voreinstellung. Einschalten unter **MENU → SETUP → KISS TELEM**.
 
 Die Platine hat zwei freie GPIOs (General Purpose Input/Output, frei
 verwendbare Pins), GP0 und GP1, und das ESC-Signal liegt anfangs auf GP0.
@@ -402,5 +402,5 @@ Nicht auf Hardware getestet.
 
 Öffne ein Issue unter
 [github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
-Nützlich sind: die Firmware-Version (SETTINGS → VERSION), LAST RESTART, was
+Nützlich sind: die Firmware-Version (SETUP → VERSION), LAST RESTART, was
 die `LINK`-Zeile zeigt, und welcher ESC mit welcher ESC-Firmware.

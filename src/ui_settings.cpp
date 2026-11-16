@@ -1,6 +1,6 @@
 /**
  * @file ui_settings.cpp
- * @brief SETTINGS: one list in sections, LINK, the note line and HOLD TO
+ * @brief SETUP: one list in sections, LINK, the note line and HOLD TO
  *        SAVE. @see ui_settings.h
  *
  * The rules that matter more than the widgets:
@@ -44,12 +44,12 @@
 #include <string.h>
 
 /**
- * @defgroup settings_layout SETTINGS layout (240 x 320 portrait)
+ * @defgroup settings_layout SETUP layout (240 x 320 portrait)
  * @brief The list under the header, then LINK, the note line and the footer,
  *        which do not move.
  * @{
  */
-#define VIEW_Y0     UI_STRIP_Y  /**< First row of the list, y 40: SETTINGS has no strip. */
+#define VIEW_Y0     UI_STRIP_Y  /**< First row of the list, y 40: SETUP has no strip. */
 #define VIEW_H      200         /**< To y 239. */
 /**
  * @brief The ESC pin's warning, on a line of its own above LINK while it
@@ -94,10 +94,10 @@ static_assert(VIEW_Y0 >= UI_HDR_H, "the list overlaps the header");
 static_assert(VIEW_Y0 + VIEW_H <= LINK_Y, "the list overlaps LINK");
 static_assert(VIEW_Y0 + VIEW_H_PIN + 2 <= PIN_Y && PIN_Y + 7 + 4 <= LINK_Y,
               "the ESC pin's warning meets the list or LINK");
-static_assert(ROW_PITCH > ROW_H, "SETTINGS rows have no gap");
+static_assert(ROW_PITCH > ROW_H, "SETUP rows have no gap");
 static_assert(ROW_H >= UI_LIST_TAP_MIN && BTN_W >= UI_LIST_TAP_MIN &&
               TOGGLE_W >= UI_LIST_TAP_MIN && FOOT_H >= UI_LIST_TAP_MIN,
-              "a SETTINGS control is smaller than the list floor");
+              "a SETUP control is smaller than the list floor");
 static_assert(NOTE_Y >= LINK_Y + 7, "the note overlaps LINK");
 static_assert(FOOT_Y >= NOTE_Y + 7 + UI_HOLD_BAR_H, "the footer overlaps the note");
 static_assert(FOOT_Y + FOOT_H <= GFX_H, "the footer runs off the panel");
@@ -717,7 +717,7 @@ static bool resetNoteShown() {
  * splash warned about the boot pin only, and DShot runs on the live pin
  * from the step that changed it (applyLive()). Against the saved pin the
  * note would end at a save, against the pin at opening at a return to
- * SETTINGS, with DShot still on a pin nothing warned about.
+ * SETUP, with DShot still on a pin nothing warned about.
  *
  * With KISS on, a step of SIG PIN or AUX PIN swaps the two, so DShot runs on
  * the wire the ESC's KISS pad was on until the wires are swapped too: the
@@ -749,7 +749,7 @@ static bool fitView() {
  * @brief The note line: the single most useful thing to say right now.
  *
  * Ordered by urgency. First what the last press did: a failed save, which
- * ends at the next save or on leaving SETTINGS, then a setting the firmware
+ * ends at the next save or on leaving SETUP, then a setting the firmware
  * had to repair, because the user asked for something and did not get it,
  * which ends at the next change. DEFAULTS' note outranks UNSAVED:
  * it is the same state, said with what undoes it. Last, with nothing
@@ -822,7 +822,7 @@ static void drawLink(bool force) {
 
 static void drawAll() {
 	gfxFill(C_BG);
-	uiHeader("SETTINGS", s_t);
+	uiHeader("SETUP", s_t);
 
 	gfxSetClip(0, VIEW_Y0, GFX_W, s_list.view.h);
 	for (uint8_t i = 0; i < s_itemCount; i++) {
@@ -885,7 +885,7 @@ static void applyLive() {
 	escSetPoles(s->poles);
 	themeSet(s->highContrast ? Theme::HighContrast : Theme::Dark);
 	st7789SetBacklight(themeBacklight(s->backlight));
-	// No claim holds while SETTINGS is open, so the enable pin is only
+	// No claim holds while SETUP is open, so the enable pin is only
 	// configured, never driven.
 	servoSupplyConfigure(s->servoSupply);
 	// A sensor declared now is probed on the next frame's read.
@@ -937,7 +937,7 @@ bool uiSettingsTick(const TouchState *t) {
 		s_redraw = true;
 	}
 	// --- hold for the defaults: the same rules. Not refused while armed, as the tap
-	//     before it was not: uiOpenTool() disarms, so SETTINGS never opens armed ---
+	//     before it was not: uiOpenTool() disarms, so SETUP never opens armed ---
 	bool wasResetting = s_resetHold.holding;
 	bool reset = uiHoldUpdate(&s_resetHold, BTN_DEFAULTS, s_t, true, now);
 	if (wasResetting || s_resetHold.holding) s_redraw = true;   // mirrors SAVE's redraw
@@ -984,7 +984,7 @@ bool uiSettingsTick(const TouchState *t) {
 		// until SAVE. Leaving the screen keeps the defaults live: the saved
 		// values load only at boot (settingsLoad() in setup()), so a restart
 		// without SAVE brings them back. The angle meter's fields, which
-		// SETTINGS does not show, keep their values.
+		// SETUP does not show, keep their values.
 		Settings keep;
 		memcpy(&keep, settings(), sizeof(keep));
 		settingsDefaults(settings());
@@ -1042,7 +1042,7 @@ bool uiSettingsTick(const TouchState *t) {
 }
 
 /**
- * @brief The SETTINGS controls on the current frame. Each row is also
+ * @brief The SETUP controls on the current frame. Each row is also
  *        `UI_ROW(n, Row)` over its label and value, drawn and not acting: a
  *        press there scrolls.
  */
@@ -1078,7 +1078,7 @@ uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max) {
 }
 
 /**
- * @brief SETTINGS' MENU status: UNSAVED while the live settings differ from
+ * @brief SETUP's MENU status: UNSAVED while the live settings differ from
  *        flash; else UPDATED while an update's reset or carry-over is not
  *        saved over (settingsResetByUpdate(), settingsCarriedOver()); both
  *        amber.
@@ -1096,6 +1096,6 @@ static void settingsMenuStatus(char *buf, size_t n, uint16_t *col, uint16_t *) {
 }
 
 const UiScreen UI_SETTINGS = {
-	UiScreenId::Settings, "SETTINGS", PinUser::None, settingsMenuStatus,
+	UiScreenId::Settings, "SETUP", PinUser::None, settingsMenuStatus,
 	uiSettingsEnter, uiSettingsTick, nullptr, settingsControls, nullptr, true,
 };

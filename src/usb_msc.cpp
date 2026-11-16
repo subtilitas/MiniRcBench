@@ -180,7 +180,7 @@ bool tud_msc_start_stop_cb(uint8_t lun, uint8_t power_condition, bool start,
  * raises DCD_EVENT_UNPLUGGED: a cable pulled with the board on its battery
  * reaches the firmware as a bus suspend, the event a sleeping host sends
  * too. A suspend is not handled: the card stays with the host, and EJECT on
- * SD LOG takes it back. Not tested on hardware.
+ * LOGS takes it back. Not tested on hardware.
  */
 void tud_umount_cb(void) {
 	s_state = mscNext(s_state, MscEvent::HostEject);

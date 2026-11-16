@@ -27,7 +27,7 @@ SD-Karte (Secure Digital).
 > D-Serie öffnen. Siehe [Klassische Servos](#klassische-servos).
 
 > **Zieh das Servo ab, bevor du ESC TESTER oder ESC COMMANDS öffnest.** Nur
-> diese beiden Bildschirme und SETTINGS, über dem Tester geöffnet, senden
+> diese beiden Bildschirme und SETUP, über dem Tester geöffnet, senden
 > DShot, das digitale Gasprotokoll, auf dem ESC-Pin. Auf MENU, in den
 > Auswahlen und beim Start liegt der Pin auf Low; kein anderer Bildschirm
 > sendet DShot. Ein Servo an diesem Pin liest DShot als Impuls von etwa
@@ -78,7 +78,7 @@ GND ist die Masse der Platine.
   Serial Bus).
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
-- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS → SIG PIN**
+- SIG ist der ESC-Pin, so wie unter **MENU → SETUP → SIG PIN**
   eingestellt, mit seinem J5-Pin unter dem Wert. Voreingestellt ist GP0.
 - Die Läufe von rcbench nutzten eine Servoversorgung von 5,0 V. Andere
   Versorgungen sind nicht getestet, und auf dieser Platine ist nichts
@@ -86,8 +86,8 @@ GND ist die Masse der Platine.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm prüft den Pin auf einen ESC,
   erkennt aber nur einen ESC, der bidirektionales DShot beantwortet.
 
-Mit **SETTINGS → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo selbst,
-über den Wandler, den die
+Mit **SETUP → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo
+selbst, über den Wandler, den die
 [KST-Programmierung](KST-Programmierung#geschaltete-versorgung) beschreibt.
 Siehe [Geschaltete Versorgung](#geschaltete-versorgung). **Ein ESC an dieser
 Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung** (Battery
@@ -611,8 +611,8 @@ und öffnet die Seite bei `1 UNPLUG THE SERVO.`
 
 ## Geschaltete Versorgung
 
-Mit **SETTINGS → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo über
-den DC-DC-Wandler (Gleichspannungswandler), dessen Enable-Eingang an GP28,
+Mit **SETUP → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo
+über den DC-DC-Wandler (Gleichspannungswandler), dessen Enable-Eingang an GP28,
 J4 Pin 11, oder GP29, J4 Pin 12, liegt. Seine Verkabelung steht in der
 [KST-Programmierung](KST-Programmierung#geschaltete-versorgung). **Ein ESC an
 dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
@@ -628,7 +628,7 @@ dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**
   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` und
   `RETRY POWERS IT UP AND READS IT AGAIN.` Ohne Karte, nach einem
   Schreiben, kommt `NO CARD: THE BACKUP IN RAM IS LOST.` hinzu.
-- **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
+- **Die Abschaltungen des Stromsensors**, mit SETUP → CURRENT SENSE auf
   `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein
   Messwert von 3,0 A oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die
   Versorgung hochkam, sie sofort ab und brechen den Vorgang auf der Leitung ab,
@@ -660,7 +660,7 @@ Bildschirm wieder läuft: Ein Schreiben zeigt dann
 Programmiermodus, und die Platine schaltet seine Versorgung über den Wandler
 aus Teil C der [Verdrahtung](Verdrahtung). Unter `OWN` zeichnet SERVO
 den Eintrag abgeblendet und zeigt `NEEDS THE CONVERTER OF WIRING PART C` und
-`AND SETTINGS > SERVO SUPPLY GP28/29.`
+`AND SETUP > SERVO SUPPLY GP28/29.`
 
 Der Signalpegel:
 

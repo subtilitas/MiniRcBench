@@ -1,6 +1,6 @@
 /**
  * @file ui_rx_signals.cpp
- * @brief RX SIGNALS, a hub. @see ui_rx_signals.h
+ * @brief RECEIVER, a hub. @see ui_rx_signals.h
  */
 
 #include "ui_rx_signals.h"
@@ -10,10 +10,10 @@
 #include <stdio.h>
 
 static_assert(UI_MARGIN + 6 * (int)(sizeof(UI_RX_TITLE) - 1) * 2 - 2 + 4 <= UI_BACK_X,
-              "RX SIGNALS' title runs into BACK");
+              "RECEIVER's title runs into BACK");
 // One-digit GPIOs: this board's signal pins are GP0 and GP1.
 static_assert(sizeof(UI_RX_STRIP_FMT) - 1 - 4 + 2 <= UI_HUB_LINE_CHARS,
-              "RX SIGNALS' strip runs off the panel");
+              "RECEIVER's strip runs off the panel");
 
 void uiRxSignalsStrip(char *buf, size_t n) {
 	snprintf(buf, n, UI_RX_STRIP_FMT, (unsigned)escTaskDshotPin(), (unsigned)escTaskKissPin());

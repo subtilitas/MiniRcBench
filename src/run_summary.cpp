@@ -273,13 +273,13 @@ void runSumTxtName(uint32_t n, char *out) {
 enum class Qty : uint8_t { Amps, Volts, Temp };
 
 /**
- * @brief A value as the file or SD LOG writes it.
+ * @brief A value as the file or LOGS writes it.
  * @param b    Destination.
  * @param n    Its size.
  * @param q    The quantity.
  * @param v    The value, 0.01 A, 0.01 V or °C.
  * @param kiss It came from KISS: current in hundredths, EDT current whole.
- * @param tile SD LOG's form, no space and a backtick for the degree.
+ * @param tile LOGS' form, no space and a backtick for the degree.
  */
 static void fmtQty(char *b, size_t n, Qty q, int32_t v, bool kiss, bool tile) {
 	const char *sp = tile ? "" : " ";
@@ -473,7 +473,7 @@ size_t runSumText(const RunSum *s, const SdLogStatus *st, uint8_t poles,
 	return o.len;
 }
 
-/** @brief SD LOG's tag for a source. */
+/** @brief LOGS' tag for a source. */
 static const char *tagText(RunSumFrom f) {
 	switch (f) {
 		case RunSumFrom::Kiss:  return "KISS";
@@ -493,7 +493,7 @@ static void rowQty(RunSumRowText *o, Qty q, const RunSumValue &v) {
 	o->unknown = false;
 }
 
-/** @brief The largest charge SD LOG writes in full. */
+/** @brief The largest charge LOGS writes in full. */
 #define RUN_SUM_ROW_MAH_MAX 99999u
 
 void runSumRowText(const RunSum *s, RunSumRow row, uint8_t poles,

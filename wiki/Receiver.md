@@ -1,8 +1,8 @@
-**English** | [Deutsch](RX-Signale)
+**English** | [Deutsch](Empfaenger)
 
-# RX Signals
+# Receiver
 
-`MENU → RX SIGNALS` holds the tools for a receiver's signals. **MONITOR**
+`MENU → RECEIVER` holds the tools for a receiver's signals. **MONITOR**
 shows what a receiver sends on its S.BUS output: the 16 channels, the two
 digital channels, whether the link is up, the frame rate and the errors on
 the line. It sends nothing. **OUTPUT** sends S.BUS to a flight
@@ -13,7 +13,7 @@ for receiver channels.
 Not tested on hardware: no receiver and no flight controller has been on a
 pin of this board yet.
 
-<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR with S.BUS FROM A RECEIVER, ON GP1., OUTPUT with S.BUS TO A FLIGHT CONTROLLER. and ON GP0, NEVER TO AN ESC."> <img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR with frames at 14 ms: the OK chip, 16 lime bars with their values in microseconds, 14.0 MS 71.4 HZ">
+<img src="img/rx-chooser.png" width="240" alt="RECEIVER: MONITOR with S.BUS FROM A RECEIVER, ON GP1., OUTPUT with S.BUS TO A FLIGHT CONTROLLER. and ON GP0, NEVER TO AN ESC."> <img src="img/sbus-live.png" width="240" alt="S.BUS MONITOR with frames at 14 ms: the OK chip, 16 lime bars with their values in microseconds, 14.0 MS 71.4 HZ">
 
 ---
 
@@ -33,7 +33,7 @@ only.
   GP1 = J5 pin 1 or J4 pin 10, GND = J5 pin 4 or J4 pin 1 or 5
 ```
 
-- GP1 is AUX, the KISS pin, unless SETTINGS → SIG PIN is set to GP1. The
+- GP1 is AUX, the KISS pin, unless SETUP → SIG PIN is set to GP1. The
   monitor reads GP1 whatever its role: it is the only pin the board's
   serial receiver can read.
 - Never power the receiver from the board's 3.3 V or 5 V pins.
@@ -51,7 +51,7 @@ See also [Wiring](Wiring).
 
 ## The hub
 
-`MENU → RX SIGNALS` opens a hub, a page with two buttons. The strip names both
+`MENU → RECEIVER` opens a hub, a page with two buttons. The strip names both
 signal pins, `SIG GP0  AUX GP1`, so you see which role GP1 has before you
 tap. The page takes no pin, and DShot is off while it shows.
 
@@ -60,13 +60,13 @@ tap. The page takes no pin, and DShot is off while it shows.
   `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`
 
 Under the strip's pins a second line reads
-`NO ESC CHECK: UNPLUG ANY ESC FIRST.` in amber. DShot is off on RX SIGNALS,
+`NO ESC CHECK: UNPLUG ANY ESC FIRST.` in amber. DShot is off on RECEIVER,
 so the bench cannot see an ESC on the pins: unplug any ESC before you tap an
 entry. With SIG on GP1, MONITOR carries `GP1 IS SIG: PLUG IN AFTER THE TAP.`
 in amber: GP1 is held low until the tap, so plug the receiver in after it.
 
 `BACK` returns to `MENU`. While the pins are still in use after another
-tool, RX SIGNALS opens as always, MONITOR and OUTPUT are outlines and do
+tool, RECEIVER opens as always, MONITOR and OUTPUT are outlines and do
 nothing, and the strip's second line reads `SETTING SIG GP0 LOW` or
 `RELEASING SIG GP0` in amber.
 
@@ -128,7 +128,7 @@ same either way.
 |---|---|---|
 | `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG is GP1, and an ESC answers there. The receiver would drive the ESC's signal input | Unplug the ESC. The screen takes the pin 500 ms after the ESC goes quiet; plug the receiver in once the link chip shows. The chip appears only when the claim holds and the job runs; until then GP1 is held low |
 | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | KISS telemetry arrives on GP1 | Unplug the telemetry wire. Plug the receiver in once the link chip shows |
-| `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | neither SIG nor AUX is GP1 | Set SIG PIN or AUX PIN to GP1. SETTINGS swaps the two, so this does not happen on this board |
+| `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETUP.` | neither SIG nor AUX is GP1 | Set SIG PIN or AUX PIN to GP1. SETUP swaps the two, so this does not happen on this board |
 | `AUX GP1 COULD NOT BE TAKEN (CLOCK)` | the board's serial receiver could not reach 100,000 baud | `RETRY` |
 
 The ESC check misses an ESC that does not answer in bidirectional DShot. With
@@ -136,7 +136,7 @@ DShot off outside ESC TESTER and ESC COMMANDS, an ESC answers only within
 500 ms of leaving one of them: the hub's `NO ESC CHECK` line is the check
 that stands.
 
-<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR waiting: AN ESC ANSWERS ON SIG GP1. and UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in amber"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR with no role on GP1: S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETTINGS. in amber">
+<img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR waiting: AN ESC ANSWERS ON SIG GP1. and UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in amber"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR with no role on GP1: S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETUP. in amber">
 
 ---
 
@@ -151,12 +151,12 @@ other.
 
 - `BACK TO MONITOR` keeps the pin and returns to the monitor with every
   count at 0.
-- `RX SIGNALS`, the hub's title, returns to RX SIGNALS and holds the pins
+- `RECEIVER`, the hub's title, returns to RECEIVER and holds the pins
   low; no DShot starts. It waits 1 s after the pin is let go.
 
 `BACK` on the page is an outline and does nothing.
 
-<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RX SIGNALS still grey"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER still grey"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 
@@ -189,7 +189,7 @@ repeatable values.
   GP0 = J5 pin 2 or J4 pin 9, GND = J5 pin 4 or J4 pin 1 or 5
 ```
 
-- GP0 is SIG, the ESC pin, unless SETTINGS → SIG PIN is GP1. In the default
+- GP0 is SIG, the ESC pin, unless SETUP → SIG PIN is GP1. In the default
   wiring the FC lead goes where the ESC was: unplug the ESC first.
 - The board sends signal and ground only. The FC takes power from its own
   USB port or its own supply; on its battery its ESCs and motors are live.
@@ -210,7 +210,7 @@ read `SAFE` and **HOLD TO START** become available.
 | `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | a Bluejay, BLHeli_S or AM32 bootloader answered: an ESC is on GP0 | Unplug the ESC's battery and its lead. START stays off until a round of the check gets no answer. `MENU` shows `POWER-CYCLE THE ESC TO RUN IT` |
 | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: NO ESC STAYS ON` `THE BENCH WHILE S.BUS RUNS.` | an ESC answers DShot on SIG | Unplug it. The screen takes the pin 500 ms after it goes quiet |
 | `KISS WIRE ON AUX GP0 IS LIVE.` `UNPLUG IT. PLUG THE FLIGHT` `CONTROLLER IN ONCE SAFE SHOWS.` | SIG is GP1, GP0 is AUX, and KISS telemetry arrives on it | Unplug the telemetry wire. Plug the FC in once the `SAFE` chip shows |
-| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | neither SIG nor AUX is GP0 | Set SIG PIN or AUX PIN to GP0. SETTINGS swaps the two, so this does not happen on this board |
+| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETUP.` | neither SIG nor AUX is GP0 | Set SIG PIN or AUX PIN to GP0. SETUP swaps the two, so this does not happen on this board |
 | `SIG GP0 COULD NOT BE TAKEN (CLOCK)` | the serial port could not reach 100,000 baud, or the check's line could not get its clock | `RETRY` |
 | `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(REFUSED)` | the check's line found no free PIO state machine or DMA channel, or its driver did not take the pin | `RETRY` |
 
@@ -235,7 +235,7 @@ read `SAFE` and **HOLD TO START** become available.
   jump to it.
 - **The sliders** move only while frames go out, by dragging, in 5 µs
   steps. A tap alone changes nothing.
-- **The throttle channel** stops at the ceiling of SETTINGS → MAX THROTTLE:
+- **The throttle channel** stops at the ceiling of SETUP → MAX THROTTLE:
   1200 µs at the default 20 %. The ceiling limits the channel, not the
   motors of an armed FC, which add their idle and their stabilisation.
 - **STOP** stops the frames at once, on the touch. The FC then goes into its
@@ -283,16 +283,16 @@ the next ESC TESTER or ESC COMMANDS drives that pin.
 
 - `BACK TO OUTPUT` keeps the pin and returns to the screen; the bootloader
   check runs again before START.
-- `RX SIGNALS`, the hub's title, returns to RX SIGNALS and holds the pin
+- `RECEIVER`, the hub's title, returns to RECEIVER and holds the pin
   low; no DShot starts. It waits 1 s after the pin is let go.
 
 After a Bluejay or BLHeli_S bootloader answered the check, `BACK` first
 shows ESC SETTINGS' step: `UNPLUG THE ESC BATTERY, THEN LEAVE.` The ESC waits
 in its bootloader and might read DShot as a command. `STAY` returns to the
 screen, `LEAVE` lets the pin go; the last step reminds you to plug the ESC
-back in once RX SIGNALS shows.
+back in once RECEIVER shows.
 
-<img src="img/sbus-out-leave.png" width="240" alt="The S.BUS OUTPUT leave page: 1 UNPLUG THE FLIGHT CONTROLLER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO OUTPUT, RX SIGNALS"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="The leave page after a Bluejay or BLHeli_S bootloader answered: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
+<img src="img/sbus-out-leave.png" width="240" alt="The S.BUS OUTPUT leave page: 1 UNPLUG THE FLIGHT CONTROLLER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO OUTPUT, RECEIVER"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="The leave page after a Bluejay or BLHeli_S bootloader answered: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
 
 ---
 

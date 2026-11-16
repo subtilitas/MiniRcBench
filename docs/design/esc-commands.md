@@ -1065,7 +1065,7 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15
    and choice 8: owner decision 4 puts ESC COMMANDS in a hub; menu-c.md's
    choice 8, which the owner has not decided, makes it the first entry of
-   the hub ESC PROGRAM. Not built.
+   the hub ESC PROGRAM. Built (slices 4 and 5).
 2. **Save with each change.** Option (a): each hold sends the change, then
    12 (save). This is the recommendation.
 3. **A hold on the page, or a write page.** Option (a): the 1000 ms hold

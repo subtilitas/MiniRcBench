@@ -151,7 +151,7 @@ struct TouchState;
 /** @brief SET's note while SIG and AUX share a GPIO, refusing TWO: line 1. */
 #define SERVO_UI_SAME_PIN_1 "SIG AND AUX ARE THE SAME GPIO."
 /** @brief ...and its second line: the rows that set them. */
-#define SERVO_UI_SAME_PIN_2 "SET SIG PIN OR AUX PIN IN SETTINGS."
+#define SERVO_UI_SAME_PIN_2 "SET SIG PIN OR AUX PIN IN SETUP."
 /** @brief The readout's hint while SAFE with one servo, first line, right-aligned. */
 #define SERVO_UI_TWO_1 "TWO SERVOS:"
 /** @brief ...and its second line. */

@@ -2,7 +2,7 @@
  * @file test_run_summary.cpp
  * @brief The run summary: held and raw extremes, sources, the minimum
  *        voltage while armed, the charge, the armed time, the `.TXT` text
- *        and SD LOG's run rows. @see run_summary.h
+ *        and LOGS' run rows. @see run_summary.h
  *
  * Every sample goes through escMerge() as the logger's would, with
  * KISS_STALE_MS and EDT_STALE_MS, at the logger's 500 Hz unless a test says
@@ -531,7 +531,7 @@ static void testCounter() {
 	end(&b);
 	checkInt("a stale frame before the log: not counted", runSumUsedCounter(&b.s).mah, 10);
 
-	// A counter that does not rise: 0 mAh, and SD LOG shows the current's.
+	// A counter that does not rise: 0 mAh, and LOGS shows the current's.
 	Sim f;
 	simBegin(&f, true);
 	for (int i = 0; i < 5; i++) { simStep(&f, 20); kissFrame(&f, 15.0f, 36.0f, 30, 312); simFeed(&f); }
@@ -876,7 +876,7 @@ static void testExample() {
 	if (!same) printf("%s", t);
 	checkInt("length", (long)len, (long)strlen(want));
 
-	// Rows of the same summary, as SD LOG shows them.
+	// Rows of the same summary, as LOGS shows them.
 	runSumFileResult(&s, RunSumFile::Saved);
 	checkRow("MAX RPM", &s, RunSumRow::MaxRpm, "18450", nullptr);
 	checkRow("MAX CURRENT", &s, RunSumRow::MaxCurrent, "23.41A", "KISS");
@@ -1006,7 +1006,7 @@ static void testLongest() {
  *        with a tag and x 232 without, a tag from x 203 to at most x 231.
  */
 static void testFits() {
-	section("Run summary: SD LOG rows fit");
+	section("Run summary: LOGS rows fit");
 	// The widest values, through the formatter.
 	Sim m;
 	simBegin(&m, true);

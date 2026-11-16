@@ -24,7 +24,7 @@ Digital) card first.
 > Under `OWN` only the D series opens. See [Classic servos](#classic-servos).
 
 > **Unplug the servo before you open ESC TESTER or ESC COMMANDS.** Only those
-> two screens, and SETTINGS opened over the tester, send DShot, the digital
+> two screens, and SETUP opened over the tester, send DShot, the digital
 > throttle protocol, on the ESC pin. On MENU, the hubs and at boot the pin is
 > held low; no other screen sends DShot. A servo on that pin reads DShot as a
 > pulse of about 970 µs at 1000 Hz and drives towards one end of its travel.
@@ -68,15 +68,15 @@ GND is the board's ground.
   The board's 5 V pin is its USB (Universal Serial Bus) supply.
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
-- SIG is the ESC pin, as set under **MENU → SETTINGS → SIG PIN**, with its
+- SIG is the ESC pin, as set under **MENU → SETUP → SIG PIN**, with its
   J5 pin under the value. GP0 is the default.
 - rcbench's runs used a 5.0 V servo supply. Other supplies are not tested,
   and nothing has run on this board.
 - Unplug any ESC from the ESC pin. The screen checks for an ESC on the pin,
   but it sees only an ESC that answers bidirectional DShot.
 
-With **SETTINGS → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo itself,
-through the converter described under
+With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo
+itself, through the converter described under
 [KST Programming](KST-Programming#switched-supply). See
 [Switched supply](#switched-supply). **An ESC on this lead gets the
 converter's output on its BEC (battery eliminator circuit) wire**, the wire
@@ -556,9 +556,9 @@ page at `1 UNPLUG THE SERVO.`
 
 ## Switched supply
 
-With **SETTINGS → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo through
-the DC-DC converter (direct-current voltage converter) whose enable input is
-on GP28, J4 pin 11, or GP29, J4 pin 12. Its wiring is on the
+With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo
+through the DC-DC converter (direct-current voltage converter) whose enable
+input is on GP28, J4 pin 11, or GP29, J4 pin 12. Its wiring is on the
 [KST Programming](KST-Programming#switched-supply) page. **An ESC on this
 lead gets the converter's output on its BEC wire.**
 
@@ -572,7 +572,7 @@ lead gets the converter's output on its BEC wire.**
   `THE SCREEN STALLED, SO THE BENCH SWITCHED THE SERVO'S SUPPLY OFF.` and
   `RETRY POWERS IT UP AND READS IT AGAIN.` Without a card, after a write, it
   adds `NO CARD: THE BACKUP IN RAM IS LOST.`
-- **The current sensor's cuts**, with SETTINGS → CURRENT SENSE at `INA219`
+- **The current sensor's cuts**, with SETUP → CURRENT SENSE at `INA219`
   and the sensor answering: while the supply is on, one reading of 3.0 A or
   more, or readings under 4.0 V for 1 s after the supply came up, switch it off
   at once and cut the transaction on the line, during a read or a write too, and
@@ -602,7 +602,7 @@ a classic servo enters programming mode only at its power-up, and the bench
 switches its supply through the converter of [wiring](Wiring) part C. Under
 `OWN` SERVO draws the entry disabled and reads
 `NEEDS THE CONVERTER OF WIRING PART C` and
-`AND SETTINGS > SERVO SUPPLY GP28/29.`
+`AND SETUP > SERVO SUPPLY GP28/29.`
 
 The signal level:
 

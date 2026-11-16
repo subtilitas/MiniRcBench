@@ -95,7 +95,7 @@ struct Settings {
 	uint8_t  currentSense; /**< The current sensor: 0 none, 1 an INA219 on J3. @see sense.h */
 	/**
 	 * @name The angle meter's
-	 * Set on its SETUP and FLIP CAL pages (ui_angle.h), not on SETTINGS.
+	 * Set on its ANGLE SET and FLIP CAL pages (ui_angle.h), not on SETUP.
 	 * @see angle_model.h
 	 * @{
 	 */
@@ -148,7 +148,7 @@ bool settingsPinFree(uint8_t pin);
 /**
  * @brief The next free GPIO after @p from, wrapping.
  *
- * Drives the `-`/`+` buttons on SETTINGS. Stepping through only legal
+ * Drives the `-`/`+` buttons on SETUP. Stepping through only legal
  * values is what removes the error state entirely: there is no invalid pin to
  * reject, because one cannot be selected.
  *
@@ -227,7 +227,7 @@ Settings *settings();
  * Validates first, so a save can only ever store something loadable.
  *
  * @warning Erasing flash parks core1 and stalls the DShot pump for tens of
- *          milliseconds. Callers must be disarmed. SETTINGS enforces
+ *          milliseconds. Callers must be disarmed. SETUP enforces
  *          that; this function cannot, because it has no way to ask.
  *
  * Refused, with nothing written, while a pin claim holds (pin_claim.h): a
@@ -239,8 +239,8 @@ bool settingsSave();
 
 /**
  * @brief Write the angle meter's fields of the live settings to flash, with
- *        every other field as the last load or save left it: SETUP and FLIP
- *        CAL save what they set, and a change on SETTINGS that was not saved
+ *        every other field as the last load or save left it: ANGLE SET and FLIP
+ *        CAL save what they set, and a change on SETUP that was not saved
  *        stays unsaved (docs/design/angle-meter.md, "Interlocks").
  *
  * The block is validated before the write, and the live angle fields take
@@ -268,7 +268,7 @@ void settingsCopyAngle(Settings *dst, const Settings *src);
 /**
  * @brief True while the live angle meter's fields differ from what the last
  *        load or save put live: the meter's setup or calibration is not in
- *        flash. A change on SETTINGS alone does not set it.
+ *        flash. A change on SETUP alone does not set it.
  * @return Whether the meter has fields to save.
  */
 bool settingsAngleDirty();
@@ -285,7 +285,7 @@ bool settingsStored();
  * than this one, a size of at most @ref SETTINGS_OTHER_MAX bytes of payload
  * and a CRC-32 right over its own header and payload. Blank flash and a
  * damaged block read false; so does a block carried over
- * (settingsCarriedOver()). The splash and MENU's SETTINGS row show it; a
+ * (settingsCarriedOver()). The splash and MENU's SETUP row show it; a
  * save that lands (settingsSave() true) ends it.
  * @return Whether the last load discarded such a block and no save has landed since.
  */
@@ -298,7 +298,7 @@ bool settingsResetByUpdate();
  * The live settings are the carried ones and settingsDirty() compares
  * against them, so it reads false; flash still holds the old block, and
  * settingsSave() writes a version 6 block even with nothing changed. The
- * splash, MENU's SETTINGS row and SETTINGS' note line show it in place of
+ * splash, MENU's SETUP row and SETUP's note line show it in place of
  * the reset by an update.
  * @return Whether the last load carried a block over and no save has landed since.
  */
@@ -307,7 +307,7 @@ bool settingsCarriedOver();
 /**
  * @brief The ESC pin settingsLoad() put live: the pin SIG is parked low on
  *        at boot, and the one ESC TESTER first starts DShot on. The
- *        compiled default's before a load. SETTINGS warns while the live pin
+ *        compiled default's before a load. SETUP warns while the live pin
  *        differs from it.
  * @return GPIO number.
  */

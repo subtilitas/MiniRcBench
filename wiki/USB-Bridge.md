@@ -2,7 +2,7 @@
 
 # USB Bridge
 
-`MENU → ESC CONFIG → USB BRIDGE` lets a desktop ESC tool on your computer
+`MENU → ESC PROGRAM → USB BRIDGE` lets a desktop ESC tool on your computer
 reach the ESC's bootloader on the signal wire, through the board's serial
 port. The board works in one of two ways, chosen by the tool's first byte:
 
@@ -39,8 +39,8 @@ The board knows which from the tool's first byte; you choose nothing.
 1. Connect the ESC to SIG and GND as for DShot, on its own battery. Take
    the propeller off.
 2. Connect the board to the computer by USB.
-3. Open `MENU → ESC CONFIG` and tap `USB BRIDGE`. The board takes SIG; the strip
-   reads `RELEASING SIG GP0` for a moment, then `SIG GP0  19200 8N1`.
+3. Open `MENU → ESC PROGRAM` and tap `USB BRIDGE`. The board takes SIG; the
+   strip reads `RELEASING SIG GP0` for a moment, then `SIG GP0  19200 8N1`.
 4. In the tool, pick the board's serial port, the same one the board's
    console uses, and connect. The chip reads `PORT OPEN` once the tool
    opens the port; some tools do not signal that, and the bridge works
@@ -60,14 +60,14 @@ or `CLOCK` in place of `PIO`, and `RETRY` appears:
 - `CLOCK`: the system clock (`clk_sys`) is too slow for the line's rate;
 - `REFUSED`: the board's second core did not take the job.
 
-`RETRY` tries again. `BACK` goes straight to ESC CONFIG, with no leave page,
+`RETRY` tries again. `BACK` goes straight to ESC PROGRAM, with no leave page,
 while the board takes SIG and after a failed bind: the bridge never took the
 line.
 
 While the bridge is open the board's console is off: no telemetry line
 reaches the port. It comes back once the bridge has ended.
 
-If `USB DRIVE` on SD LOG holds the card, the bridge does not start and
+If `USB DRIVE` on LOGS holds the card, the bridge does not start and
 reads `EJECT THE USB DRIVE FIRST.`. Eject the drive and it starts.
 
 <img src="img/bridge-eject.png" width="240" alt="USB BRIDGE with the card held by USB DRIVE: EJECT THE USB DRIVE FIRST. in amber">
@@ -99,7 +99,7 @@ writing 3D mode on, off after reading it off.
 
 ## Writing and leaving
 
-<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK grey"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 BACK TO ESC CONFIG., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC CONFIG and BACK grey">
+<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK grey"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC PROGRAM and BACK grey">
 
 While the ESC writes or erases its flash, the first line reads
 `WRITING: DO NOT UNPLUG ESC OR USB.` and `BACK` is grey, until the ESC
@@ -110,18 +110,18 @@ answers or 3 s pass. This holds in both ways of working.
 On a running bridge, `BACK` opens a leave page every time, whatever the
 tool did: the ESC may sit in its bootloader, entered at power-up or by
 itself, and DShot frames at the next ESC TESTER or ESC COMMANDS can pass as
-its commands. Power the ESC off, then tap `ESC CONFIG`, the hub's title, live
+its commands. Power the ESC off, then tap `ESC PROGRAM`, the hub's title, live
 1 s after the page opens: it holds the signal pin low, starts no DShot and
-returns to ESC CONFIG. `BRIDGE` returns to
+returns to ESC PROGRAM. `BRIDGE` returns to
 the bridge instead. After a write not followed by a start of the firmware
 the page adds `FLASH THE ESC AGAIN BEFORE USE.`: flash the ESC again
 before you use it.
 In the 4-way interface only the tool's reset of the ESC counts as that
 start, not its disconnect. The note stays after `BRIDGE`: every later
-`BACK` brings it back until the tool starts the firmware. `ESC CONFIG`
+`BACK` brings it back until the tool starts the firmware. `ESC PROGRAM`
 ends the session, and the next `USB BRIDGE` starts without the note.
 
-<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 BACK TO ESC CONFIG., no FLASH note, BRIDGE, ESC CONFIG and BACK grey">
+<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., no FLASH note, BRIDGE, ESC PROGRAM and BACK grey">
 
 Without such a write, as after a session that only read or a write followed
 by a start, the page shows the two steps and no note.

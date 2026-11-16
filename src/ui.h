@@ -190,7 +190,7 @@ enum class TesterCtl : uint8_t {
 	Throttle,  /**< The throttle gauge's track, as drawn. A press lands 8 px beyond its left, right and top edges and 1 px below it (handleMainTouch()). Acts while armed. */
 	Pad,       /**< The relative throttle pad over the readouts. Acts while armed. */
 	/**
-	 * @brief The pole count, `14 POLES`: a tap opens SETTINGS, which BACK
+	 * @brief The pole count, `14 POLES`: a tap opens SETUP, which BACK
 	 *        leaves for the tester. Lies in the pad. Acts while disarmed and
 	 *        the pin claim is Free, and is drawn underlined then; absent
 	 *        while the 3D note takes its row.
@@ -252,7 +252,7 @@ enum class TesterCtl : uint8_t {
  */
 #define UI_SPLASH_CARRIED_TEXT  "SETTINGS CARRIED OVER FROM AN UPDATE"
 /** @brief The second of them. @see UI_SPLASH_CARRIED_TEXT */
-#define UI_SPLASH_CARRIED_TEXT2 "CHECK MENU > SETTINGS, THEN SAVE"
+#define UI_SPLASH_CARRIED_TEXT2 "CHECK MENU > SETUP, THEN SAVE"
 
 struct UiScreen;
 

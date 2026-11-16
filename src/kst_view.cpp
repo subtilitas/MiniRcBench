@@ -386,6 +386,19 @@ int kstWrap(const char *text, int width, char lines[][48], int maxLines) {
 			take = width;
 			while (take > 0 && p[take] != ' ') take--;
 			if (take == 0) take = width;
+			// A menu path stays whole: a line never starts with a lone `>`, so
+			// the break moves one word earlier where the line has an earlier
+			// space (`NEEDS` / `SETUP > SERVO`).
+			const char *nx = p + take;
+			while (*nx == ' ') nx++;
+			if (nx[0] == '>' && (nx[1] == ' ' || nx[1] == '\0')) {
+				int e = take;
+				while (e > 0 && p[e - 1] == ' ') e--;  // the spaces before the break
+				while (e > 0 && p[e - 1] != ' ') e--;  // the word before them
+				while (e > 0 && p[e - 1] == ' ') e--;  // the spaces before that word
+				if (e > 0) take = e;
+			}
+			while (take > 1 && p[take - 1] == ' ') take--;
 		}
 		bool last = count == maxLines - 1;
 		bool more = p[take] != '\0' && strspn(p + take, " ") != strlen(p + take);

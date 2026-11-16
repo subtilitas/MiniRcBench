@@ -42,7 +42,7 @@ void fakeClockAlign(uint32_t periodMs);
 constexpr uint32_t FAKE_SPINNER_TURN_MS = 12 * 150;
 
 /**
- * @brief The time since boot, in ms, at which the shot of SETTINGS' UPTIME is
+ * @brief The time since boot, in ms, at which the shot of SETUP's UPTIME is
  *        taken: 10000 h, so UPTIME reads 10000:00:00. It is later than any
  *        test reaches before that shot.
  */
@@ -51,7 +51,7 @@ constexpr uint64_t FAKE_SHOT_UPTIME_MS = 10000ull * 3600u * 1000u;
 /**
  * @brief Move the clock forward to the absolute time @p ms since boot.
  *
- * A screen that prints the time since boot (SETTINGS' UPTIME) reads the same
+ * A screen that prints the time since boot (SETUP's UPTIME) reads the same
  * text whatever ran before. The clock never moves back, so a time already
  * past is refused and the call returns false, which the caller checks. Call
  * it before the frames of the shot.
@@ -411,7 +411,7 @@ void fakeSetCmdState(EscCmdState st, uint8_t cmd);
  * @brief Count framebuffer pixels of an exact colour.
  *
  * Used to prove a screen left nothing of the previous one behind: the cyan of
- * the SETTINGS section captions is distinctive, so more than a trace of it
+ * the SETUP section captions is distinctive, so more than a trace of it
  * surviving on the tester screen is a leftover.
  */
 int fakeCountColour(uint16_t c);

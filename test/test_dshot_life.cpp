@@ -206,8 +206,8 @@ static void testRule() {
 	// Live: each screen but the two and SETUP over the tester parks.
 	freshLife();
 	const struct { const UiScreen *row; const char *name; } ROWS[] = {
-		{ &UI_ESC_CONFIG, "ESC CONFIG" }, { &UI_SERVO_HUB_SCREEN, "SERVO" },
-		{ &UI_RX_SIGNALS, "RX SIGNALS" }, { &UI_SDLOG, "SD LOG" }, { &UI_SETTINGS, "SETTINGS" },
+		{ &UI_ESC_CONFIG, "ESC PROGRAM" }, { &UI_SERVO_HUB_SCREEN, "SERVO" },
+		{ &UI_RX_SIGNALS, "RECEIVER" }, { &UI_SDLOG, "LOGS" }, { &UI_SETTINGS, "SETUP" },
 	};
 	for (const auto &r : ROWS) {
 		int binds = fakeRebuildCount();
@@ -283,13 +283,13 @@ static void testOpenClose() {
 	checkTrue("no bind on MENU", fakeRebuildCount() == binds + 1);
 	checkTrue("SIG parked low", sigParked(SIG_GPIO));
 
-	// ESC COMMANDS from ESC CONFIG.
+	// ESC COMMANDS from ESC PROGRAM.
 	tapId(toolEntry(&UI_ESC_CMD));
 	lifeFrames(2);
 	checkTrue("ESC COMMANDS binds", uiCurrentScreen() == UiScreenId::EscCmd &&
 	          fakeRebuildCount() == binds + 2 && escTaskRunning());
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("BACK: ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 	lifeFrame(1);
 	checkTrue("parked on the first pump pass after the frame that asked: no drain",
 	          !escTaskParked());
@@ -698,14 +698,14 @@ static void testLeaveParks() {
 
 /** @brief The hubs' second strip line, and MONITOR's line with SIG on GP1. */
 static void testHubLines() {
-	section("DShot lifetime: NO ESC CHECK on SERVO and RX SIGNALS, MONITOR on GP1");
+	section("DShot lifetime: NO ESC CHECK on SERVO and RECEIVER, MONITOR on GP1");
 
 	freshLife();
 	checkTrue("the line: 35 characters, 209 px",
 	          strlen(UI_HUB_NO_ESC_CHECK) == 35 && gfxTextW(UI_HUB_NO_ESC_CHECK, 1) == 209);
 	const struct { const UiScreen *s; bool line; const char *name; } HUBS[] = {
-		{ &UI_SERVO_HUB_SCREEN, true, "SERVO" }, { &UI_RX_SIGNALS, true, "RX SIGNALS" },
-		{ &UI_ESC_CONFIG, false, "ESC CONFIG" },
+		{ &UI_SERVO_HUB_SCREEN, true, "SERVO" }, { &UI_RX_SIGNALS, true, "RECEIVER" },
+		{ &UI_ESC_CONFIG, false, "ESC PROGRAM" },
 	};
 	for (const auto &h : HUBS) {
 		tapId(menuRow(h.s));
@@ -775,14 +775,14 @@ static void testTexts() {
 	checkStr("S.BUS OUTPUT's step", buf, "ESC TESTER SENDS DSHOT ON SIG GP0.");
 	checkStr("S.BUS MONITOR's step with SIG on GP1", SBUS_UI_RESTART_GP1_1, "SIG GP1 IS HELD LOW, WHERE");
 	checkStr("ESC SETTINGS' exit line", AM32_UI_EXIT_2, "LEAVE. ESC TESTER THEN RUNS IT.");
-	snprintf(buf, sizeof(buf), AM32_UI_LEAVE_2, "ESC CONFIG");
-	checkStr("ESC SETTINGS' last step", buf, "PLUG IT IN ONCE ESC CONFIG SHOWS.");
+	snprintf(buf, sizeof(buf), AM32_UI_LEAVE_2, "ESC PROGRAM");
+	checkStr("ESC SETTINGS' last step", buf, "PLUG IT IN ONCE ESC PROGRAM SHOWS.");
 	checkStr("HITEC SERVO's line under the ESC", HITEC_UI_ESC_2, "NOTHING IS SENT UNTIL THEN.");
 	checkStr("the arm gate's track", UI_TESTER_GATE_TEXT, "DSHOT STARTING: WAIT 1.5 S");
 	checkTrue("each fits its line: 35, 34, 31, 33 characters",
 	          strlen("ESC TESTER SENDS DSHOT ON SIG GP0.") <= UI_LEAVE_STEP_CHARS &&
 	          strlen(AM32_UI_EXIT_2) <= 37 && strlen(buf) <= UI_LEAVE_STEP_CHARS &&
-	          strlen("BACK TO RX SIGNALS.") <= UI_LEAVE_STEP_CHARS);
+	          strlen("BACK TO RECEIVER.") <= UI_LEAVE_STEP_CHARS);
 }
 
 void runDshotLifeTests() {

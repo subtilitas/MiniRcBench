@@ -2,6 +2,9 @@
 
 # Setup
 
+This page is about the first steps. For the screen SETUP, see
+[The Screens](The-Screens#setup).
+
 From an empty bench to the splash screen: what you need, the adapter cable,
 and installing the firmware. [First Run](First-Run) continues from there.
 
@@ -31,7 +34,7 @@ For each tool you also need:
 | KST Programming | A KST or Chaservo servo and a 5 V supply you can switch: a plug, or a switch in the plus lead |
 | Hitec Programming, D series | A Hitec D series servo and a 5 V supply |
 | Hitec Programming, classic | A Hitec classic servo (HS-5xxx, HS-7xxx) and the switched supply of [Wiring](Wiring), part C: the boost converter above, 5 V, with EN and output disconnect, its LiPo cell, and a 10 kΩ pull-down resistor from EN to ground |
-| RX Signals, MONITOR | A receiver with an S.BUS output, bound to its transmitter, and its own supply. See [RX Signals](RX-Signals#wiring) |
+| RECEIVER, MONITOR | A receiver with an S.BUS output, bound to its transmitter, and its own supply. See [Receiver](Receiver#wiring) |
 | Angle Meter | Nothing but the board, run from its LiPo; a straight bar for incidence. See [Angle Meter](Angle-Meter#holding-the-board) |
 
 ---

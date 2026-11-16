@@ -5,7 +5,7 @@
  * This file exists because four screens had grown four answers to the same
  * questions, and the differences were not decisions — nobody chose a 6 px
  * corner radius for the main screen and a 5 px one for AM32, or a 26 px header
- * on SETTINGS, a 30 px one on SETUP and a 50 px one on AM32. They were three
+ * on SETUP, a 30 px one on ANGLE SET and a 50 px one on AM32. They were three
  * copies of the same twelve-line function drifting apart one edit at a time,
  * and the most visible symptom was BACK: top-right on two screens, a thin strip
  * along the bottom on two others, and nowhere at all on the main one.
@@ -25,7 +25,7 @@
  *   the 18 px BACK strips this replaces were below it.
  * - **A control that is drawn unavailable does not act.** Pass `enabled=false`
  *   to uiButton() and gate its hit test on the same expression. Before this
- *   there were three answers on three screens: SETTINGS' KISS PIN steppers looked
+ *   there were three answers on three screens: SETUP's KISS PIN steppers looked
  *   live and silently moved a pin that was not in use, the logging screen's
  *   START looked dead and started a log anyway, and AM32's REVERT looked dead
  *   and ran. A greyed control that still fires is worse than either, because
@@ -80,7 +80,7 @@ struct TouchState;
 #define UI_DASH          4
 /**
  * @brief Smallest side of a touch target outside a list: the tester's button
- *        row, the SERVO screen's controls, SD LOG's RETRY and USB DRIVE and
+ *        row, the SERVO screen's controls, LOGS' RETRY and USB DRIVE and
  *        AM32's OK. Their move to @ref UI_LIST_TAP_MIN is a later change.
  */
 #define UI_TAP_MIN      22
@@ -156,7 +156,7 @@ struct TouchState;
  * caption and the new value after `old ->`; as a fill behind a value in a
  * row, and as the row's bar, a change (@ref UI_COL_CHANGED). The splash's
  * `JuWi made` in `C_CYAN` is a mark, not a state. Uses the tables do not
- * name, such as lime on SD LOG's READY, are left to the owner
+ * name, such as lime on LOGS' READY, are left to the owner
  * (docs/design/menu-b.md, slice 2 as built).
  * @{
  */

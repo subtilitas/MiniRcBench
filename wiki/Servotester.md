@@ -53,7 +53,7 @@ geschaltete Wandler des Prüfstands, Teil C des
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
 - Servo A hängt an SIG, dem ESC-Pin, Servo B an AUX, dem KISS-Pin, so wie
-  unter **MENU → SETTINGS → SIG PIN** und **AUX PIN** eingestellt, die den
+  unter **MENU → SETUP → SIG PIN** und **AUX PIN** eingestellt, die den
   J5-Pin unter dem Wert zeigen. Voreingestellt sind GP0 und GP1. AUX PIN
   wirkt, ob KISS an oder aus ist, und ein Schritt einer der beiden Zeilen
   tauscht die beiden.
@@ -103,7 +103,7 @@ Hinweis.
 
 ### Die geschaltete Versorgung
 
-Steht **SERVO SUPPLY** unter SETTINGS auf `GP28` oder `GP29`, schaltet der
+Steht **SERVO SUPPLY** unter SETUP auf `GP28` oder `GP29`, schaltet der
 Servotester den Wandler, den auch der KST- und der Hitec-Programmierer
 nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
 
@@ -113,7 +113,7 @@ nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
 - **`HOLD TO START`:** Der Wandler geht sofort an, die Zeile zeigt
   `GP28 SUPPLY COMING UP`, und das Servo bekommt noch keinen Impuls. Tasten
   und Zifferblatt warten; `STOP` wirkt.
-- **Versorgung steht:** mit dem Stromsensor (SETTINGS > CURRENT SENSE
+- **Versorgung steht:** mit dem Stromsensor (SETUP > CURRENT SENSE
   `INA219`) beim ersten Messwert von 4,5 V oder mehr, ohne ihn nach 500 ms.
   Das Servo fährt in die Mitte, die Zeile zeigt `GP28 SUPPLY ON`. Der
   SET-Bildschirm zeigt, wie lange es dauerte, `SUPPLY UP IN 25 MS`, bis
@@ -217,7 +217,7 @@ spiegelbildlich eingebaut ist.
 
 Zwei Servos brauchen ein freies AUX. Kommen dort KISS-Telegramme an, bietet
 der Bildschirm nur ein Servo an, und der SET-Bildschirm nennt den Grund:
-`KISS WIRE ON AUX GP1 IS LIVE.` SETTINGS legt SIG und AUX nie auf einen Pin;
+`KISS WIRE ON AUX GP1 IS LIVE.` SETUP legt SIG und AUX nie auf einen Pin;
 auf anderem Weg so gesetzte Pins zeigen `SIG AND AUX ARE THE SAME GPIO.`
 Solange der Bildschirm auf die Pins wartet, etwa weil ein ESC antwortet, weiß
 er nicht, ob AUX frei ist, und `TWO` lässt sich wählen. Ist AUX dann belegt,
@@ -232,7 +232,7 @@ ein Servo zurück, und ein Warten, das nur für `TWO` bestand, endet.
 
 ## Strom
 
-Mit einem INA219-Strommessmodul an J3 und SETTINGS → CURRENT SENSE auf
+Mit einem INA219-Strommessmodul an J3 und SETUP → CURRENT SENSE auf
 `INA219` zeigt die Zeile unter der Skala den Strom der Servoversorgung,
 `0.42 A`, und darunter die Spannung auf der Servoseite des Sensors,
 `5.02 V`. Der Sensor ist optional und nicht auf Hardware getestet. Seine
@@ -247,7 +247,7 @@ der Strom des Servos nur über die Schraubklemme des Moduls.
 - `>3.2 A` in Bernstein: Der Strom liegt am Ende des Messbereichs, 3,2 A,
   oder darüber; der wahre Wert ist unbekannt.
 - `-- A`: seit 250 ms kein Messwert. Der Sensor fehlt oder der Bus
-  versagt; SETTINGS zeigt `NOT FOUND` unter CURRENT SENSE.
+  versagt; SETUP zeigt `NOT FOUND` unter CURRENT SENSE.
 - Während ein Sweep läuft, steht sein Zähler oben auf der Skala.
 
 Der Strom wird 40-mal pro Sekunde gelesen, jeder Wert als Mittel über 17 ms.
@@ -309,7 +309,7 @@ zweiten Zeile unter dem Titel, in Grau:
 
 So entsteht eine gemessene Bewegung:
 
-1. Das Servo mit dem Sensor starten (SETTINGS > CURRENT SENSE `INA219`).
+1. Das Servo mit dem Sensor starten (SETUP > CURRENT SENSE `INA219`).
 2. `SPEED` auf 100 % stellen.
 3. Nach `HOLD TO START`, nach einem Ziehen, einem Sweep oder einer Bewegung
    mit kleinerer `SPEED` 4 s warten; nach einer gemessenen Bewegung genügt
@@ -341,7 +341,7 @@ So entsteht eine gemessene Bewegung:
 
 ### Die Aufzeichnung auf der Karte
 
-Mit dem Sensor (SETTINGS > CURRENT SENSE `INA219`) und einer Karte im
+Mit dem Sensor (SETUP > CURRENT SENSE `INA219`) und einer Karte im
 Steckplatz wird jeder Lauf von `HOLD TO START` bis zu seinem Ende als
 `LOGS/SRVnnnnn.CSV` auf die Karte geschrieben: eine Zeile je Messung des
 Sensors, 40 pro Sekunde, in Spalten, die eine Tabellenkalkulation öffnet.
@@ -382,8 +382,8 @@ Versorgung nicht schaltet.
   NO 64 KIB IN ONE PIECE`, `NO LOG: CARD TOO SLOW`, `NO LOG: THE CARD DID NOT
   ANSWER`, `NO LOG: THE FILE DID NOT OPEN` oder `NO LOG: SRV99999.CSV EXISTS`.
   Das Servo läuft in jedem Fall weiter.
-- Eine laufende Blackbox-Aufzeichnung endet bei `HOLD TO START`; SD LOG zeigt
-  dann `RECORDING STOPPED BY SERVO TESTER`. Der letzte Lauf, den SD LOG zeigt,
+- Eine laufende Blackbox-Aufzeichnung endet bei `HOLD TO START`; LOGS zeigt
+  dann `RECORDING STOPPED BY SERVO TESTER`. Der letzte Lauf, den LOGS zeigt,
   bleibt der der Blackbox-Aufzeichnung.
 - Stoppe das Servo, bevor du den Strom abschaltest oder die Karte ziehst. Ein
   durch Stromausfall abgebrochener Lauf hinterlässt eine Datei von 4 MiB oder 64
@@ -521,7 +521,7 @@ nichts.
   <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM) mit RETRY">
 
 - **`TWO` lässt sich nicht wählen.** Das KISS-Kabel an AUX ist aktiv, oder
-  beide Pins wurden auf anderem Weg als über SETTINGS auf einen Pin gesetzt.
+  beide Pins wurden auf anderem Weg als über SETUP auf einen Pin gesetzt.
   Der SET-Bildschirm nennt den Grund, wenn `SERVOS` ausgewählt ist.
 - **Das Servo bewegt sich nicht.** Prüfe, ob die Statusanzeige `RUNNING`
   zeigt, ob das Servo eine eigene Versorgung hat und ob seine Masse mit der

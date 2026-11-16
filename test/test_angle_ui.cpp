@@ -1,7 +1,7 @@
 /**
  * @file test_angle_ui.cpp
  * @brief SERVO and ANGLE METER through the real UI: MENU's SERVO row, the
- *        chooser, the meter's main view, SETUP and FLIP CAL, on the QMI8658
+ *        chooser, the meter's main view, ANGLE SET and FLIP CAL, on the QMI8658
  *        driver and a register model of the part on the I2C fake.
  *
  * A UI frame is 25 ms, then the pump's and core1's passes and uiTick(),
@@ -290,13 +290,18 @@ static void testReading() {
 	checkTrue("the strip: LONG EDGE  AXIS TILT 0`, SETTLED on green",
 	          stripIs("LONG EDGE  AXIS TILT 0`", C_DIM, "SETTLED", C_GREEN));
 	checkTrue("NOT ZEROED: FROM LEVEL, dim, at y 108", lineIs(108, UI_ANGLE_NOT_ZEROED, C_DIM));
-	checkTrue("LENGTH OFF: SET LENGTH IN SETUP FOR MM, no travel",
+	checkTrue("the texts of decision 17: 30 and 29 characters, 179 and 173 px at scale 1",
+	          strcmp(UI_ANGLE_LEN_OFF, "SET LENGTH IN ANGLE SET FOR MM") == 0 &&
+	          strcmp(UI_ANGLE_HINT_UNSAVED, "ANGLE SET NOT SAVED TO FLASH.") == 0 &&
+	          strcmp(UI_ANGLE_SETUP_TITLE, "ANGLE SET") == 0 &&
+	          gfxTextW(UI_ANGLE_LEN_OFF, 1) == 179 && gfxTextW(UI_ANGLE_HINT_UNSAVED, 1) == 173);
+	checkTrue("LENGTH OFF: SET LENGTH IN ANGLE SET FOR MM, no travel",
 	          lineIs(148, UI_ANGLE_LEN_OFF, C_DIM) && blank(122, 22));
 	checkTrue("MAX: --  --, the caption at y 170",
 	          lineIs(170, "MAX", C_DIM) && rightIs(166, "--  --", C_TEXT, 2));
 	checkTrue("the IMU's temperature, 31.4`C, dim", lineIs(204, "IMU 31.4`C", C_DIM));
 	checkTrue("no hint", blank(252, 8));
-	checkTrue("ZERO, RESET MAX and SETUP at 6, 84 and 162, 72 x 46",
+	checkTrue("ZERO, RESET MAX and SET at 6, 84 and 162, 72 x 46",
 	          ctlRect(UI_FIX(AngleCtl::Zero)).x == 6 && ctlRect(UI_FIX(AngleCtl::ResetMax)).x == 84 &&
 	          ctlRect(UI_FIX(AngleCtl::Setup)).x == 162 && ctlRect(UI_FIX(AngleCtl::Setup)).w == 72 &&
 	          ctlRect(UI_FIX(AngleCtl::Zero)).y == 268 && ctlRect(UI_FIX(AngleCtl::Zero)).h == 46);
@@ -307,6 +312,12 @@ static void testReading() {
 		          fakeTextIs(m.x + (m.w - gfxTextW("RESET MAX", 1)) / 2, m.y + 19, "RESET MAX", C_TEXT,
 		                     C_PANEL, 1) &&
 		          gfxTextW("RESET MAX", 1) + 8 <= m.w);
+	}
+	{
+		const UiRect st = ctlRect(UI_FIX(AngleCtl::Setup));
+		checkTrue("the footer's third button reads SET, 34 px at scale 2, centred in its 72 px",
+		          gfxTextW("SET", 2) == 34 &&
+		          fakeTextIs(st.x + (st.w - 34) / 2, st.y + 16, "SET", C_TEXT, C_PANEL, 2));
 	}
 	checkControlTable("ANGLE METER, settled");
 
@@ -383,7 +394,7 @@ static void testNoImu() {
 	          px(6 + 4, 268 + 23) == C_BG);
 	tapId(UI_FIX(AngleCtl::Zero), IdExpect::Disabled);
 	checkTrue("a tap arms nothing", reading().zero == AngleZero::None && blank(252, 8));
-	checkTrue("RESET MAX and SETUP act", ctlEnabled(UI_FIX(AngleCtl::ResetMax)) &&
+	checkTrue("RESET MAX and SET act", ctlEnabled(UI_FIX(AngleCtl::ResetMax)) &&
 	          ctlEnabled(UI_FIX(AngleCtl::Setup)));
 	checkControlTable("ANGLE METER, no IMU");
 	fakeDumpFrame("shot_angle_no_imu.ppm");
@@ -498,10 +509,10 @@ static void testZeroAndMax() {
 }
 
 // ---------------------------------------------------------------------------
-// SETUP
+// ANGLE SET
 // ---------------------------------------------------------------------------
 
-/** @brief SETUP's row @p i, label and caption, from x 8; its button's label
+/** @brief ANGLE SET's row @p i, label and caption, from x 8; its button's label
  *         C_TEXT on C_PANEL, a button's and not a value drawn as text. */
 static bool setupRowIs(int i, const char *label, const char *cap, const char *value) {
 	int y = 40 + 50 * i;
@@ -511,9 +522,9 @@ static bool setupRowIs(int i, const char *label, const char *cap, const char *va
 	return l && fakeTextIs(t.x + (t.w - gfxTextW(value, 2)) / 2, y + 15, value, C_TEXT, C_PANEL, 2);
 }
 
-/** @brief SETUP's rows, LENGTH's steps, the save on BACK; the IMU runs on. */
+/** @brief ANGLE SET's rows, LENGTH's steps, the save on BACK; the IMU runs on. */
 static void testSetup() {
-	section("ANGLE SETUP: ALONG AXIS, LENGTH, SIGN, CALIBRATION, one save on BACK");
+	section("ANGLE SET: ALONG AXIS, LENGTH, SIGN, CALIBRATION, one save on BACK");
 	freshBench();
 	pose(10.0);
 	openMeter();
@@ -527,8 +538,8 @@ static void testSetup() {
 	uint32_t samples = qmi8658Counts()->samples;
 	int writes = fakeFlashWrites();
 	tapId(UI_FIX(AngleCtl::Setup));
-	checkTrue("SETUP opens", uiAngleView() == AngleView::Setup && uiCurrentScreen() == UiScreenId::Angle);
-	checkTrue("its title, ANGLE SETUP",
+	checkTrue("ANGLE SET opens", uiAngleView() == AngleView::Setup && uiCurrentScreen() == UiScreenId::Angle);
+	checkTrue("its title, ANGLE SET",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_ANGLE_SETUP_TITLE, C_TEXT, C_PANEL, 2));
 	checkTrue("ALONG AXIS: LONG, LONG EDGE ON AXIS", setupRowIs(0, "ALONG AXIS", "LONG EDGE ON AXIS", "LONG"));
 	checkTrue("LENGTH, MM: OFF in C_CYAN at scale 2 ending at x 132, HINGE TO EDGE under it",
@@ -541,7 +552,7 @@ static void testSetup() {
 	          ctlRect(UI_FIX(AngleCtl::Along)).x == 138 && ctlRect(UI_FIX(AngleCtl::Along)).w == 94 &&
 	          ctlRect(UI_FIX(AngleCtl::LenMinus)).x == 138 && ctlRect(UI_FIX(AngleCtl::LenPlus)).x == 188 &&
 	          ctlRect(UI_FIX(AngleCtl::LenPlus)).w == 44 && ctlRect(UI_FIX(AngleCtl::Flip)).y == 190);
-	checkControlTable("ANGLE SETUP");
+	checkControlTable("ANGLE SET");
 	frames(40);
 	checkTrue("the IMU runs on: samples taken, CTRL7 still 01h",
 	          qmi8658Counts()->samples > samples && s_q->reg[0x08] == 0x01);
@@ -632,7 +643,7 @@ static void testSetup() {
 	fakeFlashSetWritable(false);
 	tapId(UI_FIX(UI_BACK));
 	fakeFlashSetWritable(true);
-	checkTrue("a save that fails: SETUP NOT SAVED TO FLASH., amber, the value live",
+	checkTrue("a save that fails: ANGLE SET NOT SAVED TO FLASH., amber, the value live",
 	          lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) && settings()->angleAlong == 0 &&
 	          uiAngleModel()->set.along == AngleAlong::Long);
 	tapId(UI_FIX(UI_BACK));
@@ -659,7 +670,7 @@ static void testSetup() {
 	checkTrue("flash holds the fields: no hint", !settingsAngleDirty() && blank(252, 8));
 
 	// A failed save is tried again: the hint stays while the fields differ
-	// from flash, across a new visit, and SETUP's BACK with no edit saves.
+	// from flash, across a new visit, and ANGLE SET's BACK with no edit saves.
 	tapId(UI_FIX(AngleCtl::Setup));
 	tapId(UI_FIX(AngleCtl::Along));
 	fakeFlashSetWritable(false);
@@ -674,7 +685,7 @@ static void testSetup() {
 	int writes2 = fakeFlashWrites();
 	tapId(UI_FIX(AngleCtl::Setup));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("SETUP's BACK with no edit tries again: written, the hint gone",
+	checkTrue("ANGLE SET's BACK with no edit tries again: written, the hint gone",
 	          fakeFlashWrites() - writes2 == 1 && !settingsAngleDirty() && blank(252, 8) &&
 	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b)); return b.s.angleAlong == 0; }());
 	writes2 = fakeFlashWrites();
@@ -682,7 +693,7 @@ static void testSetup() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("and once saved, BACK writes nothing", fakeFlashWrites() == writes2);
 
-	// SETTINGS' HOLD TO SAVE stores them too.
+	// SETUP's HOLD TO SAVE stores them too.
 	tapId(UI_FIX(AngleCtl::Setup));
 	tapId(UI_FIX(AngleCtl::Along));
 	fakeFlashSetWritable(false);
@@ -696,7 +707,7 @@ static void testSetup() {
 	holdId(UI_FIX(SettingsCtl::Save), 41);
 	fakeRelease();
 	frames(1);
-	checkTrue("SETTINGS' HOLD TO SAVE stores the meter's fields",
+	checkTrue("SETUP's HOLD TO SAVE stores the meter's fields",
 	          !settingsAngleDirty() &&
 	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b)); return b.s.angleAlong == 1; }());
 	tapId(UI_FIX(UI_BACK));
@@ -704,12 +715,12 @@ static void testSetup() {
 }
 
 /**
- * @brief SETTINGS' HOLD DEFAULTS keeps the meter's fields, which SETTINGS
+ * @brief SETUP's HOLD DEFAULTS keeps the meter's fields, which SETUP
  *        does not show: DEFAULTS left unsaved, then a save of the meter,
  *        leaves the stored calibration as it was.
  */
 static void testDefaultsKeepMeter() {
-	section("ANGLE METER: SETTINGS' HOLD DEFAULTS keeps the meter's setup and calibration");
+	section("ANGLE METER: SETUP's HOLD DEFAULTS keeps the meter's setup and calibration");
 	freshBench();
 	Settings c;
 	settingsDefaults(&c);
@@ -752,7 +763,7 @@ static void testDefaultsKeepMeter() {
 	checkTrue("the meter's save: LENGTH 41, the calibration stored as it was",
 	          b.s.angleLengthMm == 41 && b.s.angleCalValid == 1 && b.s.angleCalOffG[0] == 0.03f &&
 	          b.s.angleCalOffG[2] == 0.04f && b.s.angleCalGain[2] == 1.02f);
-	checkTrue("and SETTINGS' defaults not saved by it: the pole count stored 22",
+	checkTrue("and SETUP's defaults not saved by it: the pole count stored 22",
 	          b.s.poles == 22 && settingsDirty());
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
@@ -761,7 +772,7 @@ static void testDefaultsKeepMeter() {
 	          settings()->angleCalValid == 1 && settings()->angleCalOffG[0] == 0.03f && settings()->poles == 22);
 }
 
-/** @brief Only BACK on the main view leaves the meter; SETUP's and FLIP CAL's stay in it. */
+/** @brief Only BACK on the main view leaves the meter; ANGLE SET's and FLIP CAL's stay in it. */
 static void testOnlyExit() {
 	section("ANGLE METER: only BACK on the main view leaves it");
 	freshBench();
@@ -769,13 +780,13 @@ static void testOnlyExit() {
 	frames(20);
 	tapId(UI_FIX(AngleCtl::Setup));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("SETUP's BACK: still the meter, the driver online",
+	checkTrue("ANGLE SET's BACK: still the meter, the driver online",
 	          uiCurrentScreen() == UiScreenId::Angle && uiAngleView() == AngleView::Main &&
 	          qmi8658State() == ImuState::Online && s_q->reg[0x08] == 0x01);
 	tapId(UI_FIX(AngleCtl::Setup));
 	tapId(UI_FIX(AngleCtl::Flip));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("FLIP CAL's BACK: still the meter, on SETUP", uiCurrentScreen() == UiScreenId::Angle &&
+	checkTrue("FLIP CAL's BACK: still the meter, on ANGLE SET", uiCurrentScreen() == UiScreenId::Angle &&
 	          uiAngleView() == AngleView::Setup && qmi8658State() == ImuState::Online);
 	tapId(UI_FIX(UI_BACK));
 	for (AngleCtl c : { AngleCtl::Zero, AngleCtl::ResetMax }) {
@@ -896,11 +907,11 @@ static void testFlip() {
 	}
 	checkTrue("the new calibration drops the zero", !reading().zeroed);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: SETUP, CALIBRATED", uiAngleView() == AngleView::Setup &&
+	checkTrue("BACK: ANGLE SET, CALIBRATED", uiAngleView() == AngleView::Setup &&
 	          setupRowIs(3, "CALIBRATION", UI_ANGLE_CAL_YES, "FLIP"));
 	tapId(UI_FIX(UI_BACK));
 	writes = fakeFlashWrites();
-	checkTrue("SETUP's BACK writes nothing more: the flip saved", fakeFlashWrites() == writes);
+	checkTrue("ANGLE SET's BACK writes nothing more: the flip saved", fakeFlashWrites() == writes);
 	settle();
 	frames(40);
 	checkTrue("calibrated: level reads +0.0`", angleIs("+0.0`", C_LIME));
@@ -916,7 +927,7 @@ static void testFlip() {
 	AngleCal before = uiAngleModel()->set.cal;
 	writes = fakeFlashWrites();
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK without keeping: SETUP, nothing written, the calibration as it was",
+	checkTrue("BACK without keeping: ANGLE SET, nothing written, the calibration as it was",
 	          uiAngleView() == AngleView::Setup && fakeFlashWrites() == writes &&
 	          memcmp(&before, &uiAngleModel()->set.cal, sizeof(before)) == 0 &&
 	          !uiAngleModel()->flipOn);
@@ -954,7 +965,7 @@ static void testFlip() {
 	writes = fakeFlashWrites();
 	fakeFlashSetWritable(false);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("SETUP's BACK tries the changed calibration again; refused: the hint, flash as it was",
+	checkTrue("ANGLE SET's BACK tries the changed calibration again; refused: the hint, flash as it was",
 	          lineIs(252, UI_ANGLE_HINT_UNSAVED, C_AMBER) &&
 	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b));
 	               return fabs(b.s.angleCalOffG[0] - OX) < 0.001; }());
@@ -974,7 +985,7 @@ static void testFlip() {
 	tapId(UI_FIX(AngleCtl::Setup));
 	writes = fakeFlashWrites();
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("SETUP opened and left with no edit: the calibration not yet saved is saved now",
+	checkTrue("ANGLE SET opened and left with no edit: the calibration not yet saved is saved now",
 	          fakeFlashWrites() - writes == 1 && !settingsAngleDirty() &&
 	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b));
 	               return fabs(b.s.angleCalOffG[0] - 0.06) < 0.001; }());
@@ -988,7 +999,7 @@ static void testFlip() {
 	          angleCalValid(&uiAngleModel()->set.cal) &&
 	          fabs(uiAngleModel()->set.cal.offG[0] - 0.06) < 0.001);
 	tapId(UI_FIX(AngleCtl::Setup));
-	checkTrue("SETUP: CALIBRATED", setupRowIs(3, "CALIBRATION", UI_ANGLE_CAL_YES, "FLIP"));
+	checkTrue("ANGLE SET: CALIBRATED", setupRowIs(3, "CALIBRATION", UI_ANGLE_CAL_YES, "FLIP"));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
@@ -1014,7 +1025,7 @@ static void testFits() {
 	          UI_MARGIN + gfxTextW(UI_ANGLE_KEPT_UNSAVED, 1) <= 231);
 	checkTrue("FLIP CAL's widest line, 215 px, ends at x 223",
 	          UI_MARGIN + gfxTextW("TURN IT ROUND, SCREEN UP, SAME SPOT.", 1) == 223);
-	checkTrue("SETUP: SHORT EDGE ON AXIS, 107 px, before the toggle at x 138",
+	checkTrue("ANGLE SET: SHORT EDGE ON AXIS, 107 px, before the toggle at x 138",
 	          UI_MARGIN + gfxTextW("SHORT EDGE ON AXIS", 1) + 4 <= 138);
 	checkTrue("toggle texts within 86 px", gfxTextW("NORMAL", 2) <= 86 && gfxTextW("INVERT", 2) <= 86);
 }

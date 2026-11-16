@@ -49,7 +49,7 @@ itself ([The switched supply](#the-switched-supply)).
   before the board.
 - Join the two grounds once, at the board.
 - Servo A is on SIG, the ESC pin, and servo B on AUX, the KISS pin, as set
-  under **MENU → SETTINGS → SIG PIN** and **AUX PIN**, which show the J5 pin
+  under **MENU → SETUP → SIG PIN** and **AUX PIN**, which show the J5 pin
   under the value. GP0 and GP1 are the defaults. AUX PIN acts whether KISS is
   on or off, and a step of either row swaps the two.
 - Unplug any ESC from SIG. SERVO's strip says so in amber,
@@ -95,7 +95,7 @@ and `SET > SERVOS`: the SERVOS row of the SET screen switches servo B on (see
 
 ### The switched supply
 
-With **SERVO SUPPLY** at `GP28` or `GP29` under SETTINGS, the servo tester
+With **SERVO SUPPLY** at `GP28` or `GP29` under SETUP, the servo tester
 switches the converter the KST and Hitec programmers use, part C of the
 wiring sheet. Not tested on hardware.
 
@@ -105,7 +105,7 @@ wiring sheet. Not tested on hardware.
 - **`HOLD TO START`:** the converter goes on at once, the line reads
   `GP28 SUPPLY COMING UP`, and the servo gets no pulse yet. The buttons and
   the dial wait; `STOP` works.
-- **Supply up:** with the current sensor (SETTINGS > CURRENT SENSE `INA219`)
+- **Supply up:** with the current sensor (SETUP > CURRENT SENSE `INA219`)
   at the first reading of 4.5 V or more, without it after 500 ms. The servo
   goes to CENTRE and the line reads `GP28 SUPPLY ON`. The SET screen shows
   how long it took, `SUPPLY UP IN 25 MS`, until the first timed move
@@ -200,7 +200,7 @@ moves the opposite way when both follow, for a pair mounted face to face.
 
 Two servos need AUX free. If KISS frames arrive on it, the screen offers one
 servo only, and the SET screen says why: `KISS WIRE ON AUX GP1 IS LIVE.`
-SETTINGS never puts SIG and AUX on one pin; pins set that way some other
+SETUP never puts SIG and AUX on one pin; pins set that way some other
 route read `SIG AND AUX ARE THE SAME GPIO.` While the screen waits for the
 pins, for example while an ESC answers, it cannot know whether AUX is free,
 and `TWO` can be chosen. If the screen then finds AUX taken, it takes SIG
@@ -215,7 +215,7 @@ open the screen again. This holds for a `TWO` still waiting for
 
 ## Current
 
-With an INA219 current sensor module on J3 and SETTINGS → CURRENT SENSE at
+With an INA219 current sensor module on J3 and SETUP → CURRENT SENSE at
 `INA219`, the row under the dial shows the servo supply's current, `0.42 A`,
 and under it the voltage on the servo's side of the sensor, `5.02 V`. The
 sensor is optional and not tested on hardware. Its wiring is in the design
@@ -229,7 +229,7 @@ module's screw terminal only.
 - `>3.2 A` in amber: the current is at or past the end of the sensor's
   range, 3.2 A, and the true value is not known.
 - `-- A`: no reading for 250 ms. The sensor is missing, or the bus is
-  failing; SETTINGS shows `NOT FOUND` under CURRENT SENSE.
+  failing; SETUP shows `NOT FOUND` under CURRENT SENSE.
 - While a sweep runs, its count moves to the top of the dial.
 
 The current is read 40 times a second, each reading the mean over 17 ms.
@@ -288,7 +288,7 @@ its title, in grey:
 
 How to get a timed move:
 
-1. Start the servo with the sensor (SETTINGS > CURRENT SENSE `INA219`).
+1. Start the servo with the sensor (SETUP > CURRENT SENSE `INA219`).
 2. Set `SPEED` to 100 %.
 3. Wait 4 s after `HOLD TO START`, after a drag, a sweep or a move at a lower
    `SPEED`; after a timed move, half a second is enough.
@@ -317,7 +317,7 @@ How to get a timed move:
 
 ### The log on the card
 
-With the sensor (SETTINGS > CURRENT SENSE `INA219`) and a card in the slot,
+With the sensor (SETUP > CURRENT SENSE `INA219`) and a card in the slot,
 every run from `HOLD TO START` to its end is written to the card as
 `LOGS/SRVnnnnn.CSV`: one line for each reading of the sensor, 40 a second,
 in columns a spreadsheet opens.
@@ -357,8 +357,8 @@ switch the supply.
   card was pulled, or failed), `NO LOG: NO 64 KIB IN ONE PIECE`, `NO LOG: CARD
   TOO SLOW`, `NO LOG: THE CARD DID NOT ANSWER`, `NO LOG: THE FILE DID NOT OPEN`
   or `NO LOG: SRV99999.CSV EXISTS`. The servo runs on in every case.
-- A blackbox recording that was running stops at `HOLD TO START`; SD LOG then
-  reads `RECORDING STOPPED BY SERVO TESTER`. The last run that SD LOG shows
+- A blackbox recording that was running stops at `HOLD TO START`; LOGS then
+  reads `RECORDING STOPPED BY SERVO TESTER`. The last run that LOGS shows
   stays the blackbox recording's.
 - Stop the servo before cutting the power or pulling the card. A run cut by a
   power loss leaves a file of 4 MiB, or 64 KiB: the readings that reached the
@@ -481,7 +481,7 @@ grey and does nothing.
   <img src="img/servo-bind.png" width="240" alt="SIG GP0 COULD NOT BE TAKEN (PWM), with RETRY">
 
 - **`TWO` cannot be chosen.** The KISS wire on AUX is live, or both pins were
-  set to one pin some other way than SETTINGS. The SET screen names the cause
+  set to one pin some other way than SETUP. The SET screen names the cause
   when `SERVOS` is selected.
 - **The servo does not move.** Check that the chip reads `RUNNING`, that the
   servo has its own supply, and that its ground is joined to the board's.

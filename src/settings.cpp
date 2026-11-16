@@ -541,7 +541,7 @@ static bool writeBlock(const Settings &s) {
 
 bool settingsSave() {
 	// Never during a pin claim. Erasing flash parks core1 for tens of
-	// milliseconds, past a KST transaction's 5 ms driver slack. SETTINGS and
+	// milliseconds, past a KST transaction's 5 ms driver slack. SETUP and
 	// the angle meter open only while the claim is Free, so this is the
 	// assertion under that, and it refuses rather than writes.
 	if (pinClaimHolder() != PinUser::None) return false;
@@ -566,7 +566,7 @@ bool settingsSaveAngle() {
 	if (pinClaimHolder() != PinUser::None) return false;
 
 	ensureSeeded();
-	// The saved settings with the live angle fields: a change on SETTINGS
+	// The saved settings with the live angle fields: a change on SETUP
 	// that was not saved is not saved by the meter either.
 	Settings out = s_saved;
 	settingsCopyAngle(&out, &s_live);

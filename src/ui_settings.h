@@ -1,6 +1,6 @@
 /**
  * @file ui_settings.h
- * @brief SETTINGS: every persisted setting in one scrolling list in sections,
+ * @brief SETUP: every persisted setting in one scrolling list in sections,
  *        and the hold that saves them.
  *
  * Reached from MENU. The sections, in order: ESC TESTER (motor poles and
@@ -10,7 +10,7 @@
  * restart's reason and the uptime, read-only, @ref diag.h). Every change
  * applies at once; only writing flash needs HOLD TO SAVE, 1000 ms. HOLD
  * DEFAULTS, 1000 ms, loads the compiled defaults into the live settings and
- * writes nothing; the angle meter's fields, which SETTINGS does not show,
+ * writes nothing; the angle meter's fields, which SETUP does not show,
  * keep their values.
  *
  * The list scrolls under a drag that starts off a control. A press on a
@@ -22,7 +22,7 @@
  * change of SIG is answered on this screen.
  *
  * @see settings.h for what is stored and how it is validated;
- *      docs/design/menu.md, "SETTINGS".
+ *      docs/design/menu.md, "SETUP".
  */
 
 #pragma once
@@ -34,7 +34,7 @@
 struct TouchState;
 
 /**
- * @brief The SETTINGS rows, as `UI_ROW(n, part)` numbers them: rows count
+ * @brief The SETUP rows, as `UI_ROW(n, part)` numbers them: rows count
  *        from the top of the list, captions not counted. SERVO SUPPLY is a
  *        core section after WIRING; a tool's own section would follow it in
  *        registry order, and no tool has one.
@@ -57,7 +57,7 @@ enum class SettingsRowId : uint8_t {
 	Uptime,       /**< UPTIME, time since boot, read-only. */
 };
 
-/** @brief The SETTINGS controls outside the list. @see ui_screen.h */
+/** @brief The SETUP controls outside the list. @see ui_screen.h */
 enum class SettingsCtl : uint8_t {
 	Save = 1,  /**< HOLD TO SAVE. */
 	Defaults,  /**< HOLD DEFAULTS. */
@@ -78,7 +78,7 @@ void uiSettingsEnter();
 bool uiSettingsTick(const TouchState *t);
 
 /**
- * @brief The sections SETTINGS shows, in order: ESC TESTER, WIRING, SERVO
+ * @brief The sections SETUP shows, in order: ESC TESTER, WIRING, SERVO
  *        SUPPLY, each tool's section, DISPLAY, BOARD and DIAGNOSTICS.
  *        Valid after uiSettingsEnter(); for the host tests.
  * @param[out] out At most @p max sections.
@@ -93,10 +93,10 @@ struct UiHub;
 typedef const UiHub *(*UiHubOfFn)(const UiScreen *s);
 
 /**
- * @brief The tools' SETTINGS sections of a registry, each once, in the
+ * @brief The tools' SETUP sections of a registry, each once, in the
  *        order of its rows: a row's own section (@ref UiScreen::settings),
  *        then, for a row that opens a hub, the sections of the hub's
- *        entries, top to bottom. SETTINGS shows them between SERVO SUPPLY
+ *        entries, top to bottom. SETUP shows them between SERVO SUPPLY
  *        and DISPLAY.
  * @param e        The rows.
  * @param n        How many.
@@ -109,5 +109,5 @@ typedef const UiHub *(*UiHubOfFn)(const UiScreen *s);
 uint8_t uiSettingsToolSections(const UiMenuEntry *e, uint8_t n, UiHubOfFn hubOf,
                                const SettingsSection **out, uint8_t max);
 
-/** @brief SETTINGS. */
+/** @brief SETUP. */
 extern const UiScreen UI_SETTINGS;

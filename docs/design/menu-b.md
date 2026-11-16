@@ -229,7 +229,7 @@ screen.
 Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1 and 4 of
 2026-11-15: MENU is the start screen (decision 1) and has six rows (decision
 4), ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it does not
-scroll. Not built.
+scroll. Built (slices 3 to 5).
 
 Row 1 is built by slice 2 of
 [esc-commands.md](esc-commands.md#slice-2-as-built): `ESC COMMANDS` in BEEP
@@ -694,7 +694,7 @@ Decisions of the owner, 2026-11-13:
    Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1 and 4 of
    2026-11-15: MENU is the start screen (decision 1) and has six rows
    (decision 4), ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it
-   does not scroll. Not built.
+   does not scroll. Built (slices 3 to 5).
 2. **SERVO PROGRAMMER.** KST SERVO and HITEC SERVO fold into one row that
    opens a chooser: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. CLASSIC is
    drawn disabled without the switched supply and names the path to enable
@@ -704,7 +704,7 @@ Decisions of the owner, 2026-11-13:
    PROGRAMMER. KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC are entries 3 to
    5 of the hub SERVO, with the lines and the gate of this decision; CLASSIC's
    second line reads `AND SETUP > SERVO SUPPLY GP28/29.` A future brand adds a
-   hub entry. Not built.
+   hub entry. Built (slices 4 and 5).
 3. **One leave page.** The leave page and the unplug page merge. Its button
    reads LEAVE, then RESTART DSHOT in the same rectangle once the pin is
    released; the instructions use one style.
@@ -713,12 +713,11 @@ Decisions of the owner, 2026-11-13:
    the hub the tool returns to, SERVO, RECEIVER or ESC PROGRAM, in place of
    RESTART DSHOT, and starts no DShot. The last step reads BACK TO SERVO, BACK
    TO RECEIVER or BACK TO ESC PROGRAM. SERVO TESTER's left button reads NEXT
-   SERVO. Built (D2); the built labels read RX SIGNALS and ESC CONFIG until
-   slice 5 of [menu-c.md](menu-c.md#build-plan).
+   SERVO. Built (D2, slice 5).
 4. **SETTINGS from the tester.** A tap on the MAX or the pole-count readout
    opens SETTINGS through the disarming path MENU uses.
    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
-   the screen reads SETUP. Not built.
+   the screen reads SETUP. Built (slice 5).
 
 Rules for the audit findings. Each lists the code it touches, by file and
 function, and what it breaks. Test counts are lines that `grep -cE` finds
@@ -1014,7 +1013,7 @@ change.
     - Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of
       2026-11-15: the hubs are titled ESC PROGRAM, SERVO and RECEIVER; SD LOG's
       title reads LOGS and SETTINGS' reads SETUP; PROGRAMMER and TOOLS are gone.
-      Not built.
+      Built (slices 4 and 5).
 14. **One layout table** (item 10).
 
     | Item | Today | Rule |
@@ -1099,18 +1098,18 @@ Choices of this note where the decisions above leave the choice:
     SIGNALS after SERVO PROGRAMMER.
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
     the order by device stays, one row per device class after ESC TESTER: ESC
-    TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Not built.
+    TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Built (slices 4 and 5).
 17. **SETTINGS returns to where it was opened.** BACK from SETTINGS opened
     on the tester returns to the tester. `ui.cpp` keeps the origin with the
     open tool.
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
-    the screen reads SETUP. Not built.
+    the screen reads SETUP. Built (slice 5).
 18. **MENU statuses report state.** BEEP, SD LOG and SETTINGS keep their
     statuses; the tool rows drop the pin, which the strip names. The
     claim's busy state is a screen state (decision 15 f).
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15
     and decision 13: a row that opens a hub carries `>`; the rows SD LOG and
-    SETTINGS read LOGS and SETUP. Not built.
+    SETTINGS read LOGS and SETUP. Built (slices 4 and 5).
 19. **The chooser opens a tool.** `uiOpenTool()` in `ui.cpp` is the one route
     from a screen to another, used by the chooser and by the tester's
     readouts; [menu.md](menu.md#code) said no tool opens another. KST SERVO
@@ -1148,7 +1147,7 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     Decision 32 adds a row.
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
     the order by device stays, one row per device class after ESC TESTER: ESC
-    TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Not built.
+    TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Built (slices 4 and 5).
 24. **The readouts while armed** (question 2). Inert, as decision 20.
 25. **BACK on the leave page** (question 3). Drawn disabled, as decision 5.
 26. **The "changed" colour** (question 4). `C_CYAN` on every screen, as
@@ -1186,7 +1185,7 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     PROGRAMMER" puts RX SIGNALS before SD LOG. Seven rows contradicted
     decision 1, six rows that never scroll; decision 33 settles it.
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
-    the row follows SERVO and reads RECEIVER. Not built.
+    the row follows SERVO and reads RECEIVER. Built (slices 4 and 5).
 33. **Seven rows scroll** (the question decision 32 raised). With seven
     rows MENU keeps its 40 px rows at the 42 px pitch and scrolls 36 px, as
     the seven-row MENU on `main` does; SETTINGS is reached with a short
@@ -1195,7 +1194,7 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1 and 4 of
     2026-11-15: MENU is the start screen (decision 1) and has six rows
     (decision 4), ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it
-    does not scroll. Not built.
+    does not scroll. Built (slices 3 to 5).
 
 Decisions of the owner, 2026-11-14, on slice 9, called A and B when taken:
 
@@ -1221,7 +1220,7 @@ Decisions of the owner, 2026-11-14, on slice 9, called A and B when taken:
     is not the busy-pins cue: it stays disabled whatever the claim state,
     and its status names why.
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
-    the row follows SERVO and reads RECEIVER. Not built.
+    the row follows SERVO and reads RECEIVER. Built (slices 4 and 5).
 
 ## Interlocks
 

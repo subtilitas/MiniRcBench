@@ -4,13 +4,13 @@
  *
  * The root and the first screen after the splash (docs/design/menu-c.md
  * owner decisions 1 and 4, slices 3 and 4). Its header draws no BACK:
- * nothing lies behind the root. Its six rows are ESC TESTER, ESC CONFIG,
- * SERVO, RX SIGNALS, SD LOG and SETTINGS, at a 42 px pitch from y 62: they
+ * nothing lies behind the root. Its six rows are ESC TESTER, ESC PROGRAM,
+ * SERVO, RECEIVER, LOGS and SETUP, at a 42 px pitch from y 62: they
  * take 252 px of the 258 px under the strip, so MENU does not scroll and
  * every row is whole. ESC TESTER opens the tester, whose MENU button
- * disarms and returns here. ESC CONFIG, SERVO and RX SIGNALS each open a
- * hub (ui_hub.h) and carry the mark `>` at the row's right, where SD LOG
- * and SETTINGS carry a status.
+ * disarms and returns here. ESC PROGRAM, SERVO and RECEIVER each open a
+ * hub (ui_hub.h) and carry the mark `>` at the row's right, where LOGS
+ * and SETUP carry a status.
  *
  * Each row is a registry entry (ui_registry.h): a screen opens, and an
  * action row, a screen with `action` set, would act on the row; `UI_MENU`
@@ -19,7 +19,7 @@
  * does not, and a host test sets such a registry (uiMenuUseRegistry()).
  *
  * A screen that opens only while the signal pins are free (the tester and
- * SETTINGS) is refused while the pin claim is not Free: its row is drawn
+ * SETUP) is refused while the pin claim is not Free: its row is drawn
  * disabled under its own status, a tap opens nothing, and the strip reads
  * the busy caption (uiBusyCaption()): `RELEASING SIG GP0` while the USB
  * bridge lets the pin go, `SETTING SIG GP0 LOW` while the claim parks the

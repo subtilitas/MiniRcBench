@@ -1569,7 +1569,7 @@ static void passAfter(uint32_t ms) {
 	core1JobPoll();
 }
 
-/** @brief SERVO SUPPLY at @p mode, as SETTINGS sets it outside every claim. */
+/** @brief SERVO SUPPLY at @p mode, as SETUP sets it outside every claim. */
 static void supplyMode(uint8_t mode) {
 	settings()->servoSupply = mode;
 	servoSupplyConfigure(mode);
@@ -3761,7 +3761,7 @@ static void testAuxRefused() {
 	section("Servo screen: TWO is refused when the claim refuses AUX");
 
 	freshUi();
-	escTaskConfigure(1, 600, false, 1);   // SIG and AUX on one GPIO, which SETTINGS no longer allows
+	escTaskConfigure(1, 600, false, 1);   // SIG and AUX on one GPIO, which SETUP no longer allows
 	uiFrames(2);
 	openServo();
 	checkTrue("one GPIO for both: the screen claims SIG alone",
@@ -3775,7 +3775,7 @@ static void testAuxRefused() {
 	const char *l1, *l2; uint16_t col;
 	setNote(&l1, &l2, &col);
 	checkTrue("the note names the cause", l1 && strcmp(l1, "SIG AND AUX ARE THE SAME GPIO.") == 0);
-	checkTrue("and the rows that set them", l2 && strcmp(l2, "SET SIG PIN OR AUX PIN IN SETTINGS.") == 0);
+	checkTrue("and the rows that set them", l2 && strcmp(l2, "SET SIG PIN OR AUX PIN IN SETUP.") == 0);
 	fakeDumpFrame("shot_servo_samepin.ppm");
 	selectRow(3);
 	setNote(&l1, &l2, &col);
@@ -4302,7 +4302,7 @@ static void testTravelNote() {
 	s_auxRefusal = ClaimRefusal::SamePin;
 	selectRow(ROW_SERVOS);
 	checkTrue("SERVOS: the cause of the refusal",
-	          noteIs("SIG AND AUX ARE THE SAME GPIO.", "SET SIG PIN OR AUX PIN IN SETTINGS.", C_AMBER));
+	          noteIs("SIG AND AUX ARE THE SAME GPIO.", "SET SIG PIN OR AUX PIN IN SETUP.", C_AMBER));
 	selectRow(7);
 	checkTrue("SHAPE: TWO SERVOS ARE NOT OFFERED",
 	          noteIs("TWO SERVOS ARE NOT OFFERED: SEE SERVOS", nullptr, C_DIM));
@@ -4977,7 +4977,7 @@ static void testSupplyLineAndHint() {
 	backFromMenu();
 
 	// GP28, then GP29: the line names the pin and the supply's phase.
-	// SETTINGS is closed while the tool runs, so the supply is set before
+	// SETUP is closed while the tool runs, so the supply is set before
 	// the screen opens.
 	for (uint8_t mode = 1; mode <= 2; mode++) {
 		freshUi();

@@ -440,7 +440,7 @@ def draw():
         "USB-C: power and the USB serial port.",
         "LiPo cell: optional, charged by the board.",
         "SIG and AUX are set under",
-        "MENU > SETTINGS; these are the",
+        "MENU > SETUP; these are the",
         "pins of a board with blank flash.",
     ])
     svg.text(820, y0 + 200, "SIG, AUX: GP%d, GP%d, fault tolerant," % (sig, aux), 12)
@@ -466,7 +466,7 @@ def draw():
         (ys[aux_j5], "telemetry"), (ys[sig_j5], "signal"),
         (ys[v3_j5], "BEC +5 V"), (ys[gnd_j5], "GND")])
     svg.wire([p[aux_j5], (520, ys[aux_j5])], AUX, dash=True)
-    svg.text(300, ys[aux_j5] - 6, "optional, SETTINGS > KISS TELEM", 11, AUX, "middle")
+    svg.text(300, ys[aux_j5] - 6, "optional, SETUP > KISS TELEM", 11, AUX, "middle")
     svg.wire([p[sig_j5], (520, ys[sig_j5])], SIG)
     svg.wire([(400, ys[v3_j5]), (520, ys[v3_j5])], PLUS)
     svg.cross(400, ys[v3_j5])
@@ -541,7 +541,7 @@ def draw():
     cx, cy = 480, yc + 340
     rail = cy + 150
     panel(svg, yc, rail + 222 - yc, "C  Servo on the switched supply: servo tester, KST, Hitec D series and classic"
-          " (SETTINGS > SERVO SUPPLY GP%d)" % en_gp)
+          " (SETUP > SERVO SUPPLY GP%d)" % en_gp)
     q = stub(svg, 40, yc + 56, "J4 (part)", j4_rows)
     en_y = q[en_pin][1]
     # the servo, its signal straight from J4, its minus from the right
@@ -610,7 +610,7 @@ def draw():
         "with EN low. A fuse at the cell, which is charged off the bench, not by the board. The pull-down sits at the",
         "converter: 10 k\u03a9 to 100 k\u03a9 for an EN without a pull-up; with a pull-up to VIN, at most 0.135 times that pull-up at",
         "4.2 V. EN is high only inside a claim: in the servo tester from START until STOP, a trip or BACK; in KST and Hitec",
-        "while they power the servo. An ESC on this lead gets VOUT on its BEC wire. The INA219 (SETTINGS > CURRENT SENSE): %s"
+        "while they power the servo. An ESC on this lead gets VOUT on its BEC wire. The INA219 (SETUP > CURRENT SENSE): %s"
         % sense_conn,
         "by a pigtail to its header pins, not a Qwiic cable; the servo current through its screw terminal only, its header's",
         "VIN pins left open. Without the INA219, VOUT goes straight to the servo's plus.",

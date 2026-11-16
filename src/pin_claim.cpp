@@ -142,7 +142,7 @@ ClaimState pinClaimPoll() {
 	switch (s_state) {
 		case ClaimState::Stopping:
 			if (escTaskSuspended()) {
-				// Read once, here: SETTINGS opens only while the claim is
+				// Read once, here: SETUP opens only while the claim is
 				// Free, so these cannot change before it ends.
 				s_sig = escTaskDshotPin();
 				s_aux = escTaskKissPin();

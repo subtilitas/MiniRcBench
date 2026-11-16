@@ -404,7 +404,7 @@ static uint32_t s_blReachedMs = 0;
 /**
  * @brief Held-button repeat state for the editor bar.
  *
- * The rule itself lives in ui_input.h now, shared with SETTINGS,
+ * The rule itself lives in ui_input.h now, shared with SETUP,
  * which had no repeat at all until it was factored out -- getting the throttle
  * ceiling from 20 % to 100 % was eight separate taps.
  */
@@ -680,7 +680,7 @@ static void drawHeader() {
 	// The device name qualifies the title rather than being part of it, so it
 	// goes on the shared strip -- the same row MENU puts its EDT chip on.
 	// It used to be a second line inside a 50 px header this screen had to
-	// itself, which is why BACK ended up 8 px lower here than on SETTINGS.
+	// itself, which is why BACK ended up 8 px lower here than on SETUP.
 	// The clear covers the band of a note's second line too, y 40 to 61,
 	// which the caption alone leaves standing. @see listNote()
 	uiStripTwoLines(nullptr, C_BG, nullptr, C_BG);
@@ -2280,7 +2280,7 @@ bool uiAm32Tick(const TouchState *t) {
 	// every state. Doing it here rather than per-state stops it being a button
 	// that is visible but inert on whichever screen forgot to check for it.
 	// On release, like every navigation tap. It goes one level up: ESC HEX
-	// and ESC WRITE to the list, the list through its guard to ESC CONFIG. While
+	// and ESC WRITE to the list, the list through its guard to ESC PROGRAM. While
 	// the write runs it is drawn disabled and does nothing (backLive()).
 	if (backLive()) {
 		bool back = false;
@@ -2350,7 +2350,7 @@ bool uiAm32Tick(const TouchState *t) {
 			if (s_claimed && pinClaimPoll() == ClaimState::Held) {
 				// The pin the claim latched from the pump, not the compiled
 				// default: the two part company the moment the user changes it
-				// on SETTINGS.
+				// on SETUP.
 				beginConnect();
 			}
 			s_redraw = true;

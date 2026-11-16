@@ -258,6 +258,24 @@ static void testWrap() {
 	checkInt("empty text: no line", kstWrap("", 10, l, 3), 0);
 	n = kstWrap("ABCDEFGH IJKL", 1, l, 1);
 	checkStr("a width below 4 counts as 4", l[0], "A...");
+	n = kstWrap("A SERVO ON ITS OWN SUPPLY NEEDS SETUP > SERVO SUPPLY AT OWN.", 37, l, 2);
+	checkInt("a menu path: two lines", n, 2);
+	checkStr("no line starts with >: the break is before SETUP", l[0], "A SERVO ON ITS OWN SUPPLY NEEDS");
+	checkStr("the path stays whole", l[1], "SETUP > SERVO SUPPLY AT OWN.");
+	n = kstWrap("WORD >", 5, l, 3);
+	checkTrue("no earlier space: the > starts the second line", n == 2 &&
+	          strcmp(l[0], "WORD") == 0 && strcmp(l[1], ">") == 0);
+	n = kstWrap("ABCDEFGHI> X", 9, l, 3);
+	checkTrue("a word cut at the width, no earlier space: unchanged", n == 2 &&
+	          strcmp(l[0], "ABCDEFGHI") == 0 && strcmp(l[1], "> X") == 0);
+	n = kstWrap("NEEDS  > X Y Z", 6, l, 3);
+	checkTrue("two spaces, one word before: no trailing space, nothing to move", n == 3 &&
+	          strcmp(l[0], "NEEDS") == 0 && strcmp(l[1], "> X Y") == 0 && strcmp(l[2], "Z") == 0);
+	n = kstWrap("AB CD  > X", 7, l, 3);
+	checkTrue("two spaces before the >: the break moves past them and the word", n == 2 &&
+	          strcmp(l[0], "AB") == 0 && strcmp(l[1], "CD  > X") == 0);
+	n = kstWrap("> A B C", 4, l, 3);
+	checkTrue("a leading > stays", n == 2 && strcmp(l[0], "> A") == 0 && strcmp(l[1], "B C") == 0);
 }
 
 void runKstViewTests() {

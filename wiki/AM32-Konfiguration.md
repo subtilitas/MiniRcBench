@@ -17,11 +17,11 @@ Konfigurator. Er aktualisiert keine ESC-Firmware.
 
 ## Verbinden
 
-**MENU → ESC CONFIG** öffnen, dann **ESC SETTINGS** antippen.
+**MENU → ESC PROGRAM** öffnen, dann **ESC SETTINGS** antippen.
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS und USB BRIDGE">
+<img src="img/esc-chooser.png" width="240" alt="ESC PROGRAM: ESC COMMANDS, ESC SETTINGS und USB BRIDGE">
 
-`ESC CONFIG` ist eine Auswahl, eine Liste der drei ESC-Werkzeuge. Sie
+`ESC PROGRAM` ist eine Auswahl, eine Liste der drei ESC-Werkzeuge. Sie
 belegt keinen Pin, und DShot ist aus, solange sie zu sehen ist: Der
 Signalpin liegt auf Low. `ESC COMMANDS` sendet DShot-Befehle: siehe
 [Die Bildschirme](Die-Bildschirme#esc-commands). Über `USB BRIDGE` erreicht
@@ -99,7 +99,7 @@ Bytes: `THE BYTES AS READ. THE FIELD TABLE` /
 Die Sicherung geht beim Öffnen der Ansicht auf die Karte, da später nichts
 geschrieben wird. Sie enthält die 48 Bytes, keine Feldzeile und die Zeile
 `Layout not known: fields not read, not verified`. Die Ansicht hat ein
-Bedienelement, `BACK`, das zu ESC CONFIG führt: keine Zeile, kein `WRITE...`,
+Bedienelement, `BACK`, das zu ESC PROGRAM führt: keine Zeile, kein `WRITE...`,
 `REVERT` oder `HEX`, und der Bildschirm hat keinen Weg von dieser Ansicht zum
 Schreiben. Der Titel bleibt `ESC SETTINGS`.
 Das Schreiben selbst lehnt in einem solchen Layout gelesene Einstellungen
@@ -273,7 +273,7 @@ ohne ein solches Stück nicht.
 **Die Liste verlassen.** `BACK` aus der Liste sendet dem Bootloader LEAVE,
 das die ESC-Firmware startet: Die Seite zeigt `LEAVING` und in Bernstein
 `KEEP THE PROPELLER OFF.` (Propeller ab lassen). Etwa eine Drittelsekunde
-später liegt der Signalpin auf Low, und der Bildschirm kehrt zu ESC CONFIG
+später liegt der Signalpin auf Low, und der Bildschirm kehrt zu ESC PROGRAM
 zurück; DShot läuft erst, wenn ESC TESTER oder ESC COMMANDS öffnet.
 LEAVE hat keine Antwort: Ob der ESC gestartet ist, sieht der Tester nicht;
 an keinem ESC geprüft. MENUs `POWER-CYCLE THE ESC TO RUN IT` bleibt, bis der
@@ -291,11 +291,11 @@ dann verstummt; sucht erneut) und grüßt erneut.
 des Lesens, nach einer Seite, die nicht angenommen wird, oder nachdem die
 Suche neu begonnen hat, kann der Bootloader noch auf Befehle warten, und
 DShot-Frames könnten als einer durchgehen. Darum öffnet `BACK` eine
-Verlassenseite, statt sofort zu ESC CONFIG zurückzukehren:
+Verlassenseite, statt sofort zu ESC PROGRAM zurückzukehren:
 
 1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` (ESC-Akku abziehen, dann LEAVE) /
    `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.`
-2. `PLUG IT IN ONCE ESC CONFIG SHOWS.` (wieder anstecken, sobald ESC CONFIG
+2. `PLUG IT IN ONCE ESC PROGRAM SHOWS.` (wieder anstecken, sobald ESC PROGRAM
    zu sehen ist)
 
 <img src="img/am32-leave.png" width="240" alt="Die Verlassenseite: Schritt 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
@@ -303,10 +303,10 @@ Verlassenseite, statt sofort zu ESC CONFIG zurückzukehren:
 `STAY` kehrt zum Bildschirm zurück. Solange die Verlassenseite offen ist,
 laufen der Gruß des Testers und sein erster Blick auf die Seite weiter, und
 das Lesen der ganzen Seite wartet auf `STAY`. Zieh den ESC-Akku ab, dann
-tippe `LEAVE`. `ESC CONFIG`, der Titel der Auswahl, tritt an die Stelle von
+tippe `LEAVE`. `ESC PROGRAM`, der Titel der Auswahl, tritt an die Stelle von
 LEAVE und wirkt 1 s später; es legt den Signalpin auf Low, startet kein
-DShot und kehrt zu ESC CONFIG zurück. Steck den Akku wieder an, sobald ESC
-CONFIG zu sehen ist: An einer Leitung auf Low startet ein Bluejay- oder
+DShot und kehrt zu ESC PROGRAM zurück. Steck den Akku wieder an, sobald ESC
+PROGRAM zu sehen ist: An einer Leitung auf Low startet ein Bluejay- oder
 BLHeli_S-ESC seine Firmware statt seines Bootloaders (aus dem Quelltext der
 Firmwares gelesen, nicht gemessen). `BACK` ist auf dieser Seite grau. Die
 letzte Taste nimmt MENUs `POWER-CYCLE THE ESC TO RUN IT` weg, da die
@@ -490,10 +490,10 @@ beschriftet.
 die Liste stehen und setzt zwei bernsteinfarbene Zeilen auf den Streifen:
 `2 CHANGES NOT WRITTEN.` und `BACK AGAIN DISCARDS THEM.`
 (`1 CHANGE NOT WRITTEN.` und `BACK AGAIN DISCARDS IT.` bei einer). Ein
-zweites `BACK` kehrt zu ESC CONFIG zurück und verwirft die Änderungen;
+zweites `BACK` kehrt zu ESC PROGRAM zurück und verwirft die Änderungen;
 nichts geht an den ESC. Jede andere Berührung nimmt die Zeilen weg und
 behält die Änderungen. Es gibt keine Zeitgrenze. Ohne Änderungen kehrt
-`BACK` sofort zu ESC CONFIG zurück.
+`BACK` sofort zu ESC PROGRAM zurück.
 
 <img src="img/am32-discard.png" width="240" alt="Der Streifen nach BACK mit zwei Änderungen: 2 CHANGES NOT WRITTEN. und BACK AGAIN DISCARDS THEM. in Bernstein">
 
@@ -605,7 +605,7 @@ Wenn sich ein Ergebnis wiederholt:
 1. Prüfe Signal- und Masseader.
 2. Verlasse den Bildschirm mit zweimal `BACK`: Das erste nennt die
    Änderungen, das zweite verwirft sie.
-3. Öffne **MENU → ESC CONFIG → ESC SETTINGS** erneut und starte den ESC
+3. Öffne **MENU → ESC PROGRAM → ESC SETTINGS** erneut und starte den ESC
    neu, während der Bildschirm offen ist, wie unter [Verbinden](#verbinden).
    Der Bildschirm liest dann, was im ESC steht.
 4. Vergleiche es mit der Sicherung, der neuesten `BACKUP/AMnnn.TXT` auf der
@@ -630,7 +630,7 @@ anbietet, oder siehst, was eine Änderung auf Byte-Ebene bewirkt hat.
 ## Verlassen
 
 `BACK` auf der Liste legt den Signalpin wieder auf Low, ohne DShot, und
-kehrt zu ESC CONFIG zurück, der Auswahl, aus der es geöffnet wurde; mit
+kehrt zu ESC PROGRAM zurück, der Auswahl, aus der es geöffnet wurde; mit
 ungeschriebenen Änderungen fragt es zuerst, wie
 unter [Ändern](#ändern). Der Tester ist entschärft.
 

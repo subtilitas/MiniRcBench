@@ -34,7 +34,7 @@ that answers later works. If taps still do nothing, try the steps below.
 After an update that reset the settings, it shows under the two settings
 lines.
 
-<img src="img/splash-reset-no-touch.png" width="240" alt="The splash with SETTINGS RESET BY UPDATE, CHECK MENU > SETTINGS and TOUCH CONTROLLER NOT FOUND above the name">
+<img src="img/splash-reset-no-touch.png" width="240" alt="The splash with SETTINGS RESET BY UPDATE, CHECK MENU > SETUP and TOUCH CONTROLLER NOT FOUND above the name">
 
 Without touch the board cannot be operated: arming, `DISARM`, `LATCH` and
 `MENU` all need it. The idle interlock disarms 30 s after the last contact
@@ -69,8 +69,8 @@ the tester or ESC COMMANDS is open, so check there. Check in this order:
    screen sends the bootloader no command to start the ESC firmware, and
    what the ESC does then is not recorded. Power-cycle the ESC before you
    test it: [AM32 Configuration](AM32-Configuration#leaving).
-2. **Wrong pin.** Compare **SETTINGS → SIG PIN** with where the wire is; the
-   J5 pin is shown under the value. Open SETTINGS from the tester, by a tap
+2. **Wrong pin.** Compare **SETUP → SIG PIN** with where the wire is; the
+   J5 pin is shown under the value. Open SETUP from the tester, by a tap
    on `MAX` while disarmed: there DShot keeps running and the `LINK` row is
    live. A packet rate above zero means the pin is correct.
 3. **No common ground.** The ESC ground and the board ground must be
@@ -129,14 +129,14 @@ missing. The cause is unknown. No workaround is known.
 <img src="img/tester-card-held.png" width="240" alt="HOLD TO ARM drawn as an outline, the bar reading EJECT THE USB DRIVE TO ARM">
 
 The throttle bar reads `EJECT THE USB DRIVE TO ARM`: a computer holds the SD
-card over USB (**MENU → SD LOG → USB DRIVE**), and arming is refused until
+card over USB (**MENU → LOGS → USB DRIVE**), and arming is refused until
 it lets go. Eject the drive on the
-computer, or press `EJECT` on SD LOG. See [SD Logging](SD-Logging).
+computer, or press `EJECT` on LOGS. See [SD Logging](SD-Logging).
 
 A computer that unconfigures the drive also gives the card back. Pulling the
 cable with the board on its battery does not: the USB stack of this firmware
 sees a pulled cable as a computer that went to sleep, and a sleeping computer
-keeps the card. Press `EJECT` on SD LOG then. Neither case is tested on
+keeps the card. Press `EJECT` on LOGS then. Neither case is tested on
 hardware.
 
 ---
@@ -168,10 +168,10 @@ voltage cutoff, temperature, desync), and look at `ESC STATUS` and `ESC TEMP`.
 
 ## The board restarts on its own
 
-Open **MENU → SETTINGS** and scroll to DIAGNOSTICS. `LAST RESTART` names why
+Open **MENU → SETUP** and scroll to DIAGNOSTICS. `LAST RESTART` names why
 the board last started. `BROWN-OUT` or `GLITCH` in amber after a restart while
 a motor ran points at the board's supply: power the ESC from its own battery
-and the board from USB. See [The Screens](The-Screens#settings).
+and the board from USB. See [The Screens](The-Screens#setup).
 
 ---
 
@@ -203,7 +203,7 @@ works.
 
 <img src="img/log-nocard.png" width="240" alt="No card">
 
-Check the `MOUNT` row on the SD LOG screen.
+Check the `MOUNT` row on the LOGS screen.
 
 - **`3 NOT READY`**: the card did not start. With
   `INSERT A CARD, THEN RETRY MOUNT` nothing answered: no card, or not seated.
@@ -238,7 +238,7 @@ screen does not work.
   and the screen reads its settings; Bluejay 0.21 and BLHeli_S 16.3 to 16.7
   can be written. `BACK` from its
   list sends LEAVE, which starts the ESC; `BACK` before the list opens a
-  leave page: unplug the ESC battery, `LEAVE`, `ESC CONFIG`, then plug it
+  leave page: unplug the ESC battery, `LEAVE`, `ESC PROGRAM`, then plug it
   in ([AM32 Configuration](AM32-Configuration#efm8-escs)).
 - **`HALF WRITTEN: KEEP THE ESC POWERED.`** or
   **`NO ANSWER IN THE WRITE: KEEP POWER.`**: a Bluejay or BLHeli_S write was
@@ -271,10 +271,10 @@ screen does not work.
 ## My settings reset themselves
 
 They were not saved, or new firmware could not read the settings layout in
-flash. Pole count and throttle ceiling are edited on **MENU → SETTINGS**, and
+flash. Pole count and throttle ceiling are edited on **MENU → SETUP**, and
 `HOLD TO SAVE` there writes them to flash. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` while changes are unsaved, and `MENU` shows
-`UNSAVED` on its `SETTINGS` row, the last.
+`UNSAVED` on its `SETUP` row, the last.
 
 The firmware stores its settings in layout version 6. Settings an earlier
 firmware saved in layout version 2, 3, 4 or 5, DshotDisplay 2.x's among them,
@@ -297,20 +297,20 @@ default. So:
   defaults: `LONG`, `OFF`, `NORMAL` and none.
 
 A carry-over is shown: the splash reads
-`SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETTINGS, THEN SAVE`,
-MENU's `SETTINGS` row reads `UPDATED`, and the note line in SETTINGS reads
+`SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETUP, THEN SAVE`,
+MENU's `SETUP` row reads `UPDATED`, and the note line in SETUP reads
 `CARRIED OVER BY UPDATE - CHECK, SAVE`. Check the values and save with
 `HOLD TO SAVE`; the save writes even with nothing changed. Until then flash
 keeps the old block and every boot carries it over again.
 
-<img src="img/splash-carried.png" width="240" alt="The splash with SETTINGS CARRIED OVER FROM AN UPDATE and CHECK MENU > SETTINGS, THEN SAVE above the name">
+<img src="img/splash-carried.png" width="240" alt="The splash with SETTINGS CARRIED OVER FROM AN UPDATE and CHECK MENU > SETUP, THEN SAVE above the name">
 
 Settings of a layout the firmware does not know, version 1 or a later
 firmware's, are discarded: every setting returns to its default, the ESC pin
 included. Set them again and save with `HOLD TO SAVE`. Such a reset is
 shown: the splash reads `SETTINGS RESET BY UPDATE` and
-`CHECK MENU > SETTINGS`, MENU's `SETTINGS` row reads `UPDATED`, and the note
-line in SETTINGS reads `RESET BY UPDATE - CHECK AND SAVE` until a save
+`CHECK MENU > SETUP`, MENU's `SETUP` row reads `UPDATED`, and the note
+line in SETUP reads `RESET BY UPDATE - CHECK AND SAVE` until a save
 lands. A block that is damaged, rather than written by another version, is
 discarded without these notes; the note line then reads
 `NOTHING SAVED: DEFAULTS IN USE`.
@@ -319,7 +319,7 @@ discarded without these notes; the note line then reads
 
 ## `SDERR` on the tester, or a log that stopped
 
-The recording ended without `STOP`. **MENU → SD LOG** says how above
+The recording ended without `STOP`. **MENU → LOGS** says how above
 `START`: a full card, a failed write, a file that did not open, or the tool
 (KST SERVO, HITEC SERVO, ESC SETTINGS) that took the card. See
 [SD Logging](SD-Logging#how-the-last-log-ended).
@@ -338,7 +338,7 @@ fit a charged cell.
 
 ## KISS telemetry is off
 
-That is the default. Turn it on under **MENU → SETTINGS → KISS TELEM**.
+That is the default. Turn it on under **MENU → SETUP → KISS TELEM**.
 
 The board has two free GPIOs (general-purpose input/output pins), GP0 and
 GP1, and the ESC signal starts on GP0. KISS defaults to off so that the
@@ -368,5 +368,5 @@ wiring for a short before the next start. See
 
 Open an issue at
 [github.com/subtilitas/MiniRcBench/issues](https://github.com/subtilitas/MiniRcBench/issues).
-Include: the firmware version (SETTINGS → VERSION), LAST RESTART, what the
+Include: the firmware version (SETUP → VERSION), LAST RESTART, what the
 `LINK` row shows, and which ESC and ESC firmware.
