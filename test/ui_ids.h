@@ -208,6 +208,27 @@ static inline UiControlId menuRow(const UiScreen *s) {
 }
 
 /**
+ * @brief From MENU, the root, through its first row, ESC TESTER, to the
+ *        tester (docs/design/menu-c.md, slice 3).
+ */
+static inline void openTester() {
+	tapId(menuRow(&UI_TESTER));
+	UI_IDS_FRAMES(1);
+}
+
+/**
+ * @brief uiInit(), which opens MENU, then the tester through its row: the
+ *        start of a case that begins on the tester.
+ */
+static inline void uiInitTester() {
+	uiInit();
+	// The row is refused while the pin claim is not Free: a claim outlives
+	// uiInit(), so let the last case's claim end first.
+	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) UI_IDS_FRAMES(1);
+	openTester();
+}
+
+/**
  * @brief The PROGRAMMER entry whose entry point is @p enter: its index in
  *        `UI_PROGRAMMERS`, or -1, failing the test, when none has it.
  */
@@ -219,8 +240,8 @@ static inline int progEntryOf(void (*enter)()) {
 }
 
 /**
- * @brief From the tester, through MENU and its SERVO PROGRAMMER row, to
- *        PROGRAMMER, the chooser.
+ * @brief From the tester, through its MENU button back to MENU and MENU's
+ *        SERVO PROGRAMMER row, to PROGRAMMER, the chooser.
  */
 static inline void openChooser() {
 	tapId(UI_FIX(TesterCtl::Menu));
@@ -269,17 +290,20 @@ static inline bool navIsHub(UiScreenId hub) {
 }
 
 /**
- * @brief BACK from a hub or MENU down the navigation stack to the tester:
- *        one tap per screen, each on a live BACK. A tool's own BACK, which
- *        may open a leave page, is the test's to tap first.
- * @return true on the tester.
+ * @brief BACK from a hub down the navigation stack to MENU, the root, one
+ *        tap per screen, each on a live BACK, then the tester through
+ *        MENU's row ESC TESTER. A tool's own BACK, which may open a leave
+ *        page, is the test's to tap first.
+ * @return true on the tester, over MENU alone.
  */
 static inline bool backToTester() {
-	for (int i = 0; i < UI_NAV_MAX && uiCurrentScreen() != UiScreenId::Tester; i++) {
+	for (int i = 0; i < UI_NAV_MAX && uiCurrentScreen() != UiScreenId::Menu; i++) {
 		tapId(UI_FIX(UI_BACK));
 		UI_IDS_FRAMES(1);
 	}
-	return uiCurrentScreen() == UiScreenId::Tester;
+	if (uiCurrentScreen() == UiScreenId::Menu) openTester();
+	return uiCurrentScreen() == UiScreenId::Tester && uiNavDepth() == 2 &&
+	       uiNavAt(0) == UiScreenId::Menu;
 }
 
 /** @brief How the header's BACK looks on the panel. */
@@ -319,9 +343,9 @@ static inline bool readoutOverPad(UiControlId a, UiControlId b) {
 /**
  * @brief The open screen's table on the current frame: ids unique, every
  *        rectangle inside the panel and not empty, no two controls
- *        overlapping, and BACK at uiBackRect() on every screen but the
- *        tester, drawn live where the table says it acts and disabled
- *        where it says it does not. The one overlap allowed is the tester's
+ *        overlapping, no BACK on the tester and on MENU, the root, and
+ *        BACK at uiBackRect() on every other screen, drawn live where the
+ *        table says it acts and disabled where it says it does not. The one overlap allowed is the tester's
  *        readouts (`TesterCtl::Poles`, `TesterCtl::Max`) over the pad
  *        and the track, never with both acting.
  * @param where Names the frame in the check's text.
@@ -356,7 +380,14 @@ static inline void checkControlTable(const char *where) {
 	checkTrue(what, unique);
 	snprintf(what, sizeof(what), "%s: no two controls overlap that may not", where);
 	checkTrue(what, apart);
-	if (uiCurrentScreen() != UiScreenId::Tester) {
+	if (uiCurrentScreen() == UiScreenId::Tester || uiCurrentScreen() == UiScreenId::Menu) {
+		snprintf(what, sizeof(what), "%s: no BACK in the table", where);
+		checkTrue(what, !ctlPresent(UI_FIX(UI_BACK)));
+		if (uiCurrentScreen() == UiScreenId::Menu) {
+			snprintf(what, sizeof(what), "%s: no BACK drawn", where);
+			checkTrue(what, backLook() == BackLook::Other);
+		}
+	} else {
 		UiControl b;
 		UiRect br = uiBackRect();
 		bool back = ctlFind(UI_FIX(UI_BACK), &b) && b.rect.x == br.x && b.rect.y == br.y &&

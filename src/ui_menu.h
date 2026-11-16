@@ -2,15 +2,17 @@
  * @file ui_menu.h
  * @brief MENU: one list of tools and actions, from the registry.
  *
- * Reached from the tester's MENU button, which disarms. Each row is a
- * registry entry (ui_registry.h): a tool opens its screen, and an action
- * row, a screen with `action` set, would act on the row; `UI_MENU` holds
- * none. A row fires on release, a press that slides off cancels, and a
- * vertical drag scrolls once the rows do not fit: eight rows at a 42 px
- * pitch scroll 78 px. BACK returns to the tester.
+ * The root and the first screen after the splash (docs/design/menu-c.md
+ * owner decision 1, slice 3). Its header draws no BACK: nothing lies behind
+ * the root. Its first row, ESC TESTER, opens the tester, whose MENU button
+ * disarms and returns here. Each row is a registry entry (ui_registry.h): a
+ * tool opens its screen, and an action row, a screen with `action` set,
+ * would act on the row; `UI_MENU` holds none. A row fires on release, a
+ * press that slides off cancels, and a vertical drag scrolls once the rows
+ * do not fit: nine rows at a 42 px pitch scroll 120 px.
  *
  * A tool that claims the signal pins, or one that opens only while they are
- * free (SETTINGS and ESC COMMANDS), is refused while the pin claim is not
+ * free (the tester, SETTINGS and ESC COMMANDS), is refused while the pin claim is not
  * Free: its row is drawn disabled under its own status, a tap opens nothing,
  * and the strip reads `DSHOT RESTARTING ON SIG GP0`. That state is reachable
  * for the time Restoring takes after RESTART DSHOT. The choosers ESC CONFIG,
@@ -62,7 +64,6 @@ struct TouchState;
 /** @brief What a MENU frame asks of the navigation. */
 enum class UiMenuResult : uint8_t {
 	Stay,  /**< MENU stays open. */
-	Back,  /**< BACK: return to the tester. */
 	Open,  /**< Open the tool the tick names. */
 };
 

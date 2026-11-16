@@ -2791,7 +2791,7 @@ static void freshUi() {
 	settingsLoad();
 	fakePwmReset();
 	noEsc();
-	uiInit();
+	uiInitTester();
 	escTaskConfigure(0, 600, false, 1);
 	uiFrames(2);
 }
@@ -2829,10 +2829,10 @@ static void backFromSet() {
 	          uiCurrentScreen() == UiScreenId::Servo && ctlPresent(UI_FIX(ServoCtl::Start)));
 }
 
-/** @brief BACK from MENU: the tester. */
+/** @brief From MENU, which has no BACK, through its row ESC TESTER: the tester. */
 static void backFromMenu() {
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	openTester();
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /** @brief Hold HOLD TO START for 1000 ms, then lift. */

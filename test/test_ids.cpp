@@ -60,7 +60,7 @@ static void countFail(const char *) { s_idFails++; }
  */
 static void testHelpersFail() {
 	section("Control ids: a helper fails on an absent or misgated control");
-	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	g_idFailHook = countFail;
 
 	s_idFails = 0;
@@ -88,7 +88,7 @@ static void testHelpersFail() {
 /** @brief The tester's table and the id helpers on it. */
 static void testHelpersReport() {
 	section("Control ids: the helpers and the tester's table");
-	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	checkTrue("the tester is open after uiInit()", uiCurrentScreen() == UiScreenId::Tester);
 	checkControlTable("tester, disarmed");
 	checkTrue("ARM acts with the card free", ctlEnabled(UI_FIX(TesterCtl::Arm)));
@@ -113,7 +113,7 @@ static void testHelpersReport() {
 /** @brief MENU, SETTINGS and SD LOG by id. */
 static void testMenuSettingsLog() {
 	section("Control ids: MENU, SETTINGS and SD LOG");
-	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	// One frame for each screen's first paint: the table check compares the
@@ -316,14 +316,14 @@ static void testMenuSettingsLog() {
 	fakeMscSet(MscState::Idle, 0); idFrames(1);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from MENU reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
+	openTester();
+	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
 
 /** @brief SERVO, its SET view and its leave page by id. */
 static void testServo() {
 	section("Control ids: SERVO, SET and the leave page");
-	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_SERVO));
 	checkTrue("SERVO opens", uiCurrentScreen() == UiScreenId::Servo);
@@ -368,7 +368,7 @@ static void testServo() {
  */
 static void testAm32() {
 	section("Control ids: ESC SETTINGS, the handover and the list");
-	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	openEscSettings();
 	checkTrue("AM32 opens", uiCurrentScreen() == UiScreenId::Am32);
@@ -434,7 +434,7 @@ static bool labelCentred(UiControlId id, const char *label, uint16_t col, uint16
  */
 static void testLayoutTable() {
 	section("Control ids: the layout table on SETTINGS, SD LOG and SERVO SET");
-	fakeFlashClear(); settingsLoad(); uiInit(); idFrames(4);
+	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_SETTINGS));
 	idFrames(1);
@@ -492,7 +492,8 @@ static void testLayoutTable() {
 	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
 	checkTrue("back at MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
+	for (int i = 0; i < 200 && pinClaimState() != ClaimState::Free; i++) idFrames(1);
+	openTester();
 }
 
 void runIdTests() {

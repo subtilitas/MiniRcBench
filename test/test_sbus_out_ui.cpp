@@ -359,7 +359,7 @@ static void freshUi() {
 	fakeUartReset();
 	noTelemetry();
 	noEscOnGp0();
-	uiInit();
+	uiInitTester();
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
@@ -578,7 +578,7 @@ static void testEntryProbeStart() {
 	          ctlEnabled(UI_FIX(SbusOutCtl::Row0)) && ctlEnabled(UI_FIX(SbusOutCtl::Start)));
 	checkControlTable("S.BUS OUTPUT, RUNNING");
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief The sliders, MAX THROTTLE on the screen, the page, STOP. */
@@ -678,7 +678,7 @@ static void testSlidersCeiling() {
 	          holdStart() && sent().channel[0] == 992 && sent().channel[2] == 172 &&
 	          sent().channel[8] == 172 && rowIs(2, "CH3 THR", UI_COL_WARN, "1000", UI_COL_LIVE));
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// MAX THROTTLE at 1000 of 2000: raw 991, 1500 us, the mark at x 126.
 	freshUi();
@@ -694,7 +694,7 @@ static void testSlidersCeiling() {
 	checkTrue("dragged far: raw 991, 1500 us", sent().channel[2] == 991 && held().channel[2] == 991 &&
 	          rowIs(2, "CH3 THR", UI_COL_WARN, "1500", UI_COL_LIVE));
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief The heartbeat: frames stop when the UI stops; STALLED; a new START. */
@@ -729,7 +729,7 @@ static void testHeartbeat() {
 	checkTrue("a new HOLD TO START: frames, RUNNING, the trip gone",
 	          holdStart() && !jobSt().tripped && chipIs("RUNNING", UI_COL_ON) && sent().channel[2] == 172);
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**
@@ -808,7 +808,7 @@ static void testTouchLoss() {
 	checkTrue("the main view: the note",
 	          leftIs(SBOUT_UI_NOTE1_Y, SBUS_OUT_VIEW_TOUCH, UI_COL_WARN));
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**
@@ -920,7 +920,7 @@ static void testIdle() {
 	checkTrue("31 s with the throttle up while SAFE: no command, the warnings stay",
 	          held().seq == seqStop && leftIs(SBOUT_UI_NOTE1_Y, "GP0 GOES TO A FLIGHT CONTROLLER.", UI_COL_WARN));
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief SET: the rows, their locks, the flags in the frame, STOP, the footer's warning. */
@@ -1038,7 +1038,7 @@ static void testSet() {
 	checkTrue("START", holdStart());
 	checkTrue("the START frame clears the flags", !sent().ch17 && !sent().ch18 && !sent().failsafe);
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief BACK: the leave page; BACK TO OUTPUT a new visit and probe; RESTART DSHOT. */
@@ -1098,7 +1098,7 @@ static void testLeave() {
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	soFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// BACK during the probe: the leave page too, GP0 let go on the pull-up.
 	freshUi();
@@ -1111,7 +1111,7 @@ static void testLeave() {
 	          ctlPresent(UI_FIX(SbusOutCtl::BackToOutput)) && pinClaimUnplugDue() &&
 	          fakePin(0).pull == FakePull::Up && fakePin(0).function == GPIO_FUNC_SIO);
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief A bootloader answers: START refused; after EFM8, decision 8's page. */
@@ -1189,7 +1189,7 @@ static void testBootloader() {
 	          uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free &&
 	          !sbusOutProbeEfm8() && !sbusOutRunCue(0));
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// An AM32 bootloader: the same lines; BACK opens the plain page.
 	freshUi();
@@ -1214,7 +1214,7 @@ static void testBootloader() {
 	fakeSetTelemetry(&t);
 	checkTrue("gone after an eRPM frame", !sbusOutRunCue(t.lastRpmMs));
 	noTelemetry();
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	noEscOnGp0();
 }
 
@@ -1257,7 +1257,7 @@ static void testUnavailable() {
 	soFrames(4);
 	checkTrue("back at RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// GP0 is AUX, KISS live on it.
 	freshUi();
@@ -1278,7 +1278,7 @@ static void testUnavailable() {
 	checkTrue("BACK before a claim: RX SIGNALS, nothing claimed",
 	          uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// GP0 is AUX, an ESC answers on SIG GP1.
 	freshUi();
@@ -1301,7 +1301,7 @@ static void testUnavailable() {
 	          leftIs(UI_STRIP_Y + 4, "SIG GP1  AUX GP0", C_DIM) &&
 	          leaveStepIs(78, 0, "DSHOT RESTARTS ON SIG GP1.", true));
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// No role on GP0.
 	freshUi();
@@ -1317,7 +1317,7 @@ static void testUnavailable() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// The clock refused, RETRY.
 	freshUi();
@@ -1342,7 +1342,7 @@ static void testUnavailable() {
 	checkTrue("SAFE, on page 1: the tap on RETRY reached nothing under it",
 	          toSafe() && rowIs(0, "CH1", C_DIM, "1500", C_DIM));
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// TAKING SIG GP0 between the drain and the job's bind.
 	freshUi();
@@ -1358,7 +1358,7 @@ static void testUnavailable() {
 	}
 	checkTrue("held, the job not bound yet: TAKING SIG GP0, dim", taking);
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// The wiring changes under a claim that is Stopping, as only a test can
 	// make it: the job's CORE1_JOB_NO_GP0, the screen's own lines, no RETRY.
@@ -1371,7 +1371,7 @@ static void testUnavailable() {
 	          messageIs(SBOUT_UI_NO_GP0_1, SBOUT_UI_NO_GP0_2, nullptr, UI_COL_WARN) &&
 	          !ctlPresent(UI_FIX(SbusOutCtl::Retry)));
 	checkTrue("back to MENU", leaveToMenu());
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// The probe's line refused at the bind: its reason, RETRY.
 	static const struct { uint8_t err; const char *why; } LINE[] = {
@@ -1393,7 +1393,7 @@ static void testUnavailable() {
 		soFrames(2);
 		checkTrue("RETRY with the line free: the probe", sbusOutProbePoll() == SbusOutProbeState::Checking);
 		checkTrue("back to MENU", leaveToMenu());
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 
 	// BACK during the drain: DShot resumes at once, no leave page.
@@ -1416,7 +1416,7 @@ static void testUnavailable() {
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	soFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**
@@ -1457,7 +1457,7 @@ static void testLateMark() {
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbusOutProbeRestart();
 	checkTrue("cleared for the next test", !sbusOutProbeEfm8() && !sbusOutRunCue(0));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**

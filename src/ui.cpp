@@ -167,10 +167,10 @@ static_assert(THR_EDGE_SAT * 2 < THR_TRACK_W / 2,
 
 /** @} */
 
-// The main screen is the root, so it has no header and no BACK: there is
-// nowhere to go back to, and a disabled or missing control in the place the
-// habit says to look is worse than the habit not applying here. MENU is its
-// navigation, and it sits with the other two actions.
+// The tester has no header and no BACK (docs/design/menu-c.md decision 11):
+// its button row holds its way out, MENU, beside the other two actions, and
+// the label names where the tap leads. MENU is the root and opens the tester
+// from its first row (slice 3).
 #define BTN_ROW_Y     283   /**< Top of the three main-screen buttons. */
 #define BTN_ROW_H      33   /**< ...and their height. */
 static const UiRect BTN_ARM  = { 6, BTN_ROW_Y, 104, BTN_ROW_H };
@@ -233,13 +233,16 @@ static bool     s_armed = false;
 static bool     s_latch = false;
 /**
  * @brief The navigation stack (docs/design/menu-c.md, "Navigation"), bottom
- *        first: at most @ref UI_NAV_MAX screens over the tester, the root.
- *        Depth 0 is the tester. A screen pushes the one it opens and BACK
- *        pops it: MENU over the tester, a hub or a tool over MENU, a hub's
- *        tool over its hub, SETTINGS over the tester from a readout.
+ *        first: at most @ref UI_NAV_MAX screens, MENU, the root, at the
+ *        bottom from uiInit() on. A screen pushes the one it opens and BACK
+ *        pops it: the tester, a hub or a tool over MENU, a hub's tool over
+ *        its hub, SETTINGS over the tester from a readout. MENU is never
+ *        popped: it draws no BACK.
  */
 static const UiScreen *s_nav[UI_NAV_MAX] = {};
 static uint8_t         s_navDepth = 0;
+/** @brief The tester's MENU button was tapped on this frame: testerTick() leaves. */
+static bool            s_testerLeave = false;
 /**
  * @brief A tool the open screen chose on this frame (uiChooseTool()),
  *        pushed after its tick; null for none.
@@ -1039,8 +1042,9 @@ static void testerStop() {
 
 /**
  * @brief Push @p s over the open screen. Every route that opens a screen
- *        comes here, so none passes @ref UI_NAV_MAX screens. The tester
- *        pushes MENU or SETTINGS, MENU a row, a hub one of its entries.
+ *        comes here, so none passes @ref UI_NAV_MAX screens. uiInit()
+ *        pushes MENU, MENU a row, the tester SETTINGS, a hub one of its
+ *        entries.
  * @return false, with nothing pushed, when the stack is full.
  */
 static bool navPush(const UiScreen *s) {
@@ -1049,41 +1053,38 @@ static bool navPush(const UiScreen *s) {
 	return true;
 }
 
-/** @brief The screen on top of the stack; null for the tester. */
-static const UiScreen *navTop() { return s_navDepth ? s_nav[s_navDepth - 1] : nullptr; }
-
-/**
- * @brief BACK: pop the open screen and show the one under it, the screen
- *        that opened it (menu-c.md owner decision 7). The tester redraws
- *        every region; MENU opens again, as it did before the stack; a hub
- *        resumes as it was left (uiHubResume()), the entry that opened the
- *        tool where it was. Only a hub opens a tool over itself, through
- *        uiChooseTool(), so a screen under a tool is MENU or a hub.
- *        SETTINGS, the theme, and the pin can change under a tool, so every
- *        cached region is invalidated.
- */
-static void navPop() {
-	if (s_navDepth) s_nav[--s_navDepth] = nullptr;
-	const UiScreen *top = navTop();
-	if (top == &UI_MENU_SCREEN) uiMenuEnter();
-	else if (top) uiHubResume();
-	invalidateAll();
-	gfxFill(C_BG);
+/** @brief The screen on top of the stack: MENU, the root, when it is empty. */
+static const UiScreen *navTop() {
+	return s_navDepth ? s_nav[s_navDepth - 1] : &UI_MENU_SCREEN;
 }
 
-/** @brief The route from the tester to MENU: it disarms first. */
-static void uiOpenMenu() {
-	testerDisarm();
-	if (!navPush(&UI_MENU_SCREEN)) return;
-	uiMenuEnter();
+/**
+ * @brief BACK, or the tester's MENU button: pop the open screen and show the
+ *        one under it, the screen that opened it (menu-c.md owner decision
+ *        7). MENU, the root, stays at the bottom. MENU opens again at
+ *        scroll 0, as it did before the stack; the tester redraws every
+ *        region; a hub resumes as it was left (uiHubResume()), the entry
+ *        that opened the tool where it was. Only a hub opens a tool over
+ *        itself, through uiChooseTool(), and the tester only SETTINGS, so a
+ *        screen under another is MENU, the tester or a hub. SETTINGS, the
+ *        theme, and the pin can change under a tool, so every cached region
+ *        is invalidated.
+ */
+static void navPop() {
+	if (s_navDepth > 1) s_nav[--s_navDepth] = nullptr;
+	const UiScreen *top = navTop();
+	if (top == &UI_MENU_SCREEN) uiMenuEnter();
+	else if (top != &UI_TESTER) uiHubResume();
+	invalidateAll();
 	gfxFill(C_BG);
 }
 
 /**
  * @brief The one route from a screen to a tool (docs/design/menu-b.md,
- *        decision 19): from MENU's rows, from the tester's readouts and from
- *        a hub's entries. It runs uiOpenMenu()'s disarm, then pushes the
- *        tool, whose BACK pops it to the screen that opened it. The caller
+ *        decision 19): from MENU's rows, the tester among them, from the
+ *        tester's readouts and from a hub's entries. It runs the tester's
+ *        disarm, then pushes the tool, whose BACK pops it to the screen that
+ *        opened it. The caller
  *        refuses a tool the pin claim refuses first: MENU for its rows,
  *        readoutsAct() for the readouts, the hub for its entries
  *        (uiHubEntryActs()).
@@ -1246,7 +1247,10 @@ static void handleMainTouch() {
 		s_latch = !s_latch;
 		if (!s_latch) s_throttle = 0;
 	} else if (tapped(BTN_MENU, s_touch)) {
-		uiOpenMenu();
+		// Back to MENU, the root: disarmed, the throttle zero, LATCH off,
+		// on this frame; testerTick() then pops the tester.
+		testerDisarm();
+		s_testerLeave = true;
 	} else if (readoutsAct() &&
 	           ((polesShown() && tapped(TGT_POLES, s_touch)) || tapped(TGT_MAX, s_touch))) {
 		// A readout: SETTINGS, and BACK there returns here. Inert while
@@ -1254,6 +1258,72 @@ static void handleMainTouch() {
 		// claim refuses SETTINGS. @see ui_readouts
 		uiOpenTool(&UI_SETTINGS);
 	}
+}
+
+/**
+ * @brief Open the tester from MENU's row ESC TESTER (docs/design/menu-c.md,
+ *        slice 3). uiOpenTool() ran testerDisarm() before the push; the
+ *        press and drag state goes too, so the tester opens disarmed, at
+ *        throttle 0, with LATCH off, and only a press that lands on ARM
+ *        after the open is timed.
+ */
+static void testerEnter() {
+	testerDisarm();
+	s_testerLeave = false;
+	s_armPressing = false;
+	s_armLive = false;
+	s_dragging = false;
+	s_padDragging = false;
+	s_padEngaged = false;
+	s_lastTouchMs = millis();
+	invalidateAll();
+}
+
+/**
+ * @brief One tester frame: the touch, the idle and touch-loss interlocks,
+ *        the throttle sent, the draw.
+ * @return false once the MENU button has disarmed and left for MENU.
+ */
+static bool testerTick(const TouchState *) {
+	s_testerLeave = false;
+	// s_zeroSince tracks the last moment throttle was non-zero, so
+	// (millis() - s_zeroSince) is "how long we have been at idle".
+	if (s_throttle != 0) s_zeroSince = millis();
+
+	// Told here rather than from loop(): the UI owns the arm state, and putting
+	// the coupling in main.cpp put it in the one file the host tests never run,
+	// so a test covering it could pass against a broken rule.
+	sdLogSetArmed(s_armed);
+
+	handleMainTouch();
+
+	// idle auto-disarm
+#if IDLE_DISARM_MS > 0
+	if (s_armed && (uint32_t)(millis() - s_lastTouchMs) > IDLE_DISARM_MS)
+		testerStop();
+#endif
+	// A touch that does not answer cannot press DISARM: with LATCH on the
+	// throttle would stand until the idle interlock, 30 s on.
+	if (s_armed && s_touchLost) testerStop();
+
+	escSetThrottle(s_throttle);
+	// The throttle as sent on this frame, after every handler and the
+	// idle disarm changed it: the kV estimate's settle counts from here.
+	kvSettleStep(&s_kvSettle, s_throttle, millis());
+
+	// MENU and a readout leave the tester from handleMainTouch(): the tester
+	// is not painted over the frame the next screen clears. Painting it
+	// anyway is not merely wasted work: whatever it leaves on a row the
+	// incoming screen's regions do not cover stays there.
+	if (s_testerLeave) return false;
+	if (navTop() == &UI_TESTER) {
+		drawStatusBar();
+		drawRpm();
+		drawTelemetry();
+		drawThrottle();
+		drawButtons();
+	}
+	return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -1282,9 +1352,11 @@ static uint8_t testerControls(UiControl *out, uint8_t max) {
 	return n;
 }
 
+// freePins: MENU refuses the row while the pin claim is not Free, as it
+// refuses ESC COMMANDS' (docs/design/menu-c.md, "MENU"): DShot needs the pin.
 const UiScreen UI_TESTER = {
 	UiScreenId::Tester, nullptr, PinUser::None, nullptr,
-	nullptr, nullptr, nullptr, testerControls, nullptr, false,
+	testerEnter, testerTick, nullptr, testerControls, nullptr, true,
 };
 
 /** @brief Every screen by id, for uiControls(). */
@@ -1318,15 +1390,12 @@ static constexpr bool screensComplete() {
 }
 static_assert(screensComplete(), "a screen has no entry in SCREENS, or two");
 
-UiScreenId uiCurrentScreen() {
-	const UiScreen *top = navTop();
-	return top ? top->id : UiScreenId::Tester;
-}
+UiScreenId uiCurrentScreen() { return navTop()->id; }
 
 uint8_t uiNavDepth() { return s_navDepth; }
 
 UiScreenId uiNavAt(uint8_t i) {
-	return i < s_navDepth ? s_nav[i]->id : UiScreenId::Tester;
+	return i < s_navDepth ? s_nav[i]->id : UiScreenId::Menu;
 }
 
 uint8_t uiControls(UiControl *out, uint8_t max) {
@@ -1374,12 +1443,11 @@ static_assert(UI_SPLASH_TOUCH_Y >= UI_SPLASH_RESET_Y + 24,
               "the splash's touch line runs into the settings lines");
 
 void uiSplashTick() {
-	// A read of its own, into a state the tester does not see. The driver
-	// keeps the contact between reads, so a finger that rests on the glass
-	// through the end of the splash gives the tester no press edge on its
-	// first frame: it does not arm or start a drag. Its lift still completes
-	// a tap on a button that acts on release: the driver kept where the
-	// press began.
+	// A read of its own, into a state MENU does not see. The driver keeps
+	// the contact between reads, so a finger that rests on the glass
+	// through the end of the splash gives MENU no press edge on its first
+	// frame, and a MENU row takes a tap only from a press that began on it
+	// (uiListTouch()): the lift opens nothing.
 	TouchState t = {};
 	touchPoll(&t);
 	bool lost = !touchAnswered();
@@ -1406,6 +1474,7 @@ void uiInit() {
 	// on a screen the test did not think it was looking at.
 	memset(s_nav, 0, sizeof(s_nav));
 	s_navDepth = 0;
+	s_testerLeave = false;
 	s_chosen = nullptr;
 	s_chosenEnter = nullptr;
 	s_armed = false;
@@ -1445,6 +1514,13 @@ void uiInit() {
 	gfxFill(C_BG);
 	s_zeroSince = millis();
 	s_lastTouchMs = millis();
+
+	// MENU is the first screen after the splash, the root of the stack
+	// (docs/design/menu-c.md owner decision 1, slice 3). Its first frame
+	// draws it whole. DShot still runs from boot behind it until slice D2
+	// of docs/design/dshot-lifetime.md.
+	navPush(&UI_MENU_SCREEN);
+	uiMenuEnter();
 }
 
 void uiTick() {
@@ -1484,14 +1560,14 @@ void uiTick() {
 		st7789SetBacklight(want);
 	}
 
-	// A tool owns the whole screen, and the pins it claims, while it runs.
-	// A tool returns false once it has left, by BACK or by the leave page's
-	// last button, and the stack pops it to the screen that opened it:
-	// MENU, the hub it was chosen on, or the tester for SETTINGS opened
-	// from a readout (navPop()). A tool chosen on a hub is pushed after the
-	// hub's tick, over the hub.
+	// A screen owns the whole panel, and a tool the pins it claims, while it
+	// runs. A screen returns false once it has left, by BACK, by the leave
+	// page's last button or by the tester's MENU button, and the stack pops
+	// it to the screen that opened it: MENU, the hub it was chosen on, or
+	// the tester for SETTINGS opened from a readout (navPop()). A tool
+	// chosen on a hub is pushed after the hub's tick, over the hub.
 	const UiScreen *top = navTop();
-	if (top && top != &UI_MENU_SCREEN) {
+	if (top != &UI_MENU_SCREEN) {
 		if (!top->tick(&s_touch)) {
 			s_chosen = nullptr;
 			navPop();
@@ -1504,56 +1580,11 @@ void uiTick() {
 		return;
 	}
 
-	// s_zeroSince tracks the last moment throttle was non-zero, so
-	// (millis() - s_zeroSince) is "how long we have been at idle".
-	if (s_throttle != 0) s_zeroSince = millis();
-
-	// Told here rather than from loop(): the UI owns the arm state, and putting
-	// the coupling in main.cpp put it in the one file the host tests never run,
-	// so a test covering it could pass against a broken rule.
+	// MENU, the root. Every route off the tester disarmed it, so the log
+	// hears the tester disarmed while MENU is open.
 	sdLogSetArmed(s_armed);
-
-	// Each handler can navigate away, so each draw is conditional on still being
-	// on that screen. Painting it anyway is not merely wasted work: the press
-	// that leaves also calls gfxFill(), so the extra paint puts the old screen
-	// back over a cleared frame, and whatever it leaves on a row the incoming
-	// screen's regions do not cover stays there. The residue was invisible for
-	// as long as the palette was dark on black; it is not in high contrast.
-	if (top == &UI_MENU_SCREEN) {
-		const UiScreen *open = nullptr;
-		UiMenuResult r = uiMenuTick(&s_touch, &open);
-		if (r == UiMenuResult::Back) {
-			navPop();
-		} else if (r == UiMenuResult::Open) {
-			uiOpenTool(open);
-		}
-	} else {
-		handleMainTouch();
-
-		// idle auto-disarm
-#if IDLE_DISARM_MS > 0
-		if (s_armed && (uint32_t)(millis() - s_lastTouchMs) > IDLE_DISARM_MS)
-			testerStop();
-#endif
-		// A touch that does not answer cannot press DISARM: with LATCH on the
-		// throttle would stand until the idle interlock, 30 s on.
-		if (s_armed && s_touchLost) testerStop();
-
-		escSetThrottle(s_throttle);
-		// The throttle as sent on this frame, after every handler and the
-		// idle disarm changed it: the kV estimate's settle counts from here.
-		kvSettleStep(&s_kvSettle, s_throttle, millis());
-
-		// MENU and a readout leave the tester from handleMainTouch(), over a
-		// cleared frame: the tester is not painted back over it.
-		if (!navTop()) {
-			drawStatusBar();
-			drawRpm();
-			drawTelemetry();
-			drawThrottle();
-			drawButtons();
-		}
-	}
+	const UiScreen *open = nullptr;
+	if (uiMenuTick(&s_touch, &open) == UiMenuResult::Open) uiOpenTool(open);
 
 	st7789FlushDirty();
 }
