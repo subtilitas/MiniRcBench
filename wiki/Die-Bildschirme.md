@@ -632,19 +632,22 @@ von ihr sichtbar sind.
 
 Unter der Liste bleiben diese Elemente an ihrem Platz:
 
-- **Die Warnung zum ESC-Pin**, bei y 230, nur solange der ESC-Pin nicht der
-  ist, der beim Einschalten galt: in Bernstein, zum Beispiel
-  `UNPLUG ANY SERVO FROM GP1 NOW`. Über dem Tester geöffnet läuft DShot ab dem
-  Schritt auf diesem Pin; von MENU aus geöffnet sendet der nächste ESC TESTER
-  dort DShot. Ein dort verbliebenes Servo, etwa nach dem Servotester mit zwei
-  Servos, bewegt sich. Die Liste endet dann
-  12 px höher, bei y 227, und lässt sich 12 px weiter verschieben; ihre
-  oberen Zeilen bleiben, wo sie sind. Mit KISS TELEM an hat der Schritt SIG
-  und AUX getauscht, DShot läuft also auf dem Kabel, an dem das KISS-Pad des
-  ESC hing: Die Zeile zeigt stattdessen
-  `SWAP THE ESC'S SIGNAL AND KISS WIRES`.
+- **Die Warnung zum ESC-Pin**, bei y 230, nur solange DShot unter SETUP
+  läuft, über dem Tester geöffnet: in Bernstein der Pin, auf dem DShot läuft,
+  zum Beispiel `UNPLUG ANY SERVO FROM GP0 NOW`, und nach einem Schritt von
+  SIG PIN ab dem Schritt der neue Pin. Ein dort verbliebenes Servo, etwa nach
+  dem Servotester mit zwei Servos, bewegt sich. Von MENU aus geöffnet ist
+  DShot aus, und die Zeile erscheint nicht, auch nach einem Schritt von SIG
+  PIN: Der nächste ESC TESTER sendet DShot auf dem neuen Pin. Die Liste endet
+  dann 12 px höher, bei y 227, und lässt sich 12 px weiter verschieben; ihre
+  oberen Zeilen bleiben, wo sie sind. Mit KISS TELEM an tauscht ein Schritt
+  SIG und AUX, DShot läuft also auf dem Kabel, an dem das KISS-Pad des ESC
+  hing: Solange SIG nicht auf dem Pin liegt, der beim Einschalten galt, zeigt
+  die Zeile stattdessen `SWAP THE ESC'S SIGNAL AND KISS WIRES`, über dem
+  Tester wie von MENU aus geöffnet.
 - **LINK**: live, Pakete pro Sekunde und Fehlerrate. Grün heißt, es kommen
   Pakete an, der ESC-Pin stimmt also. Bernstein heißt, mehr als 5 % Fehler.
+  Von MENU aus geöffnet, wo DShot aus ist, zeigt es `OFF` in Grau.
 - Die Hinweiszeile: ein Text, der erste, der zutrifft, in dieser Reihenfolge:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (rot) oder
      `NOT WHILE ARMED - DISARM TO SAVE` (rot), bis zum nächsten Speichern
@@ -667,7 +670,7 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
 
 <img src="img/settings-carried.png" width="240" alt="SETUP, nachdem ein Update die gespeicherten Einstellungen übernommen hat: CARRIED OVER BY UPDATE - CHECK, SAVE in der Hinweiszeile">
 
-<img src="img/settings-pin.png" width="240" alt="SETUP, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+<img src="img/settings-pin.png" width="240" alt="SETUP über dem Tester, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 - `HOLD TO SAVE` (150 × 46 px) und `HOLD DEFAULTS` (72 × 46 px), die
   Beschriftung in zwei Zeilen, `HOLD` über `DEFAULTS`, in Bernstein.

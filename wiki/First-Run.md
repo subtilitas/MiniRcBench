@@ -224,12 +224,14 @@ with `HOLD TO SAVE` under the list. The note line reads
 `SETUP` row.
 
 `SIG PIN`, further down, moves the ESC pin to the other GPIO at once: over
-the tester DShot moves with it, from `MENU` the next tester uses it. While it
-is not the pin in use at power-up, a line of its own above `LINK` reads in
-amber `UNPLUG ANY SERVO FROM GP1 NOW`; the note line under it still says
-whether the settings are saved.
+the tester DShot moves with it, from `MENU` the next tester uses it. Opened
+over the tester, by a tap on `MAX` while disarmed, DShot keeps running, and a
+line of its own above `LINK` names the pin it runs on, in amber, for example
+`UNPLUG ANY SERVO FROM GP1 NOW`; the note line under it still says whether
+the settings are saved. Opened from `MENU`, DShot is off: the line does not
+show, and `LINK` reads `OFF`.
 
-<img src="img/settings-pin.png" width="240" alt="SETUP after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
+<img src="img/settings-pin.png" width="240" alt="SETUP over the tester after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 ---
 

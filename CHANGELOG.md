@@ -1333,6 +1333,16 @@ protocol.
 - After v0.1.0-rc1: the log's `eRPM[0]` column is 0 once the last eRPM frame
   is 500 ms old, as the EDT columns expire, so a log started by hand across
   a parked pump no longer repeats the last eRPM.
+- After v0.1.0-rc1: SETUP's pin note, `UNPLUG ANY SERVO FROM GP0 NOW`, shows
+  only while DShot runs under SETUP, opened over the tester, and names the
+  pin the pump runs on, at the pin of the last load too. Opened from MENU,
+  where DShot is parked, it does not show, after a SIG PIN change too;
+  before, it showed there while SIG was off the pin of the last load. With
+  KISS on, the swap note keeps its rule. LINK reads `OFF` in `C_DIM` while
+  DShot is parked. Slice D4 of
+  [dshot-lifetime.md](docs/design/dshot-lifetime.md#d4-as-built), with the
+  comments that stated DShot starting at boot (`SPLASH_MS`, `src/main.cpp`,
+  `escTaskBegin()`). Host tests only.
 - After v0.1.0-rc1: the hubs SERVO and RX SIGNALS draw
   `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in amber as the strip's second line
   while the claim is free; a hub's busy caption takes that line. MONITOR on RX
