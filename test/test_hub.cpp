@@ -711,8 +711,11 @@ static void testServoScroll() {
 	checkTrue("the title SERVO, 58 px at scale 2 from x 8, ends at x 66, 4 px or more before BACK",
 	          gfxTextW(UI_SERVO_HUB_TITLE, 2) == 58 && UI_MARGIN + 58 + 4 <= UI_BACK_X &&
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO", C_TEXT, C_PANEL, 2));
-	checkTrue("the strip at OWN: SIG GP0  AUX GP1  SERVO SUPPLY OWN, dim",
-	          hubLine(UI_STRIP_Y + 4, "SIG GP0  AUX GP1  SERVO SUPPLY OWN", C_DIM));
+	// The pins as set: SIG GP0 and AUX GP1 with the default wiring.
+	char own[48];
+	snprintf(own, sizeof(own), "SIG GP%u  AUX GP%u  SERVO SUPPLY OWN", (unsigned)settings()->dshotPin,
+	         (unsigned)settings()->kissPin);
+	checkTrue("the strip at OWN: SIG GP0  AUX GP1  SERVO SUPPLY OWN, dim", hubLine(UI_STRIP_Y + 4, own, C_DIM));
 	checkTrue("the strip at its widest, 35 characters, 209 px, ends at x 217",
 	          strlen("SIG GP0  AUX GP1  SERVO SUPPLY GP28") == 35 &&
 	          gfxTextW("SIG GP0  AUX GP1  SERVO SUPPLY GP28", 1) == 209 && UI_MARGIN + 209 == 217);
@@ -825,7 +828,7 @@ static void testServoScroll() {
 	}
 	checkTrue("the header and the strip stay: the list is clipped under them",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO", C_TEXT, C_PANEL, 2) &&
-	          hubLine(UI_STRIP_Y + 4, "SIG GP0  AUX GP1  SERVO SUPPLY OWN", C_DIM));
+	          hubLine(UI_STRIP_Y + 4, own, C_DIM));
 	checkControlTable("SERVO at 146 px");
 	fakeDumpFrame("shot_servo_hub_scrolled.ppm");
 	tapId(HUB_ENTRY(4), IdExpect::Disabled);
@@ -869,7 +872,8 @@ static void testServoScroll() {
 	hubFrames(1);
 	{
 		char strip[48];
-		snprintf(strip, sizeof(strip), "SIG GP0  AUX GP1  SERVO SUPPLY GP%u", (unsigned)servoSupplyPinOf(1));
+		snprintf(strip, sizeof(strip), "SIG GP%u  AUX GP%u  SERVO SUPPLY GP%u", (unsigned)settings()->dshotPin,
+		         (unsigned)settings()->kissPin, (unsigned)servoSupplyPinOf(1));
 		checkTrue("the strip names the supply's pin", hubLine(UI_STRIP_Y + 4, strip, C_DIM));
 	}
 	revealEntry(4);
