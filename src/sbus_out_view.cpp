@@ -59,6 +59,8 @@ void sbusOutNotes(const SbusOutStatus *st, SbusOutStop stop, uint8_t thrCh, uint
 		why = SBUS_OUT_VIEW_REFUSED;
 	} else if (stop == SbusOutStop::Idle) {
 		why = SBUS_OUT_VIEW_IDLE;
+	} else if (stop == SbusOutStop::Touch) {
+		why = SBUS_OUT_VIEW_TOUCH;
 	}
 	// The warning stays wherever START can be reached: an ESC plugged in
 	// since the probe is what it is for.

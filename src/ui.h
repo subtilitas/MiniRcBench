@@ -47,6 +47,22 @@ void uiSplashTick();
 /** @brief The splash's touch line's top row, above the name. */
 #define UI_SPLASH_TOUCH_Y 64
 
+/**
+ * @brief The tester's note while the touch controller does not answer, in
+ *        amber in place of the swipe hint at x 113, y 114: 19 characters,
+ *        113 px. `NO TELEMETRY`, the line above, stays where it is.
+ */
+#define UI_TOUCH_LOST_TEXT "TOUCH NOT ANSWERING"
+
+/**
+ * @brief Whether the touch controller does not answer: no answer since
+ *        touchInit(), or @ref TOUCH_LOST_READS failed reads in a row and
+ *        @ref TOUCH_LOST_MS or more since the last answer. Taken once a frame
+ *        after the touch read in uiTick(), so a tool's tick reads the value
+ *        of its own frame.
+ * @return true while it did not answer at the last frame.
+ */
+bool uiTouchLost();
 
 /**
  * @brief Run one UI frame.

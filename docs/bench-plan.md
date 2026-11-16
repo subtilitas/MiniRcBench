@@ -95,11 +95,6 @@ bluejay-blheli-s.md's slice 6, which is not built.
   v0.1.0-rc1 pre-release image (tag at a93e1c1) predates the tools of
   Sessions 3 to 9 and serves Sessions 1 and 2 only; it writes a settings
   block of version 5, which `OI-19` uses.
-- **Pull request #49 image.** The branch `ccr-ux-pass2`, built the same
-  way, for the touch-loss check `OI-23` only. Its settings block is
-  version 5: flashed over `main`, it discards `main`'s version 6 block
-  whole and starts from its compiled defaults; a block it saves is carried
-  over when `main` is flashed back.
 - **`tools/sdtest`.** The SD bring-up firmware, target `sdtest` of the same
   build, for `SD-5`.
 - **A bring-up build for `CS-B6`**, which polls the INA219's bus register
@@ -744,27 +739,22 @@ order; [pin-claim.md](design/pin-claim.md#hardware).
 - **Result to:** verification table, row "Pin claim"; open item 8.
 - **Safety:** propeller off.
 
-#### OI-23. The touch-loss stop of pull request #49
+#### OI-23. The touch-loss stop
 
-[STATUS.md](../STATUS.md#open-items) open item 23; branch `ccr-ux-pass2`,
-whose STATUS.md names the same check under its item 22.
+[STATUS.md](../STATUS.md#open-items) open item 23.
 
 - **Verifies:** the CST328 answers reads with no finger on the glass for
-  minutes. **Why:** pull request #49 disarms the tester when the controller
-  does not answer for 4 reads in a row and 100 ms; if the controller dozes,
+  minutes. **Why:** the firmware disarms the tester, stops SERVO TESTER and
+  stops S.BUS OUTPUT's frames when the controller does not answer for
+  4 reads in a row and 100 ms (`uiTouchLost()`); if the controller dozes,
   it disarms every latched motor shortly after the finger lifts.
-- **Setup:** E; the pull request #49 image. It discards `main`'s version 6
-  settings block and starts from its defaults (see "Firmware for the
-  bench"): check SIG PIN and MAX THROTTLE before arming, and expect
-  `main`'s settings reset or carried over from version 5 when it is flashed
-  back.
+- **Setup:** E; the main image.
 - **Steps:** power up and leave the tester untouched for 5 min; then,
-  propeller off, arm with the latch on (HOLD on that branch, LATCH on
-  `main`) at a low throttle and lift the finger.
+  propeller off, arm with LATCH on at a low throttle and lift the finger.
 - **Pass:** `TOUCH NOT ANSWERING` does not appear in the 5 min; the motor
   runs until DISARM or the 30 s idle disarm.
 - **Record:** the time watched; when the motor stopped and why.
-- **Result to:** open item 23; the pull request.
+- **Result to:** open item 23.
 - **Safety:** propeller off, motor clamped; a hand on the ESC's power cut.
 
 #### RS-4. The run summary against the log
