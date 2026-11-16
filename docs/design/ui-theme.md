@@ -872,27 +872,31 @@ How green as "a press starts" stays apart from green as "safe, done":
 A green HOLD TO ARM does not say "safe". What keeps the arm control and
 ARMED unambiguous:
 
-1. **Two different things are green while the bench is safe,** and they differ
-   in every other way: the badge at the top left is a frame around the word
-   SAFE; the button at the bottom left is a fill under the order HOLD TO ARM. 2.
-   **Nothing is filled green while armed.** The button reads DISARM on `C_RED`
-   at scale 2, and the badge reads ARMED on `C_RED`. A green fill on the tester
-   therefore means "not armed, and a hold arms". 3. **ARMED is the only filled
-   badge.** SAFE is an outline. rcbench does the same, "readable by shape at
-   arm's length, not by colour alone" (`chip_look()`). 4. **The hold shows.**
-   From the first frame of a hold that arming allows the button is `C_RED`, and
-   the `C_LIME` progress grows along the badge's lower edge, 92 px in 1000 ms
-   (`ARM_HOLD_MS`). At cff09ae the button keeps its rest fill while held and
-   shows the press by its frame only (`drawButtons()` in `src/ui.cpp`); it takes
-   the rule of every hold. 5. **Refused is not green.** HOLD TO ARM is the
-   disabled button, `C_BG`, a frame, a `C_GRID` label, while arming is refused:
-   while a USB host holds the card, while the arm gate of
-   [dshot-lifetime.md](dshot-lifetime.md#decisions) decisions 10 and 12 holds,
-   1500 ms from each bind, and while #49's touch loss refuses arming. A press
-   that lands on it then is not timed and draws no progress on the badge. 6.
-   **The numbers.** Green against red in the one rectangle is 88.6, and 19.1 at
-   the least through a simulation, the label and its scale apart ([The cues of
-   the decisions](#the-cues-of-the-decisions)).
+1. **Two different things are green while the bench is safe,** and they
+   differ in every other way: the badge at the top left is a frame around
+   the word SAFE; the button at the bottom left is a fill under the order
+   HOLD TO ARM.
+2. **Nothing is filled green while armed.** The button reads DISARM on
+   `C_RED` at scale 2, and the badge reads ARMED on `C_RED`. A green fill
+   on the tester therefore means "not armed, and a hold arms".
+3. **ARMED is the only filled badge.** SAFE is an outline. rcbench does
+   the same, "readable by shape at arm's length, not by colour alone"
+   (`chip_look()`).
+4. **The hold shows.** From the first frame of a hold that arming allows
+   the button is `C_RED`, and the `C_LIME` progress grows along the badge's
+   lower edge, 92 px in 1000 ms (`ARM_HOLD_MS`). At cff09ae the button
+   keeps its rest fill while held and shows the press by its frame only
+   (`drawButtons()` in `src/ui.cpp`); it takes the rule of every hold.
+5. **Refused is not green.** HOLD TO ARM is the disabled button, `C_BG`, a
+   frame, a `C_GRID` label, while arming is refused: while a USB host
+   holds the card, while the arm gate of
+   [dshot-lifetime.md](dshot-lifetime.md#decisions) decisions 10 and 12
+   holds, 1500 ms from each bind, and while #49's touch loss refuses
+   arming. A press that lands on it then is not timed and draws no
+   progress on the badge.
+6. **The numbers.** Green against red in the one rectangle is 88.6, and
+   19.1 at the least through a simulation, the label and its scale apart
+   ([The cues of the decisions](#the-cues-of-the-decisions)).
 
 ### Units and groups
 
