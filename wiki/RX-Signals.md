@@ -236,8 +236,17 @@ read `SAFE` and **HOLD TO START** become available.
   `STOPPED: NO TOUCH FOR 30 S.` An FC armed by a switch spins its motors at
   idle even at zero throttle. With every value at its first frame the
   frames go on, so the FC's receiver page can stay open.
+- **The touch controller does not answer**: four reads in a row fail over
+  100 ms or more, so `STOP` cannot be pressed. The frames stop as on
+  `STOP`, on the main view and on SET, the note reads
+  `STOPPED: TOUCH DID NOT ANSWER` until the next START, and `HOLD TO START`
+  is drawn as an outline until the controller answers again. The tester
+  and the servo tester stop on the same rule (see
+  [The Screens](The-Screens#the-tester)).
 
 After any stop, hold START again; the first frame is the fixed one again.
+
+<img src="img/sbus-out-touch-lost.png" width="240" alt="S.BUS OUTPUT after the touch controller stopped answering: the SAFE chip, STOPPED: TOUCH DID NOT ANSWER and NEVER TO AN ESC. PROPS OFF. in amber, HOLD TO START as an outline">
 
 <img src="img/sbus-out-stalled.png" width="240" alt="S.BUS OUTPUT after the screen stalled: the STALLED chip, STOPPED: SCREEN STALLED in magenta, NEVER TO AN ESC. PROPS OFF. in amber">
 

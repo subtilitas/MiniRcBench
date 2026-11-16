@@ -46,6 +46,41 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: a touch controller that stops answering stops the outputs a
+  finger would have to stop. The touch driver records the time of its last
+  answer (`touchAnsweredMs()`, which core1's servo job reads too) and counts its
+  failed finger reads in a row (`touchFailedReads()`, 0 after `touchInit()`).
+  With four or more failed reads in a row and 100 ms or more since the last
+  answer (`TOUCH_LOST_MS`, four UI frames), or no answer since `touchInit()`,
+  the touch counts as not answering (`uiTouchLost()`, taken once a UI frame
+  before any screen's tick). Then an armed tester disarms by the idle
+  interlock's path, LATCH off; arming is refused and HOLD TO ARM is drawn
+  disabled; `TOUCH NOT ANSWERING` replaces the swipe hint, and the 3D note, in
+  amber. SERVO TESTER stops a running servo as STOP does, on the main view and
+  on SET, refuses HOLD TO START and shows the same note on its dial, before
+  every other note there, over `THE SERVO IS STOPPED.` when the stop or core1's
+  250 ms cut (the heartbeat, or the touch silent with the switched supply) ended
+  a run and `HOLD TO START WORKS ONCE IT ANSWERS.` otherwise; a Start waiting
+  for a log to open is not sent while the touch does not answer, and the log
+  ends; with the switched supply this comes before core1's 250 ms touch cut,
+  which stays behind it for UI frames too slow to count four failed reads in
+  250 ms. S.BUS OUTPUT stops its frames as STOP does, on the main view and on
+  SET, reads `STOPPED: TOUCH DID NOT ANSWER` (`SbusOutStop::Touch`) until the
+  next HOLD TO START, and refuses HOLD TO START while it lasts. A core0 stall
+  alone, such as a card write, does not count: it is one failed read at most.
+  ESC COMMANDS, the servo programmers, ESC SETTINGS and the USB bridge do not
+  stop on it: their operations end by themselves, a write is not cut, and the
+  bridge sends what the PC sends, with DShot off. Before, a latched throttle ran
+  until the idle interlock, 30 s after the last touch, and S.BUS OUTPUT's frames
+  ran on, on the START frame without end. Whether the controller answers with no
+  finger on the glass for minutes is not measured (STATUS.md open item 23, bench
+  test `OI-23`); by the owner's decision of 2026-11-15 the stop is in 0.1.0
+  before that check. Host tests `testTouchLoss()` and `testTouchLossStall()` in
+  `test/test_ui.cpp`, `testTouchLossStops()`, the switched supply's touch cases
+  and the touch lost after a guard's cut in `testCutScreens()` in
+  `test/test_servo.cpp`, `testTouchLoss()` in `test/test_sbus_out_ui.cpp` and
+  the driver against the CST328 model, mutation-checked; the wiki shows
+  `tester-touch-lost.png` and `sbus-out-touch-lost.png`.
 - After v0.1.0-rc1: the wiki shows the six screens no page showed, in both
   languages. USB BRIDGE's `RELEASING SIG GP0` strip, its failed bind
   (`SIG GP0 COULD NOT BE TAKEN (PIO)` with `RETRY`), the card held by USB
@@ -1217,7 +1252,7 @@ protocol.
   rcbench ran it at DShot600 on one AM32 ESC. The wiki footer says a
   pre-release publishes no manual.
 - After v0.1.0-rc1: the documentation follows the code. STATUS.md's "Next
-  steps" states what is open now: the draft pull request #49, the tags
+  steps" states what is open now: the tags
   (v0.1.0-rc1 exists, v0.1.0-rc2 is not tagged), the bench plan as the next
   work and what waits on the owner. The design index and the status lines of
   the design notes name the built slices, and the notes of the write cache

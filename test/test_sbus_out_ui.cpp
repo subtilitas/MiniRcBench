@@ -128,6 +128,17 @@ static void testViewChipNotes() {
 	checkTrue("then the idle rule: STOPPED: NO TOUCH FOR 30 S., amber",
 	          strcmp(a, "STOPPED: NO TOUCH FOR 30 S.") == 0 && ca == UI_COL_WARN &&
 	          strcmp(b, "NEVER TO AN ESC. PROPS OFF.") == 0 && cb == UI_COL_WARN && gfxTextW(a, 1) == 161);
+	sbusOutNotes(&st, SbusOutStop::Touch, 2, 499, 400, a, b, sizeof(a), &ca, &cb);
+	checkTrue("a touch that did not answer: STOPPED: TOUCH DID NOT ANSWER, amber, 173 px",
+	          strcmp(a, "STOPPED: TOUCH DID NOT ANSWER") == 0 && ca == UI_COL_WARN &&
+	          strcmp(b, "NEVER TO AN ESC. PROPS OFF.") == 0 && cb == UI_COL_WARN && gfxTextW(a, 1) == 173);
+	st.tripped = true;
+	sbusOutNotes(&st, SbusOutStop::Touch, 2, 499, 400, a, b, sizeof(a), &ca, &cb);
+	checkTrue("the heartbeat outranks it", strcmp(a, "STOPPED: SCREEN STALLED") == 0);
+	st = status();
+	st.running = true;
+	sbusOutNotes(&st, SbusOutStop::Touch, 2, 499, 400, a, b, sizeof(a), &ca, &cb);
+	checkTrue("RUNNING outranks it", strcmp(a, "THROTTLE CH3: 1000 TO 1200 US (20%).") == 0);
 }
 
 static void testViewRows() {
@@ -712,6 +723,85 @@ static void testHeartbeat() {
 	fakeDumpFrame("shot_sbus_out_stalled.ppm");
 	checkTrue("a new HOLD TO START: frames, RUNNING, the trip gone",
 	          holdStart() && !jobSt().tripped && chipIs("RUNNING", UI_COL_ON) && sent().channel[2] == 172);
+	checkTrue("back to MENU", leaveToMenu());
+	tapId(UI_FIX(UI_BACK));
+}
+
+/**
+ * @brief A touch controller that does not answer (uiTouchLost()) stops the
+ *        frames by STOP's command, on the main view and on SET, says so, and
+ *        refuses HOLD TO START while it lasts; START clears the note.
+ */
+static void testTouchLoss() {
+	section("S.BUS OUTPUT: a touch that does not answer stops the frames");
+	freshUi();
+	openOutput();
+	checkTrue("SAFE", toSafe());
+	checkTrue("START", holdStart());
+	drag(2, 20);
+	soFrames(2);
+	checkTrue("RUNNING, the throttle up", jobSt().running && sent().channel[2] > 172);
+
+	// The last answer was on the last frame.
+	fakeTouchAnswers(false);
+	soFrames(3);
+	checkTrue("75 ms without an answer: frames go on", jobSt().running && !uiTouchLost() &&
+	          held().kind != SbusOutCmdKind::Safe);
+	soFrames(1);
+	checkTrue("100 ms: lost, STOP's command held for core1",
+	          uiTouchLost() && held().kind == SbusOutCmdKind::Safe);
+	soFrames(1);
+	const int tx = fakeUartTxCount();
+	soFrames(4);
+	SbusOutStatus st = jobSt();
+	checkTrue("the frames off, no frame more, no trip", !st.running && !st.tripped &&
+	          fakeUartTxCount() == tx);
+	checkTrue("the chip SAFE", chipIs("SAFE", UI_COL_SAFE));
+	checkTrue("STOPPED: TOUCH DID NOT ANSWER, amber; the warning, amber",
+	          leftIs(SBOUT_UI_NOTE1_Y, SBUS_OUT_VIEW_TOUCH, UI_COL_WARN) &&
+	          leftIs(SBOUT_UI_NOTE2_Y, "NEVER TO AN ESC. PROPS OFF.", UI_COL_WARN));
+	checkTrue("HOLD TO START drawn disabled while lost", !ctlEnabled(UI_FIX(SbusOutCtl::Start)));
+	fakeDumpFrame("shot_sbus_out_touch_lost.ppm");
+	// The fake still reports the finger: a hold reaches the gate. Every
+	// frame of it: no Start sent, no byte on the line.
+	{
+		int x, y;
+		ctlCentre(UI_FIX(SbusOutCtl::Start), &x, &y);
+		const int tx0 = fakeUartTxCount();
+		bool noStart = true;
+		fakePress(x, y);
+		tick(25);
+		for (int k = 0; k < 44; k++) {
+			noStart = noStart && held().kind != SbusOutCmdKind::Start &&
+			          fakeUartTxCount() == tx0 && !jobSt().running;
+			if (k < 40) fakeHold(x, y);
+			else if (k == 40) fakeRelease();
+			tick(25);
+		}
+		checkTrue("HOLD TO START held 1.1 s while lost: no Start, no byte, no frames",
+		          noStart && held().kind == SbusOutCmdKind::Safe &&
+		          fakeUartTxCount() == tx0 && !jobSt().running);
+	}
+
+	fakeTouchAnswers(true);
+	soFrames(1);
+	checkTrue("answering: HOLD TO START live, the note stays until START",
+	          ctlEnabled(UI_FIX(SbusOutCtl::Start)) &&
+	          leftIs(SBOUT_UI_NOTE1_Y, SBUS_OUT_VIEW_TOUCH, UI_COL_WARN));
+	checkTrue("a new START clears it", holdStart() &&
+	          leftIs(SBOUT_UI_NOTE1_Y, "THROTTLE CH3: 1000 TO 1200 US (20%).", C_TEXT));
+
+	// On SET.
+	tapId(UI_FIX(SbusOutCtl::Set));
+	checkTrue("SET, RUNNING", jobSt().running);
+	fakeTouchAnswers(false);
+	soFrames(6);
+	checkTrue("lost on SET: the frames off", !jobSt().running && !jobSt().tripped);
+	fakeTouchAnswers(true);
+	soFrames(1);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the main view: the note",
+	          leftIs(SBOUT_UI_NOTE1_Y, SBUS_OUT_VIEW_TOUCH, UI_COL_WARN));
 	checkTrue("back to MENU", leaveToMenu());
 	tapId(UI_FIX(UI_BACK));
 }
@@ -1365,6 +1455,7 @@ void runSbusOutUiTests() {
 	testSlidersCeiling();
 	testHeartbeat();
 	testIdle();
+	testTouchLoss();
 	testSet();
 	testLeave();
 	testBootloader();

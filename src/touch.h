@@ -89,7 +89,8 @@ bool touchInit();
  *
  * An answer is the presence check in touchInit() returning the 0xCACA ID,
  * or a finger read in touchPoll() that completes. The splash reads it
- * (uiSplashTick()).
+ * (uiSplashTick()); the tester and the servo tester read it, with
+ * touchAnsweredMs() and touchFailedReads(), through uiTouchLost().
  *
  * This is the touch controller's own record. The shared bus's record in
  * sense.h counts timeouts and held lines for the stuck decision and not a
@@ -110,11 +111,24 @@ bool touchAnswered();
  * Core0 writes it, core1 reads it, as escHeartbeatMs(): the servo tester's
  * job switches the servo's supply off once it is 250 ms old, since STOP is
  * then out of reach (docs/design/current-sense.md, "Safety and
- * interlocks"). 0 while the controller has not answered since boot.
+ * interlocks"). On core0, uiTouchLost() reads it with touchFailedReads().
+ * 0 while the controller has not answered since boot.
  *
  * @return The stamp.
  */
 uint32_t touchAnsweredMs();
+
+/**
+ * @brief How many finger reads in a row have failed: 0 after touchInit()
+ *        and after a read that completes, held at 255.
+ *
+ * With touchAnsweredMs() it tells a controller that stopped answering from a
+ * core0 stall: after a stall of any length the next read is one failure, not
+ * several. @see uiTouchLost()
+ *
+ * @return The failed reads in a row.
+ */
+uint8_t touchFailedReads();
 
 /**
  * @brief Poll the controller and update @p t.

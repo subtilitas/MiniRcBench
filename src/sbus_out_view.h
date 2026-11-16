@@ -19,6 +19,7 @@
  * | Stopped by the heartbeat | `STOPPED: SCREEN STALLED`, @ref UI_COL_ALERT | `NEVER TO AN ESC. PROPS OFF.`, @ref UI_COL_WARN |
  * | Encoder refused | `STOPPED: FRAME REFUSED.`, @ref UI_COL_WARN | as above |
  * | Stopped by the idle rule | `STOPPED: NO TOUCH FOR 30 S.`, @ref UI_COL_WARN | as above |
+ * | Stopped by a touch that does not answer | `STOPPED: TOUCH DID NOT ANSWER`, @ref UI_COL_WARN | as above |
  * | SAFE | `GP0 GOES TO A FLIGHT CONTROLLER.`, @ref UI_COL_WARN | `NEVER TO AN ESC. PROPS OFF.`, @ref UI_COL_WARN |
  *
  * @see docs/design/sbus-output.md, "Screen"
@@ -48,6 +49,11 @@
 #define SBUS_OUT_VIEW_STALL    "STOPPED: SCREEN STALLED"
 /** @brief After the idle rule: 27 characters, 161 px. */
 #define SBUS_OUT_VIEW_IDLE     "STOPPED: NO TOUCH FOR 30 S."
+/**
+ * @brief After a touch that does not answer (uiTouchLost()): 29 characters,
+ *        173 px, as SERVO TESTER's touch cut.
+ */
+#define SBUS_OUT_VIEW_TOUCH    "STOPPED: TOUCH DID NOT ANSWER"
 /** @brief After a frame sbus_encode() refused: 23 characters, 137 px. */
 #define SBUS_OUT_VIEW_REFUSED  "STOPPED: FRAME REFUSED."
 /** @} */
@@ -70,6 +76,7 @@ enum class SbusOutChip : uint8_t {
 enum class SbusOutStop : uint8_t {
 	None,  /**< No stop of the screen's own since START. */
 	Idle,  /**< The idle rule (sbusOutIdleDue()) sent STOP. */
+	Touch, /**< A touch that does not answer (uiTouchLost()) sent STOP. */
 };
 
 /**
