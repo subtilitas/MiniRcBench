@@ -496,8 +496,8 @@ page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 BACK TO SERVO.`
 
 ## Switched supply
 
-With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo itself
-through a DC-DC converter whose enable input is on GP28, J4 pin 11, or
+With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo
+itself through a DC-DC converter whose enable input is on GP28, J4 pin 11, or
 GP29, J4 pin 12. The
 converter gives 5 V, more than 1 A, and has an external pull-down on its
 enable: 10 kΩ to 100 kΩ for an enable with no internal pull-up. **An ESC on

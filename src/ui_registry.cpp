@@ -37,8 +37,8 @@ constexpr UiMenuEntry UI_MENU[] = {
 	{ UI_ESC_CFG_TITLE,    0, &UI_ESC_CONFIG       },   // the hub: ESC COMMANDS, ESC SETTINGS, USB BRIDGE
 	{ UI_SERVO_HUB_TITLE,  0, &UI_SERVO_HUB_SCREEN },   // the hub: the tester, the angle meter, the programmers
 	{ UI_RX_TITLE,         0, &UI_RX_SIGNALS       },   // the hub: MONITOR, OUTPUT
-	{ "LOGS",           10, &UI_SDLOG            },   // ui_sdlog.cpp: CARD ERROR
-	{ "SETUP",          7, &UI_SETTINGS         },   // ui_settings.cpp: UNSAVED, UPDATED
+	{ "LOGS",             10, &UI_SDLOG           },   // ui_sdlog.cpp: CARD ERROR
+	{ "SETUP",             7, &UI_SETTINGS          },   // ui_settings.cpp: UNSAVED, UPDATED
 };
 constexpr uint8_t UI_MENU_COUNT = (uint8_t)(sizeof(UI_MENU) / sizeof(UI_MENU[0]));
 static_assert(UI_MENU_COUNT == 6, "MENU does not have its six rows");

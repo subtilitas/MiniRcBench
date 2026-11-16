@@ -1318,7 +1318,7 @@ The strict firmware build holds all of them. `A SERVO ON ITS OWN SUPPLY
 NEEDS SETUP > SERVO SUPPLY AT OWN.` is 60 characters. `kstWrap()` never
 starts a line with a lone `>`, so it breaks the text at 31, `A SERVO ON ITS
 OWN SUPPLY NEEDS` and `SETUP > SERVO SUPPLY AT OWN.`, and the path stays
-whole; `testWrap()` in `test/test_kst_view.cpp` and the KST case check the
+whole; the break moves one word earlier where the line has an earlier space; `testWrap()` in `test/test_kst_view.cpp` and the KST case check the
 break. The leave pages of D2
 take the hub's title as the hub draws it, so `BACK TO RX SIGNALS.` and
 `BACK TO ESC CONFIG.` became the two texts above, and `AM32_UI_LEAVE_2`

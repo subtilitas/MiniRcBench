@@ -222,7 +222,7 @@ wenn die Drehzahlanzeige funktioniert.
 
 <img src="img/log-nocard.png" width="240" alt="Keine Karte">
 
-Sieh auf die `MOUNT`-Zeile des SD-LOG-Bildschirms.
+Sieh auf die `MOUNT`-Zeile des LOGS-Bildschirms.
 
 - **`3 NOT READY`**: Die Karte ist nicht angelaufen. Mit
   `INSERT A CARD, THEN RETRY MOUNT` hat nichts geantwortet: keine Karte, oder

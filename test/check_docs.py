@@ -154,7 +154,7 @@ REMOVED_TEXTS = [
     (r"MENU\s*(→|>|->|&gt;)\s*(ESC COMMANDS|SERVO TESTER|ANGLE METER)",
      "a tool as a MENU row, now an entry of the hub ESC PROGRAM or SERVO "
      "(menu-c.md owner decision 4, slice 4)"),
-    (r"\bESC CONFIG\b|\bRX SIGNALS\b|\bSD LOG\b|\bANGLE SETUP\b|"
+    (r"\bESC CONFIG\b|\bRX SIGNALS\b|\bSD[ -]LOG\b|\bANGLE SETUP\b|"
      r"MENU\s*(→|>|->|&gt;)\s*SETTINGS\b|"
      r"(?<!ESC )(?<!AM32 )\bSETTINGS\s*(→|>|->|&gt;)|"
      r"(\||^#+\s+|\*\*|`)\s*SETTINGS\s*(\||$|\*\*|`)",

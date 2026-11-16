@@ -689,7 +689,7 @@ Hintergrundbeleuchtung auf 255, solange er an ist.*
 
 ## LOGS
 
-<img src="img/log-ready.png" width="240" alt="SD-LOG-Bildschirm, Karte bereit">
+<img src="img/log-ready.png" width="240" alt="LOGS-Bildschirm, Karte bereit">
 
 Aufzeichnungszustand und Zähler, nach dem Beenden der Lauf der letzten
 Aufzeichnung. `BACK` führt zu `MENU` zurück. Siehe
@@ -839,7 +839,7 @@ Misst Winkel an der Schwerkraft mit dem Beschleunigungssensor der Platine:
 den Winkel um die Achse in Größe 5, die Neigung der Achse und den Chip
 `SETTLED` in der Leiste, mit gesetzter LENGTH den Weg der Endleiste in mm,
 MAX je Seite und die Temperatur der Platine. In der Fußleiste `ZERO`,
-`RESET MAX` und `ANGLE SET`; ANGLE SET enthält ALONG AXIS, LENGTH, SIGN und die
+`RESET MAX` und `SET`; ANGLE SET enthält ALONG AXIS, LENGTH, SIGN und die
 Kalibrierung in drei Lagen, FLIP CAL. `BACK` auf der Hauptansicht schaltet
 den Beschleunigungssensor ab und führt zu SERVO, der Auswahl; auf ANGLE SET und
 FLIP CAL geht es eine Ebene hoch. Nicht auf Hardware getestet; die Genauigkeit

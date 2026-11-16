@@ -6,7 +6,7 @@ Der Tester zeichnet die Telemetrie im Betaflight-Blackbox-Format auf microSD
 auf, mit 500 Frames pro Sekunde. Ein Frame hat im Mittel 14,5 Byte (gemessen),
 also 7,3 kB/s oder 26 MB pro Stunde.
 
-<img src="img/log-screen.png" width="240" alt="SD-LOG-Bildschirm während der Aufzeichnung">
+<img src="img/log-screen.png" width="240" alt="LOGS-Bildschirm während der Aufzeichnung">
 
 ---
 
@@ -15,29 +15,29 @@ also 7,3 kB/s oder 26 MB pro Stunde.
 Verwende eine microSD-Karte mit FAT32 (File Allocation Table). Die Karte wird
 einmal beim Start eingebunden, und die Platine hat keinen
 Karten-Erkennungspin. Steck die Karte vor dem Einschalten ein, oder drück nach
-dem Einstecken `RETRY MOUNT` auf dem SD-LOG-Bildschirm.
+dem Einstecken `RETRY MOUNT` auf dem LOGS-Bildschirm.
 
 Die Dateien landen im Verzeichnis `LOGS` als `LOG00001.BFL`, `LOG00002.BFL`
 und so weiter. Jede neue Datei erhält die Nummer nach der höchsten
-`LOGnnnnn.BFL` in `LOGS`, die höchste Nummer ist also die neueste
+`LOGnnnnn.BFL` im Verzeichnis `LOGS`, die höchste Nummer ist also die neueste
 Aufzeichnung: Liegen `LOG00001.BFL` bis `LOG00005.BFL` auf der Karte und ist
 `LOG00002.BFL` gelöscht, heißt die nächste Aufzeichnung `LOG00006.BFL`. Ein
-leeres oder neues `LOGS` beginnt mit `LOG00001.BFL`. Namen zählen in jeder
-Groß- und Kleinschreibung (`log00007.bfl` ist für die Karte `LOG00007.BFL`);
-andere Namen wie `LOG0007.BFL`, `LOG00007.TXT` oder ein umbenanntes Log
-zählen nicht. Vorhandene Logs werden nicht überschrieben. Logs, die eine
-frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen nicht
-mit. Jede Datei trägt die Zeit der Echtzeituhr der Platine, sobald die Uhr
+leeres oder neues Verzeichnis `LOGS` beginnt mit `LOG00001.BFL`. Namen zählen in
+jeder Groß- und Kleinschreibung (`log00007.bfl` ist für die Karte
+`LOG00007.BFL`); andere Namen wie `LOG0007.BFL`, `LOG00007.TXT` oder ein
+umbenanntes Log zählen nicht. Vorhandene Logs werden nicht überschrieben. Logs,
+die eine frühere Firmware ins Wurzelverzeichnis schrieb, bleiben dort und zählen
+nicht mit. Jede Datei trägt die Zeit der Echtzeituhr der Platine, sobald die Uhr
 seit dem Einschalten gestellt ist (siehe [Die Uhr](#die-uhr)). Davor tragen
 die Dateien das FAT-Datum und die Uhrzeit 0, die kein gültiges Datum sind;
 wie ein Computer sie zeigt, ist nicht geprüft.
 
-Die Platine liest `LOGS` einmal, bei der ersten Aufzeichnung nach dem
-Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB DRIVE`,
-das neue Einbinden durch ein Werkzeug) und bei der ersten Aufzeichnung nach
-einem Kartenfehler, und zählt von dort weiter. Mit vielen Logs auf der
+Die Platine liest das Verzeichnis `LOGS` einmal, bei der ersten Aufzeichnung
+nach dem Einbinden der Karte (Einschalten, `RETRY MOUNT`, das Ende von `USB
+DRIVE`, das neue Einbinden durch ein Werkzeug) und bei der ersten Aufzeichnung
+nach einem Kartenfehler, und zählt von dort weiter. Mit vielen Logs auf der
 Karte liest dieser erste Start mehr von der Karte: einen 512-Byte-Block je
-16 Dateien mit kurzen Namen. Der SD-LOG-Bildschirm nennt die letzte
+16 Dateien mit kurzen Namen. Der LOGS-Bildschirm nennt die letzte
 Aufzeichnung der Sitzung (siehe `FILE` unten).
 
 Nach `LOG99999.BFL` ist keine Nummer mehr frei: Keine Aufzeichnung beginnt,
@@ -99,7 +99,7 @@ sie hält, und die Daten auf einer Karte sind nicht geprüft.
 **Automatisch:** Scharfschalten startet eine Aufzeichnung, Entschärfen beendet
 sie.
 
-**Manuell:** `START` auf dem SD-LOG-Bildschirm startet jederzeit eine
+**Manuell:** `START` auf dem LOGS-Bildschirm startet jederzeit eine
 Aufzeichnung. Eine von Hand gestartete Aufzeichnung wird durch Entschärfen
 nicht beendet. `STOP` beendet sie.
 
@@ -107,24 +107,24 @@ Der Tester-Bildschirm zeigt den Zustand in der oberen Zeile: `REC` (rot)
 während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 `NOSD` ohne Karte. `SDERR` steht auf einem bernsteinfarbenen Feld zwischen der
 Scharf-Anzeige und `BOARD`, damit eine Aufzeichnung, die von selbst endete,
-auch im scharfen Zustand auffällt. LOGS sagt, was geschah.
+auch im scharfen Zustand auffällt. Der LOGS-Bildschirm sagt, was geschah.
 
 Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder ESC SETTINGS
-öffnet: Das Werkzeug braucht die Karte für seine Sicherung. LOGS zeigt dann
-`RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `ESC SETTINGS`). Nach dem
-Werkzeug startet `START` eine neue Aufzeichnung. Auch der Servotester beendet
-sie, bei `HOLD TO START` mit eingebautem Stromsensor, um seine eigene
-Aufzeichnung `LOGS/SRVnnnnn.CSV` zu schreiben
-([Servotester](Servotester#die-aufzeichnung-auf-der-karte)); LOGS zeigt dann
-`RECORDING STOPPED BY SERVO TESTER`.
+öffnet: Das Werkzeug braucht die Karte für seine Sicherung. Der LOGS-Bildschirm
+zeigt dann `RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `ESC
+SETTINGS`). Nach dem Werkzeug startet `START` eine neue Aufzeichnung. Auch der
+Servotester beendet sie, bei `HOLD TO START` mit eingebautem Stromsensor, um
+seine eigene Aufzeichnung `LOGS/SRVnnnnn.CSV` zu schreiben
+([Servotester](Servotester#die-aufzeichnung-auf-der-karte)); der LOGS-Bildschirm
+zeigt dann `RECORDING STOPPED BY SERVO TESTER`.
 
 **Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder die
-Karte ziehst:** entschärfen oder `STOP` auf LOGS drücken und warten, bis die
-obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der Aufzeichnung, gibt
-den ungenutzten Platz zurück, schließt die Datei und schreibt die
-Zusammenfassung des Laufs daneben. Eine Aufzeichnung, die ein Stromausfall oder
-eine gezogene Karte abschneidet, wird nicht geschlossen. Was sie enthält, hängt
-davon ab, wann sie abgeschnitten wurde:
+Karte ziehst:** entschärfen oder `STOP` auf dem LOGS-Bildschirm drücken und
+warten, bis die obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der
+Aufzeichnung, gibt den ungenutzten Platz zurück, schließt die Datei und schreibt
+die Zusammenfassung des Laufs daneben. Eine Aufzeichnung, die ein Stromausfall
+oder eine gezogene Karte abschneidet, wird nicht geschlossen. Was sie enthält,
+hängt davon ab, wann sie abgeschnitten wurde:
 
 - **In ihren ersten 2 s:** Sie liest sich als 0 Byte. Die Dateigröße auf
   der Karte wird während der Aufzeichnung alle 2 s geschrieben, das erste
@@ -154,8 +154,9 @@ derselben Nummer: `LOG00012.TXT` neben `LOG00012.BFL`. Jeder Texteditor
 öffnet sie. Das Beenden schreibt sie, sobald die Aufzeichnung geschlossen
 ist: `STOP`, das Entschärfen, das eine durch Scharfschalten begonnene
 Aufzeichnung beendet, und ein Werkzeug, das die Karte nimmt. Eine
-Aufzeichnung, die ein Kartenfehler beendete, bekommt keine. LOGS zeigt die
-Zusammenfassung nach dem Beenden (siehe [Der letzte Lauf](#der-letzte-lauf)).
+Aufzeichnung, die ein Kartenfehler beendete, bekommt keine. Der LOGS-Bildschirm
+zeigt die Zusammenfassung nach dem Beenden (siehe [Der letzte
+Lauf](#der-letzte-lauf)).
 
 Sie enthält einen Wert je Zeile:
 
@@ -170,7 +171,7 @@ Sie enthält einen Wert je Zeile:
 | `Min voltage` | Die niedrigste Spannung im scharfen Zustand, aus denselben Quellen; ein Wert von 0,00 V zählt nicht |
 | `Used, ESC counter` | Um wie viel der KISS-Zähler der Milliamperestunden (mAh) während der Aufzeichnung stieg |
 | `Used, from current` | Der Strom über die Zeit aufsummiert, mit der Zeit, in der er bekannt war |
-| `Frames` bis `Worst flush` | Die Zähler, die LOGS während der Aufzeichnung zeigt |
+| `Frames` bis `Worst flush` | Die Zähler, die der LOGS-Bildschirm während der Aufzeichnung zeigt |
 
 Ein Maximum oder Minimum zählt einen Wert erst, wenn drei neue Messwerte in
 Folge ihn erreichen, damit eine einzelne beschädigte Antwort keinen setzt.
@@ -210,11 +211,11 @@ wird ersetzt.
 Lässt sich die Zusammenfassung nicht schreiben, weil die Karte voll ist
 oder ein Schreibvorgang fehlschlug, bleibt die Aufzeichnung vollständig auf
 der Karte, und `STATUS` bleibt `READY`. Es bleibt keine `.TXT` zurück, oder,
-nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. LOGS
-zeigt dann `NOT SAVED` in der Zeile `SUMMARY`. Die Zusammenfassung und ihre
-Zeilen auf LOGS sind mit den Host-Tests der Firmware geprüft, die Datei
-über der FatFs-Bibliothek auf einer simulierten Karte; an einer Karte und
-auf der Platine sind sie nicht getestet.
+nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. Der
+LOGS-Bildschirm zeigt dann `NOT SAVED` in der Zeile `SUMMARY`. Die
+Zusammenfassung und ihre Zeilen auf dem LOGS-Bildschirm sind mit den Host-Tests
+der Firmware geprüft, die Datei über der FatFs-Bibliothek auf einer simulierten
+Karte; an einer Karte und auf der Platine sind sie nicht getestet.
 
 ---
 
@@ -283,7 +284,7 @@ ihren Lauf bis zum Fehler, `SUMMARY` lautet `NOT SAVED`, und die Zeilen über
 `START` sagen, wie sie endete. Ein `START`, der fehlschlägt, behält den
 letzten Lauf, wie er `FILE` behält. Der Tester zeigt nichts vom Lauf: Nach
 einer Aufzeichnung, die Scharfschalten begann und Entschärfen beendete,
-LOGS öffnen, um ihn zu sehen.
+Den LOGS-Bildschirm öffnen, um ihn zu sehen.
 
 ### Wie die letzte Aufzeichnung endete
 
@@ -304,8 +305,8 @@ ohne Karte steht der Einbinde-Hinweis in der zweiten Zeile.
 |---|---|---|
 | `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | Ein Schreibvorgang fand keinen freien Platz | Dateien am Computer löschen (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | Ein Schreibvorgang oder das abschließende Sichern oder Schließen schlug fehl: eine herausgezogene Karte oder ein Kartenfehler. Beides wird nicht unterschieden | Karte neu einstecken, `RETRY MOUNT` drücken |
-| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte `LOGS` nicht anlegen oder lesen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
-| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` konnte das Verzeichnis `LOGS` nicht anlegen oder lesen oder die nächste Datei nicht öffnen | Karte am Computer prüfen, `RETRY MOUNT` drücken |
+| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | Das Verzeichnis `LOGS` enthält `LOG99999.BFL`, und keine Nummer folgt darauf | Logs am Computer von der Karte verschieben (`USB DRIVE` ist schreibgeschützt), Karte zurückstecken, `RETRY MOUNT` drücken |
 | `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | Das Werkzeug nahm die Karte für seine Sicherung | `START` für eine neue Aufzeichnung |
 | `RECORDING STOPPED BY SERVO TESTER` | Der Servotester nahm die Karte für seine eigene Aufzeichnung | `START` für eine neue Aufzeichnung |
 
@@ -344,7 +345,7 @@ Karte nicht eingebunden.
 
 <img src="img/log-usb-serving.png" width="240" alt="Die Karte als USB-Laufwerk">
 
-`USB DRIVE` auf dem SD-LOG-Bildschirm stellt die Karte dem Computer am
+`USB DRIVE` auf dem LOGS-Bildschirm stellt die Karte dem Computer am
 USB-Kabel (Universal Serial Bus) als Wechsellaufwerk bereit. `.BFL`-Dateien und
 ihre `.TXT`-Zusammenfassungen herüberkopieren, das Laufwerk am Computer
 auswerfen, und der Tester nimmt die Karte zurück. Der Bildschirm zeigt die
@@ -362,7 +363,7 @@ Computer ist zu erwarten.
 **Die Karte wird übergeben, nicht geteilt.** FAT kann zwischen zwei Schreibern
 nicht vermitteln. Bevor das Laufwerk erscheint, leert, schließt und hängt der
 Logger die Karte aus, und er rührt sie bis zum Auswerfen nicht an. Währenddessen
-zeigt der SD-LOG-Bildschirm die Übergabe statt seiner Zähler.
+zeigt der LOGS-Bildschirm die Übergabe statt seiner Zähler.
 
 Ohne Karte ist `USB DRIVE` als nicht verfügbar gezeichnet und tut nichts.
 
@@ -438,5 +439,5 @@ Quelle an der anderen prüfen lässt.
 ## Wenn die Karte nicht das Problem ist
 
 Die Aufzeichnung ist standardmäßig einkompiliert. Eine mit `SD_LOG_ENABLE=0`
-gebaute Firmware zeigt den SD-LOG-Bildschirm weiterhin, und er meldet immer
+gebaute Firmware zeigt den LOGS-Bildschirm weiterhin, und er meldet immer
 `NO CARD`.
