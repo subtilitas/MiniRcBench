@@ -16,8 +16,10 @@ The last tables are the cues of the owner's decisions of 2026-11-15: cyan as
 the accent with "changed" as a fill, and green as a start button's fill.
 
 --patch writes the proposed palette and widget changes into DIR, a scratch
-copy of the tree (`git archive HEAD | tar -x -C DIR`), never the working
-tree: `make -C DIR/test -s` then renders the mock-ups as shot_*.ppm.
+copy of the tree at cff09ae (`git archive cff09ae | tar -x -C DIR`), never
+the working tree: `make -C DIR/test -s` then renders the mock-ups as
+shot_*.ppm. The palette and the neutral fills of the patch are in src/ as
+slices 7 and 8 of the build plan; "today" in the tables is cff09ae.
 --sheet and --cvd tile such shots into one PNG and need Pillow.
 """
 

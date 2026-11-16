@@ -17,9 +17,10 @@
  *   no habit. @see UI_BACK_X
  * - **A pressed button is drawn additively** — a brighter frame and the label
  *   nudged — never a swapped fill. Buttons here pick a label colour to suit
- *   their own fill (white on red, text on panel, background on a flash), so a
- *   pressed state that replaced the fill would have to know about all of them
- *   to stay legible. Adding to what is there cannot break any pairing.
+ *   their own fill (`C_ONACCENT` on red, text on panel, background on a
+ *   flash), so a pressed state that replaced the fill would have to know
+ *   about all of them to stay legible. Adding to what is there cannot break
+ *   any pairing.
  * - **Touch targets have a floor.** @ref UI_TAP_MIN is what a fingertip needs;
  *   the 18 px BACK strips this replaces were below it.
  * - **A control that is drawn unavailable does not act.** Pass `enabled=false`
@@ -50,6 +51,11 @@ struct TouchState;
  */
 /** @brief Height of the header band on every screen. */
 #define UI_HDR_H        36
+/**
+ * @brief The header's rule: the band's last row, y 35, 1 px of `C_GRID`
+ *        across the panel (docs/design/ui-theme.md, "Widgets").
+ */
+#define UI_HDR_RULE_Y   (UI_HDR_H - 1)
 /** @brief Left margin for titles, labels and the first control in a row. */
 #define UI_MARGIN        8
 /**
@@ -59,6 +65,11 @@ struct TouchState;
  *        open items). A chip is square by design: uiChip().
  */
 #define UI_RADIUS        5
+/**
+ * @brief Length of a dash and of a gap in a disabled button's frame in the
+ *        High contrast theme, in pixels. @see uiButton()
+ */
+#define UI_DASH          4
 /**
  * @brief Smallest side of a touch target outside a list: the tester's button
  *        row, the SERVO screen's controls, SD LOG's RETRY and USB DRIVE and
@@ -127,10 +138,12 @@ struct TouchState;
  *
  * Each name expands to its palette entry, so it follows the active theme.
  * The neutral role is three colours, `C_TEXT`, `C_DIM` and `C_GRID`, and
- * keeps their names: labels, navigation and command buttons, captions and
- * source tags. The uses decision 11's tables name take their role's colour;
- * the splash's `JuWi made` in `C_CYAN` is a mark, not a state. Uses the
- * tables do not name, such as lime on SD LOG's READY, are left to the owner
+ * keeps their names: labels, navigation, command and edit buttons, hints,
+ * captions and source tags. A hint a user reads is `C_DIM`; `C_GRID` is a
+ * frame, a rule, a disabled label, a group caption or a read-only value. The
+ * uses decision 11's tables name take their role's colour; the splash's
+ * `JuWi made` in `C_CYAN` is a mark, not a state. Uses the tables do not
+ * name, such as lime on SD LOG's READY, are left to the owner
  * (docs/design/menu-b.md, slice 2 as built).
  * @{
  */
@@ -161,6 +174,8 @@ struct TouchState;
 /** @} */
 
 static_assert(UI_BACK_H <= UI_HDR_H, "BACK does not fit in the header band");
+static_assert(UI_BACK_Y + UI_BACK_H <= UI_HDR_RULE_Y, "BACK lies on the header's rule");
+static_assert(UI_HDR_RULE_Y < UI_STRIP_Y, "the header's rule lies in the strip");
 static_assert(UI_BACK_W >= UI_TAP_MIN, "BACK is narrower than a fingertip");
 static_assert(UI_BACK_H >= UI_TAP_MIN, "BACK is lower than a fingertip");
 static_assert(UI_FOOT_Y + UI_FOOT_H <= 320, "the footer runs off the panel");
@@ -204,7 +219,13 @@ bool uiTapped(const UiRect &r, const TouchState *t);
  *                which reads as "not a thing you press" at arm's length in a
  *                way that a dimmed label does not. @p fill and @p fg are then
  *                ignored, so callers can keep passing the colours the control
- *                has when it is live.
+ *                has when it is live. In the High contrast theme the
+ *                frame's straight edges are dashed, @ref UI_DASH px drawn and
+ *                @ref UI_DASH px open: there `C_GRID` is near black, 10.94 on
+ *                white, and `C_PANEL` is 1.46 from white, so neither the label
+ *                nor the missing fill tells a disabled button from a live
+ *                one. Dark keeps the whole frame; its `C_GRID` label is 3.57
+ *                on the background.
  *
  * Drawing a button disabled is half of it. The caller must gate the hit test on
  * the same expression; see the rule at the top of this file.
@@ -213,16 +234,18 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
               int scale, bool pressed, bool enabled = true);
 
 /**
- * @brief Draw the header band: title on the left, BACK on the right.
+ * @brief Draw the header band: title on the left, BACK on the right, and
+ *        the rule in its last row.
  *
  * Draws BACK on every screen that has a header, which is what stops it being a
- * control that exists on some of them and is remembered on all of them.
+ * control that exists on some of them and is remembered on all of them. The
+ * rule is 1 px of `C_GRID` at y 35 (@ref UI_HDR_RULE_Y), from x 0 to x 239.
  *
  * @param title       Screen name, drawn at scale 2.
  * @param t           This frame's touch snapshot, for BACK's pressed state.
  *                    May be null.
  * @param backEnabled False draws BACK unavailable, as uiButton() draws a
- *                    disabled control: an outline, a grey label and no pressed
+ *                    disabled control: an outline, a `C_GRID` label and no pressed
  *                    look. Pass the expression the screen's control table
  *                    reports for `UI_FIX(UI_BACK)` and gates the tap on, and
  *                    key the repaint on it: the write pages of ESC SETTINGS,
@@ -343,10 +366,17 @@ void uiBackGuardDraw(int pending, const char *verb);
  * decision 11). It is 12 px tall, y 42 to y 53, centred in the 16 px strip,
  * and as wide as its text plus 12 px, ending at x 232.
  *
+ * A chip with no state to report is the neutral chip: `NO ESC`,
+ * `PORT CLOSED`, `MOVING`. Its @p fill is `C_GRID`, and it is drawn as a
+ * 1 px `C_GRID` frame with `C_BG` inside and a `C_DIM` label
+ * (docs/design/ui-theme.md, "Widgets"). It has no fill because the Dark
+ * theme's ink on a `C_GRID` fill has a contrast ratio of 3.51, under the 4.5
+ * a label on a fill needs.
+ *
  * @param text Label, drawn at scale 1 from 6 px inside the chip.
  * @param fill Chip colour. The label is @ref C_ONACCENT over it, and
- *             @ref C_PAPER over `C_AMBER` and `C_INK`, the two fills that
- *             are bright in one theme and dark in the other (theme.h).
+ *             @ref C_PAPER over `C_AMBER` and `C_INK` (theme.h). `C_GRID`
+ *             draws the neutral chip: a frame, no fill, a `C_DIM` label.
  */
 void uiChip(const char *text, uint16_t fill);
 

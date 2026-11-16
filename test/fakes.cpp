@@ -1316,6 +1316,16 @@ int fakeCountColour(uint16_t c) {
 	return n;
 }
 
+int fakeFrameDrawnPercent(int x, int y, int w, int h, int radius, uint16_t c) {
+	const uint16_t *fb = gfxBuffer();
+	int all = 0, drawn = 0;
+	for (int i = x + radius; i < x + w - radius; i++, all += 2)
+		drawn += (fb[y * GFX_W + i] == c) + (fb[(y + h - 1) * GFX_W + i] == c);
+	for (int j = y + radius; j < y + h - radius; j++, all += 2)
+		drawn += (fb[j * GFX_W + x] == c) + (fb[j * GFX_W + x + w - 1] == c);
+	return all ? drawn * 100 / all : 0;
+}
+
 // ---------------------------------------------------------------------------
 // PPM dump, so a failing layout test can be looked at
 // ---------------------------------------------------------------------------

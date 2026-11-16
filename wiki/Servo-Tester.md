@@ -161,7 +161,7 @@ every other note on the dial, `PREPARING THE LOG...` included.
 | Release | The servo stays where it is |
 | `MIN` `CENTRE` `MAX` | On release, to that end or the centre |
 | `SWEEP` | A sweep about the centre; the button becomes `STOP SWEEP` |
-| `SPEED` | How fast the servo is moved, 10 % to 100 %. Its fill is grey |
+| `SPEED` | How fast the servo is moved, 10 % to 100 %. Its fill is the faint colour of the frames |
 
 - The dial and the buttons work only while `RUNNING`; while `SAFE` they are
   drawn as outlines and do nothing.

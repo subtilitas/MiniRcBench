@@ -19,12 +19,20 @@
  * | Name | Means | Dark | High contrast |
  * |---|---|---|---|
  * | `C_INK` | Strongest mark against `C_BG` | white | black |
- * | `C_PAPER` | Same as `C_BG`; text drawn *on* a bright fill | black | white |
- * | `C_ONACCENT` | Text drawn on a saturated fill (red, green, blue) | white | white |
+ * | `C_PAPER` | Same as `C_BG`; text drawn *on* a bright fill | near black | white |
+ * | `C_ONACCENT` | Text drawn on a saturated fill (red, green, blue) | near black | white |
+ *
+ * Dark's accents are bright and take dark ink; High contrast's accents are
+ * dark and take white. `C_ONACCENT` is the ink of each
+ * (docs/design/ui-theme.md, decision 3).
  *
  * `C_PAPER` is what a button's label uses when the button's fill is `C_INK` or
- * `C_AMBER`, because those are the two fills that are bright in one theme and
- * dark in the other — and `C_PAPER` flips with them.
+ * `C_AMBER`: it equals `C_BG` in both themes. In Dark it is one step of green
+ * from `C_ONACCENT`; in High contrast the two are the same white.
+ *
+ * The Dark values are rcbench's dark theme on these entries
+ * (docs/design/ui-theme.md, "The Dark table, proposed"). Not seen on the
+ * panel: every value is computed for sRGB.
  *
  * The accent colours carry one role each on every screen, named in
  * ui_widgets.h as `UI_COL_*` (docs/design/menu-b.md, decision 11).
@@ -60,19 +68,20 @@ constexpr uint16_t rgb(uint8_t r, uint8_t g, uint8_t b) {
  */
 enum ThemeColor : uint8_t {
 	TC_BG,        /**< Screen background. */
-	TC_PANEL,     /**< Card / tile fill. */
-	TC_GRID,      /**< Separator and outline. */
-	TC_DIM,       /**< Label text. */
+	TC_PANEL,     /**< The control face: header, buttons, tiles, the selected row. */
+	TC_GRID,      /**< Frames, rules, disabled labels, group captions. */
+	TC_DIM,       /**< Label text, hints, the neutral chip's label. */
 	TC_TEXT,      /**< Primary text. */
-	TC_INK,       /**< Strongest mark against the background. */
-	TC_PAPER,     /**< Equals the background; for text on a bright fill. */
-	TC_ONACCENT,  /**< Text on a saturated fill. */
+	TC_INK,       /**< Strongest mark against the background; a pressed frame. */
+	TC_PAPER,     /**< Equals the background; text on `C_AMBER` and `C_INK`. */
+	TC_ONACCENT,  /**< Text on a saturated fill: near black in Dark, white in
+	               *   High contrast. */
 	TC_GREEN,     /**< Safe, done: SAFE, EDT ON, WRITE VERIFIED, SAVED. */
 	TC_LIME,      /**< A live reading: RPM, throttle fill, hold bars. */
 	TC_AMBER,     /**< Warning: text to read before the next action. */
 	TC_RED,       /**< Output on, or a failure: ARMED, RUNNING, REC. */
 	TC_REDDARK,   /**< Dead-telemetry digit. Reads as "off but present". */
-	TC_GHOST,     /**< Unused leading seven-segment digits. */
+	TC_GHOST,     /**< Unlit seven-segment digits. */
 	TC_BLUE,      /**< Latched: LATCH on, a toggle on, PROG MODE, servo B. */
 	TC_CYAN,      /**< Changed: a value edited and not yet written. */
 	TC_MAGENTA,   /**< Alert: the ESC status alert, STALLED. */

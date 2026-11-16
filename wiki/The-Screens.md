@@ -86,6 +86,21 @@ follows the table: lime also marks states such as SD LOG's `READY` and the
 card served over USB, and many failures are amber or in the text colour, for
 example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
 
+**The normal theme takes its colours from rcbench,** the larger bench of the
+same owner: a near-black screen with a blue cast and blue-grey neutrals. A
+label on a coloured fill, such as `ARMED`, `STOP` or `PROG MODE`, is near
+black. A header ends in a thin rule. A hint, such as `SWIPE = COARSE`, is in
+the dim colour of the labels; a disabled label and a read-only value are in
+the fainter colour of the frames. A chip with no state to report, `NO ESC`,
+`PORT CLOSED` or `MOVING`, is a frame with a dim label and no fill. The `-`
+and `+` under a list and Hitec's `REPAIR` look like every other button that
+commands something. Where these pages say "grey", the colour is one of the
+two blue-grey neutrals. The colours are computed and not seen on the panel:
+how the panel shows them is not measured. High contrast keeps its own
+colours. Its frames and labels are near black, so a button that does not
+act has a dashed frame there, and a slider that does not act a hollow
+thumb.
+
 ---
 
 ## The tester
@@ -227,9 +242,9 @@ and a tap on them does nothing: the pole count lies in the throttle pad and
 there. While DShot restarts after a servo tool the underline goes too and a tap
 does nothing, as `MENU` draws SETTINGS disabled then. While the 3D note takes
 the row, only `MAX` opens SETTINGS. Disarmed, the hint `SWIPE = THROTTLE` is
-grey; armed, it takes the text colour.
+in the dim label colour; armed, it takes the text colour.
 
-<img src="img/tester-disarmed.png" width="240" alt="The tester disarmed with telemetry: SAFE in green, 14 POLES and MAX 20% underlined, SWIPE = THROTTLE grey, ARM TO ENABLE in the bar">
+<img src="img/tester-disarmed.png" width="240" alt="The tester disarmed with telemetry: SAFE in green, 14 POLES and MAX 20% underlined, SWIPE = THROTTLE dim, ARM TO ENABLE in the bar">
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `LATCH` (the throttle stays where the
 finger leaves it; blue while on), `MENU`.
@@ -284,7 +299,7 @@ square and 12 px tall:
 |---|---|
 | `EDT ON`, green | Extended DShot Telemetry frames arrive |
 | `EDT OFF`, red | eRPM frames arrive and EDT frames do not |
-| `NO ESC`, dim grey | no eRPM frame for 500 ms: no ESC connected, or none answering |
+| `NO ESC`, a frame with a dim label, no fill | no eRPM frame for 500 ms: no ESC connected, or none answering |
 
 After an ESC SETTINGS session in which the ESC's bootloader answered, a second
 line under the caption reads `POWER-CYCLE THE ESC TO RUN IT` in amber, until

@@ -818,7 +818,7 @@ static void drawRpm() {
 	const char *hint = s_touchLost  ? UI_TOUCH_LOST_TEXT
 	                 : s_padEngaged ? "SWIPE ACTIVE" : "SWIPE = THROTTLE";
 	gfxText(226 - gfxTextW(hint, 1), TESTER_NOTE_Y, hint,
-	        s_touchLost ? C_AMBER : s_padEngaged ? C_LIME : s_armed ? C_TEXT : C_GRID, 1);
+	        s_touchLost ? C_AMBER : s_padEngaged ? C_LIME : s_armed ? C_TEXT : C_DIM, 1);
 }
 
 /** @brief Six EDT tiles: voltage, current, temperature, stress, status, link. */

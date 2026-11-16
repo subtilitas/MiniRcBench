@@ -20,6 +20,7 @@
 #include "ui_list.h"
 #include "ui_widgets.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -614,6 +615,112 @@ static void testHeaderBackDisabled() {
 	gfxFill(C_BG);
 }
 
+/**
+ * @brief The header's rule (slice 8 of menu-c.md's build plan): 1 px of
+ *        `C_GRID` in the band's last row, y 35, in both themes, with BACK
+ *        live or disabled.
+ */
+static void testHeaderRule() {
+	section("Widgets: uiHeader() draws its rule at y 35");
+
+	checkInt("the rule's row", UI_HDR_RULE_Y, 35);
+	checkTrue("BACK ends at y 33, above it; the strip starts at y 40, below it",
+	          UI_BACK_Y + UI_BACK_H - 1 == 33 && UI_STRIP_Y == 40);
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		for (int en = 0; en < 2; en++) {
+			gfxFill(C_RED);
+			uiHeader("UNPLUG", idle(), en != 0);
+			bool rule = true, above = true;
+			const UiRect b = uiBackRect();
+			for (int x = 0; x < GFX_W; x++) {
+				if (px(x, 35) != C_GRID) rule = false;
+				// The row above is the band's fill: BACK ends at y 33.
+				if (px(x, 34) != C_PANEL) above = false;
+			}
+			char what[80];
+			snprintf(what, sizeof(what), "%s, BACK %s: y 35 is C_GRID from x 0 to x 239",
+			         th ? "high contrast" : "dark", en ? "live" : "disabled");
+			checkTrue(what, rule);
+			snprintf(what, sizeof(what), "%s, BACK %s: y 34 is the band, y 36 is not drawn",
+			         th ? "high contrast" : "dark", en ? "live" : "disabled");
+			checkTrue(what, above && px(0, 36) == C_RED && px(GFX_W - 1, 36) == C_RED &&
+			                px(b.x + b.w / 2, 36) == C_RED);
+		}
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
+/**
+ * @brief A disabled button's cue in both themes (ui-theme.md, "Slices 7 and
+ *        8 as built"): Dark draws the whole frame and a `C_GRID` label on
+ *        `C_BG`; High contrast breaks the frame's straight edges into
+ *        dashes of @ref UI_DASH px, through both of its 2 px rings.
+ */
+static void testDisabledFrame() {
+	section("Widgets: a disabled button's frame is dashed in High contrast");
+
+	// Four sizes: a narrow button, a hub entry's 228 x 46 px, a footer
+	// button's 110 x 46 px and BACK's 64 x 32 px.
+	static const UiRect R[] = { {8, 60, 40, 46}, {6, 120, 228, 46}, {6, 180, 110, 46}, {130, 60, 64, 32} };
+	static const int HC_PERCENT[] = { 45, 49, 47, 47 };
+	checkInt("a dash and a gap are 4 px each", UI_DASH, 4);
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *tn = th ? "high contrast" : "dark";
+		for (int i = 0; i < 4; i++) {
+			const UiRect &r = R[i];
+			char what[96];
+			gfxFill(C_BG);
+			uiButton(r, "+", C_PANEL, C_TEXT, 2, false, true);
+			snprintf(what, sizeof(what), "%s, %d x %d px, enabled: the frame whole, percent", tn, r.w, r.h);
+			checkInt(what, fakeFrameDrawnPercent(r.x, r.y, r.w, r.h, UI_RADIUS, C_GRID), 100);
+			gfxFill(C_BG);
+			uiButton(r, "+", C_PANEL, C_TEXT, 2, true, false);
+			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: the frame drawn, percent", tn, r.w, r.h);
+			checkInt(what, fakeFrameDrawnPercent(r.x, r.y, r.w, r.h, UI_RADIUS, C_GRID), th ? HC_PERCENT[i] : 100);
+			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: C_BG inside, a C_GRID label", tn, r.w, r.h);
+			checkTrue(what, px(r.x + 4, r.y + r.h / 2) == C_BG &&
+			                fakeTextIs(r.x + (r.w - gfxTextW("+", 2)) / 2, r.y + (r.h - 14) / 2, "+",
+			                           C_GRID, C_BG, 2));
+			// The first gap of the top edge: its place, its length, both rings.
+			const int len = r.w - 2 * UI_RADIUS, n = (len + UI_DASH) / (2 * UI_DASH);
+			const int g = r.x + UI_RADIUS + (len - (2 * n - 1) * UI_DASH) / 2;
+			const int t = themeStroke();
+			bool gap = true, ends = true;
+			for (int k = 0; k < UI_DASH; k++)
+				for (int j = 0; j < t; j++)
+					gap = gap && px(g + k, r.y + j) == C_BG && px(g + k, r.y + r.h - 1 - j) == C_BG;
+			ends = px(g + UI_DASH, r.y) == C_GRID && px(g + UI_DASH, r.y + t - 1) == C_GRID &&
+			       px(r.x + r.w - 1 - (g - r.x) - UI_DASH, r.y) == C_GRID;
+			if (th) {
+				snprintf(what, sizeof(what), "%s, %d x %d px: %d gaps of 4 px on the top edge, centred, %d px deep",
+				         tn, r.w, r.h, n, t);
+				checkTrue(what, gap && ends && t == 2);
+			}
+			// The first gap of the left edge: its length and both rings.
+			if (th) {
+				const int vlen = r.h - 2 * UI_RADIUS, vn = (vlen + UI_DASH) / (2 * UI_DASH);
+				const int vg = r.y + UI_RADIUS + (vlen - (2 * vn - 1) * UI_DASH) / 2;
+				bool vgap = true;
+				for (int k = 0; k < UI_DASH; k++)
+					for (int j = 0; j < t; j++)
+						vgap = vgap && px(r.x + j, vg + k) == C_BG && px(r.x + r.w - 1 - j, vg + k) == C_BG;
+				const bool vends = px(r.x, vg + UI_DASH) == C_GRID && px(r.x + t - 1, vg + UI_DASH) == C_GRID;
+				snprintf(what, sizeof(what), "%s, %d x %d px: the left and right gaps are %d px deep", tn, r.w, r.h, t);
+				checkTrue(what, vgap && vends);
+			}
+			// The corners stay whole in both themes.
+			snprintf(what, sizeof(what), "%s, %d x %d px, disabled: the four corners drawn", tn, r.w, r.h);
+			checkTrue(what, px(r.x, r.y) == C_GRID && px(r.x + r.w - 1, r.y) == C_GRID &&
+			                px(r.x, r.y + r.h - 1) == C_GRID && px(r.x + r.w - 1, r.y + r.h - 1) == C_GRID);
+		}
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
 // ---------------------------------------------------------------------------
 // slice 1 of menu-b.md: roles, constants, the strip, the guard, field rows
 // ---------------------------------------------------------------------------
@@ -640,6 +747,220 @@ static void testColourRoles() {
 			if (roles[i] != roles[k]) distinct++;
 	checkTrue("the seven roles are seven colours: 21 pairs, all distinct",
 	          pairs == 21 && distinct == 21);
+}
+
+// ---------------------------------------------------------------------------
+// slice 7 of menu-c.md's build plan: the palette of docs/design/ui-theme.md
+// ---------------------------------------------------------------------------
+
+/** @brief The names of the palette's entries, in the order of ThemeColor. */
+static const char *const TC_NAME[TC_COUNT] = {
+	"BG", "PANEL", "GRID", "DIM", "TEXT", "INK", "PAPER", "ONACCENT", "GREEN",
+	"LIME", "AMBER", "RED", "REDDARK", "GHOST", "BLUE", "CYAN", "MAGENTA",
+};
+
+/** @brief An entry's 8-bit value. */
+struct Triple { uint8_t r, g, b; };
+
+/** @brief The Dark table of ui-theme.md, "The Dark table, proposed". */
+static const Triple DARK_8BIT[TC_COUNT] = {
+	{   2,   5,   9 }, {  26,  40,  58 }, {  72, 106, 134 }, { 132, 172, 202 },
+	{ 232, 248, 255 }, { 255, 255, 255 }, {   2,   5,   9 }, {   4,   8,  14 },
+	{   0, 255, 148 }, { 132, 255,  56 }, { 255, 186,   0 }, { 255,  40,  72 },
+	{  96,  16,  32 }, {  14,  22,  33 }, {  72, 136, 255 }, {   0, 240, 255 },
+	{ 255,   0, 255 },
+};
+
+/** @brief The same table as RGB565 words, the note's own column. */
+static const uint16_t DARK_WORD[TC_COUNT] = {
+	0x0021, 0x1947, 0x4B50, 0x8579, 0xEFDF, 0xFFFF, 0x0021, 0x0041, 0x07F2,
+	0x87E7, 0xFDC0, 0xF949, 0x6084, 0x08A4, 0x4C5F, 0x079F, 0xF81F,
+};
+
+/** @brief High contrast's words, which the palette slice leaves as they are. */
+static const uint16_t HC_WORD[TC_COUNT] = {
+	0xFFFF, 0xCEBB, 0x39E9, 0x424A, 0x0000, 0x0000, 0xFFFF, 0xFFFF, 0x0366,
+	0x03C5, 0xAAC0, 0xB803, 0xF5F7, 0xEF9E, 0x01D5, 0x02CF, 0x9011,
+};
+
+static void testPaletteValues() {
+	section("Palette: each Dark word is its triple of ui-theme.md; High contrast keeps its words");
+
+	themeSet(Theme::Dark);
+	for (int i = 0; i < TC_COUNT; i++) {
+		char what[64];
+		snprintf(what, sizeof(what), "dark TC_%s: rgb(%d, %d, %d)", TC_NAME[i],
+		         DARK_8BIT[i].r, DARK_8BIT[i].g, DARK_8BIT[i].b);
+		checkInt(what, g_theme[i], rgb(DARK_8BIT[i].r, DARK_8BIT[i].g, DARK_8BIT[i].b));
+		snprintf(what, sizeof(what), "dark TC_%s: the note's word", TC_NAME[i]);
+		checkInt(what, g_theme[i], DARK_WORD[i]);
+	}
+	themeSet(Theme::HighContrast);
+	for (int i = 0; i < TC_COUNT; i++) {
+		char what[64];
+		snprintf(what, sizeof(what), "high contrast TC_%s", TC_NAME[i]);
+		checkInt(what, g_theme[i], HC_WORD[i]);
+	}
+	themeSet(Theme::Dark);
+}
+
+/**
+ * @brief Count the pairs of palette entries with one word, and whether each
+ *        such pair is one of @p allowed.
+ */
+static int equalPairs(const int (*allowed)[2], int nAllowed, bool *onlyAllowed) {
+	int equal = 0;
+	*onlyAllowed = true;
+	for (int i = 0; i < TC_COUNT; i++)
+		for (int k = i + 1; k < TC_COUNT; k++) {
+			if (g_theme[i] != g_theme[k]) continue;
+			equal++;
+			bool ok = false;
+			for (int a = 0; a < nAllowed; a++)
+				if (allowed[a][0] == i && allowed[a][1] == k) ok = true;
+			if (!ok) *onlyAllowed = false;
+		}
+	return equal;
+}
+
+static void testPaletteDistinct() {
+	section("Palette: the words the colour probes tell apart");
+
+	// A test finds a text by its colour and its background (fakeTextIs()),
+	// so two entries with one word cannot be told apart by a probe.
+	bool only = false;
+	themeSet(Theme::Dark);
+	static const int DARK_EQ[][2] = { { TC_BG, TC_PAPER } };
+	checkInt("dark: 136 pairs, one equal", equalPairs(DARK_EQ, 1, &only), 1);
+	checkTrue("it is TC_PAPER and TC_BG, by theme.h's rule", only && C_PAPER == C_BG);
+	checkTrue("dark: the ink of a fill is not the screen's black", C_ONACCENT != C_PAPER);
+
+	// High contrast keeps its values: white is its screen, its paper and its
+	// ink on a fill, and black is its text and its strongest mark.
+	themeSet(Theme::HighContrast);
+	static const int HC_EQ[][2] = { { TC_BG, TC_PAPER }, { TC_BG, TC_ONACCENT },
+	                                { TC_PAPER, TC_ONACCENT }, { TC_TEXT, TC_INK } };
+	checkInt("high contrast: four pairs equal", equalPairs(HC_EQ, 4, &only), 4);
+	checkTrue("BG, PAPER and ONACCENT; TEXT and INK; no other", only);
+	themeSet(Theme::Dark);
+}
+
+/** @brief One channel of the 8-bit colour an RGB565 word stands for, linear. */
+static double channelLinear(int c8) {
+	double c = c8 / 255.0;
+	return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4);
+}
+
+/**
+ * @brief WCAG 2 relative luminance of an RGB565 word, read back to 8 bits a
+ *        channel by bit replication, as docs/design/ui_theme.py does.
+ */
+static double luminance(uint16_t w) {
+	int r5 = (w >> 11) & 31, g6 = (w >> 5) & 63, b5 = w & 31;
+	int r = (r5 << 3) | (r5 >> 2), g = (g6 << 2) | (g6 >> 4), b = (b5 << 3) | (b5 >> 2);
+	return 0.2126 * channelLinear(r) + 0.7152 * channelLinear(g) + 0.0722 * channelLinear(b);
+}
+
+/** @brief WCAG 2 contrast ratio of two words, times 100 and rounded. */
+static long contrast100(uint16_t a, uint16_t b) {
+	double la = luminance(a), lb = luminance(b);
+	if (la < lb) { double t = la; la = lb; lb = t; }
+	return lround((la + 0.05) / (lb + 0.05) * 100.0);
+}
+
+/** @brief What a pair of the contrast table is. */
+enum class PairKind : uint8_t {
+	Text,     /**< Text on the screen or on the control face: 4.5 or more. */
+	OnFill,   /**< A label on a role's fill: 4.5 or more, no exception. */
+	NotText,  /**< A fill or a frame against its ground: no floor. */
+};
+
+/** @brief A row of ui-theme.md's contrast table: the ratios times 100. */
+struct ContrastRow {
+	uint8_t  fg, bg;
+	long     dark, hc;
+	PairKind kind;
+	bool     darkUnder, hcUnder;  /**< A named exception: under 4.5. */
+};
+
+static void testPaletteContrast() {
+	section("Palette: the contrast table of ui-theme.md, as computed");
+
+	static const ContrastRow ROWS[] = {
+		{ TC_TEXT,     TC_BG,      1951, 2100, PairKind::Text,    false, false },
+		{ TC_DIM,      TC_BG,       874,  910, PairKind::Text,    false, false },
+		// Under 4.5 by intent: the disabled label, which WCAG exempts, and
+		// the group captions.
+		{ TC_GRID,     TC_BG,       357, 1094, PairKind::Text,    true,  false },
+		{ TC_GREEN,    TC_BG,      1541,  650, PairKind::Text,    false, false },
+		{ TC_LIME,     TC_BG,      1601,  557, PairKind::Text,    false, false },
+		{ TC_AMBER,    TC_BG,      1202,  499, PairKind::Text,    false, false },
+		{ TC_RED,      TC_BG,       554,  661, PairKind::Text,    false, false },
+		{ TC_CYAN,     TC_BG,      1495,  773, PairKind::Text,    false, false },
+		{ TC_BLUE,     TC_BG,       624,  968, PairKind::Text,    false, false },
+		{ TC_MAGENTA,  TC_BG,       656,  796, PairKind::Text,    false, false },
+		{ TC_TEXT,     TC_PANEL,   1421, 1440, PairKind::Text,    false, false },
+		{ TC_DIM,      TC_PANEL,    637,  624, PairKind::Text,    false, false },
+		// High contrast: REVERT's and DEFAULTS' labels, 3.42.
+		{ TC_AMBER,    TC_PANEL,    876,  342, PairKind::Text,    false, true  },
+		{ TC_CYAN,     TC_PANEL,   1089,  530, PairKind::Text,    false, false },
+		// High contrast: ESC STATUS OK in its tile, 3.82.
+		{ TC_LIME,     TC_PANEL,   1166,  382, PairKind::Text,    false, true  },
+		// Dark: ESC STATUS ERROR in its tile, 4.03.
+		{ TC_RED,      TC_PANEL,    403,  453, PairKind::Text,    true,  false },
+		{ TC_MAGENTA,  TC_PANEL,    478,  546, PairKind::Text,    false, false },
+		{ TC_ONACCENT, TC_GREEN,   1515,  650, PairKind::OnFill,  false, false },
+		{ TC_ONACCENT, TC_CYAN,    1470,  773, PairKind::OnFill,  false, false },
+		{ TC_ONACCENT, TC_LIME,    1574,  557, PairKind::OnFill,  false, false },
+		{ TC_ONACCENT, TC_RED,      545,  661, PairKind::OnFill,  false, false },
+		{ TC_ONACCENT, TC_BLUE,     614,  968, PairKind::OnFill,  false, false },
+		{ TC_ONACCENT, TC_MAGENTA,  645,  796, PairKind::OnFill,  false, false },
+		{ TC_PAPER,    TC_AMBER,   1202,  499, PairKind::OnFill,  false, false },
+		{ TC_PAPER,    TC_INK,     2057, 2100, PairKind::OnFill,  false, false },
+		{ TC_PANEL,    TC_BG,       137,  146, PairKind::NotText, false, false },
+		{ TC_GRID,     TC_PANEL,    260,  750, PairKind::NotText, false, false },
+		{ TC_REDDARK,  TC_BG,       159,  161, PairKind::NotText, false, false },
+		{ TC_GHOST,    TC_BG,       111,  112, PairKind::NotText, false, false },
+	};
+	checkInt("the table's rows", (long)(sizeof(ROWS) / sizeof(ROWS[0])), 29);
+
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		int textUnder = 0, fillUnder = 0, named = 0, namedOver = 0;
+		for (const ContrastRow &r : ROWS) {
+			long got = contrast100(g_theme[r.fg], g_theme[r.bg]);
+			char what[64];
+			snprintf(what, sizeof(what), "%s: %s on %s", th ? "high contrast" : "dark",
+			         TC_NAME[r.fg], TC_NAME[r.bg]);
+			checkInt(what, got, th ? r.hc : r.dark);
+			bool under = th ? r.hcUnder : r.darkUnder;
+			if (under) {
+				named++;
+				if (got >= 450) namedOver++;
+			} else if (r.kind == PairKind::Text && got < 450) {
+				textUnder++;
+			} else if (r.kind == PairKind::OnFill && got < 450) {
+				fillUnder++;
+			}
+			if (under && r.kind != PairKind::Text) fillUnder++;
+		}
+		char what[80];
+		snprintf(what, sizeof(what), "%s: text pairs under 4.5 outside the named exceptions",
+		         th ? "high contrast" : "dark");
+		checkInt(what, textUnder, 0);
+		snprintf(what, sizeof(what), "%s: labels on a fill under 4.5", th ? "high contrast" : "dark");
+		checkInt(what, fillUnder, 0);
+		snprintf(what, sizeof(what), "%s: the named exceptions, each under 4.5",
+		         th ? "high contrast" : "dark");
+		checkTrue(what, named == 2 && namedOver == 0);
+	}
+	themeSet(Theme::Dark);
+
+	// Why the neutral chip is a frame and the edit buttons are neutral: the
+	// Dark theme's ink on a C_GRID fill.
+	checkInt("dark: ONACCENT on a GRID fill, 3.51", contrast100(C_ONACCENT, C_GRID), 351);
+	checkInt("dark: DIM on BG, the neutral chip's label, 8.74", contrast100(C_DIM, C_BG), 874);
+	checkInt("dark: a frame against the screen, 3.57, over 3", contrast100(C_GRID, C_BG), 357);
 }
 
 static void testLayoutConstants() {
@@ -703,9 +1024,68 @@ static void testChip() {
 	          x == 167 && px(x - 1, 47) == C_BG && px(GFX_W - UI_MARGIN, 47) == C_BG);
 	checkTrue("y 41 and y 54 are the strip's, not the chip's",
 	          px(x + 2, 41) == C_BG && px(x + 2, 54) == C_BG);
-	checkTrue("the text 6 px in at y 44, white on the fill",
+	checkTrue("the text 6 px in at y 44, C_ONACCENT on the fill",
 	          fakeTextIs(x + 6, 44, "PROG MODE", C_ONACCENT, C_BLUE, 1));
 	checkInt("a chip's height", UI_CHIP_H, 12);
+	gfxFill(C_BG);
+}
+
+/**
+ * @brief The neutral chip (slice 8 of menu-c.md's build plan): uiChip() with
+ *        `C_GRID` draws a 1 px frame, `C_BG` inside and a `C_DIM` label, in
+ *        both themes; every other fill stays a fill.
+ */
+static void testChipNeutral() {
+	section("Widgets: uiChip() with C_GRID is a frame, C_BG inside, a C_DIM label");
+
+	static const char *const TEXTS[] = { "NO ESC", "PORT CLOSED", "MOVING" };
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		for (const char *text : TEXTS) {
+			gfxFill(C_RED);
+			uiStripClear();
+			uiChip(text, C_GRID);
+			const int w = gfxTextW(text, 1) + 12, x = GFX_W - UI_MARGIN - w;
+			bool frame = true;
+			int grid = 0, bg = 0, dim = 0, other = 0;
+			for (int j = 42; j <= 53; j++)
+				for (int i = x; i < x + w; i++) {
+					bool edge = j == 42 || j == 53 || i == x || i == x + w - 1;
+					uint16_t p = px(i, j);
+					if (edge) { if (p != C_GRID) frame = false; continue; }
+					if (p == C_GRID) grid++;
+					else if (p == C_BG) bg++;
+					else if (p == C_DIM) dim++;
+					else other++;
+				}
+			char what[96];
+			snprintf(what, sizeof(what), "%s, %s: a 1 px C_GRID frame, square, y 42 to y 53",
+			         th ? "high contrast" : "dark", text);
+			checkTrue(what, frame && x == uiChipX(text) && px(x - 1, 47) == C_BG &&
+			                px(GFX_W - UI_MARGIN, 47) == C_BG && px(x + 2, 41) == C_BG &&
+			                px(x + 2, 54) == C_BG);
+			snprintf(what, sizeof(what), "%s, %s: inside, C_BG and the label's C_DIM only",
+			         th ? "high contrast" : "dark", text);
+			checkTrue(what, grid == 0 && other == 0 && bg > 0 && dim > 0 && px(x + 1, 43) == C_BG);
+			snprintf(what, sizeof(what), "%s, %s: the label 6 px in at y 44, C_DIM on C_BG",
+			         th ? "high contrast" : "dark", text);
+			checkTrue(what, fakeTextIs(x + 6, 44, text, C_DIM, C_BG, 1) &&
+			                !fakeTextIs(x + 6, 44, text, C_ONACCENT, C_GRID, 1));
+		}
+		// A chip with a state keeps its fill and its ink.
+		static const ThemeColor FILLS[] = { TC_GREEN, TC_LIME, TC_RED, TC_BLUE, TC_MAGENTA, TC_AMBER, TC_INK };
+		bool filled = true;
+		for (ThemeColor f : FILLS) {
+			gfxFill(C_BG);
+			uiChip("MODE", g_theme[f]);
+			uint16_t fg = (f == TC_AMBER || f == TC_INK) ? C_PAPER : C_ONACCENT;
+			const int x = uiChipX("MODE");
+			if (px(x + 1, 43) != g_theme[f] || !fakeTextIs(x + 6, 44, "MODE", fg, g_theme[f], 1)) filled = false;
+		}
+		checkTrue(th ? "high contrast: a role's chip stays a fill with its ink"
+		             : "dark: a role's chip stays a fill with its ink", filled);
+	}
+	themeSet(Theme::Dark);
 	gfxFill(C_BG);
 }
 
@@ -1190,10 +1570,16 @@ void runWidgetTests() {
 	testHoldBar();
 	testNullTouch();
 	testHeaderBackDisabled();
+	testHeaderRule();
+	testDisabledFrame();
 	testColourRoles();
+	testPaletteValues();
+	testPaletteDistinct();
+	testPaletteContrast();
 	testLayoutConstants();
 	testStripTwoLines();
 	testChip();
+	testChipNeutral();
 	testChangeText();
 	testBackGuard();
 	testBackGuardDraw();

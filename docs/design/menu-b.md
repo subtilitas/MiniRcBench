@@ -495,7 +495,8 @@ y  40 | V6  BACKUP IN RAM              [PROG MODE]|  strip; chip C_BLUE
   320 +-------------------------------------------+
 ```
 
-Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`. Not built.
+Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`. Built:
+slice 8 of [ui-theme.md](ui-theme.md#slices-7-and-8-as-built).
 
 AM32 CONFIG has HEX in place of FILES. On KST, `READ ONLY` or `IN DOUBT`
 replaces `WRITE...`, drawn disabled, as today; on Hitec `READ AGAIN` replaces
@@ -970,9 +971,11 @@ change.
       badge among them. Not built.
     - Revised by [ui-theme.md](ui-theme.md#widgets): a chip with no state to
       report, `NO ESC`, `PORT CLOSED` and `MOVING`, is a 1 px `C_GRID` frame on
-      `C_BG` with a `C_DIM` label, square and 12 px tall. Not built.
+      `C_BG` with a `C_DIM` label, square and 12 px tall. Built: slice 8 of
+      [ui-theme.md](ui-theme.md#slices-7-and-8-as-built).
     - Revised by [ui-theme.md](ui-theme.md#widgets): a slider's fill is
-      `C_GRID`. Not built.
+      `C_GRID`. Built: slice 8 of
+      [ui-theme.md](ui-theme.md#slices-7-and-8-as-built).
 12. **The servo tester names the switched supply** (item 8). With SERVO
     SUPPLY at GP28 or GP29 the strip's second line reads
     `GP28 SUPPLY STAYS OFF HERE.` in `C_AMBER`. Built on `main`.
@@ -1380,7 +1383,7 @@ Decisions 8 and 11 on every screen that exists, with host tests in
 | Block | Where | What it draws |
 |---|---|---|
 | The "changed" role | `UI_COL_CHANGED`, `ui_widgets.h` | `C_CYAN`; `uiListDrawField()` draws `UiValue::Changed` and `UiEdge::Changed` in it and takes no colour parameter |
-| Square chip | `uiChip()`, `UI_CHIP_H`, `ui_widgets.{h,cpp}` | 12 px tall, y 42 to 53, no radius, text plus 12 px wide, ending at x 232 |
+| Square chip | `uiChip()`, `UI_CHIP_H`, `ui_widgets.{h,cpp}` | 12 px tall, y 42 to 53, no radius, text plus 12 px wide, ending at x 232; the label on a fill is `C_ONACCENT`, dark in the Dark theme ([ui-theme.md](ui-theme.md#decisions) decision 3), and `C_PAPER` on `C_AMBER` and `C_INK`; with `C_GRID` it is the neutral chip, a frame with a `C_DIM` label ([ui-theme.md](ui-theme.md#slices-7-and-8-as-built)) |
 | PROG MODE | `UI_CHIP_PROG_MODE`, `ui_kst.cpp` and `ui_hitec.cpp` `drawList()` (`HITEC_UI_CHIP`) | `PROG MODE` on `C_BLUE`, 65 px from x 167; KST's `IN DOUBT` on `C_RED`; Hitec's strip, slice 4's, ends 4 px or more before the wider chip, its room 155 px |
 | Change text | `uiChangeText()`, `ui_widgets.{h,cpp}` | a write page's `old -> new`: `old -> ` in `C_DIM`, `new` in `C_CYAN` (KST WRITE, HITEC WRITE) |
 | Field rows | `drawRow()` in `ui_am32.cpp`, `drawFieldRow()` in `ui_kst.cpp` and `ui_hitec.cpp`, `drawSetRow()` in `ui_servo.cpp` | through `uiListDrawField()`; Hitec's rows carry no `*` |

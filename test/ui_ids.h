@@ -29,6 +29,7 @@
 #include "ui_sbus_out.h"
 #include "ui.h"
 #include "ui_leave.h"
+#include "ui_widgets.h"
 #include "gfx.h"
 #include "theme.h"
 
@@ -272,6 +273,75 @@ static inline void openEscSettings() {
 }
 
 /**
+ * @brief Whether the control @p id is drawn as uiButton() draws a button at
+ *        rest: @p fill 4 px inside its left edge, the `C_GRID` frame on its
+ *        top edge, and @p label centred in @p fg at @p scale.
+ */
+static inline bool buttonLookIs(UiControlId id, const char *label, uint16_t fill, uint16_t fg, int scale) {
+	UiControl c;
+	if (!ctlFind(id, &c)) return false;
+	const UiRect &r = c.rect;
+	const uint16_t *fb = gfxBuffer();
+	const int x = r.x + (r.w - gfxTextW(label, scale)) / 2, y = r.y + (r.h - 7 * scale) / 2;
+	return fb[(r.y + r.h / 2) * GFX_W + r.x + 4] == fill && fb[r.y * GFX_W + r.x + r.w / 2] == C_GRID &&
+	       fakeTextIs(x, y, label, fg, fill, scale);
+}
+
+/**
+ * @brief fakeFrameDrawnPercent() of the control @p id, a button with the
+ *        @ref UI_RADIUS px corners; -1 when it is not drawn.
+ */
+static inline int ctlFrameDrawnPercent(UiControlId id) {
+	UiControl c;
+	return ctlFind(id, &c) ? fakeFrameDrawnPercent(c.rect.x, c.rect.y, c.rect.w, c.rect.h, UI_RADIUS, C_GRID) : -1;
+}
+
+/** @brief Whether @p id is a neutral button: `C_PANEL`, the frame, a `C_TEXT` label. */
+static inline bool neutralButtonIs(UiControlId id, const char *label, int scale) {
+	return buttonLookIs(id, label, C_PANEL, C_TEXT, scale);
+}
+
+/** @brief Whether @p id is drawn disabled: `C_BG`, the frame, a `C_GRID` label. */
+static inline bool disabledButtonIs(UiControlId id, const char *label, int scale) {
+	return buttonLookIs(id, label, C_BG, C_GRID, scale);
+}
+
+/**
+ * @brief Whether the strip's chip reads @p text as the neutral chip: a 1 px
+ *        `C_GRID` frame on every edge, 12 px tall, ending at x 231, `C_BG`
+ *        inside with no pixel of the frame's colour, and the label in
+ *        `C_DIM` 6 px in.
+ */
+static inline bool neutralChipIs(const char *text) {
+	const int w = gfxTextW(text, 1) + 12, x = uiChipX(text);
+	const int y = UI_STRIP_Y + (UI_STRIP_H - UI_CHIP_H) / 2;
+	const uint16_t *fb = gfxBuffer();
+	bool frame = true, inside = true;
+	for (int i = 0; i < w; i++)
+		frame = frame && fb[y * GFX_W + x + i] == C_GRID && fb[(y + UI_CHIP_H - 1) * GFX_W + x + i] == C_GRID;
+	for (int j = 0; j < UI_CHIP_H; j++)
+		frame = frame && fb[(y + j) * GFX_W + x] == C_GRID && fb[(y + j) * GFX_W + x + w - 1] == C_GRID;
+	for (int j = 1; j < UI_CHIP_H - 1; j++)
+		for (int i = 1; i < w - 1; i++) {
+			uint16_t p = fb[(y + j) * GFX_W + x + i];
+			if (p != C_BG && p != C_DIM) inside = false;
+		}
+	return frame && inside && fb[(y + 1) * GFX_W + x + 1] == C_BG &&
+	       fakeTextIs(x + 6, y + (UI_CHIP_H - 7) / 2, text, C_DIM, C_BG, 1);
+}
+
+/**
+ * @brief Whether the header's rule is drawn: row y 35 in `C_GRID` from x 0
+ *        to x 239, under a row that is not the rule.
+ */
+static inline bool headerRuleDrawn() {
+	const uint16_t *fb = gfxBuffer();
+	for (int x = 0; x < GFX_W; x++)
+		if (fb[UI_HDR_RULE_Y * GFX_W + x] != C_GRID) return false;
+	return fb[(UI_HDR_RULE_Y - 1) * GFX_W] == C_PANEL && fb[(UI_HDR_RULE_Y - 1) * GFX_W + GFX_W - 1] == C_PANEL;
+}
+
+/**
  * @brief The navigation stack holds MENU, the chooser @p hub and its tool
  *        @p tool, and @p tool is open (docs/design/menu-c.md, slice 2).
  */
@@ -345,7 +415,8 @@ static inline bool readoutOverPad(UiControlId a, UiControlId b) {
  *        rectangle inside the panel and not empty, no two controls
  *        overlapping, no BACK on the tester and on MENU, the root, and
  *        BACK at uiBackRect() on every other screen, drawn live where the
- *        table says it acts and disabled where it says it does not. The one overlap allowed is the tester's
+ *        table says it acts and disabled where it says it does not, over
+ *        the header's rule at y 35. The one overlap allowed is the tester's
  *        readouts (`TesterCtl::Poles`, `TesterCtl::Max`) over the pad
  *        and the track, never with both acting.
  * @param where Names the frame in the check's text.
@@ -386,6 +457,8 @@ static inline void checkControlTable(const char *where) {
 		if (uiCurrentScreen() == UiScreenId::Menu) {
 			snprintf(what, sizeof(what), "%s: no BACK drawn", where);
 			checkTrue(what, backLook() == BackLook::Other);
+			snprintf(what, sizeof(what), "%s: the header's rule at y 35", where);
+			checkTrue(what, headerRuleDrawn());
 		}
 	} else {
 		UiControl b;
@@ -399,6 +472,8 @@ static inline void checkControlTable(const char *where) {
 			         b.enabled ? "live" : "disabled");
 			checkTrue(what, backLook() == (b.enabled ? BackLook::Live : BackLook::Disabled));
 		}
+		snprintf(what, sizeof(what), "%s: the header's rule at y 35", where);
+		checkTrue(what, headerRuleDrawn());
 	}
 }
 

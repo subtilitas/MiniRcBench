@@ -24,7 +24,7 @@ zweier Einstellungen, nicht als genauen Winkel.
 
 | Zeile | Was sie zeigt |
 |---|---|
-| Leiste | Die Kante der Platine, die entlang der Achse liegt, `LONG EDGE` oder `SHORT EDGE`, und die Neigung dieser Achse gegen die Waagerechte in ganzen Grad, ab 45° in Bernstein. Der Chip: `SETTLED` (grün), `MOVING` (grau), `TOO STEEP`, `STARTING` oder `NO IMU` (Bernstein) |
+| Leiste | Die Kante der Platine, die entlang der Achse liegt, `LONG EDGE` oder `SHORT EDGE`, und die Neigung dieser Achse gegen die Waagerechte in ganzen Grad, ab 45° in Bernstein. Der Chip: `SETTLED` (grün), `MOVING` (ein Rahmen mit gedämpfter Beschriftung, ohne Füllung), `TOO STEEP`, `STARTING` oder `NO IMU` (Bernstein) |
 | Winkel | Der Winkel in Zehntelgrad, vom Nullpunkt aus, vor einem Nullpunkt von der Waagerechten; die Zeile darunter zeigt `FROM ZERO` oder `NOT ZEROED: FROM LEVEL`. `---`, solange der Winkelmesser startet, wenn 300 ms kein Messwert kam und solange die Achse um 70° oder mehr geneigt ist |
 | Weg | Mit gesetzter LENGTH in SETUP, wie weit sich die Endleiste bewegt hat, und `L 40 MM, HINGE TO TRAILING EDGE`. Ohne sie `SET LENGTH IN SETUP FOR MM` |
 | MAX | Der größte ruhige Winkel je Seite seit ZERO oder RESET MAX, die negative Seite zuerst, `--` für eine Seite ohne; darunter ihr Weg |
