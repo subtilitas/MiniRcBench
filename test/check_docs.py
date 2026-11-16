@@ -158,14 +158,20 @@ REMOVED_TEXTS = [
 # Rule 9: DShot's restart after a claim, and DShot outside ESC TESTER and ESC
 # COMMANDS, checked in the manual and in the comments of src/*.h and
 # src/*.cpp, each file joined into one text (check_stale_comments()). The
-# patterns after the first line are prose; the last line's are German.
+# first two lines are screen texts, the rest prose, German from `bis` on.
+# Spaces are \s+, so a phrase that wraps matches too.
 STALE_RESTART = (
-    r"RESTART DSHOT|DSHOT RESTARTING|DSHOT RESTARTS ON|LEAVE, THEN DSHOT RETURNS|"
-    r"DShot (restarts|resumes|resumed|returns(?! eRPM)|takes it back)|"
-    r"back to DShot|resumes the pump|resumes DShot|returns DShot|"
-    r"with DShot on SIG|DShot runs on SIG while|carries DShot|"
-    r"DShot (runs|starts) (at|on|from) (boot|power-up)|until DShot has stopped|"
-    r"bis DShot angehalten hat|DShot läuft auf SIG|liegt\s+auf dem ESC-Pin[^.]*DShot",
+    r"RESTART\s+DSHOT|DSHOT\s+RESTARTING|DSHOT\s+RESTARTS\s+ON|"
+    r"LEAVE,\s+THEN\s+DSHOT\s+RETURNS|"
+    r"DShot\s+(restarts|resumes|resumed|returns(?!\s+eRPM)|takes\s+it\s+back)|"
+    r"back\s+to\s+DShot|resumes\s+the\s+pump|resumes\s+DShot|returns\s+DShot|"
+    r"with\s+DShot\s+on\s+SIG|DShot\s+runs\s+on\s+SIG\s+(while|until)|"
+    r"carries\s+DShot|DShot\s+(stays|keeps\s+running)\s+on|"
+    r"DShot\s+(runs|starts)\s+(at|on|from)\s+(boot|power-up)|"
+    r"DShot\s+starts\s+on\s+at\s+boot|until\s+DShot\s+has\s+stopped|"
+    r"bis\s+DShot\s+angehalten\s+hat|DShot\s+läuft\s+auf\s+SIG|"
+    r"DShot\s+läuft\s+bis|"
+    r"liegt\s+auf\s+dem\s+ESC-Pin[^.]*DShot",
     "DShot's restart after a claim, now the leave page's hub title and the "
     "busy captions; DShot runs only on ESC TESTER and ESC COMMANDS "
     "(dshot-lifetime.md, slice D2)")

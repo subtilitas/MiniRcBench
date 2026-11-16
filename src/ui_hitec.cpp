@@ -557,7 +557,7 @@ static void mainText(MainText *m) {
 	m->stripCol = C_DIM;
 	uint8_t sig = sigGpio();
 	// The claim from the entry tap on SERVO, the hub: refused, it is asked for
-	// again every frame, and DShot stays on SIG meanwhile.
+	// again every frame, and SIG stays parked low meanwhile.
 	if (!s_claimed) {
 		switch (s_refusal) {
 			case ClaimRefusal::EscAnswering:

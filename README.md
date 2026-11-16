@@ -3669,8 +3669,8 @@ tests B5 and B6).
 settings block, version 6 ([Using it](#using-it), SETTINGS). SETTINGS does
 not show them, and its HOLD DEFAULTS keeps them.
 
-**Pins.** The meter claims no pin: DShot keeps running on SIG, and the ESC
-is disarmed as the tester returns to MENU. The meter opens only while the
+**Pins.** The meter claims no pin; SIG stays driven low while it shows. The
+meter opens only while the
 pin claim is free, since the meter's save writes flash: SERVO, the hub,
 opens whatever the claim and draws ANGLE METER disabled meanwhile.
 
