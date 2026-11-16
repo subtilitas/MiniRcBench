@@ -1,7 +1,8 @@
 # DShot lifetime
 
-Status: proposed, not built; six questions open for the owner. It builds on
-[menu-c.md](menu-c.md), whose slice 3 makes MENU the root, and answers
+Status: proposed, not built. The developer settled its six questions on
+2026-11-16, pending the owner's review ([Decisions](#decisions)). It builds
+on [menu-c.md](menu-c.md), whose slice 3 makes MENU the root, and answers
 [What the structure requires of
 DShot](menu-c.md#what-the-structure-requires-of-dshot).
 
@@ -20,7 +21,7 @@ The owner's decisions of 2026-11-15 that this note takes as fixed:
    renamed RECEIVER, SETUP, LOGS and ESC PROGRAM. This note uses the new
    names for the structure and today's names for code and screen texts.
    Where ESC COMMANDS sits is menu-c.md's; its proposal is the first entry
-   of the hub ESC CONFIG, now ESC PROGRAM.
+   of the hub ESC PROGRAM.
 4. **0.1.0 waits for this work.**
 
 Pull request #49, the touch-loss stop (branch `ccr-ux-pass2`, head
@@ -117,8 +118,8 @@ first bind has the input buffer on.
 
 **SIG is an SIO output driving low, at the pad's lowest drive setting,
 2 mA.** **AUX is an input with the pull-down on and the input buffer off**,
-the reset state. Question 1 asks the owner, because "nothing drives SIG"
-also reads as "SIG is not driven".
+the reset state. [Decision 5](#decisions) settles it, because "nothing
+drives SIG" also reads as "SIG is not driven".
 
 Why low, and why driven:
 
@@ -216,7 +217,7 @@ of `escTaskSuspend()` and `escTaskResume()` outside `src/esc_task.cpp`
 ### The rule
 
 DShot runs while the screen on top of the navigation stack is ESC TESTER
-or ESC COMMANDS, and, by question 2's recommendation, while SETUP is on top
+or ESC COMMANDS, and, by [decision 6](#decisions), while SETUP is on top
 of ESC TESTER. Everywhere else it is parked.
 
 The UI decides it once a frame: `uiDshotWanted()` is a pure function of the
@@ -260,10 +261,10 @@ UI they open only while the claim is Free.
 |---|---|---|
 | ESC TESTER opens | the tap that opens it asks for Run; core1 binds on its next pass; the first 10 frames are the EDT enable, then zero-throttle frames | `escPumpBind()` sets disarmed and throttle 0 at every bind (`src/esc_task.h` 910 to 917) |
 | The ESC's zero-throttle frames before it arms | AM32 takes commands only after more than 1 s of zero input, and arms on its own rule; Bluejay's and BLHeli_S's times are not recorded here | [esc-commands.md](esc-commands.md#safety-and-interlocks), "1500 ms of answers"; not measured |
-| HOLD TO ARM | its 1000 ms hold (`ARM_HOLD_MS`, `src/config.h` 540) can complete 1 s after the tap at the earliest, with at most one UI frame, 25 ms, between the tap and the first frame. Question 6 adds a gate: arming refused until 1500 ms after the first frame, `ESC_CMD_SETTLE_MS`'s margin over AM32's 1 s | today the tester appears at the same moment DShot starts, after the splash, and the same race exists once per power-up; the design repeats it at every open |
+| HOLD TO ARM | its 1000 ms hold (`ARM_HOLD_MS`, `src/config.h` 540) can complete 1 s after the tap at the earliest, with at most one UI frame, 25 ms, between the tap and the first frame. Decision 10 adds a gate: arming refused until 1500 ms after the first frame, `ESC_CMD_SETTLE_MS`'s margin over AM32's 1 s | today the tester appears at the same moment DShot starts, after the splash, and the same race exists once per power-up; the design repeats it at every open |
 | Leaving while armed | the MENU tap runs `testerDisarm()` (`src/ui.cpp` 1005 to 1012, 1015 to 1020): throttle 0, LATCH off; then Park. Core1 sends zero frames until more than 250 ms after the last throttle frame (`escDrainDone()`, `src/esc_task.h` 1135 to 1138), then stops | the ESC hears zero before silence, as before every handover today |
 | Leaving disarmed | Park at once when no throttle frame went out within 250 ms | `escHandoverStep()`: a pump with no recent throttle frame has nothing to drain |
-| SETUP from the readouts | they act only disarmed (`readoutsAct()`, `src/ui.cpp` 456). Question 2: DShot stays up under SETUP (recommended), or parks and restarts on BACK | see question 2 |
+| SETUP from the readouts | they act only disarmed (`readoutsAct()`, `src/ui.cpp` 456). Decision 6: DShot stays up under SETUP | see decision 6 |
 | SIG PIN, AUX PIN, the rate or KISS TELEM changed in SETUP | over the tester, DShot running: `applyLive()` → `escTaskConfigure()` rebuilds as today, drain included, and the pin note warns of the new pin. From MENU, parked: the change re-parks on the new wiring and binds on the next ESC TESTER | `src/ui_settings.cpp` 857 to 863; `src/esc_task.cpp` 333 to 349 |
 | LOGS: an auto log | ends at the disarm that leaving the tester runs: `sdLogArmAction()` stops only the log arming began (`src/sd_log.h` 410 to 420) | as today |
 | LOGS: a log started by hand | runs on, as today across MENU ([blackbox-logging.md](blackbox-logging.md#lifecycle)); while DShot is parked its frames carry throttle 0 and no fresh telemetry. The eRPM column is logged only while fresh, as the EDT columns are (`src/sd_log.cpp` 421 against 428 to 431); today a frozen last eRPM would be logged | a hand log is the user's; ending it on a screen change would surprise more than an empty stretch |
@@ -276,9 +277,9 @@ UI they open only while the claim is Free.
 | The 30 s idle disarm | on the tester only (`src/ui.cpp` 1478 to 1487); DShot keeps sending zero frames while the tester stays open | the tester is open; the rule is the owner's |
 | The touch-loss stop | see [#49 and the lifetime](#49-and-the-lifetime) | |
 | The BOARD voltage | read every frame on core0 from the ADC before any screen ticks (`src/ui.cpp` 1400 to 1405) and drawn on the tester's status bar; the red band refuses KST, Hitec and AM32 writes (`uiBoardWriteRefused()`, `src/ui.h` 99 to 115). Independent of DShot. With MENU the start screen it is not on the first screen; where it shows is menu-c.md's and ui-theme.md's | |
-| The run cue | stays MENU's second strip line; cleared as today by a LEAVE sent, by the leave page's last button, whose steps power-cycle the ESC, or by an eRPM frame newer than the answer, which only ESC TESTER and ESC COMMANDS now receive. Question 4: a start step while it stands | |
+| The run cue | stays MENU's second strip line; cleared as today by a LEAVE sent, by the leave page's last button, whose steps power-cycle the ESC, or by an eRPM frame newer than the answer, which only ESC TESTER and ESC COMMANDS now receive. Decision 8: a start step while it stands | |
 | A claiming tool opens from a hub | Release from Park: no drain, the pins free on core1's next pass. Within 250 ms of leaving a running tester the claim waits for the rest of that drain | |
-| A claiming tool leaves | the leave page as today; its last button parks instead of restarting DShot, and returns to the hub | menu-c.md, choice 3 |
+| A claiming tool leaves | the leave page as today; its last button parks instead of restarting DShot, and returns to the hub | menu-c.md, requirement 13 and decision 7 |
 
 ## The pin claim
 
@@ -314,7 +315,7 @@ them lose their source while DShot is parked: EscAnswering reads
 `lastRpmMs`, and KissLive reads `kissLastMs`, which only a running pump
 updates. Each then refuses only within 500 ms of the last DShot answer,
 after ESC TESTER or ESC COMMANDS closed. See [safety](#safety) and
-question 3.
+decision 7.
 
 ### The 250 ms drain
 
@@ -339,9 +340,9 @@ that.
 | The unplug step, line 1 | `UNPLUG THE SERVO.` | unchanged |
 | line 2 | `DSHOT RESTARTS ON SIG GP0 AND READS` (`UI_LEAVE_DSHOT_FMT`, `src/ui_leave.h` 108) | `ESC TESTER'S DSHOT ON SIG GP0 READS`, 35 characters, the step's limit (`UI_LEAVE_STEP_CHARS`) |
 | line 3 | `AS A 970 US PULSE AT 1000 HZ.` | unchanged |
-| The last step | `RESTART DSHOT.` (`UI_LEAVE_RESTART`, line 112) | question 5: `BACK TO SERVO.`, `BACK TO RECEIVER.` or `BACK TO ESC PROGRAM.`, the hub the tool opened from, 20 characters at most, recommended; or `DONE.` |
-| The wide button | `RESTART DSHOT` (`src/ui_leave.cpp` 120) | question 5: the hub's title, `SERVO`, `RECEIVER` or `ESC PROGRAM` (11 characters at scale 2, 130 px), recommended; or `DONE` |
-| SERVO TESTER's left button | `BACK TO SERVO` | question 5: `NEXT SERVO`, as KST SERVO and HITEC SERVO, because SERVO is the hub's name |
+| The last step | `RESTART DSHOT.` (`UI_LEAVE_RESTART`, line 112) | decision 9: `BACK TO SERVO.`, `BACK TO RECEIVER.` or `BACK TO ESC PROGRAM.`, the hub the tool opened from, 20 characters at most, recommended; or `DONE.` |
+| The wide button | `RESTART DSHOT` (`src/ui_leave.cpp` 120) | decision 9: the hub's title, `SERVO`, `RECEIVER` or `ESC PROGRAM` (11 characters at scale 2, 130 px), recommended; or `DONE` |
+| SERVO TESTER's left button | `BACK TO SERVO` | decision 9: `NEXT SERVO`, as KST SERVO and HITEC SERVO, because SERVO is the hub's name |
 | NEXT SERVO, BACK TO MONITOR, BACK TO OUTPUT | `pinClaimKeep()` | unchanged |
 
 `BACK TO ESC PROGRAM` at scale 2 would be 226 px in the 228 px button
@@ -398,16 +399,16 @@ greetings, see the line they see today
    ESC are a valid PWM throttle. HOLD TO START still guards the servo
    tester's first pulse, the S.BUS OUTPUT probe still refuses START while
    an ESC's bootloader answers ([sbus-output.md](sbus-output.md)), and KST
-   and Hitec entries send frames at once. Question 3.
+   and Hitec entries send frames at once. Decision 7.
 3. **Each open is a fresh start.** Every open of ESC TESTER is a new bind
    with the ESC detecting DShot again; HOLD TO ARM can complete before an
    AM32 has seen 1 s of zero input. The ESC then does not arm and ignores
-   the throttle until it reads zero; not measured. Question 6.
+   the throttle until it reads zero; not measured. Decision 10.
 4. **DShot into a waiting bootloader on the next open.** After an EFM8
    answered and no LEAVE went out, an ESC that was not power-cycled waits
    in its bootloader; the next ESC TESTER sends DShot into it. Today
    RESTART DSHOT does the same at once. The run cue on MENU names it.
-   Question 4.
+   Decision 8.
 5. **SIG driven low against a device that drives it.** See
    [SIG and AUX while idle](#the-choice-sig-driven-low-aux-on-its-pull-down).
 6. **An AM32 left powered on MENU restarts itself** every 2 s with no
@@ -440,7 +441,7 @@ change on either side:
 - **ESC TESTER**: a lost touch disarms by the idle interlock's path and
   refuses arming. DShot keeps sending zero frames: the tester is still
   open, and with no touch no screen change can happen. A lost touch never
-  starts or stops DShot. Question 6's gate and #49's refusal both refuse
+  starts or stops DShot. Decision 10's gate and #49's refusal both refuse
   arming, each on its own condition.
 - **ESC COMMANDS**: #49 adds nothing; the page's sequences end by
   themselves and it sends no throttle.
@@ -462,23 +463,23 @@ Widths are at scale 1, 6 px a character less 1, unless named.
 | Text | Where | Change |
 |---|---|---|
 | `UNPLUG ANY SERVO FROM GP0 NOW` on the splash | `src/ui.cpp` 1291 to 1296; `UI_SPLASH_PIN_FMT`, `src/ui.h` 166 to 171 | the splash draws it no more; the macro stays for SETUP's pin note, documented as SETUP's |
-| SETUP's pin note, the same text | `pinNote()`, `src/ui_settings.cpp` 707 to 714 | shown only while DShot runs under SETUP (question 2), against the pin the pump runs on, not the pin of the last load |
+| SETUP's pin note, the same text | `pinNote()`, `src/ui_settings.cpp` 707 to 714 | shown only while DShot runs under SETUP (decision 6), against the pin the pump runs on, not the pin of the last load |
 | `LINK  998/S  0% ERR` | `drawLink()`, `src/ui_settings.cpp` 783 to 801 | while DShot is parked the value reads `OFF` in `C_DIM` |
 | `DSHOT RESTARTING ON SIG GP0` | `UI_MENU_RESTARTING_FMT`, `src/ui_menu.h` 48 | `RELEASING SIG GP0`, 17 characters |
 | `WAIT: DSHOT RESTARTING` | `UI_WAIT_RESTART_TEXT`, `src/ui_widgets.h` 121 | `WAIT: RELEASING THE PINS`, 24 characters, inside the 37 of `src/ui_bridge.cpp` 78 |
-| `EDT ON`, `EDT OFF`, `NO ESC` on MENU | `src/ui_menu.cpp` 198 to 206 | the chip goes (menu-c.md, choice 7); ESC COMMANDS keeps it |
+| `EDT ON`, `EDT OFF`, `NO ESC` on MENU | `src/ui_menu.cpp` 198 to 206 | the chip goes (menu-c.md, decision 12); ESC COMMANDS keeps it |
 | `DSHOT RESTARTS ON SIG GP0 AND READS` | `src/ui_leave.h` 108 | `ESC TESTER'S DSHOT ON SIG GP0 READS`, 35 |
-| `RESTART DSHOT.`, `RESTART DSHOT` | `src/ui_leave.h` 112; `src/ui_leave.cpp` 120 | the hub's step and label, question 5 |
+| `RESTART DSHOT.`, `RESTART DSHOT` | `src/ui_leave.h` 112; `src/ui_leave.cpp` 120 | the hub's step and label, decision 9 |
 | `DSHOT RESTARTS ON SIG GP0.` | `SBUS_UI_RESTART_FMT`, `src/ui_sbus.h` 96; `SBOUT_UI_RESTART_FMT`, `src/ui_sbus_out.h` 137 | `ESC TESTER SENDS DSHOT ON SIG GP0.`, 34 |
-| `DSHOT RESTARTS ON SIG GP1, WHERE` | `SBUS_UI_RESTART_GP1_1`, `src/ui_sbus.h` 98 | `SIG GP1 IS HELD LOW, WHERE`, 26, over the unchanged `THE RECEIVER DRIVES THE LINE.`; with question 1's (b) `ESC TESTER SENDS DSHOT ON GP1, WHERE`, 35 |
+| `DSHOT RESTARTS ON SIG GP1, WHERE` | `SBUS_UI_RESTART_GP1_1`, `src/ui_sbus.h` 98 | `SIG GP1 IS HELD LOW, WHERE`, 26, over the unchanged `THE RECEIVER DRIVES THE LINE.`; with decision 5's (b) `ESC TESTER SENDS DSHOT ON GP1, WHERE`, 35 |
 | `LEAVE, THEN DSHOT RETURNS.` | `AM32_UI_EXIT_2`, `src/ui_am32.h` 230 | `LEAVE. ESC TESTER THEN RUNS IT.`, 31, inside `RESULT_CHARS` 37 |
 | `PLUG IT IN AFTER RESTART DSHOT.` | `AM32_UI_LEAVE_2`, `src/ui_am32.h` 253 | `PLUG IT IN BACK ON ESC PROGRAM.`, 31 |
 | `DSHOT STAYS ON THE PIN UNTIL THEN.` | `HITEC_UI_ESC_2`, `src/ui_hitec.h` 91 | `NOTHING IS SENT UNTIL THEN.`, 27 |
 | `DSHOT RUNS ON SIG GP0` | `UI_TOOLS_STRIP_FMT`, `src/ui_tools.h` 33 | goes with TOOLS (menu-c.md, slice 4) |
 | `NO ESC ANSWERS ON SIG GP0.` in the first 1500 ms | `UI_ESC_CMD_NO_ANSWER_FMT`, `src/ui_esc_cmd.h` 95 | `DSHOT STARTING ON SIG GP0.`, 26, until 1500 ms after the start; then as today |
-| new: the tester's track before arming may complete | beside `UI_TESTER_CARD_TEXT`, `src/ui.h` 160 to 164 | question 6: `DSHOT STARTING: WAIT 1.5 S`, 26 characters, the card text's length, inside its `static_assert` (`src/ui.cpp` 965) |
+| new: the tester's track before arming may complete | beside `UI_TESTER_CARD_TEXT`, `src/ui.h` 160 to 164 | decision 10: `DSHOT STARTING: WAIT 1.5 S`, 26 characters, the card text's length, inside its `static_assert` (`src/ui.cpp` 965) |
 | `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.`, `PROPELLER OFF. DSHOT IS OFF.`, `THE TESTER SENDS DSHOT ONLY:`, `AND MAY READ DSHOT AS ONE.` | `src/ui_hitec.h` 85; `src/ui_bridge.h` 115; `src/ui_am32.h` 151, 251 | unchanged: still true |
-| `AN ESC ANSWERS ON SIG GP0.` and its lines on SERVO TESTER, KST SERVO, HITEC SERVO, S.BUS MONITOR, S.BUS OUTPUT | `src/ui_servo.cpp` 509, 510; `src/ui_kst.cpp` 604 to 606; `src/ui_hitec.h` 89; `src/ui_sbus.h` 86; `src/ui_sbus_out.h` 107 to 111 | unchanged; reachable within 500 ms of the last answer. Question 3 may add a line |
+| `AN ESC ANSWERS ON SIG GP0.` and its lines on SERVO TESTER, KST SERVO, HITEC SERVO, S.BUS MONITOR, S.BUS OUTPUT | `src/ui_servo.cpp` 509, 510; `src/ui_kst.cpp` 604 to 606; `src/ui_hitec.h` 89; `src/ui_sbus.h` 86; `src/ui_sbus_out.h` 107 to 111 | unchanged; reachable within 500 ms of the last answer. Decision 7 may add a line |
 
 Comments that state the boot order change with the code: `src/main.cpp`
 21 to 35, 148 to 150, 251 to 276; `SPLASH_MS`, `src/config.h` 661 to 667,
@@ -500,7 +501,7 @@ by [menu-b.md](menu-b.md#decisions) owner decision 27.
 | README.md | "ESC commands", line 1387 | DShot starts when the page opens |
 | README.md | "AM32 ESC configuration" and "A Bluejay or BLHeli_S ESC", lines 1455, 1485 to 1494, 1703 to 1729 | LEAVE and the leave page's last step |
 | README.md | "Servo tester", "KST", "Hitec", "S.BUS monitor", "S.BUS output", "USB bridge", lines 1988 to 1996, 2319 to 2329, 2485 to 2490, 2662, 2738, 2944 to 2948, 3086 to 3088, 3205 to 3234 | the leave page's step 2 and last step |
-| README.md | "Safety", lines 3478, 3494 to 3496, 3534 to 3538 | "Boots disarmed and sends MOTOR_STOP continuously" becomes "Boots with DShot off; SIG held low"; the claim's ESC check as question 3 decides |
+| README.md | "Safety", lines 3478, 3494 to 3496, 3534 to 3538 | "Boots disarmed and sends MOTOR_STOP continuously" becomes "Boots with DShot off; SIG held low"; the claim's ESC check as decision 7 decides |
 | wiki, English and German | The-Screens and Die-Bildschirme (29 and 30 lines matching, case-insensitive, restart dshot, dshot restart, dshot returns, dshot starts, dshot runs, dshot is off, dshot comes back, splash and unplug any servo, or their German forms), First-Run and Erste-Schritte (12, 6), Servo-Tester and Servotester (8, 6), KST-Programming and KST-Programmierung (10, 10), Hitec-Programming and Hitec-Programmierung (13, 13), RX-Signals and RX-Signale (9, 9), USB-Bridge and USB-Bruecke (6, 4), AM32-Configuration and AM32-Konfiguration (5, 6), Troubleshooting and Fehlersuche (8, 4), Setup and Einrichtung (5, 2), Home (2) | as README.md |
 | [pin-claim.md](pin-claim.md) | "The two pins", "The claim", "Sequence" steps 2 and 6, "Interlocks", "When the pin is unavailable", "Restoring DShot" | Free and Parking; the drain only after a running tester; the ESC check's source |
 | [kiss-telemetry.md](kiss-telemetry.md) | "Receiving", "Where the code runs" | the receiver runs only with the pump |
@@ -516,8 +517,8 @@ The decisions this revises carry a "Revised by" line now:
 [esc-commands.md](esc-commands.md#decisions) decision 5,
 [kiss-telemetry.md](kiss-telemetry.md#receiving) and
 [blackbox-logging.md](blackbox-logging.md#lifecycle). menu-b.md owner
-decisions 3, 21 and 30, which name RESTART DSHOT, get theirs once question 5
-is answered.
+decisions 3, 21 and 30, which name RESTART DSHOT, get theirs from the line of
+[decision 9](#decisions).
 
 ## Slices
 
@@ -532,8 +533,8 @@ and STATUS lines (menu-b.md owner decision 27). The order against
 | D1 | anything; before or with menu-c.md slice 1 | the pump's three modes, no caller changes |
 | D2 | menu-c.md slices 2 and 3 (the stack, MENU as root) and D1 | the lifetime: boot parked, the rule, the claim's Parking |
 | D3 | D2 | the tester and ESC COMMANDS on a starting pump; the log's eRPM |
-| D4 | D2; the hub names after menu-c.md slice 4 | the texts |
-| D5 | D4, with menu-c.md slice 5 | the design notes' descriptions, bench plan |
+| D4 | D2; the hub names after menu-c.md slices 4 and 5 (hubs, rename) | the texts |
+| D5 | D4, with menu-c.md slice 6 (the records) | the design notes' descriptions, bench plan |
 
 menu-c.md says that until the lifetime's slices merge DShot runs on MENU as
 today, so no slice leaves `main` less safe than cff09ae. D2 is the slice
@@ -588,7 +589,7 @@ Host tests, by control id:
 - For every screen of menu-c.md's table but ESC TESTER, ESC COMMANDS and
   SETUP over the tester: `uiDshotWanted()` is false, and the pump parked
   after one frame.
-- SETUP from the readouts: as question 2 decides.
+- SETUP from the readouts: DShot stays up, as decision 6 decides.
 - Each claiming tool from its hub reaches Held with no drain, on the first
   pump pass; opened within 250 ms of leaving a running tester it waits for
   the rest of the drain.
@@ -605,20 +606,20 @@ boot case fails).
 
 ### D3: the tester and ESC COMMANDS on a starting pump (Opus)
 
-The arm gate of question 6; `DSHOT STARTING ON SIG GP0.` on ESC COMMANDS
-for the first 1500 ms with no answer; the start step of question 4; the
+The arm gate of decision 10; `DSHOT STARTING ON SIG GP0.` on ESC COMMANDS
+for the first 1500 ms with no answer; the start step of decision 8; the
 log's eRPM column only while fresh (`src/sd_log.cpp` 421).
 
 Host tests:
 
-- With question 6's (a): a HOLD TO ARM started at the open does not arm at
+- With decision 10: a HOLD TO ARM started at the open does not arm at
   1000 ms and arms once 1500 ms of DShot have passed; one started later
   arms after its 1000 ms as today; the track text reads `DSHOT STARTING:
   WAIT 1.5 S` until then.
 - ESC COMMANDS: the first text for 1499 ms with no answer, then `NO ESC
   ANSWERS ON SIG GP0.`; an answer gives `ESC STARTING: WAIT 1.5 S.` as
   today.
-- With question 4's (a): while the run cue stands, ESC TESTER and ESC
+- With decision 8: while the run cue stands, ESC TESTER and ESC
   COMMANDS open with the pump parked and the start step; START DSHOT acts
   1000 ms after the step opens, binds and clears the cue.
 - The log: a frame with an eRPM older than 500 ms logs 0; a fresh one logs
@@ -632,7 +633,7 @@ the freshness check.
 ### D4: the texts (Opus)
 
 The screen texts of [the table above](#screen-texts), with their fit
-`static_assert`s; question 5's labels; question 3's line, if any. The
+`static_assert`s; decision 9's labels; decision 7's line, if any. The
 removed names go into rule 9 of `test/check_docs.py`: `RESTART DSHOT`,
 `DSHOT RESTARTING`, `DSHOT RESTARTS ON`, `LEAVE, THEN DSHOT RETURNS`.
 
@@ -652,55 +653,78 @@ The design notes' descriptions of the table above, as built; the bench
 plan's checks; previews; `python3 test/check_docs.py` and
 `tools/check_wiki.py`. No host test; the checks above are its tests.
 
+## Decisions
+
+The owner's decisions of 2026-11-15 are numbers 1 to 4 at the top of this
+note. Numbers 5 to 10 answer its six questions in order. The owner is away.
+The developer made each call on 2026-11-16 and took the note's own
+recommendation each time. Each waits for the owner's review.
+
+5. Developer's call of 2026-11-16, pending the owner's review: **SIG while
+   idle: driven low, or on the pull-down.** Option (a): SIG is an SIO
+   output driven low at 2 mA while idle, and AUX rests on its pull-down
+   with the input buffer off. A high line sends a powered Bluejay or
+   BLHeli_S ESC into its bootloader, which is the path by which DShot can
+   write an ESC's flash. Not measured: whether the pull-down alone holds
+   the line low against an ESC's pull-up.
+6. Developer's call of 2026-11-16, pending the owner's review: **SETUP over
+   the tester: DShot up, or parked.** Option (a): DShot keeps running while
+   SETUP is on top of ESC TESTER, disarmed, and the LINK line shows the ESC
+   following a new rate or pin. ESC TESTER is still open under SETUP, so
+   the call reads owner decision 2 as holding. The line the build adds to
+   [menu-c.md](menu-c.md#what-the-structure-requires-of-dshot)
+   requirement 4: "Revised by dshot-lifetime.md decision 6, pending the
+   owner's review: DShot keeps running while SETUP is open over ESC
+   TESTER."
+7. Developer's call of 2026-11-16, pending the owner's review: **The ESC
+   check without DShot.** Option (a): SERVO TESTER, KST SERVO, HITEC SERVO
+   and S.BUS OUTPUT show an amber line before their first output in place
+   of the lost ESC check, for example `NO ESC CHECK: UNPLUG ANY ESC
+   FIRST.` (34 characters). A bench measurement of a passive line check,
+   option (c), goes to the bench plan in slice D5.
+8. Developer's call of 2026-11-16, pending the owner's review: **DShot
+   while the run cue stands.** Option (a): while the cue stands, ESC TESTER
+   and ESC COMMANDS open with DShot held off and one step on the leave page
+   widget: `1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and
+   `AND READ DSHOT AS A COMMAND.`. A wide `START DSHOT` acts 1000 ms after
+   the step opens; the tap clears the cue. The cue stands only after a
+   bootloader answered, so the step costs a tap on that path alone.
+9. Developer's call of 2026-11-16, pending the owner's review: **The leave
+   page's last button.** Option (a): it reads the hub's title, `SERVO`,
+   `RECEIVER` or `ESC PROGRAM`, with the last step `BACK TO SERVO.` and so
+   on. SERVO TESTER's left button reads `NEXT SERVO` in place of `BACK TO
+   SERVO`, which would name the hub. A label names where the tap leads, as
+   the tester's `MENU` button does. This revises owner decision 3 of
+   [menu-b.md](menu-b.md#decisions), whose button reads RESTART DSHOT. The
+   line the build adds to that decision: "Revised by dshot-lifetime.md
+   decision 9, pending the owner's review: the leave page's last button
+   reads the title of the hub the tool returns to, SERVO, RECEIVER or ESC
+   PROGRAM, in place of RESTART DSHOT, and starts no DShot. The last step
+   reads BACK TO SERVO, BACK TO RECEIVER or BACK TO ESC PROGRAM. SERVO
+   TESTER's left button reads NEXT SERVO." Decisions 21 and 30 of
+   menu-b.md, which name RESTART DSHOT's wait, get a line that points to
+   decision 3's.
+10. Developer's call of 2026-11-16, pending the owner's review: **Arming
+    right after DShot starts.** Option (a): HOLD TO ARM completes no earlier
+    than 1500 ms after DShot's first frame, with `DSHOT STARTING: WAIT 1.5
+    S` in the track meanwhile. 1500 ms is `ESC_CMD_SETTLE_MS`, 500 ms over
+    AM32's 1 s of zero input. It costs at most 500 ms after an open and
+    keeps the tester from arming before the ESC can.
+
 ## Open questions
 
-1. **SIG while idle: driven low, or on the pull-down.** (a) SIG an SIO
-   output low at 2 mA, AUX on its pull-down with the input buffer off. (b)
-   Both on the pull-down with the buffer off, the reset state, driven by
-   nothing. (a) holds a powered EFM8 ESC out of its bootloader and starts
-   an AM32's firmware whatever the ESC's own pull-up; it drives against a
-   device that drives SIG, an S.BUS receiver when SIG is GP1. (b) never
-   drives, and whether it holds the line low against an ESC's pull-up is
-   not measured. Recommendation: (a). The bootloader is the path by which
-   DShot can write an ESC's flash.
-2. **SETUP over the tester: DShot up, or parked.** (a) DShot keeps running
-   while SETUP is on top of ESC TESTER, disarmed: the LINK line shows the
-   ESC following a new rate or pin, as today. (b) It parks on the readout
-   tap and starts again on BACK: the rule reads "only ESC TESTER and ESC
-   COMMANDS", and an AM32 resets itself 2 s after its last frame on every
-   SETUP visit. Recommendation: (a). The tester is still open under SETUP,
-   and the LINK line next to the rate is how a rate change is checked.
-3. **The ESC check without DShot.** (a) The checks stay, and the claiming
-   screens SERVO TESTER, KST SERVO, HITEC SERVO and S.BUS OUTPUT say before
-   their first output that no ESC check runs, for example
-   `NO ESC CHECK: UNPLUG ANY ESC FIRST.` (34 characters), in amber. (b) A
-   DShot probe of up to 500 ms at each claim, looking for an eRPM answer:
-   against decision 2, and DShot moves a servo on SIG to about 970 µs. (c)
-   A passive check, the line's level against the pad's pull-up and
-   pull-down: what an ESC's input reads like is not measured. Recommendation:
-   (a) now, and the measurement for (c) in the bench plan.
-4. **DShot while the run cue stands.** (a) While the cue stands, ESC TESTER
-   and ESC COMMANDS open with the pump parked and one step on the leave
-   page widget: `1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT`
-   and `AND READ DSHOT AS A COMMAND.`, and a wide `START DSHOT` live 1000 ms
-   after the step opens; the tap clears the cue. (b) The cue on MENU only,
-   as today's RESTART DSHOT relies on the leave page's steps.
-   Recommendation: (a). The cue stands only after a bootloader answered,
-   so the step costs a tap on that path alone.
-5. **The leave page's last button.** (a) It reads the hub's title,
-   `SERVO`, `RECEIVER` or `ESC PROGRAM`, with the last step `BACK TO
-   SERVO.` and so on; SERVO TESTER's left button reads `NEXT SERVO` in
-   place of `BACK TO SERVO`, which would name the hub. (b) It reads `DONE`
-   everywhere, and SERVO TESTER's left button stays. Both revise owner
-   decision 3 of [menu-b.md](menu-b.md#decisions), whose button reads
-   RESTART DSHOT. Recommendation: (a): a label names where the tap leads,
-   as the tester's `MENU` button does.
-6. **Arming right after DShot starts.** (a) HOLD TO ARM completes no
-   earlier than 1500 ms after DShot's first frame, with `DSHOT STARTING:
-   WAIT 1.5 S` in the track meanwhile; 1500 ms is `ESC_CMD_SETTLE_MS`, 500
-   ms over AM32's 1 s of zero input. (b) The 1000 ms hold alone, as at
-   power-up today. Recommendation: (a). It costs at most 500 ms after an
-   open and keeps the tester from arming before the ESC can.
+None open. The six questions of this note as it stood are settled, each by
+the developer's call of 2026-11-16, pending the owner's review:
+
+1. ~~SIG while idle: driven low, or on the pull-down.~~ Settled by
+   [decision 5](#decisions).
+2. ~~SETUP over the tester: DShot up, or parked.~~ Settled by
+   [decision 6](#decisions).
+3. ~~The ESC check without DShot.~~ Settled by [decision 7](#decisions).
+4. ~~DShot while the run cue stands.~~ Settled by [decision 8](#decisions).
+5. ~~The leave page's last button.~~ Settled by [decision 9](#decisions).
+6. ~~Arming right after DShot starts.~~ Settled by
+   [decision 10](#decisions).
 
 ## Not verified
 

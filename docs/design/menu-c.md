@@ -1,8 +1,8 @@
 # Menu structure C
 
-Status: proposed, not built. The owner decided its questions on 2026-11-15
-([Decisions](#decisions)). [Open questions](#open-questions) holds what the
-answers raise.
+Status: proposed, not built. The owner decided its questions on 2026-11-15.
+The two questions the answers raised are settled by the developer's calls of
+2026-11-16, pending the owner's review ([Decisions](#decisions)).
 
 The owner's request of 2026-11-15: "Optimize the Menu structure and make it
 similar to the Rcbench structure but adapted to the small display."
@@ -458,8 +458,8 @@ tool keeps its count, and LOGS and SETUP lose their drag.
 | `Settings` | `SETTINGS`, becomes `SETUP` | MENU row 8; the tester's readouts | MENU row 6; the tester's readouts |
 
 No tool's own views change. The leave pages, the write pages, FILES, SET,
-HEX, ANGLE SETUP and FLIP CAL stay as built; ANGLE SETUP's name is
-[open question 1](#open-questions). The identifiers keep their words:
+HEX, ANGLE SETUP and FLIP CAL stay as built; ANGLE SETUP becomes ANGLE SET
+([decision 17](#decisions)). The identifiers keep their words:
 `UiScreenId::Settings`, `SdLog`, `RxSignals` and `EscConfig`
 ([Names](#names)).
 
@@ -511,6 +511,12 @@ characters, so each fits where it fits today:
 
 No strip text names one of the four words: the strips name pins, rates and
 states.
+
+Two changes outside the four words, from [decisions 17 and 18](#decisions):
+ANGLE METER's button `SETUP` becomes `SET`, its view `ANGLE SETUP` becomes
+`ANGLE SET`, and its two texts read `SET LENGTH IN ANGLE SET FOR MM` and
+`ANGLE SET NOT SAVED TO FLASH.`; the wiki pages Setup and Einrichtung gain
+one pointer line to the screen SETUP.
 
 ### What keeps its word
 
@@ -567,7 +573,7 @@ Wiki page titles. A page is renamed only where it is named after a screen:
 | RX-Signals, RX-Signale | the screen RX SIGNALS | yes: `Receiver` and `Empfaenger`, titled "Receiver" and "Empfänger"; `PAIRS` in `tools/check_wiki.py`, `_Sidebar.md`, Home and every link follow |
 | SD-Logging, SD-Aufzeichnung | the function, recording to the card | no |
 | AM32-Configuration, AM32-Konfiguration | the ESC firmware and the task | no |
-| Setup, Einrichtung | the first steps with the hardware, "from an empty bench to the splash screen" | no; see [open question 2](#open-questions) |
+| Setup, Einrichtung | the first steps with the hardware, "from an empty bench to the splash screen" | no; it gains one pointer line ([decision 18](#decisions)) |
 | The-Screens, Die-Bildschirme and the others | no screen | no |
 
 The German pages keep the screen's words as the screen shows them: the
@@ -696,6 +702,26 @@ has not decided them:
 16. **One wiki page pair is renamed,** RX-Signals and RX-Signale
     ([The rename slice's work](#the-rename-slices-work)).
 
+Calls of the developer, 2026-11-16, in the owner's absence. Each took the
+note's own recommendation and waits for the owner's review:
+
+17. Developer's call of 2026-11-16, pending the owner's review: **ANGLE
+    METER's `SETUP`.** Option (a): ANGLE METER's footer button `SETUP`
+    becomes `SET` and its view `ANGLE SETUP` becomes `ANGLE SET`, as SERVO
+    TESTER has SERVO SET and S.BUS OUTPUT has OUTPUT SET. The texts read
+    `SET LENGTH IN ANGLE SET FOR MM`, 30 characters, and `ANGLE SET NOT
+    SAVED TO FLASH.`, 29. `SET` at scale 2 is 34 px in the 72 px button.
+    SETUP then names one place, MENU's sixth row. Slice 5 changes the
+    texts in `src/ui_angle.cpp` and `src/ui_angle.h`. The line the build
+    adds to [angle-meter.md](angle-meter.md), where it names ANGLE SETUP:
+    "Revised by menu-c.md decision 17, pending the owner's review: the view
+    reads ANGLE SET and its button SET."
+18. Developer's call of 2026-11-16, pending the owner's review: **The wiki
+    page Setup.** Option (a): the page keeps its name, `Setup` and in
+    German `Einrichtung`, and gains one line under its title that sends
+    the reader to The-Screens, and in German Die-Bildschirme, for the
+    screen SETUP. Slice 5 adds the line.
+
 ## Decisions of menu-b.md this revises
 
 [menu-b.md](menu-b.md) is not edited now. The build adds each line below to
@@ -806,7 +832,7 @@ pairs, and the previews.
 | 2. Navigation stack | In `src/ui.cpp`: BACK pops one screen; a chooser's tool returns to its chooser, by BACK and by the leave page's last button (owner decision 7); a chooser keeps its scroll; the choosers lose `freePins` and gate each entry on `uiPinsRefuse()`. The tester stays the root. | Opus | New, by control id: for each of the eight chooser entries, open it and leave it by BACK, and by the leave page's last button where it has one; `uiCurrentScreen()` is the opener. SETTINGS from a readout returns to the tester. A chooser opened while the claim is not Free draws its claiming entries disabled. Mutation: restore the origin MENU, the return cases fail. | **D2 needs it.** D2 changes what the leave page's last button does to the pin, and D4 what it reads; this slice changes where it returns |
 | 3. MENU as the root | The frame function starts on MENU; the header draws no BACK (`uiHeader()` gains the variant); the row ESC TESTER, first, with `freePins`; the tester opens disarmed and its MENU button returns to MENU; the EDT chip goes from the strip. Nine rows meanwhile, scrolling 9 × 42 − 258 = 120 px. | Opus | New: after `uiInit()` the screen is `Menu`; MENU's control table has no `UI_BACK`; a tap on row 0 opens `Tester`; `TesterCtl::Menu` disarms and returns; armed state, throttle and LATCH are clear on each open; the row is disabled while the claim is not Free. The suites that start on the tester (`test_ui.cpp` and the helpers `openMenu()`, `openSettings()`, `openServo()` and the others) open it through the row. Mutation: draw BACK at the root, the control-table case fails. | **D2 needs it** and D1, and follows at once; D3 follows D2. Until D2 merges, DShot runs on MENU as at cff09ae, so `main` is no less safe than cff09ae |
 | 4. Six rows, three hubs | SERVO holds SERVO TESTER, ANGLE METER and the three programmers, scrolling 146 px; ESC COMMANDS joins ESC CONFIG; PROGRAMMER and TOOLS go; `>` on the hub rows. The names are still those of cff09ae: ESC CONFIG, RX SIGNALS, SD LOG, SETTINGS. `buildItems()` of `src/ui_settings.cpp`, which walks `uiMenuEntries()` for a tool's section, walks the hubs' entries too. | Fable | New: `UI_MENU_COUNT` is 6 and `uiListMaxScroll()` of MENU is 0; every row is whole and acts at scroll 0; SERVO's range is 146 px; at scroll 0 entry 3 is listed and does not act; at 146 px HITEC CLASSIC's third line ends at y 316; each hub's entries open the screens of [the table](#every-screen-old-place-and-new-place). `menuRowsFit()` and `hubEntriesFit()` hold at build time. Mutation: a sixth entry line too long fails the build; a content of 400 px fails the y 316 case. | **D4 needs it** for the hubs it names. ESC COMMANDS keeps `freePins` as a hub entry; requirement 12 of [the list above](#what-the-structure-requires-of-dshot) is D2's and D3's |
-| 5. The rename | Owner decision 6, as [The rename slice's work](#the-rename-slices-work) lists it: the four labels and titles, the seven screen texts, the tests' expectations, README, the wiki in both languages with the page pair Receiver and Empfaenger, the wiring drawing, the release text, rule 9, the previews. It needs [open questions 1 and 2](#open-questions) answered. | Sonnet | The suite passes with the expectations changed and no case removed; `menuRowsFit()` and the title `static_assert`s hold. `python3 test/check_docs.py` with the four old words in rule 9; `tools/check_wiki.py` with the renamed pair; `tools/make_wiring.py --check`. Mutation: `SETTINGS` back in one screen text, its expectation fails; an old word in a wiki page, rule 9 fails. | D4's texts use the new names (requirement 14): D4 follows this slice, or this slice renames what D4 added |
+| 5. The rename | Owner decision 6, as [The rename slice's work](#the-rename-slices-work) lists it: the four labels and titles, the seven screen texts, the tests' expectations, README, the wiki in both languages with the page pair Receiver and Empfaenger, the wiring drawing, the release text, rule 9, the previews. It applies [decisions 17 and 18](#decisions). | Sonnet | The suite passes with the expectations changed and no case removed; `menuRowsFit()` and the title `static_assert`s hold. `python3 test/check_docs.py` with the four old words in rule 9; `tools/check_wiki.py` with the renamed pair; `tools/make_wiring.py --check`. Mutation: `SETTINGS` back in one screen text, its expectation fails; an old word in a wiki page, rule 9 fails. | D4's texts use the new names (requirement 14): D4 follows this slice, or this slice renames what D4 added |
 | 6. The structure's records | The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises) in menu-b.md, menu.md, esc-commands.md, bluejay-blheli-s.md, usb-bridge.md, angle-meter.md and rx-signals.md; the names table in `docs/design/README.md`; README "Layout" and "The user manual"; the tree of The-Screens and Die-Bildschirme. | Sonnet | `python3 test/check_docs.py` with the removed names `SERVO PROGRAMMER`, `PROGRAMMER` and `TOOLS` as MENU paths; `tools/check_wiki.py`. | **D5 goes with it:** the design notes' descriptions and the bench plan |
 | 7. Palette | `THEME_DARK` in `src/theme.cpp` as `rgb()` triples; the comments of `theme.h`: the table's `C_ONACCENT` row and the entries' meanings. Dark ink on every fill (ui-theme.md decision 3). | Fable | New, `test_widgets.cpp`: each word equals its triple; every entry but `TC_PAPER` differs from every other in both themes, so the colour probes stay valid; [the contrast table](ui-theme.md#contrast) as a check, each text pair 4.5 or more but the named exceptions, each label on a fill 4.5 or more. Mutation: one value changed. | independent |
 | 8. Neutral fills | The editor `-` and `+` of ESC SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR, as neutral buttons; the neutral chip, `uiChip()` with `C_GRID`; the header's rule; the hints in `C_DIM`; a slider's fill in `C_GRID`. | Fable | Each button's fill and label by control id, 5 screens. `test_ui.cpp` 1650 and 1670, `test_angle_ui.cpp` 329, `test_bridge_ui.cpp` 264 and 333 rewritten: frame, `C_BG` inside, `C_DIM` label; `chipIs()` gains the case. The rule's row on every screen with a header; `test_servo.cpp` 3394; the hints by text and colour. No fit check changes: no text moves. | independent |
@@ -836,30 +862,12 @@ What each slice leaves on `main`:
 
 ## Open questions
 
-Questions 1 to 5 of this note as it stood at 71a060f are answered: owner
-decisions 4 to 7. The answers raise two.
+None open. Questions 1 to 5 of this note as it stood at 71a060f are answered
+by owner decisions 4 to 7. The two questions the answers raised are settled
+by the developer's calls of 2026-11-16, pending the owner's review:
 
-1. **ANGLE METER's `SETUP`.** ANGLE METER has a footer button `SETUP`
-   and a view titled `ANGLE SETUP`, with the texts `SET LENGTH IN SETUP FOR
-   MM` and `SETUP NOT SAVED TO FLASH.` (`src/ui_angle.cpp`,
-   `src/ui_angle.h`). With owner decision 6 SETUP is also MENU's sixth row,
-   and `SET LENGTH IN SETUP FOR MM` then points at the wrong screen.
-   (a) The view becomes `ANGLE SET` and its button `SET`, as SERVO TESTER
-   has SERVO SET and S.BUS OUTPUT has OUTPUT SET; the texts read `SET
-   LENGTH IN ANGLE SET FOR MM`, 30 characters, and `ANGLE SET NOT SAVED TO
-   FLASH.`, 29. `SET` at scale 2 is 34 px in the 72 px button. (b) `OPTIONS`,
-   rcbench's word for a tool's own settings; at scale 2 it is 82 px and
-   does not fit the 72 px button. (c) Nothing changes, and SETUP names two
-   places. Recommendation: (a). It revises the texts of
-   [angle-meter.md](angle-meter.md), whose decisions are the owner's.
-2. **The wiki page Setup.** The page `Setup`, in German `Einrichtung`,
-   covers the parts, the cable and the firmware, "from an empty bench to
-   the splash screen". It is not named after a screen, so the rename
-   leaves it. With decision 6 a reader who looks for the screen SETUP
-   finds this page first. (a) The page keeps its name and gains one line
-   under its title that sends the reader to The-Screens for the screen
-   SETUP. (b) The English page becomes `Installation`; every link to it,
-   in the wiki and from outside, changes. Recommendation: (a).
+1. ~~ANGLE METER's `SETUP`.~~ Settled by [decision 17](#decisions).
+2. ~~The wiki page Setup.~~ Settled by [decision 18](#decisions).
 
 ## Risks
 

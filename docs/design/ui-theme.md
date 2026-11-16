@@ -1,8 +1,10 @@
 # UI theme after rcbench's
 
 Status: proposed, not built. The owner decided its five questions on
-2026-11-15 ([Decisions](#decisions)). Every colour is computed and not seen
-on the panel.
+2026-11-15. The two questions the answers raised are settled by the
+developer's calls of 2026-11-16, pending the owner's review
+([Decisions](#decisions)). Every colour is computed and not seen on the
+panel.
 
 The owner's request of 2026-11-15: "Adapt the color scheme and tui to the
 MiniRcBench from the big brother." The big brother is rcbench, the larger
@@ -614,7 +616,7 @@ What the numbers say:
   the way back, 4.8. With a header the two are in different bands. On the
   tester they share the button row, HOLD TO ARM at its left end and `MENU`
   at its right with LATCH between, and the label and the place tell them
-  apart ([question 2](#open-questions)).
+  apart ([decision 15](#decisions)).
 - **High contrast.** The same cues hold with its dark accents on white:
   the changed fill is 7.73 against the row and 5.30 against the selected
   row, a start button 6.50 with white ink, and `GREEN` against `RED` is
@@ -836,7 +838,7 @@ How "changed" stays apart from an unchanged cyan value:
 
 The first four rows are the owner's list. HOLD TO RESTORE is this note's
 reading of "the WRITE holds"; the rows under it are
-[open question 1](#open-questions).
+[decision 14](#decisions).
 
 rcbench's list has more: CENTER, SWEEP and the pulse buttons of its servo
 screens are green because a press moves an armed servo at once. Here MIN,
@@ -1003,7 +1005,7 @@ Choices of this note where the decisions above leave the choice. The owner
 has not decided them:
 
 6. **The home tag is BACK,** and on the tester `MENU`
-   ([question 2](#open-questions)); the title stays `C_TEXT`
+   ([decision 15](#decisions)); the title stays `C_TEXT`
    ([Cyan](#cyan)).
 7. **Changed is the cyan fill** with dark ink, and the bar; no `*`
    ([Cyan](#cyan)).
@@ -1016,7 +1018,7 @@ has not decided them:
 11. **A hold that starts an output is green at rest and red while held;**
     HOLD TO ARM too ([Green](#green)).
 12. **HOLD TO RESTORE is a WRITE hold.** The other presses of
-    [the table](#green) stay neutral ([question 1](#open-questions)).
+    [the table](#green) stay neutral ([decision 14](#decisions)).
 13. **The tester's badge and its `SDERR` chip are square**
     ([Widgets](#widgets)).
 
@@ -1098,6 +1100,24 @@ Decisions the theme leaves as they are:
 [Decision 4](#decisions) closes open item 25 of
 [STATUS.md](../../STATUS.md).
 
+Calls of the developer, 2026-11-16, in the owner's absence. Each took the
+note's own recommendation and waits for the owner's review:
+
+14. Developer's call of 2026-11-16, pending the owner's review: **Which
+    other presses turn green?** Of the other presses, only HOLD TO RESTORE
+    turns green, because it is the WRITE hold's rectangle and the same
+    write. HOLD TO SAVE, HOLD TO DEFAULTS, HOLD TO KEEP, HOLD TO REBOOT,
+    the ESC COMMANDS buttons and START on LOGS stay neutral. The price:
+    rcbench's programmers fill CONNECT and its SAVE green, and these stay
+    neutral here.
+15. Developer's call of 2026-11-16, pending the owner's review: **Is the
+    tester's `MENU` cyan?** Yes: the tester's `MENU` button is cyan, the
+    way back being cyan on every screen. The price: the tester's button row
+    holds two bright fills while safe, the green HOLD TO ARM and the cyan
+    `MENU`, 66 px apart with LATCH between, and a tritanope sees them as
+    one colour, 4.8. A tap on `MENU` disarms and leaves; arming needs the
+    1000 ms hold; a slip between the two starts nothing.
+
 ## Slices
 
 The slices of the look are slices 7 to 14 of
@@ -1136,31 +1156,9 @@ Notes on the slices:
 
 ## Open questions
 
-Questions 1 to 5 of this note as it stood at ef2ffb0 are answered:
-[decisions 1 to 5](#decisions). The answers raise two.
+None open. Questions 1 to 5 of this note as it stood at ef2ffb0 are answered
+by [decisions 1 to 5](#decisions). The two questions the answers raised are
+settled by the developer's calls of 2026-11-16, pending the owner's review:
 
-1. **Which other presses turn green?** The owner's list is HOLD TO ARM,
-   the WRITE holds, START and APPLY. [The table](#green) classes the rest
-   by rcbench's rule. Recommended: HOLD TO RESTORE joins the list, because
-   it is the WRITE hold's rectangle and the same write; nothing else does.
-   - HOLD TO SAVE, HOLD DEFAULTS and HOLD TO KEEP write flash and start no
-     output. rcbench fills its SAVE green while something is unsaved; here
-     the amber note line `UNSAVED - HOLD SAVE TO KEEP` and MENU's
-     `UNSAVED` already say so, and a green SAVE would be the one green
-     fill that starts nothing.
-   - HOLD TO REBOOT sends the servo one command and starts no pulse.
-   - ESC COMMANDS' BEEP 1 to 5, NORMAL, REVERSED, 3D OFF and 3D ON send a
-     command; the four holds also save it in the ESC. Each button names a
-     value, and a green one among them would read as the value in force.
-   - START on LOGS starts a recording.
-   The price of the recommendation: rcbench's programmers fill CONNECT and
-   its SAVE green, and these stay neutral here.
-2. **Is the tester's `MENU` cyan?** ESC TESTER has no header, so its `MENU`
-   button is its way back. Recommended: yes, the way back is cyan on every
-   screen. The price: the tester's button row then holds two bright fills
-   while safe, the green HOLD TO ARM and the cyan `MENU`, 66 px apart with
-   LATCH between, and a tritanope sees them as one colour, 4.8. A tap on
-   `MENU` disarms and leaves; arming needs the 1000 ms hold; a slip
-   between the two starts nothing. No: `MENU` stays neutral with its
-   `C_DIM` label, and the arm control is the one bright fill on the safe
-   tester.
+1. ~~Which other presses turn green?~~ Settled by [decision 14](#decisions).
+2. ~~Is the tester's `MENU` cyan?~~ Settled by [decision 15](#decisions).
