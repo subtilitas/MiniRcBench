@@ -2085,6 +2085,17 @@ static void testPollSource() {
 	std::string poll = bodyOf(src, "void escTaskPoll() {");
 	checkTrue("the stamp 0 before the first bind",
 	          before(src, "static volatile uint32_t s_boundMs = 0;", nullptr));
+	// Slice D2: escTaskInit() asks for Park and parks on core0, after it
+	// seeds the wiring; the fake's escTaskInit() copies it.
+	std::string init = bodyOf(src, "void escTaskInit() {");
+	checkTrue("escTaskInit() seeds the wiring, then asks for Park and parks the pads",
+	          !init.empty() && occurrences(init, "s_want = EscPinMode::Park;") == 1 &&
+	          occurrences(init, "padsTo(EscPinMode::Park);") == 1 &&
+	          before(init, "s_kissPin    = cfg->kissPin;", "padsTo(EscPinMode::Park);") &&
+	          before(init, "s_want = EscPinMode::Park;", "padsTo(EscPinMode::Park);") &&
+	          occurrences(init, "EscPinMode::Run") == 0);
+	checkTrue("Park asked from the start, before escTaskInit()",
+	          before(src, "static volatile EscPinMode s_want = EscPinMode::Park;", nullptr));
 	checkTrue("the four functions found",
 	          !teardown.empty() && !bind.empty() && !pads.empty() && !poll.empty());
 	checkTrue("pumpTeardown() calls escTelTeardown()",
