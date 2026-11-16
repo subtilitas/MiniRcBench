@@ -26,10 +26,10 @@
  *
  * BACK leaves through the leave page (ui_leave.h): the job lets GP1 go at
  * once, and the page opens releasing, as SERVO TESTER's does. Its step names
- * where DShot restarts; BACK TO MONITOR keeps the claim and binds the job
- * again, with every count at 0; RESTART DSHOT, live 1000 ms after the pin is
- * let go, returns to RX SIGNALS. BACK before a claim held, or during
- * Stopping, returns to RX SIGNALS with DShot resumed.
+ * the hub it returns to; BACK TO MONITOR keeps the claim and binds the job
+ * again, with every count at 0; the last button, live 1000 ms after the pin
+ * is let go, parks the pins and returns to RX SIGNALS. BACK before a claim
+ * held, or during Stopping, returns to RX SIGNALS with the pins parked.
  *
  * @see docs/design/rx-signals.md, "Screen"
  */
@@ -126,14 +126,14 @@ void uiSbusEnter();
 /**
  * @brief Run one frame of the screen.
  * @param t Touch state for this frame.
- * @return false once the screen has left: after RESTART DSHOT on the leave
- *         page, or after BACK when no job had run.
+ * @return false once the screen has left: after the leave page's last
+ *         button, or after BACK when no job had run.
  */
 bool uiSbusTick(const TouchState *t);
 
 /**
  * @brief The controls on the current frame: BACK; RETRY under a failed bind;
- *        BACK TO MONITOR and RESTART DSHOT on the leave page.
+ *        BACK TO MONITOR and the last button on the leave page.
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.

@@ -332,7 +332,7 @@ static bool tapped(const UiRect &r) { return uiTapped(r, s_t); }
 
 /**
  * @brief Whether BACK acts on this frame: everywhere but on the leave page,
- *        in every phase, where BACK TO SERVO and RESTART DSHOT are the ways
+ *        in every phase, where NEXT SERVO and the last button are the ways
  *        on (docs/design/menu-b.md, decision 5). The control table reports
  *        it, the tap is gated on it and the header draws it.
  */
@@ -1545,8 +1545,8 @@ bool uiServoTick(const TouchState *t) {
 			ClaimState cs = pinClaimState();
 			if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
 			s_view = View::Leave;
-			// RESTART DSHOT waits 1000 ms after the pins are let go: about
-			// 41 ms after BACK at 50 Hz, so a double tap restarts nothing.
+			// The last button waits 1000 ms after the pins are let go: about
+			// 41 ms after BACK at 50 Hz, so a double tap parks nothing early.
 			uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 		}
 	}

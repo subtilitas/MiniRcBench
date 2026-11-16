@@ -5,17 +5,17 @@
  *
  * RX SIGNALS is a hub (ui_hub.h): one 228 x 46 px button per tool at an
  * 80 px pitch, with its lines under it. It claims
- * nothing: DShot runs on SIG while it shows. A tap on MONITOR opens S.BUS
+ * nothing; no DShot runs while it shows. A tap on MONITOR opens S.BUS
  * MONITOR (ui_sbus.h), a tap on OUTPUT S.BUS OUTPUT (ui_sbus_out.h), each
  * through uiChooseTool(); the tool's own entry point asks for the pin claim
  * on that frame. OUTPUT's lines carry the output's warning,
  * `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`.
- * BACK returns to MENU. The tools' BACK before a claim held and their
- * RESTART DSHOT return here, to RX SIGNALS.
+ * BACK returns to MENU. The tools' BACK before a claim held and their leave
+ * page's last button return here, to RX SIGNALS.
  *
  * The screen opens whatever the pin claim's state. While the claim is not
- * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
- * (uiHubEntryActs()).
+ * Free it draws its entries disabled under the busy caption,
+ * `SETTING SIG GP0 LOW` while the pins park (uiHubEntryActs()).
  *
  * @see docs/design/rx-signals.md, "MENU"
  */

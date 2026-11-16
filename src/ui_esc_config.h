@@ -8,16 +8,17 @@
  * ESC CONFIG is a hub (ui_hub.h), as SERVO (ui_servo_hub.h) and RX SIGNALS
  * (ui_rx_signals.h) are: one 228 x 46 px button per entry at an 80 px
  * pitch, with its lines under it. Three entries fill the page; it does not
- * scroll. It claims nothing: DShot runs on SIG while it shows. A tap on ESC
+ * scroll. It claims nothing; no DShot runs while it shows. A tap on ESC
  * COMMANDS opens the DShot commands (ui_esc_cmd.h), which claim nothing; a
  * tap on ESC SETTINGS opens the settings screen (ui_am32.h), a tap on USB
  * BRIDGE the bridge (ui_bridge.h), whose own entry points ask for the pin
  * claim on that frame. Each opens through uiChooseTool(). BACK returns to
- * MENU. The tools' BACK and their RESTART DSHOT return here, to ESC CONFIG.
+ * MENU. The tools' BACK and their leave page's last button return here, to
+ * ESC CONFIG.
  *
  * The screen opens whatever the pin claim's state. While the claim is not
- * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
- * (uiHubEntryActs()).
+ * Free it draws its entries disabled under the busy caption,
+ * `SETTING SIG GP0 LOW` while the pins park (uiHubEntryActs()).
  */
 
 #pragma once

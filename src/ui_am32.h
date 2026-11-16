@@ -23,11 +23,12 @@
  * WRITE saves the backup of the page as first read (`BJnnn.TXT`,
  * `BHnnn.TXT`) and then has the job write the draft, verified by reading
  * back. BACK from the list sends LEAVE, `00 01`, which starts the ESC's
- * firmware, and gives SIG back to DShot; the cue stays until an eRPM frame.
+ * firmware, and parks SIG low; the cue stays until an eRPM frame.
  * BACK on a half-written page is guarded: the second aborts the session
  * with no LEAVE. Every other BACK after an EFM8 answer, or after a reply
  * that holds a piece of one, opens the leave page of decision 8 of that
- * note, whose RESTART DSHOT gives SIG back to DShot and clears the cue.
+ * note, whose last button, the hub's title, parks SIG low and clears the
+ * cue.
  *
  * @see am32_bl.h for the transport, am32_eeprom.h for the settings layout.
  */
@@ -46,9 +47,9 @@ struct TouchState;
 void uiAm32Enter();
 
 /**
- * @brief Leave config mode and end the claim, which resumes DShot within
- *        the call unless an EFM8 bootloader answered: then the claim waits
- *        in Leaving for RESTART DSHOT, which only the screen's leave page
+ * @brief Leave config mode and end the claim, which parks the pins unless
+ *        an EFM8 bootloader answered: then the claim waits in Leaving for
+ *        the leave page's last button, which only the screen's leave page
  *        offers, so the screen leaves through that page instead.
  */
 void uiAm32Exit();

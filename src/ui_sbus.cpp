@@ -130,7 +130,7 @@ static bool live() { return s_claimed && pinClaimState() == ClaimState::Running;
 
 /**
  * @brief Whether BACK acts on this frame: everywhere but on the leave page,
- *        where BACK TO MONITOR and RESTART DSHOT are the ways on
+ *        where BACK TO MONITOR and the last button are the ways on
  *        (docs/design/menu-b.md, decision 5).
  */
 static bool backActs() { return s_view != View::Leave; }
@@ -417,18 +417,18 @@ bool uiSbusTick(const TouchState *t) {
 	else if (s_view != View::Leave) claimPin();
 
 	// BACK: before a claim held, or while Stopping, back to the chooser's
-	// origin with DShot resumed; once a job has held GP1, the leave page.
+	// origin with the pins parked; once a job has held GP1, the leave page.
 	if (backActs() && uiBackTapped(s_t)) {
 		if (!s_claimed) return false;
 		pinClaimEnd(PinUser::Sbus);
 		ClaimState cs = pinClaimState();
-		// Restoring: core1 suspended the pump between pinClaimPoll() and
-		// pinClaimEnd().
+		// Parking: the claim was still Stopping at pinClaimEnd(), so the
+		// pins park with no leave page.
 		if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
 		s_view = View::Leave;
 		s_full = true;
-		// RESTART DSHOT waits 1000 ms after the pin is let go, which the job
-		// does at once, so a double tap restarts nothing.
+		// The last button waits 1000 ms after the pin is let go, which the
+		// job does at once, so a double tap parks nothing early.
 		uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 	}
 

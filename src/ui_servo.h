@@ -1,7 +1,7 @@
 /**
  * @file ui_servo.h
  * @brief The servo tester screens: SERVO TESTER, its SET screen, and the
- *        leave page before DShot restarts.
+ *        leave page before the pins park.
  *
  * Servo PWM (pulse-width modulation) on the ESC pin, and on the KISS pin for
  * two servos. Entry: MENU → SERVO → SERVO TESTER, the first entry of the
@@ -167,8 +167,8 @@ void uiServoEnter();
 /**
  * @brief Run one frame of the screen.
  * @param t Touch state for this frame.
- * @return false once the screen has left, after RESTART DSHOT on the leave
- *         page, or after BACK when no job had run.
+ * @return false once the screen has left, after the leave page's last
+ *         button, or after BACK when no job had run.
  */
 bool uiServoTick(const TouchState *t);
 

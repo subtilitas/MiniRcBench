@@ -1612,7 +1612,7 @@ static void drawLeave() {
 /**
  * @brief End the claim; the leave page's release follows.
  * @return false when the screen left at once: the claim was not held, or
- *         DShot resumes without a release.
+ *         the pins park without a release.
  */
 static bool endClaim() {
 	HitecCardPhase phase;
@@ -1849,7 +1849,7 @@ bool uiHitecTick(const TouchState *t) {
 				} else {
 					// No servo in the mode: the page opens releasing, the
 					// READ wait included, since the pin went to a servo.
-					// Refused or Stopping: SERVO, the hub, DShot resumed at once.
+					// Refused or Stopping: SERVO, the hub, the pins parked at once.
 					if (running() && s_st.job == HitecJobState::Entering) sendOp(HitecOp::Abort);
 					if (!endClaim()) return false;
 					openLeave(UiLeavePhase::Releasing);
