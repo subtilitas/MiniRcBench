@@ -91,14 +91,14 @@ Eine **verfallene Statuskachel zeigt `--`, nie `OK`**.
 
 Das macht die Firmware, ohne Schaltfläche.
 
-Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe:
-jedes Mal, wenn ESC TESTER oder ESC COMMANDS öffnet, und nach einer Änderung
-von SIG PIN, DSHOT, KISS TELEM oder AUX PIN unter SETTINGS, das über dem
-Tester geöffnet ist. Beim Einschalten und auf jedem anderen Bildschirm geht
-kein Frame hinaus: Das Signalkabel liegt dort auf Low. Sie dauern 10 ms. Jede Antwort wird von der ersten an
-mit EDT-Decodierung gelesen. Ein ESC, der EDT über einen dieser Neustarts
-hinweg eingeschaltet behalten hat, zeigt Spannung und Temperatur sofort und
-nie eine falsche Drehzahl. Ein ESC mit AM32 oder Bluejay zeigt bei
+Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe: jedes
+Mal, wenn ESC TESTER oder ESC COMMANDS öffnet, und nach einer Änderung von SIG
+PIN, DSHOT, KISS TELEM oder AUX PIN unter SETTINGS, das über dem Tester geöffnet
+ist. Beim Einschalten und auf jedem anderen Bildschirm geht kein Frame hinaus:
+Das Signalkabel liegt dort auf Low. Sie dauern 10 ms. Jede Antwort wird von der
+ersten an mit EDT-Decodierung gelesen. Ein ESC, der EDT über einen dieser
+Neustarts hinweg eingeschaltet behalten hat, zeigt Spannung und Temperatur
+sofort und nie eine falsche Drehzahl. Ein ESC mit AM32 oder Bluejay zeigt bei
 ausgeschaltetem EDT die richtige Drehzahl; für andere ESC-Firmware mit
 ausgeschaltetem EDT ist das unbekannt.
 
@@ -123,9 +123,9 @@ Eine Freigabe zu einem anderen Zeitpunkt ginge verloren.
 
 Das EDT-Feld steht auf ESC COMMANDS, das DShot laufen lässt. Es zeigt grünes
 `EDT ON`, solange EDT-Frames eintreffen, und `NO ESC` in einem Rahmen ohne
-Füllung, solange kein eRPM eintrifft; ein rotes `EDT OFF` heißt, der ESC antwortet und sendet kein EDT.
-Bleibt das Feld rot, obwohl der ESC EDT beherrscht, siehe
-[Fehlersuche](Fehlersuche#edt-bleibt-aus).
+Füllung, solange kein eRPM eintrifft; ein rotes `EDT OFF` heißt, der ESC
+antwortet und sendet kein EDT. Bleibt das Feld rot, obwohl der ESC EDT
+beherrscht, siehe [Fehlersuche](Fehlersuche#edt-bleibt-aus).
 
 ---
 

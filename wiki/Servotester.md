@@ -498,14 +498,15 @@ Leiste nennt die Pins, die der Bildschirm hält, `SIG GP0  AUX GP1`, oder
 
 <img src="img/leave-servo.png" width="240" alt="Die Verlassenseite: 1 UNPLUG THE SERVO., NEXT SERVO und SERVO">
 
-Bis der letzte Impuls ausgelaufen ist, zeigt die Seite `RELEASING THE PINS`,
-mit SIG allein `RELEASING THE PIN`, und beide Tasten sind grau. Dann wirkt
-`NEXT SERVO`: Es führt zum Servobildschirm zurück, in SAFE, und behält die
-Pins. Zieh das Servo ab und tippe dann auf `SERVO`, den Titel der Auswahl:
-Es wirkt 1 s, nachdem die Pins freigegeben sind, damit ein schnelles zweites
-Tippen nach `BACK` nichts beendet. SIG liegt dann auf Low, kein DShot
-startet, und SERVO, die Auswahl, erscheint. Ein Servo, das an SIG bleibt,
-trifft beim nächsten ESC TESTER oder ESC COMMANDS auf DShot. `BACK` auf der Seite ist grau und bewirkt nichts.
+Bis der letzte Impuls ausgelaufen ist, zeigt die Seite `RELEASING THE PINS`, mit
+SIG allein `RELEASING THE PIN`, und beide Tasten sind grau. Dann wirkt
+`NEXT SERVO`: Es führt zum Servobildschirm zurück, in SAFE, und behält die Pins.
+Zieh das Servo ab und tippe dann auf `SERVO`, den Titel der Auswahl: Es wirkt 1
+s, nachdem die Pins freigegeben sind, damit ein schnelles zweites Tippen nach
+`BACK` nichts beendet. SIG liegt dann auf Low, kein DShot startet, und SERVO,
+die Auswahl, erscheint. Ein Servo, das an SIG bleibt, trifft beim nächsten ESC
+TESTER oder ESC COMMANDS auf DShot. `BACK` auf der Seite ist grau und bewirkt
+nichts.
 
 ---
 

@@ -67,12 +67,15 @@ top (`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
 36 px tall. MENU is the root and the first screen after the splash, with
 no BACK; its first row, ESC TESTER, opens the tester, whose MENU button
 disarms and returns to MENU (slice 3 of
-[menu-c.md](docs/design/menu-c.md#slice-3-as-built)). DShot still runs from
-boot behind MENU until slice D2 of
-[dshot-lifetime.md](docs/design/dshot-lifetime.md). BACK returns to the
+[menu-c.md](docs/design/menu-c.md#slice-3-as-built)). DShot runs only while
+ESC TESTER or ESC COMMANDS is open, or SETTINGS over the tester; from
+power-up on, everywhere else, SIG is driven low and AUX rests on its
+pull-down (slice D2 of
+[dshot-lifetime.md](docs/design/dshot-lifetime.md#d2-as-built), host tests
+only). BACK returns to the
 screen that opened the one on show: a hub, SD LOG or SETTINGS opened from a
 MENU row to MENU, a hub's tool to that hub, by BACK and by the leave page's
-RESTART DSHOT (slice 2
+last button, the hub's title (slice 2
 of [menu-c.md](docs/design/menu-c.md#slice-2-as-built)), and SETTINGS
 opened from the tester's readouts to the tester (slice 7 of menu structure
 B).
@@ -162,89 +165,87 @@ port again once the claim is free, and the clock's `CLOCK` line with it.
 `USB_BRIDGE_LOG`, 0 by default, builds DshotDisplay's traffic log.
 
 Menu structure B ([menu-b.md](docs/design/menu-b.md)), the owner's choice of
-2026-11-13, is built in its 10 slices, host tests only, not on hardware.
-Slice 1: the leave page
-widget (`src/ui_leave.*`), the BACK guard and two strip lines
+2026-11-13, is built in its 10 slices, host tests only, not on hardware. Slice
+1: the leave page widget (`src/ui_leave.*`), the BACK guard and two strip lines
 (`src/ui_widgets.*`), the field row (`src/ui_list.*`), the colour role names and
-the layout constants. Slice 2:
-the uses that decision 11's tables name in their roles' colours (`UI_COL_*`);
-the rows of AM32 CONFIG, KST SERVO, HITEC SERVO and SERVO SET drawn through the
-field row, a changed value `C_CYAN` with a 3 px bar; square 12 px chips;
-`PROG MODE` on blue. Slice 3, names and SETTINGS: SIG PIN and AUX PIN with their
-J5 pin, a step of either swapping the two; SERVO SUPPLY a core section of
-SETTINGS, its first value `OWN`; MENU's strip `SIG GP0  AUX GP1  DSHOT600` and,
-while the claim is not Free, `DSHOT RESTARTING ON SIG GP0` over rows drawn
-disabled; `DSHOT600` on the tester; `NOTHING SAVED: DEFAULTS IN USE`; four KST
-labels. Slice 4, the layout table (the note's decision 14): the footers of
-SETTINGS and SERVO SET, the `-` and `+` of SERVO SET and AM32 CONFIG, AM32's
-result OK as the wide button, SD LOG's button edge, HOLD DEFAULTS in place of
-HOLD RESET, the red HOLD TO SAVE, the write pages' `CHANGES` and Hitec's 4 rows
-and strip. Slice 5, the write rule and the guard (decisions 6, 7 and 13's AM32
-titles): `WRITE...` and `RESTORE...` open the write and restore pages of AM32
-CONFIG, KST SERVO and HITEC SERVO on a tap, and only the page's 1 s hold
-writes; AM32 CONFIG has the page `AM32 WRITE`, its editor bar names the old
-value, and its dump is titled `AM32 HEX`; BACK on AM32 CONFIG's list with edits
-not written and on SERVO SET with a change waiting arms `UiBackGuard`; BACK is
-drawn disabled while a write runs or waits for the card, and the leave queue is
-gone. Slice 7, the tester: a tap on `14 POLES` or `MAX 20%`, underlined
-while disarmed and while the claim is Free, opens SETTINGS through
-`uiOpenTool()` in `src/ui.cpp`, which runs MENU's disarm, and BACK there returns
-to the tester; the latch reads LATCH. Slice 6, the leave page (decisions 5
-and 21, owner decisions 3, 25 and 30): KST SERVO, HITEC SERVO and SERVO
-TESTER leave through `ui_leave`, its numbered steps, STAY, LEAVE, then NEXT
-SERVO or BACK TO SERVO and RESTART DSHOT in LEAVE's rectangle, live 1000 ms
-after the pin is let go; BACK on the page drawn disabled in every phase.
-Slice 8: SERVO TESTER titled `SERVO TESTER`, its MENU label, on the main
-view and the leave page. Slice 9: MENU's seven rows by device, BEEP THE
-ESC, AM32 CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, SD LOG,
-SETTINGS, scrolling 36 px, the tool rows without a pin status, RX SIGNALS
-drawn disabled as `NOT BUILT` until slice 3 of rx-signals.md put its
-chooser behind it; PROGRAMMER (`src/ui_servo_prog.*`), the
+the layout constants. Slice 2: the uses that decision 11's tables name in their
+roles' colours (`UI_COL_*`); the rows of AM32 CONFIG, KST SERVO, HITEC SERVO and
+SERVO SET drawn through the field row, a changed value `C_CYAN` with a 3 px bar;
+square 12 px chips; `PROG MODE` on blue. Slice 3, names and SETTINGS: SIG PIN
+and AUX PIN with their J5 pin, a step of either swapping the two; SERVO SUPPLY a
+core section of SETTINGS, its first value `OWN`; MENU's strip
+`SIG GP0  AUX GP1 DSHOT600` and, while the claim is not Free, a busy caption
+over rows drawn disabled, since slice D2 of dshot-lifetime.md
+`RELEASING SIG GP0` or `SETTING SIG GP0 LOW`; `DSHOT600` on the tester;
+`NOTHING SAVED: DEFAULTS IN USE`; four KST labels. Slice 4, the layout table
+(the note's decision 14): the footers of SETTINGS and SERVO SET, the `-` and `+`
+of SERVO SET and AM32 CONFIG, AM32's result OK as the wide button, SD LOG's
+button edge, HOLD DEFAULTS in place of HOLD RESET, the red HOLD TO SAVE, the
+write pages' `CHANGES` and Hitec's 4 rows and strip. Slice 5, the write rule and
+the guard (decisions 6, 7 and 13's AM32 titles): `WRITE...` and `RESTORE...`
+open the write and restore pages of AM32 CONFIG, KST SERVO and HITEC SERVO on a
+tap, and only the page's 1 s hold writes; AM32 CONFIG has the page `AM32 WRITE`,
+its editor bar names the old value, and its dump is titled `AM32 HEX`; BACK on
+AM32 CONFIG's list with edits not written and on SERVO SET with a change waiting
+arms `UiBackGuard`; BACK is drawn disabled while a write runs or waits for the
+card, and the leave queue is gone. Slice 7, the tester: a tap on `14 POLES` or
+`MAX 20%`, underlined while disarmed and while the claim is Free, opens SETTINGS
+through `uiOpenTool()` in `src/ui.cpp`, which runs MENU's disarm, and BACK there
+returns to the tester; the latch reads LATCH. Slice 6, the leave page (decisions
+5 and 21, owner decisions 3, 25 and 30): KST SERVO, HITEC SERVO and SERVO TESTER
+leave through `ui_leave`, its numbered steps, STAY, LEAVE, then NEXT SERVO or
+BACK TO SERVO and RESTART DSHOT in LEAVE's rectangle, live 1000 ms after the pin
+is let go; BACK on the page drawn disabled in every phase. Slice 8: SERVO TESTER
+titled `SERVO TESTER`, its MENU label, on the main view and the leave page.
+Slice 9: MENU's seven rows by device, BEEP THE ESC, AM32 CONFIG, SERVO TESTER,
+SERVO PROGRAMMER, RX SIGNALS, SD LOG, SETTINGS, scrolling 36 px, the tool rows
+without a pin status, RX SIGNALS drawn disabled as `NOT BUILT` until slice 3 of
+rx-signals.md put its chooser behind it; PROGRAMMER (`src/ui_servo_prog.*`), the
 chooser of KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC from
 `UI_PROGRAMMERS`, which claims nothing and whose tap opens the tool through
-`uiOpenTool()` with the entry's own entry point, the claim of SIG on that
-frame; HITEC SERVO without its family view, a D series servo on its own
-supply waiting in Held for READ (the owner's decisions 34 and 35 of
-2026-11-14). Slice 10: the documentation no slice owned, menu.md's tree and
-MENU as built, revision lines in the design notes, README's Layout, Tests
-and user manual, and rule 9 of `test/check_docs.py`, which fails when
-README.md or a wiki page names a screen text, view or image structure B
-removed. The owner answered the note's eight questions on 2026-11-14 (open
-item 18). The slices name the AM32 screen AM32 CONFIG; it is ESC SETTINGS,
-under MENU's ESC CONFIG with USB BRIDGE
-([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions) decision
-1). MENU has six rows (`UI_MENU` in `src/ui_registry.cpp`): ESC TESTER,
-ESC CONFIG, SERVO, RX SIGNALS, SD LOG and SETTINGS, and does not scroll
-(slice 4 of menu structure C,
-[menu-c.md](docs/design/menu-c.md#slice-4-as-built)). ESC CONFIG, SERVO and
-RX SIGNALS open a hub each and carry `>`: ESC CONFIG holds ESC COMMANDS, ESC
-SETTINGS and USB BRIDGE; SERVO (`src/ui_servo_hub.*`) holds SERVO TESTER,
-ANGLE METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC and scrolls
-146 px on `ui_list`; RX SIGNALS holds MONITOR and OUTPUT. The screens
-PROGRAMMER and TOOLS are gone. The names are those of cff09ae until slice 5.
-The three hubs run on one widget, the hub (`src/ui_hub.*`): each
-is a table of `UiHubEntry` in `src/ui_registry.cpp`, checked at build time by
-`hubEntriesFit()`. It is
-slice 1 of menu structure C, a proposed note,
+`uiOpenTool()` with the entry's own entry point, the claim of SIG on that frame;
+HITEC SERVO without its family view, a D series servo on its own supply waiting
+in Held for READ (the owner's decisions 34 and 35 of 2026-11-14). Slice 10: the
+documentation no slice owned, menu.md's tree and MENU as built, revision lines
+in the design notes, README's Layout, Tests and user manual, and rule 9 of
+`test/check_docs.py`, which fails when README.md or a wiki page names a screen
+text, view or image structure B removed. The owner answered the note's eight
+questions on 2026-11-14 (open item 18). The slices name the AM32 screen AM32
+CONFIG; it is ESC SETTINGS, under MENU's ESC CONFIG with USB BRIDGE
+([bluejay-blheli-s.md](docs/design/bluejay-blheli-s.md#decisions) decision 1).
+MENU has six rows (`UI_MENU` in `src/ui_registry.cpp`): ESC TESTER, ESC CONFIG,
+SERVO, RX SIGNALS, SD LOG and SETTINGS, and does not scroll (slice 4 of menu
+structure C, [menu-c.md](docs/design/menu-c.md#slice-4-as-built)). ESC CONFIG,
+SERVO and RX SIGNALS open a hub each and carry `>`: ESC CONFIG holds ESC
+COMMANDS, ESC SETTINGS and USB BRIDGE; SERVO (`src/ui_servo_hub.*`) holds SERVO
+TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC and
+scrolls 146 px on `ui_list`; RX SIGNALS holds MONITOR and OUTPUT. The screens
+PROGRAMMER and TOOLS are gone. The names are those of cff09ae until slice 5. The
+three hubs run on one widget, the hub (`src/ui_hub.*`): each is a table of
+`UiHubEntry` in `src/ui_registry.cpp`, checked at build time by
+`hubEntriesFit()`. It is slice 1 of menu structure C, a proposed note,
 [menu-c.md](docs/design/menu-c.md); the slice changes no screen. Slice 2 is
-built: the screens form a stack of at most three in `src/ui.cpp`, a
-hub's tool returns to it, and the hubs open whatever the pin claim's
-state and draw each entry disabled while `uiPinsRefuse()` refuses its tool.
-Slice 3 is built: MENU is the root, at the bottom of the stack, and the first
-screen after the splash; its header draws no BACK; its first row, ESC TESTER,
-opens the tester disarmed, at throttle 0, with LATCH off, and is refused while
-the claim is not Free. DShot still runs from boot behind MENU, on every screen
-as before, until slice D2 of
-[dshot-lifetime.md](docs/design/dshot-lifetime.md), and MENU's EDT chip stays
-until then. The later slices are not built. The pin
-claim both features share is built (slice 1): the AM32 editor and the servo
-tester run on it. For the ESC, the board is the throttle source. It sends
-bidirectional DShot (a digital ESC protocol in which the ESC answers each
-frame on the same wire) and decodes the eRPM (electrical revolutions per
-minute) and EDT (Extended DShot Telemetry) frames that come back; RPM
-(revolutions per minute) is eRPM divided by half the motor's pole count. An
-optional third wire carries KISS telemetry, a serial protocol from the KISS
-ESC line with finer voltage and current.
+built: the screens form a stack of at most three in `src/ui.cpp`, a hub's tool
+returns to it, and the hubs open whatever the pin claim's state and draw each
+entry disabled while `uiPinsRefuse()` refuses its tool. Slice 3 is built: MENU
+is the root, at the bottom of the stack, and the first screen after the splash;
+its header draws no BACK; its first row, ESC TESTER, opens the tester disarmed,
+at throttle 0, with LATCH off, and is refused while the claim is not Free. Slice
+4 is built: six MENU rows over three hubs. Slice D2 of
+[dshot-lifetime.md](docs/design/dshot-lifetime.md#d2-as-built) is built, host
+tests only: no DShot at power-up, DShot only on ESC TESTER, ESC COMMANDS and
+SETTINGS over the tester, the pins parked (SIG driven low, AUX on its pull-down)
+everywhere else, the arm gate of 1500 ms after core1's bind, the hubs SERVO and
+RX SIGNALS warning `NO ESC CHECK: UNPLUG ANY ESC FIRST.`, the leave page's last
+button reading the hub's title and parking the pins, and no EDT chip on MENU.
+Slices 5 and 6, and D3 to D5, are not built. The pin claim both features share
+is built (slice 1): the AM32 editor and the servo tester run on it. For the ESC,
+the board is the throttle source. It sends bidirectional DShot (a digital ESC
+protocol in which the ESC answers each frame on the same wire) and decodes the
+eRPM (electrical revolutions per minute) and EDT (Extended DShot Telemetry)
+frames that come back; RPM (revolutions per minute) is eRPM divided by half the
+motor's pole count. An optional third wire carries KISS telemetry, a serial
+protocol from the KISS ESC line with finer voltage and current.
 
 The two cores of the RP2350 split the work by deadline:
 
@@ -474,8 +475,9 @@ record either way.
 | Clock driver and FAT dates (`src/clock.*`, `get_fattime()`, the `.TXT`'s clock lines), slice 4 of [run-summary.md](docs/design/run-summary.md#slice-4-as-built) | `runClockTests` against a register-level PCF85063A model on the I2C fake: BCD, the calendar over 2000 to 2099, the decode of each cause of a clock not set, the boot read of a set clock in one 129-clock transaction with nothing written, the kept time across a minute, a year's end, a leap day and 2^32 µs, the software reset and CLKOUT off only with OS set, nothing written with STOP, EXT_TEST, 12-hour mode or a bad register, no part, a timeout, an aborted or short read, a held SDA and a stuck bus, `get_fattime()` 0 while not set and packed while set; the clock lines in `runRunSummaryTests` and through the logger in `test/sd_log_fatfs.cpp`, read once at the start and once at the stop; 95 mutations, 94 failing them and 1 equivalent, listed in the note | not tested on hardware: the part at 0x51, OS after a power-up, the reset, the read's timing, any file's date on a card |
 | Setting the clock (`clockSet()` in `src/clock.cpp`, the `CLOCK` line in `src/clock_line.*` read by `usbDevTask()`, SETTINGS → BOARD → CLOCK, `tools/set_clock.py`), slice 5 of [run-summary.md](docs/design/run-summary.md#slice-5-as-built) | `runClockTests` on the PCF85063A model: the set's four writes byte for byte, 308 clocks with the read-back, the part counting from STOP's release, the kept time and the count of sets, ten bad times refused with nothing sent, each of the six transfers failing with the kept time unchanged, a timeout, a stuck bus, a short write, four read-backs that differ, each stopping the part; the line's parser on good, bad, short, long and ignored lines, the reader one line a pass over CR, LF and CR LF, each answer, each answer echoed back and ignored, the reader off and on, a set during a log giving `(clock set during the log)`; `testSettingsClock()` in `test_menu.cpp`: the row's texts and colours, repainted at a set and when the minute turns, not within it and not while scrolled out; `test/test_set_clock.py`: the port by USB IDs, the line, the wait for the next second, the answers past telemetry, the timeout, a half line another program left, a port lost during the exchange, `--help`, `--list`, `--port`, `--query` and the exit statuses; 156 mutations, 150 failing them and 6 equivalent, listed in the note | not tested on hardware: the set on the part, the serial line through TinyUSB (`usb_dev.cpp` is typechecked only), the tool against a board on Windows, Linux or macOS |
 | SD write cache for the backup claims (`src/sdio/sd_cache.*`, `src/card_cache.*`, the glue in `src/sdio/sd_card_glue.c`, `sdh_write_start()` and `sdh_write_poll()`); [sd-write-cache.md](docs/design/sd-write-cache.md) | the cache against a fake card (`runSdCacheTests`), the asynchronous block write against the simulated card (`runSdioTests`); the KST write waiting for the flush, a failed flush, the claim turning the cache on and off, a running log stopped, AM32's write refused after a failed flush, against a fake of `card_cache.h`; the glue and `card_cache.cpp` are built by the firmware only | not tested on hardware |
-| Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Restoring, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the pump's three modes (Run, Park, Release): Park's drain, the pads of a park, of a release from Park and of a wiring change in Park on the GPIO fake, SIG never an output at 1 with a latch a job left at 1, SIG a job left as an SIO output at 0 never undriven while it parks, no pad with the pull-down and the buffer on (RP2350-E9), no pad written at a bitrate-only change in Park, no mode reported while the pads change, the bind from Park with the EDT enable first, a configure landing during a bind or a park rebuilt on the next pass, `escTaskBoundMs()` 0 before the first bind and at a bind, a rebuild, a park and a release, `escTaskSuspended()` false while parked, `initError` cleared at a teardown; `escTaskPoll()` itself (`pumpBind()`, `padsTo()`, `pumpTeardown()` and the order in which each reports) is compiled only, and the suite runs a copy of that sequence in `fakePumpPoll()`; `testPollSource()` checks the shipped source for the steps the copy relies on (the request cleared before the wiring is read, no mode before the pads, `escTelTeardown()` in the teardown, the stamp after the bind, and each `__dmb()` barrier between the two steps it orders, `escTaskConfigure()`'s among them); the PIO calls are compiled only | not tested on hardware; open item 8 |
-| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): ESC TESTER, ESC CONFIG, SERVO, RX SIGNALS, SD LOG and SETTINGS as six 40 px rows at a 42 px pitch, with no scroll, `>` on the three rows that open a hub | every registry entry opens and BACK returns to MENU; every open through `uiOpenTool()` disarms; ESC TESTER the first row, with no status; ESC TESTER and SETTINGS drawn disabled and `DSHOT RESTARTING ON SIG GP0` while the claim restores, and a tap on such a row opens nothing; over test registries, six rows do not scroll and seven scroll 36 px; the six built rows whole at scroll 0, each opening its screen with one tap, a drag moving nothing; MENU opens at 0 px again when a tool returns; the UNSAVED status on MENU after leaving SETTINGS; the label, status and mark fit check at build time | not recorded |
+| Pin claim (`src/pin_claim.*`) and core1 job dispatch (`src/core1_job.*`), the zero-throttle drain in `src/esc_task.*` | each refusal rule at its 500 ms boundary and their order; the handover decisions of `escTaskPoll()` (`escHandoverStep()`, `escDrainSlot()`, `escPumpFrameSent()`, `escPumpBind()`) one 1 ms slot at a time: 250 zero frames, the teardown 251 ms after the last throttle frame, the bind disarmed; the order of the two cores' steps against fake jobs, BACK and RETRY, Parking, the unplug-page rule, the restore wiring, the start guard, the heartbeat rule across a millis() rollover; the pump's three modes (Run, Park, Release): Park's drain, the pads of a park, of a release from Park and of a wiring change in Park on the GPIO fake, SIG never an output at 1 with a latch a job left at 1, SIG a job left as an SIO output at 0 never undriven while it parks, no pad with the pull-down and the buffer on (RP2350-E9), no pad written at a bitrate-only change in Park, no mode reported while the pads change, the bind from Park with the EDT enable first, a configure landing during a bind or a park rebuilt on the next pass, `escTaskBoundMs()` 0 before the first bind and at a bind, a rebuild, a park and a release, `escTaskSuspended()` false while parked, `initError` cleared at a teardown; `escTaskPoll()` itself (`pumpBind()`, `padsTo()`, `pumpTeardown()` and the order in which each reports) is compiled only, and the suite runs a copy of that sequence in `fakePumpPoll()`; `testPollSource()` checks the shipped source for the steps the copy relies on (the request cleared before the wiring is read, no mode before the pads, `escTelTeardown()` in the teardown, the stamp after the bind, and each `__dmb()` barrier between the two steps it orders, `escTaskConfigure()`'s among them); the PIO calls are compiled only | not tested on hardware; open item 8 |
+| The DShot lifetime, slice D2 of [dshot-lifetime.md](docs/design/dshot-lifetime.md#d2-as-built): `escTaskInit()` parks on core0; `uiDshotWanted()` and `pinClaimDshot()` once a frame; the claim's Busy while Run is wanted and Parking in place of Restoring; the arm gate (`ARM_GATE_MS`, `uiArmGated()`); the hubs' `NO ESC CHECK` line and MONITOR's GP1 line; the leave page's last button, the hub's title; the busy captions; no EDT chip on MENU | `test/test_dshot_life.cpp` and `test/test_claim.cpp`: power-up parked with no bind and no frame; the rule for every screen pure and live on each screen MENU reaches; ESC TESTER binds once and its MENU parks after zero frames for 251 to 255 ms past the last throttle frame; ESC COMMANDS binds and parks with no drain; SETUP over the tester keeps DShot and binds a new SIG PIN while it shows, from MENU it re-parks with no bind; a claim Busy on the tester and after `pinClaimDshot(false)` Stopping until the drain ends; the arm gate at 1499 and 1500 ms, a press landing while it holds never timed, the frames between the tap and the bind, a rebind under a timed press cancelling it; the busy captions, the hubs' line and MONITOR's line; SERVO TESTER's leave page parking with no bind; `testPollSource()` reading `escTaskInit()`; mutation-checked, 11 named mutations failing the suite, one equivalent | not tested on hardware; `DL-1` to `DL-5` of [bench-plan.md](docs/bench-plan.md) |
+| MENU layout (`src/ui_menu.cpp`, `src/ui_registry.cpp`): ESC TESTER, ESC CONFIG, SERVO, RX SIGNALS, SD LOG and SETTINGS as six 40 px rows at a 42 px pitch, with no scroll, `>` on the three rows that open a hub | every registry entry opens and BACK returns to MENU; every open through `uiOpenTool()` disarms; ESC TESTER the first row, with no status; ESC TESTER and SETTINGS drawn disabled and the busy caption `RELEASING SIG GP0` or `SETTING SIG GP0 LOW` while the claim is not Free, and a tap on such a row opens nothing; over test registries, six rows do not scroll and seven scroll 36 px; the six built rows whole at scroll 0, each opening its screen with one tap, a drag moving nothing; MENU opens at 0 px again when a tool returns; the UNSAVED status on MENU after leaving SETTINGS; the label, status and mark fit check at build time | not recorded |
 | Servo tester: the pure model (`src/servo_model.*`), the PWM driver (`src/servo_pwm.*`), the core1 job (`src/servo_job.*`), the slider and the screens (`src/ui_slider.*`, `src/ui_servo.cpp`); rcbench's sweep and PWM fold in `lib/rcbench/` | profiles, limits at their boundaries, steppers to their stops, command, angle and pulse mappings, SPEED, the dial's hit area; the PWM driver's bind, write, release and sharing rules against a register fake; SAFE at level 0, CENTRE at START, STOP on the next pass, the slew, sweeps, REVERSE B, the trip at 250 ms across a millis() wrap, kept across a rebind, the profile rebind; no pulse cut short at a release or a rebind, against a model of the counter and the latched compare; released pins pulled down; the screens through the UI: HOLD TO START at 1000 ms, the drag rules, the SET warning and HOLD TO APPLY, a TYPE, MIN or MAX change further past the travel and SERVOS ONE to TWO past it held for HOLD TO APPLY, a step back or toward the centre and TWO to ONE applied at once (`servoTravelNeedsHold()`), a pending TWO dropped to one servo when the claim takes SIG alone, a wait that held only for TWO ended and a heli, 60 Hz or travel wait beside it kept, the end-stop note and its place among SET's notes, STOP on SET, the AUX refusals through the claim, the leave page; rcbench's own sweep and fold tests; the SDK calls are run against the fake only | not tested on hardware; open item 9 |
 | KST programming: rcbench's session, line driver and file store (`lib/rcbench/`), the search (`src/kst_seek.*`), the core1 job (`src/kst_job.*`) and its line (`src/kst_line_port.*`), the files on the card (`src/kst_files.*`), the screen (`src/ui_kst.cpp`, `src/kst_view.*`) | rcbench's seven tests, 298 cases, the line's PIO program among them in a model (`test_kst_pio.c`); the search and the job against rcbench's simulated servo, the files against an in-memory FAT (File Allocation Table) volume, the backup in `BACKUP/` and SAVE AS in `KST/` up to 50 files among them, the card phases' block counts over FatFs R0.15 itself (`make -C test kstcount`), the screen through MENU against both (`runKstTests`); the line driver and `kst_line_port.cpp` are built by the firmware and typechecked only | not recorded: no frame of the line driver has been on a pin (`kst_line.h`) |
 | SETTINGS layout (`src/ui_settings.cpp`): sections ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS in one scrolling list | the scroll range, 0 px at opening and 620 px at most, 632 px while the ESC pin's warning shows; each row by id; no scroll from a press on a control; a cut control takes a press only while 40 px show; HOLD TO SAVE in place at every scroll position and saving at the end of the list; the pole count reaches the eRPM divisor, the ceiling steps by 5 %, and HOLD DEFAULTS restores both; HOLD DEFAULTS loads nothing on a tap, at 975 ms or after a slide off, loads at 1000 ms once per press, and draws its bar, its `C_RED` fill and its two-line label (`testResetHold()`); the footer at 6/150 and 162/72, y 268, 46 px, and HOLD TO SAVE's `C_RED` fill | not recorded |

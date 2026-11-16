@@ -238,11 +238,11 @@ Beide Zeilen stehen oben in der Liste. Beide Werte werden erst mit
 `UNSAVED - HOLD SAVE TO KEEP`, und `MENU` zeigt `UNSAVED` in der Zeile
 `SETTINGS`.
 
-`SIG PIN`, weiter unten, legt den ESC-Pin sofort auf den anderen GPIO: Über
-dem Tester wechselt DShot mit, von `MENU` aus nimmt ihn der nächste Tester.
-Solange es nicht der Pin ist, der beim Einschalten galt, zeigt eine eigene
-Zeile über `LINK` in Bernstein `UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter sagt weiter, ob die
-Einstellungen gespeichert sind.
+`SIG PIN`, weiter unten, legt den ESC-Pin sofort auf den anderen GPIO: Über dem
+Tester wechselt DShot mit, von `MENU` aus nimmt ihn der nächste Tester. Solange
+es nicht der Pin ist, der beim Einschalten galt, zeigt eine eigene Zeile über
+`LINK` in Bernstein `UNPLUG ANY SERVO FROM GP1 NOW`; die Hinweiszeile darunter
+sagt weiter, ob die Einstellungen gespeichert sind.
 
 <img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 

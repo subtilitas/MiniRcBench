@@ -108,14 +108,13 @@ input held high by its pull-up. The strip reads
 
 <img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO for a D series servo with SERVO SUPPLY at OWN: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in green, POWER THE SERVO UP, THEN TAP READ. in amber, and READ">
 
-Once the pin is the servo's, `BACK` before the servo is in programming
-mode, the wait for `READ` included, opens the leave page at
-`1 UNPLUG THE SERVO.`, as after `LEAVE`: its last button, `SERVO`, holds the
-pin low and returns to the hub. `NEXT SERVO` there starts a new session for the same
-family; for a D series servo on `OWN` it always returns to the wait for
-`READ`, so the next servo too is powered after the tap. While the driver
-still stops, or while the screen has not taken the pin, `BACK` returns to
-SERVO.
+Once the pin is the servo's, `BACK` before the servo is in programming mode, the
+wait for `READ` included, opens the leave page at `1 UNPLUG THE SERVO.`, as
+after `LEAVE`: its last button, `SERVO`, holds the pin low and returns to the
+hub. `NEXT SERVO` there starts a new session for the same family; for a D series
+servo on `OWN` it always returns to the wait for `READ`, so the next servo too
+is powered after the tap. While the driver still stops, or while the screen has
+not taken the pin, `BACK` returns to SERVO.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and NOTHING IS SENT UNTIL THEN. in amber">
 
@@ -523,13 +522,14 @@ After `LEAVE`, step 2 is current, and `NEXT SERVO` and `SERVO`, in
 page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes; with
 `OWN`, `RELEASING THE PIN`.
 
-**Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
-the pin and starts a session for the next servo. With `OWN` the page reads
+**Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps the
+pin and starts a session for the next servo. With `OWN` the page reads
 `NEXT SERVO: POWER IT AFTER THE TAP.`: the screen returns to the wait for
-`READ`. With the switched supply the entry starts at once.
-**`SERVO`**, the hub's title, acts 1 s after that: the pin is held low, no
-DShot starts, and SERVO returns, where it was left. A double tap on `LEAVE`
-lands while `SERVO` is grey and ends nothing, and a press that landed while it was grey does nothing when it lifts.
+`READ`. With the switched supply the entry starts at once. **`SERVO`**, the
+hub's title, acts 1 s after that: the pin is held low, no DShot starts, and
+SERVO returns, where it was left. A double tap on `LEAVE` lands while `SERVO` is
+grey and ends nothing, and a press that landed while it was grey does nothing
+when it lifts.
 
 `BACK` during the entry, before the servo answered, stops it and opens the
 page at `1 UNPLUG THE SERVO.`

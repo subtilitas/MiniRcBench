@@ -373,20 +373,19 @@ says the same at start-up (see [First Run](First-Run#powering-up)).
 
 <img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS and USB BRIDGE, each with its two lines">
 
-`MENU → ESC CONFIG` opens a hub of three entries, one button each with
-two lines under it: **ESC COMMANDS**, which sends DShot commands, with
-`BEEP 1 TO 5, DIRECTION, 3D MODE.` and `SENT AS DSHOT COMMANDS.` under it;
-**ESC SETTINGS**, which opens the ESC settings screen, AM32, Bluejay and
-BLHeli_S read and written; and **USB BRIDGE**, which lets a desktop ESC
-tool reach the ESC, with `A DESKTOP ESC TOOL OVER USB.` and
-`MSP, 4-WAY AND PASSTHROUGH.` under it. The strip names the signal pin,
-`SIG GP0`. ESC CONFIG takes no pin; the tap on ESC SETTINGS or USB BRIDGE
-takes SIG, and ESC COMMANDS takes none. `BACK` returns to `MENU`; `BACK` on
-any of the three tools returns to ESC CONFIG. While the signal pin is still
-in use the three entries are outlines and the strip's second line reads
-`RELEASING SIG GP0` or `SETTING SIG GP0 LOW` in amber. See [ESC COMMANDS](#esc-commands)
-below, [AM32 Configuration](AM32-Configuration) and
-[USB Bridge](USB-Bridge).
+`MENU → ESC CONFIG` opens a hub of three entries, one button each with two lines
+under it: **ESC COMMANDS**, which sends DShot commands, with
+`BEEP 1 TO 5, DIRECTION, 3D MODE.` and `SENT AS DSHOT COMMANDS.` under it; **ESC
+SETTINGS**, which opens the ESC settings screen, AM32, Bluejay and BLHeli_S read
+and written; and **USB BRIDGE**, which lets a desktop ESC tool reach the ESC,
+with `A DESKTOP ESC TOOL OVER USB.` and `MSP, 4-WAY AND PASSTHROUGH.` under it.
+The strip names the signal pin, `SIG GP0`. ESC CONFIG takes no pin; the tap on
+ESC SETTINGS or USB BRIDGE takes SIG, and ESC COMMANDS takes none. `BACK`
+returns to `MENU`; `BACK` on any of the three tools returns to ESC CONFIG. While
+the signal pin is still in use the three entries are outlines and the strip's
+second line reads `RELEASING SIG GP0` or `SETTING SIG GP0 LOW` in amber. See
+[ESC COMMANDS](#esc-commands) below, [AM32 Configuration](AM32-Configuration)
+and [USB Bridge](USB-Bridge).
 
 ### ESC COMMANDS
 
@@ -444,16 +443,15 @@ has been sent to an ESC from this board yet.
 
 <img src="img/servo-hub.png" width="240" alt="SERVO at the top: SERVO TESTER, ANGLE METER and KST / CHASERVO whole, each with its line, HITEC D SERIES cut at the screen's edge, the scroll bar at the right"> <img src="img/servo-hub-scrolled.png" width="240" alt="SERVO dragged to its end with SERVO SUPPLY at OWN: KST / CHASERVO and HITEC D SERIES with POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC as an outline with NEEDS THE CONVERTER OF WIRING PART C and AND SETTINGS > SERVO SUPPLY GP28/29. in amber"> <img src="img/servo-hub-switched.png" width="240" alt="SERVO at its end with SERVO SUPPLY at GP28: the three programmers with THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC live">
 
-`MENU → SERVO` opens SERVO, the hub of the five servo tools, in the order
-of use: **SERVO TESTER** drives a servo, **ANGLE METER** measures a
-surface's throw, and **KST / CHASERVO**, **HITEC D SERIES** and
-**HITEC CLASSIC** program a servo. The strip reads
-`SIG GP0  AUX GP1  SERVO SUPPLY OWN`, or the pin of the switched supply.
-SERVO takes no pin, and DShot is off while it shows: SIG is held low. A
-second line on the strip reads `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in
-amber: with DShot off the bench cannot see an ESC on SIG, and a servo pulse
-is a valid throttle for one. Unplug any ESC before you tap an entry. The tap on an entry opens
-the tool, and a tool that needs SIG takes it on that tap.
+`MENU → SERVO` opens SERVO, the hub of the five servo tools, in the order of
+use: **SERVO TESTER** drives a servo, **ANGLE METER** measures a surface's
+throw, and **KST / CHASERVO**, **HITEC D SERIES** and **HITEC CLASSIC** program
+a servo. The strip reads `SIG GP0  AUX GP1  SERVO SUPPLY OWN`, or the pin of the
+switched supply. SERVO takes no pin, and DShot is off while it shows: SIG is
+held low. A second line on the strip reads `NO ESC CHECK: UNPLUG ANY ESC FIRST.`
+in amber: with DShot off the bench cannot see an ESC on SIG, and a servo pulse
+is a valid throttle for one. Unplug any ESC before you tap an entry. The tap on
+an entry opens the tool, and a tool that needs SIG takes it on that tap.
 
 **Scrolling.** Three entries fit the screen. SERVO TESTER, ANGLE METER and
 KST / CHASERVO are whole when SERVO opens. HITEC D SERIES shows only its
@@ -462,13 +460,13 @@ SERVO up to reach the two Hitec entries; the list moves 146 px at most. A
 3 px scroll bar at the right edge shows the position. A tool that returns
 to SERVO finds the list where it was left.
 
-Under each button a line says what the tool does or which servos it
-programs. Under the three programmers a line says when the servo is
-powered: `POWER THE SERVO UP AFTER THE TAP.` with SERVO SUPPLY at `OWN`, or
+Under each button a line says what the tool does or which servos it programs.
+Under the three programmers a line says when the servo is powered:
+`POWER THE SERVO UP AFTER THE TAP.` with SERVO SUPPLY at `OWN`, or
 `THE BENCH SWITCHES IT ON GP28.` with the switched supply. A servo powered
-before the tap would see the programmer's first frames on its tap. HITEC CLASSIC needs the switched supply: under `OWN` it is drawn as an
-outline, does nothing, and says why in amber,
-`NEEDS THE CONVERTER OF WIRING PART C` and
+before the tap would see the programmer's first frames on its tap. HITEC CLASSIC
+needs the switched supply: under `OWN` it is drawn as an outline, does nothing,
+and says why in amber, `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
 | Entry | Line under it | Opens |
@@ -544,13 +542,13 @@ of it show.
 
 Under the list, these stay in place:
 
-- **The ESC pin's warning**, at y 230, only while the ESC pin is not the one
-  in use at start-up: in amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`.
-  Opened over the tester, DShot runs on that pin from the step; opened from
-  MENU, the next ESC TESTER sends DShot there. A servo left there, for
-  example after the two-servo tester, moves. The list then ends 12 px higher, at y 227, and scrolls
-  12 px further; its top rows stay where they are. With KISS TELEM on, the
-  step swapped SIG and AUX, so DShot now runs on the wire the ESC's KISS pad
+- **The ESC pin's warning**, at y 230, only while the ESC pin is not the one in
+  use at start-up: in amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`. Opened
+  over the tester, DShot runs on that pin from the step; opened from MENU, the
+  next ESC TESTER sends DShot there. A servo left there, for example after the
+  two-servo tester, moves. The list then ends 12 px higher, at y 227, and
+  scrolls 12 px further; its top rows stay where they are. With KISS TELEM on,
+  the step swapped SIG and AUX, so DShot now runs on the wire the ESC's KISS pad
   was on: the line reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` instead.
 - **LINK**: live packets per second and error rate. Green means packets are
   arriving, so the ESC pin is correct. Amber means more than 5 % errors.
@@ -639,26 +637,25 @@ ESC CONFIG, after a warning when changes are not written. See
 
 Drives one or two servos with servo pulses on SIG and AUX, the ESC and KISS
 pins. The strip names them, `SIG GP0  50 HZ  1000-2000 US`, or
-`SIG+AUX  50 HZ  1000-2000 US` with two servos. It opens SAFE;
-`HOLD TO START` for 1 s starts the pulses at the centre, `STOP` acts on
-touch. When four reads of the touch controller in a row have failed, over
-100 ms or more, a running servo stops as on `STOP`, the dial reads
-`TOUCH NOT ANSWERING` until it answers again, and `HOLD TO START` is drawn
-as an outline. While SAFE with one servo, the readout reads `TWO SERVOS:` and
-`SET > SERVOS`, where the second servo is switched on. With SERVO SUPPLY at
-`GP28` or `GP29` the screen switches the converter: on at `HOLD TO START`,
-off at `STOP`, at a stall and at `BACK`. The strip's second line says where
-it is, in amber: `GP28 SUPPLY ON AT START`, `GP28 SUPPLY COMING UP`,
-`GP28 SUPPLY ON`, or `GP28 SUPPLY NOT OFF` when the current sensor still
-reads more than 2.5 V 2 s after the switch-off. `SET` opens the profile and
-sweep settings; its `BACK` with a change waiting for `HOLD TO APPLY` warns
-first, `1 CHANGE NOT APPLIED.`
-`BACK` opens the leave page at `1 UNPLUG THE SERVO.`; `NEXT SERVO` returns
-to the tester, and `SERVO` holds the pins low and returns to SERVO, the hub. With CURRENT SENSE at `INA219` the
-row under the dial shows the servo supply's current and voltage in place of
-the two-servo hint, and the sensor's readings stop the servo: the chip then
-reads `OVERCURRENT`, `STALL`, `LOW SUPPLY` or `NO SENSOR` in magenta. See
-[Servo Tester](Servo-Tester).
+`SIG+AUX  50 HZ 1000-2000 US` with two servos. It opens SAFE; `HOLD TO START`
+for 1 s starts the pulses at the centre, `STOP` acts on touch. When four reads
+of the touch controller in a row have failed, over 100 ms or more, a running
+servo stops as on `STOP`, the dial reads `TOUCH NOT ANSWERING` until it answers
+again, and `HOLD TO START` is drawn as an outline. While SAFE with one servo,
+the readout reads `TWO SERVOS:` and `SET > SERVOS`, where the second servo is
+switched on. With SERVO SUPPLY at `GP28` or `GP29` the screen switches the
+converter: on at `HOLD TO START`, off at `STOP`, at a stall and at `BACK`. The
+strip's second line says where it is, in amber: `GP28 SUPPLY ON AT START`,
+`GP28 SUPPLY COMING UP`, `GP28 SUPPLY ON`, or `GP28 SUPPLY NOT OFF` when the
+current sensor still reads more than 2.5 V 2 s after the switch-off. `SET` opens
+the profile and sweep settings; its `BACK` with a change waiting for
+`HOLD TO APPLY` warns first, `1 CHANGE NOT APPLIED.` `BACK` opens the leave page
+at `1 UNPLUG THE SERVO.`; `NEXT SERVO` returns to the tester, and `SERVO` holds
+the pins low and returns to SERVO, the hub. With CURRENT SENSE at `INA219` the
+row under the dial shows the servo supply's current and voltage in place of the
+two-servo hint, and the sensor's readings stop the servo: the chip then reads
+`OVERCURRENT`, `STALL`, `LOW SUPPLY` or `NO SENSOR` in magenta. See [Servo
+Tester](Servo-Tester).
 
 ---
 

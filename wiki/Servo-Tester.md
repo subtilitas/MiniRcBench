@@ -450,12 +450,12 @@ starts at STANDARD PWM, 50 Hz, one servo.
 
 ## Leaving
 
-`BACK` ends the pulses and opens the leave page, whose first step asks you
-to unplug the servo: `1 UNPLUG THE SERVO.`, with
-`ESC TESTER'S DSHOT ON SIG GP0 READS` and `AS A 970 US PULSE AT 1000 HZ.`,
-then `2 BACK TO SERVO.` The last pulse completes first, which takes up to
-41 ms at 50 Hz. A weak pull-down then holds SIG low until the last button
-drives it low; AUX rests on its pull-down. The strip names the pins the screen holds,
+`BACK` ends the pulses and opens the leave page, whose first step asks you to
+unplug the servo: `1 UNPLUG THE SERVO.`, with
+`ESC TESTER'S DSHOT ON SIG GP0 READS` and `AS A 970 US PULSE AT 1000 HZ.`, then
+`2 BACK TO SERVO.` The last pulse completes first, which takes up to 41 ms at 50
+Hz. A weak pull-down then holds SIG low until the last button drives it low; AUX
+rests on its pull-down. The strip names the pins the screen holds,
 `SIG GP0  AUX GP1`, or `SIG GP0` when it holds SIG alone.
 
 <img src="img/leave-servo.png" width="240" alt="The leave page: 1 UNPLUG THE SERVO., NEXT SERVO and SERVO">

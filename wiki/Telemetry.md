@@ -88,12 +88,12 @@ The firmware does it, with no button.
 
 The first 10 frames the tester sends to the ESC are the enable: each time ESC
 TESTER or ESC COMMANDS opens, and after a change of SIG PIN, DSHOT, KISS TELEM
-or AUX PIN under SETTINGS opened over the tester. No frame goes out at
-power-up or on any other screen: the signal wire is held low there. They take 10 ms. Every reply is
-decoded with EDT on from the first one, so an ESC that kept EDT on through one
-of those restarts shows its voltage and temperature at once and never a false
-RPM. An ESC with AM32 or Bluejay shows the correct RPM with EDT off; for other
-ESC firmware with EDT off that is unknown.
+or AUX PIN under SETTINGS opened over the tester. No frame goes out at power-up
+or on any other screen: the signal wire is held low there. They take 10 ms.
+Every reply is decoded with EDT on from the first one, so an ESC that kept EDT
+on through one of those restarts shows its voltage and temperature at once and
+never a false RPM. An ESC with AM32 or Bluejay shows the correct RPM with EDT
+off; for other ESC firmware with EDT off that is unknown.
 
 An ESC powered up moments before ignores that first enable. While an ESC
 answers with eRPM and no EDT frame has arrived for 1 s, the firmware sends the

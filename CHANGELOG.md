@@ -1268,6 +1268,38 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: no DShot frame at power-up, and DShot only while ESC
+  TESTER or ESC COMMANDS is open, or SETTINGS over the tester, slice D2 of
+  [dshot-lifetime.md](docs/design/dshot-lifetime.md#d2-as-built), by owner
+  decision 2 of 2026-11-15 and the developer's decisions 5 to 12, pending
+  the owner's review. `escTaskInit()` asks for Park and parks the pins on
+  core0 before core1 starts: SIG an SIO output driving low at 2 mA, AUX on its
+  pull-down with the input buffer off. The UI hands `uiDshotWanted()` to
+  `pinClaimDshot()` once a frame; leaving the tester disarms, and core1 sends
+  zero frames until more than 250 ms after the last throttle frame, then
+  parks. A claim is refused as Busy while Run is wanted, releases a parked
+  pump with no drain, and waits in Stopping for the rest of a drain within
+  250 ms of leaving the tester. `ClaimState::Restoring` is `Parking`;
+  `pinClaimRestart()` is `pinClaimRelease()`. The leave page's last button
+  reads the hub's title, `SERVO`, `RX SIGNALS` or `ESC CONFIG`, parks the
+  pins and starts no DShot; its last step reads `BACK TO` and the title, its
+  unplug step `ESC TESTER'S DSHOT ON SIG GP0 READS`; SERVO TESTER's left
+  button reads `NEXT SERVO`. The busy captions read `RELEASING SIG GP0` and
+  `SETTING SIG GP0 LOW`, a tool's refusal `WAIT: THE PINS ARE BUSY`, the S.BUS
+  steps `ESC TESTER SENDS DSHOT ON SIG GP0.` and `SIG GP1 IS HELD LOW, WHERE`,
+  ESC SETTINGS' `LEAVE. ESC TESTER THEN RUNS IT.` and
+  `PLUG IT IN ONCE ESC CONFIG SHOWS.`, HITEC SERVO's
+  `NOTHING IS SENT UNTIL THEN.`.
+- After v0.1.0-rc1: HOLD TO ARM completes no earlier than 1500 ms
+  (`ARM_GATE_MS`) after core1's last bind (`escTaskBoundMs()`): drawn
+  disabled meanwhile, the track reading `DSHOT STARTING: WAIT 1.5 S`, a press
+  that lands then not timed, and a press cancelled when the bind stamp moves
+  (dshot-lifetime.md decisions 10 and 12, pending the owner's review).
+- After v0.1.0-rc1: the hubs SERVO and RX SIGNALS draw
+  `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in amber as the strip's second line
+  while the claim is free; a hub's busy caption takes that line. MONITOR on RX
+  SIGNALS draws `GP1 IS SIG: PLUG IN AFTER THE TAP.` while SIG is GP1
+  (decisions 7 and 11, pending the owner's review).
 - After v0.1.0-rc1: MENU has six rows and does not scroll, and every tool
   is behind one of three hubs, slice 4 of
   [menu-c.md](docs/design/menu-c.md#slice-4-as-built), by owner decisions 4,
@@ -2261,6 +2293,9 @@ protocol.
 
 ### Removed
 
+- After v0.1.0-rc1: the splash's `UNPLUG ANY SERVO FROM GP0 NOW` and MENU's
+  EDT chip (slice D2 of dshot-lifetime.md): no DShot runs at power-up or on
+  MENU. ESC COMMANDS keeps the chip; SETTINGS keeps the pin note.
 - Functions and constants nothing in the firmware called or read:
   `am32BlErasePage()`, `am32BlEscType()` and `am32BlAddrDiv4()` with its
   flag, `gfxFrame()`, `hitecLineIsOpen()`, `pioUartRxActive()`,

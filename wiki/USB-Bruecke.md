@@ -55,10 +55,10 @@ Die Platine erkennt die Art am ersten Byte des Programms; du wählst nichts.
 
 <img src="img/bridge-stopping.png" width="240" alt="USB BRIDGE, während die Platine SIG nimmt: RELEASING SIG GP0 auf der Leiste, kein Chip, die Hinweiszeilen"> <img src="img/bridge-failed.png" width="240" alt="USB BRIDGE nach einem fehlgeschlagenen Bind: SIG GP0 COULD NOT BE TAKEN (PIO) in Bernstein, RETRY in der Fußzeile">
 
-Solange die Platine SIG nimmt, ist die Brücke noch nicht offen. Kann die Platine SIG
-nicht übernehmen, steht eine Zeile in Bernstein:
-`SIG GP0 COULD NOT BE TAKEN (PIO)` (SIG GP0 konnte nicht übernommen werden),
-mit `REFUSED` oder `CLOCK` statt `PIO`, und `RETRY` erscheint:
+Solange die Platine SIG nimmt, ist die Brücke noch nicht offen. Kann die Platine
+SIG nicht übernehmen, steht eine Zeile in Bernstein:
+`SIG GP0 COULD NOT BE TAKEN (PIO)` (SIG GP0 konnte nicht übernommen werden), mit
+`REFUSED` oder `CLOCK` statt `PIO`, und `RETRY` erscheint:
 
 - `PIO` (Programmable I/O, programmierbare Ein-/Ausgabe): Kein PIO-Block hat
   Platz für Sender und Empfänger der Leitung;

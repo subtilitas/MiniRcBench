@@ -148,11 +148,11 @@ Die Zeile `NO ESC CHECK` der Auswahl ist die Prüfung, die bleibt.
 ## Verlassen
 
 `BACK` öffnet die Verlassenseite, wie beim [Servotester](Servotester). Die
-Platine gibt GP1 sofort frei. Schritt 1 lautet `UNPLUG THE RECEIVER.` und
-sagt, was danach an SIG folgt: `ESC TESTER SENDS DSHOT ON SIG GP0.`, oder,
-wenn SIG auf GP1 liegt, `SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE
-LINE.` Dort würden der Low-Ausgang der Platine und der des Empfängers eine
-Leitung gegeneinander treiben.
+Platine gibt GP1 sofort frei. Schritt 1 lautet `UNPLUG THE RECEIVER.` und sagt,
+was danach an SIG folgt: `ESC TESTER SENDS DSHOT ON SIG GP0.`, oder, wenn SIG
+auf GP1 liegt, `SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.` Dort
+würden der Low-Ausgang der Platine und der des Empfängers eine Leitung
+gegeneinander treiben.
 
 - `BACK TO MONITOR` behält den Pin und kehrt zum Monitor zurück, jeder
   Zähler auf 0.

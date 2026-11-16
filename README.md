@@ -185,17 +185,18 @@ than 250 ms (`ARM_ZERO_THROTTLE_MS`) after the last throttle frame, if one
 went out, and then parks.
 
 A screen that needs the signal pins claims them (`src/pin_claim.h`). The claim
-asks core1 for Release, refused as Busy while Run is wanted. From Park,
-core1 puts SIG on its pull-up and makes AUX a plain input on its next pass,
-with no frame sent. A claim made within 250 ms of leaving a running tester
-waits in Stopping until the rest of that drain has gone out. Core1 then runs that screen's job instead (`src/core1_job.h`), and
-`loop1()` is `escTaskPoll(); core1JobPoll();`. ESC SETTINGS' AM32
-transport runs on core0; its core1 job, rcbench's escwire session
-(`src/escwire_job.h`), starts only once a Bluejay or BLHeli_S bootloader
-answered. The servo tester, the KST and Hitec programmers, the S.BUS monitor
-and the USB bridge each have one. Leaving the screen parks the pins on the
-wiring they had, once the job has let them go: the claim is Parking, then
-Free. No DShot starts until the next ESC TESTER or ESC COMMANDS.
+asks core1 for Release, refused as Busy while Run is wanted. From Park, core1
+puts SIG on its pull-up and makes AUX a plain input on its next pass, with no
+frame sent. A claim made within 250 ms of leaving a running tester waits in
+Stopping until the rest of that drain has gone out. Core1 then runs that
+screen's job instead (`src/core1_job.h`), and `loop1()` is
+`escTaskPoll(); core1JobPoll();`. ESC SETTINGS' AM32 transport runs on core0;
+its core1 job, rcbench's escwire session (`src/escwire_job.h`), starts only once
+a Bluejay or BLHeli_S bootloader answered. The servo tester, the KST and Hitec
+programmers, the S.BUS monitor and the USB bridge each have one. Leaving the
+screen parks the pins on the wiring they had, once the job has let them go: the
+claim is Parking, then Free. No DShot starts until the next ESC TESTER or ESC
+COMMANDS.
 
 ---
 
@@ -457,23 +458,21 @@ Two constraints on these dependencies:
 
 For 3 s (`SPLASH_MS`) after power-up the board shows its name, the board the
 image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
-example `VERSION 0.1.0`. No DShot frame leaves the board at power-up: SIG
-is driven low from `escTaskInit()` on, before the splash, and DShot starts
-only when ESC TESTER or ESC COMMANDS opens (`docs/design/dshot-lifetime.md`).
-The splash names no pin. When `settingsLoad()` carried a block of settings version 2,
-3 or 4 over (`settingsCarriedOver()`), two amber lines at y 40 and y 52 read
-`SETTINGS CARRIED OVER FROM AN UPDATE` and
-`CHECK MENU > SETTINGS, THEN SAVE`; when it discarded a whole block of a
-version it has no layout for (`settingsResetByUpdate()`), they read
-`SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`. Blank flash and a
-damaged block show neither. While the touch controller has not
-answered once since `touchInit()`, the splash shows
-`TOUCH CONTROLLER NOT FOUND` in amber at y 64, under those two lines and
-above the name; the line goes at the controller's first answer
-(`uiSplashTick()`). The splash reads the touch every 25 ms into a state of
-its own, so a finger resting on the glass when MENU appears gives no press
-edge. A MENU row takes a tap only from a press that began on it, so lifting
-that finger opens nothing.
+example `VERSION 0.1.0`. No DShot frame leaves the board at power-up: SIG is
+driven low from `escTaskInit()` on, before the splash, and DShot starts only
+when ESC TESTER or ESC COMMANDS opens (`docs/design/dshot-lifetime.md`). The
+splash names no pin. When `settingsLoad()` carried a block of settings version
+2, 3 or 4 over (`settingsCarriedOver()`), two amber lines at y 40 and y 52 read
+`SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETTINGS, THEN SAVE`;
+when it discarded a whole block of a version it has no layout for
+(`settingsResetByUpdate()`), they read `SETTINGS RESET BY UPDATE` and
+`CHECK MENU > SETTINGS`. Blank flash and a damaged block show neither. While the
+touch controller has not answered once since `touchInit()`, the splash shows
+`TOUCH CONTROLLER NOT FOUND` in amber at y 64, under those two lines and above
+the name; the line goes at the controller's first answer (`uiSplashTick()`). The
+splash reads the touch every 25 ms into a state of its own, so a finger resting
+on the glass when MENU appears gives no press edge. A MENU row takes a tap only
+from a press that began on it, so lifting that finger opens nothing.
 
 **Main screen**
 
@@ -1603,22 +1602,21 @@ ESC firmware and never changes a Bluejay or BLHeli_S ESC's tags. The
 transports are `src/am32_bl.h` for the greeting and AM32, and rcbench's
 escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 
-MENU's second row, **ESC CONFIG**, opens a hub
-(`src/ui_esc_config.h`) of three entries: `ESC COMMANDS` (142 px at scale
-2) with the lines `BEEP 1 TO 5, DIRECTION, 3D MODE.` and
-`SENT AS DSHOT COMMANDS.` ([ESC commands](#esc-commands)), `ESC SETTINGS`
-(142 px) with `AM32 SETTINGS, READ AND WRITTEN.` and
-`BLUEJAY, BLHELI_S: READ AND WRITTEN.`, and `USB BRIDGE` (118 px) with
-`A DESKTOP ESC TOOL OVER USB.` and `MSP, 4-WAY AND PASSTHROUGH.` under
-it ([USB bridge](#usb-bridge)). The strip reads `SIG GP0`. The hub
-claims nothing; the tap on ESC SETTINGS or USB BRIDGE claims SIG. Its BACK
-returns to MENU; the tools' BACK and the leave page's last button, `ESC
-CONFIG`, return to ESC CONFIG. The row acts whatever the pin claim's state;
-while the claim is not free the hub draws its three entries disabled and its
-strip's second line reads the busy caption in amber, `RELEASING SIG GP0` or
-`SETTING SIG GP0 LOW`. ESC CONFIG draws no NO ESC CHECK line. ESC SETTINGS' titles
-are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
-and the list's strip names the firmware, for example
+MENU's second row, **ESC CONFIG**, opens a hub (`src/ui_esc_config.h`) of three
+entries: `ESC COMMANDS` (142 px at scale 2) with the lines
+`BEEP 1 TO 5, DIRECTION, 3D MODE.` and `SENT AS DSHOT COMMANDS.` ([ESC
+commands](#esc-commands)), `ESC SETTINGS` (142 px) with
+`AM32 SETTINGS, READ AND WRITTEN.` and `BLUEJAY, BLHELI_S: READ AND WRITTEN.`,
+and `USB BRIDGE` (118 px) with `A DESKTOP ESC TOOL OVER USB.` and
+`MSP, 4-WAY AND PASSTHROUGH.` under it ([USB bridge](#usb-bridge)). The strip
+reads `SIG GP0`. The hub claims nothing; the tap on ESC SETTINGS or USB BRIDGE
+claims SIG. Its BACK returns to MENU; the tools' BACK and the leave page's last
+button, `ESC CONFIG`, return to ESC CONFIG. The row acts whatever the pin
+claim's state; while the claim is not free the hub draws its three entries
+disabled and its strip's second line reads the busy caption in amber,
+`RELEASING SIG GP0` or `SETTING SIG GP0 LOW`. ESC CONFIG draws no NO ESC CHECK
+line. ESC SETTINGS' titles are one set for every firmware, `ESC SETTINGS`,
+`ESC HEX` and `ESC WRITE`, and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
 
 ![ESC CONFIG and a Bluejay ESC](docs/esc-preview.png)
@@ -1636,20 +1634,20 @@ less than 250 ms before; the strip reads `RELEASING SIG GP0` meanwhile.
 Leaving parks the pin again, SIG driven low, at once or, after a Bluejay or
 BLHeli_S answer, from the leave page.
 
-Leaving an AM32 sends the bootloader no `RUN` command. The transport has
-one, `am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An AM32 ESC that
+Leaving an AM32 sends the bootloader no `RUN` command. The transport has one,
+`am32BlRun()` in `src/am32_bl.h`, and nothing calls it. An AM32 ESC that
 answered is in its bootloader when the screen closes, and the signal wire is
-then held low; the next ESC TESTER or ESC COMMANDS sends DShot on it. What the ESC does after the screen is left, its firmware
-started on its own, on those frames or not at all, is not recorded.
-Power-cycle the ESC after leaving, before driving a motor. A Bluejay or
-BLHeli_S ESC whose page was read is left with LEAVE, below. After a session
-whose handshake succeeded, or in which an EFM8 bootloader answered, MENU's
-strip shows `POWER-CYCLE THE ESC TO RUN IT` in amber on a second line under
-its caption (`uiAm32RunCue()`), until an eRPM frame stamped after that answer
-arrives, the leave page's last button below is tapped, or the board
-restarts. LEAVE from a Bluejay or BLHeli_S list leaves it: LEAVE has no
-answer, so only an eRPM frame shows that the firmware started. A reply that
-holds a piece of an EFM8 answer sets it too, below.
+then held low; the next ESC TESTER or ESC COMMANDS sends DShot on it. What the
+ESC does after the screen is left, its firmware started on its own, on those
+frames or not at all, is not recorded. Power-cycle the ESC after leaving, before
+driving a motor. A Bluejay or BLHeli_S ESC whose page was read is left with
+LEAVE, below. After a session whose handshake succeeded, or in which an EFM8
+bootloader answered, MENU's strip shows `POWER-CYCLE THE ESC TO RUN IT` in amber
+on a second line under its caption (`uiAm32RunCue()`), until an eRPM frame
+stamped after that answer arrives, the leave page's last button below is tapped,
+or the board restarts. LEAVE from a Bluejay or BLHeli_S list leaves it: LEAVE
+has no answer, so only an eRPM frame shows that the firmware started. A reply
+that holds a piece of an EFM8 answer sets it too, below.
 
 ### Connecting
 
@@ -2664,31 +2662,32 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    anything is queued. Nothing is sent to the servo; the card is mounted again
    and the first write forgotten, so the next write, `WRITE...` and its hold,
    saves the backup again and then writes.
-5. BACK from the list opens the leave page (`src/ui_leave.h`), three
-   numbered steps, the current one amber with a 3 px bar:
-   `1 POWER THE SERVO OFF, THEN LEAVE.` with `IT STAYS IN PROGRAMMING MODE
-   UNTIL` and `ITS SUPPLY IS OFF.`, then `2 UNPLUG THE SERVO.` with
-   `ESC TESTER'S DSHOT ON SIG GP0 READS` and `AS A 970 US PULSE AT 1000 HZ.`,
-   then `3 BACK TO SERVO.` Amber notes under them name what LEAVE loses:
-   `2 CHANGES NOT WRITTEN.`, `THE SERVO IS IN DOUBT: RESTORE FIRST.` STAY
-   returns to the list, or to the search after a lost servo. LEAVE holds the
-   line low for 100 ms and lets the pin go; step 2 is current from the tap
-   on, and NEXT SERVO and `SERVO`, in LEAVE's rectangle, are drawn
-   disabled until the pin is let go. Then NEXT SERVO keeps the claim and
-   starts a new search (`NEXT SERVO: POWER IT AFTER THE TAP.`), and `SERVO`
-   acts on a press that lands 1000 ms or more later, so a double tap on
-   LEAVE ends nothing; it parks the pins and returns to SERVO, the hub. BACK on the page is
-   drawn disabled in every phase. With the switched supply step 1 reads
-   `LEAVE SWITCHES THE SUPPLY OFF.`: LEAVE switches it off, and the page
-   reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes 2 s after
-   the switch-off. Every claim end does the same once the supply was on.
-   **HOLD TO REBOOT** (1 s), right of STAY before LEAVE, switches the supply
-   off for 2 s and on for 1 s, then enters programming mode and reads the
-   servo as it is: the new backup. The pending changes go; without a card
-   the backup in memory is lost, and the page says so above the button:
-   `NO CARD: REBOOT LOSES THE BACKUP` and `IN RAM.` BACK during REBOOT
-   closes as LEAVE does and opens the page at `1 UNPLUG THE SERVO.`; so does
-   BACK on a search that has found no servo.
+5. BACK from the list opens the leave page (`src/ui_leave.h`), three numbered
+   steps, the current one amber with a 3 px bar:
+   `1 POWER THE SERVO OFF, THEN LEAVE.` with
+   `IT STAYS IN PROGRAMMING MODE UNTIL` and `ITS SUPPLY IS OFF.`, then
+   `2 UNPLUG THE SERVO.` with `ESC TESTER'S DSHOT ON SIG GP0 READS` and
+   `AS A 970 US PULSE AT 1000 HZ.`, then `3 BACK TO SERVO.` Amber notes under
+   them name what LEAVE loses: `2 CHANGES NOT WRITTEN.`,
+   `THE SERVO IS IN DOUBT: RESTORE FIRST.` STAY returns to the list, or to the
+   search after a lost servo. LEAVE holds the line low for 100 ms and lets the
+   pin go; step 2 is current from the tap on, and NEXT SERVO and `SERVO`, in
+   LEAVE's rectangle, are drawn disabled until the pin is let go. Then NEXT
+   SERVO keeps the claim and starts a new search
+   (`NEXT SERVO: POWER IT AFTER THE TAP.`), and `SERVO` acts on a press that
+   lands 1000 ms or more later, so a double tap on LEAVE ends nothing; it parks
+   the pins and returns to SERVO, the hub. BACK on the page is drawn disabled in
+   every phase. With the switched supply step 1 reads
+   `LEAVE SWITCHES THE SUPPLY OFF.`: LEAVE switches it off, and the page reads
+   `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes 2 s after the
+   switch-off. Every claim end does the same once the supply was on. **HOLD TO
+   REBOOT** (1 s), right of STAY before LEAVE, switches the supply off for 2 s
+   and on for 1 s, then enters programming mode and reads the servo as it is:
+   the new backup. The pending changes go; without a card the backup in memory
+   is lost, and the page says so above the button:
+   `NO CARD: REBOOT LOSES THE BACKUP` and `IN RAM.` BACK during REBOOT closes as
+   LEAVE does and opens the page at `1 UNPLUG THE SERVO.`; so does BACK on a
+   search that has found no servo.
 6. With the switched supply, the supply is on only while the screen runs. A
    screen that stalls for 250 ms switches it off once a running operation
    has ended; the servo leaves programming mode and its backup in memory goes.

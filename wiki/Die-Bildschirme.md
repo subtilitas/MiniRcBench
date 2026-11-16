@@ -493,15 +493,16 @@ bisher von diesem Board an einen ESC gesendet.
 
 `MENU → SERVO` öffnet SERVO, die Auswahl der fünf Servo-Werkzeuge, in der
 Reihenfolge der Nutzung: **SERVO TESTER** treibt ein Servo, **ANGLE METER**
-misst den Ausschlag eines Ruders, und **KST / CHASERVO**,
-**HITEC D SERIES** und **HITEC CLASSIC** programmieren ein Servo. Die Leiste
-zeigt `SIG GP0  AUX GP1  SERVO SUPPLY OWN` oder den Pin der geschalteten
-Versorgung. SERVO belegt keinen Pin, und DShot ist aus, solange es zu sehen
-ist: SIG liegt auf Low. Eine zweite Zeile der Leiste zeigt
+misst den Ausschlag eines Ruders, und **KST / CHASERVO**, **HITEC D SERIES** und
+**HITEC CLASSIC** programmieren ein Servo. Die Leiste zeigt
+`SIG GP0  AUX GP1 SERVO SUPPLY OWN` oder den Pin der geschalteten Versorgung.
+SERVO belegt keinen Pin, und DShot ist aus, solange es zu sehen ist: SIG liegt
+auf Low. Eine zweite Zeile der Leiste zeigt
 `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in Bernstein: Bei abgeschaltetem DShot
 sieht der Prüfstand keinen ESC an SIG, und ein Servopuls ist für einen ESC ein
-gültiges Gas. Zieh jeden ESC ab, bevor du einen Eintrag antippst. Das Tippen auf einen Eintrag öffnet das Werkzeug, und ein
-Werkzeug, das SIG braucht, belegt es mit diesem Tippen.
+gültiges Gas. Zieh jeden ESC ab, bevor du einen Eintrag antippst. Das Tippen auf
+einen Eintrag öffnet das Werkzeug, und ein Werkzeug, das SIG braucht, belegt es
+mit diesem Tippen.
 
 **Verschieben.** Drei Einträge passen auf den Bildschirm. SERVO TESTER,
 ANGLE METER und KST / CHASERVO sind ganz sichtbar, wenn SERVO öffnet. Von
@@ -755,30 +756,29 @@ Versorgung, `SUPPLY ON 0.08 A`. Siehe [KST-Programmierung](KST-Programmierung).
 
 <img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO für ein Servo der D-Serie mit eigener Versorgung: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, POWER THE SERVO UP, THEN TAP READ. in Bernstein, und READ">
 
-Öffnet über `MENU → SERVO → HITEC D SERIES` oder
-`HITEC CLASSIC`. Liest und schreibt die Einstellungen eines Hitec-Servos der
-D-Serie oder der klassischen Familie über das Signalkabel an SIG, dem
-ESC-Pin. Das Tippen auf den Eintrag übernimmt den Pin vom ESC-Treiber; die
-Leiste zeigt `RELEASING SIG GP0 FROM DSHOT`, bis DShot angehalten hat. Ein
-Servo der D-Serie mit eigener Versorgung (SERVO SUPPLY auf `OWN`) muss
-laufen, bevor der Bildschirm es liest, deshalb wartet der Bildschirm dann:
-Die Leiste zeigt `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün und
-`POWER THE SERVO UP, THEN TAP READ.` in Bernstein. Schalte das Servo ein
-und tippe `READ`. Mit geschalteter Versorgung und für ein klassisches Servo
-versorgt der Prüfstand das Servo selbst, und der Bildschirm macht sofort
-weiter. Solange ein ESC an SIG antwortet, belegt der Bildschirm nichts und
-zeigt `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` in Bernstein; `BACK` führt
-dann zu SERVO, der Auswahl, zurück. Der Bildschirm tritt in das
-Servo ein und liest es. Ein Servo der D-Serie
-liefert 21 Register und 20 Parameter, davon 11 verstellbar. An der Leitung
-hängt ein Servo, ohne Pull-up-Widerstand. Ein Tippen auf `WRITE...` öffnet
-die Schreibseite, und ihr `HOLD TO WRITE`, 1 s, schreibt, zuvor mit einer
-Sicherung auf der SD-Karte. `BACK` öffnet
-die Verlassenseite; `LEAVE` macht dann `UNPLUG THE SERVO.` zum aktuellen
-Schritt, `NEXT SERVO` startet eine neue Sitzung derselben Familie, und
-`SERVO` legt den Pin auf Low und führt zu SERVO, der Auswahl. Mit CURRENT SENSE auf `INA219`
-zeigt der Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet.
-Siehe [Hitec-Programmierung](Hitec-Programmierung).
+Öffnet über `MENU → SERVO → HITEC D SERIES` oder `HITEC CLASSIC`. Liest und
+schreibt die Einstellungen eines Hitec-Servos der D-Serie oder der klassischen
+Familie über das Signalkabel an SIG, dem ESC-Pin. Das Tippen auf den Eintrag
+übernimmt den Pin vom ESC-Treiber; die Leiste zeigt
+`RELEASING SIG GP0 FROM DSHOT`, bis DShot angehalten hat. Ein Servo der D-Serie
+mit eigener Versorgung (SERVO SUPPLY auf `OWN`) muss laufen, bevor der
+Bildschirm es liest, deshalb wartet der Bildschirm dann: Die Leiste zeigt
+`SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in Grün und
+`POWER THE SERVO UP, THEN TAP READ.` in Bernstein. Schalte das Servo ein und
+tippe `READ`. Mit geschalteter Versorgung und für ein klassisches Servo versorgt
+der Prüfstand das Servo selbst, und der Bildschirm macht sofort weiter. Solange
+ein ESC an SIG antwortet, belegt der Bildschirm nichts und zeigt
+`AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` in Bernstein; `BACK` führt dann zu
+SERVO, der Auswahl, zurück. Der Bildschirm tritt in das Servo ein und liest es.
+Ein Servo der D-Serie liefert 21 Register und 20 Parameter, davon 11
+verstellbar. An der Leitung hängt ein Servo, ohne Pull-up-Widerstand. Ein Tippen
+auf `WRITE...` öffnet die Schreibseite, und ihr `HOLD TO WRITE`, 1 s, schreibt,
+zuvor mit einer Sicherung auf der SD-Karte. `BACK` öffnet die Verlassenseite;
+`LEAVE` macht dann `UNPLUG THE SERVO.` zum aktuellen Schritt, `NEXT SERVO`
+startet eine neue Sitzung derselben Familie, und `SERVO` legt den Pin auf Low
+und führt zu SERVO, der Auswahl. Mit CURRENT SENSE auf `INA219` zeigt der
+Streifen den Strom hinter `SUPPLY ON`. Nicht auf Hardware getestet. Siehe
+[Hitec-Programmierung](Hitec-Programmierung).
 
 ---
 

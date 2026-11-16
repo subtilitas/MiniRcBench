@@ -120,15 +120,14 @@ Die Leiste zeigt währenddessen `RELEASING SIG GP0 FROM DSHOT`.
 
 <img src="img/hitec-read-wait.png" width="240" alt="HITEC SERVO für ein Servo der D-Serie mit SERVO SUPPLY auf OWN: SIG GP0 IS THE SERVO'S: DSHOT IS OFF. in Grün, POWER THE SERVO UP, THEN TAP READ. in Bernstein, und READ">
 
-Gehört der Pin dem Servo, öffnet `BACK`, bevor das Servo im
-Programmiermodus ist, das Warten auf `READ` eingeschlossen, die
-Verlassenseite bei `1 UNPLUG THE SERVO.`, wie nach `LEAVE`: Ihre letzte
-Taste, `SERVO`, legt den Pin auf Low und führt zur Auswahl zurück. `NEXT SERVO` startet dort eine neue Sitzung
-derselben Familie; für ein Servo der D-Serie an `OWN` führt es immer
-wieder zum Warten auf `READ`, damit auch das nächste Servo erst nach dem
-Tippen Strom bekommt. Solange der Treiber noch anhält
-oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu
-SERVO zurück.
+Gehört der Pin dem Servo, öffnet `BACK`, bevor das Servo im Programmiermodus
+ist, das Warten auf `READ` eingeschlossen, die Verlassenseite bei
+`1 UNPLUG THE SERVO.`, wie nach `LEAVE`: Ihre letzte Taste, `SERVO`, legt den
+Pin auf Low und führt zur Auswahl zurück. `NEXT SERVO` startet dort eine neue
+Sitzung derselben Familie; für ein Servo der D-Serie an `OWN` führt es immer
+wieder zum Warten auf `READ`, damit auch das nächste Servo erst nach dem Tippen
+Strom bekommt. Solange der Treiber noch anhält oder der Bildschirm den Pin nicht
+übernommen hat, führt `BACK` zu SERVO zurück.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO, während ein ESC auf GP0 antwortet: CHECKING SIG GP0 FOR AN ESC in der Leiste, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und NOTHING IS SENT UNTIL THEN. in Bernstein">
 

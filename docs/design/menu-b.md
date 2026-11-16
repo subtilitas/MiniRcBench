@@ -1130,8 +1130,8 @@ Choices of this note where the decisions above leave the choice:
     after the released phase began, and is drawn disabled until then.
     Revised by [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9,
     pending the owner's review, as the line under owner decision 3 says: the
-    wait stays 1000 ms and guards the button that reads the hub's title. Not
-    built.
+    wait stays 1000 ms and guards the button that reads the hub's title.
+    Built (D2).
 22. **OWN.** SERVO SUPPLY's first value reads OWN. The stored value, 0,
     does not change.
 
@@ -1166,8 +1166,8 @@ Decisions of the owner, 2026-11-14, answering the open questions of
 30. **RESTART DSHOT's wait** (question 8). 1000 ms, as decision 21.
     Revised by [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9,
     pending the owner's review, as the line under owner decision 3 says: the
-    wait stays 1000 ms and guards the button that reads the hub's title. Not
-    built.
+    wait stays 1000 ms and guards the button that reads the hub's title.
+    Built (D2).
 31. **HITEC SERVO takes SIG when it opens,** before the family is tapped
     (STATUS.md item 24). In structure B the Hitec entries of the chooser
     therefore take the pin on their tap. This changes decision 19.
@@ -1241,7 +1241,7 @@ deliberate actions than at 9f965a3.
 
 | What | Reason |
 |---|---|
-| The tester is the root | DShot runs on SIG from boot whatever screen shows; a menu as root would hide the armed state the tester exists to show. Revised by the owner's decisions 1 and 2 of 2026-11-15, [menu-c.md](menu-c.md#decisions) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Not built. |
+| The tester is the root | DShot runs on SIG from boot whatever screen shows; a menu as root would hide the armed state the tester exists to show. Revised by the owner's decisions 1 and 2 of 2026-11-15, [menu-c.md](menu-c.md#decisions) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Built (menu-c.md slice 3, D2). |
 | The tester's band layout and button row, the SERVO TESTER controls, SD LOG's 30 px buttons | the touch-target change of [menu.md](menu.md#decisions) decision 5, kept separate |
 | HOLD TO ARM's own timer | [menu.md](menu.md#decisions) decision 17 |
 | `UI_HOLD_MS`, 1000 ms; every hold stays a hold | the write, save, start, apply, reboot and arm holds are the deliberate actions the interlocks count |
