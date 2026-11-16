@@ -1,92 +1,29 @@
 /**
  * @file ui_tools.cpp
- * @brief TOOLS, the chooser. @see ui_tools.h
+ * @brief TOOLS, a hub. @see ui_tools.h
  */
 
 #include "ui_tools.h"
-#include "ui_servo_prog.h"
-#include "ui_input.h"
 #include "ui_widgets.h"
 #include "esc_task.h"
-#include "gfx.h"
-#include "touch.h"
 
 #include <stdio.h>
 
 static_assert(UI_MARGIN + 6 * (int)(sizeof(UI_TOOLS_TITLE) - 1) * 2 - 2 + 4 <= UI_BACK_X,
               "TOOLS' title runs into BACK");
 // A one-digit GPIO: this board's signal pins are GP0 and GP1.
-static_assert(sizeof(UI_TOOLS_STRIP_FMT) - 1 - 2 + 1 <= UI_PROG_LINE_CHARS,
+static_assert(sizeof(UI_TOOLS_STRIP_FMT) - 1 - 2 + 1 <= UI_HUB_LINE_CHARS,
               "TOOLS' strip runs off the panel");
 
-static const TouchState *s_t = nullptr;
-/** @brief Hash of what the last frame drew; 0 forces a repaint. */
-static uint32_t s_drawnKey = 0;
-
-/** @brief Entry @p i's button: PROGRAMMER's rectangles. */
-static UiRect entryRect(int i) {
-	return UiRect{ UI_EDGE, (int16_t)(UI_PROG_ENTRY_Y + i * UI_PROG_ENTRY_PITCH), UI_PROG_ENTRY_W,
-	               UI_PROG_ENTRY_H };
+void uiToolsStrip(char *buf, size_t n) {
+	snprintf(buf, n, UI_TOOLS_STRIP_FMT, (unsigned)escTaskDshotPin());
 }
 
-static uint32_t mix(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }
+void uiToolsEnter() { uiHubEnter(); }
 
-/** @brief Everything a frame draws, hashed: a change repaints. */
-static uint32_t frameKey() {
-	uint32_t h = 2166136261u;
-	h = mix(h, escTaskDshotPin());
-	for (int i = 0; i < UI_TOOLS_ENTRIES_COUNT; i++) h = mix(h, uiPressing(entryRect(i), s_t));
-	h = mix(h, uiPressing(uiBackRect(), s_t));
-	return h | 1u;
-}
+bool uiToolsTick(const TouchState *t) { return uiHubTick(UI_TOOLS_HUB, t); }
 
-static void draw() {
-	gfxFill(C_BG);
-	uiHeader(UI_TOOLS_TITLE, s_t);
-	uiStripClear();
-	char strip[32];
-	snprintf(strip, sizeof(strip), UI_TOOLS_STRIP_FMT, (unsigned)escTaskDshotPin());
-	uiStripText(strip, C_DIM);
-	for (int i = 0; i < UI_TOOLS_ENTRIES_COUNT; i++) {
-		const UiToolsEntry &e = UI_TOOLS_ENTRIES[i];
-		UiRect r = entryRect(i);
-		uiButton(r, e.label, C_PANEL, C_TEXT, 2, uiPressing(r, s_t));
-		int y = r.y + UI_PROG_LINE_DY;
-		for (const char *l : e.lines) {
-			if (!l) break;
-			gfxText(UI_MARGIN, y, l, C_DIM, 1);
-			y += UI_PROG_LINE_H;
-		}
-	}
-}
-
-void uiToolsEnter() { s_drawnKey = 0; }
-
-bool uiToolsTick(const TouchState *t) {
-	static const TouchState none = {};
-	s_t = t ? t : &none;
-	if (uiBackTapped(s_t)) return false;
-	for (int i = 0; i < UI_TOOLS_ENTRIES_COUNT; i++) {
-		if (uiTapped(entryRect(i), s_t)) {
-			uiChooseTool(UI_TOOLS_ENTRIES[i].screen, nullptr);
-			return true;
-		}
-	}
-	uint32_t key = frameKey();
-	if (key != s_drawnKey) {
-		s_drawnKey = key;
-		draw();
-	}
-	return true;
-}
-
-uint8_t uiToolsControls(UiControl *out, uint8_t max) {
-	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
-	for (int i = 0; i < UI_TOOLS_ENTRIES_COUNT; i++)
-		uiControlAdd(out, &n, max, UI_FIX((uint8_t)ToolsCtl::Angle + i), entryRect(i), true);
-	return n;
-}
+uint8_t uiToolsControls(UiControl *out, uint8_t max) { return uiHubControls(UI_TOOLS_HUB, out, max); }
 
 const UiScreen UI_TOOLS = {
 	UiScreenId::Tools, UI_TOOLS_TITLE, PinUser::None, nullptr,

@@ -3,14 +3,13 @@
  * @brief RX SIGNALS: the chooser behind MENU's RX SIGNALS row, with MONITOR
  *        and OUTPUT (docs/design/rx-signals.md, decision 4).
  *
- * The chooser follows PROGRAMMER's pattern (ui_servo_prog.h): one 228 x 46 px
- * button per tool at an 80 px pitch, with its lines under it. It claims
+ * RX SIGNALS is a hub (ui_hub.h): one 228 x 46 px button per tool at an
+ * 80 px pitch, with its lines under it. It claims
  * nothing: DShot runs on SIG while it shows. A tap on MONITOR opens S.BUS
  * MONITOR (ui_sbus.h), a tap on OUTPUT S.BUS OUTPUT (ui_sbus_out.h), each
  * through uiChooseTool(); the tool's own entry point asks for the pin claim
  * on that frame. OUTPUT's lines carry the output's warning,
- * `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`. An entry with
- * no screen would be drawn disabled, reported disabled and open nothing.
+ * `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`.
  * BACK returns to MENU, and so do the tools' BACK before a claim held and
  * their RESTART DSHOT.
  *
@@ -25,6 +24,7 @@
 
 #include <stdint.h>
 
+#include "ui_hub.h"
 #include "ui_screen.h"
 
 struct TouchState;
@@ -34,34 +34,26 @@ struct TouchState;
 /** @brief The strip, `C_DIM`, with SIG's and AUX's GPIO: `SIG GP0  AUX GP1`, 16 characters. */
 #define UI_RX_STRIP_FMT "SIG GP%u  AUX GP%u"
 
-/**
- * @defgroup ui_rx_layout RX SIGNALS' layout
- * @brief PROGRAMMER's: @ref UI_PROG_ENTRY_Y, @ref UI_PROG_ENTRY_PITCH,
- *        @ref UI_PROG_ENTRY_W, `UI_PROG_ENTRY_H`, its lines from
- *        @ref UI_PROG_LINE_DY at @ref UI_PROG_LINE_H.
- * @{
- */
-/** @brief Lines under an entry. */
-#define UI_RX_LINES 2
-/** @} */
-
-/** @brief One tool on the chooser. */
-struct UiRxEntry {
-	const char     *label;               /**< Scale 2 on the button, at most 18 characters. */
-	const char     *lines[UI_RX_LINES];  /**< Scale 1 under the button, `C_DIM`; null ends them. */
-	const UiScreen *screen;              /**< The tool the tap opens; null: not built, drawn disabled. */
-};
-
 /** @brief RX SIGNALS' controls besides BACK. */
 enum class RxCtl : uint8_t {
-	Monitor = 1,  /**< MONITOR: opens S.BUS MONITOR. */
+	Monitor = (uint8_t)HubCtl::Entry,  /**< MONITOR: opens S.BUS MONITOR. */
 	Output,       /**< OUTPUT: opens S.BUS OUTPUT. */
 };
 
 /** @brief The entries, top to bottom: MONITOR, OUTPUT. */
-extern const UiRxEntry UI_RX_ENTRIES[];
+extern const UiHubEntry UI_RX_ENTRIES[];
 /** @brief How many. */
 extern const uint8_t UI_RX_ENTRIES_COUNT;
+/** @brief RX SIGNALS as a hub: its title, uiRxSignalsStrip() and `UI_RX_ENTRIES`. */
+extern const UiHub UI_RX_HUB;
+
+/**
+ * @brief RX SIGNALS' strip: @ref UI_RX_STRIP_FMT with DShot's and KISS
+ *        telemetry's pins, which are SIG and AUX.
+ * @param buf The text.
+ * @param n   Room in @p buf.
+ */
+void uiRxSignalsStrip(char *buf, size_t n);
 
 /** @brief Open the chooser. */
 void uiRxSignalsEnter();

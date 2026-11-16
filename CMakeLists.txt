@@ -223,6 +223,7 @@ add_executable(MiniRcBench
     src/ui_menu.cpp
     src/ui_esc_cmd.cpp
     src/ui_registry.cpp
+    src/ui_hub.cpp
     src/ui_servo_prog.cpp
     src/ui_esc_config.cpp
     src/ui_sdlog.cpp
