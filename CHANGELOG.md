@@ -1241,6 +1241,28 @@ protocol.
 
 ### Changed
 
+- After v0.1.0-rc1: the four choosers run on one widget, the hub
+  (`src/ui_hub.*`), slice 1 of menu structure C, a proposed design note,
+  `docs/design/menu-c.md` on the branch `ccr-menu-rcb`. PROGRAMMER, ESC
+  CONFIG, RX SIGNALS and TOOLS are four tables of one entry type,
+  `UiHubEntry`, in `src/ui_registry.cpp`: a label, two plain lines, the
+  screen and its entry point, a gate with the two lines that say why, and
+  the power line by SERVO SUPPLY. One build-time check, `hubEntriesFit()`,
+  takes the place of the four: a label within 18 characters, a line within
+  37, the lines under an entry ending 4 px or more above the next entry, and
+  the last entry's on the panel. No screen changes: titles, strips, entries,
+  lines, rectangles, control ids and taps are the same, and the 1381 frames
+  the host suite draws on the four screens, 37 of them distinct, are equal
+  byte for byte before and after, as are all 182 screenshots. A hub holds
+  one page of three entries and does not scroll; the list of slice 4, MENU's
+  new rows and the navigation of slice 2 are not built. `UiProgEntry`,
+  `UiRxEntry`, `UiEscCfgEntry` and `UiToolsEntry` are gone, and the layout
+  constants `UI_PROG_ENTRY_*`, `UI_PROG_LINE_*` and `UI_PROG_LABEL_CHARS` are
+  `UI_HUB_ENTRY_*`, `UI_HUB_LINE_*` and `UI_HUB_LABEL_CHARS`. Host tests:
+  `runHubTests` in `test/test_hub.cpp`, 161 checks; 63 mutations of the
+  widget, the fit check, the tables and the four screens, 62 failing the
+  suite or the build and one equivalent, the limit of three entries,
+  which the room under a fourth entry also refuses.
 - After v0.1.0-rc1: the release notes gain a "Hardware testing" section: no
   MiniRcBench image has run on hardware. They name the image by its tag and
   the ESC pin setting as SIG PIN. The README's "Prebuilt image" and the wiki's

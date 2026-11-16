@@ -4,14 +4,13 @@
  *        and USB BRIDGE (docs/design/bluejay-blheli-s.md decision 1,
  *        docs/design/usb-bridge.md decision 1).
  *
- * The chooser follows PROGRAMMER's pattern (ui_servo_prog.h), as RX
- * SIGNALS does (ui_rx_signals.h): one 228 x 46 px button per entry at an
+ * ESC CONFIG is a hub (ui_hub.h), as PROGRAMMER (ui_servo_prog.h) and RX
+ * SIGNALS (ui_rx_signals.h) are: one 228 x 46 px button per entry at an
  * 80 px pitch, with its lines under it. It claims nothing: DShot runs on
  * SIG while it shows. A tap on ESC SETTINGS opens the settings screen
  * (ui_am32.h), a tap on USB BRIDGE the bridge (ui_bridge.h), each through
  * uiChooseTool(), whose own entry point asks for the pin claim on that
- * frame. An entry with no screen is drawn disabled, reported disabled and
- * opens nothing. BACK returns to MENU, and so do the tools' BACK and their
+ * frame. BACK returns to MENU, and so do the tools' BACK and their
  * RESTART DSHOT.
  *
  * The screen opens only while the pin claim is Free (`freePins`): MENU draws
@@ -23,6 +22,7 @@
 
 #include <stdint.h>
 
+#include "ui_hub.h"
 #include "ui_screen.h"
 
 struct TouchState;
@@ -31,26 +31,25 @@ struct TouchState;
 #define UI_ESC_CFG_TITLE "ESC CONFIG"
 /** @brief The strip, `C_DIM`, with SIG's GPIO: `SIG GP0`, 7 characters. */
 #define UI_ESC_CFG_STRIP_FMT "SIG GP%u"
-/** @brief Lines under an entry. */
-#define UI_ESC_CFG_LINES 2
-
-/** @brief One entry on the chooser. */
-struct UiEscCfgEntry {
-	const char     *label;                    /**< Scale 2 on the button, at most 18 characters. */
-	const char     *lines[UI_ESC_CFG_LINES];  /**< Scale 1 under the button, `C_DIM`; null ends them. */
-	const UiScreen *screen;                   /**< The screen the tap opens; null: not built, drawn disabled. */
-};
-
 /** @brief ESC CONFIG's controls besides BACK. */
 enum class EscCfgCtl : uint8_t {
-	Settings = 1,  /**< ESC SETTINGS: opens the settings screen. */
+	Settings = (uint8_t)HubCtl::Entry,  /**< ESC SETTINGS: opens the settings screen. */
 	Bridge,        /**< USB BRIDGE: opens the bridge. */
 };
 
 /** @brief The entries, top to bottom: ESC SETTINGS, USB BRIDGE. */
-extern const UiEscCfgEntry UI_ESC_CFG_ENTRIES[];
+extern const UiHubEntry UI_ESC_CFG_ENTRIES[];
 /** @brief How many. */
 extern const uint8_t UI_ESC_CFG_ENTRIES_COUNT;
+/** @brief ESC CONFIG as a hub: its title, uiEscConfigStrip() and `UI_ESC_CFG_ENTRIES`. */
+extern const UiHub UI_ESC_CFG_HUB;
+
+/**
+ * @brief ESC CONFIG's strip: @ref UI_ESC_CFG_STRIP_FMT with DShot's pin, which is SIG.
+ * @param buf The text.
+ * @param n   Room in @p buf.
+ */
+void uiEscConfigStrip(char *buf, size_t n);
 
 /** @brief Open the chooser. */
 void uiEscConfigEnter();
@@ -64,7 +63,7 @@ bool uiEscConfigTick(const TouchState *t);
 
 /**
  * @brief The chooser's controls on the current frame: BACK, ESC SETTINGS
- *        and USB BRIDGE; an entry with no screen disabled.
+ *        and USB BRIDGE, each acting.
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.
