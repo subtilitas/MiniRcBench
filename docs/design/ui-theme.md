@@ -1424,7 +1424,7 @@ Readings of the note where the code asked for a choice:
   differs from a square one in rows 0 to 2 and the last three rows only.
   A label is centred: in a button `UI_TAP_MIN`, 22 px, tall or taller, a
   scale 2 label, 15 px with High contrast's heavier glyphs, starts 4 px
-  below the top edge and ends 3 px above the bottom edge. Three
+  below the top edge and ends 3 px above the bottom edge. Two
   `static_assert`s in `ui_widgets.cpp` hold that, and the suite's lowest
   button is 22 px tall. The width checks of [Fit checks](#fit-checks) are
   not changed: a label that fits between a square button's frame fits
