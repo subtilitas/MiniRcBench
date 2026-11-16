@@ -363,8 +363,9 @@ Versorgung nicht schaltet.
   von den `LOGnnnnn.BFL` der Blackbox-Aufzeichnungen.
 - Nach `HOLD TO START` zeigt die Skala `PREPARING THE LOG...` und `THE SERVO
   STARTS AFTER IT.`, während die Bank die Datei öffnet; danach startet das
-  Servo, es sei denn, der Touch-Controller antwortet inzwischen nicht mehr. Braucht die Karte dafür länger als 2 s, gibt es keine Aufzeichnung: `NO
-  LOG: CARD TOO SLOW`, und das Servo startet ohne.
+  Servo, es sei denn, der Touch-Controller antwortet inzwischen nicht mehr.
+  Braucht die Karte dafür länger als 2 s, gibt es keine Aufzeichnung: `NO LOG:
+  CARD TOO SLOW`, und das Servo startet ohne.
 - Während das Servo läuft, zeigt die zweite Zeile über der Skala `LOGGING TO
   SRV00012.CSV` in Grau. In Bernstein: `SRV00012.CSV: 12 ROWS DROPPED` (die
   Karte war langsamer als die Messungen), `LOG STOPPED AT 4 MIB` (die Grenze der

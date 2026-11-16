@@ -341,8 +341,9 @@ switch the supply.
   blackbox logs' `LOGnnnnn.BFL`.
 - After `HOLD TO START` the dial reads `PREPARING THE LOG...` and `THE SERVO
   STARTS AFTER IT.` while the bench opens the file; the servo starts right
-  after, unless the touch controller stops answering meanwhile. A card that takes longer than 2 s for that gets no log: `NO LOG: CARD
-  TOO SLOW`, and the servo starts without one.
+  after, unless the touch controller stops answering meanwhile. A card that
+  takes longer than 2 s for that gets no log: `NO LOG: CARD TOO SLOW`, and the
+  servo starts without one.
 - While the servo runs, the dial's second line reads `LOGGING TO SRV00012.CSV`
   in grey. In amber: `SRV00012.CSV: 12 ROWS DROPPED` (the card was slower than
   the readings), `LOG STOPPED AT 4 MIB` (the file's limit, about an hour), `LOG
