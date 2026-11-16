@@ -1295,6 +1295,7 @@ protocol.
   disabled meanwhile, the track reading `DSHOT STARTING: WAIT 1.5 S`, a press
   that lands then not timed, and a press cancelled when the bind stamp moves
   (dshot-lifetime.md decisions 10 and 12, pending the owner's review).
+  After a refused bind (`DSERR`) the track reads `DSHOT COULD NOT START`.
 - After v0.1.0-rc1: the hubs SERVO and RX SIGNALS draw
   `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in amber as the strip's second line
   while the claim is free; a hub's busy caption takes that line. MONITOR on RX

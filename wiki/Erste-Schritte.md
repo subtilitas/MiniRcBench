@@ -83,9 +83,10 @@ also jederzeit anstecken oder neu starten.
 Der Startbildschirm steht 3 s lang, dann erscheint `MENU`, die Liste der
 Werkzeuge. Der Startbildschirm nennt die Platine, für die die Firmware gebaut
 ist, RP2350-TOUCH-LCD-2.8, und die Firmware-Version, zum Beispiel
-`VERSION 0.1.0`. Beim Einschalten verlässt kein DShot-Frame die Platine: Vom
-Start der Firmware an liegt der ESC-Pin auf Low, und nichts wird gesendet,
-auch nicht während des Startbildschirms und auf `MENU`. DShot startet erst,
+`VERSION 0.1.0`. Beim Einschalten verlässt kein DShot-Frame die Platine: Ab
+`escTaskInit()`, vor dem Startbildschirm, wird der ESC-Pin auf Low gelegt,
+und nichts wird gesendet, auch nicht während des Startbildschirms und auf
+`MENU`. DShot startet erst,
 wenn du `ESC TESTER` oder `ESC COMMANDS` öffnest.
 
 <img src="img/splash.png" width="240" alt="Startbildschirm">

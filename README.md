@@ -3750,7 +3750,9 @@ In the firmware:
   stamped; a bind that moves the stamp cancels a timed press. Meanwhile HOLD
   TO ARM is drawn disabled and the track reads `DSHOT STARTING: WAIT 1.5 S`
   (decisions 10 and 12 of `docs/design/dshot-lifetime.md`, pending the
-  owner's review). AM32 takes a throttle only after more than 1 s of zero
+  owner's review). After the driver refused the bind (`DSERR`), no stamp
+  is set, HOLD TO ARM stays disabled and the track reads
+  `DSHOT COULD NOT START`. AM32 takes a throttle only after more than 1 s of zero
   input (from source); Bluejay's and BLHeli_S's times are not recorded.
 - A settings save is refused while armed, because erasing flash stops the
   DShot pump.

@@ -625,7 +625,7 @@ Prerequisite: Session 1. Setup E with the AM32 ESC first; MAX THROTTLE at
 its default, 20 %, unless a test says. The scope or the logic analyser on
 SIG (GP0) and AUX (GP1).
 
-#### DL-1 to DL-5. The DShot lifetime
+#### DL-1 to DL-6. The DShot lifetime
 
 [dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built), slice D2,
 numbered here. None of it has run on hardware.
@@ -637,6 +637,7 @@ numbered here. None of it has run on hardware.
 | DL-3 | armed, LATCH on at 10 %; tap MENU | zero-throttle frames from the tap until more than 250 ms after the last throttle frame, then SIG driven low, no frame | the capture; what the ESC does (signal-loss behaviour, not recorded) |
 | DL-4 | from ESC CONFIG, ESC COMMANDS, then BACK; then USB BRIDGE and its leave page | ESC COMMANDS binds with the enable first; BACK parks at once (no drain, no throttle was sent); USB BRIDGE puts SIG on its pull-up with no frame; the leave page's ESC CONFIG drives SIG low again, no frame | the captures |
 | DL-5 | a Bluejay ESC, powered, on the parked SIG for 60 s; then ESC TESTER | the ESC does not enter its bootloader on the low line (from source, not measured); it answers eRPM once the tester opens | whether the ESC answers, and after how long |
+| DL-6 | a: armed, LATCH on at 10 %; tap MENU, then the ESC TESTER row within 250 ms; hold HOLD TO ARM at once. b: on ESC TESTER, tap MAX, change SIG PIN to GP1 and back to GP0 in SETUP, then BACK within 1.5 s of the last change; hold HOLD TO ARM at once, then again 1.5 s after the last change | a: zero-throttle frames from the MENU tap on, no gap and no new EDT enable on the reopen; an arm 1 s into the hold. b: the frames stop on GP0 and start on GP1 with the EDT enable first, then again on GP0; `DSHOT STARTING: WAIT 1.5 S` on the track after BACK; no arm from the first press, an arm 1 s into the second | the captures of SIG and AUX; the time from the reopen tap to the arm |
 
 #### OI-15a. An ESC on SIG at each DShot rate
 
@@ -1995,7 +1996,7 @@ and the note's section the result went into.
 | blackbox-logging.md | 1: `BB-1`; its unmeasured BUF PEAK and WORST FLUSH are `SD-2` |
 | bluejay-blheli-s.md | 13: `BJ-B1` to `BJ-B13` |
 | current-sense.md | 13: `CS-B1` to `CS-B13`, B9 in two steps, `CS-B9a` and `CS-B9b` |
-| dshot-lifetime.md, slice D2 | 5: `DL-1` to `DL-5` |
+| dshot-lifetime.md, slice D2 | 6: `DL-1` to `DL-6` |
 | diagnostics.md | 8: `DG-1` to `DG-8` |
 | esc-commands.md | 9: `EC-B1` to `EC-B9` |
 | hitec-programming.md | 6: `HT-6a` to `HT-6f` |

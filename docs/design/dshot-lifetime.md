@@ -885,15 +885,22 @@ Where the build chose, the note being silent:
 - **A quick MENU, then ESC TESTER, within the drain** finds the pump still
   bound: Run is asked again before the teardown, the pump runs on with no new
   bind, and the gate counts from the earlier bind. The ESC heard zero frames
-  throughout.
+  throughout. Arming afterwards needs the 1000 ms hold only, since the
+  earlier bind is older than 1500 ms by then.
+- **The track after a refused bind.** `DSHOT STARTING: WAIT 1.5 S` shows
+  only while a bind is pending or younger than 1500 ms. After the driver
+  refused the bind (`initError`, `DSERR` in the status bar), the stamp stays
+  0 and the gate holds; the track then reads `DSHOT COULD NOT START`
+  (`UI_TESTER_REFUSED_TEXT`), amber, 21 characters, 125 px of the track's
+  width.
 
-Tests: `test/test_dshot_life.cpp`, eleven cases, and in `test/test_claim.cpp`
+Tests: `test/test_dshot_life.cpp`, thirteen cases, and in `test/test_claim.cpp`
 the drain after a running tester, Parking, the park as the claim left it,
 and `testPollSource()`'s check of `escTaskInit()`. The host suites that
 claimed from the tester leave it for MENU first; the job suites keep the pump
 running before a claim (`freshPump()`), since their own pad writes are
 under test. `fakes.cpp` gains `escTaskInit()`, `fakeParkCount()`,
-`fakeParkJobIdle()` and `fakePinsReset()`.
+`fakeParkJobIdle()`, `fakePinsReset()` and `fakeSetBindRefused()`.
 
 Mutations, each run against the whole suite and restored:
 
@@ -912,6 +919,9 @@ Mutations, each run against the whole suite and restored:
 | A stamp of 0 read as no gate | 162 checks fail, among them "the same press, held 3000 ms past the bind: no arm" (the tap-to-bind case) |
 | A timed press kept when the stamp moves | 1 check fails: "held on 3000 ms: no arm" (the rebuild case) |
 | The hubs' line dropped on RX SIGNALS | 4 checks fail, among them the RX SIGNALS case of the hubs' line |
+| Run asked only once the pins are parked (`pinClaimDshot()`) | 20 checks fail, among them the drain race's "ESC TESTER again: no new bind, the stamp unchanged, never parked" |
+| The fake's `escTaskStart()` asking for a rebuild | 18 checks fail, among them four of the drain race's, "zero frames throughout" with them |
+| The track's refused branch dropped: the gate's text after a refused bind | 1 check fails: "the track reads the refused text in amber, not the gate's" |
 
 ### D3: ESC COMMANDS and the run cue on a starting pump (Opus)
 
