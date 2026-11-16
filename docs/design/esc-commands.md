@@ -1073,6 +1073,11 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    with `NO ESC ANSWERS ON SIG GP0.`, beacons included. A BLHeli_S 16.7
    ESC, which sends no eRPM, is then not served. This is the
    recommendation.
+   Revised by the owner's decision of 2026-11-15
+   ([dshot-lifetime.md](dshot-lifetime.md#each-case)): DShot starts when
+   the page opens, so no ESC answers until it has seen the first frames;
+   that note proposes `DSHOT STARTING ON SIG GP0.` for the first 1500 ms.
+   Not built.
 6. **Where RPM/V and the estimate go on the tester.** Option (a): `RPM/V`
    on the ERPM line and `KV EST` in place of `14 POLES` while armed. This
    is the recommendation.

@@ -196,6 +196,10 @@ state machine are claimed from whatever is free at
 run time, because the DShot driver is always resident and the SDIO card
 driver holds pio1. When no state machine is free the effect is that of an
 unplugged wire.
+Revised by the owner's decision of 2026-11-15
+([dshot-lifetime.md](dshot-lifetime.md)): DShot, and with it the KISS
+receiver, runs only while ESC TESTER or ESC COMMANDS is open; elsewhere AUX
+rests on its pull-down. Not built.
 
 Any free GPIO that is not the ESC's can receive. KISS listens on AUX, the
 pin [pin-claim.md](pin-claim.md#the-two-pins) names, which SETTINGS sets in
