@@ -101,7 +101,10 @@ Füllung. `-` und `+` unter einer Liste und `REPAIR` bei Hitec sehen aus wie
 jede andere Schaltfläche, die etwas auslöst. Wo diese Seiten „grau“ sagen,
 ist einer der beiden blaugrauen Neutraltöne gemeint. Die Farben sind
 berechnet und nicht auf dem Display gesehen: Wie das Display sie zeigt, ist
-nicht gemessen. Hoher Kontrast behält seine eigenen Farben.
+nicht gemessen. Hoher Kontrast behält seine eigenen Farben. Rahmen und
+Beschriftungen sind dort fast schwarz; deshalb hat eine Schaltfläche, die
+nichts auslöst, dort einen gestrichelten Rahmen und ein Schieberegler, der
+nichts auslöst, einen hohlen Griff.
 
 ---
 

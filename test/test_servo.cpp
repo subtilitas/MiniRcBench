@@ -2675,6 +2675,23 @@ static void testSliderDraw() {
 	uiSliderDraw(&s, C_LIME);
 	checkTrue("dimmed: the fill is grid grey", fb[110 * GFX_W + 50] == C_GRID);
 	checkTrue("and the thumb dim, at the right end", fb[(100 - 1) * GFX_W + 114] == C_DIM);
+	// High contrast: C_DIM is near black as C_TEXT is, so a dimmed thumb is
+	// hollow. The thumb is 14 px from x 107; x 114 is between its grip lines.
+	themeSet(Theme::HighContrast);
+	gfxInit();
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("high contrast, dimmed: the thumb hollow, C_BG in a 2 px C_GRID frame",
+	          fb[(100 - 1) * GFX_W + 114] == C_BG && fb[110 * GFX_W + 114] == C_BG &&
+	          fb[110 * GFX_W + 107] == C_GRID && fb[110 * GFX_W + 108] == C_GRID &&
+	          fb[110 * GFX_W + 120] == C_GRID && fb[110 * GFX_W + 112] == C_GRID);
+	checkTrue("high contrast, dimmed: the fill still C_GRID", fb[110 * GFX_W + 50] == C_GRID);
+	s.dim = false;
+	gfxInit();
+	uiSliderDraw(&s, C_LIME);
+	checkTrue("high contrast, live: the thumb solid, C_TEXT",
+	          fb[(100 - 1) * GFX_W + 114] == C_TEXT && fb[110 * GFX_W + 114] == C_TEXT);
+	s.dim = true;
+	themeSet(Theme::Dark);
 	gfxInit();
 	UiSlider flat;
 	uiSliderInit(&flat, UiRect{20, 100, 101, 20}, 5, 5);

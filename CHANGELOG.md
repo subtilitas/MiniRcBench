@@ -1268,7 +1268,14 @@ protocol.
   IT SIDEWAYS FOR COARSE`, the bar's lines under a list that is shown only,
   SD LOG's two lines on how to eject, and the tester's `SWIPE = THROTTLE`
   while disarmed; and a slider's fill, SPEED's and a running S.BUS channel's,
-  is `C_GRID` in place of `C_DIM`. No rectangle and no text moves. Not seen
+  is `C_GRID` in place of `C_DIM`. The throttle ceiling's 2 px line on S.BUS
+  OUTPUT is `C_GRID` with it. In High contrast, where frames and labels are
+  near black and the `C_PANEL` fill is 1.46 from white, a disabled button
+  has a dashed frame, 4 px drawn and 4 px open on its straight edges
+  (`UI_DASH`, `uiButton()`), and a dimmed slider a hollow thumb, `C_BG`
+  inside its frame (`uiSliderDraw()`): a disabled `-` or `+` at a limit no
+  longer reads as live there (`testDisabledFrame()`, `testSliderDraw()`).
+  Dark draws both as before. No rectangle and no text moves. Not seen
   on the panel: every colour is computed for sRGB, and the panel's gamma,
   primaries and backlight are not measured. Host tests, mutation-checked:
   `testPaletteValues()`, `testPaletteDistinct()` and `testPaletteContrast()`,

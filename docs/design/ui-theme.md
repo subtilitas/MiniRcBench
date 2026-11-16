@@ -1292,6 +1292,16 @@ Readings of the note where the code asked for a choice:
   changed: its frame is whole and its `C_GRID` label is 3.57. Every
   disabled control is drawn by `uiButton()`, so the edit buttons, the HOLD
   buttons, BACK, MENU's rows and the hub's entries share it.
+- **A dimmed slider in High contrast.** A build call of the same kind.
+  S.BUS OUTPUT's channels while SAFE draw a dimmed slider, whose thumb is
+  `C_DIM`, 9.10 on white there, against a live thumb in black. In High
+  contrast `uiSliderDraw()` draws a dimmed thumb hollow: `C_BG` inside its
+  2 px `C_GRID` frame, with the grip lines. Dark is not changed.
+  `testSliderDraw()` in `test/test_servo.cpp` holds it.
+- **What High contrast does not tell apart.** A read-only value and its
+  label are `C_GRID`, and an editable row's label is `C_DIM`: 10.94 and
+  9.10 on white. A read-only row is not a control and has no frame; High
+  contrast's table collapses the two greys by intent. Not changed here.
 - **The throttle ceiling's line.** S.BUS OUTPUT draws the track past the
   ceiling with a 2 px line along its middle. It is `C_GRID`, the fill's
   colour, a fifth of the fill's 10 px; in `C_DIM` it was brighter than
@@ -1317,9 +1327,10 @@ Mutations, each run against the suite and restored:
 | Every hint back to `C_GRID` | 18 |
 | Both sliders' fill back to `C_DIM` | 4: SPEED and a running channel |
 | `uiButton()` does not dash in High contrast | 9: the widget's four sizes, two checks each, and KST SERVO's `+` |
-| `uiButton()` dashes in Dark too | 58: the widget's four sizes, KST SERVO's `+`, the disabled BACK of 13 screens |
+| `uiButton()` dashes in Dark too | 58: the widget's four sizes, KST SERVO's `+`, the disabled BACK of the write and leave pages |
 | The gaps 1 px deep, not the frame's 2 px | 4: the gap's depth in the four sizes |
 | The ceiling's line back to `C_DIM` | 1 |
+| A dimmed thumb `C_DIM` in High contrast | 1 |
 
 Left to the slices that follow: the radius (slice 9), cyan (slice 10),
 green (slices 11 and 12), the walk over every screen's pairs (slice 13),

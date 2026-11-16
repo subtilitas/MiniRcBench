@@ -90,7 +90,9 @@ and `+` under a list and Hitec's `REPAIR` look like every other button that
 commands something. Where these pages say "grey", the colour is one of the
 two blue-grey neutrals. The colours are computed and not seen on the panel:
 how the panel shows them is not measured. High contrast keeps its own
-colours.
+colours. Its frames and labels are near black, so a button that does not
+act has a dashed frame there, and a slider that does not act a hollow
+thumb.
 
 ---
 
