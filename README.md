@@ -899,6 +899,16 @@ SETTINGS row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
 SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
 FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
 
+**Buttons and chips**
+
+A button has rounded corners with a radius of 5 px (`UI_RADIUS`), in both
+themes: its fill and its frame leave out three pixels at each corner, and
+the screen under them shows. A press counts on the whole rectangle, the
+corners included. A chip is square: the chips on the strip, the tester's
+arm badge and its `SDERR` chip. The tester's throttle track, the sliders
+and the servo dial's shaft are round as before. No label moves: a label is
+centred and ends 3 px or more from a button's top and bottom edge.
+
 **The Dark theme**
 
 The Dark theme, `CONTRAST` at `NORMAL`, takes its 17 colours from the dark
@@ -934,8 +944,9 @@ darkened to carry white text, every glyph stroke gets one extra pixel of
 weight, frames are 2 px, the seven-segment stroke is thicker, and the
 backlight is forced to 255. It is meant for direct sunlight on the
 transmissive IPS panel. Its frames and labels are near black, so a disabled
-button has a dashed frame there, 4 px drawn and 4 px open, and a slider
-that does not act has a hollow thumb.
+button has a dashed frame there, 4 px drawn and 4 px open on its straight
+edges, with its rounded corners whole, and a slider that does not act has
+a hollow thumb.
 
 The palette has fewer distinct greys than the dark one. Label greys are
 merged so that labels stay legible outdoors.

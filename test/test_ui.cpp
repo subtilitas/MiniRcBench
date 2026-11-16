@@ -1131,6 +1131,57 @@ static void testLogEndNotes() {
 }
 
 /**
+ * @brief The tester's throttle fill stays inside the track's rounded corner
+ *        at every width (slice 9 of menu-c.md's build plan): a fill under
+ *        10 px wide keeps the track's 5 px corner instead of a smaller one.
+ */
+static void testThrottleFillCorner() {
+	section("Tester: the throttle fill follows the track's corner");
+	fakeFlashClear();
+	settingsLoad();
+	uiInit();
+	frames(4);
+	holdToArm();
+	checkTrue("armed", uiArmed());
+	const UiRect thr = ctlRect(UI_FIX(TesterCtl::Throttle));
+	checkTrue("the track is 224 x 34 px at (8, 248)", thr.x == 8 && thr.y == 248 && thr.w == 224 && thr.h == 34);
+	const uint16_t *fb = gfxBuffer();
+	const int ty = thr.y + thr.h / 2, x0 = thr.x, y0 = thr.y, y1 = thr.y + thr.h - 1;
+	bool corner = true, frame = true, lit = true;
+	int narrowest = 999, widest = 0;
+	fakePress(thr.x + THR_EDGE_SAT_T, ty); frames(1);
+	for (int dx = 1; dx <= 12; dx++) {
+		fakeHold(thr.x + THR_EDGE_SAT_T + dx, ty); frames(1);
+		// The fill's width: the lime pixels of the track's middle row,
+		// after the frame's one pixel at x 8.
+		int w = 1;
+		while (w < thr.w && fb[ty * GFX_W + x0 + w] == C_LIME) w++;
+		if (w == 1) continue;
+		if (w < narrowest) narrowest = w;
+		if (w > widest) widest = w;
+		// The three pixels outside each left corner are the screen's.
+		if (fb[y0 * GFX_W + x0] != C_BG || fb[y0 * GFX_W + x0 + 1] != C_BG || fb[(y0 + 1) * GFX_W + x0] != C_BG ||
+		    fb[y1 * GFX_W + x0] != C_BG || fb[y1 * GFX_W + x0 + 1] != C_BG || fb[(y1 - 1) * GFX_W + x0] != C_BG)
+			corner = false;
+		// The frame's corner is whole over the fill.
+		if (fb[y0 * GFX_W + x0 + 2] != C_GRID || fb[(y0 + 1) * GFX_W + x0 + 1] != C_GRID ||
+		    fb[(y0 + 2) * GFX_W + x0] != C_GRID)
+			frame = false;
+		// The fill is as wide as the throttle says, in the row under the frame too.
+		if (fb[(y0 + 2) * GFX_W + x0 + w - 1] != C_LIME) lit = false;
+		if (fb[ty * GFX_W + x0 + w] != C_PANEL) lit = false;
+	}
+	checkTrue("fills from under 10 px to 10 px and wider were drawn", narrowest >= 2 && narrowest < 10 && widest >= 10);
+	checkTrue("at each width the pixels outside the track's left corners are C_BG", corner);
+	checkTrue("and the frame's corner is drawn over the fill", frame);
+	checkTrue("the fill ends where the throttle puts it, the track's C_PANEL beyond", lit);
+	fakeRelease(); frames(2);
+	tapId(UI_FIX(TesterCtl::Arm));
+	frames(2);
+	checkTrue("disarmed", !uiArmed());
+}
+
+/**
  * @brief The tester's SDERR: an amber chip, armed or not, clear of the arm
  *        badge, the RPM and the throttle.
  */
@@ -9425,6 +9476,7 @@ void runUiTests() {
 	testLogRun();
 	testTesterNoRun();
 	testLogNumbering();
+	testThrottleFillCorner();
 	testTesterSdErr();
 	testUsbDriveScreen();
 	testManualLogSurvivesArming();

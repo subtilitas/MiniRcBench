@@ -952,8 +952,14 @@ static void drawThrottle() {
 	                : 0;
 	if (fillW > THR_TRACK_W) fillW = THR_TRACK_W;
 	if (fillW > 0) {
-		gfxRoundRect(THR_TRACK_X, THR_TRACK_Y, fillW, THR_TRACK_H, 5,
+		// gfxRoundRect() clamps a radius to half the width, so a fill under
+		// 10 px wide would take a smaller radius than the track and stand out
+		// of the track's corner. It is drawn 10 px wide or wider and clipped
+		// to its own width: its left end is the track's at every width.
+		gfxSetClip(THR_TRACK_X, THR_TRACK_Y, fillW, THR_TRACK_H);
+		gfxRoundRect(THR_TRACK_X, THR_TRACK_Y, fillW < 2 * 5 ? 2 * 5 : fillW, THR_TRACK_H, 5,
 		             s_armed ? C_LIME : C_GRID);
+		gfxClearClip();
 	}
 	// With LATCH on the bar is a relative control, so give it a grab handle to
 	// say so -- it is a thing you push, not a place you tap.

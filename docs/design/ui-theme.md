@@ -1,8 +1,9 @@
 # UI theme after rcbench's
 
-Status: slices 7 and 8 of [the build plan](menu-c.md#build-plan), the palette
-and the neutral fills, are built, host tests only
-([Slices 7 and 8 as built](#slices-7-and-8-as-built)). Slices 9 to 14 are
+Status: slices 7, 8 and 9 of [the build plan](menu-c.md#build-plan), the
+palette, the neutral fills and the radius, are built, host tests only
+([Slices 7 and 8 as built](#slices-7-and-8-as-built),
+[Slice 9 as built](#slice-9-as-built)). Slices 10 to 14 are
 proposed, not built. The owner decided its five questions on 2026-11-15.
 The two questions the answers raised, and the colours of two buttons of the
 DShot lifetime, are settled by the developer's calls of 2026-11-16, pending the
@@ -767,7 +768,7 @@ The rules that change a widget, beyond the palette:
   `gfxRect()`. The tester's badge and its `SDERR` chip are drawn with
   `gfxRoundRect()` today, radius 4 and 2; they are chips and become
   square. The tester's throttle track, the sliders and the dial's shaft
-  are round by intent and stay.
+  are round by intent and stay. Built: [slice 9](#slice-9-as-built).
 - **The home tag, the changed fill, the start button, the outlined chip
   and the tester's badge:** [Cyan](#cyan) and [Green](#green).
 
@@ -1151,7 +1152,7 @@ Decisions the theme leaves as they are:
 - **[menu.md](menu.md#decisions) decisions 5 and 16.** The floors.
 
 [Decision 4](#decisions) closes open item 25 of
-[STATUS.md](../../STATUS.md).
+[STATUS.md](../../STATUS.md). Built: slice 9.
 
 ## Slices
 
@@ -1165,7 +1166,7 @@ tests and its dependence on the DShot slices, D1 to D5. None needs hardware
 |---|---|
 | 7 | Palette. Built: [Slices 7 and 8 as built](#slices-7-and-8-as-built) |
 | 8 | Neutral fills: the edit buttons, the neutral chip, the header's rule, the hints, the slider's fill. Built with slice 7 |
-| 9 | Radius |
+| 9 | Radius. Built: [Slice 9 as built](#slice-9-as-built) |
 | 10 | Cyan |
 | 11 | Green on the tools |
 | 12 | Green on the tester |
@@ -1332,11 +1333,147 @@ Mutations, each run against the suite and restored:
 | The ceiling's line back to `C_DIM` | 1 |
 | A dimmed thumb `C_DIM` in High contrast | 1 |
 
-Left to the slices that follow: the radius (slice 9), cyan (slice 10),
+Left to the slices that follow: the radius (slice 9, built since:
+[Slice 9 as built](#slice-9-as-built)), cyan (slice 10),
 green (slices 11 and 12), the walk over every screen's pairs (slice 13),
 and "grey" in README and the wiki where slice 8 did not change the thing
 named (slice 14). The previews under `docs/` and `wiki/img/` are rendered
 with the palette of these slices and the widgets of cff09ae otherwise.
+
+## Slice 9 as built
+
+Slice 9, the radius, of [the build plan](menu-c.md#build-plan)
+([decision 4](#decisions)), with host tests in `test/test_gfx.cpp`,
+`test/test_widgets.cpp`, `test/test_ids.cpp`, `test/test_ui.cpp` and
+`test/ui_ids.h`. Not seen on the panel: the suite reads pixels of the
+framebuffer, and how a 3 px corner looks at 0.178 mm a pixel is not looked
+at.
+
+| Block | Where | What it draws |
+|---|---|---|
+| The corner solver | `cornerInset()`, `src/gfx.cpp` | the inset of a corner's row: the first column whose pixel lies in an integer circle of the radius, `a * a + b * b <= r * r - r`. At 5 px the rows are inset 2, 1, 0, 0 and 0 px; at 4 px 2, 1, 0, 0; at 3 px 1, 0, 0; at 6 px 3, 2, 1, 0, 0, 0. A radius of 2 px or less insets nothing |
+| The fill | `gfxRoundRect()`, `src/gfx.cpp` | each corner row from its inset to its inset at the other end. At 5 px three pixels of each corner are not drawn: (0, 0), (1, 0) and (0, 1) |
+| The frame | `gfxRoundFrame()`, `src/gfx.cpp` | the fill's outermost pixels, `themeStroke()` px thick: 7 px a corner at 1 px, 14 px at High contrast's 2 px, with no open pixel inside the stroke. `roundFrame1px()` is gone |
+| A button | `uiButton()`, `UI_RADIUS`, `UI_CORNER`, `src/ui_widgets.{h,cpp}` | the 5 px radius on its fill, its frame and, 3 px, on a pressed button's second frame. Nothing else of it moves |
+| The tester's badge | `drawStatusBar()`, `src/ui.cpp` | square, `gfxRect()`, 92 x 20 px at (4, 3); it was passed a radius of 4 px |
+| The tester's `SDERR` chip | `drawStatusBar()`, `src/ui.cpp` | square, `gfxRect()`, 34 x 11 px at (101, 12); it was passed a radius of 2 px |
+| The tester's throttle fill | `drawThrottle()`, `src/ui.cpp` | follows the track's corner at every width: the fill is drawn at 10 px or wider and clipped to its own width |
+
+The tests the plan names, and where they are:
+
+- **The corner pixels of a 5 px fill and frame, insets 2, 1, 0.**
+  `testRound()` in `test/test_gfx.cpp`: each row's first and last lit
+  column of a 30 x 20 px fill; the four corners of the fill and of the
+  frame at 1 px and at 2 px, pixel by pixel; the pixel counts, 588, 88
+  and 176; the frame under the fill; radii of 4, 3, 0 and 12 px; a 12 x
+  12 px disc at 6 px; a radius over half the size; an empty rectangle; a
+  rectangle with no room for two strokes; the clip and the dirty band.
+- **A chip's corner pixel lit, a button's not.** `testButtonRadius()` in
+  `test/test_widgets.cpp`: six sizes, at rest, pressed and disabled, in
+  both themes. The corner pixel of each is the ground's, the frame stands
+  at insets 2, 1 and 0, and no pixel differs from a button drawn with
+  square corners outside 3 x 3 px a corner (`UI_CORNER`). A chip with a
+  state has its four corner pixels in its fill, the neutral chip in its
+  frame. BACK's corners show the header's band.
+- **The badge's corner pixel lit.** `testTesterSdErr()` in
+  `test/test_ui.cpp`: the four corner pixels of the SAFE badge, of the
+  ARMED badge and of the `SDERR` chip hold the fill.
+- **Every screen.** `buttonCornersClear()` in `test/ui_ids.h`, which
+  `checkControlTable()` runs on 175 frames of the suite: each control
+  that is drawn as a button has the three pixels outside each corner in
+  the colour of the ground beside it. `testCornerWalk()` in
+  `test/test_ids.cpp` holds the walk itself.
+- **The throttle fill.** `testThrottleFillCorner()` in `test/test_ui.cpp`:
+  armed, with a fill 1 px to 12 px wide, the track's corner pixels are
+  the screen's.
+
+Readings of the note where the code asked for a choice:
+
+- **The circle.** The plan gives the insets at 5 px, 2, 1 and 0, and
+  `ui_theme.py --patch --radius` the bound `r * r - r`. The solver is that
+  bound. A corner at 5 px differs from a square one in three pixels.
+- **The frame is one stroke.** The patch of the mock-ups put the solver
+  into `roundFrame1px()`, which draws one pixel a row: at 5 px that leaves
+  the frame open between x 2 and x 5 of its first row, and High
+  contrast's two rings leave two pixels of the fill between them.
+  `gfxRoundFrame()` draws each corner row as a run: from the outline's
+  inset to the straight edge in the stroke's first rows, and below them
+  to where the stroke's inner ring ends. At 1 px the rows meet at their
+  corners; at 2 px the stroke has no open pixel.
+- **What is under a corner.** A button does not draw the three pixels
+  outside each corner. They keep what the screen drew there before:
+  `C_BG`, or the header's `C_PANEL` under BACK. Every screen clears a
+  button's place before it draws a button there; the walk above holds it
+  on the frames the suite reads. `uiButton()`'s comment in
+  `ui_widgets.h` states the rule.
+- **The touch rectangle** is the whole rectangle, the corners included.
+  `uiControls()` reports the same rectangles as before.
+- **Hand-drawn buttons.** None. MENU's rows (`ui_menu.cpp`), the hub's
+  entries (`ui_hub.cpp`), HOLD DEFAULTS and HOLD TO SAVE
+  (`ui_settings.cpp`), the leave page's buttons, the sliders' presets and
+  the tester's button row are `uiButton()` calls. The tester's tiles are
+  `gfxRect()` fills without a frame and stay square: they are readings,
+  not controls.
+- **A disabled button in High contrast.** The dashes of
+  [slices 7 and 8](#slices-7-and-8-as-built) start `UI_RADIUS`, 5 px,
+  from each corner, so no gap lies on a rounded corner: the corner's 14
+  px of frame are whole, and the straight edges keep their 4 px dashes.
+  `testDisabledFrame()` holds the corners pixel by pixel and the same
+  percentages as before, 45 % to 52 %.
+- **Labels.** No label moves and none is clipped. A rounded button
+  differs from a square one in rows 0 to 2 and the last three rows only.
+  A label is centred: in a button `UI_TAP_MIN`, 22 px, tall or taller, a
+  scale 2 label, 15 px with High contrast's heavier glyphs, starts 4 px
+  below the top edge and ends 3 px above the bottom edge. Three
+  `static_assert`s in `ui_widgets.cpp` hold that, and the suite's lowest
+  button is 22 px tall. The width checks of [Fit checks](#fit-checks) are
+  not changed: a label that fits between a square button's frame fits
+  between a rounded one's.
+- **A label wider than its button.** Not a matter of the radius, found
+  by the walk: SERVO TESTER's `STOP SWEEP`, 59 px at scale 1, is drawn
+  on a button 53 px wide and crosses its frame by 3 px at each side, with
+  square corners as with rounded ones. Not changed here.
+- **The radius of a chip.** `uiChip()` draws with `gfxRect()`, as before.
+  [menu-b.md](menu-b.md#slice-2-as-built) records that a chip drawn
+  through `gfxRoundRect()` passed the suite; it fails it now.
+- **What was round by intent.** The tester's throttle track and its fill,
+  5 px; a slider's track and fill, half its height, and its thumb, 4 px;
+  SERVO TESTER's selected horn tip, a 12 px disc, and the dial's shaft.
+  Each is drawn round now. A slider's fill is at least its track's height
+  wide, as before, so its radius is whole.
+- **The throttle fill at a low throttle.** `gfxRoundRect()` clamps a
+  radius to half the width, so a fill under 10 px wide had a smaller
+  radius than the track and stood out of the track's corner by up to
+  three pixels. `drawThrottle()` draws the fill 10 px wide or wider and
+  clips it to its width.
+- **Open item 25 of [STATUS.md](../../STATUS.md)** is closed by this
+  slice.
+
+Mutations, each run against the suite and restored:
+
+| Mutation | Failing checks |
+|---|---|
+| The solver put back: every inset 0 | 213: `testRound()`'s 14, the widgets' 23, and the walk on every screen |
+| The solver's bound `(r - 1) * (r - 1)` in place of `r * r - r` | 44: `testRound()`, the widgets, the walk's own cases |
+| The frame's first corner rows not joined to the straight edge | 28 |
+| A frame's corner row does not reach the row above it | 2: the 12 px frame at 1 px and at 2 px. At 5 px the two are the same |
+| The frame 1 px thick in High contrast too | 23, a slider's hollow thumb among them |
+| The fill's corner rows inset on the left only | 176 |
+| `uiButton()` passes a radius of 0 | 199 |
+| `uiButton()` fills a square under the rounded frame | 168 |
+| A pressed button's second frame at 5 px, not 3 px | 2: "nothing differs from the square button outside 3 x 3 px a corner", in both themes |
+| `dashFrame()` starts its gaps at the corner, not `UI_RADIUS` px in | 21: the percentages, the gaps' places, the corners |
+| `uiChip()` draws a state's chip through `gfxRoundRect()`, 5 px | 29, on eight screens |
+| The tester's badge back to `gfxRoundRect()`, 4 px | 2: SAFE and ARMED |
+| The `SDERR` chip back to `gfxRoundRect()`, 2 px | 0: equivalent, a radius of 2 px insets no row |
+| The `SDERR` chip through `gfxRoundRect()`, 3 px | 1 |
+| The throttle fill not clipped, its radius clamped to half its width | 1: the pixels outside the track's left corners |
+| The throttle fill 10 px wide at the least, not clipped | 1: no fill under 10 px wide is drawn |
+
+Left to the slices that follow: cyan (slice 10), green (slices 11 and
+12), the walk over every screen's pairs (slice 13) and the records and
+"grey" (slice 14). The previews under `docs/` and `wiki/img/` are
+rendered with the radius.
 
 ## Open questions
 

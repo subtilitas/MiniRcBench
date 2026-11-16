@@ -458,6 +458,25 @@ static void testRound() {
 	gfxRoundFrame(X, Y, W, H, 0, TEST_FG);
 	checkInt("frame, radius 0: the rectangle's outline", countIn(0, 0, GFX_W, GFX_H, TEST_FG), 2 * W + 2 * H - 4);
 
+	// A larger radius, where a row's inset drops by 2 px and more: the
+	// frame's rows still meet, at 1 px and at 2 px.
+	static const char *const FRAME12[] = { "........####", "......##....", "....##......", "...#........",
+	                                       "..#.........", "..#.........", ".#..........", ".#..........",
+	                                       "#...........", "#...........", "#...........", "#..........." };
+	static const char *const FRAME12X2[] = { "........####", "......######", "....####....", "...###......",
+	                                         "..###.......", "..##........", ".##.........", ".##.........",
+	                                         "##..........", "##..........", "##..........", "##.........." };
+	resetGfx();
+	gfxRoundFrame(X, Y, 60, 40, 12, TEST_FG);
+	checkTrue("frame, 1 px, 12 px: each row of the corner reaches the row above it",
+	          cornersAre(X, Y, 60, 40, FRAME12, 12, 12));
+	themeSet(Theme::HighContrast);
+	resetGfx();
+	gfxRoundFrame(X, Y, 60, 40, 12, TEST_FG);
+	checkTrue("frame, 2 px, 12 px: 2 px thick along the corner, no open pixel",
+	          cornersAre(X, Y, 60, 40, FRAME12X2, 12, 12));
+	themeSet(Theme::Dark);
+
 	// A radius of half the size: the servo's selection dot, 12 x 12 px.
 	resetGfx();
 	gfxRoundRect(X, Y, 12, 12, 6, TEST_FG);
