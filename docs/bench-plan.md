@@ -625,9 +625,11 @@ Prerequisite: Session 1. Setup E with the AM32 ESC first; MAX THROTTLE at
 its default, 20 %, unless a test says. The scope or the logic analyser on
 SIG (GP0) and AUX (GP1).
 
-#### DL-1 to DL-6. The DShot lifetime
+#### DL-1 to DL-9. The DShot lifetime
 
-[dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built), slice D2,
+[dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built), slices D2
+([D2 as built](design/dshot-lifetime.md#d2-as-built), DL-1 to DL-6) and D3
+([D3 as built](design/dshot-lifetime.md#d3-as-built), DL-7 to DL-9),
 numbered here. None of it has run on hardware.
 
 | Test | Steps | Pass | Record |
@@ -638,6 +640,9 @@ numbered here. None of it has run on hardware.
 | DL-4 | from ESC PROGRAM, ESC COMMANDS, then BACK; then USB BRIDGE and its leave page | ESC COMMANDS binds with the enable first; BACK parks at once (no drain, no throttle was sent); USB BRIDGE puts SIG on its pull-up with no frame; the leave page's ESC PROGRAM drives SIG low again, no frame | the captures |
 | DL-5 | a Bluejay ESC, powered, on the parked SIG for 60 s; then ESC TESTER | the ESC does not enter its bootloader on the low line (from source, not measured); it answers eRPM once the tester opens | whether the ESC answers, and after how long |
 | DL-6 | a: armed, LATCH on at 10 %; tap MENU, then the ESC TESTER row within 250 ms; hold HOLD TO ARM at once. b: on ESC TESTER, tap MAX, change SIG PIN to GP1 and back to GP0 in SETUP, then BACK within 1.5 s of the last change; hold HOLD TO ARM at once, then again 1.5 s after the last change | a: zero-throttle frames from the MENU tap on, no gap and no new EDT enable on the reopen; an arm 1 s into the hold. b: the frames stop on GP0 and start on GP1 with the EDT enable first, then again on GP0; `DSHOT STARTING: WAIT 1.5 S` on the track after BACK; no arm from the first press, an arm 1 s into the second | the captures of SIG and AUX; the time from the reopen tap to the arm |
+| DL-7 | a Bluejay ESC, powered: ESC SETTINGS reads it; BACK to MENU without its leave page's last button (the ESC left in its bootloader); open ESC TESTER; tap MENU; open ESC COMMANDS; tap BACK; open ESC TESTER again; power-cycle the ESC; tap START DSHOT after 1 s | MENU reads `POWER-CYCLE THE ESC TO RUN IT`; each open shows the start step, SIG stays low, no frame until START DSHOT; START DSHOT is grey for 1 s; after its tap the EDT enable first, then zero throttle, the cue gone from MENU, `DSHOT STARTING: WAIT 1.5 S` on the track | the capture from the first open to START DSHOT; whether the ESC answers eRPM after it |
+| DL-8 | the AM32 ESC on SIG; open ESC COMMANDS | `DSHOT STARTING ON SIG GP0.` until the first answer or 1.5 s; then `ESC STARTING: WAIT 1.5 S.` with an answer; with the ESC unplugged, `NO ESC ANSWERS ON SIG GP0.` from 1.5 s on | the time from the tap to the first eRPM answer |
+| DL-9 | USB BRIDGE with the AM32 ESC unplugged, the line bound; BACK; the leave page's last button; then ESC TESTER | MENU's cue from the claim; the leave page at BACK; its last button clears the cue; ESC TESTER opens running, with no start step. The ends with no leave page (a failed bind, BACK before the bind) are not provoked by hand and are tested on the host only | whether ESC TESTER showed the start step |
 
 #### OI-15a. An ESC on SIG at each DShot rate
 

@@ -249,8 +249,8 @@ which starts the ESC's firmware: the page reads `LEAVING` and
 signal pin is held low and the screen returns to ESC PROGRAM; DShot runs only
 once ESC TESTER or ESC COMMANDS opens. LEAVE has no answer: whether the ESC
 started is not seen, and not verified on an ESC. MENU's
-`POWER-CYCLE THE ESC TO RUN IT` stays until the ESC sends eRPM on ESC TESTER
-or ESC COMMANDS.
+`POWER-CYCLE THE ESC TO RUN IT` stays until `START DSHOT` on the start step of
+ESC TESTER or ESC COMMANDS ([The Screens](The-Screens)).
 
 <img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE. ESC TESTER THEN RUNS IT. KEEP THE PROPELLER OFF.">
 
@@ -585,9 +585,10 @@ After a Bluejay or BLHeli_S answer, `BACK` from its list sends LEAVE, and
 ([EFM8 ESCs](#efm8-escs)).
 
 After a session in which the bootloader answered, MENU shows
-`POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. It goes
-when an eRPM frame arrives on ESC TESTER or ESC COMMANDS, which only the
-ESC's firmware sends, on the leave page's last button, or when the board
+`POWER-CYCLE THE ESC TO RUN IT` in amber under the strip's caption. While it
+stands, ESC TESTER and ESC COMMANDS open on a start step with DShot off. It
+goes on `START DSHOT` there, on the leave page's last button, when an eRPM
+frame arrives, which only the ESC's firmware sends, or when the board
 restarts. LEAVE from a Bluejay
 or BLHeli_S list leaves it, as LEAVE has no answer.
 

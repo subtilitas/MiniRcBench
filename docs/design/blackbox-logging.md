@@ -269,7 +269,7 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
   [dshot-lifetime.md](dshot-lifetime.md#each-case), proposed and pending
   the owner's review and under no numbered decision of that note: a hand
   log runs on with no DShot telemetry, and its slice D3 logs eRPM only
-  while fresh. Not built.
+  while fresh. Built (D3).
 - On stop: an `E` frame with `LOG_END` (255), the ring drained, the unused
   pre-allocation released with `f_truncate()`, then sync and close.
 - The directory entry is synced every `SD_LOG_SYNC_MS`, 2000 ms, right after a

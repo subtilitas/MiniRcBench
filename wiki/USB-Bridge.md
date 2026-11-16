@@ -127,8 +127,11 @@ Without such a write, as after a session that only read or a write followed
 by a start, the page shows the two steps and no note.
 
 MENU shows `POWER-CYCLE THE ESC TO RUN IT` once the screen has taken the
-signal pin, also after a bind that failed, until the leave page's last
-button or until the ESC answers DShot on ESC TESTER or ESC COMMANDS.
+signal pin, until the leave page's last button, `START DSHOT` on the start
+step of ESC TESTER or ESC COMMANDS, or an answer to DShot. A visit that ends
+with no leave page, `BACK` before the line is used or after a bind that
+failed, sent nothing: it clears the line unless a byte came from the ESC.
+This is tested on the host only.
 
 If the USB cable is pulled during a write while the board runs on its own
 cell, the board keeps the signal pin and sends nothing. On USB power alone

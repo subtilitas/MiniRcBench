@@ -1085,7 +1085,7 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    the owner's review, adds `DSHOT STARTING ON SIG GP0.` for the first
    1500 ms after the bind (its slice D3, under no numbered decision), and
    by its decisions 8 and 14 opens the page on a start step with DShot
-   parked while MENU's run cue stands. Not built.
+   parked while MENU's run cue stands. Built (D3).
 6. **Where RPM/V and the estimate go on the tester.** Option (a): `RPM/V`
    on the ERPM line and `KV EST` in place of `14 POLES` while armed. This
    is the recommendation.

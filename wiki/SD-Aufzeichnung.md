@@ -420,7 +420,7 @@ Felder pro Frame:
 |---|---|
 | `loopIteration`, `time` | Frame-Zähler und Zeit |
 | `motor[0]` | Befohlenes Gas |
-| `eRPM[0]` | eRPM aus bidirektionalem DShot |
+| `eRPM[0]` | eRPM aus bidirektionalem DShot; 0, sobald der letzte eRPM-Frame 500 ms alt ist, etwa während DShot aus ist |
 | `eRPMkiss[0]` | eRPM aus KISS |
 | `vbatLatest`, `amperageLatest` | Spannung und Strom aus KISS; 0, solange KISS nicht aktiv ist |
 | `vbatEdt`, `amperageEdt` | Spannung und Strom aus EDT |

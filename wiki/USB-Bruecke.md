@@ -143,9 +143,12 @@ einem Schreiben mit anschließendem Start, zeigt die Seite die zwei Schritte
 ohne Hinweis.
 
 MENU zeigt `POWER-CYCLE THE ESC TO RUN IT` (den ESC aus- und einschalten,
-damit er läuft), sobald der Bildschirm den Signalpin genommen hat, auch nach
-einem fehlgeschlagenen Bind, bis zur letzten Taste der Verlassenseite oder
-bis der ESC auf ESC TESTER oder ESC COMMANDS wieder auf DShot antwortet.
+damit er läuft), sobald der Bildschirm den Signalpin genommen hat, bis zur
+letzten Taste der Verlassenseite, bis `START DSHOT` im Startschritt von ESC
+TESTER oder ESC COMMANDS oder bis zu einer Antwort auf DShot. Ein Besuch, der
+ohne Verlassenseite endet, `BACK` bevor die Leitung benutzt wird oder nach
+einem fehlgeschlagenen Bind, hat nichts gesendet: Er nimmt die Zeile weg,
+außer ein Byte kam vom ESC. Nur auf dem Host getestet.
 
 Wird das USB-Kabel während eines Schreibens gezogen, während die Platine
 an ihrer eigenen Zelle läuft, behält sie den Signalpin und sendet nichts.

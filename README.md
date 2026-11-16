@@ -121,11 +121,13 @@ TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC and
 scrolls 146 px; RECEIVER holds MONITOR and OUTPUT. Every tool is two taps
 from MENU and returns to its hub. The four names are rcbench's, ESC PROGRAM,
 RECEIVER, LOGS and SETUP (slice 5), and ANGLE METER's view reads ANGLE SET.
-Slice D2 of
-`docs/design/dshot-lifetime.md` is built, tested on the host only: no DShot
+Slices D2 and D3 of
+`docs/design/dshot-lifetime.md` are built, tested on the host only: no DShot
 frame leaves the board at power-up, and DShot runs only while ESC TESTER or
 ESC COMMANDS is open, or SETUP over the tester. Everywhere else SIG is
-driven low and AUX rests on its pull-down.
+driven low and AUX rests on its pull-down. While MENU's run cue stands, ESC
+TESTER and ESC COMMANDS open on a start step with DShot parked until START
+DSHOT.
 The uses that the design note's decision 11 names take their role's colour.
 Cyan is the accent, as on rcbench (slice 10 of the build plan in
 `docs/design/menu-c.md`, `docs/design/ui-theme.md`): BACK and the tester's
@@ -645,6 +647,22 @@ would.
   since it would read nothing; ESC COMMANDS keeps the chip. The strip's
   caption names both signal pins by role and number and the DShot rate the
   next ESC TESTER binds at, for example `SIG GP0  AUX GP1  DSHOT600`.
+- **The start step**: while MENU's second strip line reads `POWER-CYCLE THE
+  ESC TO RUN IT`, an ESC bootloader that answered ESC SETTINGS, USB BRIDGE or
+  S.BUS OUTPUT may still wait on SIG and read DShot as a command. ESC TESTER
+  and ESC COMMANDS then open on one step of the leave page's style: `1
+  POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and `AND READ
+  DSHOT AS A COMMAND.`, with **START DSHOT**, 228 x 46 px at y 214, under
+  it. DShot stays parked and no frame goes out. START DSHOT is drawn
+  disabled for 1000 ms after the step opens; its tap clears the cue of all
+  three tools, DShot binds on the next frame, and the tester's arm gate
+  counts from that bind. The tester's **MENU** and ESC COMMANDS' **BACK**
+  are live from the step's first frame and leave with DShot parked and the
+  cue kept, so the next open shows the step again. Nothing else on either
+  screen is drawn or takes a touch on the step: the readouts, the pad, the
+  track, HOLD TO ARM and LATCH, the BEEP buttons, the holds and the message
+  lines (decisions 8 and 14 of `docs/design/dshot-lifetime.md`, pending the
+  owner's review; host tests only).
 
 | Row | At the right | A tap |
 |---|---|---|
@@ -1561,7 +1579,10 @@ Fields per frame: `loopIteration`, `time`, `motor[0]` (throttle), `eRPM[0]`,
 `escTemperature[0]`, `escConsumption` and `escStress`.
 
 Both eRPM sources are logged: `eRPM[0]` (bidirectional DShot, 1 kHz) and
-`eRPMkiss[0]` (KISS, 50 Hz). Both voltage and current sources are logged:
+`eRPMkiss[0]` (KISS, 50 Hz). `eRPM[0]` is the last eRPM frame while it is
+younger than 500 ms (`ESC_LINK_STALE_MS`) and 0 after, so a log started by
+hand that runs on while DShot is parked logs 0, not the last eRPM frozen.
+Both voltage and current sources are logged:
 `vbatLatest` / `amperageLatest` carry KISS where it was live, `vbatEdt` /
 `amperageEdt` always carry EDT. This allows the KISS decoder to be checked
 against EDT from the log itself.
@@ -1583,7 +1604,8 @@ and BLHeli_S sources and the BLHeli_32 specification text, not measured.
 The page claims no pin. DShot starts on SIG when it opens and parks when it
 closes, with no drain, since the page sends no throttle; ESC PROGRAM draws its
 entry disabled while a pin claim is not free. Opening it disarms the tester. It
-has no arm control.
+has no arm control. While MENU's run cue stands it opens on the start step
+instead, as ESC TESTER does (see [Using it](#using-it)).
 
 | Control | Kind | Sends |
 |---|---|---|
@@ -1596,10 +1618,13 @@ A control is live while core1 reads an eRPM answer younger than 500 ms, eRPM
 command or gap is on the wire waits in the slot, at most 2000 ms, so an EDT
 retry does not end a hold. Otherwise the controls are drawn disabled and the
 lines under them say why, in amber: `NO ESC ANSWERS ON SIG GP0.`, `MOTOR
-TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`. While the page's
-request waits or its sequence goes out, BACK is drawn disabled too; a request
-that cannot start within 2000 ms expires. Leaving the page drops a request that
-still waits (`escCancelCommand()`). A hold's fill turns red while held, and a
+TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.`. With no answer,
+the first line reads `DSHOT STARTING ON SIG GP0.` while the bind is pending
+and for 1500 ms after it (`ESC_CMD_SETTLE_MS`), since the ESC needs that time
+to see DShot; after a bind the driver refused it reads `NO ESC ANSWERS ON SIG
+GP0.` at once. While the page's request waits or its sequence goes out, BACK
+is drawn disabled too; a request that cannot start within 2000 ms expires.
+Leaving the page drops a request that still waits (`escCancelCommand()`). A hold's fill turns red while held, and a
 lime bar under it fills over the 1000 ms (`UI_HOLD_MS`).
 
 The six lines at y 244 to 310, at most 37 characters each:
@@ -1684,10 +1709,11 @@ driving a motor. A Bluejay or BLHeli_S ESC whose page was read is left with
 LEAVE, below. After a session whose handshake succeeded, or in which an EFM8
 bootloader answered, MENU's strip shows `POWER-CYCLE THE ESC TO RUN IT` in amber
 on a second line under its caption (`uiAm32RunCue()`), until an eRPM frame
-stamped after that answer arrives, the leave page's last button below is tapped,
-or the board restarts. LEAVE from a Bluejay or BLHeli_S list leaves it: LEAVE
-has no answer, so only an eRPM frame shows that the firmware started. A reply
-that holds a piece of an EFM8 answer sets it too, below.
+stamped after that answer arrives, the leave page's last button below or START
+DSHOT on the start step is tapped, or the board restarts. LEAVE from a
+Bluejay or BLHeli_S list leaves it: LEAVE has no answer, so only an eRPM
+frame shows that the firmware started. A reply that holds a piece of an EFM8
+answer sets it too, below.
 
 ### Connecting
 
@@ -3469,12 +3495,19 @@ than the greeting, and BACK may come before a greeting's answer. DShot
 frames could then pass as its commands. So every BACK of a running bridge
 gives the leave page, as the servo tools' BACK does. A RUN counts only as
 4 bytes whose last two are the CRC of the first two, and only for the
-note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the claim's begin,
-after a failed bind and a BACK before the bind included, until the leave
-page's last button or an eRPM frame, which only ESC TESTER and ESC COMMANDS
-receive; a RUN does not clear it, since a garbled frame could read as one.
-Slice D3 of `docs/design/dshot-lifetime.md` clears it at a claim's end no
-ESC answered; until then it stands after such a claim, as before.
+note. MENU shows `POWER-CYCLE THE ESC TO RUN IT` from the claim's begin
+until the leave page's last button, START DSHOT on the start step or an eRPM
+frame, which only ESC TESTER and ESC COMMANDS receive; a RUN does not clear
+it, since a garbled frame could read as one. A claim that ends with no leave
+page, BACK while the claim waits for the pins, before the line binds, after
+binds that failed, or in the frame the line binds, never reached a running
+bridge and sent nothing: `usbBridgeRunCueSettle()` clears the cue then,
+unless a byte came from the ESC on one of the claim's binds. The count of
+the line's binds, `bridgeWireBinds()`, says when the wire's counts are this
+claim's; a received count above the sent count, a lost byte or a collision
+is a byte from the ESC, since the echo gives one byte back per byte sent
+(decision 13 of `docs/design/dshot-lifetime.md`, pending the owner's
+review; host tests only).
 
 BACK sends nothing, no RUN. From BACK on, the bridge reads nothing more
 from the PC and drops a frame it was gathering; a frame already on the
@@ -3745,6 +3778,10 @@ In the firmware:
   `RELEASING SIG GP0` or `SETTING SIG GP0 LOW`.
 - Before DShot stops, on leaving ESC TESTER or for a pin change, it sends
   throttle zero for more than 250 ms after the last throttle frame.
+- While MENU's run cue stands, a bootloader may still wait on SIG and read
+  DShot as a command: ESC TESTER and ESC COMMANDS open on the start step,
+  DShot parked, and send no frame until START DSHOT (decision 8 of
+  `docs/design/dshot-lifetime.md`, pending the owner's review).
 - The arm gate: HOLD TO ARM completes no earlier than 1500 ms
   (`ARM_GATE_MS`) after core1's last bind (`escTaskBoundMs()`), so the
   earliest arm is 2500 ms after the bind. The gate holds while no bind is

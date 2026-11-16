@@ -1,7 +1,8 @@
 # DShot lifetime
 
-Status: slices D1 and D2 built, host tests only ([D1 as
-built](#d1-as-built), [D2 as built](#d2-as-built)); D3 to D5 not built. The
+Status: slices D1, D2 and D3 built, host tests only ([D1 as
+built](#d1-as-built), [D2 as built](#d2-as-built), [D3 as
+built](#d3-as-built)); D4 and D5 not built. The
 developer settled its six questions on
 2026-11-16, and made four further calls the reviews of the note raised, each
 pending the owner's review ([Decisions](#decisions)). It builds on
@@ -597,7 +598,7 @@ lines (menu-b.md owner decision 27). The order against
 |---|---|---|---|
 | D1 | anything; before or with menu-c.md slice 1. Built in pull request #119 (branch `ccr-pump-modes`), with the amendments [D1](#d1-the-pumps-three-modes-opus) lists ([D1 as built](#d1-as-built)) | the pump's three modes and core1's bind stamp, no caller changes | Opus |
 | D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 as amended; #49 is on `main` as 3b36588. Built on branch `ccr-dshot-d2` ([D2 as built](#d2-as-built)) | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
-| D3 | D2 | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
+| D3 | D2. Built on branch `ccr-dshot-d3`, on menu-c.md slice 5 ([D3 as built](#d3-as-built)) | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
 | D4 | D2 and menu-c.md slice 5 (the rename) | SETUP's pin note and LINK; the comments of the boot order | Opus |
 | D5 | D4, with menu-c.md slice 6 (the records) | the design notes' descriptions, bench plan | Sonnet |
 
@@ -1040,6 +1041,98 @@ HOLD TO ARM left live or the track drawn on the step (the swipe case fails); ESC
 COMMANDS' holds drawn on the step (the 3D ON case fails); `uiDshotWanted()` true
 for SETUP over the tester whatever the step (its case fails); the eRPM logged
 without the freshness check.
+
+#### D3 as built
+
+Branch `ccr-dshot-d3`, on `main` after pull request #128 (menu-c.md slice
+5); host tests only, not tested on hardware.
+
+Files: `src/ui.{h,cpp}` (`uiRunCue()`, `uiRunCueClear()`, the start step's
+state and `uiStartStepEnter()`, `uiStartStepShown()`, `uiStartStepLive()`,
+`uiStartStepTouch()`, `uiStartStepDraw()`, `testerStepTick()`,
+`TesterCtl::Start`, `uiDshotWanted()` reading the cue); `src/ui_leave.{h,cpp}`
+(the step's texts, `UI_LEAVE_START`, `UiLeaveStart`, `uiLeaveStartOpen()`,
+`uiLeaveStartLive()`, `uiLeaveStartTouch()`, `uiLeaveStartDraw()`);
+`src/ui_esc_cmd.{h,cpp}` (`UI_ESC_CMD_STARTING_FMT`, `dshotStarting()`,
+`stepTick()`, `EscCmdCtl::Start`); `src/ui_menu.cpp` (MENU reads
+`uiRunCue()`); `src/ui_am32.{h,cpp}` (`uiAm32RunCueClear()`);
+`src/sbus_out_job.{h,cpp}` (`sbusOutRunCueClear()`); `src/bridge_wire.{h,cpp}`
+(`bridgeWireBinds()`); `src/usb_bridge.{h,cpp}` (the watch, `cueWatch()`,
+`usbBridgeRunCueSettle()`); `src/ui_bridge.cpp` (`back()` calls the settle);
+`src/sd_log.{h,cpp}` (`sdLogErpmField()`).
+
+Where the build chose, the note being silent or the safer reading taken:
+
+- **The cue the rule reads.** `uiDshotWanted()` holds DShot back while the
+  start step shows or while the cue stands now: `cueHolds` is the step's
+  latch ORed with `uiRunCue()`. The step is latched at the screen's open, so
+  a cue that cleared by itself under the step would not start DShot before
+  START DSHOT; a cue that rose under a running screen parks DShot. Both read
+  the safe way. Only START DSHOT ends the latch, and it clears every source.
+- **One latch for both screens.** `ui.cpp` keeps one step state; ESC TESTER's
+  and ESC COMMANDS' opens each set it from the cue (`uiStartStepEnter()`).
+  Returning to the tester from SETUP does not reopen it, and SETUP cannot be
+  reached from the step.
+- **What the step draws.** On the tester: the status bar, which holds no
+  control, the step from y 62 down, START DSHOT and MENU. On ESC COMMANDS:
+  the header with BACK and the strip with its chip, the step and START
+  DSHOT. Everything decision 14 lists is neither drawn nor read: the step
+  ticks in place of the screen's tick, so `handleMainTouch()`, the BEEP
+  buttons, the holds and the message lines never run.
+- **START DSHOT's lift.** The frame START DSHOT acts on returns before the
+  tester's touch handling, and the tester draws whole from the next frame:
+  the same lift over MAX would otherwise open SETUP.
+- **A press before 1000 ms.** START DSHOT takes only a press that lands
+  while it is live, as the leave page's last button; one that lands at
+  999 ms and lifts later does nothing.
+- **START DSHOT's colour.** Live, it is `C_PANEL` with a `C_TEXT` label, as
+  HOLD TO START today; disabled, the outline. Its `C_GREEN` is ui-theme.md
+  slice 11's, as D2 left the wide button's `C_CYAN` to it. MENU is already
+  `C_CYAN`.
+- **The first frame.** The tap that opens a screen pushes it at the end of
+  its frame; the step is drawn and read from the next frame, the screen's
+  first, and START DSHOT's 1000 ms count from the tap's frame. DShot is
+  asked for on no frame between.
+- **ESC COMMANDS' start text.** `DSHOT STARTING ON SIG GP0.` while the bind
+  stamp is 0 and no bind was refused, and for `ESC_CMD_SETTLE_MS`, 1500 ms,
+  after the stamp. After a refused bind the stamp stays 0 and the page reads
+  `NO ESC ANSWERS ON SIG GP0.`, which stays true; the stamp is read before
+  the refused flag, as the tester's track reads them.
+- **S.BUS OUTPUT's clear.** `sbusOutRunCueClear()` marks the last answer and
+  keeps the EFM8 mark, which belongs to the leave page.
+- **The settle ends the watch.** `usbBridgeRunCueSettle()` reads the counts
+  once more, clears the cue only with the flag clear, and ends the claim's
+  watch, so a second BACK of the same screen changes nothing.
+  `usbBridgeRunCueClear()` ends it too.
+- **The eRPM column.** `sdLogErpmField()` gives `EscTelemetry::erpm` while
+  `escFieldFresh()` holds with `ESC_LINK_STALE_MS`, 500 ms, as
+  `src/run_summary.cpp` takes eRPM: a frame 499 ms old logs its value, one
+  500 ms old logs 0. lognum tests the function and checks by its source that
+  `sdLogTick()` writes the column through it.
+- **The tests' cue sources.** The AM32 cue is set through `testAm32CueSet()`
+  in `test/test_ui.cpp`, which includes `src/ui_am32.cpp`; the bridge's by
+  `usbBridgeRunCueSet()`; S.BUS OUTPUT's by a real probe answer in
+  `test/test_sbus_out_ui.cpp`. Suites that leave an ESC SETTINGS session's
+  cue standing clear it before they open the tester again, as the ESC's
+  power cycle would; the bridge case that expected the cue after failed binds
+  now expects decision 13's clear.
+- **Decision 13's leftovers.** Cases (c), (e), (f) and (g) each start from a
+  fresh first claim whose line sends 400 bytes and receives 500 (a model ESC
+  that answers each 100-byte frame with 25 bytes), ended at the leave page's
+  last button.
+
+Tests: `test/test_dshot_life.cpp` `testEscCmdStarting()`, `testStartStep()`
+(decision 8 from the AM32 and bridge sources on both screens, and both
+screens with no cue), `testStartStepWayOut()` (decision 14); the S.BUS
+OUTPUT source in `test/test_sbus_out_ui.cpp`; decision 13's cases (a) to (g)
+in `test/test_bridge_ui.cpp` `testCueAtClaimEnd()`, with `framesNoJob()`,
+`fakeCsExitOnce()` (`test/fakes.cpp`) and `fakeBridgeLineInject()`
+(`test/fake_bridge_line.cpp`); `testErpmFresh()` in `test/sd_log_fatfs.cpp`
+(`make -C test lognum`). The blackbox checker encodes through
+`gen_blackbox_log.cpp`, not `sdLogTick()`, so it does not see the column's
+freshness; it passes unchanged. #49's cases pass unchanged.
+
+MUTATIONS_TABLE
 
 ### D4: SETUP's texts and the comments (Opus)
 
