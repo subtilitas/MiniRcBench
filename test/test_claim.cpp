@@ -37,6 +37,7 @@
 
 #include <string.h>
 #include <string>
+#include <initializer_list>
 
 // ---------------------------------------------------------------------------
 // fake jobs
@@ -430,7 +431,8 @@ struct HandoverSim {
 	bool     suspendReq;          /**< core0 asked for Release, else Run. */
 	bool     rebuildReq;          /**< core0's s_rebuildReq. */
 	bool     pumpUp;              /**< s_pumpUp. */
-	bool     suspended;           /**< escTaskSuspended(): Release reached, the pump down. */
+	/** escTaskSuspended(): Release reached, the pump down. */
+	bool     suspended;
 	EscPinMode reached;           /**< s_reached. */
 	uint32_t ms;                  /**< millis() of the slot about to run. */
 	int      binds;               /**< Binds so far. */
@@ -1408,7 +1410,10 @@ static bool padPullUp(unsigned gpio) {
 	       padDrive(gpio) == GPIO_DRIVE_STRENGTH_4MA;
 }
 
-/** @brief Park from a running pump, past any drain, and report whether it parked. */
+/**
+ * @brief Park from a running pump, past any drain, and report whether it
+ *        parked.
+ */
 static bool toParked() {
 	escTaskPark();
 	for (int i = 0; i < 400 && !escTaskParked(); i++) { fakeAdvance(1); pump(); }
@@ -1579,7 +1584,8 @@ static void testParkDrain() {
 	// a drain judged by the time since a stamp of 0 alone would still run.
 	escTaskStart();
 	uint64_t nowMs = time_us_64() / 1000u;
-	fakeClockSetMs(((nowMs >> 32) + 1u) << 32);
+	checkTrue("the clock is set past the wrap",
+	          fakeClockSetMs(((nowMs >> 32) + 1u) << 32));
 	checkInt("the clock at 0", millis(), 0);
 	pump();
 	checkTrue("running again", escTaskRunning());
@@ -1594,7 +1600,10 @@ static void testParkDrain() {
 	backToRun();
 }
 
-/** @brief Release from Park on the first pass with no frame; Run from Park binds once. */
+/**
+ * @brief Release from Park on the first pass with no frame; Run from Park
+ *        binds once.
+ */
 static void testParkReleaseRun() {
 	section("DShot modes: Release and Run from Park");
 
@@ -1641,6 +1650,60 @@ static void testParkReleaseRun() {
 	backToRun();
 }
 
+/** @brief SIG pad writes while SIG was not driven, and while driven at 1. */
+static int g_sigUndriven = 0;
+static int g_sigWrites = 0;
+/** @brief The GPIO hook: SIG driven means the SIO function and the output on. */
+static void watchSigDriven(uint32_t) {
+	g_sigWrites++;
+	FakePin p = fakePin(SIG_GPIO);
+	if (p.function != GPIO_FUNC_SIO || !p.output) g_sigUndriven++;
+}
+
+/**
+ * @brief Parking a SIG a job left as an SIO output driving low keeps it
+ *        driven through every write: with the pulls off and the direction
+ *        in, an ESC's pull-up would lift the line.
+ */
+static void testParkAlreadyLow() {
+	section("DShot modes: parking a SIG that is already low");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	fakePwmReset();
+	escTaskSuspend();
+	for (int i = 0; i < 400 && !escTaskSuspended(); i++) { fakeAdvance(1); pump(); }
+	checkTrue("released", escTaskSuspended());
+	// What a job can leave: SIG an SIO output at 0, the pull-up on, 4 mA.
+	gpio_init(SIG_GPIO);
+	gpio_put(SIG_GPIO, 0);
+	gpio_set_dir(SIG_GPIO, GPIO_OUT);
+	gpio_pull_up(SIG_GPIO);
+	escTaskPark();
+	g_sigUndriven = 0;
+	g_sigWrites = 0;
+	fakeSetGpioHook(watchSigDriven);
+	pump();
+	fakeSetGpioHook(nullptr);
+	checkTrue("parked, SIG low at 2 mA", escTaskParked() && padLow(SIG_GPIO));
+	checkTrue("the pads written", g_sigWrites > 0);
+	checkInt("SIG driven through every write", g_sigUndriven, 0);
+	checkTrue("the pulls off", fakePin(SIG_GPIO).pull == FakePull::None);
+
+	// From an input with the latch at 1, a direct escPadSet(): no write
+	// makes it an output at 1.
+	sigLatchHigh();
+	gpio_pull_up(SIG_GPIO);
+	int highs = fakePin(SIG_GPIO).highEnables;
+	escPadSet(SIG_GPIO, EscPad::Low);
+	checkInt("from an input at 1: never an output while high",
+	         fakePin(SIG_GPIO).highEnables, highs);
+	checkTrue("then low at 2 mA, the pulls off",
+	          padLow(SIG_GPIO) && fakePin(SIG_GPIO).pull == FakePull::None);
+	backToRun();
+}
+
 /** @brief The guard of core1JobStart() against a parked pin. */
 static void testParkJobGuard() {
 	section("DShot modes: a job never binds on a parked pin");
@@ -1663,7 +1726,10 @@ static void testParkJobGuard() {
 	backToRun();
 }
 
-/** @brief A wiring change while parked parks again; while running it rebuilds. */
+/**
+ * @brief A wiring change while parked parks again; while running it
+ *        rebuilds.
+ */
 static void testParkWiring() {
 	section("DShot modes: a wiring change");
 
@@ -1809,6 +1875,10 @@ static void testBoundMs() {
 	section("DShot modes: the bind stamp");
 
 	uiInit();
+	fakePumpPowerOn();
+	checkInt("0 before the first bind", escTaskBoundMs(), 0);
+	checkTrue("and no mode reported",
+	          !escTaskRunning() && !escTaskParked() && !escTaskSuspended());
 	freshPump();
 	removeJobs();
 	fakePwmReset();
@@ -1842,6 +1912,24 @@ static void testBoundMs() {
 	backToRun();
 }
 
+// The firmware sources, wherever the suite runs from: the Makefile passes
+// their absolute path; without it, the path next to this file's own.
+#ifndef MRB_TEST_SRC_DIR
+#define MRB_TEST_SRC_DIR ""
+#endif
+
+/** @brief The path of @p name in src/. */
+static std::string srcPath(const char *name) {
+	std::string dir = MRB_TEST_SRC_DIR;
+	if (dir.empty()) {
+		std::string here = __FILE__;
+		size_t slash = here.find_last_of('/');
+		dir = (slash == std::string::npos ? std::string(".") : here.substr(0, slash)) +
+		      "/../src";
+	}
+	return dir + "/" + name;
+}
+
 /** @brief The text of @p path; empty when it cannot be read. */
 static std::string sourceText(const char *path) {
 	std::string s;
@@ -1871,6 +1959,28 @@ static bool before(const std::string &text, const char *a, const char *b) {
 	return j != std::string::npos;
 }
 
+/**
+ * @brief Whether each of @p steps occurs in @p text, each after the one
+ *        before it. A barrier between two statements is a step between them:
+ *        the next `__dmb();` after the first must come before the second.
+ */
+static bool inOrder(const std::string &text,
+                    std::initializer_list<const char *> steps) {
+	size_t at = 0;
+	for (const char *step : steps) {
+		size_t i = text.find(step, at);
+		if (i == std::string::npos) return false;
+		at = i + strlen(step);
+	}
+	return true;
+}
+
+/** @brief Whether @p a occurs in @p text before the first @p b. */
+static bool firstBefore(const std::string &text, const char *a, const char *b) {
+	size_t i = text.find(a), j = text.find(b);
+	return i != std::string::npos && j != std::string::npos && i < j;
+}
+
 /** @brief How often @p what occurs in @p text. */
 static int occurrences(const std::string &text, const char *what) {
 	int n = 0;
@@ -1886,8 +1996,9 @@ static int occurrences(const std::string &text, const char *what) {
 static void testPollSource() {
 	section("DShot modes: escTaskPoll()'s sequence, as the fake copies it");
 
-	std::string src = sourceText("../src/esc_task.cpp");
+	std::string src = sourceText(srcPath("esc_task.cpp").c_str());
 	checkTrue("esc_task.cpp read", !src.empty());
+	std::string configure = bodyOf(src, "void escTaskConfigure(");
 	std::string teardown = bodyOf(src, "static void pumpTeardown() {");
 	std::string bind = bodyOf(src, "static void pumpBind() {");
 	std::string pads = bodyOf(src, "static void padsTo(EscPinMode to) {");
@@ -1914,8 +2025,31 @@ static void testPollSource() {
 	checkTrue("padsTo() reports no mode before the pads, the mode after",
 	          before(pads, "s_reached = EscPinMode::Run;", "escPadApply(&plan);") &&
 	          before(pads, "escPadApply(&plan);", "s_reached = to;"));
+	checkTrue("padsTo() clears the request before it reads AUX",
+	          firstBefore(pads, "s_rebuildReq = false;", "s_kissPin") &&
+	          firstBefore(pads, "s_rebuildReq = false;", "s_dshotPin"));
 	checkTrue("escTaskPoll() clears no request itself",
 	          occurrences(poll, "s_rebuildReq") == 1);
+
+	// The barriers, each between the two stores or reads it orders.
+	checkTrue("escTaskConfigure(): the wiring, a barrier, then the request",
+	          !configure.empty() &&
+	          inOrder(configure, {"s_kissPin    = kissPin;", "__dmb();",
+	                              "s_rebuildReq = true;"}));
+	checkTrue("pumpTeardown(): the stamp 0, a barrier, then the stop",
+	          inOrder(teardown, {"s_boundMs = 0;", "__dmb();", "out_dshot_stop("}));
+	checkTrue("pumpBind(): the request cleared, a barrier, then the wiring",
+	          inOrder(bind, {"s_rebuildReq = false;", "__dmb();", "= s_dshotPin;"}));
+	checkTrue("pumpBind(): no mode out of Park, a barrier, then the pads",
+	          inOrder(bind, {"s_reached = EscPinMode::Run;", "__dmb();",
+	                         "escPadApply(&plan);"}));
+	checkTrue("pumpBind(): the bind, a barrier, then the stamp",
+	          inOrder(bind, {"s_tel.initError", "__dmb();", "s_boundMs = "}));
+	checkTrue("padsTo(): no mode, a barrier, then the wiring",
+	          inOrder(pads, {"s_reached = EscPinMode::Run;", "__dmb();",
+	                         "= s_dshotPin;"}));
+	checkTrue("padsTo(): the pads, a barrier, then the mode",
+	          inOrder(pads, {"escPadApply(&plan);", "__dmb();", "s_reached = to;"}));
 }
 
 void runClaimTests() {
@@ -1956,6 +2090,7 @@ void runClaimTests() {
 	testParkPlan();
 	testParkDrain();
 	testParkReleaseRun();
+	testParkAlreadyLow();
 	testParkJobGuard();
 	testParkWiring();
 	testTeardownError();

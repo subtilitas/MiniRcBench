@@ -372,6 +372,9 @@ void escTaskConfigure(uint8_t dshotPin, uint16_t dshotKbaud,
 	s_dshotKbaud = dshotKbaud;
 	s_kissEnable = kissEnable ? 1u : 0u;
 	s_kissPin    = kissPin;
+	// The wiring stores land before the request: core1 clears the request,
+	// takes its own barrier and then reads the wiring. @see pumpBind()
+	__dmb();
 	s_rebuildReq = true;
 }
 
@@ -452,8 +455,9 @@ static void pumpBind() {
 	// new wiring. @see esc_wiring
 	s_rebuildReq = false;
 	__dmb();
-	// Latch the wiring once, here, so a pin change cannot be observed
-	// half-applied.
+	// Latch the wiring once, here. A configure that lands during these reads
+	// can be latched half-applied for this one pass, with the ESC disarmed;
+	// it leaves the request set, and the next pass rebuilds on its wiring.
 	uint8_t  pin   = s_dshotPin;
 	uint16_t kbaud = s_dshotKbaud;
 	uint8_t  aux   = s_kissPin;

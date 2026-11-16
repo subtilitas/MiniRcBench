@@ -593,7 +593,7 @@ lines (menu-b.md owner decision 27). The order against
 
 | Slice | After | What | Model |
 |---|---|---|---|
-| D1 | anything; before or with menu-c.md slice 1. Built as pull request #119 (branch `ccr-pump-modes`, head b20ae37), which is amended before it merges: [D1](#d1-the-pumps-three-modes-opus) lists what it adds | the pump's three modes and core1's bind stamp, no caller changes | Opus |
+| D1 | anything; before or with menu-c.md slice 1. Built in pull request #119 (branch `ccr-pump-modes`), with the amendments [D1](#d1-the-pumps-three-modes-opus) lists ([D1 as built](#d1-as-built)) | the pump's three modes and core1's bind stamp, no caller changes | Opus |
 | D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 as amended; #49 is on `main` as 3b36588 | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
 | D3 | D2 | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
 | D4 | D2 and menu-c.md slice 5 (the rename) | SETUP's pin note and LINK; the comments of the boot order | Opus |
@@ -628,10 +628,8 @@ as [the build plan](menu-c.md#build-plan) says.
 
 ### D1: the pump's three modes (Opus)
 
-D1 is built as pull request #119 (branch `ccr-pump-modes`, head b20ae37),
-not merged. #119 has no bind stamp and no `highEnables` case for the park
-(`git grep escTaskBoundMs` and `highEnables` over its `src/` and
-`test/test_claim.cpp`). It is amended before it merges with:
+D1 is built in pull request #119 (branch `ccr-pump-modes`), not merged,
+with the four amendments below ([D1 as built](#d1-as-built)):
 
 1. **The bind stamp** `escTaskBoundMs()`, as described below, in
    `src/esc_task.{h,cpp}`, with the fake pump of `test/fakes.cpp` setting
@@ -696,6 +694,37 @@ Mutations that must fail them: Park without the drain; `escTaskSuspended()`
 true while parked; the old SIG left driven low after a swap; a teardown
 that keeps `initError`; the direction set to output before the value 0 (the
 `highEnables` case); the bind stamp left unchanged at a rebuild.
+
+#### D1 as built
+
+Pull request #119, branch `ccr-pump-modes`, not merged; host tests only,
+not tested on hardware.
+
+- **The bind stamp** is `escTaskBoundMs()` in `src/esc_task.{h,cpp}`.
+  `pumpTeardown()` writes 0 before it stops the driver, and `pumpBind()`
+  writes `millis()`, 0 made 1, last, after a barrier (`__dmb()`). The fake
+  pump of `test/fakes.cpp` sets it in the same places.
+- **Its test** is `testBoundMs()` in `test/test_claim.cpp`.
+  `fakePumpPowerOn()` puts the fake pump back to its power-on state, and
+  `escTaskBoundMs()` reads 0 there, before the first bind.
+- **The `highEnables` case** is in `testParkDrain()`. The test presets
+  SIG's latch high before the park (`sigLatchHigh()`), as a job could leave
+  it. The fake's `gpio_init()` (`test/fake_i2c.cpp`) clears the latch, as
+  the SDK's does.
+- **`EscPad::Low`** in `escPadSet()` writes the value 0, the 2 mA drive and
+  the pulls off first. A pad that is already an SIO output keeps its
+  direction, so it is never undriven; any other pad gets the direction in.
+  Then the SIO function, and the direction out. `testParkAlreadyLow()`
+  parks a SIG a job left as an SIO output at 0 and counts the GPIO writes
+  that leave it undriven: 0.
+- **The wiring latch.** `escTaskConfigure()` stores the wiring, then a
+  barrier, then the rebuild request. Core1 clears the request, then a
+  barrier, then reads the wiring. A configure that lands during core1's
+  reads can be latched half-applied for one pass, while disarmed; the
+  request still set rebuilds it on the next pass (`testConfigureMidway()`).
+- **The source check** `testPollSource()` reads `src/esc_task.cpp` by the
+  path the test Makefile passes (`MRB_TEST_SRC_DIR`), and checks the order
+  of each step the fake pump copies, each barrier among them.
 
 ### D2: the lifetime (Opus)
 

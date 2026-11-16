@@ -91,16 +91,19 @@ protocol.
   SIG not driven low. Park drains for more than 250 ms after the last
   throttle frame as a release does, then drives SIG low from the SIO
   (single-cycle input/output) block at 2 mA, with the output value 0 set
-  before the pad becomes an output, and puts AUX in input, pull-down,
-  input buffer off, the buffer off before the pull-down goes on
-  (RP2350-E9). Release from Park frees the pins with no frame; Run from
+  before the pad becomes an output; a SIG already an SIO output keeps its
+  direction, so it is never undriven while it parks. Park puts AUX in
+  input, pull-down, input buffer off, the buffer off before the pull-down
+  goes on (RP2350-E9). Release from Park frees the pins with no frame; Run from
   Park binds once with the EDT enable first; a wiring change in Park parks
   again, puts the old SIG in input, pull-down, input buffer off, and writes
   no pad whose state does not change, so SIG stays driven low across a
   bitrate-only change (`escParkPlan()`). A configure that lands during a
-  bind or a park is rebuilt on the next pass: core1 clears the request
-  before it reads the wiring. `escTaskBoundMs()` is the `millis()` of
-  core1's last bind, 0 while parked or released. A teardown clears
+  bind or a park is rebuilt on the next pass: core0 stores the wiring
+  before the request and core1 clears the request before it reads the
+  wiring, each with a barrier; such a configure can be latched half-applied
+  for one pass, while disarmed. `escTaskBoundMs()` is the `millis()` of
+  core1's last bind, 0 before the first bind and while parked or released. A teardown clears
   `initError`, so `DSERR` names the current bind only. Nothing calls
   `escTaskPark()` yet: the boot asks for Run and the pin claim for Release
   and Run, so DShot runs from boot as before. Host tests in

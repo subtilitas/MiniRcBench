@@ -327,6 +327,15 @@ extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	pad &= ~PADS_BANK0_GPIO0_ISO_BITS;
 	gpioHook(gpio);
 }
+// Read back as the SDK does: FUNCSEL from the control register, the
+// direction from the SIO output enable.
+extern "C" gpio_function gpio_get_function(uint32_t gpio) {
+	if (gpio >= FAKE_GPIOS) return GPIO_FUNC_NULL;
+	return (gpio_function)(g_pins[gpio].ctrl & IO_BANK0_GPIO0_CTRL_FUNCSEL_BITS);
+}
+extern "C" bool gpio_is_dir_out(uint32_t gpio) {
+	return gpio < FAKE_GPIOS && g_pins[gpio].output;
+}
 extern "C" void gpio_set_inover(unsigned gpio, unsigned value) {
 	if (gpio >= FAKE_GPIOS) return;
 	uint32_t v = (g_pins[gpio].ctrl & ~IO_BANK0_GPIO0_CTRL_INOVER_BITS) |
@@ -998,6 +1007,17 @@ static void     (*g_bindHook)() = nullptr;
 
 void fakeSetBindHook(void (*hook)()) { g_bindHook = hook; }
 uint32_t escTaskBoundMs() { return g_boundMs; }
+
+void fakePumpPowerOn() {
+	g_pump = EscPump{};
+	g_pumpUp = false;
+	g_want = EscPinMode::Run;
+	g_reached = EscPinMode::Run;
+	g_rebuildReq = false;
+	g_boundMs = 0;
+	g_heldSig = ESC_NO_GPIO;
+	g_heldAux = ESC_NO_GPIO;
+}
 
 // pumpBind(): the request cleared before the wiring is read, no mode
 // reported while the pads of a bind from Park change, the bind stamp last.

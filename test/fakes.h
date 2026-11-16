@@ -254,6 +254,14 @@ FakeWiring fakeResumeWiring();
  */
 void fakeSetBindHook(void (*hook)());
 
+/**
+ * @brief Put core1's side of the fake pump back to its power-on state, as
+ *        esc_task.cpp's static initialisers leave it: no bind, Run wanted
+ *        and reached, the bind stamp 0, nothing held, no rebuild pending.
+ *        The wiring is left as configured.
+ */
+void fakePumpPowerOn();
+
 /** @brief Whether the core1 job was idle at the last escTaskStart(). */
 bool fakeResumeJobIdle();
 

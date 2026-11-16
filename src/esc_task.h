@@ -1149,7 +1149,8 @@ static inline bool escDrainDone(uint32_t lastThrottleMs, uint32_t nowMs,
  */
 enum class EscPinMode : uint8_t {
 	Run,     /**< The pump is bound and sends its frames. */
-	Park,    /**< The pump is down, SIG is driven low and AUX is on its pull-down. */
+	/** The pump is down, SIG is driven low and AUX is on its pull-down. */
+	Park,
 	Release, /**< The pump is down and both pins are free for the pin claim. */
 };
 
@@ -1265,7 +1266,10 @@ enum class EscPad : uint8_t {
 	 * needs the buffer on (not verified on this board).
 	 */
 	Off,
-	/** An input with the pull-up on, 4 mA: SIG handed over, as the teardown leaves it. */
+	/**
+	 * An input with the pull-up on, 4 mA: SIG handed over, as the teardown
+	 * leaves it.
+	 */
 	PullUp,
 	/** An input with the pulls off, 4 mA: AUX handed over. */
 	Input,
@@ -1346,10 +1350,14 @@ static inline EscPadPlan escParkPlan(EscPinMode from, EscPinMode to,
  * EscPad::Off turns the buffer off before the pull-down goes on, so no pad
  * has the pull-down on while its buffer is on (RP2350-E9).
  *
- * - EscPad::Low with no high glitch: the SIO output value 0 and the 2 mA
- *   drive first, then the direction in, the pulls off, the SIO function and
- *   the direction out last. The pad is never an output with the value 1,
- *   whatever value a job left in the latch.
+ * - EscPad::Low with no high glitch and no float: the SIO output value 0,
+ *   the 2 mA drive and the pulls off first. A pad that is already an SIO
+ *   output drives low from the value write on and keeps its direction, so
+ *   the line is never undriven; any other pad gets the direction in. Then
+ *   the SIO function, which turns the input buffer on with the pulls
+ *   already off and clears the overrides, and the direction out last. The
+ *   pad is never an output with the value 1, whatever value a job left in
+ *   the latch.
  * - EscPad::Off: the pulls off, gpio_init() (an SIO input, the output value
  *   0, the input buffer on), the buffer off, and the pull-down last.
  * - EscPad::PullUp and EscPad::Input: the pulls off, gpio_init(), then the
@@ -1363,8 +1371,9 @@ static inline void escPadSet(uint8_t gpio, EscPad pad) {
 		case EscPad::Low:
 			gpio_put(gpio, 0);
 			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_2MA);
-			gpio_set_dir(gpio, GPIO_IN);
 			gpio_disable_pulls(gpio);
+			if (gpio_get_function(gpio) != GPIO_FUNC_SIO || !gpio_is_dir_out(gpio))
+				gpio_set_dir(gpio, GPIO_IN);
 			gpio_set_function(gpio, GPIO_FUNC_SIO);
 			gpio_set_dir(gpio, GPIO_OUT);
 			break;
@@ -1594,9 +1603,11 @@ uint32_t escTaskBoundMs();
  * @brief Set the pins and bitrate the DShot pump uses, and rebuild it.
  *
  * Core0 hands the values across rather than core1 reading the settings
- * struct directly: core0 owns that struct and edits it a field at a time while the
- * SETTINGS is open, so core1 reading it would see half-applied
- * combinations — a new pin against an old bitrate, for one frame.
+ * struct directly: core0 owns that struct and edits it a field at a time
+ * while the SETTINGS is open. Core1 latches the values when it binds or
+ * parks. A configure that lands during core1's reads can be latched
+ * half-applied for one pass, while disarmed, and the request still set
+ * rebuilds it on the next pass.
  *
  * Takes effect on the next escTaskPoll(). In Run the driver releases the old
  * pin and binds the new one, after the same zero-throttle drain as a suspend
@@ -1604,8 +1615,8 @@ uint32_t escTaskBoundMs();
  * SIG becomes an input with the pull-down on and the input buffer off, and
  * the new SIG is driven low (escParkPlan()); a GPIO whose state does not
  * change is not written, so SIG on unchanged pins stays driven low. In
- * Release the new wiring waits for the next mode. Forces a disarm, because the ESC on the old pin
- * stops hearing frames the moment it is released.
+ * Release the new wiring waits for the next mode. Forces a disarm, because
+ * the ESC on the old pin stops hearing frames the moment it is released.
  *
  * Safe to call with unchanged values; it is a no-op if nothing differs, so the
  * SETTINGS can call it freely rather than tracking what it changed.

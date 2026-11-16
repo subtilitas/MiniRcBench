@@ -39,7 +39,9 @@ INCLUDES := -Istubs -I../src -I.
 # fail the moment a macro says something else.
 #
 #   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0" run
-DEFINES := $(EXTRA_DEFINES)
+# test_claim.cpp reads src/esc_task.cpp to check its sequence; the absolute
+# path finds it from any working directory.
+DEFINES := $(EXTRA_DEFINES) -DMRB_TEST_SRC_DIR='"$(abspath ../src)"'
 
 # The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
 # current sensor, the ESC settings and the angle meter list their own sources,
