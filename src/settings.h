@@ -307,8 +307,9 @@ bool settingsCarriedOver();
 /**
  * @brief The ESC pin settingsLoad() put live: the pin SIG is parked low on
  *        at boot, and the one ESC TESTER first starts DShot on. The
- *        compiled default's before a load. SETUP warns while the live pin
- *        differs from it.
+ *        compiled default's before a load. With KISS on, SETUP reads
+ *        `SWAP THE ESC'S SIGNAL AND KISS WIRES` while the live pin differs
+ *        from it.
  * @return GPIO number.
  */
 uint8_t settingsBootDshotPin();

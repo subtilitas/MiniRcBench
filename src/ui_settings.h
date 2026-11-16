@@ -19,7 +19,12 @@
  * takes a press only while 40 px of it shows (@ref UI_LIST_TAP_MIN).
  *
  * LINK, the live packet rate and error share, sits under the list, so a
- * change of SIG is answered on this screen.
+ * change of SIG is answered on this screen. Opened over ESC TESTER, from
+ * its readouts, DShot keeps running (docs/design/dshot-lifetime.md,
+ * decision 6): LINK reads the rate, and a line over it,
+ * `UNPLUG ANY SERVO FROM GP0 NOW`, names the pin the pump runs on. Opened
+ * from MENU, DShot is parked: LINK reads `OFF` in `C_DIM`, and the line
+ * does not show.
  *
  * @see settings.h for what is stored and how it is validated;
  *      docs/design/menu.md, "SETUP".
@@ -32,6 +37,12 @@
 #include "ui_screen.h"
 
 struct TouchState;
+
+/**
+ * @brief LINK's value while DShot is parked, in `C_DIM`, right-aligned at
+ *        y 242 in place of the rate: 3 characters, 17 px at scale 1.
+ */
+#define UI_SETTINGS_LINK_OFF "OFF"
 
 /**
  * @brief The SETUP rows, as `UI_ROW(n, part)` numbers them: rows count

@@ -2,8 +2,11 @@
  * @file esc_task.h
  * @brief Bidirectional DShot driver task. Runs on core1.
  *
- * Core1 owns the DShot pin driver (`dshot/out_dshot.h`) and does nothing but
- * push frames at a steady @ref DSHOT_PERIOD_US and drain telemetry. That keeps
+ * Core1 owns the DShot pin driver (`dshot/out_dshot.h`). While Run is
+ * wanted, for ESC TESTER and ESC COMMANDS, it does nothing but push frames
+ * at a steady @ref DSHOT_PERIOD_US and drain telemetry. From power-up and
+ * on every other screen nothing is sent: SIG is parked low (escTaskPark()),
+ * or free for a pin claim (escTaskSuspend()). That keeps
  * DShot timing immune to the multi-millisecond SPI DMA bursts the display does
  * on core0.
  *
@@ -139,10 +142,12 @@ struct EscTelemetry {
 void escTaskInit();
 
 /**
- * @brief Start the frame pump. Call from core1.
+ * @brief Start the frame pump's loop. Call from core1.
  *
- * Does not itself claim the PIO state machines: the driver is bound by the
- * first escTaskPoll() that finds Run wanted, from whatever configuration
+ * Does not itself claim the PIO state machines, and sends nothing: Park is
+ * wanted from escTaskInit() on. The driver is bound by the first
+ * escTaskPoll() that finds Run wanted, which ESC TESTER and ESC COMMANDS ask
+ * for (pinClaimDshot()), from whatever configuration
  * escTaskConfigure() last supplied, and that same path binds it again after a
  * park, a suspend or a pin change.
  * One construction site rather than two is the point: two sites can disagree
