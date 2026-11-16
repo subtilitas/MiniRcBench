@@ -1,17 +1,19 @@
 /**
  * @file ui_esc_config.h
- * @brief ESC CONFIG: the chooser behind MENU's second row, with ESC SETTINGS
- *        and USB BRIDGE (docs/design/bluejay-blheli-s.md decision 1,
+ * @brief ESC CONFIG: the hub behind MENU's second row, with ESC COMMANDS,
+ *        ESC SETTINGS and USB BRIDGE (docs/design/menu-c.md, "The hub";
+ *        docs/design/bluejay-blheli-s.md decision 1,
  *        docs/design/usb-bridge.md decision 1).
  *
- * ESC CONFIG is a hub (ui_hub.h), as PROGRAMMER (ui_servo_prog.h) and RX
- * SIGNALS (ui_rx_signals.h) are: one 228 x 46 px button per entry at an
- * 80 px pitch, with its lines under it. It claims nothing: DShot runs on
- * SIG while it shows. A tap on ESC SETTINGS opens the settings screen
- * (ui_am32.h), a tap on USB BRIDGE the bridge (ui_bridge.h), each through
- * uiChooseTool(), whose own entry point asks for the pin claim on that
- * frame. BACK returns to MENU. The tools' BACK and their RESTART DSHOT
- * return here, to ESC CONFIG.
+ * ESC CONFIG is a hub (ui_hub.h), as SERVO (ui_servo_hub.h) and RX SIGNALS
+ * (ui_rx_signals.h) are: one 228 x 46 px button per entry at an 80 px
+ * pitch, with its lines under it. Three entries fill the page; it does not
+ * scroll. It claims nothing: DShot runs on SIG while it shows. A tap on ESC
+ * COMMANDS opens the DShot commands (ui_esc_cmd.h), which claim nothing; a
+ * tap on ESC SETTINGS opens the settings screen (ui_am32.h), a tap on USB
+ * BRIDGE the bridge (ui_bridge.h), whose own entry points ask for the pin
+ * claim on that frame. Each opens through uiChooseTool(). BACK returns to
+ * MENU. The tools' BACK and their RESTART DSHOT return here, to ESC CONFIG.
  *
  * The screen opens whatever the pin claim's state. While the claim is not
  * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
@@ -33,11 +35,12 @@ struct TouchState;
 #define UI_ESC_CFG_STRIP_FMT "SIG GP%u"
 /** @brief ESC CONFIG's controls besides BACK. */
 enum class EscCfgCtl : uint8_t {
-	Settings = (uint8_t)HubCtl::Entry,  /**< ESC SETTINGS: opens the settings screen. */
+	Commands = (uint8_t)HubCtl::Entry,  /**< ESC COMMANDS: opens the DShot commands. */
+	Settings,      /**< ESC SETTINGS: opens the settings screen. */
 	Bridge,        /**< USB BRIDGE: opens the bridge. */
 };
 
-/** @brief The entries, top to bottom: ESC SETTINGS, USB BRIDGE. */
+/** @brief The entries, top to bottom: ESC COMMANDS, ESC SETTINGS, USB BRIDGE. */
 extern const UiHubEntry UI_ESC_CFG_ENTRIES[];
 /** @brief How many. */
 extern const uint8_t UI_ESC_CFG_ENTRIES_COUNT;
@@ -51,24 +54,24 @@ extern const UiHub UI_ESC_CFG_HUB;
  */
 void uiEscConfigStrip(char *buf, size_t n);
 
-/** @brief Open the chooser. */
+/** @brief Open the hub. */
 void uiEscConfigEnter();
 
 /**
- * @brief Run one frame of the chooser.
+ * @brief Run one frame of the hub.
  * @param t This frame's touch.
  * @return false once BACK has left it.
  */
 bool uiEscConfigTick(const TouchState *t);
 
 /**
- * @brief The chooser's controls on the current frame: BACK, ESC SETTINGS
- *        and USB BRIDGE, each acting.
+ * @brief The hub's controls on the current frame: BACK, ESC COMMANDS, ESC
+ *        SETTINGS and USB BRIDGE, each enabled as uiHubEntryActs() says.
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.
  */
 uint8_t uiEscConfigControls(UiControl *out, uint8_t max);
 
-/** @brief ESC CONFIG, the chooser. */
+/** @brief ESC CONFIG, the hub. */
 extern const UiScreen UI_ESC_CONFIG;

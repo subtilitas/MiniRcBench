@@ -25,6 +25,8 @@
 
 #include <stdint.h>
 
+#include "ui_screen.h"
+
 struct TouchState;
 
 /**
@@ -188,7 +190,6 @@ enum class ServoCtl : uint8_t {
 	BackToServo,                  /**< BACK TO SERVO on the leave page: the claim kept, SERVO TESTER SAFE. */
 };
 
-struct UiControl;
 
 /**
  * @brief The SERVO TESTER view that is up controls on the current frame.
@@ -199,6 +200,8 @@ struct UiControl;
  */
 uint8_t uiServoControls(UiControl *out, uint8_t max);
 
-struct UiScreen;
-/** @brief SERVO TESTER. */
-extern const UiScreen UI_SERVO;
+/** @brief SERVO TESTER, a constant: SERVO's table checks it at build time. */
+inline constexpr const UiScreen UI_SERVO = {
+	UiScreenId::Servo, SERVO_UI_TITLE, PinUser::Servo, nullptr,
+	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr, false,
+};

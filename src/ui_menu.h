@@ -1,25 +1,31 @@
 /**
  * @file ui_menu.h
- * @brief MENU: one list of tools and actions, from the registry.
+ * @brief MENU: one list of six rows, from the registry.
  *
  * The root and the first screen after the splash (docs/design/menu-c.md
- * owner decision 1, slice 3). Its header draws no BACK: nothing lies behind
- * the root. Its first row, ESC TESTER, opens the tester, whose MENU button
- * disarms and returns here. Each row is a registry entry (ui_registry.h): a
- * tool opens its screen, and an action row, a screen with `action` set,
- * would act on the row; `UI_MENU` holds none. A row fires on release, a
- * press that slides off cancels, and a vertical drag scrolls once the rows
- * do not fit: nine rows at a 42 px pitch scroll 120 px.
+ * owner decisions 1 and 4, slices 3 and 4). Its header draws no BACK:
+ * nothing lies behind the root. Its six rows are ESC TESTER, ESC CONFIG,
+ * SERVO, RX SIGNALS, SD LOG and SETTINGS, at a 42 px pitch from y 62: they
+ * take 252 px of the 258 px under the strip, so MENU does not scroll and
+ * every row is whole. ESC TESTER opens the tester, whose MENU button
+ * disarms and returns here. ESC CONFIG, SERVO and RX SIGNALS each open a
+ * hub (ui_hub.h) and carry the mark `>` at the row's right, where SD LOG
+ * and SETTINGS carry a status.
  *
- * A tool that claims the signal pins, or one that opens only while they are
- * free (the tester, SETTINGS and ESC COMMANDS), is refused while the pin
- * claim is not Free: its row is drawn disabled under its own status, a tap
- * opens nothing, and the strip reads `DSHOT RESTARTING ON SIG GP0`. That
- * state is reachable for the time Restoring takes after RESTART DSHOT. The choosers ESC CONFIG,
- * PROGRAMMER, RX SIGNALS and TOOLS are never refused: each gates its own
- * entries (ui_hub.h).
+ * Each row is a registry entry (ui_registry.h): a screen opens, and an
+ * action row, a screen with `action` set, would act on the row; `UI_MENU`
+ * holds none. A row fires on release and a press that slides off cancels.
+ * A registry with more rows than fit scrolls by a vertical drag; `UI_MENU`
+ * does not, and a host test sets such a registry (uiMenuUseRegistry()).
  *
- * @see docs/design/menu.md, "MENU"
+ * A screen that opens only while the signal pins are free (the tester and
+ * SETTINGS) is refused while the pin claim is not Free: its row is drawn
+ * disabled under its own status, a tap opens nothing, and the strip reads
+ * `DSHOT RESTARTING ON SIG GP0`. That state is reachable for the time
+ * Restoring takes after RESTART DSHOT. The hubs' rows are never refused:
+ * each hub gates its own entries (ui_hub.h).
+ *
+ * @see docs/design/menu-c.md, "MENU"; docs/design/menu.md, "MENU"
  */
 
 #pragma once
@@ -34,8 +40,16 @@ struct TouchState;
 #define UI_MENU_LABEL_X  16
 /** @brief A MENU row's status, scale 1, ends at this x. */
 #define UI_MENU_STATUS_R 222
-/** @brief Least space between a MENU label and its widest status, px. */
+/** @brief Least space between a MENU label and its widest status or its mark, px. */
 #define UI_MENU_LABEL_GAP 8
+/**
+ * @brief The mark of a row that opens a hub, at scale 2 in `C_CYAN`, or
+ *        `C_GRID` on a row drawn disabled (docs/design/ui-theme.md, "The
+ *        widgets of menu-c.md"): 10 px wide.
+ */
+#define UI_MENU_MARK   ">"
+/** @brief The mark starts at this x; its last column is x 222. */
+#define UI_MENU_MARK_X 213
 
 /**
  * @brief The strip's caption, with SIG's GPIO, AUX's GPIO and the DShot rate

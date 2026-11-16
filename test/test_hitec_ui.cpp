@@ -1,6 +1,6 @@
 /**
  * @file test_hitec_ui.cpp
- * @brief HITEC SERVO through the real UI: MENU, PROGRAMMER's two Hitec
+ * @brief HITEC SERVO through the real UI: MENU, SERVO's two Hitec
  *        entries, the claim, READ, the entry and the read, the field list,
  *        the write, FILES and the leave page.
  *
@@ -167,14 +167,14 @@ static void freshHitec(uint8_t family, bool switched) {
 	hitecFrames(2);
 }
 
-/** @brief The entry point of PROGRAMMER's entry for @p family. */
+/** @brief The entry point of SERVO's entry for @p family. */
 static void (*enterOf(uint8_t family))() {
 	return family == HITEC_CLASSIC ? uiHitecEnterClassic : uiHitecEnterD;
 }
 
 /**
  * @brief The tester to HITEC SERVO for @p family, through MENU and
- *        PROGRAMMER: the entry's tap claims SIG.
+ *        SERVO: the entry's tap claims SIG.
  */
 static void openHitec(uint8_t family) {
 	openProgrammer(enterOf(family));
@@ -259,7 +259,7 @@ static void leaveAll() {
 		hitecFrames(2);
 	}
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
-	if (uiCurrentScreen() == UiScreenId::ServoProg || uiCurrentScreen() == UiScreenId::Menu) backToTester();
+	if (uiCurrentScreen() == UiScreenId::ServoHub || uiCurrentScreen() == UiScreenId::Menu) backToTester();
 	hitecFrames(2);
 	supply(false);
 }
@@ -277,7 +277,7 @@ static void watchRecord() {
 static bool mainLineIs(int k, const char *text, uint16_t col) { return lineIs(80 + 14 * k, text, col); }
 
 /**
- * @brief PROGRAMMER's HITEC D SERIES with SERVO SUPPLY at OWN (decision 34
+ * @brief SERVO's HITEC D SERIES with SERVO SUPPLY at OWN (decision 34
  *        of docs/design/menu-b.md): the tap claims SIG, DShot drains and stops, and the
  *        main view waits in Held for READ, with no job and no frame on SIG
  *        until then. BACK there opens the leave page releasing.
@@ -286,11 +286,11 @@ static void testEntry() {
 	section("Hitec D SERIES on OWN: the tap takes SIG, then READ");
 	freshHitec(HITEC_D, false);
 	openChooser();
-	checkTrue("PROGRAMMER claims nothing: DShot runs on SIG",
-	          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free &&
+	checkTrue("SERVO claims nothing: DShot runs on SIG",
+	          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Free &&
 	          !escTaskSuspended() && fakePinReturned());
 	int resumes = fakeResumeCount();
-	tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+	tapId(hubEntry(progEntryOf(uiHitecEnterD)));
 	checkTrue("HITEC D SERIES opens HITEC SERVO on its main view",
 	          uiCurrentScreen() == UiScreenId::Hitec && uiHitecView() == HitecView::Main);
 	checkTrue("the claim on SIG begins on the tap's frame", pinClaimHolder() == PinUser::Hitec &&
@@ -353,11 +353,11 @@ static void testEntry() {
 	checkTrue("BACK again: the leave page", untilCtl(UI_FIX(HitecCtl::Restart), 10));
 	checkTrue("RESTART DSHOT 1000 ms after the release", untilEnabled(UI_FIX(HitecCtl::Restart), 60));
 	tapId(UI_FIX(HitecCtl::Restart));
-	checkTrue("RESTART DSHOT: PROGRAMMER, its opener, DShot resumed",
-	          uiCurrentScreen() == UiScreenId::ServoProg && fakeResumeCount() == resumes + 1);
+	checkTrue("RESTART DSHOT: SERVO, its opener, DShot resumed",
+	          uiCurrentScreen() == UiScreenId::ServoHub && fakeResumeCount() == resumes + 1);
 	{
-		const UiControlId d = PROG_ENTRY(progEntryOf(uiHitecEnterD));
-		checkTrue("PROGRAMMER draws HITEC D SERIES disabled while the pump rebuilds",
+		const UiControlId d = hubEntry(progEntryOf(uiHitecEnterD));
+		checkTrue("SERVO draws HITEC D SERIES disabled while the pump rebuilds",
 		          pinClaimState() == ClaimState::Restoring && !ctlEnabled(d));
 		for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
 		checkTrue("then the claim is free and the entry acts",
@@ -401,7 +401,7 @@ static void testEntry() {
 
 	section("Hitec entry: READ takes only a press that landed on it");
 	openChooser();
-	tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+	tapId(hubEntry(progEntryOf(uiHitecEnterD)));
 	{
 		const int opens = fakeHitecLineOpens();
 		const UiRect w = { 6, UI_FOOT_Y, 228, UI_FOOT_H };
@@ -434,7 +434,7 @@ static void testEntry() {
 		openChooser();
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
-		tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+		tapId(hubEntry(progEntryOf(uiHitecEnterD)));
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
 		hitecFrames(2);
@@ -467,15 +467,15 @@ static void testEntry() {
 		const int resumes = fakeResumeCount();
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
-		tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+		tapId(hubEntry(progEntryOf(uiHitecEnterD)));
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
 		hitecFrames(1);
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
 		tapId(UI_FIX(UI_BACK));
-		checkTrue("BACK while refused: PROGRAMMER, DShot never stopped",
-		          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free &&
+		checkTrue("BACK while refused: SERVO, DShot never stopped",
+		          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Free &&
 		          fakeResumeCount() == resumes && !escTaskSuspended());
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		memset(&t, 0, sizeof(t));
@@ -488,7 +488,7 @@ static void testEntry() {
 	freshHitec(HITEC_D, false);
 	openChooser();
 	resumes = fakeResumeCount();
-	tapId(PROG_ENTRY(progEntryOf(uiHitecEnterD)));
+	tapId(hubEntry(progEntryOf(uiHitecEnterD)));
 	checkTrue("Stopping after the tap", pinClaimState() == ClaimState::Stopping);
 	// BACK tapped in UI frames before core1's next pass: the claim still
 	// drains when the tap lifts.
@@ -496,8 +496,8 @@ static void testEntry() {
 	uiTick();
 	fakeRelease();
 	uiTick();
-	checkTrue("BACK from Stopping: PROGRAMMER, DShot resumed at once",
-	          uiCurrentScreen() == UiScreenId::ServoProg && fakeResumeCount() == resumes + 1 &&
+	checkTrue("BACK from Stopping: SERVO, DShot resumed at once",
+	          uiCurrentScreen() == UiScreenId::ServoHub && fakeResumeCount() == resumes + 1 &&
 	          fakeHitecLineOpens() == 0);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
@@ -1350,7 +1350,7 @@ static void testStallAndBack() {
 	fakeDumpFrame("shot_leave_hitec_released.ppm");
 	tapId(UI_FIX(HitecCtl::Restart));
 	hitecFrames(4);
-	checkTrue("RESTART DSHOT: PROGRAMMER", uiCurrentScreen() == UiScreenId::ServoProg);
+	checkTrue("RESTART DSHOT: SERVO", uiCurrentScreen() == UiScreenId::ServoHub);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
 	checkTrue("the claim is free", pinClaimState() == ClaimState::Free);
@@ -2164,12 +2164,12 @@ static bool navLeaveByRestart() {
 
 /**
  * @brief docs/design/menu-c.md slice 2: HITEC D SERIES and HITEC CLASSIC
- *        return to PROGRAMMER, the chooser that opened them, by BACK while
+ *        return to SERVO, the chooser that opened them, by BACK while
  *        the claim is refused and by RESTART DSHOT, the leave page's last
  *        button.
  */
 static void testNavOpener() {
-	section("Navigation: HITEC D SERIES and HITEC CLASSIC return to PROGRAMMER, their opener");
+	section("Navigation: HITEC D SERIES and HITEC CLASSIC return to SERVO, their opener");
 	static const struct {
 		const char *name;
 		uint8_t     family;
@@ -2186,26 +2186,26 @@ static void testNavOpener() {
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
 		openHitec(c.family);
-		snprintf(what, sizeof(what), "%s, an ESC answers: MENU, PROGRAMMER, HITEC SERVO, no claim", c.name);
-		checkTrue(what, navIsTool(UiScreenId::ServoProg, UiScreenId::Hitec) &&
+		snprintf(what, sizeof(what), "%s, an ESC answers: MENU, SERVO, HITEC SERVO, no claim", c.name);
+		checkTrue(what, navIsTool(UiScreenId::ServoHub, UiScreenId::Hitec) &&
 		                pinClaimHolder() == PinUser::None);
 		t.lastRpmMs = millis();
 		fakeSetTelemetry(&t);
 		tapId(UI_FIX(UI_BACK));
-		snprintf(what, sizeof(what), "%s: BACK while refused returns to PROGRAMMER", c.name);
-		checkTrue(what, navIsHub(UiScreenId::ServoProg) && pinClaimHolder() == PinUser::None);
+		snprintf(what, sizeof(what), "%s: BACK while refused returns to SERVO", c.name);
+		checkTrue(what, navIsHub(UiScreenId::ServoHub) && pinClaimHolder() == PinUser::None);
 		memset(&t, 0, sizeof(t));
 		fakeSetTelemetry(&t);
 		checkTrue("then MENU and the tester", backToTester());
 
 		freshHitec(c.family, c.switched);
 		openHitec(c.family);
-		snprintf(what, sizeof(what), "%s: the claim taken, MENU, PROGRAMMER, HITEC SERVO", c.name);
-		checkTrue(what, navIsTool(UiScreenId::ServoProg, UiScreenId::Hitec) &&
+		snprintf(what, sizeof(what), "%s: the claim taken, MENU, SERVO, HITEC SERVO", c.name);
+		checkTrue(what, navIsTool(UiScreenId::ServoHub, UiScreenId::Hitec) &&
 		                pinClaimHolder() == PinUser::Hitec);
 		hitecFrames(4);
-		snprintf(what, sizeof(what), "%s: the leave page's RESTART DSHOT returns to PROGRAMMER", c.name);
-		checkTrue(what, navLeaveByRestart() && navIsHub(UiScreenId::ServoProg));
+		snprintf(what, sizeof(what), "%s: the leave page's RESTART DSHOT returns to SERVO", c.name);
+		checkTrue(what, navLeaveByRestart() && navIsHub(UiScreenId::ServoHub));
 		for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
 		checkTrue("the claim Free", pinClaimState() == ClaimState::Free);
 		checkTrue("then MENU and the tester", backToTester());

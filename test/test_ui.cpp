@@ -1620,8 +1620,8 @@ static bool menuChipIs(const char *text, uint16_t fill) {
 }
 
 /**
- * @brief MENU's EDT chip tracks reception, and ESC COMMANDS' row opens its
- *        page.
+ * @brief MENU's EDT chip tracks reception, and a row opens its page on
+ *        release.
  *
  * The EDT chip on the strip is read-only. There is no enable button any more:
  * the firmware sends one to each ESC as it appears, so the control was for
@@ -1629,18 +1629,20 @@ static bool menuChipIs(const char *text, uint16_t fill) {
  * and "all four telemetry tiles read --" are the same fact.
  */
 static void testMenuChip() {
-	section("MENU: the EDT chip and ESC COMMANDS' row");
+	section("MENU: the EDT chip and a row's release");
 
 	feedLiveTelemetry();
 	tapId(UI_FIX(TesterCtl::Menu));          // into MENU (this force-disarms)
 	frames(2);
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
-	const UiRect cmds = ctlRect(menuRow(&UI_ESC_CMD));
+	const UiRect cmds = ctlRect(menuRow(&UI_ESC_CONFIG));
+	const UiRect logs = ctlRect(menuRow(&UI_SDLOG));
 	uint32_t chipOn = fakeRegionHash(120, UI_STRIP_Y, 120, UI_STRIP_H);
-	checkTrue("ESC COMMANDS is the second row, its label at scale 2 from x 16, 142 px",
-	          uiMenuRowOf(&UI_ESC_CMD) == 1 &&
-	          fakeTextIs(16, cmds.y + 13, "ESC COMMANDS", C_TEXT, C_PANEL, 2) &&
-	          gfxTextW("ESC COMMANDS", 2) == 142);
+	checkTrue("ESC CONFIG is the second row, its label at scale 2 from x 16, 118 px, its mark at x 213",
+	          uiMenuRowOf(&UI_ESC_CONFIG) == 1 && cmds.y == 104 &&
+	          fakeTextIs(16, cmds.y + 13, "ESC CONFIG", C_TEXT, C_PANEL, 2) &&
+	          gfxTextW("ESC CONFIG", 2) == 118 &&
+	          fakeTextIs(UI_MENU_MARK_X, cmds.y + 13, ">", C_CYAN, C_PANEL, 2));
 	fakeDumpFrame("shot_menu_edt_on.ppm");
 
 	checkTrue("EDT frames: the chip reads EDT ON, green", menuChipIs(UI_MENU_EDT_ON, C_GREEN));
@@ -1701,19 +1703,25 @@ static void testMenuChip() {
 	tap(200, UI_STRIP_Y + UI_STRIP_H / 2);
 	checkInt("tapping the chip does nothing", fakeBeepRequests(), beepBefore);
 
-	// ESC COMMANDS is a tool row: it opens its page on release, and sends
-	// nothing itself.
-	pressId(menuRow(&UI_ESC_CMD));
-	checkTrue("a press on ESC COMMANDS opens nothing yet", uiCurrentScreen() == UiScreenId::Menu);
+	// A row opens its page on release, and sends nothing itself: ESC
+	// CONFIG's row its hub, whose first entry opens ESC COMMANDS.
+	pressId(menuRow(&UI_ESC_CONFIG));
+	checkTrue("a press on ESC CONFIG opens nothing yet", uiCurrentScreen() == UiScreenId::Menu);
 	fakeRelease(); frames(1);
-	checkTrue("its release opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	checkTrue("its release opens ESC CONFIG, the hub", uiCurrentScreen() == UiScreenId::EscConfig);
+	frames(1);
+	tapId(UI_FIX(EscCfgCtl::Commands));
+	checkTrue("whose first entry opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
 	checkInt("and sends nothing", fakeBeepRequests(), beepBefore);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
+	checkTrue("whose BACK returns to ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
 	checkTrue("whose BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	// Its far edge, the row's last pixel column, x 231, still hits.
-	fakePress(cmds.x + cmds.w - 1, cmds.y + cmds.h / 2); frames(1); fakeRelease(); frames(1);
-	checkTrue("the row's last pixel opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	// A row's far edge, its last pixel column, x 231, still hits.
+	fakePress(logs.x + logs.w - 1, logs.y + logs.h / 2); frames(1); fakeRelease(); frames(1);
+	checkTrue("SD LOG's last pixel opens SD LOG", uiCurrentScreen() == UiScreenId::SdLog);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 
@@ -2374,10 +2382,11 @@ static void testSettingsSave() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
-	// MENU opens at 0 px: the SETTINGS row, the eighth, starts at y 356,
-	// below the view, and is whole after a drag of 76 px, its status with it.
-	checkTrue("MENU's SETTINGS row is below the view at 0 px",
-	          !ctlPresent(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)));
+	// MENU does not scroll: the SETTINGS row, the sixth, is whole at y 272,
+	// its status with it.
+	checkTrue("MENU's SETTINGS row is whole at y 272, with no drag",
+	          ctlRect(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)).y == 272 &&
+	          ctlRect(UI_ROW(uiMenuRowOf(&UI_SETTINGS), Row)).h == 40);
 	checkTrue("MENU's SETTINGS row reads UNSAVED in amber",
 	          menuStatusIs(ctlRect(menuRow(&UI_SETTINGS)), "UNSAVED", C_AMBER, C_PANEL));
 	fakeDumpFrame("shot_menu_unsaved.ppm");
@@ -2426,21 +2435,21 @@ static void testTapCancels() {
 	tapId(UI_FIX(TesterCtl::Menu));       // into MENU for the rest
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// MENU: press ESC COMMANDS' row, slide off it, release. Neither row
+	// MENU: press ESC CONFIG's row, slide off it, release. Neither row
 	// fires.
 	int bx, by;
-	ctlCentre(menuRow(&UI_ESC_CMD), &bx, &by);
+	ctlCentre(menuRow(&UI_ESC_CONFIG), &bx, &by);
 	fakePress(bx, by);      frames(2);
 	fakeHold(bx, by + 60);  frames(2);
 	fakeRelease();          frames(2);
-	checkTrue("sliding off ESC COMMANDS opened nothing", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("sliding off ESC CONFIG opened nothing", uiCurrentScreen() == UiScreenId::Menu);
 
 	// Still on MENU, which the next tap proves by working: the row the
 	// finger slid onto is only hit-tested, so if the slide had activated
 	// anything this fails.
 	fakePress(bx, by);      frames(2);
 	fakeRelease();          frames(2);
-	checkTrue("released in place, it opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	checkTrue("released in place, it opens ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 }
@@ -4073,28 +4082,24 @@ static void testHitBoundaries() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
-	// MENU's rows are 40 px tall at a 42 px pitch: ESC COMMANDS ends where
-	// the gap above ESC CONFIG starts, and SD LOG where the gap above
-	// SETTINGS starts. A tap in either gap must hit neither neighbour -- an
-	// inclusive far edge would make adjacent rows overlap.
-	const UiRect cmds  = ctlRect(menuRow(&UI_ESC_CMD));
-	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h);
-	frames(2);
-	checkTrue("a tap in the ESC COMMANDS/AM32 gap opens nothing",
-	          uiCurrentScreen() == UiScreenId::Menu);
-	tap(cmds.x + cmds.w, cmds.y + cmds.h / 2);
-	checkTrue("nor one past ESC COMMANDS' right edge", uiCurrentScreen() == UiScreenId::Menu);
-	// SD LOG, the seventh row, is whole only after a drag, which moves ESC
-	// COMMANDS too: MENU opens again at 0 px for the last tap.
+	// MENU's rows are 40 px tall at a 42 px pitch: SD LOG ends where the
+	// gap above SETTINGS starts, and SETTINGS where the 8 px under the list
+	// start. A tap in either gap must hit neither neighbour -- an inclusive
+	// far edge would make adjacent rows overlap.
 	const UiRect logRow = ctlRect(menuRow(&UI_SDLOG));
 	tap(logRow.x + logRow.w / 2, logRow.y + logRow.h);
 	frames(2);
-	checkTrue("a tap in the gap below SD LOG left MENU up",
+	checkTrue("a tap in the SD LOG/SETTINGS gap opens nothing",
 	          uiCurrentScreen() == UiScreenId::Menu);
-	openTester();
-	tapId(UI_FIX(TesterCtl::Menu));
-	tap(cmds.x + cmds.w / 2, cmds.y + cmds.h - 1);
-	checkTrue("ESC COMMANDS' last pixel row opens it", uiCurrentScreen() == UiScreenId::EscCmd);
+	tap(logRow.x + logRow.w, logRow.y + logRow.h / 2);
+	checkTrue("nor one past SD LOG's right edge", uiCurrentScreen() == UiScreenId::Menu);
+	const UiRect setRow = ctlRect(menuRow(&UI_SETTINGS));
+	tap(setRow.x + setRow.w / 2, setRow.y + setRow.h);
+	frames(2);
+	checkTrue("a tap in the gap below SETTINGS, the last row, left MENU up",
+	          uiCurrentScreen() == UiScreenId::Menu);
+	tap(logRow.x + logRow.w / 2, logRow.y + logRow.h - 1);
+	checkTrue("SD LOG's last pixel row opens it", uiCurrentScreen() == UiScreenId::SdLog);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 
@@ -4116,18 +4121,19 @@ static void testHitBoundaries() {
 }
 
 /**
- * @brief MENU's rows: SERVO opens its screen, and a tool that claims the
- *        pins is refused while they are not Free.
+ * @brief MENU's six rows, and SERVO TESTER through its hub.
  *
- * A tool row that claims pins is drawn disabled under its own status while
- * the claim is not Free, as for the time Restoring takes after RESTART
- * DSHOT, and the strip says why: its control is gated on the same value,
- * and a tap opens nothing and claims nothing.
- * SERVO is built: a tap opens it and claims the pins, and leaving goes
- * through its leave page to MENU. test_servo.cpp tests the screen itself.
+ * A row whose screen opens only while the pins are free, ESC TESTER or
+ * SETTINGS, is drawn disabled under its own status while the claim is not
+ * Free, as for the time Restoring takes after RESTART DSHOT, and the strip
+ * says why: its control is gated on the same value, and a tap opens nothing
+ * and claims nothing. A hub's row is never refused: the hub draws the
+ * entries that claim disabled. SERVO TESTER opens from the hub SERVO and
+ * claims the pins, and leaving goes through its leave page to the hub.
+ * test_servo.cpp tests the screen itself.
  */
 static void testMenuDestinations() {
-	section("MENU: SERVO opens its screen, a busy claim refuses");
+	section("MENU: six rows; SERVO TESTER opens from its hub, a busy claim refuses");
 
 	fakeFlashClear();
 	settingsLoad();
@@ -4144,14 +4150,14 @@ static void testMenuDestinations() {
 	// The registry, in MENU order.
 	uint8_t rows = 0;
 	uiMenuEntries(&rows);
-	checkInt("MENU has nine rows", rows, 9);
-	checkTrue("ESC TESTER, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, "
-	          "TOOLS, SD LOG, SETTINGS, in that order",
-	          uiMenuRowOf(&UI_TESTER) == 0 && uiMenuRowOf(&UI_ESC_CMD) == 1 &&
-	          uiMenuRowOf(&UI_ESC_CONFIG) == 2 && uiMenuRowOf(&UI_SERVO) == 3 &&
-	          uiMenuRowOf(&UI_SERVO_PROG) == 4 && uiMenuRowOf(&UI_RX_SIGNALS) == 5 &&
-	          uiMenuRowOf(&UI_TOOLS) == 6 && uiMenuRowOf(&UI_SDLOG) == 7 &&
-	          uiMenuRowOf(&UI_SETTINGS) == 8);
+	checkInt("MENU has six rows", rows, 6);
+	checkTrue("ESC TESTER, ESC CONFIG, SERVO, RX SIGNALS, SD LOG, SETTINGS, in that order",
+	          uiMenuRowOf(&UI_TESTER) == 0 && uiMenuRowOf(&UI_ESC_CONFIG) == 1 &&
+	          uiMenuRowOf(&UI_SERVO_HUB_SCREEN) == 2 && uiMenuRowOf(&UI_RX_SIGNALS) == 3 &&
+	          uiMenuRowOf(&UI_SDLOG) == 4 && uiMenuRowOf(&UI_SETTINGS) == 5);
+	checkTrue("no row opens a tool of a hub",
+	          uiMenuRowOf(&UI_ESC_CMD) == -1 && uiMenuRowOf(&UI_SERVO) == -1 && uiMenuRowOf(&UI_AM32) == -1 &&
+	          uiMenuRowOf(&UI_KST) == -1 && uiMenuRowOf(&UI_HITEC) == -1);
 
 	// A pixel inside each row, clear of its label: the panel fill of a row.
 	// It is 5 px in from the left edge and 8 px down from the top.
@@ -4160,80 +4166,97 @@ static void testMenuDestinations() {
 		UiRect r = ctlRect(menuRow(s));
 		return fb[(r.y + 8) * GFX_W + (r.x + 5)];
 	};
-	checkTrue("ESC COMMANDS is filled", pixelIn(&UI_ESC_CMD) == C_PANEL);
+	checkTrue("ESC TESTER is filled", pixelIn(&UI_TESTER) == C_PANEL);
 	checkTrue("ESC CONFIG is filled", pixelIn(&UI_ESC_CONFIG) == C_PANEL);
-	checkTrue("SERVO PROGRAMMER is filled", pixelIn(&UI_SERVO_PROG) == C_PANEL);
-	checkTrue("SERVO is filled", pixelIn(&UI_SERVO) == C_PANEL);
+	checkTrue("SERVO is filled", pixelIn(&UI_SERVO_HUB_SCREEN) == C_PANEL);
 	checkTrue("RX SIGNALS is filled", pixelIn(&UI_RX_SIGNALS) == C_PANEL);
-	// A tool row reports no status (menu-b.md decision 18): the strip names
-	// the pins. Its right end, where a status would stand, is the fill.
-	auto statusBlank = [&](const UiScreen *s, uint16_t fill) {
+	// A hub's row carries the mark > where a status would stand, at scale 2
+	// from x 213 in C_CYAN, and no status (menu-c.md decision 13).
+	auto markIs = [&](const UiScreen *s, uint16_t col, uint16_t fill) {
 		UiRect r = ctlRect(menuRow(s));
-		for (int y = r.y + 14; y < r.y + 26; y++)
-			for (int x = 210; x < 228; x++)
+		for (int y = r.y + 4; y < r.y + r.h - 4; y++)
+			for (int x = 150; x < UI_MENU_MARK_X; x++)
+				if (fb[y * GFX_W + x] != fill) return false;
+		return fakeTextIs(UI_MENU_MARK_X, r.y + 13, UI_MENU_MARK, col, fill, 2);
+	};
+	// ESC TESTER has neither a status nor the mark: its right end is the fill.
+	auto rightBlank = [&](const UiScreen *s, uint16_t fill) {
+		UiRect r = ctlRect(menuRow(s));
+		for (int y = r.y + 4; y < r.y + r.h - 4; y++)
+			for (int x = 150; x < 228; x++)
 				if (fb[y * GFX_W + x] != fill) return false;
 		return true;
 	};
-	checkTrue("ESC COMMANDS' row has no status", statusBlank(&UI_ESC_CMD, C_PANEL));
-	checkTrue("nor ESC CONFIG's", statusBlank(&UI_ESC_CONFIG, C_PANEL));
-	checkTrue("nor SERVO TESTER's", statusBlank(&UI_SERVO, C_PANEL));
-	checkTrue("nor RX SIGNALS'", statusBlank(&UI_RX_SIGNALS, C_PANEL));
+	checkTrue("ESC TESTER's row has no status and no mark", rightBlank(&UI_TESTER, C_PANEL));
+	checkTrue("ESC CONFIG's row carries >", markIs(&UI_ESC_CONFIG, C_CYAN, C_PANEL));
+	checkTrue("SERVO's row carries >", markIs(&UI_SERVO_HUB_SCREEN, C_CYAN, C_PANEL));
+	checkTrue("RX SIGNALS' row carries >", markIs(&UI_RX_SIGNALS, C_CYAN, C_PANEL));
 
 	// Another claim holds the pins, as Restoring does after RESTART DSHOT:
-	// both tools that claim them are drawn disabled and do not act.
+	// the rows that need the pins free are drawn disabled and do not act.
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	frames(2);
 	// A refused row is drawn disabled, an outline with the background
-	// inside, under its own status, none for a tool: no word for the claim
-	// on the row.
-	checkTrue("ESC CONFIG, a hub, drawn live, no status: it gates its entries",
-	          pixelIn(&UI_ESC_CONFIG) == C_PANEL && statusBlank(&UI_ESC_CONFIG, C_PANEL));
-	checkTrue("SERVO drawn disabled, no status", pixelIn(&UI_SERVO) == C_BG && statusBlank(&UI_SERVO, C_BG));
+	// inside, under its own status, none for the tester: no word for the
+	// claim on the row.
+	checkTrue("ESC CONFIG, a hub, drawn live with its mark: it gates its entries",
+	          pixelIn(&UI_ESC_CONFIG) == C_PANEL && markIs(&UI_ESC_CONFIG, C_CYAN, C_PANEL));
+	checkTrue("ESC TESTER, whose DShot needs the pin, drawn disabled, no status",
+	          pixelIn(&UI_TESTER) == C_BG && rightBlank(&UI_TESTER, C_BG));
 	char restarting[40];
 	snprintf(restarting, sizeof(restarting), "DSHOT RESTARTING ON SIG GP%u",
 	         (unsigned)settings()->dshotPin);
 	checkTrue("the strip says why, in amber",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, restarting, C_AMBER, C_BG, 1));
-	checkTrue("SERVO is gated, ESC CONFIG acts",
-	          ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !ctlEnabled(menuRow(&UI_SERVO)));
-	checkTrue("SERVO PROGRAMMER, a hub, drawn live and acting",
-	          pixelIn(&UI_SERVO_PROG) == C_PANEL && ctlEnabled(menuRow(&UI_SERVO_PROG)));
+	checkTrue("ESC TESTER is gated, ESC CONFIG acts",
+	          ctlEnabled(menuRow(&UI_ESC_CONFIG)) && !ctlEnabled(menuRow(&UI_TESTER)));
+	checkTrue("SERVO, a hub, drawn live and acting",
+	          pixelIn(&UI_SERVO_HUB_SCREEN) == C_PANEL && markIs(&UI_SERVO_HUB_SCREEN, C_CYAN, C_PANEL) &&
+	          ctlEnabled(menuRow(&UI_SERVO_HUB_SCREEN)));
 	checkTrue("and RX SIGNALS, a hub",
-	          pixelIn(&UI_RX_SIGNALS) == C_PANEL && statusBlank(&UI_RX_SIGNALS, C_PANEL) &&
+	          pixelIn(&UI_RX_SIGNALS) == C_PANEL && markIs(&UI_RX_SIGNALS, C_CYAN, C_PANEL) &&
 	          ctlEnabled(menuRow(&UI_RX_SIGNALS)));
-	checkTrue("ESC COMMANDS, which needs DShot on SIG, drawn disabled and gated",
-	          pixelIn(&UI_ESC_CMD) == C_BG && statusBlank(&UI_ESC_CMD, C_BG) &&
-	          !ctlEnabled(menuRow(&UI_ESC_CMD)));
 	checkTrue("SD LOG, which claims nothing, still acts", ctlEnabled(menuRow(&UI_SDLOG)));
 	checkTrue("SETTINGS, which changes the wiring a claim latched, does not",
 	          !ctlEnabled(menuRow(&UI_SETTINGS)));
 	checkControlTable("MENU, pins busy");
 	{
-		UiRect r = ctlRect(menuRow(&UI_SERVO));
+		UiRect r = ctlRect(menuRow(&UI_TESTER));
 		uint32_t rest = fakeRegionHash(r.x, r.y, r.w, r.h);
-		pressId(menuRow(&UI_SERVO), IdExpect::Disabled);
+		pressId(menuRow(&UI_TESTER), IdExpect::Disabled);
 		frames(1);
-		checkTrue("a press on the busy SERVO row draws no pressed look",
+		checkTrue("a press on the busy ESC TESTER row draws no pressed look",
 		          fakeRegionHash(r.x, r.y, r.w, r.h) == rest);
 		fakeRelease(); frames(1);
 	}
-	tapId(menuRow(&UI_SERVO), IdExpect::Disabled);
+	tapId(menuRow(&UI_TESTER), IdExpect::Disabled);
 	frames(1);
-	checkTrue("a tap on SERVO opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("a tap on ESC TESTER opens nothing", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("nor claims a pin", pinClaimHolder() == PinUser::Am32);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	frames(1);
-	checkTrue("a tap on ESC CONFIG opens the hub, its entries drawn disabled",
-	          uiCurrentScreen() == UiScreenId::EscConfig && !ctlEnabled(UI_FIX(EscCfgCtl::Settings)) &&
-	          !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)));
+	checkTrue("a tap on ESC CONFIG opens the hub, its three entries drawn disabled",
+	          uiCurrentScreen() == UiScreenId::EscConfig && !ctlEnabled(UI_FIX(EscCfgCtl::Commands)) &&
+	          !ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)));
 	tapId(UI_FIX(UI_BACK));
 	frames(1);
 	checkTrue("whose BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
+	frames(1);
+	checkTrue("a tap on SERVO opens the hub, SERVO TESTER drawn disabled",
+	          uiCurrentScreen() == UiScreenId::ServoHub && ctlPresent(HUB_ENTRY(0)) &&
+	          !ctlEnabled(HUB_ENTRY(0)));
+	tapId(HUB_ENTRY(0), IdExpect::Disabled);
+	frames(1);
+	checkTrue("a tap on SERVO TESTER opens nothing and claims nothing",
+	          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimHolder() == PinUser::Am32);
+	tapId(UI_FIX(UI_BACK));
+	frames(1);
 	pinClaimEnd(PinUser::Am32);
 	frames(2);
 	checkTrue("the claim ends: the pins are Free", pinClaimState() == ClaimState::Free);
-	checkTrue("and SERVO acts again", ctlEnabled(menuRow(&UI_SERVO)));
+	checkTrue("and ESC TESTER acts again", ctlEnabled(menuRow(&UI_TESTER)));
 	{
 		char cap[40];
 		snprintf(cap, sizeof(cap), "SIG GP%u  AUX GP%u  DSHOT%u", (unsigned)settings()->dshotPin,
@@ -4242,12 +4265,14 @@ static void testMenuDestinations() {
 		          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, C_DIM, C_BG, 1));
 	}
 
+	const UiControlId servoEntry = toolEntry(&UI_SERVO);
+	frames(1);
 	uint32_t whole = fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H);
-	tapId(menuRow(&UI_SERVO));
-	checkTrue("a tap on SERVO claims the pins for it", pinClaimHolder() == PinUser::Servo);
+	tapId(servoEntry);
+	checkTrue("a tap on SERVO TESTER claims the pins for it", pinClaimHolder() == PinUser::Servo);
 	frames(2);
 	checkTrue("and opens it", fakeRegionHash(0, UI_HDR_H, GFX_W, GFX_H - UI_HDR_H) != whole);
-	checkTrue("SERVO is the open screen", uiCurrentScreen() == UiScreenId::Servo);
+	checkTrue("SERVO TESTER is the open screen", uiCurrentScreen() == UiScreenId::Servo);
 	// Core1 binds the job, BACK asks it to let go, and core1 releases it.
 	core1JobPoll();
 	frames(1);
@@ -4259,12 +4284,18 @@ static void testMenuDestinations() {
 	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); k++) frames(1);
 	tapId(UI_FIX(ServoCtl::Restart));   // RESTART DSHOT
 	frames(2);
-	checkTrue("RESTART DSHOT: DShot back, MENU up",
-	          pinClaimState() == ClaimState::Free &&
-	          pixelIn(&UI_SERVO) == C_PANEL);
-	checkTrue("RESTART DSHOT leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(menuRow(&UI_ESC_CMD));
-	checkTrue("and MENU takes taps: ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
+	checkTrue("RESTART DSHOT: DShot back, SERVO up, its entry live again",
+	          pinClaimState() == ClaimState::Free && ctlEnabled(HUB_ENTRY(0)));
+	checkTrue("RESTART DSHOT leaves to SERVO, the hub", uiCurrentScreen() == UiScreenId::ServoHub);
+	tapId(UI_FIX(UI_BACK));
+	frames(1);
+	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(toolEntry(&UI_ESC_CMD));
+	checkTrue("and MENU takes taps: ESC CONFIG, then ESC COMMANDS opens",
+	          uiCurrentScreen() == UiScreenId::EscCmd);
+	tapId(UI_FIX(UI_BACK));
+	frames(2);
+	checkTrue("whose BACK returns to ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	openTester();

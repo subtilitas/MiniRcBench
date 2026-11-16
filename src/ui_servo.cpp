@@ -1555,7 +1555,3 @@ bool uiServoTick(const TouchState *t) {
 	return true;
 }
 
-const UiScreen UI_SERVO = {
-	UiScreenId::Servo, SERVO_UI_TITLE, PinUser::Servo, nullptr,
-	uiServoEnter, uiServoTick, nullptr, uiServoControls, nullptr, false,
-};

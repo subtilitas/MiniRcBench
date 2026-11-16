@@ -20,10 +20,11 @@
 #include "ui_screen.h"
 #include "ui_menu.h"
 #include "ui_registry.h"
-#include "ui_servo_prog.h"
+#include "ui_servo_hub.h"
+#include "ui_registry.h"
+#include "ui_hub.h"
 #include "ui_rx_signals.h"
 #include "ui_esc_config.h"
-#include "ui_tools.h"
 #include "ui_angle.h"
 #include "ui_sbus.h"
 #include "ui_sbus_out.h"
@@ -229,40 +230,136 @@ static inline void uiInitTester() {
 	openTester();
 }
 
+/** @brief Whether the open screen is one of the three hubs. */
+static inline bool onHub() {
+	UiScreenId id = uiCurrentScreen();
+	return id == UiScreenId::EscConfig || id == UiScreenId::ServoHub || id == UiScreenId::RxSignals;
+}
+
 /**
- * @brief The PROGRAMMER entry whose entry point is @p enter: its index in
- *        `UI_PROGRAMMERS`, or -1, failing the test, when none has it.
+ * @brief Drag the open hub until entry @p i's button is whole on screen, as
+ *        a finger reaches an entry below the fold of SERVO.
+ *
+ * One drag by what the entry lies outside the 258 px under the strip: the
+ * finger goes down, moves and lifts, three frames. The axis locks after
+ * 6 px, so the drag scrolls and opens nothing; a shorter way goes 20 px
+ * further first. Fails the test when the entry is not whole after it.
+ */
+static inline void revealEntry(int i) {
+	for (int attempt = 0; attempt < 4; attempt++) {
+		const UiRect r = uiHubEntryRect(i);
+		// Finger travel: up, negative, scrolls the hub down.
+		int dy = 0;
+		if (r.y + r.h > GFX_H) dy = GFX_H - (r.y + r.h);
+		else if (r.y < UI_HUB_ENTRY_Y) dy = UI_HUB_ENTRY_Y - r.y;
+		if (dy == 0) return;
+		if (dy < 0 && dy >= -6) dy -= 20;
+		if (dy > 0 && dy <= 6) dy += 20;
+		const int y0 = dy < 0 ? GFX_H - 10 : UI_HUB_ENTRY_Y + 10;
+		fakePress(GFX_W / 2, y0); UI_IDS_FRAMES(1);
+		fakeHold(GFX_W / 2, y0 + dy); UI_IDS_FRAMES(1);
+		fakeRelease(); UI_IDS_FRAMES(1);
+	}
+	char what[48];
+	snprintf(what, sizeof(what), "hub entry %d can be scrolled whole", i);
+	idFail(what);
+}
+
+/**
+ * @brief Drag the open hub to the end of its scroll range: one drag of
+ *        240 px up, more than SERVO's 146 px. A hub that fills the page
+ *        stays as it is.
+ */
+static inline void hubScrollEnd() {
+	fakePress(GFX_W / 2, GFX_H - 10); UI_IDS_FRAMES(1);
+	fakeHold(GFX_W / 2, GFX_H - 250); UI_IDS_FRAMES(1);
+	fakeRelease(); UI_IDS_FRAMES(1);
+}
+
+/**
+ * @brief Entry @p i of a hub: `HUB_ENTRY(i)`. With a hub open, the hub is
+ *        first dragged until that entry is whole (revealEntry()).
+ */
+static inline UiControlId hubEntry(int i) {
+	if (onHub()) revealEntry(i);
+	return HUB_ENTRY(i);
+}
+
+/**
+ * @brief The hub whose entry opens @p s, through @p enter when it is not
+ *        null: its screen to @p hubScreen and the entry's index to
+ *        @p index.
+ * @return false, failing the test, when no hub of MENU holds it.
+ */
+static inline bool hubOfTool(const UiScreen *s, void (*enter)(), const UiScreen **hubScreen, int *index) {
+	uint8_t n;
+	const UiMenuEntry *e = uiMenuEntries(&n);
+	for (uint8_t r = 0; r < n; r++) {
+		const UiHub *h = uiHubOf(e[r].screen);
+		for (int i = 0; h && i < h->count; i++) {
+			if (h->entries[i].screen != s || (enter && h->entries[i].enter != enter)) continue;
+			*hubScreen = e[r].screen;
+			*index = i;
+			return true;
+		}
+	}
+	idFail("a hub of MENU holds the tool");
+	return false;
+}
+
+/**
+ * @brief The hub entry that opens @p s, through @p enter when it is not
+ *        null. With MENU open, the hub's row is tapped first; with the hub
+ *        open, the entry is dragged whole. A tap on the control this
+ *        returns opens the tool, two taps from MENU
+ *        (docs/design/menu-c.md, slice 4).
+ */
+static inline UiControlId toolEntry(const UiScreen *s, void (*enter)() = nullptr) {
+	const UiScreen *hub = nullptr;
+	int i = 0;
+	if (!hubOfTool(s, enter, &hub, &i)) return HUB_ENTRY(0);
+	if (uiCurrentScreen() == UiScreenId::Menu) {
+		tapId(menuRow(hub));
+		UI_IDS_FRAMES(1);
+	}
+	return hubEntry(i);
+}
+
+/**
+ * @brief The SERVO entry whose entry point is @p enter: its index in
+ *        `UI_SERVO_ENTRIES`, or -1, failing the test, when none has it.
  */
 static inline int progEntryOf(void (*enter)()) {
-	for (int i = 0; i < UI_PROGRAMMERS_COUNT; i++)
-		if (UI_PROGRAMMERS[i].enter == enter) return i;
-	idFail("a PROGRAMMER entry runs the entry point");
+	for (int i = 0; i < UI_SERVO_ENTRIES_COUNT; i++)
+		if (UI_SERVO_ENTRIES[i].enter == enter) return i;
+	idFail("a SERVO entry runs the entry point");
 	return -1;
 }
 
 /**
  * @brief From the tester, through its MENU button back to MENU and MENU's
- *        SERVO PROGRAMMER row, to PROGRAMMER, the chooser.
+ *        SERVO row, to SERVO, the hub.
  */
 static inline void openChooser() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	UI_IDS_FRAMES(1);
-	tapId(menuRow(&UI_SERVO_PROG));
+	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
 	UI_IDS_FRAMES(1);
 }
 
 /**
- * @brief From the tester to the PROGRAMMER entry whose entry point is
- *        @p enter, tapped: the tool opens and claims SIG on the tap's frame.
+ * @brief From the tester to the SERVO entry whose entry point is @p enter,
+ *        dragged whole and tapped: the tool opens and claims SIG on the
+ *        tap's frame.
  */
 static inline void openProgrammer(void (*enter)()) {
 	openChooser();
 	int i = progEntryOf(enter);
-	if (i >= 0) tapId(PROG_ENTRY(i));
+	if (i >= 0) tapId(hubEntry(i));
 }
 
 /**
- * @brief From MENU, through its ESC CONFIG row and the chooser, to ESC
+ * @brief From MENU, through its ESC CONFIG row and the hub, to ESC
  *        SETTINGS: the entry's tap opens the screen, which claims SIG on
  *        that frame.
  */

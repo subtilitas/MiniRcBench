@@ -25,7 +25,7 @@
 
 /**
  * @defgroup menu_layout MENU layout
- * @brief Six 40 px rows fit under the strip; nine rows scroll 120 px.
+ * @brief Six 40 px rows fit under the strip: 252 px of the 258 px, no scroll.
  * @{
  */
 #define MENU_VIEW_Y0   UI_BODY_Y              /**< First row of the list, y 62. */
@@ -41,6 +41,7 @@
 
 static_assert(MENU_VIEW_Y0 >= UI_STRIP_Y + UI_STRIP_H, "MENU's list overlaps the strip");
 static_assert(6 * MENU_ROW_PITCH <= MENU_VIEW_H, "six MENU rows do not fit the viewport");
+static_assert(UI_MENU_MARK_X + 2 * 5 <= MENU_ROW_X + MENU_ROW_W, "the hub mark runs off its row");
 static_assert(MENU_ROW_H >= UI_LIST_TAP_MIN && MENU_ROW_PITCH > MENU_ROW_H,
               "a MENU row is lower than the list floor, or has no gap");
 static_assert(MENU_ROW_X + MENU_ROW_W < MENU_BAR_X, "MENU's rows run into the scroll bar");
@@ -119,6 +120,8 @@ static void drawRow(int i, int y, void *) {
 	gfxText(MENU_LABEL_X, y + 13, s_entries[i].label,
 	        lit ? C_PAPER : (acts ? C_TEXT : C_DIM), 2);
 	gfxText(MENU_STATUS_R - gfxTextW(st, 1), y + 16, st, col, 1);
+	// A row that opens a hub: one level down (menu-c.md decision 13).
+	if (uiHubOf(s_entries[i].screen)) gfxText(UI_MENU_MARK_X, y + 13, UI_MENU_MARK, acts ? C_CYAN : C_GRID, 2);
 }
 
 static uint32_t mix(uint32_t h, uint32_t v) { return (h ^ v) * 16777619u; }

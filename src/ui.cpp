@@ -16,12 +16,11 @@
 #include "ui_esc_cmd.h"
 #include "ui_esc_config.h"
 #include "ui_bridge.h"
-#include "ui_tools.h"
 #include "ui_angle.h"
 #include "ui_hitec.h"
 #include "ui_kst.h"
 #include "ui_servo.h"
-#include "ui_servo_prog.h"
+#include "ui_servo_hub.h"
 #include "ui_rx_signals.h"
 #include "ui_sbus.h"
 #include "ui_sbus_out.h"
@@ -1369,13 +1368,12 @@ static constexpr struct { UiScreenId id; const UiScreen *screen; } SCREENS[] = {
 	{ UiScreenId::Kst,      &UI_KST },
 	{ UiScreenId::Hitec,    &UI_HITEC },
 	{ UiScreenId::EscCmd,   &UI_ESC_CMD },
-	{ UiScreenId::ServoProg, &UI_SERVO_PROG },
+	{ UiScreenId::ServoHub,  &UI_SERVO_HUB_SCREEN },
 	{ UiScreenId::RxSignals, &UI_RX_SIGNALS },
 	{ UiScreenId::Sbus,      &UI_SBUS },
 	{ UiScreenId::SbusOut,   &UI_SBUS_OUT },
 	{ UiScreenId::EscConfig, &UI_ESC_CONFIG },
 	{ UiScreenId::Bridge,    &UI_BRIDGE },
-	{ UiScreenId::Tools,     &UI_TOOLS },
 	{ UiScreenId::Angle,     &UI_ANGLE },
 };
 /** @brief Each @ref UiScreenId has exactly one entry in `SCREENS`. */

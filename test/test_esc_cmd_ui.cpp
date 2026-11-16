@@ -1,6 +1,6 @@
 /**
  * @file test_esc_cmd_ui.cpp
- * @brief ESC COMMANDS through the real UI: its MENU row, its layout and
+ * @brief ESC COMMANDS through the real UI: its entry of ESC CONFIG, its layout and
  *        texts, every control and refusal, the holds at 999 and 1000 ms,
  *        BACK while a request waits, and the tester's 3D note.
  *
@@ -17,6 +17,7 @@
 #include "settings.h"
 #include "ui.h"
 #include "ui_esc_cmd.h"
+#include "ui_esc_config.h"
 #include "ui_menu.h"
 #include "ui_widgets.h"
 #include "ui_hold.h"
@@ -72,10 +73,10 @@ static void freshEc() {
 	ecFrames(2);
 }
 
-/** @brief MENU, then ESC COMMANDS. */
+/** @brief MENU, ESC CONFIG, the hub, then its entry ESC COMMANDS. */
 static void openEc() {
 	tapId(UI_FIX(TesterCtl::Menu));
-	tapId(menuRow(&UI_ESC_CMD));
+	tapId(toolEntry(&UI_ESC_CMD));
 	ecFrames(1);
 }
 
@@ -133,14 +134,16 @@ static bool drawnLive(EscCmdCtl c, bool live) {
 }
 
 static void testRowAndOpen() {
-	section("ESC COMMANDS: MENU's first row, open only while the claim is Free");
+	section("ESC COMMANDS: ESC CONFIG's first entry, open only while the claim is Free");
 	freshEc();
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
 	fakeRelease(); ecFrames(2);
 	checkTrue("armed on the tester", uiArmed() && fakeArmed());
 	openEc();
-	checkTrue("MENU's first row opens ESC COMMANDS", uiCurrentScreen() == UiScreenId::EscCmd);
+	checkTrue("ESC CONFIG's first entry opens ESC COMMANDS, over the hub",
+	          navIsTool(UiScreenId::EscConfig, UiScreenId::EscCmd) &&
+	          UI_ESC_CFG_ENTRIES[0].screen == &UI_ESC_CMD && uiMenuRowOf(&UI_ESC_CMD) == -1);
 	checkTrue("disarmed on the way in, the throttle 0",
 	          !uiArmed() && !fakeArmed() && uiThrottle() == 0);
 	checkTrue("it claims nothing: DShot runs on SIG", pinClaimState() == ClaimState::Free);
@@ -149,19 +152,20 @@ static void testRowAndOpen() {
 	          !UI_ESC_CMD.status);
 	checkControlTable("ESC COMMANDS");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK returns to ESC CONFIG, the hub that opened it", navIsHub(UiScreenId::EscConfig));
 
 	checkTrue("another claim holds the pins",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
 	ecFrames(2);
-	tapId(menuRow(&UI_ESC_CMD), IdExpect::Disabled);
-	checkTrue("then its row is gated and opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(EscCfgCtl::Commands), IdExpect::Disabled);
+	checkTrue("then its entry is gated and opens nothing", navIsHub(UiScreenId::EscConfig));
 	pinClaimEnd(PinUser::Am32);
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) ecFrames(1);
-	tapId(menuRow(&UI_ESC_CMD));
+	ecFrames(1);
+	tapId(UI_FIX(EscCfgCtl::Commands));
 	checkTrue("once Free it opens", uiCurrentScreen() == UiScreenId::EscCmd);
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 }
 
 static void testLayout() {
@@ -254,7 +258,7 @@ static void testLayout() {
 	ecFrames(1);
 	fakeDumpFrame("shot_esccmd.ppm");
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 }
 
 static void testReadiness() {
@@ -332,7 +336,7 @@ static void testReadiness() {
 	ecFrames(1);
 	checkTrue("Ready again: live", allControls(true) && lineIs(0, "SENT 1 (BEEP 1).", C_TEXT));
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 }
 
 static void testBeeps() {
@@ -379,7 +383,7 @@ static void testBeeps() {
 	          fakeBeepRequests() == before && idleShown());
 	escSetArmed(false);
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 }
 
 /** @brief Press hold @p c and keep it @p ms, in 25 ms frames and one of the remainder. */
@@ -438,7 +442,7 @@ static void testHolds() {
 		checkTrue("sent: BACK live again", ctlEnabled(UI_FIX(UI_BACK)));
 		fakeSetCmdState(EscCmdState::Idle, 0);
 		tapId(UI_FIX(UI_BACK));
-		tapId(menuRow(&UI_ESC_CMD));
+		tapId(toolEntry(&UI_ESC_CMD));
 	}
 	// An EDT enable's Busy, 11 ms within a hold, leaves the hold running.
 	{
@@ -480,7 +484,7 @@ static void testHolds() {
 	checkInt("a hold the readiness broke never fires on the same press", fakeBeepRequests(), before);
 	fakeRelease(); ecFrames(1);
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 }
 
 /** @brief Run a hold of @p c to its request and set the state core1 reports. */
@@ -543,7 +547,7 @@ static void testOutcomes() {
 	          lineIs(1, UI_ESC_CMD_3D_STAYS, C_TEXT) && blankFrom(2));
 	checkTrue("and the 3D note stays (decision 4)", esc3dNote());
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 	ecFrames(2);
 	checkTrue("the tester shows the note: " ESC_3D_TESTER_NOTE,
 	          fakeTextIs(10, 114, ESC_3D_TESTER_NOTE, C_AMBER, C_BG, 1));
@@ -567,7 +571,7 @@ static void testOutcomes() {
 	          lineIs(0, UI_ESC_CMD_SAVE_LOST, C_AMBER) && lineIs(1, UI_ESC_CMD_CHECK, C_AMBER) &&
 	          blankFrom(2));
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 }
 
 static void testBackCancels() {
@@ -576,9 +580,9 @@ static void testBackCancels() {
 	openEc();
 	int cancels = fakeCommandCancels();
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK leaves to MENU and cancels", uiCurrentScreen() == UiScreenId::Menu &&
+	checkTrue("BACK leaves to ESC CONFIG and cancels", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeCommandCancels() == cancels + 1);
-	tapId(menuRow(&UI_ESC_CMD));
+	tapId(toolEntry(&UI_ESC_CMD));
 	tapId(UI_FIX(EscCmdCtl::Beep2));
 	const UiRect back = ctlRect(UI_FIX(UI_BACK));
 	checkTrue("a beacon waits: BACK disabled, drawn as an outline", !ctlEnabled(UI_FIX(UI_BACK)) &&
@@ -594,7 +598,7 @@ static void testBackCancels() {
 	          px(back.x + 6, back.y + back.h - 5) == C_PANEL);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK cancels again", fakeCommandCancels() == cancels + 2);
-	openTester();
+	backToTester();
 	fakeSetCmdState(EscCmdState::Idle, 0);
 
 	// A press on BACK begun while 3D ON goes out, lifted on the first frame
@@ -618,7 +622,7 @@ static void testBackCancels() {
 	// The same with the press lifted on the frame of SaveLost.
 	esc3dSetNote(false);
 	tapId(UI_FIX(UI_BACK));
-	tapId(menuRow(&UI_ESC_CMD));
+	tapId(toolEntry(&UI_ESC_CMD));
 	holdFor(EscCmdCtl::On3d, UI_HOLD_MS);
 	fakeRelease();
 	ecFrames(1);
@@ -630,10 +634,10 @@ static void testBackCancels() {
 	checkTrue("lifted at SaveLost: the page stays, the note is set",
 	          uiCurrentScreen() == UiScreenId::EscCmd && esc3dNote());
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("a fresh tap on BACK then leaves", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("a fresh tap on BACK then leaves", uiCurrentScreen() == UiScreenId::EscConfig);
 
 	// A press on BEEP 2 begun while no ESC answered, lifted once Ready.
-	tapId(menuRow(&UI_ESC_CMD));
+	tapId(toolEntry(&UI_ESC_CMD));
 	fakeSetCmdReady(EscCmdReady::NoAnswer);
 	ecFrames(1);
 	int before = fakeBeepRequests();
@@ -651,7 +655,7 @@ static void testBackCancels() {
 	fakeSetCmdState(EscCmdState::Sent, 2);
 	ecFrames(1);
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	backToTester();
 	fakeSetCmdState(EscCmdState::Idle, 0);
 	esc3dSetNote(false);
 }

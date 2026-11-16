@@ -159,5 +159,8 @@ bool uiEscCmdTick(const TouchState *t);
  */
 uint8_t uiEscCmdControls(UiControl *out, uint8_t max);
 
-/** @brief ESC COMMANDS. */
-extern const UiScreen UI_ESC_CMD;
+/** @brief ESC COMMANDS, a constant: ESC CONFIG's table checks it at build time. */
+inline constexpr const UiScreen UI_ESC_CMD = {
+	UiScreenId::EscCmd, UI_ESC_CMD_TITLE, PinUser::None, nullptr,
+	uiEscCmdEnter, uiEscCmdTick, nullptr, uiEscCmdControls, nullptr, true,
+};

@@ -120,14 +120,13 @@ static void testMenuSettingsLog() {
 	// header's BACK with the table.
 	idFrames(1);
 	checkControlTable("MENU");
-	checkTrue("SERVO TESTER acts", ctlEnabled(menuRow(&UI_SERVO)));
-	checkTrue("SERVO PROGRAMMER acts", ctlEnabled(menuRow(&UI_SERVO_PROG)));
-	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("ESC TESTER acts", ctlEnabled(menuRow(&UI_TESTER)));
 	checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
-	checkTrue("ESC COMMANDS acts", ctlEnabled(menuRow(&UI_ESC_CMD)));
-	checkTrue("TOOLS acts", ctlEnabled(menuRow(&UI_TOOLS)));
+	checkTrue("SERVO acts", ctlEnabled(menuRow(&UI_SERVO_HUB_SCREEN)));
+	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("the six rows by id, no seventh", ctlPresent(UI_ROW(5, Row)) && !ctlPresent(UI_ROW(6, Row)));
 
-	tapId(menuRow(&UI_ESC_CMD));
+	tapId(toolEntry(&UI_ESC_CMD));
 	checkTrue("ESC COMMANDS opens", uiCurrentScreen() == UiScreenId::EscCmd);
 	idFrames(1);
 	checkControlTable("ESC COMMANDS");
@@ -147,6 +146,8 @@ static void testMenuSettingsLog() {
 		fakeSetCmdReady(EscCmdReady::Ready);
 		idFrames(1);
 	}
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: ESC CONFIG, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	idFrames(1);
@@ -194,9 +195,9 @@ static void testMenuSettingsLog() {
 	checkTrue("ESC CONFIG opens", uiCurrentScreen() == UiScreenId::EscConfig);
 	idFrames(1);
 	checkControlTable("ESC CONFIG");
-	checkTrue("its entries by id: ESC SETTINGS and USB BRIDGE act",
-	          ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) &&
-	          !ctlPresent(UI_FIX(3)));
+	checkTrue("its entries by id: ESC COMMANDS, ESC SETTINGS and USB BRIDGE act, no fourth",
+	          ctlEnabled(UI_FIX(EscCfgCtl::Commands)) && ctlEnabled(UI_FIX(EscCfgCtl::Settings)) &&
+	          ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && !ctlPresent(UI_FIX(4)));
 	fakeBridgeLineReset();
 	fakeCdcReset();
 	tapId(UI_FIX(EscCfgCtl::Bridge));
@@ -222,13 +223,14 @@ static void testMenuSettingsLog() {
 	idFrames(1);
 	checkTrue("Free, the console back", pinClaimState() == ClaimState::Free && fakeConsoleOn());
 
-	tapId(menuRow(&UI_TOOLS));
-	checkTrue("TOOLS opens", uiCurrentScreen() == UiScreenId::Tools);
+	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
+	checkTrue("SERVO opens", uiCurrentScreen() == UiScreenId::ServoHub);
 	idFrames(1);
-	checkControlTable("TOOLS");
-	checkTrue("its entry by id: ANGLE METER acts, no second",
-	          ctlEnabled(UI_FIX(ToolsCtl::Angle)) && !ctlPresent(UI_FIX(2)));
-	tapId(UI_FIX(ToolsCtl::Angle));
+	checkControlTable("SERVO");
+	checkTrue("its entries by id at scroll 0: three act, HITEC D SERIES, cut, is listed and does not, no fifth",
+	          ctlEnabled(HUB_ENTRY(0)) && ctlEnabled(HUB_ENTRY(1)) && ctlEnabled(HUB_ENTRY(2)) &&
+	          ctlPresent(HUB_ENTRY(3)) && !ctlEnabled(HUB_ENTRY(3)) && !ctlPresent(HUB_ENTRY(4)));
+	tapId(toolEntry(&UI_ANGLE));
 	idFrames(1);
 	checkTrue("ANGLE METER opens on its main view",
 	          uiCurrentScreen() == UiScreenId::Angle && uiAngleView() == AngleView::Main);
@@ -254,17 +256,13 @@ static void testMenuSettingsLog() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("SETUP's BACK: the main view", uiAngleView() == AngleView::Main);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: TOOLS, the opener", uiCurrentScreen() == UiScreenId::Tools);
-	tapId(UI_FIX(UI_BACK));  // to MENU
+	checkTrue("BACK: SERVO, the opener", uiCurrentScreen() == UiScreenId::ServoHub);
 	idFrames(1);
-
-	tapId(menuRow(&UI_SERVO_PROG));
-	checkTrue("PROGRAMMER opens", uiCurrentScreen() == UiScreenId::ServoProg);
-	idFrames(1);
-	checkControlTable("PROGRAMMER");
-	checkTrue("its entries by id: KST / CHASERVO and HITEC D SERIES act, HITEC CLASSIC without the switch does not",
-	          ctlEnabled(PROG_ENTRY(0)) && ctlEnabled(PROG_ENTRY(1)) && ctlPresent(PROG_ENTRY(2)) &&
-	          !ctlEnabled(PROG_ENTRY(2)) && !ctlPresent(PROG_ENTRY(3)));
+	revealEntry(4);
+	checkControlTable("SERVO, scrolled to its end");
+	checkTrue("scrolled to its end: KST / CHASERVO and HITEC D SERIES act, HITEC CLASSIC without the switch does not",
+	          !ctlPresent(HUB_ENTRY(0)) && ctlEnabled(HUB_ENTRY(2)) && ctlEnabled(HUB_ENTRY(3)) &&
+	          ctlPresent(HUB_ENTRY(4)) && !ctlEnabled(HUB_ENTRY(4)) && !ctlPresent(HUB_ENTRY(5)));
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	idFrames(1);
@@ -325,7 +323,7 @@ static void testServo() {
 	section("Control ids: SERVO, SET and the leave page");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
-	tapId(menuRow(&UI_SERVO));
+	tapId(toolEntry(&UI_SERVO));
 	checkTrue("SERVO opens", uiCurrentScreen() == UiScreenId::Servo);
 	idFrames(20);
 	checkControlTable("SERVO, SAFE");
@@ -362,7 +360,9 @@ static void testServo() {
 	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
 	checkControlTable("the leave page");
 	tapId(UI_FIX(ServoCtl::Restart));
-	checkTrue("SERVO leaves to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("SERVO TESTER leaves to SERVO, the hub that opened it", uiCurrentScreen() == UiScreenId::ServoHub);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("whose BACK reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 }
 
 /**
@@ -476,7 +476,7 @@ static void testLayoutTable() {
 	fakeMscSet(MscState::Idle, 0); idFrames(1);
 	tapId(UI_FIX(UI_BACK));
 
-	tapId(menuRow(&UI_SERVO));
+	tapId(toolEntry(&UI_SERVO));
 	idFrames(20);
 	tapId(UI_FIX(ServoCtl::Set));
 	idFrames(1);
@@ -506,9 +506,9 @@ static void testLayoutTable() {
 	tapId(UI_FIX(UI_BACK));
 	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Restart)); i++) idFrames(1);
 	tapId(UI_FIX(ServoCtl::Restart));
-	checkTrue("back at MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("back at SERVO, the hub", uiCurrentScreen() == UiScreenId::ServoHub);
 	for (int i = 0; i < 200 && pinClaimState() != ClaimState::Free; i++) idFrames(1);
-	openTester();
+	checkTrue("then MENU and the tester", backToTester());
 }
 
 void runIdTests() {
