@@ -1059,6 +1059,42 @@ static void testStartStepWayOut() {
 	tapId(UI_FIX(UI_BACK));
 	lifeFrames(4);
 
+	// A cue that clears under the step, by an eRPM frame newer than the
+	// answer: the step stays latched, DShot stays parked until START DSHOT.
+	cueAm32();
+	const int b3 = fakeRebuildCount(), f3 = fakeFrameCount();
+	tapId(menuRow(&UI_TESTER));
+	lifeFrame(1);
+	{
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.lastRpmMs = millis();
+		fakeSetTelemetry(&tel);
+	}
+	lifeFrames(8);
+	checkTrue("the cue cleared under the step: the step stays, parked, no bind, no frame",
+	          !uiRunCue(millis()) && uiStartStepShown() && !uiDshotWanted() && escTaskParked() &&
+	          fakeRebuildCount() == b3 && fakeFrameCount() == f3);
+	{
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		fakeSetTelemetry(&tel);
+	}
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(4);
+
+	// A cue that rises under a running tester, which no tool can set while
+	// the tester shows: the rule reads the cue too, and DShot parks.
+	openTesterBound();
+	checkTrue("no cue: the tester runs", escTaskRunning() && !uiStartStepShown());
+	cueBridge();
+	lifeFrames(4);
+	checkTrue("a cue that rises under the tester: not wanted, parked",
+	          !uiDshotWanted() && escTaskParked());
+	usbBridgeRunCueClear();
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(4);
+
 	// SETUP over a tester whose step was not done: parked.
 	const UiScreenId stack[3] = { UiScreenId::Menu, UiScreenId::Tester, UiScreenId::Settings };
 	checkTrue("uiDshotRule(): SETUP over the tester, the cue standing, START not tapped: false",

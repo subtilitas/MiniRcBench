@@ -1132,7 +1132,40 @@ in `test/test_bridge_ui.cpp` `testCueAtClaimEnd()`, with `framesNoJob()`,
 `gen_blackbox_log.cpp`, not `sdLogTick()`, so it does not see the column's
 freshness; it passes unchanged. #49's cases pass unchanged.
 
-MUTATIONS_TABLE
+Mutations, each run against the whole suite (lognum for the last two) and
+restored:
+
+| Mutation | Result |
+|---|---|
+| The start text kept past 1500 ms (`dshotStarting()` true once bound) | 4 checks fail, the first "1500 ms: NO ESC ANSWERS ON SIG GP0." |
+| START DSHOT live at once | 29 checks fail, the first "999 ms on, START DSHOT disabled and drawn so, parked, no bind, no frame" |
+| START DSHOT leaving the bridge's cue set | 8 checks fail, the first "START DSHOT ends the step and clears every cue" |
+| START DSHOT leaving ESC SETTINGS' cue set | 15 checks fail, the same first |
+| START DSHOT leaving S.BUS OUTPUT's cue set | 1 check fails: "START DSHOT: the cue gone, the EFM8 mark kept, DShot binds once" |
+| The settle clearing whatever the wire received | 2 checks fail: case (c), "the cue stands", and its step |
+| The settle never clearing | 11 checks fail, among them cases (a), (b), (e), (f) and (g) |
+| The settle clearing only with `bridgeWireBinds()` unmoved | 5 checks fail, among them cases (b) and (e) |
+| `back()` not calling the settle | 11 checks fail, as the settle never clearing |
+| The counts' difference against a stamp at `usbBridgeRunCueSet()` | 2 checks fail: case (c) |
+| The counts read before `bridgeWireBinds()` moves | 6 checks fail, among them cases (e), (f) and (g) |
+| `bridgeJobBind()` zeroing the counts only after a successful open, `bridgeWireBinds()` still raised at every bind | 3 checks fail, among them case (e)'s "a failed bind: the counts zeroed" |
+| `bridgeWireBinds()` raised only after a successful open | 2 checks fail: case (e) |
+| MENU drawn disabled on the start step | 1 check fails: "MENU live from the first frame, drawn cyan" |
+| MENU's tap on the step clearing the cue | 16 checks fail, among them "MENU: MENU, parked, no bind, no frame, the cue kept" |
+| ESC COMMANDS' BACK on the step clearing the cue | 2 checks fail, the first "BACK: ESC PROGRAM, parked, no bind, no frame, the cue kept" |
+| The readouts' targets left live on the step | 23 checks fail, among them the `TGT_MAX` case |
+| HOLD TO ARM and the track left live on the step (`handleMainTouch()` on the step) | 23 checks fail, among them the swipe case |
+| The track drawn on the step | 5 checks fail, among them "the track's rows, y 260 to 281, hold only the background" |
+| START DSHOT's lift fed to the readouts on its frame | 18 checks fail, among them "past 1000 ms the same tap is START DSHOT's: the tester, no SETUP" |
+| ESC COMMANDS' holds drawn on the step | 5 checks fail, among them the 3D ON case's rows |
+| ESC COMMANDS' holds read on the step | 1 check fails: "a 1500 ms hold on 3D ON's place: no command, no bind, the step stays" |
+| `uiDshotRule()` true for SETUP over the tester whatever the step | 2 checks fail, among them the rule case's "with the cue held (D3): false" |
+| `uiDshotWanted()` not reading the step's latch | none at first: the cue stands throughout the step in every case. A case added: an eRPM frame clears the cue under the step; then 1 check fails, "the cue cleared under the step: the step stays, parked, no bind, no frame" |
+| `uiDshotWanted()` not reading the cue, the latch alone | none at first: no tool sets a cue while the tester shows. A case added: a cue set under a running tester; then 1 check fails, "a cue that rises under the tester: not wanted, parked" |
+| The tester's open not latching the step | 40 checks fail |
+| ESC COMMANDS' open not latching the step | 29 checks fail |
+| The eRPM logged without the freshness check (`sdLogErpmField()`) | 3 checks of lognum fail, the first "500 ms old: 0" |
+| `sdLogTick()` writing the raw eRPM | 1 check of lognum fails: "sdLogTick() writes the column through sdLogErpmField()" |
 
 ### D4: SETUP's texts and the comments (Opus)
 
