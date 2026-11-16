@@ -3322,6 +3322,8 @@ static void testTouchLossStops() {
 	checkTrue("TOUCH NOT ANSWERING in amber on the dial band",
 	          fakeTextCentredIs(64, UI_TOUCH_LOST_TEXT, C_AMBER, C_BG, 1));
 	checkTrue("HOLD TO START is drawn disabled", fillOf(ctlRect(UI_FIX(ServoCtl::Start))) == C_BG);
+	checkTrue("the run ended: THE SERVO IS STOPPED.",
+	          fakeTextCentredIs(76, SERVO_UI_TOUCH_LOST_2, C_DIM, C_BG, 1));
 
 	fakeTouchAnswers(true);
 	uiFrames(2);
@@ -4990,7 +4992,7 @@ static void testSupplyScreenFaults() {
 	senseFrames(ina, 2);
 	checkTrue("100 ms: STOP's path: the enable pin low, level 0, no trip, the touch note",
 	          !fakePin(28).high && fakePin(SIG).level == 0 && !s_st.running && !s_st.tripped &&
-	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, "THE SERVO IS STOPPED.", C_DIM));
+	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_LOST_2, C_DIM));
 	checkTrue("HOLD TO START refused while silent", !ctlEnabled(UI_FIX(ServoCtl::Start)));
 	fakeTouchAnswers(true);
 	senseFrames(ina, 2);
@@ -5062,9 +5064,9 @@ static void testSupplyScreenFaults() {
 	s_st.tripped = false;
 	s_full = true;
 	drawDial();
-	checkTrue("four failed reads: lost on core0 too, its note first",
+	checkTrue("four failed reads: lost on core0 too, its note first; no run ended: START waits",
 	          s_st.startBlock == ServoStartBlock::TouchSilent && uiTouchLost() &&
-	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, "THE SERVO IS STOPPED.", C_DIM));
+	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
 	fakeTouchAnswers(true);
 	senseFrames(ina, 2);
 
@@ -5462,6 +5464,48 @@ static void testLogStartOrder() {
 		uiFrames(2);
 		leaveServo();
 	}
+	// The touch lost while the Start waits: the touch note over the log's,
+	// no Start, the log told to end. Three failed reads on record and 100 ms
+	// make the open's frame the 4th failed read, lost.
+	{
+		freshUi();
+		settings()->servoSupply = 0;
+		servoSupplyConfigure(0);
+		ServoLogStatus lg = {};
+		lg.active = true;
+		fakeServoLogSet(&lg);
+		fakeServoLogOpen(true, 800);
+		openServo();
+		uiFrames(2);
+		int x, y;
+		ctlCentre(UI_FIX(ServoCtl::Start), &x, &y);
+		pressId(UI_FIX(ServoCtl::Start));
+		for (int i = 0; i < 80 && s_startStep == StartStep::None; i++) { fakeHold(x, y); uiFrames(1); }
+		fakeRelease();
+		fakeTouchAnswers(false);
+		fakeTouchFails(3);
+		fakeAdvance(100);
+		uiFrames(1);
+		checkTrue("lost in the open's frame: opened, the touch note over the log's",
+		          s_startStep == StartStep::Open && uiTouchLost() &&
+		          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+		ServoStatus st;
+		servoJobStatus(&st);
+		uint16_t ack = st.ackSeq;
+		uiFrames(1);
+		core1();
+		servoJobStatus(&st);
+		FakeServoLogCalls c = fakeServoLogCalls();
+		checkTrue("the Start's frame: no Start, the log given the last seq",
+		          uiTouchLost() && !st.running && c.follows == 1 && c.seq == ack &&
+		          s_startStep == StartStep::None);
+		checkTrue("the touch note stays, START waits",
+		          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+		fakeTouchAnswers(true);
+		uiFrames(2);
+		leaveServo();
+	}
+
 	// BACK between the open and the Start: no Start, the log told to end.
 	freshUi();
 	settings()->servoSupply = 0;

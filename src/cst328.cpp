@@ -125,6 +125,13 @@ static bool rdRegs(uint16_t reg, uint8_t *buf, uint8_t n) {
 	return rc == n;
 }
 
+/**
+ * @brief How many polls in a row the controller has failed to answer,
+ *        held at 255; touchInit() starts it at 0. touchFailedReads()
+ *        reports it.
+ */
+static uint8_t s_pollFails = 0;
+
 bool touchInit() {
 	gpio_init(g_board->tpInt);
 	gpio_set_dir(g_board->tpInt, GPIO_IN);
@@ -165,19 +172,15 @@ bool touchInit() {
 	// refusing to poll would turn a cosmetic problem into a dead panel.
 	wrCmd(REG_MODE_NORMAL);
 
+	// A new record: no answer and no failed read yet.
 	s_answered = false;
+	s_pollFails = 0;
 	if (ok) noteAnswer();
 	return ok;
 }
 
 /** @brief Consecutive failed polls before a glitch counts as a release. */
 #define POLL_FAIL_LIMIT 2
-
-/**
- * @brief How many polls in a row the controller has failed to answer,
- *        held at 255. touchFailedReads() reports it.
- */
-static uint8_t s_pollFails = 0;
 
 uint8_t touchFailedReads() { return s_pollFails; }
 

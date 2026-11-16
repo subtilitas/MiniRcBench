@@ -1178,9 +1178,10 @@ static void handleMainTouch() {
 			// cannot.
 			if (s_touch.pressed) testerStop();
 		} else if (!s_armLive || s_touchLost) {
-			// A touch that does not answer refuses arming. The driver reports
-			// the finger up after two failed reads, before it counts as lost;
-			// this keeps a press that a driver still reports then from arming.
+			// A touch that does not answer refuses arming. A backstop: the
+			// real driver reports the finger up from the 2nd failed read,
+			// before the touch counts as lost at the 4th, so no press
+			// reaches here then; this refuses one a driver still reports.
 			s_armPressing = false;
 		} else {
 			if (!s_armPressing) {

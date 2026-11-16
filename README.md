@@ -2075,8 +2075,10 @@ The servo tester has no idle stop, so a running servo, sweeping or holding a
 position, has STOP and BACK as its only stops, both by touch. When the touch
 controller does not answer (`uiTouchLost()`, the rule under "Touch"), the
 screen sends the command STOP sends, on the main view and on SET, and the dial
-reads `TOUCH NOT ANSWERING` and `THE SERVO IS STOPPED.` until it answers; HOLD
-TO START is disabled meanwhile.
+reads `TOUCH NOT ANSWERING` until it answers, over `THE SERVO IS STOPPED.`
+when that stop ended a run and over `HOLD TO START WORKS ONCE IT ANSWERS.`
+otherwise; HOLD TO START is disabled meanwhile. The touch note comes before
+every other note of the dial, the log's included.
 
 The strip's caption names the pin by role and number, the frame rate and
 the travel, `SIG GP0  50 HZ  1000-2000 US`, and `SIG+AUX  50 HZ  1000-2000 US`
@@ -2251,6 +2253,8 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   and the frame after it sends the Start, with the heartbeat stamped and touch
   read afresh, so core1 takes it however long the open held core0. Without a
   sensor or a card the Start goes out in the frame of the hold, as before.
+  With the pins gone or the touch controller not answering in the Start's
+  frame no Start goes out, and the log ends at once.
 - The open reserves 4 MiB in one run of the card (`SERVO_LOG_PREALLOC_BYTES`,
   about an hour of rows), or 64 KiB on a card without that run free; less is `NO
   LOG: NO 64 KIB IN ONE PIECE`. The free count from the card's FSINFO comes

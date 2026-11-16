@@ -119,8 +119,8 @@ bool touchAnswered();
 uint32_t touchAnsweredMs();
 
 /**
- * @brief How many finger reads in a row have failed: 0 after a read that
- *        completes, held at 255.
+ * @brief How many finger reads in a row have failed: 0 after touchInit()
+ *        and after a read that completes, held at 255.
  *
  * With touchAnsweredMs() it tells a controller that stopped answering from a
  * core0 stall: after a stall of any length the next read is one failure, not

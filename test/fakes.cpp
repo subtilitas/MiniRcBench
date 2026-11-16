@@ -719,6 +719,8 @@ void fakeTouchStamp() { s_touchAnsweredMs = millis(); }
 
 void fakeTouchAnswers(bool on) { s_touchAnswers = on; }
 
+void fakeTouchFails(uint8_t n) { s_touchFails = n; }
+
 uint8_t touchFailedReads() { return s_touchFails; }
 
 void touchPoll(TouchState *t) {

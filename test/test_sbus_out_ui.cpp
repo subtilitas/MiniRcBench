@@ -762,8 +762,26 @@ static void testTouchLoss() {
 	          leftIs(SBOUT_UI_NOTE2_Y, "NEVER TO AN ESC. PROPS OFF.", UI_COL_WARN));
 	checkTrue("HOLD TO START drawn disabled while lost", !ctlEnabled(UI_FIX(SbusOutCtl::Start)));
 	fakeDumpFrame("shot_sbus_out_touch_lost.ppm");
-	// The fake still reports the finger: a hold reaches the gate.
-	checkTrue("HOLD TO START held while lost: no frames", !holdStart() && !jobSt().running);
+	// The fake still reports the finger: a hold reaches the gate. Every
+	// frame of it: no Start sent, no byte on the line.
+	{
+		int x, y;
+		ctlCentre(UI_FIX(SbusOutCtl::Start), &x, &y);
+		const int tx0 = fakeUartTxCount();
+		bool noStart = true;
+		fakePress(x, y);
+		tick(25);
+		for (int k = 0; k < 44; k++) {
+			noStart = noStart && held().kind != SbusOutCmdKind::Start &&
+			          fakeUartTxCount() == tx0 && !jobSt().running;
+			if (k < 40) fakeHold(x, y);
+			else if (k == 40) fakeRelease();
+			tick(25);
+		}
+		checkTrue("HOLD TO START held 1.1 s while lost: no Start, no byte, no frames",
+		          noStart && held().kind == SbusOutCmdKind::Safe &&
+		          fakeUartTxCount() == tx0 && !jobSt().running);
+	}
 
 	fakeTouchAnswers(true);
 	soFrames(1);

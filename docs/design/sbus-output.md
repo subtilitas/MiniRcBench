@@ -636,7 +636,7 @@ y   0 +------------------------------------------+
 |---|---|---|
 | Strip caption | 8, 44, 137, 7 | `SIG GP0  100 KBAUD  8E2`, 23 characters, 137 px, `C_DIM`; `AUX GP0  100 KBAUD  8E2` when GP0 is AUX. With `  14 MS` it would be 30 characters and end at x 186, past the chip, so by menu-b.md decision 14 the period goes, the item at the right; it is fixed, and the README states it |
 | Strip chip | 179, 42, 53, 12 at its widest | `uiChip()`: `SAFE` on `UI_COL_SAFE`, `RUNNING` on `UI_COL_ON`, `STALLED` on `UI_COL_ALERT`; at most 7 characters, 41 px, plus 6 px each side, right edge x 231. The caption ends at x 144, 34 px clear. Drawn only while the job runs |
-| Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` for the heartbeat, `UI_COL_WARN` for the idle rule and a refused frame |
+| Note 1 | 8, 62, at most 221, 7 | SAFE: `GP0 GOES TO A FLIGHT CONTROLLER.`, 32 characters, 191 px, `UI_COL_WARN`. RUNNING: `THROTTLE CH3: 1000 TO 1200 US (20%).`, at most 37 characters, 221 px at 100 %, `C_TEXT`. After a stop: the reason, `UI_COL_ALERT` for the heartbeat, `UI_COL_WARN` for the idle rule, a refused frame and a touch that does not answer |
 | Note 2 | 8, 70, at most 215, 7 | SAFE: `NEVER TO AN ESC. PROPS OFF.`, 27 characters, 161 px, `UI_COL_WARN`. RUNNING: `CH17 OFF  CH18 OFF  FS OFF  LOST OFF`, at most 36 characters, 215 px, `C_TEXT`, `UI_COL_WARN` while a flag is on. After a stop: `NEVER TO AN ESC. PROPS OFF.`, `UI_COL_WARN`, as while SAFE, ending at x 168 |
 | Row i, i = 0 to 7 | 8, 80 + 25i, 224, 22 | label, slider, value; 22 px is `UI_TAP_MIN` |
 | Label | 8, y + 8, at most 41, 7 | `CH1` to `CH16`; `CH3 THR` on the throttle channel, 7 characters, 41 px, `UI_COL_WARN` |
@@ -671,6 +671,7 @@ next START.
 | Stopped by the heartbeat | `STALLED` | `STOPPED: SCREEN STALLED` (23 characters, 137 px, as SERVO TESTER's) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
 | Stopped by the idle rule | `SAFE` | `STOPPED: NO TOUCH FOR 30 S.` (27 characters, 161 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
 | Encoder refused | `SAFE` | `STOPPED: FRAME REFUSED.` (23 characters, 137 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled |
+| Stopped by a touch that does not answer | `SAFE` | `STOPPED: TOUCH DID NOT ANSWER` (29 characters, 173 px) and `NEVER TO AN ESC. PROPS OFF.` | disabled, the last values |
 
 ### SET
 
@@ -810,7 +811,7 @@ it, so the warnings stay wherever START can be reached:
 | Where | Text |
 |---|---|
 | Main view, SAFE | `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` |
-| Main view, after a stop | the stop's reason, then `NEVER TO AN ESC. PROPS OFF.`: HOLD TO START is live and no probe runs before it |
+| Main view, after a stop | the stop's reason, then `NEVER TO AN ESC. PROPS OFF.`: HOLD TO START is live, except while the touch does not answer, and no probe runs before it |
 | SET, SAFE | `NEVER TO AN ESC. PROPS OFF.` in the footer |
 | RX SIGNALS, under OUTPUT | `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` |
 

@@ -171,13 +171,20 @@ void fakeRelease();
 /**
  * @brief Whether the fake touch controller answers. While it does not,
  *        touchAnsweredMs() keeps the last answer's time and
- *        touchFailedReads() counts; touchInit() returns @p on and, with
+ *        touchFailedReads() counts; touchInit() starts the count at 0, as
+ *        the driver does, returns @p on and, with
  *        false, leaves no answer on record (touchAnswered()). The scripted
  *        finger is still reported, presses included, so the refusals of a
  *        lost touch are tested against a press that reaches them.
  * @param on Reads complete.
  */
 void fakeTouchAnswers(bool on);
+
+/**
+ * @brief Set touchFailedReads() to @p n, for a test that needs the touch lost
+ *        within fewer frames than the 4 failed reads take.
+ */
+void fakeTouchFails(uint8_t n);
 
 /**
  * @brief Stamp touchAnsweredMs() at the clock now, as a completed read

@@ -233,6 +233,8 @@ enum class StartStep : uint8_t { None, Note, Open };
 static StartStep    s_startStep = StartStep::None;
 static UiLeave      s_leave;               /**< The leave page: its phase and its presses. */
 static bool         s_needLift = false;    /**< A STOP press is down; it starts and taps nothing. */
+/** @brief The touch-loss stop ended a run, and the touch has not answered since. */
+static bool         s_touchStop = false;
 static ServoStatus  s_st;                  /**< This frame's status from core1. */
 static const TouchState *s_t = nullptr;    /**< This frame's touch. */
 static bool         s_full = true;         /**< Repaint every region this frame. */
@@ -543,7 +545,9 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
  *        a refused START, or what START does.
  *
  * First wins: a touch controller that does not answer (uiTouchLost()),
- * which stops the servo and refuses START; a trip, by its cause (the
+ * which stops the servo and refuses START, its second line
+ * `THE SERVO IS STOPPED.` after it ended a run and HOLD TO START's wait
+ * otherwise; a log being prepared; a trip, by its cause (the
  * heartbeat, a silent touch controller, a stuck bus, a cut of
  * supply_guard.h); with the switch, a
  * supply that did not come
@@ -554,16 +558,16 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
 static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	unsigned sig = gpioOf(PIN_SIG);
 	*ca = *cb = C_DIM;
-	if (s_startStep != StartStep::None) {
-		snprintf(a, n, SERVO_UI_LOG_PREP_1);
-		snprintf(b, n, SERVO_UI_LOG_PREP_2);
-		return;
-	}
 	if (uiTouchLost()) {
 		// The tester's note, and why the servo stopped or does not start.
 		snprintf(a, n, "%s", UI_TOUCH_LOST_TEXT);
-		snprintf(b, n, "THE SERVO IS STOPPED.");
+		snprintf(b, n, "%s", s_touchStop ? SERVO_UI_TOUCH_LOST_2 : SERVO_UI_TOUCH_WAIT_2);
 		*ca = C_AMBER;
+		return;
+	}
+	if (s_startStep != StartStep::None) {
+		snprintf(a, n, SERVO_UI_LOG_PREP_1);
+		snprintf(b, n, SERVO_UI_LOG_PREP_2);
 		return;
 	}
 	if (s_st.tripped) {
@@ -885,8 +889,8 @@ static void position(uint16_t cmd, bool step = false) { send(ServoCmdKind::Posit
  *        touch: the open in the frame after the note was drawn, the Start in
  *        the frame after the open. Core1 judges the Start as any other, by
  *        the heartbeat and the touch stamp of this frame. With the pins gone
- *        no Start is sent, and the log is told the job's last seq, so it
- *        ends at once.
+ *        or the touch controller not answering (uiTouchLost()) no Start is
+ *        sent, and the log is told the job's last seq, so it ends at once.
  */
 static void startSteps() {
 	if (s_startStep == StartStep::Note) {
@@ -896,7 +900,7 @@ static void startSteps() {
 	}
 	if (s_startStep != StartStep::Open) return;
 	s_startStep = StartStep::None;
-	servoLogFollow(live() ? send(ServoCmdKind::Start) : s_st.ackSeq);
+	servoLogFollow(live() && !uiTouchLost() ? send(ServoCmdKind::Start) : s_st.ackSeq);
 }
 
 /** @brief BACK while a Start waits: no Start, and a log already open ends. */
@@ -1432,6 +1436,7 @@ void uiServoEnter() {
 	uiHoldReset(&s_hold);
 	s_startStep = StartStep::None;
 	s_needLift = false;
+	s_touchStop = false;
 	s_sel = -1;
 	uiListInit(&s_list, SET_VIEW, SET_ROW_PITCH, SET_ROWS);
 	uiListSetBody(&s_list, SET_ROW_H, UI_LIST_TAP_MIN);
@@ -1453,6 +1458,9 @@ bool uiServoTick(const TouchState *t) {
 		send(ServoCmdKind::Safe);
 		s_dragging = false;
 		s_needLift = true;
+		s_touchStop = true;
+	} else if (!uiTouchLost()) {
+		s_touchStop = false;
 	}
 	if (s_owed) applyProfile();
 	if (s_claimed) pinClaimPoll();

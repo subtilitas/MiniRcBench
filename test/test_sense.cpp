@@ -639,7 +639,7 @@ static void testTouchBeside() {
  * @brief The touch driver's answer record against the CST328 model: a probe
  *        that reads another ID records none, a finger read that completes
  *        records one, a NACKing controller records none, and touchInit()
- *        starts the record again.
+ *        starts the record again, its failed reads at 0.
  */
 static void testTouchAnswerRecord() {
 	section("Touch: the driver's answer record");
@@ -670,6 +670,11 @@ static void testTouchAnswerRecord() {
 	cst::touchPoll(&ts);
 	checkTrue("a NACKed read records none", !cst::touchAnswered());
 	checkInt("the stamp stays at the last answer", cst::touchAnsweredMs(), found);
+	cst::touchPoll(&ts);
+	cst::touchPoll(&ts);
+	checkInt("three NACKed reads counted", cst::touchFailedReads(), 3);
+	checkTrue("no part again: touchInit() fails", !cst::touchInit());
+	checkInt("and starts the failed reads at 0", cst::touchFailedReads(), 0);
 	fakeI2cReset();
 }
 
