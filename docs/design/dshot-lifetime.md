@@ -1263,7 +1263,7 @@ Mutations, each run against the whole suite and restored:
 |---|---|
 | The pin note against the pin of the last load: shown while SIG is off `settingsBootDshotPin()`, naming `settings()->dshotPin` | 13 checks fail, among them the over-tester case's "the pin note names GP0, the pin the pump runs on, the pin of the last load" and "from MENU after a SIG PIN change: no pin note" |
 | LINK's value drawn while parked (`off` always false) | 5 checks fail, among them "LINK reads OFF in C_DIM, not the rate the telemetry holds" |
-| The pin note whatever DShot does (the running check dropped) | 77 checks fail, among them "from MENU after a SIG PIN change: no pin note" |
+| The pin note whatever DShot does (the running check dropped) | 79 checks fail, among them "from MENU after a SIG PIN change: no pin note" |
 | LINK's repaint cache not keeping `OFF` | none at first: every case parked with a change on the note's line. A case added, SETUP within the drain; then 1 check fails, "parked: LINK reads OFF, no pin note" |
 
 ### D5: the documents (Sonnet)
