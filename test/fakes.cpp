@@ -974,8 +974,9 @@ void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 // The sequence around them -- pumpBind(), padsTo(), pumpTeardown() and the
 // order in which each reports -- is a copy of escTaskPoll()'s, which is
 // compiled only; testPollSource() in test_claim.cpp checks the shipped one
-// for the steps this copy relies on. The rest of escTaskPoll() is not modelled: no PIO, so the teardown's and
-// the bind's own pad writes are absent; no reply is read or folded into the
+// for the steps this copy relies on. The rest of escTaskPoll() is not
+// modelled: no PIO, so the teardown's and the bind's own pad writes are
+// absent; no reply is read or folded into the
 // telemetry, there is no 1 ms frame timing (one pass sends one frame,
 // however much time has passed), and escPumpSlot() is given uiAlive true, no
 // command request, no reply and no KISS receiver. Core1 is not a thread here:

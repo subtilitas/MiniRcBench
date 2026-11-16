@@ -1424,7 +1424,7 @@ static void backToRun() {
 /** @brief What the GPIO hook saw while the pump wrote the pads. */
 struct PadWatch {
 	int writes;       /**< GPIO writes. */
-	int e9;           /**< A written pad with the pull-down on and the buffer on. */
+	int e9;           /**< A written pad, pull-down on, buffer on. */
 	int parkedNotLow; /**< escTaskParked() true with SIG not driven low. */
 	int released;     /**< escTaskSuspended() true while the pump wrote a pad. */
 	int sigHigh;      /**< SIG an output with the value 1. */
@@ -1854,7 +1854,7 @@ static std::string sourceText(const char *path) {
 	return s;
 }
 
-/** @brief The body of the function defined by @p head, to its `}` at a line's start. */
+/** @brief The body of the function @p head defines, to its closing `}`. */
 static std::string bodyOf(const std::string &code, const char *head) {
 	size_t a = code.find(head);
 	if (a == std::string::npos) return std::string();

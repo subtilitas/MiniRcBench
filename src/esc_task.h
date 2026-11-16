@@ -1603,8 +1603,8 @@ uint32_t escTaskBoundMs();
  * (escHandoverStep()). In Park the pins park again on the new wiring: the old
  * SIG becomes an input with the pull-down on and the input buffer off, and
  * the new SIG is driven low (escParkPlan()); a GPIO whose state does not
- * change is not written, so SIG on unchanged pins stays driven low. In Release the new wiring
- * waits for the next mode. Forces a disarm, because the ESC on the old pin
+ * change is not written, so SIG on unchanged pins stays driven low. In
+ * Release the new wiring waits for the next mode. Forces a disarm, because the ESC on the old pin
  * stops hearing frames the moment it is released.
  *
  * Safe to call with unchanged values; it is a no-op if nothing differs, so the
