@@ -597,6 +597,9 @@ every 1000 ms; or `NOT A QMI8658: ID 0X00.` (23, 137 px) with the ID read.
 
 ### SETUP
 
+Revised by [menu-c.md](menu-c.md#decisions) decision 17, pending the owner's
+review: the view reads ANGLE SET and its button SET. Not built.
+
 Header `ANGLE SETUP`, 11 characters, 130 px. Rows as SETTINGS draws them
 (`src/ui_settings.cpp`): 44 px rows at a 50 px pitch; toggles 94 px wide
 from x 138, a toggle's text at most 86 px; a toggle row with a caption has
@@ -1219,6 +1222,8 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    from the tester. SETTINGS moves to row 8 behind a drag of 76 px. The
    resulting MENU is recorded in [menu-b.md](menu-b.md#menu). This is the
    recommendation.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decision 5 of 2026-11-15:
+   TOOLS is gone; ANGLE METER is the second entry of the hub SERVO. Not built.
 2. **rcbench's IMU model.** Option (b): a function that takes three
    angles and a time is added to `imu.c` in rcbench and tested there, and
    that commit is copied unchanged. This is the recommendation.

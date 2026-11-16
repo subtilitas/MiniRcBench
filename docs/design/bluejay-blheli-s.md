@@ -1327,6 +1327,10 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    screen for AM32, Bluejay and BLHeli_S, and `USB BRIDGE`. This note
    recommended option (a), one renamed screen; (e) is the pair that the
    bridge's recommendation and this note's (a) make together.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decisions 4 and 6 of
+   2026-11-15 and choice 8: the hub reads ESC PROGRAM (owner decision 6);
+   owner decision 4 puts ESC COMMANDS in a hub, and choice 8, which the
+   owner has not decided, makes it this hub's first entry. Not built.
 2. **The connect cycle.** Option (d): 1000 ms quiet on the pull-up, then 3
    greetings, about 125 ms, in turn. This is the recommendation.
 3. **Leaving.** Option (a1): LEAVE sends rcbench's `00 01`, the result line
