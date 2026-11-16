@@ -935,9 +935,9 @@ loads the compiled defaults, pole count and throttle ceiling included, into the
 live settings; the angle meter's setup and calibration, which SETUP does not
 show, keep their values. A tap loads nothing, a slide off the button cancels
 the hold, and a bar over the button and a `C_RED` fill, as on every hold of
-`src/ui_hold.*`, show it running. It has no armed check: SETUP opens only from MENU or from a
-disarmed tester's readouts, and leaving the tester disarms. Flash changes
-only on the next save.
+`src/ui_hold.*`, show it running. It has no armed check: SETUP opens only from
+MENU or from a disarmed tester's readouts, and leaving the tester disarms. Flash
+changes only on the next save.
 
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
@@ -2475,8 +2475,8 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   limit; the close writes the rest of the rows and the end line where the card
   has room. A card removed, or a block the card does not take, stops the writing
   too; at the run's end the card is mounted again (`cardCacheRecover()`), and
-  LOGS shows whether one is there. The file then holds the blocks written before,
-  at its reserved size.
+  LOGS shows whether one is there. The file then holds the blocks written
+  before, at its reserved size.
 - In the host model: the open took 558 ms the first time after a mount with a
   blackbox log to stop and 121 ms the next, on a card that reads a block in 1 ms
   and programs it in 5 ms; on a card at the SD specification's limits, 100 ms a
@@ -2862,8 +2862,8 @@ not 0 answers ID 0 is not measured.
 
 - No pull-up resistor on the signal wire: the bench's PRECHARGE receive
   needs none, and rcbench's PULL-UP receive is not offered.
-- With SETUP → SERVO SUPPLY at `GP28` or `GP29`, the bench powers the servo through
-  the converter of the [KST switched supply](#kst-servo-programming) and
+- With SETUP → SERVO SUPPLY at `GP28` or `GP29`, the bench powers the servo
+  through the converter of the [KST switched supply](#kst-servo-programming) and
   power-cycles it for the entry. **An ESC on this lead gets the converter's
   output on its BEC wire**, its own regulated supply; the claim's ESC check
   sees only an ESC that answers bidirectional DShot.
@@ -3619,7 +3619,7 @@ the meter is closed.
 | Travel | With LENGTH set, the trailing edge's travel, LENGTH × sin(angle), at scale 3, and `L 40 MM, HINGE TO TRAILING EDGE`; with LENGTH `OFF`, `SET LENGTH IN ANGLE SET FOR MM` |
 | MAX | The largest settled angle each side since ZERO or RESET MAX, negative first, `--` for a side with none, and under it their travel |
 | Temperature | The IMU's temperature, and after a zero its change since then, amber from 2.0 °C |
-| Footer | ZERO, RESET MAX, ANGLE SET |
+| Footer | ZERO, RESET MAX, SET |
 
 ZERO arms on its tap, `ZERO WHEN SETTLED: HOLD STILL`, and takes the zero
 from the first settled reading at least 1000 ms after the finger lifts, so
@@ -3887,7 +3887,7 @@ src/
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
   angle_model.{h,cpp}   the angle meter's model: frames, calibration, theta and tilt, ZERO, MAX, the flip (pure)
-  ui_angle.{h,cpp}      ANGLE METER: the reading, ZERO, MAX, SETUP and FLIP CAL; opens and closes the IMU driver
+  ui_angle.{h,cpp}      ANGLE METER: the reading, ZERO, MAX, ANGLE SET and FLIP CAL; opens and closes the IMU driver
   servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout

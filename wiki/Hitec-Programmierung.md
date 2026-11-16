@@ -86,8 +86,8 @@ GND ist die Masse der Platine.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm prüft den Pin auf einen ESC,
   erkennt aber nur einen ESC, der bidirektionales DShot beantwortet.
 
-Mit **SETUP → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo selbst,
-über den Wandler, den die
+Mit **SETUP → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo
+selbst, über den Wandler, den die
 [KST-Programmierung](KST-Programmierung#geschaltete-versorgung) beschreibt.
 Siehe [Geschaltete Versorgung](#geschaltete-versorgung). **Ein ESC an dieser
 Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung** (Battery
@@ -611,8 +611,8 @@ und öffnet die Seite bei `1 UNPLUG THE SERVO.`
 
 ## Geschaltete Versorgung
 
-Mit **SETUP → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo über
-den DC-DC-Wandler (Gleichspannungswandler), dessen Enable-Eingang an GP28,
+Mit **SETUP → SERVO SUPPLY** auf `GP28` oder `GP29` versorgt das Gerät das Servo
+über den DC-DC-Wandler (Gleichspannungswandler), dessen Enable-Eingang an GP28,
 J4 Pin 11, oder GP29, J4 Pin 12, liegt. Seine Verkabelung steht in der
 [KST-Programmierung](KST-Programmierung#geschaltete-versorgung). **Ein ESC an
 dieser Leitung bekommt den Ausgang des Wandlers auf seine BEC-Leitung.**

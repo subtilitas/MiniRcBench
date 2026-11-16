@@ -19,20 +19,20 @@ it.
 
 Files are written to the directory `LOGS` as `LOG00001.BFL`, `LOG00002.BFL`,
 and so on. Each new file takes the number after the highest `LOGnnnnn.BFL` in
-`LOGS`, so the highest number is the newest log: with `LOG00001.BFL` to
-`LOG00005.BFL` on the card and `LOG00002.BFL` deleted, the next log is
-`LOG00006.BFL`. An empty or new `LOGS` starts at `LOG00001.BFL`. Names count
-in any letter case (`log00007.bfl` is `LOG00007.BFL` to the card); other
-names, such as `LOG0007.BFL`, `LOG00007.TXT` or a renamed log, are ignored.
-Existing logs are not overwritten. Logs an earlier firmware wrote to the
-card's root stay there and are not counted. Each file carries the time of
-the board's real-time clock once the clock is set in that power-up (see
+the directory `LOGS`, so the highest number is the newest log: with
+`LOG00001.BFL` to `LOG00005.BFL` on the card and `LOG00002.BFL` deleted, the
+next log is `LOG00006.BFL`. An empty or new directory `LOGS` starts at
+`LOG00001.BFL`. Names count in any letter case (`log00007.bfl` is `LOG00007.BFL`
+to the card); other names, such as `LOG0007.BFL`, `LOG00007.TXT` or a renamed
+log, are ignored. Existing logs are not overwritten. Logs an earlier firmware
+wrote to the card's root stay there and are not counted. Each file carries the
+time of the board's real-time clock once the clock is set in that power-up (see
 [The clock](#the-clock)). Before that, the files carry FAT date and time
 0, which is no valid date; how a computer shows it is not verified.
 
-The board reads `LOGS` once, at the first log after the card is mounted
-(power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount) and at
-the first log after a card error, and counts on from there. With many logs
+The board reads the directory `LOGS` once, at the first log after the card is
+mounted (power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount) and
+at the first log after a card error, and counts on from there. With many logs
 on the card that first start reads more of the card: one 512-byte block per
 16 files with short names. The LOGS screen names the last log of the
 session (see `FILE` below).
@@ -98,20 +98,20 @@ started by hand is not stopped by a disarm. `STOP` ends it.
 The tester screen shows the state in its top row: `REC` (red) while recording,
 `SD` while idle, `SDERR` after a card error, `NOSD` with no card. `SDERR` is
 drawn on an amber chip, between the arm badge and `BOARD`, so a recording that
-stopped on its own shows while armed. LOGS says what happened.
+stopped on its own shows while armed. The LOGS screen says what happened.
 
 A log also ends when KST SERVO, HITEC SERVO or ESC SETTINGS opens: the tool
-needs the card for its backup. LOGS then reads
+needs the card for its backup. The LOGS screen then reads
 `RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `ESC SETTINGS`). Press
 `START` for a new log after the tool. The servo tester stops it too, at
 `HOLD TO START` with the current sensor fitted, to write its own log,
 `LOGS/SRVnnnnn.CSV` ([Servo Tester](Servo-Tester#the-log-on-the-card));
-LOGS then reads `RECORDING STOPPED BY SERVO TESTER`.
+The LOGS screen then reads `RECORDING STOPPED BY SERVO TESTER`.
 
 **Stop the recording before cutting the board's power or pulling the card:**
-disarm, or press `STOP` on LOGS, and wait until the top row reads `SD`. A
-stop writes the end of the log, gives back the unused space, closes the file
-and writes its run summary beside it. A log cut by a power loss or a pulled
+disarm, or press `STOP` on the LOGS screen, and wait until the top row reads
+`SD`. A stop writes the end of the log, gives back the unused space, closes the
+file and writes its run summary beside it. A log cut by a power loss or a pulled
 card is not closed. What it holds depends on when it was cut:
 
 - **Within its first 2 s:** it reads 0 bytes. The file's size on the card
@@ -140,7 +140,7 @@ Each log that stops clean gets a text file beside it with the same number:
 `LOG00012.TXT` beside `LOG00012.BFL`. Any text editor opens it. The stop
 writes it once the log is closed: `STOP`, the disarm that ends a log arming
 started, and a tool taking the card. A log that a card error ended gets
-none. LOGS shows the summary after the stop (see
+none. The LOGS screen shows the summary after the stop (see
 [The last run](#the-last-run)).
 
 It holds one value a line:
@@ -156,7 +156,7 @@ It holds one value a line:
 | `Min voltage` | The lowest voltage while armed, from the same sources; a reading of 0.00 V does not count |
 | `Used, ESC counter` | How far the KISS counter of milliampere hours (mAh) rose during the log |
 | `Used, from current` | The current added up over time, with the time it was known |
-| `Frames` to `Worst flush` | The counters LOGS shows while recording |
+| `Frames` to `Worst flush` | The counters the LOGS screen shows while recording |
 
 A maximum or minimum counts a value only when three new readings in a row
 reach it, so one damaged reply sets none. The `raw` figure in brackets
@@ -193,10 +193,10 @@ deleted on a computer, is replaced.
 
 When the summary cannot be written, on a full card or after a failed write,
 the log stays whole on the card and `STATUS` stays `READY`. No `.TXT` is
-left, or, after a write that failed at the very end, an empty one. LOGS
-then reads `NOT SAVED` in its `SUMMARY` row. The summary and its rows on
-LOGS are tested with the firmware's host tests, the file over the FatFs
-library on a simulated card; on a card and on the board they are not
+left, or, after a write that failed at the very end, an empty one. The LOGS
+screen then reads `NOT SAVED` in its `SUMMARY` row. The summary and its rows on
+the LOGS screen are tested with the firmware's host tests, the file over the
+FatFs library on a simulated card; on a card and on the board they are not
 tested.
 
 ---
@@ -261,7 +261,7 @@ After a log a card error ended, the rows show its run up to the failure,
 `SUMMARY` reads `NOT SAVED`, and the lines above `START` say how it ended. A
 `START` that fails keeps the last run, as it keeps `FILE`. The tester shows
 nothing of the run: after a log that arming started and disarming stopped,
-open LOGS to see it.
+open the LOGS screen to see it.
 
 ### How the last log ended
 
@@ -280,8 +280,8 @@ without a card the mount hint takes the second line.
 |---|---|---|
 | `RECORDING STOPPED: CARD FULL` / `FREE SPACE ON A COMPUTER, RETRY MOUNT` | A write found no free space | Delete files on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
 | `RECORDING STOPPED: CARD WRITE FAILED` / `REMOVED? REINSERT, THEN RETRY MOUNT` | A write, or the final sync or close, failed: a card that was pulled out, or a card fault. The two are not told apart | Reseat the card, press `RETRY MOUNT` |
-| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make or read `LOGS`, or open the next file | Check the card on a computer, press `RETRY MOUNT` |
-| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | `LOGS` holds `LOG99999.BFL`, and no number follows it | Move the logs off the card on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
+| `NO LOG STARTED: THE FILE DID NOT OPEN` / `CHECK THE CARD, THEN RETRY MOUNT` | `START` could not make or read the directory `LOGS`, or open the next file | Check the card on a computer, press `RETRY MOUNT` |
+| `NO LOG STARTED: LOG99999.BFL EXISTS` / `MOVE LOGS TO A COMPUTER, RETRY MOUNT` | The directory `LOGS` holds `LOG99999.BFL`, and no number follows it | Move the logs off the card on a computer (`USB DRIVE` is read-only), put the card back, press `RETRY MOUNT` |
 | `RECORDING STOPPED BY KST SERVO` (`HITEC SERVO`, `ESC SETTINGS`) | The tool took the card for its backup | `START` for a new log |
 | `RECORDING STOPPED BY SERVO TESTER` | The servo tester took the card for its own log | `START` for a new log |
 

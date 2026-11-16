@@ -1222,7 +1222,7 @@ criteria; none has run.
     The owner's decisions 1, 4, 5 and 6 of
     [rx-signals.md](docs/design/rx-signals.md#decisions) (item 19).
     [sbus-output.md](docs/design/sbus-output.md) designs S.BUS OUTPUT,
-    opened from OUTPUT on RX SIGNALS: a frame every 14 ms on GP0 through
+    opened from OUTPUT on RECEIVER: a frame every 14 ms on GP0 through
     UART0's TX, the pad's output inverted by OUTOVER in the same register
     write as the UART function, rcbench's `sbus_encode()` and
     `sbus_from_us()` copied unchanged from rcbench b88593d3 (on rcbench's
@@ -1235,7 +1235,7 @@ criteria; none has run.
     `sbusOutProbePassed()`. Slice 4, S.BUS OUTPUT (`src/ui_sbus_out.*`,
     `src/sbus_out_view.*`), is built
     ([slice 4 as built](docs/design/sbus-output.md#slice-4-as-built)):
-    OUTPUT on RX SIGNALS opens it, and HOLD TO START is offered only while
+    OUTPUT on RECEIVER opens it, and HOLD TO START is offered only while
     that gate holds in the visit. The
     design: the pin user `SbusOut` with the claim's ESC check in every
     wiring; 16 sliders on two pages;

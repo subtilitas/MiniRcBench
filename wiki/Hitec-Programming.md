@@ -75,8 +75,8 @@ GND is the board's ground.
 - Unplug any ESC from the ESC pin. The screen checks for an ESC on the pin,
   but it sees only an ESC that answers bidirectional DShot.
 
-With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo itself,
-through the converter described under
+With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo
+itself, through the converter described under
 [KST Programming](KST-Programming#switched-supply). See
 [Switched supply](#switched-supply). **An ESC on this lead gets the
 converter's output on its BEC (battery eliminator circuit) wire**, the wire
@@ -556,9 +556,9 @@ page at `1 UNPLUG THE SERVO.`
 
 ## Switched supply
 
-With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo through
-the DC-DC converter (direct-current voltage converter) whose enable input is
-on GP28, J4 pin 11, or GP29, J4 pin 12. Its wiring is on the
+With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo
+through the DC-DC converter (direct-current voltage converter) whose enable
+input is on GP28, J4 pin 11, or GP29, J4 pin 12. Its wiring is on the
 [KST Programming](KST-Programming#switched-supply) page. **An ESC on this
 lead gets the converter's output on its BEC wire.**
 

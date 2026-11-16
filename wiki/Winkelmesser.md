@@ -41,7 +41,7 @@ geblieben. Lies Werte nur ab, solange es angezeigt wird.
   löscht MAX. Es ist als Umriss gezeichnet, solange der Sensor nicht
   antwortet.
 - **RESET MAX** löscht MAX.
-- **ANGLE SET** öffnet ANGLE SET.
+- **SET** öffnet ANGLE SET.
 - **BACK** schaltet den Sensor ab und führt zu SERVO. Nullpunkt und MAX
   sind dann weg: Der nächste Besuch beginnt bei der Waagerechten, da sich
   das Modell inzwischen bewegt haben kann.

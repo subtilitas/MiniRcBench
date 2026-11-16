@@ -1281,7 +1281,9 @@ protocol.
   RX-Signals and RX-Signale are now Receiver and Empfaenger, and the pages
   Setup and Einrichtung point to the screen SETUP (developer's call 18,
   pending the owner's review). Rule 9 of `test/check_docs.py` refuses the old
-  names. Host tests only; not tested on hardware.
+  names. `kstWrap()` never starts a line with a lone `>`, so KST SERVO's
+  note breaks before `SETUP > SERVO SUPPLY AT OWN.`. Host tests only; not
+  tested on hardware.
 - After v0.1.0-rc1: no DShot frame at power-up, and DShot only while ESC
   TESTER or ESC COMMANDS is open, or SETTINGS over the tester, slice D2 of
   [dshot-lifetime.md](docs/design/dshot-lifetime.md#d2-as-built), by owner

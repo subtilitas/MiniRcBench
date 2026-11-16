@@ -761,7 +761,7 @@ RECEIVER. See
 Reads angles from gravity with the board's own accelerometer: the angle
 about the axis at scale 5, the axis's tilt and the `SETTLED` chip on the
 strip, the trailing edge's travel in mm with LENGTH set, MAX each side and
-the board's temperature. `ZERO`, `RESET MAX` and `ANGLE SET` in the footer;
+the board's temperature. `ZERO`, `RESET MAX` and `SET` in the footer;
 ANGLE SET holds ALONG AXIS, LENGTH, SIGN and the three-pose calibration, FLIP
 CAL. `BACK` on the main view turns the accelerometer off and returns to
 SERVO, the hub; on ANGLE SET and FLIP CAL it goes one level up. Not tested on

@@ -38,7 +38,7 @@ readings only while it shows.
   `NOT SETTLED IN 10 S: NO ZERO`, and the old zero stays. ZERO clears MAX.
   It is drawn as an outline while the sensor does not answer.
 - **RESET MAX** clears MAX.
-- **ANGLE SET** opens ANGLE SET.
+- **SET** opens ANGLE SET.
 - **BACK** turns the sensor off and returns to SERVO. The zero and MAX are
   gone then: the next visit starts from level, since the model may have
   moved in between.
