@@ -5184,6 +5184,9 @@ static void leaveAm32ToTester() {
 	}
 	checkTrue("BACK from ESC SETTINGS: ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
+	// The ESC power-cycled: MENU's run cue goes, so ESC TESTER opens with
+	// DShot, not on its start step (docs/design/dshot-lifetime.md, decision 8).
+	uiAm32RunCueClear();
 	openTester();
 	checkTrue("back on the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
@@ -5244,6 +5247,11 @@ static void testAm32TesterNote() {
 	uint8_t keep[AM32_SETTINGS_SIZE];
 	for (int i = 0; i < AM32_SETTINGS_SIZE; i++) keep[i] = fakeEscByte(i);
 	esc3dSetNote(false);
+	// The sessions before this one left the bootloader waiting: the ESC
+	// power-cycled, so the tester opens with DShot, not on its start step.
+	uiAm32RunCueClear();
+	testerToMenu();
+	openTester();
 
 	section("Tester: the 3D note");
 	{
@@ -7276,6 +7284,8 @@ static void testAm32Efm8() {
 		int leaveAt = -1;
 		checkTrue("BACK: LEAVE, ESC PROGRAM", efm8Exit(&leaveAt) && leaveAt >= 0);
 		frames(2);
+		// LEAVE has no answer: the cue stands until the ESC is power-cycled.
+		uiAm32RunCueClear();
 		openTester();
 		frames(2);
 		checkTrue("the tester shows the 3D note", tester3dShown());
@@ -9470,6 +9480,12 @@ void runUiTests() {
 		checkTrue("BACK from AM32 reaches ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		checkTrue("the pins parked, no DShot", !fakePinReturned());
+		// The session left the bootloader waiting: MENU's run cue stands, and
+		// ESC TESTER would open on its start step (docs/design/dshot-lifetime.md,
+		// decision 8). The sections after this one assume DShot running: the
+		// ESC was power-cycled, as the step asks.
+		checkTrue("the session leaves MENU's run cue standing", uiAm32RunCue(0));
+		uiAm32RunCueClear();
 		// And back to the main screen, which is what the sections after this
 		// one assume. It used to be left on the settings screen and get away
 		// with it: enterLogScreen()'s first tap, at a coordinate then, fell
@@ -9564,7 +9580,9 @@ void runUiTests() {
 	testAm32NavOpener();
 	testTesterKvEst();
 
-	// Back to a known state for anything that runs after this.
+	// Back to a known state for anything that runs after this: the last
+	// ESC SETTINGS session's run cue gone, as after a power cycle.
+	uiAm32RunCueClear();
 	fakeFlashClear();
 	settingsLoad();
 	themeSet(Theme::Dark);

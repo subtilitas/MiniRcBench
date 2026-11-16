@@ -7,6 +7,7 @@
 #include "board_pins.h"
 #include "gfx.h"
 #include "touch.h"
+#include "ui_hold.h"
 
 #include <stdio.h>
 
@@ -126,4 +127,39 @@ void uiLeaveDraw(const UiLeave *l, const UiLeaveText &text, const TouchState *t,
 	bool counts = before ? l->leavePress : l->releasePress;
 	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : (text.hub ? text.hub : ""), C_PANEL, C_TEXT, 2,
 	         wideLive && counts && uiPressing(UI_LEAVE_WIDE, t), wideLive);
+}
+
+void uiLeaveStartOpen(UiLeaveStart *s, bool cue, uint32_t nowMs) {
+	s->shown = cue;
+	s->press = false;
+	s->openedMs = nowMs;
+}
+
+bool uiLeaveStartLive(const UiLeaveStart *s, uint32_t nowMs) {
+	return s->shown && (uint32_t)(nowMs - s->openedMs) >= UI_HOLD_MS;
+}
+
+bool uiLeaveStartTouch(UiLeaveStart *s, const TouchState *t, uint32_t nowMs) {
+	if (!t || !s->shown) return false;
+	// A press that landed while START DSHOT waited never starts DShot, held
+	// past the wait or not, as the leave page's last button.
+	if (t->pressed) s->press = uiLeaveStartLive(s, nowMs);
+	if (!s->press || !uiTapped(UI_LEAVE_START, t)) return false;
+	s->shown = false;
+	s->press = false;
+	return true;
+}
+
+void uiLeaveStartDraw(const UiLeaveStart *s, const TouchState *t, uint32_t nowMs) {
+	gfxRect(0, UI_BODY_Y, GFX_W, GFX_H - UI_BODY_Y, C_BG);
+	UiLeaveText text = {};
+	text.step[0][0] = UI_LEAVE_START_STEP;
+	text.step[0][1] = UI_LEAVE_START_WHY_1;
+	text.step[0][2] = UI_LEAVE_START_WHY_2;
+	drawStep(text, 0, UI_LEAVE_STEP_Y, true);
+	// START DSHOT starts an output: green from ui-theme.md slice 11 on; the
+	// neutral fill until then, as HOLD TO START.
+	bool live = uiLeaveStartLive(s, nowMs);
+	uiButton(UI_LEAVE_START, UI_LEAVE_START_LABEL, C_PANEL, C_TEXT, 2,
+	         live && s->press && uiPressing(UI_LEAVE_START, t), live);
 }

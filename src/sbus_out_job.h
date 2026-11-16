@@ -394,6 +394,14 @@ bool sbusOutProbeEfm8();
 bool sbusOutRunCue(uint32_t lastRpmMs);
 
 /**
+ * @brief START DSHOT on the start step clears the cue: the last answer is
+ *        marked, as sbusOutProbeRestart() marks it after an EFM8 answer. The
+ *        EFM8 mark stays: it is the leave page's (docs/design/dshot-lifetime.md,
+ *        decision 8). Core0.
+ */
+void sbusOutRunCueClear();
+
+/**
  * @brief The leave page's last button. Core0. After an EFM8 answer the
  *        page's first step took the ESC's battery off: the EFM8 mark and
  *        the run cue go. After an AM32 answer alone nothing goes: the page

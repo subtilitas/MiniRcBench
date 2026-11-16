@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 enum class UiScreenId : uint8_t;
+struct TouchState;
 
 /**
  * @brief Reset UI state, seed the ADC, clear the screen, and open MENU, the
@@ -75,8 +76,9 @@ bool uiTouchLost();
  * @param stack    The screens on the stack, bottom first: uiNavAt().
  * @param depth    How many: uiNavDepth().
  * @param cueHolds MENU's run cue stands and START DSHOT was not tapped since
- *                 the screen opened: false until slice D3, which builds the
- *                 start step of decision 8.
+ *                 the screen opened: the start step of decision 8. While it
+ *                 holds DShot is parked on every stack, SETUP over the
+ *                 tester included (decision 14).
  * @return true while DShot is wanted.
  */
 bool uiDshotRule(const UiScreenId *stack, uint8_t depth, bool cueHolds);
@@ -84,10 +86,57 @@ bool uiDshotRule(const UiScreenId *stack, uint8_t depth, bool cueHolds);
 /**
  * @brief uiDshotRule() for the stack as it stands. uiTick() hands it to
  *        pinClaimDshot() once a frame, before the screen's tick, so a tap
- *        that changes the stack takes effect at the next frame.
+ *        that changes the stack takes effect at the next frame. The cue
+ *        holds while the start step shows (uiStartStepShown()) or MENU's run
+ *        cue stands (uiRunCue()).
  * @return true while DShot is wanted.
  */
 bool uiDshotWanted();
+
+/**
+ * @brief MENU's run cue, `POWER-CYCLE THE ESC TO RUN IT`: uiAm32RunCue(),
+ *        usbBridgeRunCue() and sbusOutRunCue() ORed, each called, as MENU
+ *        reads them.
+ * @param lastRpmMs EscTelemetry::lastRpmMs.
+ * @return true while the cue stands.
+ */
+bool uiRunCue(uint32_t lastRpmMs);
+
+/**
+ * @brief START DSHOT clears every source of the cue: uiAm32RunCueClear(),
+ *        usbBridgeRunCueClear() and sbusOutRunCueClear().
+ */
+void uiRunCueClear();
+
+/**
+ * @brief Open the start step of decision 8, or none: ESC TESTER and ESC
+ *        COMMANDS call it as they open. The step shows while MENU's run cue
+ *        stands at the open, and stays until START DSHOT.
+ */
+void uiStartStepEnter();
+
+/** @brief The start step shows: DShot stays parked (uiDshotWanted()). */
+bool uiStartStepShown();
+
+/**
+ * @brief One frame of the start step's touch: START DSHOT, live
+ *        1000 ms after the step opened. Its tap clears every source
+ *        of the run cue (uiRunCueClear()) and ends the step; DShot binds on
+ *        a later frame, and the arm gate counts from that bind.
+ * @param t This frame's touch.
+ * @return true on the frame START DSHOT is tapped.
+ */
+bool uiStartStepTouch(const TouchState *t);
+
+/**
+ * @brief Draw the start step from @ref UI_BODY_Y down: its text and START
+ *        DSHOT. The screen draws its way out after it.
+ * @param t This frame's touch.
+ */
+void uiStartStepDraw(const TouchState *t);
+
+/** @brief START DSHOT is live: 1000 ms or more after the step opened. */
+bool uiStartStepLive();
 
 /**
  * @brief Whether the tester's arm gate holds: core1's bind stamp,
@@ -201,6 +250,13 @@ enum class TesterCtl : uint8_t {
 	 *        bottom rows and the throttle track's grab band.
 	 */
 	Max,
+	/**
+	 * @brief START DSHOT on the start step (docs/design/dshot-lifetime.md,
+	 *        decisions 8 and 14): x 6 to 233, y 214 to 259. Acts 1000 ms
+	 *        after the step opens. On the step the table holds it and MENU
+	 *        alone.
+	 */
+	Start,
 };
 
 /** @brief The pole count readout's text: `14 POLES`, 8 characters at most. */

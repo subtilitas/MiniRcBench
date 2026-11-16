@@ -571,21 +571,17 @@ static void testBackStates() {
 	tapId(UI_FIX(EscCfgCtl::Bridge));
 	brFrames(4);
 	checkTrue("a refused clock: (CLOCK)", msgIs(0, "SIG GP0 COULD NOT BE TAKEN (CLOCK)", C_AMBER));
+	checkTrue("  during the claim, an eRPM frame from before it: the cue stands",
+	          usbBridgeRunCue(tel.lastRpmMs));
 	const int r2 = fakeParkCount();
-	fakeAdvance(600);   // the stamp is stale on MENU: NO ESC, the cue's line shows
+	fakeAdvance(600);   // the stamp is stale on MENU: NO ESC
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from a failed bind: ESC PROGRAM, parked", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeParkCount() == r2 + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	brFrames(4);
-	checkTrue("  the bind never ran, an eRPM frame from before the claim: the cue stands, MENU warns",
-	          usbBridgeRunCue(tel.lastRpmMs) &&
-	          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
-	fakeAdvance(5);
-	tel.lastRpmMs = millis();
-	fakeSetTelemetry(&tel);
-	brFrames(2);
-	checkTrue("  an eRPM frame after the claim: the cue gone from MENU", !usbBridgeRunCue(tel.lastRpmMs) &&
+	checkTrue("  binds that failed opened nothing: the cue gone, MENU shows no cue (decision 13)",
+	          !usbBridgeRunCue(tel.lastRpmMs) &&
 	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
 	memset(&tel, 0, sizeof(tel));
 	fakeSetTelemetry(&tel);

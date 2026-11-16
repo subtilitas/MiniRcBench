@@ -356,6 +356,20 @@ bool sdLogActive();
  */
 void sdLogTick(uint32_t nowUs, uint16_t throttle);
 
+struct EscTelemetry;
+
+/**
+ * @brief The log's eRPM column for one frame: EscTelemetry::erpm while its
+ *        last eRPM frame is @ref ESC_LINK_STALE_MS old or newer, else 0, as
+ *        the EDT columns expire and the run summary takes eRPM. A hand log
+ *        across a parked pump logs 0, not the last eRPM frozen
+ *        (docs/design/dshot-lifetime.md, "Each case"). Pure.
+ * @param t     The frame's snapshot.
+ * @param nowMs millis() of the frame.
+ * @return The column's value.
+ */
+int32_t sdLogErpmField(const EscTelemetry *t, uint32_t nowMs);
+
 /**
  * @brief Push buffered bytes at the card.
  *

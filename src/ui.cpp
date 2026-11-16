@@ -26,6 +26,9 @@
 #include "ui_sbus_out.h"
 #include "ui_menu.h"
 #include "ui_hub.h"
+#include "ui_leave.h"
+#include "usb_bridge.h"
+#include "sbus_out_job.h"
 #include "ui_sdlog.h"
 #include "ui_settings.h"
 #include "ui_input.h"
@@ -317,6 +320,12 @@ static void backlightDip() { s_blDip = true; s_blDipUntil = millis() + BL_DIP_MS
 
 static TouchState s_touch;
 static EscTelemetry s_tel;
+/**
+ * @brief The start step of ESC TESTER or ESC COMMANDS, whichever opened last
+ *        (docs/design/dshot-lifetime.md, decisions 8 and 14). Latched at the
+ *        open from MENU's run cue; START DSHOT ends it.
+ */
+static UiLeaveStart s_start;
 
 /**
  * @brief Smoothing for the two speed readouts. @see rpm_filter.h
@@ -374,6 +383,7 @@ static struct {
 	int  rpmReadout, thrReadout;
 	int  cmdFlash, edtActive, dirty, btnPress, idleLeft, padLive;
 	int  thrCard, btnCard;
+	int  stepKey;
 	int  logState, logFile, logDrops;
 	uint32_t logBytes, logFrames, logPeak, logWorstMs;
 	int  mscState, mscNote;
@@ -1325,6 +1335,10 @@ static void handleMainTouch() {
  */
 static void testerEnter() {
 	testerDisarm();
+	// The start step while MENU's run cue stands (decision 8): DShot stays
+	// parked until START DSHOT. uiTick() reads it on the next frame, before
+	// any pump pass could bind.
+	uiStartStepEnter();
 	s_testerLeave = false;
 	s_armPressing = false;
 	s_armLive = false;
@@ -1337,12 +1351,54 @@ static void testerEnter() {
 }
 
 /**
+ * @brief One tester frame on the start step (docs/design/dshot-lifetime.md,
+ *        decisions 8 and 14): the status bar, the step, START DSHOT and
+ *        MENU are all it draws and all that takes a touch. The readouts, the
+ *        pad, the track, HOLD TO ARM and LATCH are neither drawn nor read.
+ *        DShot stays parked (uiDshotWanted()); MENU returns to MENU with the
+ *        cue kept, as without the step.
+ * @return false once MENU has left for MENU.
+ */
+static bool testerStepTick() {
+	// Disarmed since testerEnter(), and nothing here arms: the log hears it
+	// disarmed and the throttle stays 0.
+	sdLogSetArmed(false);
+	escSetThrottle(0);
+	if (tapped(BTN_MENU, s_touch)) {
+		testerDisarm();
+		return false;
+	}
+	if (uiStartStepTouch(&s_touch)) {
+		// The tap's lift ends here: fed to the readouts on this frame, the
+		// same lift over MAX would open SETUP. The tester draws whole from
+		// the next frame, the arm gate holding until 1500 ms after the bind.
+		invalidateAll();
+		return true;
+	}
+	drawStatusBar();
+	int key = (uiStartStepLive() ? 1 : 0) | (pressing(UI_LEAVE_START, s_touch) ? 2 : 0) |
+	          (pressing(BTN_MENU, s_touch) ? 4 : 0);
+	if (s_shown.stepKey != key) {
+		s_shown.stepKey = key;
+		// The RPM area's rows above the body, then the step from the body on.
+		gfxRect(0, Z_RPM_Y0, GFX_W, UI_BODY_Y - Z_RPM_Y0, C_BG);
+		uiStartStepDraw(&s_touch);
+		uiButton(BTN_MENU, "MENU", C_CYAN, C_ONACCENT, 1, pressing(BTN_MENU, s_touch));
+	}
+	return true;
+}
+
+static_assert(UI_LEAVE_START.y + UI_LEAVE_START.h < BTN_ROW_Y,
+              "START DSHOT reaches the tester's button row");
+
+/**
  * @brief One tester frame: the touch, the idle and touch-loss interlocks,
  *        the throttle sent, the draw.
  * @return false once the MENU button has disarmed and left for MENU.
  */
 static bool testerTick(const TouchState *) {
 	s_testerLeave = false;
+	if (uiStartStepShown()) return testerStepTick();
 	// s_zeroSince tracks the last moment throttle was non-zero, so
 	// (millis() - s_zeroSince) is "how long we have been at idle".
 	if (s_throttle != 0) s_zeroSince = millis();
@@ -1394,6 +1450,12 @@ static bool testerTick(const TouchState *) {
  */
 static uint8_t testerControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
+	if (uiStartStepShown()) {
+		// The start step: START DSHOT and the way out, nothing else.
+		uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Start), UI_LEAVE_START, uiStartStepLive());
+		uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
+		return n;
+	}
 	bool armOk = !mscHoldsCard(mscGetState()) && !s_touchLost && (s_armed || !armGatedNow());
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, armOk);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Latch), BTN_LATCH, true);
@@ -1471,10 +1533,46 @@ bool uiDshotRule(const UiScreenId *stack, uint8_t depth, bool cueHolds) {
 bool uiDshotWanted() {
 	UiScreenId ids[UI_NAV_MAX];
 	for (uint8_t i = 0; i < s_navDepth; i++) ids[i] = s_nav[i]->id;
-	// MENU's run cue holds DShot back from slice D3 on (decision 8); until
-	// then ESC TESTER and ESC COMMANDS open with DShot while it stands.
-	return uiDshotRule(ids, s_navDepth, false);
+	// MENU's run cue holds DShot back (decision 8): the start step that
+	// latched it at the open, or a cue that stands now. Either parks; only
+	// START DSHOT ends both, as it clears every source of the cue.
+	EscTelemetry tel;
+	escSnapshot(&tel);
+	bool cueHolds = s_start.shown || uiRunCue(tel.lastRpmMs);
+	return uiDshotRule(ids, s_navDepth, cueHolds);
 }
+
+bool uiRunCue(uint32_t lastRpmMs) {
+	// Each called, not short-circuited: each clears itself on an eRPM frame
+	// newer than its answer, as MENU calls them.
+	return uiAm32RunCue(lastRpmMs) | usbBridgeRunCue(lastRpmMs) | sbusOutRunCue(lastRpmMs);
+}
+
+void uiRunCueClear() {
+	uiAm32RunCueClear();
+	usbBridgeRunCueClear();
+	sbusOutRunCueClear();
+}
+
+void uiStartStepEnter() {
+	EscTelemetry tel;
+	escSnapshot(&tel);
+	uiLeaveStartOpen(&s_start, uiRunCue(tel.lastRpmMs), millis());
+}
+
+bool uiStartStepShown() { return s_start.shown; }
+
+bool uiStartStepLive() { return uiLeaveStartLive(&s_start, millis()); }
+
+bool uiStartStepTouch(const TouchState *t) {
+	if (!uiLeaveStartTouch(&s_start, t, millis())) return false;
+	// The tap clears the cue: the next frame asks for Run, core1 binds, and
+	// the arm gate counts from that bind (decision 12).
+	uiRunCueClear();
+	return true;
+}
+
+void uiStartStepDraw(const TouchState *t) { uiLeaveStartDraw(&s_start, t, millis()); }
 
 bool uiArmGated(uint32_t boundMs, uint32_t nowMs) {
 	return boundMs == 0 || (uint32_t)(nowMs - boundMs) < ARM_GATE_MS;
@@ -1571,6 +1669,7 @@ void uiInit() {
 	s_batteryV = 0.0f;
 	s_boardCell = BoardCell::Ok;
 	s_touchLost = false;
+	uiLeaveStartOpen(&s_start, false, 0);
 	rpmFilterReset(&s_erpmFilter);
 	s_erpmShown = 0;
 	memset(&s_kvSettle, 0, sizeof(s_kvSettle));
