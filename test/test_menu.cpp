@@ -782,6 +782,7 @@ static void testServoProg() {
 		                fakeCountColour(C_AMBER) == 0);
 		snprintf(what, sizeof(what), "SERVO, GP%u", gp);
 		checkControlTable(what);
+		if (mode == 1) fakeDumpFrame("shot_servo_hub_switched.ppm");
 		tapId(UI_FIX(UI_BACK));
 	}
 	settings()->servoSupply = 0;

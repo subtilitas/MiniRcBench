@@ -73,11 +73,11 @@ siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 
 ## Öffnen
 
-Öffne **MENU → SERVO PROGRAMMER** und tippe auf **KST / CHASERVO** (siehe
-[Die Bildschirme](Die-Bildschirme#programmer)), mit stromlosem Servo, wie
-die Zeile unter dem Eintrag sagt: `POWER THE SERVO UP AFTER THE TAP.`, oder
-`THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung. PROGRAMMER
-belegt keinen Pin: DShot läuft bis zum Tippen auf SIG.
+Öffne **MENU → SERVO** und tippe auf **KST / CHASERVO**, den dritten
+Eintrag (siehe [Die Bildschirme](Die-Bildschirme#servo)), mit stromlosem
+Servo, wie die Zeile unter dem Eintrag sagt: `POWER THE SERVO UP AFTER THE
+TAP.`, oder `THE BENCH SWITCHES IT ON GP28.` mit geschalteter Versorgung.
+SERVO, die Auswahl, belegt keinen Pin: DShot läuft bis zum Tippen auf SIG.
 
 Das Tippen öffnet KST SERVO, das SIG im selben Frame vom ESC-Treiber
 übernimmt. Dabei zeigt die Leiste `RELEASING SIG GP0`, dann
@@ -87,7 +87,7 @@ stattdessen `CHECKING SIG GP0 FOR AN ESC`.
 - Antwortet ein ESC auf dem Pin, zeigt der Bildschirm
   `AN ESC ANSWERS ON SIG GP0.` und danach `UNPLUG IT: KST FRAMES MAY READ` und
   `AS THROTTLE.` Er übernimmt den Pin, sobald der ESC weg ist. `BACK` führt
-  währenddessen zu PROGRAMMER zurück.
+  währenddessen zu SERVO zurück.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
   Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`. Beides ist über
   die Bildschirme nicht erreichbar.
@@ -499,7 +499,7 @@ die beiden Tasten, `NEXT SERVO` und `RESTART DSHOT` an der Stelle von
 **Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
 Es behält den Pin und startet eine neue Suche, und die Seite zeigt
 `NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** wirkt 1 s danach:
-Der ESC-Treiber übernimmt den Pin wieder, und PROGRAMMER erscheint. Die
+Der ESC-Treiber übernimmt den Pin wieder, und SERVO erscheint. Die
 Sekunde macht ein Doppeltippen auf `LEAVE` harmlos: Es landet, während
 `RESTART DSHOT` grau ist. Ein Druck, der begann, während es grau war,
 bewirkt beim Loslassen nichts.

@@ -69,11 +69,11 @@ see [Switched supply](#switched-supply).
 
 ## Opening it
 
-Open **MENU → SERVO PROGRAMMER**, then tap **KST / CHASERVO** (see
-[The Screens](The-Screens#programmer)) with the servo unpowered, as the line
+Open **MENU → SERVO**, then tap **KST / CHASERVO**, the third entry (see
+[The Screens](The-Screens#servo)) with the servo unpowered, as the line
 under the entry says: `POWER THE SERVO UP AFTER THE TAP.`, or
-`THE BENCH SWITCHES IT ON GP28.` with the switched supply. PROGRAMMER takes
-no pin: DShot runs on SIG until the tap.
+`THE BENCH SWITCHES IT ON GP28.` with the switched supply. SERVO, the hub,
+takes no pin: DShot runs on SIG until the tap.
 
 The tap opens KST SERVO, which takes SIG from the ESC driver on the same
 frame. While it does, the strip reads `RELEASING SIG GP0`, then
@@ -82,7 +82,7 @@ frame. While it does, the strip reads `RELEASING SIG GP0`, then
 
 - If an ESC answers on the pin, the screen says `AN ESC ANSWERS ON SIG GP0.`,
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin
-  when the ESC is gone. `BACK` meanwhile returns to PROGRAMMER.
+  when the ESC is gone. `BACK` meanwhile returns to SERVO.
 - While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
   still in use, it says `WAIT: DSHOT RESTARTING`. Neither is reachable
   through the screens.
@@ -464,7 +464,7 @@ leaves a session that is in doubt. While the pin goes the page reads
 **Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
 the pin and starts a new search, and the page reads
 `NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** acts 1 s after
-that: the ESC driver takes the pin back and PROGRAMMER returns. The second
+that: the ESC driver takes the pin back and SERVO returns. The second
 makes a double tap on `LEAVE` harmless: it lands while `RESTART DSHOT` is
 grey. A press that landed while it was grey does nothing when it lifts.
 

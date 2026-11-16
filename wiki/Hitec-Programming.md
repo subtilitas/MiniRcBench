@@ -86,8 +86,8 @@ of its own regulated supply.
 
 ## Opening the screen
 
-Open **MENU → SERVO PROGRAMMER**, then tap **HITEC D SERIES** or
-**HITEC CLASSIC** (see [The Screens](The-Screens#programmer)). PROGRAMMER
+Open **MENU → SERVO**, drag the list up, then tap **HITEC D SERIES** or
+**HITEC CLASSIC** (see [The Screens](The-Screens#servo)). SERVO, the hub,
 takes no pin: DShot runs on SIG while it shows, so the servo stays
 unpowered until the tap. The tap opens this screen for that family and takes
 SIG from the ESC driver on the same frame: DShot sends zero throttle for at
@@ -115,7 +115,7 @@ mode, the wait for `READ` included, opens the leave page at
 family; for a D series servo on `OWN` it always returns to the wait for
 `READ`, so the next servo too is powered after the tap. While the driver
 still stops, or while the screen has not taken the pin, `BACK` returns to
-PROGRAMMER.
+SERVO.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber">
 
@@ -128,7 +128,7 @@ PROGRAMMER.
 - While the tester is armed, the screen reads `DISARM FIRST`. While the
   pins are still in use, it reads `WAIT: DSHOT RESTARTING`. Neither is
   reachable through the screens: leaving the tester for `MENU` disarms, and
-  PROGRAMMER draws its entries disabled while the pins are in use.
+  SERVO draws its entries disabled while the pins are in use.
 
 While the job binds, the strip reads `TAKING SIG GP0`.
 
@@ -525,9 +525,9 @@ the pin and starts a session for the next servo. With `OWN` the page reads
 `NEXT SERVO: POWER IT AFTER THE TAP.`: the screen returns to the wait for
 `READ`. With the switched supply the entry starts at once.
 **`RESTART DSHOT`** acts 1 s after
-that: the ESC driver takes the pin back and PROGRAMMER returns. A double tap on
-`LEAVE` lands while `RESTART DSHOT` is grey and restarts nothing, and a
-press that landed while it was grey does nothing when it lifts.
+that: the ESC driver takes the pin back and SERVO returns, where it was
+left. A double tap on `LEAVE` lands while `RESTART DSHOT` is grey and restarts
+nothing, and a press that landed while it was grey does nothing when it lifts.
 
 `BACK` during the entry, before the servo answered, stops it and opens the
 page at `1 UNPLUG THE SERVO.`
@@ -600,7 +600,7 @@ next operation is refused until the screen runs again: a write then reads
 `HITEC CLASSIC` (HS-5xxx, HS-7xxx) needs SERVO SUPPLY at `GP28` or `GP29`:
 a classic servo enters programming mode only at its power-up, and the bench
 switches its supply through the converter of [wiring](Wiring) part C. Under
-`OWN` PROGRAMMER draws the entry disabled and reads
+`OWN` SERVO draws the entry disabled and reads
 `NEEDS THE CONVERTER OF WIRING PART C` and
 `AND SETTINGS > SERVO SUPPLY GP28/29.`
 
@@ -619,7 +619,7 @@ The classic screens are built and tested on the host only, against a
 simulated servo. No classic entry, read or write has run on a servo on this
 board. The pictures below show them with SERVO SUPPLY at `GP28`.
 
-<img src="img/prog-chooser-switched.png" width="240" alt="PROGRAMMER with SERVO SUPPLY at GP28: HITEC CLASSIC enabled"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
+<img src="img/servo-hub-switched.png" width="240" alt="SERVO at its end with SERVO SUPPLY at GP28: HITEC CLASSIC enabled"> <img src="img/hitec-repair.png" width="240" alt="A classic HS-5645MG: CHECKSUM BAD with REPAIR"> <img src="img/hitec-not-measured.png" width="240" alt="A classic model not measured: MODEL NOT MEASURED: WRITTEN IN THE CLASSIC LAYOUT.">
 
 - **CHECKSUM.** A classic servo whose checksum does not sum shows
   `CHECKSUM` `BAD` in amber. The row can be selected, and the editor bar

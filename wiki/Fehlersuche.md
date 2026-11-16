@@ -295,7 +295,7 @@ Einstellungen im Flash nicht lesen. Polzahl und Gasobergrenze werden unter
 **MENU → SETTINGS** geändert, und `HOLD TO SAVE` dort schreibt sie ins Flash.
 Die Hinweiszeile zeigt `UNSAVED - HOLD SAVE TO KEEP`, solange Änderungen
 ungespeichert sind, und `MENU` zeigt `UNSAVED` in der Zeile `SETTINGS`, der
-letzten: Ziehe `MENU` um 120 px nach oben, um sie zu sehen.
+letzten.
 
 Die Firmware speichert ihre Einstellungen im Format Version 6. Einstellungen,
 die eine frühere Firmware im Format Version 2, 3, 4 oder 5 gespeichert hat,

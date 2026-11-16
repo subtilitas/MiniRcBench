@@ -2,7 +2,7 @@
 
 # Winkelmesser
 
-`MENU → TOOLS → ANGLE METER` misst Winkel mit dem Beschleunigungssensor auf
+`MENU → SERVO → ANGLE METER` misst Winkel mit dem Beschleunigungssensor auf
 der Platine selbst, aus der Richtung der Schwerkraft, solange die Platine
 still liegt: den Einstellwinkel einer Fläche, die EWD zwischen Flügel und
 Höhenleitwerk, die V-Form und den Ausschlag eines Ruders in Grad und als Weg
@@ -16,7 +16,7 @@ der Anzeige, nicht die Richtigkeit des Werts. Bis der Prüfstand den
 Winkelmesser an bekannten Winkeln misst, nimm einen Wert als Vergleich
 zweier Einstellungen, nicht als genauen Winkel.
 
-<img src="img/tools-chooser.png" width="240" alt="TOOLS: ANGLE METER mit INCIDENCE, DECALAGE, DIHEDRAL, THROW darunter"> <img src="img/angle-main.png" width="240" alt="ANGLE METER nach einem Nullpunkt: -20.0 Grad vom Nullpunkt, -13.7 MM bei einer Länge von 40 mm, MAX -20.0 Grad">
+<img src="img/servo-hub.png" width="240" alt="SERVO, die Auswahl: ANGLE METER ist ihr zweiter Eintrag, mit INCIDENCE, DECALAGE, DIHEDRAL, THROW darunter"> <img src="img/angle-main.png" width="240" alt="ANGLE METER nach einem Nullpunkt: -20.0 Grad vom Nullpunkt, -13.7 MM bei einer Länge von 40 mm, MAX -20.0 Grad">
 
 ---
 
@@ -42,7 +42,7 @@ geblieben. Lies Werte nur ab, solange es angezeigt wird.
   antwortet.
 - **RESET MAX** löscht MAX.
 - **SETUP** öffnet SETUP.
-- **BACK** schaltet den Sensor ab und führt zu TOOLS. Nullpunkt und MAX
+- **BACK** schaltet den Sensor ab und führt zu SERVO. Nullpunkt und MAX
   sind dann weg: Der nächste Besuch beginnt bei der Waagerechten, da sich
   das Modell inzwischen bewegt haben kann.
 

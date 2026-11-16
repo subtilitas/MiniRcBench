@@ -18,10 +18,12 @@ It needs no laptop or configurator. It does not update ESC firmware.
 
 Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC SETTINGS and USB BRIDGE">
+<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS and USB BRIDGE">
 
-`ESC CONFIG` is a chooser. It takes nothing from the signal pin: DShot keeps
-running until you tap `ESC SETTINGS`. `USB BRIDGE` lets a desktop ESC
+`ESC CONFIG` is a hub, a list of the three ESC tools. It takes nothing from
+the signal pin: DShot keeps running until you tap `ESC SETTINGS`.
+`ESC COMMANDS` sends DShot commands: see
+[The Screens](The-Screens#esc-commands). `USB BRIDGE` lets a desktop ESC
 tool reach the ESC through the board: see [USB Bridge](USB-Bridge). `BACK`
 returns to MENU. The screen is titled `ESC SETTINGS` for every ESC
 firmware; it reads and writes AM32, Bluejay and BLHeli_S: see
@@ -566,7 +568,7 @@ list.
 ## Leaving
 
 `BACK` on the list hands the signal pin back to the DShot driver and returns
-to ESC CONFIG, the choice it was opened from; with changes not written it
+to ESC CONFIG, the hub it was opened from; with changes not written it
 asks first, as under
 [Editing](#editing). The tester is disarmed.
 

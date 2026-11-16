@@ -64,8 +64,10 @@ geschaltete Wandler des Prüfstands, Teil C des
 
 ## Öffnen
 
-**MENU → SERVO TESTER** öffnen. Der Bildschirm trägt den Titel
-`SERVO TESTER`, wie seine Zeile in MENU.
+**MENU → SERVO** öffnen, dann **SERVO TESTER** antippen, den ersten Eintrag
+(siehe [Die Bildschirme](Die-Bildschirme#servo)). Der Bildschirm trägt den
+Titel `SERVO TESTER`, wie sein Eintrag. `RESTART DSHOT` am Ende einer
+Sitzung führt zu SERVO zurück.
 
 Der Bildschirm übernimmt die beiden Signalpins vom ESC-Treiber. Antwortet ein
 ESC auf SIG, wartet er und zeigt `AN ESC ANSWERS ON SIG GP0.` Zieh den

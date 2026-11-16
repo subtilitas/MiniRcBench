@@ -52,9 +52,9 @@ Siehe auch [Verdrahtung](Verdrahtung).
 
 ## Die Auswahl
 
-`MENU → RX SIGNALS` öffnet eine Seite mit zwei Schaltflächen. Die Leiste
-nennt beide Signalpins, `SIG GP0  AUX GP1`, so siehst du vor dem Tippen,
-welche Rolle GP1 hat. Die Seite belegt keinen Pin: DShot läuft weiter.
+`MENU → RX SIGNALS` öffnet eine Auswahl, eine Seite mit zwei Schaltflächen.
+Die Leiste nennt beide Signalpins, `SIG GP0  AUX GP1`, so siehst du vor dem
+Tippen, welche Rolle GP1 hat. Die Seite belegt keinen Pin: DShot läuft weiter.
 
 - **MONITOR** öffnet S.BUS MONITOR.
 - **OUTPUT** öffnet S.BUS OUTPUT. Die zwei Zeilen darunter sind seine

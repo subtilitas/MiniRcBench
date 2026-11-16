@@ -899,6 +899,37 @@ static void testServoScroll() {
 		snprintf(what, sizeof(what), "%s: a drag moves nothing and draws no bar", f.screen->title);
 		checkTrue(what, uiHubScroll() == 0 && fakeRegionHash(0, 0, GFX_W, GFX_H) == rest &&
 		                !inkIn(UI_HUB_BAR_X, 62, GFX_W - UI_HUB_BAR_X, 258));
+		if (f.id == UiScreenId::EscConfig) {
+			// A hub that fills the page takes a tap as a button does: a
+			// press that moves 10 px, more than the list's 6 px axis lock,
+			// and lifts inside the button still opens the entry.
+			const UiRect r = uiHubEntryRect(0);
+			fakePress(r.x + r.w / 2, r.y + 12); hubFrames(1);
+			fakeHold(r.x + r.w / 2, r.y + 22); hubFrames(1);
+			checkTrue("ESC CONFIG: a press moved 10 px inside ESC COMMANDS stays a press, drawn pressed",
+			          navIsHub(UiScreenId::EscConfig) && !buttonIs(r, "ESC COMMANDS", true));
+			fakeRelease(); hubFrames(2);
+			checkTrue("and its lift inside the button opens ESC COMMANDS",
+			          navIsTool(UiScreenId::EscConfig, UiScreenId::EscCmd));
+			tapId(UI_FIX(UI_BACK));
+			hubFrames(1);
+			checkTrue("BACK: ESC CONFIG", navIsHub(UiScreenId::EscConfig));
+		}
+		checkTrue("BACK: MENU, then the tester", backToTester());
+	}
+	{
+		// The same move on SERVO, which scrolls, is a drag: it scrolls 10 px
+		// and opens nothing.
+		tapId(UI_FIX(TesterCtl::Menu));
+		hubFrames(1);
+		tapId(menuRow(&UI_SERVO_HUB_SCREEN));
+		hubFrames(1);
+		const UiRect r = uiHubEntryRect(1);
+		fakePress(r.x + r.w / 2, r.y + 22); hubFrames(1);
+		fakeHold(r.x + r.w / 2, r.y + 12); hubFrames(1);
+		fakeRelease(); hubFrames(2);
+		checkTrue("SERVO: a press moved 10 px inside ANGLE METER scrolls 10 px and opens nothing",
+		          navIsHub(UiScreenId::ServoHub) && uiHubScroll() == 10);
 		checkTrue("BACK: MENU, then the tester", backToTester());
 	}
 	setSupply(0);

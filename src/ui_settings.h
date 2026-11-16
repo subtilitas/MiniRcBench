@@ -89,6 +89,9 @@ uint8_t uiSettingsSections(const SettingsSection **out, uint8_t max);
 
 struct UiHub;
 
+/** @brief The hub a screen shows, or null: uiHubOf()'s shape. */
+typedef const UiHub *(*UiHubOfFn)(const UiScreen *s);
+
 /**
  * @brief The tools' SETTINGS sections of a registry, each once, in the
  *        order of its rows: a row's own section (@ref UiScreen::settings),
@@ -103,7 +106,7 @@ struct UiHub;
  * @param max      Room in @p out.
  * @return The number written.
  */
-uint8_t uiSettingsToolSections(const UiMenuEntry *e, uint8_t n, const UiHub *(*hubOf)(const UiScreen *),
+uint8_t uiSettingsToolSections(const UiMenuEntry *e, uint8_t n, UiHubOfFn hubOf,
                                const SettingsSection **out, uint8_t max);
 
 /** @brief SETTINGS. */

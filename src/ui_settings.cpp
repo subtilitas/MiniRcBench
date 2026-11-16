@@ -504,7 +504,7 @@ static_assert(settingsSectionFits(SEC_DIAG), "a DIAGNOSTICS label runs into its 
 // geometry
 // ---------------------------------------------------------------------------
 
-uint8_t uiSettingsToolSections(const UiMenuEntry *e, uint8_t n, const UiHub *(*hubOf)(const UiScreen *),
+uint8_t uiSettingsToolSections(const UiMenuEntry *e, uint8_t n, UiHubOfFn hubOf,
                                const SettingsSection **out, uint8_t max) {
 	uint8_t ns = 0;
 	// Once each: HITEC SERVO stands behind two of SERVO's entries.

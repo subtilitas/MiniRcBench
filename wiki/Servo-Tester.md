@@ -60,8 +60,9 @@ itself ([The switched supply](#the-switched-supply)).
 
 ## Opening it
 
-Open **MENU → SERVO TESTER**. The screen is titled `SERVO TESTER`, as its
-MENU row.
+Open **MENU → SERVO**, then tap **SERVO TESTER**, the first entry (see
+[The Screens](The-Screens#servo)). The screen is titled `SERVO TESTER`, as
+its entry. `RESTART DSHOT` at the end of a session returns to SERVO.
 
 The screen takes the two signal pins from the ESC driver. If an ESC answers on
 SIG, it waits and says `AN ESC ANSWERS ON SIG GP0.` Unplug the ESC; the

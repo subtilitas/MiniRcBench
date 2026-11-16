@@ -53,7 +53,7 @@ ESC's bootloader, and offers START only once no bootloader answered. It is
 built and tested on the host only; nothing of it has driven a pin. A PPM
 (pulse-position modulation) output is not built, by the owner's decision. An
 angle meter on the board's QMI8658 IMU (inertial measurement unit), MENU →
-TOOLS → ANGLE METER, reads incidence, decalage, dihedral and control-surface
+SERVO → ANGLE METER, reads incidence, decalage, dihedral and control-surface
 throw from gravity, in degrees and in mm, with ZERO, MAX each side and a
 three-pose calibration (see [Angle meter](#angle-meter); design note
 `docs/design/angle-meter.md`). It is built and tested on the host only:
@@ -72,7 +72,8 @@ over the USB serial port with `tools/set_clock.py`
 in the RTC socket J2, so its clock is set again after each power-up, and
 files written before the set have FAT date 0. Nothing of it has run on the
 board.
-An ESC COMMANDS page, MENU's first row (see [ESC commands](#esc-commands)),
+An ESC COMMANDS page, the first entry of the hub ESC CONFIG (see
+[ESC commands](#esc-commands)),
 sends DShot beacons, direction and 3D mode, each change saved in the ESC
 behind a 1 s hold (slices 1 and 2 of
 `docs/design/esc-commands.md`, host tests only, no command of it sent to an
@@ -87,7 +88,8 @@ ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
 interface of flight controllers, is described in `docs/design/usb-bridge.md`;
 the owner answered its questions on 2026-11-15. It
-is entered from MENU's `ESC CONFIG` chooser, beside `ESC SETTINGS`. Its
+is entered from `ESC CONFIG`, the hub behind MENU's second row, beside
+`ESC COMMANDS` and `ESC SETTINGS`. Its
 slices 1 to 3 are built, tested on the host only: its pin user, its core1
 job and its line, two PIO state machines on SIG, passthrough with the
 screen `USB BRIDGE`, and MSP with the 4-way interface, see
@@ -96,7 +98,7 @@ Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
 module, is described in `docs/design/bluejay-blheli-s.md`; the owner
 answered its questions on 2026-11-15. Its slices 1 to 4 are built, tested on
-the host only: the copies, the `ESC CONFIG` chooser on MENU, the title
+the host only: the copies, the hub `ESC CONFIG` on MENU, the title
 `ESC SETTINGS`, the connect cycle and the read, and the write with its
 backup; nothing has been sent to an ESC from this board (see
 [A Bluejay or BLHeli_S ESC](#a-bluejay-or-blheli_s-esc)). The restore is
@@ -106,15 +108,20 @@ in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETTINGS, its layout table, its write rule and BACK guard, the
 one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
 readouts that open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's
-label, MENU's rows by device with PROGRAMMER, the chooser of the servo
+label, MENU's rows by device with one entry point for the servo
 programmers, and the design notes and checks no single slice owned.
-Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 3,
-tested on the host only: the hub widget under the four choosers, the
-navigation stack, and MENU as the root. MENU is the first screen after the
-splash and has no BACK. It has nine rows: ESC TESTER, ESC COMMANDS, ESC
-CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, SD LOG and
-SETTINGS. DShot still runs from boot behind MENU until slice D2 of
-`docs/design/dshot-lifetime.md`.
+Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 4,
+tested on the host only: the hub widget, the navigation stack, MENU as the
+root, and six rows over three hubs. MENU is the first screen after the
+splash and has no BACK. It has six rows and does not scroll: ESC TESTER,
+ESC CONFIG, SERVO, RX SIGNALS, SD LOG and SETTINGS. ESC CONFIG, SERVO and
+RX SIGNALS each open a hub, a list of tools, and carry the mark `>`: ESC
+CONFIG holds ESC COMMANDS, ESC SETTINGS and USB BRIDGE; SERVO holds SERVO
+TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC and
+scrolls 146 px; RX SIGNALS holds MONITOR and OUTPUT. Every tool is two taps
+from MENU and returns to its hub. The names of slice 5 of that note, ESC
+PROGRAM, RECEIVER, LOGS and SETUP, are not built. DShot still runs from boot
+behind MENU until slice D2 of `docs/design/dshot-lifetime.md`.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
 
@@ -592,19 +599,19 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 
 ![MENU](docs/menu-preview.png)
 
-*EDT live, EDT silent, no ESC answering, and PROGRAMMER, the servo
-programmers' chooser.*
+*EDT live, EDT silent, no ESC answering, and SERVO, the hub of the servo
+tools, at scroll 0 and at its end.*
 
 MENU is the first screen after the splash and the root of the navigation
 (slice 3 of `docs/design/menu-c.md`): its header reads `MENU` and draws no
 **BACK**, since nothing lies behind it. MENU is a list of rows. Each row is
 40 px tall at a 42 px pitch, with the name at scale 2 on the left and its
 state right-aligned. **BACK** returns to the screen that opened the one on
-show: a tool opened from a MENU row returns to MENU, a tool opened from a
-chooser to that chooser, and SETTINGS opened from the tester's pole count
-or ceiling to the tester. The tester returns to MENU by its **MENU**
-button. The screens form a stack of at most three, MENU at the bottom:
-MENU; the tester, a chooser, SD LOG or SETTINGS; a chooser's tool, or
+show: a hub, SD LOG or SETTINGS opened from a MENU row returns to MENU, a
+tool opened from a hub to that hub, and SETTINGS opened from the tester's
+pole count or ceiling to the tester. The tester returns to MENU by its
+**MENU** button. The screens form a stack of at most three, MENU at the
+bottom: MENU; the tester, a hub, SD LOG or SETTINGS; a hub's tool, or
 SETTINGS over the tester. **BACK** pops one (slice 2 of
 `docs/design/menu-c.md`). The leave page's RESTART DSHOT returns where
 BACK would. DShot still runs from boot behind MENU until slice D2 of
@@ -622,57 +629,71 @@ BACK would. DShot still runs from boot behind MENU until slice D2 of
   commands. The strip's caption names both signal pins by role and number
   and the DShot rate, for example `SIG GP0  AUX GP1  DSHOT600`.
 
-| Row | State on the right | A tap |
+| Row | At the right | A tap |
 |---|---|---|
 | **ESC TESTER** | nothing | Opens the tester, disarmed, at throttle 0, LATCH off. See Main screen above |
-| **ESC COMMANDS** | nothing | Opens ESC COMMANDS: BEEP 1 to 5, the direction and 3D mode, each change saved in the ESC. See [ESC commands](#esc-commands) |
-| **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS and USB BRIDGE. See [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
-| **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
-| **SERVO PROGRAMMER** | nothing | Opens PROGRAMMER, the chooser of the servo programmers: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
-| **RX SIGNALS** | nothing | Opens RX SIGNALS, the chooser of the receiver signal tools: MONITOR and OUTPUT. See [S.BUS monitor](#sbus-monitor) and [S.BUS output](#sbus-output) |
-| **TOOLS** | nothing | Opens TOOLS, the chooser of the bench tools that use no signal pin: ANGLE METER. See [Angle meter](#angle-meter) |
+| **ESC CONFIG** | `>` | Opens ESC CONFIG, the hub of the ESC tools: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. See [ESC commands](#esc-commands), [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
+| **SERVO** | `>` | Opens SERVO, the hub of the servo tools: SERVO TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
+| **RX SIGNALS** | `>` | Opens RX SIGNALS, the hub of the receiver signal tools: MONITOR and OUTPUT. See [S.BUS monitor](#sbus-monitor) and [S.BUS output](#sbus-output) |
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 
-ESC TESTER is the first row. The rows after it go by what sits on the
-signal pin: the ESC, a servo, then the bench. A tool row shows no state:
-the strip names the pins.
+ESC TESTER is the first row. The three rows after it go by what sits on
+the signal pin, one row a device class: the ESC, a servo, a receiver. Each
+opens a hub and carries the mark `>` at scale 2 from x 213, in cyan, where
+SD LOG and SETTINGS carry a state. A new brand, protocol or tool adds a hub
+entry, not a MENU row.
 
-- **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC TESTER and ESC
-  COMMANDS need DShot running on SIG, and SETTINGS changes the wiring a claim
-  latched. While the claim is not free, for example after RESTART DSHOT until
-  the DShot pump runs again, these rows are drawn disabled, an outline, SETTINGS
-  under its own status and the tool rows with none, a tap opens nothing, and the
-  strip's caption reads `DSHOT RESTARTING ON SIG GP0` in amber. The choosers'
-  rows act whatever the claim: ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS and
-  TOOLS open, and each draws its entries disabled meanwhile, since every entry's
-  tool claims a pin or, as ANGLE METER, which saves to flash, opens only while
-  the pins are free; the chooser's strip then reads the same amber caption. A
-  tool opened some other way while another claim holds reads `WAIT: DSHOT
-  RESTARTING`; no path through the screens reaches that.
-- **Rows**: six rows fit the screen without scrolling. MENU holds nine, so
-  it scrolls by 120 px, with a 3 px scroll bar at x 235. RX SIGNALS is the
-  sixth row, whole and tappable without a drag. TOOLS, the seventh, shows
-  6 px at y 314 and is whole after a drag of 36 px; SD LOG, the eighth, is
-  whole after a drag of 78 px; SETTINGS, the ninth, after 120 px. A row
-  takes a tap only while 40 px of it show. Slice 4 of
-  `docs/design/menu-c.md` brings MENU to six rows that do not scroll.
+- **DSHOT RESTARTING**: ESC TESTER needs DShot running on SIG, and SETTINGS
+  changes the wiring a claim latched. While the claim is not free, for
+  example after RESTART DSHOT until the DShot pump runs again, these two rows
+  are drawn disabled, an outline, SETTINGS under its own status and ESC
+  TESTER with none, a tap opens nothing, and the strip's caption reads
+  `DSHOT RESTARTING ON SIG GP0` in amber. The hubs' rows act whatever the
+  claim: ESC CONFIG, SERVO and RX SIGNALS open, and each draws its entries
+  disabled meanwhile, since every entry's tool claims a pin or, as ESC
+  COMMANDS, which sends on SIG, and ANGLE METER, which saves to flash, opens
+  only while the pins are free; the hub's strip then reads the same amber
+  caption. A tool opened some other way while another claim holds reads
+  `WAIT: DSHOT RESTARTING`; no path through the screens reaches that.
+- **Rows**: the six rows take 252 px of the 258 px under the strip, so MENU
+  does not scroll and draws no scroll bar. Row i starts at y 62 + 42 × i;
+  the last, SETTINGS, ends at y 311. Every row is whole and takes a tap
+  with no drag.
 
-**PROGRAMMER**
+**The hubs**
 
-The SERVO PROGRAMMER row opens PROGRAMMER (`src/ui_servo_prog.cpp`), a
-chooser of three entries, 228 x 46 px at y 62, 142 and 222, from
-`UI_PROGRAMMERS` in `src/ui_registry.cpp`. PROGRAMMER, ESC CONFIG, RX
-SIGNALS and TOOLS are drawn and run by one widget, the hub
-(`src/ui_hub.h`): each is a table of `UiHubEntry`, checked at build time
-by `hubEntriesFit()`. The chooser claims nothing:
-DShot runs on SIG while it shows. A tap on an entry opens its tool through
-`uiOpenTool()`, and the tool claims SIG on that frame. **BACK** returns to
-MENU; the tools' RESTART DSHOT and their BACK before a claim holds return
-to PROGRAMMER. The strip reads `SIG GP0  SERVO SUPPLY OWN`, or the supply's pin.
+ESC CONFIG, SERVO and RX SIGNALS are drawn and run by one widget, the hub
+(`src/ui_hub.h`): each is a table of `UiHubEntry` in `src/ui_registry.cpp`,
+checked at build time by `hubEntriesFit()`. An entry is a button, 228 x
+46 px, at an 80 px pitch from y 62, with up to two lines under it, three
+under the last. A hub claims nothing: DShot runs on SIG while it shows. A
+tap on an entry opens its tool through `uiOpenTool()`, and a tool that
+claims a pin claims it on that frame. **BACK** returns to MENU; a tool's
+**BACK** before a claim holds, and its RESTART DSHOT, return to the hub.
+
+Up to three entries fill the page: ESC CONFIG, three, and RX SIGNALS, two,
+do not scroll. With more, the hub is a list (`src/ui_list.h`) in the 258 px
+under the strip, with a 3 px scroll bar at x 235, and a vertical drag
+scrolls it.
+
+**SERVO**
+
+The SERVO row opens SERVO (`src/ui_servo_hub.cpp`), a hub of five entries
+from `UI_SERVO_ENTRIES`, in the order of use: drive, measure, program. Its
+content is 5 × 80 + 4 = 404 px, so it scrolls 404 − 258 = 146 px. At
+scroll 0 SERVO TESTER, ANGLE METER and KST / CHASERVO are whole, at y 62,
+142 and 222, and HITEC D SERIES shows 18 px at y 302: it is listed, takes
+no press below 40 px, and shows that the list goes on. HITEC D SERIES takes
+a press from 22 px of scroll and is whole from 28 px, HITEC CLASSIC from
+108 px. A tool that returns to SERVO finds it at the scroll it was left
+at; SERVO opened from MENU starts at scroll 0. The strip reads
+`SIG GP0  AUX GP1  SERVO SUPPLY OWN`, or the supply's pin.
 
 | Entry | Lines under it with SERVO SUPPLY at OWN | With GP28 or GP29 |
 |---|---|---|
+| **SERVO TESTER** | `ONE SERVO ON SIG, OR TWO WITH AUX.` | the same |
+| **ANGLE METER** | `INCIDENCE, DECALAGE, DIHEDRAL, THROW` | the same |
 | **KST / CHASERVO** | `POWER THE SERVO UP AFTER THE TAP.` | `THE BENCH SWITCHES IT ON GP28.` |
 | **HITEC D SERIES** | `D485HW, D645MW AND THE OTHERS`, `POWER THE SERVO UP AFTER THE TAP.` | the models, `THE BENCH SWITCHES IT ON GP28.` |
 | **HITEC CLASSIC** | drawn disabled: `HS-5XXX, HS-7XXX`, then in amber `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` | live: the models, `THE BENCH SWITCHES IT ON GP28.` |
@@ -1290,7 +1311,7 @@ driver in `src/sdio/`, which is not tested on hardware. The board cannot use
 hardware SPI for the card: its SD clock is on GP19, which is SPI0 TX in the
 pin mux.
 
-Open the screen with **MENU → SD LOG**, the sixth row. By default arming
+Open the screen with **MENU → SD LOG**, the fifth row. By default arming
 starts a log and disarming stops it (`SD_LOG_AUTO_ON_ARM`). Auto-stop ends
 only a log that auto-start began. **START/STOP** is always available.
 
@@ -1466,14 +1487,13 @@ against EDT from the log itself.
 
 ## ESC commands
 
-**MENU → ESC COMMANDS** sends DShot commands to the ESC on SIG: beacons 1 to
-5, the spin direction and 3D mode. A change is saved in the ESC in the same
-sequence. The design is `docs/design/esc-commands.md`. Every command goes
-through the command slot on core1 (see
-[Telemetry and logging](#telemetry-and-logging)). No command of this page has
-been sent to an ESC from this board: what an ESC does with them is read from
-the AM32, Bluejay and BLHeli_S sources and the BLHeli_32 specification text,
-not measured.
+**MENU → ESC CONFIG → ESC COMMANDS** sends DShot commands to the ESC on SIG:
+beacons 1 to 5, the spin direction and 3D mode. A change is saved in the ESC
+in the same sequence. The design is `docs/design/esc-commands.md`. Every
+command goes through the command slot on core1 (see [Telemetry and
+logging](#telemetry-and-logging)). No command of this page has been sent to an
+ESC from this board: what an ESC does with them is read from the AM32, Bluejay
+and BLHeli_S sources and the BLHeli_32 specification text, not measured.
 
 ![ESC commands](docs/esccmd-preview.png)
 
@@ -1540,17 +1560,19 @@ ESC firmware and never changes a Bluejay or BLHeli_S ESC's tags. The
 transports are `src/am32_bl.h` for the greeting and AM32, and rcbench's
 escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 
-MENU's second row, **ESC CONFIG**, opens a chooser
-(`src/ui_esc_config.h`), PROGRAMMER's pattern: `ESC SETTINGS` (142 px at
-scale 2) with the lines `AM32 SETTINGS, READ AND WRITTEN.` and
+MENU's second row, **ESC CONFIG**, opens a hub
+(`src/ui_esc_config.h`) of three entries: `ESC COMMANDS` (142 px at scale
+2) with the lines `BEEP 1 TO 5, DIRECTION, 3D MODE.` and
+`SENT AS DSHOT COMMANDS.` ([ESC commands](#esc-commands)), `ESC SETTINGS`
+(142 px) with `AM32 SETTINGS, READ AND WRITTEN.` and
 `BLUEJAY, BLHELI_S: READ AND WRITTEN.`, and `USB BRIDGE` (118 px) with
 `A DESKTOP ESC TOOL OVER USB.` and `MSP, 4-WAY AND PASSTHROUGH.` under
-it ([USB bridge](#usb-bridge)). The strip reads `SIG GP0`. The chooser
-claims nothing; the tap on an entry claims SIG. Its BACK returns to MENU;
-the tools' BACK and RESTART DSHOT return to ESC CONFIG. The row acts
-whatever the pin claim's state; while the claim is not free the chooser
-draws both entries disabled and its strip reads `DSHOT RESTARTING ON SIG
-GP0` in amber. Its titles
+it ([USB bridge](#usb-bridge)). The strip reads `SIG GP0`. The hub
+claims nothing; the tap on ESC SETTINGS or USB BRIDGE claims SIG. Its BACK
+returns to MENU; the tools' BACK and RESTART DSHOT return to ESC CONFIG.
+The row acts whatever the pin claim's state; while the claim is not free
+the hub draws its three entries disabled and its strip reads `DSHOT
+RESTARTING ON SIG GP0` in amber. ESC SETTINGS' titles
 are one set for every firmware, `ESC SETTINGS`, `ESC HEX` and `ESC WRITE`,
 and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
@@ -2042,12 +2064,13 @@ The host test harness runs two cross-checks:
 
 ## Servo tester
 
-**MENU → SERVO TESTER** drives one servo on SIG, the ESC pin, or two servos on
-SIG and AUX, the KISS pin, with servo pulses from the RP2350's hardware PWM. It
-does not measure the servo: there is no position feedback, so the horn on the
-screen is drawn where the pulse puts it. Not tested on hardware. Design note:
-`docs/design/servo-tester.md`; the rules are pure functions in
-`src/servo_model.h`, and core1 makes the pulses (`src/servo_job.h`).
+**MENU → SERVO → SERVO TESTER** drives one servo on SIG, the ESC pin, or two
+servos on SIG and AUX, the KISS pin, with servo pulses from the RP2350's
+hardware PWM. It does not measure the servo: there is no position feedback, so
+the horn on the screen is drawn where the pulse puts it. Not tested on
+hardware. Design note: `docs/design/servo-tester.md`; the rules are pure
+functions in `src/servo_model.h`, and core1 makes the pulses
+(`src/servo_job.h`).
 
 ![Servo tester](docs/servo-preview.png)
 
@@ -2095,21 +2118,21 @@ ground only.
 
 ### Using it
 
-The screen is titled `SERVO TESTER`, its MENU row's label, on the main view and
-on the leave page (`SERVO_UI_TITLE` in `src/ui_servo.h`). It claims the pins
-(`src/pin_claim.h`). It does not claim while an ESC answers on SIG within
-500 ms, because servo pulses of 1000 µs to 2000 µs are a valid PWM throttle
-signal; it claims by itself 500 ms after the ESC goes quiet. That check misses
-an ESC that does not answer in bidirectional DShot, so the screen says
-`PULSES ON GP0 ARE THROTTLE TO AN ESC.` Two servos also need AUX free: a KISS
-frame within 500 ms, or SIG and AUX on one GPIO, leaves one servo only, with the
-reason on the SET screen. While the screen waits for the pins, for example while
-an ESC answers, it cannot know whether AUX is free, and TWO can be chosen. If
-the claim then finds AUX refused, the screen takes SIG alone and goes back to
-one servo, and TWO stays off until the screen is opened again. A TWO still
-waiting for `HOLD TO APPLY` goes back to one servo too (`claimPins()`); the wait
-is decided again, so one that held only for TWO ends and the rest of the change
-applies.
+The screen is titled `SERVO TESTER`, the label of its entry of the hub SERVO,
+on the main view and on the leave page (`SERVO_UI_TITLE` in `src/ui_servo.h`).
+It claims the pins (`src/pin_claim.h`). It does not claim while an ESC answers
+on SIG within 500 ms, because servo pulses of 1000 µs to 2000 µs are a valid
+PWM throttle signal; it claims by itself 500 ms after the ESC goes quiet. That
+check misses an ESC that does not answer in bidirectional DShot, so the screen
+says `PULSES ON GP0 ARE THROTTLE TO AN ESC.` Two servos also need AUX free: a
+KISS frame within 500 ms, or SIG and AUX on one GPIO, leaves one servo only,
+with the reason on the SET screen. While the screen waits for the pins, for
+example while an ESC answers, it cannot know whether AUX is free, and TWO can
+be chosen. If the claim then finds AUX refused, the screen takes SIG alone and
+goes back to one servo, and TWO stays off until the screen is opened again. A
+TWO still waiting for `HOLD TO APPLY` goes back to one servo too
+(`claimPins()`); the wait is decided again, so one that held only for TWO ends
+and the rest of the change applies.
 
 | Control | What it does |
 |---|---|
@@ -2447,7 +2470,7 @@ every phase and does nothing.
 
 ## KST servo programming
 
-**MENU → SERVO PROGRAMMER → KST / CHASERVO** opens KST SERVO, which reads
+**MENU → SERVO → KST / CHASERVO** opens KST SERVO, which reads
 and writes the settings of a KST or Chaservo servo
 over its signal wire, on SIG (GP0 or GP1). Both brands share one programming
 protocol and one set of 32 registers. The protocol code is rcbench's
@@ -2535,7 +2558,7 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 
 ### Using it
 
-1. Tap KST / CHASERVO on PROGRAMMER, with the servo unpowered. The tap
+1. Tap KST / CHASERVO on SERVO, the hub, with the servo unpowered. The tap
    opens KST SERVO, which claims SIG on that frame and, once DShot has
    drained and stopped, searches: it repeats rcbench's
    entry sequence, one attempt every 116.6 ms to 118.8 ms, for 30 s. The
@@ -2605,7 +2628,7 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    disabled until the pin is let go. Then NEXT SERVO keeps the claim and
    starts a new search (`NEXT SERVO: POWER IT AFTER THE TAP.`), and RESTART
    DSHOT acts on a press that lands 1000 ms or more later, so a double tap
-   on LEAVE restarts nothing; it returns to PROGRAMMER. BACK on the page is
+   on LEAVE restarts nothing; it returns to SERVO, the hub. BACK on the page is
    drawn disabled in every phase. With the switched supply step 1 reads
    `LEAVE SWITCHES THE SUPPLY OFF.`: LEAVE switches it off, and the page
    reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes 2 s after
@@ -2712,7 +2735,7 @@ reads `READ ONLY: UNKNOWN LAYOUT`.
 
 ## Hitec servo programming
 
-**MENU → SERVO PROGRAMMER → HITEC D SERIES** or **HITEC CLASSIC** opens
+**MENU → SERVO → HITEC D SERIES** or **HITEC CLASSIC** opens
 HITEC SERVO, which reads and writes the settings of a Hitec D series or
 classic servo over its signal wire, on SIG (GP0 or GP1). A classic servo needs
 SERVO SUPPLY at `GP28` or `GP29`. The protocol code is rcbench's
@@ -2759,7 +2782,8 @@ not 0 answers ID 0 is not measured.
 
 ### Using it
 
-1. Tap HITEC D SERIES or HITEC CLASSIC on PROGRAMMER. The tap opens HITEC
+1. Tap HITEC D SERIES or HITEC CLASSIC on SERVO, the hub; a drag up brings
+   them onto the panel. The tap opens HITEC
    SERVO for that family, which claims SIG on that frame: DShot sends zero
    frames for at least 250 ms after the last throttle frame, stops and
    leaves the pin an input with the pull-up on. The strip reads
@@ -2767,7 +2791,7 @@ not 0 answers ID 0 is not measured.
    the screen claims nothing and reads `AN ESC ANSWERS ON SIG GP0: UNPLUG
    IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, the strip
    `CHECKING SIG GP0 FOR AN ESC`; the claim follows once the ESC has been
-   quiet for 500 ms, and BACK meanwhile returns to PROGRAMMER, as it does
+   quiet for 500 ms, and BACK meanwhile returns to SERVO, the hub, as it does
    while DShot drains. With `GP28` or `GP29`, and for CLASSIC, the Hitec job and
    the entry start once DShot has stopped: the entry switches the supply
    off for 2.0 s and on again, the strip counting `SUPPLY OFF 1.4 S`, then
@@ -2849,7 +2873,7 @@ not 0 answers ID 0 is not measured.
    NEXT SERVO starts a session for the next servo as for the first: with
    `OWN` a D series servo waits for READ
    (`NEXT SERVO: POWER IT AFTER THE TAP.`); with the switch the entry starts
-   at once. RESTART DSHOT acts 1000 ms later and returns to PROGRAMMER.
+   at once. RESTART DSHOT acts 1000 ms later and returns to SERVO, the hub.
    BACK on the page is drawn disabled in every phase; BACK during the entry
    opens it at `1 UNPLUG THE SERVO.`
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
@@ -2919,7 +2943,7 @@ is the D485HW.
 
 ### Classic servos
 
-PROGRAMMER offers HITEC CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at
+SERVO, the hub, offers HITEC CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at
 `GP28` or `GP29`, since a classic servo enters programming mode only at its
 power-up. Under `OWN` it is drawn disabled, with
 `NEEDS THE CONVERTER OF WIRING PART C` and
@@ -2999,13 +3023,13 @@ not measured. Design note: `docs/design/rx-signals.md`; the screen is
 
 ### Using it
 
-The RX SIGNALS row opens RX SIGNALS (`src/ui_rx_signals.cpp`), a chooser
-with two entries, 228 x 46 px at y 62 and 142, as PROGRAMMER's. It claims
+The RX SIGNALS row opens RX SIGNALS (`src/ui_rx_signals.cpp`), a hub
+with two entries, 228 x 46 px at y 62 and 142. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT** opens S.BUS OUTPUT ([S.BUS output](#sbus-output));
 its lines carry the output's warning, `S.BUS TO A FLIGHT CONTROLLER.`
 `ON GP0, NEVER TO AN ESC.` While the pin claim is not free the row still
-opens RX SIGNALS, which draws both entries disabled, as every chooser does.
+opens RX SIGNALS, which draws both entries disabled, as every hub does.
 
 S.BUS MONITOR claims the role that is GP1 (`src/pin_claim.h`): SIG and AUX
 in the default wiring, SIG alone when SIG is GP1. Before the claim it
@@ -3102,7 +3126,7 @@ while it is powered and in its bootloader during the check below; by its
 source, read and not run on an ESC, a BLHeli_S ESC can take the S.BUS line as
 Multishot, calibrate its throttle range, arm and start its motor with no
 input from the user. An ESC unpowered during the check, or plugged in after
-it, is not found. The screen and the chooser carry the warning:
+it, is not found. The screen and the hub carry the warning:
 `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.` on the main
 view while SAFE, the second line in SET's footer, and
 `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` under OUTPUT.
@@ -3461,17 +3485,18 @@ readings (`src/supply_guard.*`).
 The angle meter reads angles from gravity with the accelerometer of the
 board's QMI8658 IMU (inertial measurement unit): a wing's incidence and the
 decalage between wing and stabiliser, dihedral, and a control surface's throw
-in degrees and as the trailing edge's travel in mm. MENU → TOOLS → ANGLE
-METER. Design note: `docs/design/angle-meter.md`. Built and tested on the
-host only, against a register model of the part: nothing of it has run on a
-board. Which QMI8658 variant is fitted, its address on the bus, its byte
-order and its axes on the board are not verified, and the accuracy of every
-reading is not measured; the design note's bench tests B1 to B9 are open.
+in degrees and as the trailing edge's travel in mm. MENU → SERVO → ANGLE
+METER, the second entry of the hub SERVO. Design note:
+`docs/design/angle-meter.md`. Built and tested on the host only, against a
+register model of the part: nothing of it has run on a board. Which QMI8658
+variant is fitted, its address on the bus, its byte order and its axes on the
+board are not verified, and the accuracy of every reading is not measured; the
+design note's bench tests B1 to B9 are open.
 
 ![Angle meter](docs/angle-preview.png)
 
-*TOOLS, the main view after a zero with LENGTH set and SIGN at INVERT, SETUP,
-and FLIP CAL with a result.*
+*The main view after a zero with LENGTH set and SIGN at INVERT, SETUP, and
+FLIP CAL with a result.*
 
 **How it reads.** Opening the meter opens the IMU driver (`src/qmi8658.*`):
 a probe of 0x6B, a soft reset, the accelerometer at ±2 g and 31.25 Hz with
@@ -3548,8 +3573,8 @@ not show them, and its HOLD DEFAULTS keeps them.
 
 **Pins.** The meter claims no pin: DShot keeps running on SIG, and the ESC
 is disarmed as the tester returns to MENU. The meter opens only while the
-pin claim is free, since the meter's save writes flash: TOOLS opens
-whatever the claim and draws ANGLE METER disabled meanwhile.
+pin claim is free, since the meter's save writes flash: SERVO, the hub,
+opens whatever the claim and draws ANGLE METER disabled meanwhile.
 
 ## Device backups
 
@@ -3611,13 +3636,13 @@ In the firmware:
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - The tester opens from MENU disarmed, at throttle 0, with LATCH off, and its
   MENU button disarms, zeroes the throttle and turns LATCH off before it returns
-  to MENU. Every tool but SETTINGS opens only from MENU; SETTINGS also opens
-  from a tap on the tester's pole count or ceiling, only while disarmed, and
-  that tap runs the same disarm first. While a pin claim is not free, after
-  RESTART DSHOT until the DShot pump runs again, MENU draws ESC TESTER, the
-  tools that claim the pins and SETTINGS disabled, a chooser draws its entries
-  disabled, the strips read `DSHOT RESTARTING ON SIG GP0`, and the tester's two
-  readouts do not act.
+  to MENU. Every tool but SETTINGS opens only from MENU or from a hub that
+  MENU opens; SETTINGS also opens from a tap on the tester's pole count or
+  ceiling, only while disarmed, and that tap runs the same disarm first.
+  While a pin claim is not free, after RESTART DSHOT until the DShot pump
+  runs again, MENU draws ESC TESTER and SETTINGS disabled, a hub draws its
+  entries disabled, the strips read `DSHOT RESTARTING ON SIG GP0`, and the
+  tester's two readouts do not act.
 - Before DShot gives up the signal pin, to the AM32 editor or for a pin
   change, it sends throttle zero for at least 250 ms after the last throttle
   frame.
@@ -3696,14 +3721,14 @@ src/
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
   ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
   ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry and the control ids
-  ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER, RX SIGNALS, ESC CONFIG and TOOLS entry, and the checks that their texts fit
-  ui_hub.{h,cpp}        the hub: the one widget under the four choosers, UiHubEntry, UiHub and hubEntriesFit()
+  ui_registry.{h,cpp}   one line per MENU row and per ESC CONFIG, SERVO and RX SIGNALS entry, and the checks that their texts fit
+  ui_hub.{h,cpp}        the hub: the one widget under ESC CONFIG, SERVO and RX SIGNALS, a list once it has more than three entries; UiHubEntry, UiHub and hubEntriesFit()
   ui_menu.{h,cpp}       MENU, the root and the first screen
   ui_esc_cmd.{h,cpp}    ESC COMMANDS: BEEP 1 to 5, direction and 3D mode, through the command slot
   esc_3d.{h,cpp}        the tester's 3D note, which ESC SETTINGS and ESC COMMANDS set
-  ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers, a hub
-  ui_rx_signals.{h,cpp} RX SIGNALS: the chooser of MONITOR and OUTPUT, a hub
-  ui_esc_config.{h,cpp} ESC CONFIG: the chooser of ESC SETTINGS and USB BRIDGE, a hub
+  ui_servo_hub.{h,cpp}  SERVO: the hub of the servo tester, the angle meter and the three servo programmers
+  ui_rx_signals.{h,cpp} RX SIGNALS: the hub of MONITOR and OUTPUT
+  ui_esc_config.{h,cpp} ESC CONFIG: the hub of ESC COMMANDS, ESC SETTINGS and USB BRIDGE
   ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
   diag.{h,cpp}          the restart reason, decoded from the reset registers, and the uptime
   ui_sdlog.{h,cpp}      SD LOG screen
@@ -3750,7 +3775,6 @@ src/
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
   angle_model.{h,cpp}   the angle meter's model: frames, calibration, theta and tilt, ZERO, MAX, the flip (pure)
   ui_angle.{h,cpp}      ANGLE METER: the reading, ZERO, MAX, SETUP and FLIP CAL; opens and closes the IMU driver
-  ui_tools.{h,cpp}      TOOLS, the chooser behind MENU's TOOLS row, a hub
   servo.cmake, kst.cmake, hitec.cmake, rx.cmake, sense.cmake, escwire.cmake, angle.cmake, bridge.cmake  each feature's firmware sources (test/*.mk: its tests)
   ui_input.{h,cpp}      tap-on-release and held-repeat rules, shared (pure)
   rpm_filter.h          display smoothing of the RPM readout
@@ -3870,11 +3894,12 @@ layout change is visible in the frames:
 - eight of MENU: on arrival, the EDT chip on, off and reading NO ESC,
   SETTINGS' `UNSAVED` and `UPDATED`, DSHOT RESTARTING, AM32's power-cycle
   cue;
-- four of MENU → ESC COMMANDS: at rest, a beacon going out, 3D ON sent, and
+- four of ESC COMMANDS: at rest, a beacon going out, 3D ON sent, and
   no ESC answering;
-- two of MENU → SERVO PROGRAMMER: SERVO SUPPLY at `OWN` and at a pin;
-- one of MENU → RX SIGNALS, the chooser;
-- one of MENU → ESC CONFIG, the chooser;
+- three of MENU → SERVO, the hub: at scroll 0, at its end with SERVO SUPPLY
+  at `OWN`, and at its end with the supply at a pin;
+- one of MENU → RX SIGNALS, the hub;
+- one of MENU → ESC CONFIG, the hub;
 - eight of S.BUS MONITOR: waiting for the first frame, frames, failsafe,
   the receiver gone, an ESC answering on GP1 as SIG, no role on GP1, and the
   leave page with GP1 as AUX and as SIG;
@@ -4043,9 +4068,9 @@ calibration and the errors it removes, the flip's arithmetic against values
 worked by hand and its steps, NaN and degenerate inputs, and the texts in
 tenths.
 
-`test_angle_ui.cpp` runs TOOLS and ANGLE METER through the real UI, the IMU
-driver and the QMI8658 model on the I2C fake: MENU's TOOLS row and the
-chooser; the driver opened by the meter and CTRL7 00h on BACK, nothing to
+`test_angle_ui.cpp` runs ANGLE METER through the real UI, the IMU
+driver and the QMI8658 model on the I2C fake: its entry of the hub SERVO;
+the driver opened by the meter and CTRL7 00h on BACK, nothing to
 0x6B before or after; the angle, the strip's tilt, amber from 45°, `---`
 and TOO STEEP from 70°, SETTLED and MOVING, a stale reading, no part, another
 part and a part lost; ZERO a second after the lift and its 10 s limit, MAX
@@ -4248,11 +4273,11 @@ cd test && make wiki      # render wiki/img/, then check every link and image
 The Host tests job in `ci.yml` runs the same render and check on every push to
 `main` or `master` and on every pull request. A renamed page or a dropped
 `fakeDumpFrame()` call fails that run. The images are named after the shots,
-`shot_prog_chooser.ppm` → `img/prog-chooser.png`, and show the screens as
-the suite draws them, so the manual's pictures follow menu structure B.
+`shot_servo_hub.ppm` → `img/servo-hub.png`, and show the screens as
+the suite draws them, so the manual's pictures follow the menu as built.
 `test/check_docs.py` fails when README.md or a wiki page names a screen
-text, a view or an image that menu structure B removed; the script holds
-the list.
+text, a view or an image that menu structure B or C removed; the script
+holds the list.
 
 ---
 

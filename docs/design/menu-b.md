@@ -1120,7 +1120,7 @@ Choices of this note where the decisions above leave the choice:
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15
     and decision 8: the hub widget `ui_hub` replaces the chooser;
     `UiScreenId::ServoProg` and `Tools` are gone; a chosen tool's origin is its
-    hub, not MENU. Not built.
+    hub, not MENU. Built (slice 4).
 20. **The readouts act only while disarmed.** See the interlocks. The owner
     confirmed it on 2026-11-14 (decision 24).
 21. **RESTART DSHOT waits 1000 ms.** LEAVE and RESTART DSHOT share a
