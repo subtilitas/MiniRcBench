@@ -484,7 +484,7 @@ static void testHubFit() {
 		          hubEntriesFit(UiHub{ "T", nullptr, t, 3 }) && !hubEntriesFit(UiHub{ "T", nullptr, u, 3 }));
 	}
 	checkTrue("four lines under the last entry fit the panel only for the first two entries",
-	          fits1(twoWhy2));
+	          fits1(twoWhy2) && !fits2(twoWhy2));
 	{
 		// 222 + 50 + 36 + 7 = 315 <= 320: the page's height, not a line
 		// count, is the limit under the last entry.

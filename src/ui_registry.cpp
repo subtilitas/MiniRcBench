@@ -58,8 +58,19 @@ constexpr UiHubEntry UI_PROGRAMMERS[] = {
 };
 constexpr uint8_t UI_PROGRAMMERS_COUNT =
 	(uint8_t)(sizeof(UI_PROGRAMMERS) / sizeof(UI_PROGRAMMERS[0]));
+/** @brief Whether @p h has a strip function, which uiHubTick calls unchecked. */
+static constexpr bool hubHasStrip(const UiHub &h) {
+	return h.strip != nullptr;
+}
 constexpr UiHub UI_PROG_HUB = { UI_PROG_TITLE, uiServoProgStrip, UI_PROGRAMMERS, UI_PROGRAMMERS_COUNT };
 static_assert(hubEntriesFit(UI_PROG_HUB), "a PROGRAMMER line is too wide, or runs into the next entry");
+static_assert(hubHasStrip(UI_PROG_HUB), "the hub has no strip, which uiHubTick calls");
+static constexpr bool programmersHaveSwitchedFmt() {
+	for (uint8_t i = 0; i < UI_PROGRAMMERS_COUNT; i++)
+		if (!UI_PROGRAMMERS[i].powerSwitchedFmt) return false;
+	return true;
+}
+static_assert(programmersHaveSwitchedFmt(), "a PROGRAMMER entry has no switched-supply power line");
 
 /** @brief Characters of @p s. */
 static constexpr int textLen(const char *s) {
@@ -102,6 +113,7 @@ constexpr UiHubEntry UI_RX_ENTRIES[] = {
 constexpr uint8_t UI_RX_ENTRIES_COUNT = (uint8_t)(sizeof(UI_RX_ENTRIES) / sizeof(UI_RX_ENTRIES[0]));
 constexpr UiHub UI_RX_HUB = { UI_RX_TITLE, uiRxSignalsStrip, UI_RX_ENTRIES, UI_RX_ENTRIES_COUNT };
 static_assert(hubEntriesFit(UI_RX_HUB), "an RX SIGNALS line is too wide, or runs into the next entry");
+static_assert(hubHasStrip(UI_RX_HUB), "the hub has no strip, which uiHubTick calls");
 
 /**
  * @brief ESC CONFIG's entries, top to bottom (docs/design/bluejay-blheli-s.md
@@ -121,6 +133,7 @@ constexpr uint8_t UI_ESC_CFG_ENTRIES_COUNT =
 constexpr UiHub UI_ESC_CFG_HUB = { UI_ESC_CFG_TITLE, uiEscConfigStrip, UI_ESC_CFG_ENTRIES,
                                    UI_ESC_CFG_ENTRIES_COUNT };
 static_assert(hubEntriesFit(UI_ESC_CFG_HUB), "an ESC CONFIG line is too wide, or runs into the next entry");
+static_assert(hubHasStrip(UI_ESC_CFG_HUB), "the hub has no strip, which uiHubTick calls");
 
 /**
  * @brief TOOLS' entries, top to bottom (docs/design/angle-meter.md,
@@ -134,4 +147,5 @@ constexpr uint8_t UI_TOOLS_ENTRIES_COUNT =
 	(uint8_t)(sizeof(UI_TOOLS_ENTRIES) / sizeof(UI_TOOLS_ENTRIES[0]));
 constexpr UiHub UI_TOOLS_HUB = { UI_TOOLS_TITLE, uiToolsStrip, UI_TOOLS_ENTRIES, UI_TOOLS_ENTRIES_COUNT };
 static_assert(hubEntriesFit(UI_TOOLS_HUB), "a TOOLS line is too wide, or runs into the next entry");
+static_assert(hubHasStrip(UI_TOOLS_HUB), "the hub has no strip, which uiHubTick calls");
 

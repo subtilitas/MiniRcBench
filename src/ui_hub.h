@@ -113,7 +113,9 @@ constexpr int uiHubTextLen(const char *s) {
  * two-digit GPIO for its `%u`), and when the lines under it end 4 px or more
  * above the next entry, the last entry's on the panel. The lines under an
  * entry are its plain lines and the taller of its power line and its `why`
- * lines: two lines at most, three under the last entry.
+ * lines. Their last line ends at the entry's top + 50 px + 12 px per line
+ * after the first + 7 px, which must be at most 76 px below the entry's top (an
+ * entry above another) or at most 320 px, the panel's height (the last entry).
  *
  * It fails for an entry with a gate and no line that says why, which the hub
  * would draw disabled without a reason; for a power line at OWN with none

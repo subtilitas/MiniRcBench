@@ -1257,11 +1257,12 @@ protocol.
   one page of three entries and does not scroll; the list of slice 4, MENU's
   new rows and the navigation of slice 2 are not built. `UiProgEntry`,
   `UiRxEntry`, `UiEscCfgEntry` and `UiToolsEntry` are gone, and the layout
-  constants `UI_PROG_ENTRY_*` and `UI_PROG_LINE_*` are `UI_HUB_ENTRY_*` and
-  `UI_HUB_LINE_*`. Host tests: `runHubTests` in `test/test_hub.cpp`, 161
-  checks; 63 mutations of the widget, the fit check, the tables and the four
-  screens, 62 failing the suite or the build and one equivalent, the limit
-  of three entries, which the room under a fourth entry also refuses.
+  constants `UI_PROG_ENTRY_*`, `UI_PROG_LINE_*` and `UI_PROG_LABEL_CHARS` are
+  `UI_HUB_ENTRY_*`, `UI_HUB_LINE_*` and `UI_HUB_LABEL_CHARS`. Host tests:
+  `runHubTests` in `test/test_hub.cpp`, 161 checks; 63 mutations of the
+  widget, the fit check, the tables and the four screens, 62 failing the
+  suite or the build and one equivalent, the limit of three entries,
+  which the room under a fourth entry also refuses.
 - After v0.1.0-rc1: the release notes gain a "Hardware testing" section: no
   MiniRcBench image has run on hardware. They name the image by its tag and
   the ESC pin setting as SIG PIN. The README's "Prebuilt image" and the wiki's
