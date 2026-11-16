@@ -1155,13 +1155,29 @@ enum class EscPinMode : uint8_t {
 
 /** @brief What core1 does with the pin on one pass. @see escHandoverStep() */
 enum class EscHandover : uint8_t {
-	Run,       /**< Run wanted and bound, no rebuild: the pump runs its frame slots. */
-	Drain,     /**< Bound, another mode or a rebuild wanted, the drain not over: a zero frame per slot. */
-	Teardown,  /**< Bound, another mode or a rebuild wanted, the drain over: let go, then step again. */
-	Bind,      /**< Nothing bound and Run wanted: bind from the latched wiring. */
-	Park,      /**< Nothing bound, Park wanted, the pins not parked on the latched wiring: park them. */
-	Release,   /**< Nothing bound, Release wanted and not reached: free the pins. */
-	Hold,      /**< Nothing bound and the wanted mode reached: nothing to do. */
+	/** Run wanted and bound, no rebuild: the pump runs its frame slots. */
+	Run,
+	/**
+	 * Bound, another mode or a rebuild wanted, the drain not over: a zero
+	 * frame per slot.
+	 */
+	Drain,
+	/**
+	 * Bound, another mode or a rebuild wanted, the drain over: let go, then
+	 * step again.
+	 */
+	Teardown,
+	/** Nothing bound and Run wanted: bind from the latched wiring. */
+	Bind,
+	/**
+	 * Nothing bound, Park wanted, the pins not parked on the latched wiring:
+	 * park them.
+	 */
+	Park,
+	/** Nothing bound, Release wanted and not reached: free the pins. */
+	Release,
+	/** Nothing bound and the wanted mode reached: nothing to do. */
+	Hold,
 };
 
 /**
@@ -1242,7 +1258,12 @@ enum class EscPad : uint8_t {
 	 * buffer on can latch high (RP2350-E9, `board_pins.h`).
 	 */
 	Low,
-	/** An input with the pull-down on and the input buffer off, 4 mA: the reset state. */
+	/**
+	 * An input with the pull-down on and the input buffer off, 4 mA: AUX
+	 * while parked, and a GPIO the wiring no longer holds. The buffer is off
+	 * whenever the pull-down is on: by the datasheet the RP2350-E9 latch
+	 * needs the buffer on (not verified on this board).
+	 */
 	Off,
 	/** An input with the pull-up on, 4 mA: SIG handed over, as the teardown leaves it. */
 	PullUp,
@@ -1259,7 +1280,8 @@ struct EscPadPlan {
 
 /**
  * @brief The pad states of a change to Park, to Release, or out of Park to
- *        Run, with the wiring the pins move to. Pure.
+ *        Run, with the wiring the pins move to: only the GPIOs whose state
+ *        changes. Pure.
  *
  * - SIG: Park drives it low (EscPad::Low); Release and Run put it on the
  *   pull-up (EscPad::PullUp), as the teardown does, and the bind for Run
@@ -1268,14 +1290,20 @@ struct EscPadPlan {
  *   (EscPad::Off); Release makes it a plain input (EscPad::Input). A KISS
  *   receiver the bind starts takes it from there.
  * - A GPIO the old wiring held and the new one does not goes to EscPad::Off,
- *   the reset state: after a wiring change in Park the old SIG is no longer
- *   driven.
+ *   input, pull-down, input buffer off: after a wiring change in Park the
+ *   old SIG is no longer driven.
+ * - From Park, a GPIO already in its new state is left out: SIG still SIG
+ *   stays driven low through a re-park on unchanged pins (a bitrate-only
+ *   change), with no write that could float it, and AUX still AUX keeps its
+ *   pull-down. Out of any other mode each GPIO is set, since a job may have
+ *   left it in any state.
  *
  * Each GPIO appears once, with SIG last, so a swap of SIG and AUX names the
  * old SIG once, as the new AUX. With SIG and AUX on one GPIO, SIG's state
  * wins. @ref ESC_NO_GPIO in the old wiring, before anything was held, adds
  * nothing.
  *
+ * @param from   The mode reached, whose pads @p oldSig and @p oldAux hold.
  * @param to     EscPinMode::Park, EscPinMode::Release, or EscPinMode::Run
  *               for the pads before a bind from Park.
  * @param oldSig SIG the pins were last held on, or @ref ESC_NO_GPIO.
@@ -1284,58 +1312,80 @@ struct EscPadPlan {
  * @param aux    AUX of the latched wiring.
  * @return       The plan.
  */
-static inline EscPadPlan escParkPlan(EscPinMode to, uint8_t oldSig, uint8_t oldAux,
+static inline EscPadPlan escParkPlan(EscPinMode from, EscPinMode to,
+                                     uint8_t oldSig, uint8_t oldAux,
                                      uint8_t sig, uint8_t aux) {
 	EscPadPlan p = {};
-	const uint8_t order[3] = {oldSig, oldAux, aux};
-	for (uint8_t g : order) {
-		if (g == ESC_NO_GPIO || g == sig) continue;
+	const uint8_t order[4] = {oldSig, oldAux, aux, sig};
+	for (uint8_t i = 0; i < 4; i++) {
+		uint8_t g = order[i];
+		if (g == ESC_NO_GPIO || (g == sig && i < 3)) continue;
 		bool seen = false;
-		for (uint8_t i = 0; i < p.count; i++) seen = seen || p.gpio[i] == g;
-		if (seen) continue;
+		for (uint8_t j = 0; j < i; j++) seen = seen || order[j] == g;
+		if (seen && g != sig) continue;
+		EscPad pad;
+		if (g == sig)
+			pad = to == EscPinMode::Park ? EscPad::Low : EscPad::PullUp;
+		else
+			pad = g == aux && to == EscPinMode::Release ? EscPad::Input : EscPad::Off;
+		// What Park left on a GPIO it held: SIG low, AUX off.
+		bool held = from == EscPinMode::Park && (g == oldSig || g == oldAux);
+		EscPad was = g == oldSig ? EscPad::Low : EscPad::Off;
+		if (held && was == pad) continue;
 		p.gpio[p.count] = g;
-		p.pad[p.count]  = g == aux && to == EscPinMode::Release ? EscPad::Input
-		                                                        : EscPad::Off;
+		p.pad[p.count]  = pad;
 		p.count++;
 	}
-	p.gpio[p.count] = sig;
-	p.pad[p.count]  = to == EscPinMode::Park ? EscPad::Low : EscPad::PullUp;
-	p.count++;
 	return p;
 }
 
 /**
  * @brief Set one pad to @p pad. Core1 only, or core0 before core1 starts.
  *
- * Through the SDK: gpio_init() makes it an SIO input with the output latch
- * low, and the input buffer on. For EscPad::Low the latch is low before the
- * pad turns to an output, so the line is not driven high on the way.
+ * The pulls go off before the SIO function turns the input buffer on, and
+ * EscPad::Off turns the buffer off before the pull-down goes on, so no pad
+ * has the pull-down on while its buffer is on (RP2350-E9).
+ *
+ * - EscPad::Low with no high glitch: the SIO output value 0 and the 2 mA
+ *   drive first, then the direction in, the pulls off, the SIO function and
+ *   the direction out last. The pad is never an output with the value 1,
+ *   whatever value a job left in the latch.
+ * - EscPad::Off: the pulls off, gpio_init() (an SIO input, the output value
+ *   0, the input buffer on), the buffer off, and the pull-down last.
+ * - EscPad::PullUp and EscPad::Input: the pulls off, gpio_init(), then the
+ *   pull-up or nothing.
  *
  * @param gpio The pad.
  * @param pad  Its state.
  */
 static inline void escPadSet(uint8_t gpio, EscPad pad) {
-	gpio_init(gpio);
 	switch (pad) {
 		case EscPad::Low:
-			gpio_disable_pulls(gpio);
-			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_2MA);
 			gpio_put(gpio, 0);
+			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_2MA);
+			gpio_set_dir(gpio, GPIO_IN);
+			gpio_disable_pulls(gpio);
+			gpio_set_function(gpio, GPIO_FUNC_SIO);
 			gpio_set_dir(gpio, GPIO_OUT);
 			break;
 		case EscPad::Off:
+			gpio_disable_pulls(gpio);
+			gpio_init(gpio);
 			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_4MA);
-			gpio_pull_down(gpio);
 			gpio_set_input_enabled(gpio, false);
+			gpio_pull_down(gpio);
 			break;
 		case EscPad::PullUp:
+			gpio_disable_pulls(gpio);
+			gpio_init(gpio);
 			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_4MA);
 			gpio_pull_up(gpio);
 			break;
 		case EscPad::Input:
 		default:
-			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_4MA);
 			gpio_disable_pulls(gpio);
+			gpio_init(gpio);
+			gpio_set_drive_strength(gpio, GPIO_DRIVE_STRENGTH_4MA);
 			break;
 	}
 }
@@ -1526,6 +1576,21 @@ bool escTaskParked();
 bool escTaskRunning();
 
 /**
+ * @brief millis() of core1's last bind, whatever its cause; 0 while the pump
+ *        is down.
+ *
+ * Core1 stamps it at the end of each bind that succeeds, the first one, a
+ * Run from Park or Release and a rebuild after escTaskConfigure() alike,
+ * with a stamp of 0 made 1. A refused bind leaves it 0. The teardown sets it
+ * to 0 first, so it is 0 while parked and while released. One aligned 32-bit
+ * word, written by core1 and read by core0, as escHeartbeatMs() crosses the
+ * cores the other way.
+ *
+ * @return The bind's millis(), never 0 while bound; 0 with no bind.
+ */
+uint32_t escTaskBoundMs();
+
+/**
  * @brief Set the pins and bitrate the DShot pump uses, and rebuild it.
  *
  * Core0 hands the values across rather than core1 reading the settings
@@ -1536,8 +1601,9 @@ bool escTaskRunning();
  * Takes effect on the next escTaskPoll(). In Run the driver releases the old
  * pin and binds the new one, after the same zero-throttle drain as a suspend
  * (escHandoverStep()). In Park the pins park again on the new wiring: the old
- * SIG goes to the reset state, input with the pull-down and the buffer off,
- * and the new SIG is driven low (escParkPlan()). In Release the new wiring
+ * SIG becomes an input with the pull-down on and the input buffer off, and
+ * the new SIG is driven low (escParkPlan()); a GPIO whose state does not
+ * change is not written, so SIG on unchanged pins stays driven low. In Release the new wiring
  * waits for the next mode. Forces a disarm, because the ESC on the old pin
  * stops hearing frames the moment it is released.
  *

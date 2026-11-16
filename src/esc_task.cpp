@@ -11,6 +11,7 @@
 #include <string.h>
 #include <pico/critical_section.h>
 #include <hardware/gpio.h>
+#include <hardware/sync.h>
 
 /**
  * @file esc_task.cpp
@@ -54,6 +55,11 @@ static uint8_t s_pumpPin = 0;     /**< GPIO the driver was bound to. */
  * and after a teardown. Core0 reads it. @see escModeReported()
  */
 static volatile EscPinMode s_reached = EscPinMode::Run;
+/**
+ * millis() at the end of the last bind that succeeded, 0 made 1; 0 while the
+ * pump is down. Core0 reads it. @see escTaskBoundMs()
+ */
+static volatile uint32_t s_boundMs = 0;
 /** SIG the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
 static uint8_t s_heldSig = ESC_NO_GPIO;
 /** AUX the pins were last bound or parked on; @ref ESC_NO_GPIO before that. */
@@ -325,6 +331,7 @@ bool escTaskSuspended() {
 }
 bool escTaskParked() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Park); }
 bool escTaskRunning() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Run); }
+uint32_t escTaskBoundMs() { return s_boundMs; }
 /** @} */
 
 void escSnapshot(EscTelemetry *out) {
@@ -408,6 +415,10 @@ static void pumpTeardown() {
 		// back on, so the line holds the bidirectional idle level until its
 		// next owner takes it: a claim's user, the park, or nothing after a
 		// pin change.
+		// The stamp first: core0 never reads a bind stamp for a pump
+		// that is going down.
+		s_boundMs = 0;
+		__dmb();
 		out_dshot_stop(s_pumpPin);
 		out_dshot_release(s_pumpPin);
 		gpio_pull_up(s_pumpPin);
@@ -436,16 +447,27 @@ static void pumpTeardown() {
  *        it. Core1 only.
  */
 static void pumpBind() {
+	// The request is cleared before the wiring is read, so a configure that
+	// lands during the bind leaves it set, and the next pass rebuilds on the
+	// new wiring. @see esc_wiring
+	s_rebuildReq = false;
+	__dmb();
 	// Latch the wiring once, here, so a pin change cannot be observed
-	// half-applied. @see esc_wiring
+	// half-applied.
 	uint8_t  pin   = s_dshotPin;
 	uint16_t kbaud = s_dshotKbaud;
 	uint8_t  aux   = s_kissPin;
+	bool     kiss  = s_kissEnable != 0;
 	// Out of Park the pads go back first: SIG on its pull-up at 4 mA, from
-	// where the bind takes it, and a GPIO the old wiring held to the reset
-	// state. @see escParkPlan()
-	if (s_reached == EscPinMode::Park) {
-		EscPadPlan plan = escParkPlan(EscPinMode::Run, s_heldSig, s_heldAux, pin, aux);
+	// where the bind takes it, and a GPIO the old wiring held to EscPad::Off.
+	// No mode is reported while they change: core0 never reads "parked"
+	// with SIG no longer driven low. @see escParkPlan()
+	EscPinMode from = s_reached;
+	if (from == EscPinMode::Park) {
+		s_reached = EscPinMode::Run;
+		__dmb();
+		EscPadPlan plan = escParkPlan(from, EscPinMode::Run, s_heldSig, s_heldAux,
+		                              pin, aux);
 		escPadApply(&plan);
 	}
 	// Bidirectional, and refused rather than degraded: a bind that cannot
@@ -459,7 +481,6 @@ static void pumpBind() {
 	s_pumpUp  = true;
 	s_heldSig = pin;
 	s_heldAux = aux;
-	s_rebuildReq = false;
 	// A rebuild is a new ESC as far as this pump is concerned: it starts
 	// disarmed, and its first frames are the EDT enable. An ESC that kept
 	// EDT on across the rebuild is read correctly from its first reply,
@@ -469,11 +490,18 @@ static void pumpBind() {
 	s_edtRequested = s_pump.edt.sent;
 	s_nextSendUs = time_us_32();
 #if KISS_TELEM_ENABLE
-	if (s_kissEnable && aux != pin) kissUartBegin(aux);
+	if (kiss && aux != pin) kissUartBegin(aux);
+#else
+	(void)kiss;
 #endif
 	critical_section_enter_blocking(&s_cs);
 	s_tel.initError = !bound;
 	critical_section_exit(&s_cs);
+	// The bind stamp last, once everything it stands for is in place.
+	// @see escTaskBoundMs()
+	uint32_t stamp = millis();
+	__dmb();
+	s_boundMs = bound ? (stamp ? stamp : 1u) : 0u;
 }
 
 /**
@@ -482,19 +510,27 @@ static void pumpBind() {
  *
  * Release touches the pads only out of Park: from Run the teardown left them
  * in today's handover state, and before anything was held they are in the
- * pad's reset state.
+ * pad's reset state. While the pads change no mode is reported, so core0
+ * never reads "parked" or "released" for pads on their way.
  *
  * @param to EscPinMode::Park or EscPinMode::Release.
  */
 static void padsTo(EscPinMode to) {
-	uint8_t sig = s_dshotPin;
-	uint8_t aux = s_kissPin;
-	if (to == EscPinMode::Park || s_reached == EscPinMode::Park) {
-		EscPadPlan plan = escParkPlan(to, s_heldSig, s_heldAux, sig, aux);
+	EscPinMode from = s_reached;
+	if (to == EscPinMode::Park || from == EscPinMode::Park) {
+		// Cleared before the wiring is read, as in pumpBind(): a configure
+		// that lands during the park parks again on the next pass.
+		s_rebuildReq = false;
+		s_reached = EscPinMode::Run;
+		__dmb();
+		uint8_t sig = s_dshotPin;
+		uint8_t aux = s_kissPin;
+		EscPadPlan plan = escParkPlan(from, to, s_heldSig, s_heldAux, sig, aux);
 		escPadApply(&plan);
 		s_heldSig = sig;
 		s_heldAux = aux;
-		s_rebuildReq = false;
+		// The pads are set before the mode that names them is published.
+		__dmb();
 	}
 	s_reached = to;
 }
@@ -516,7 +552,6 @@ void escTaskPoll() {
 	                                       s_pump.lastThrottleMs, millis());
 	if (handover == EscHandover::Teardown) {
 		pumpTeardown();
-		s_rebuildReq = false;
 		handover = escHandoverStep(want, s_reached, false, false, 0, 0);
 	}
 	switch (handover) {

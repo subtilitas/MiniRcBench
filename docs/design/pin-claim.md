@@ -645,10 +645,18 @@ on and the input buffer off. From Park, Release frees the pins on the next
 pass with no frame: SIG on its pull-up, AUX a plain input. Run from Park
 puts SIG back on its pull-up at 4 mA and binds once, with the EDT enable
 first. A wiring change in Park parks again on the new wiring: a GPIO the
-old wiring held goes to the pad's reset state (`escParkPlan()`). A teardown
-clears `initError`. The boot still asks for Run and the claim still asks
-for Release and Run, so nothing parks in use yet. `test_claim.cpp` tests
-each of these against the fake pump and the GPIO fake.
+old wiring held goes to input, pull-down, input buffer off, and a GPIO
+whose state does not change is not written (`escParkPlan()`). No mode is
+reported while the pads change. A configure that lands during a bind or a
+park is rebuilt on the next pass. `escTaskBoundMs()` is the bind's
+`millis()`, 0 while parked or released. A teardown clears `initError`.
+The boot still asks for Run and the claim still asks for Release and Run,
+so nothing parks in use yet. `test_claim.cpp` tests each of these against
+the fake pump and the GPIO fake. `escTaskPoll()` itself (`pumpBind()`,
+`padsTo()`, `pumpTeardown()` and the order in which each reports) is
+compiled only: the fake runs a copy of that sequence in `fakePumpPoll()`,
+and `testPollSource()` checks the shipped source for the steps the copy
+relies on.
 
 `test/test_bridge.cpp` runs the USB bridge's claim with the job as it ships,
 on a line fake (`test/fake_bridge_line.h`): DShot asked back only once the

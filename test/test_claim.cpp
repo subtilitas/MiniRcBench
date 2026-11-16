@@ -36,6 +36,7 @@
 #include "../src/core1_job.cpp"   // NOLINT -- see the note above
 
 #include <string.h>
+#include <string>
 
 // ---------------------------------------------------------------------------
 // fake jobs
@@ -429,7 +430,7 @@ struct HandoverSim {
 	bool     suspendReq;          /**< core0 asked for Release, else Run. */
 	bool     rebuildReq;          /**< core0's s_rebuildReq. */
 	bool     pumpUp;              /**< s_pumpUp. */
-	bool     suspended;           /**< s_suspended. */
+	bool     suspended;           /**< escTaskSuspended(): Release reached, the pump down. */
 	EscPinMode reached;           /**< s_reached. */
 	uint32_t ms;                  /**< millis() of the slot about to run. */
 	int      binds;               /**< Binds so far. */
@@ -447,7 +448,6 @@ static void hsSlot(HandoverSim *h) {
 	                                  h->pump.lastThrottleMs, h->ms);
 	if (act == EscHandover::Teardown) {
 		h->pumpUp = false;
-		h->rebuildReq = false;
 		h->teardowns++;
 		h->teardownMs = h->ms;
 		act = escHandoverStep(want, h->reached, false, false, 0, 0);
@@ -1421,33 +1421,97 @@ static void backToRun() {
 	freshPump();
 }
 
+/** @brief What the GPIO hook saw while the pump wrote the pads. */
+struct PadWatch {
+	int writes;       /**< GPIO writes. */
+	int e9;           /**< A written pad with the pull-down on and the buffer on. */
+	int parkedNotLow; /**< escTaskParked() true with SIG not driven low. */
+	int released;     /**< escTaskSuspended() true while the pump wrote a pad. */
+	int sigHigh;      /**< SIG an output with the value 1. */
+};
+static PadWatch g_watch;
+
+/** @brief The GPIO hook: checks each pad write of the pump. */
+static void watchPads(uint32_t gpio) {
+	g_watch.writes++;
+	FakePin p = fakePin(gpio);
+	if (p.pull == FakePull::Down && !p.inputOff) g_watch.e9++;
+	if (escTaskParked() && !padLow(escTaskDshotPin())) g_watch.parkedNotLow++;
+	if (escTaskSuspended()) g_watch.released++;
+	FakePin sig = fakePin(escTaskDshotPin());
+	if (sig.function == GPIO_FUNC_SIO && sig.output && sig.high) g_watch.sigHigh++;
+}
+
+/** @brief One pump pass with the pad writes watched. */
+static void watchedPump() {
+	fakeSetGpioHook(watchPads);
+	pump();
+	fakeSetGpioHook(nullptr);
+}
+
+/** @brief Check what watchedPump() saw since @ref g_watch was cleared. */
+static void checkWatch(const char *what) {
+	char line[96];
+	snprintf(line, sizeof(line), "%s: the pull-down never on with the buffer on", what);
+	checkInt(line, g_watch.e9, 0);
+	snprintf(line, sizeof(line), "%s: never parked with SIG not low", what);
+	checkInt(line, g_watch.parkedNotLow, 0);
+	snprintf(line, sizeof(line), "%s: never released while the pads change", what);
+	checkInt(line, g_watch.released, 0);
+	snprintf(line, sizeof(line), "%s: SIG never an output at 1", what);
+	checkInt(line, g_watch.sigHigh, 0);
+}
+
+/** @brief SIG's latch at 1 and its direction in, as a job could leave them. */
+static void sigLatchHigh() {
+	gpio_set_dir(SIG_GPIO, GPIO_IN);
+	gpio_put(SIG_GPIO, 1);
+}
+
 /** @brief escParkPlan(), entry by entry. */
 static void testParkPlan() {
 	section("DShot modes: the pad plan");
 
-	EscPadPlan p = escParkPlan(EscPinMode::Park, ESC_NO_GPIO, ESC_NO_GPIO, 0, 1);
+	const EscPinMode R = EscPinMode::Run, P = EscPinMode::Park, X = EscPinMode::Release;
+	EscPadPlan p = escParkPlan(R, P, ESC_NO_GPIO, ESC_NO_GPIO, 0, 1);
 	checkTrue("first park: AUX off, then SIG low",
 	          p.count == 2 && p.gpio[0] == 1 && p.pad[0] == EscPad::Off &&
 	          p.gpio[1] == 0 && p.pad[1] == EscPad::Low);
-	p = escParkPlan(EscPinMode::Park, 0, 1, 2, 1);
-	checkTrue("SIG moved: the old SIG off, AUX off, the new SIG low",
+	p = escParkPlan(X, P, 0, 1, 0, 1);
+	checkTrue("park from Release: each pad written, a job may have left any",
+	          p.count == 2 && p.gpio[0] == 1 && p.pad[0] == EscPad::Off &&
+	          p.gpio[1] == 0 && p.pad[1] == EscPad::Low);
+	p = escParkPlan(R, P, 0, 1, 2, 1);
+	checkTrue("SIG moved after a teardown: the old SIG off, AUX off, the new SIG low",
 	          p.count == 3 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off &&
 	          p.gpio[1] == 1 && p.pad[1] == EscPad::Off &&
 	          p.gpio[2] == 2 && p.pad[2] == EscPad::Low);
-	p = escParkPlan(EscPinMode::Park, 0, 1, 1, 0);
+	p = escParkPlan(P, P, 0, 1, 0, 1);
+	checkInt("re-park on unchanged pins: nothing written", p.count, 0);
+	p = escParkPlan(P, P, 0, 1, 2, 1);
+	checkTrue("SIG moved in Park: the old SIG off, the new SIG low, AUX left off",
+	          p.count == 2 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off &&
+	          p.gpio[1] == 2 && p.pad[1] == EscPad::Low);
+	p = escParkPlan(P, P, 0, 1, 1, 0);
 	checkTrue("a swap: the old SIG once, off as the new AUX; the new SIG low",
 	          p.count == 2 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off &&
 	          p.gpio[1] == 1 && p.pad[1] == EscPad::Low);
-	p = escParkPlan(EscPinMode::Park, 0, 1, 1, 1);
+	p = escParkPlan(P, P, 0, 1, 1, 1);
 	checkTrue("SIG and AUX on one GPIO: SIG's state, the old SIG off",
 	          p.count == 2 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off &&
 	          p.gpio[1] == 1 && p.pad[1] == EscPad::Low);
-	p = escParkPlan(EscPinMode::Release, 0, 1, 0, 1);
+	p = escParkPlan(P, P, 1, 1, 1, 0);
+	checkTrue("from SIG and AUX on one GPIO: the new AUX off, SIG left low",
+	          p.count == 1 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off);
+	p = escParkPlan(P, X, 0, 1, 0, 1);
 	checkTrue("release: AUX a plain input, SIG on its pull-up",
 	          p.count == 2 && p.gpio[0] == 1 && p.pad[0] == EscPad::Input &&
 	          p.gpio[1] == 0 && p.pad[1] == EscPad::PullUp);
-	p = escParkPlan(EscPinMode::Run, 0, 1, 0, 1);
-	checkTrue("before a bind: AUX stays off, SIG on its pull-up",
+	p = escParkPlan(P, R, 0, 1, 0, 1);
+	checkTrue("before a bind: AUX left off, SIG on its pull-up",
+	          p.count == 1 && p.gpio[0] == 0 && p.pad[0] == EscPad::PullUp);
+	p = escParkPlan(X, R, 0, 1, 0, 1);
+	checkTrue("out of another mode each pad written",
 	          p.count == 2 && p.gpio[0] == 1 && p.pad[0] == EscPad::Off &&
 	          p.gpio[1] == 0 && p.pad[1] == EscPad::PullUp);
 
@@ -1494,25 +1558,38 @@ static void testParkDrain() {
 	checkInt("a frame each pass", sent, 250);
 	checkInt("each throttle zero, no command, no KISS request", bad, 0);
 	checkTrue("SIG not yet parked", !padLow(SIG_GPIO));
+	sigLatchHigh();
+	int highs = fakePin(SIG_GPIO).highEnables;
 	int before = fakeFrameCount();
 	fakeAdvance(1);
-	pump();
+	g_watch = PadWatch{};
+	watchedPump();
 	checkTrue("parked at 251 ms", escTaskParked() && !escTaskRunning() && !escTaskSuspended());
+	checkInt("SIG's latch was 1: never made an output while high",
+	         fakePin(SIG_GPIO).highEnables, highs);
+	checkTrue("the pads written", g_watch.writes > 0);
+	checkWatch("the park");
 	checkInt("with no frame on that pass", fakeFrameCount() - before, 0);
 	checkTrue("SIG driven low at 2 mA", padLow(SIG_GPIO));
 	checkTrue("AUX on its pull-down, the buffer off", padOff(AUX_GPIO));
 	pump();
 	checkInt("parked: no frames", fakeFrameCount() - before, 0);
 
+	// The bind at millis() 0, after the wrap, and the park 100 ms later:
+	// a drain judged by the time since a stamp of 0 alone would still run.
 	escTaskStart();
+	uint64_t nowMs = time_us_64() / 1000u;
+	fakeClockSetMs(((nowMs >> 32) + 1u) << 32);
+	checkInt("the clock at 0", millis(), 0);
 	pump();
 	checkTrue("running again", escTaskRunning());
-	fakeAdvance(1000);
-	pump();
+	checkInt("bound at millis() 0: the stamp 1", escTaskBoundMs(), 1);
+	checkInt("no throttle frame since the bind", fakeLastThrottleMs(), 0);
+	fakeAdvance(100);
 	before = fakeFrameCount();
 	escTaskPark();
 	pump();
-	checkTrue("no throttle frame since the bind: parked on the first pass",
+	checkTrue("no throttle frame since the bind: parked on the first pass, 100 ms in",
 	          escTaskParked() && fakeFrameCount() == before);
 	backToRun();
 }
@@ -1530,21 +1607,30 @@ static void testParkReleaseRun() {
 	int binds = fakeRebuildCount();
 	escTaskSuspend();
 	checkTrue("asked for, not yet released", !escTaskSuspended());
-	pump();
+	g_watch = PadWatch{};
+	watchedPump();
 	checkTrue("released on the first pass", escTaskSuspended() && !escTaskParked());
+	checkWatch("Release from Park");
 	checkInt("with no frame", fakeFrameCount() - frames, 0);
 	checkTrue("SIG on its pull-up at 4 mA", padPullUp(SIG_GPIO));
 	FakePin aux = fakePin(AUX_GPIO);
 	checkTrue("AUX a plain input", !aux.output && aux.pull == FakePull::None && !aux.inputOff);
 	checkInt("and no bind", fakeRebuildCount() - binds, 0);
 
+	// A job can leave AUX on its pull-down with the buffer on; the park
+	// takes the pull-down off before it turns the buffer on again.
+	gpio_pull_down(AUX_GPIO);
 	escTaskPark();
-	pump();
+	g_watch = PadWatch{};
+	watchedPump();
 	checkTrue("parked again from Release", escTaskParked() && padLow(SIG_GPIO) && padOff(AUX_GPIO));
+	checkWatch("Park from Release");
 
 	escTaskStart();
-	pump();
+	g_watch = PadWatch{};
+	watchedPump();
 	checkTrue("Run from Park binds", escTaskRunning() && !escTaskParked());
+	checkWatch("Run from Park");
 	checkInt("once", fakeRebuildCount() - binds, 1);
 	EscFrame f = fakeLastFrame();
 	checkTrue("with the EDT enable first",
@@ -1585,10 +1671,31 @@ static void testParkWiring() {
 	freshPump();
 	removeJobs();
 	fakePwmReset();
+	sigLatchHigh();
+	int highs = fakePin(SIG_GPIO).highEnables;
 	checkTrue("parked", toParked());
+	checkInt("SIG's latch was 1: never made an output while high",
+	         fakePin(SIG_GPIO).highEnables, highs);
 	int binds = fakeRebuildCount();
+
+	// A bitrate-only change: the pins are unchanged, and nothing is written.
+	FakePin sig = fakePin(SIG_GPIO), aux = fakePin(AUX_GPIO);
+	escTaskConfigure(SIG_GPIO, 300, true, AUX_GPIO);
+	g_watch = PadWatch{};
+	watchedPump();
+	checkTrue("a bitrate-only change: still parked", escTaskParked());
+	checkInt("no pad written", g_watch.writes, 0);
+	FakePin sig2 = fakePin(SIG_GPIO), aux2 = fakePin(AUX_GPIO);
+	checkTrue("SIG still an output driving low at 2 mA, never re-initialised",
+	          padLow(SIG_GPIO) && sig2.dirAt == sig.dirAt &&
+	          sig2.functionAt == sig.functionAt && sig2.puts == sig.puts);
+	checkTrue("AUX untouched, on its pull-down",
+	          padOff(AUX_GPIO) && aux2.dirAt == aux.dirAt && aux2.pullAt == aux.pullAt);
+
 	escTaskConfigure(NEW_GPIO, 600, true, AUX_GPIO);
-	pump();
+	g_watch = PadWatch{};
+	watchedPump();
+	checkWatch("SIG moved in Park");
 	checkTrue("still parked", escTaskParked());
 	checkTrue("the old SIG: input, pull-down, buffer off", padOff(SIG_GPIO));
 	checkTrue("the new SIG low", padLow(NEW_GPIO));
@@ -1600,7 +1707,9 @@ static void testParkWiring() {
 	checkTrue("back on the default wiring: SIG low", padLow(SIG_GPIO));
 	checkTrue("GP2 off", padOff(NEW_GPIO));
 	escTaskConfigure(AUX_GPIO, 600, true, SIG_GPIO);
-	pump();
+	g_watch = PadWatch{};
+	watchedPump();
+	checkWatch("a swap in Park");
 	checkTrue("a swap: the old SIG is AUX, off", padOff(SIG_GPIO));
 	checkTrue("the new SIG low", padLow(AUX_GPIO));
 	checkInt("still no bind", fakeRebuildCount() - binds, 0);
@@ -1645,6 +1754,170 @@ static void testTeardownError() {
 	backToRun();
 }
 
+/** @brief Configures a new SIG, once: a SETTINGS change landing mid-bind. */
+static void configureNewSig() { escTaskConfigure(NEW_GPIO, 600, true, AUX_GPIO); }
+
+/** @brief The GPIO hook form of configureNewSig(): once, on the first write. */
+static bool g_configured = false;
+static void configureOnWrite(uint32_t) {
+	if (g_configured) return;
+	g_configured = true;
+	configureNewSig();
+}
+
+/** @brief A configure that lands during a bind or a park is not lost. */
+static void testConfigureMidway() {
+	section("DShot modes: a configure during a bind or a park");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	fakePwmReset();
+	int binds = fakeRebuildCount();
+	escTaskConfigure(SIG_GPIO, 300, true, AUX_GPIO);
+	fakeSetBindHook(configureNewSig);
+	pump();
+	fakeSetBindHook(nullptr);
+	checkTrue("the rebuild bound the wiring it read",
+	          fakeRebuildCount() - binds == 1 && fakeResumeWiring().dshotPin == SIG_GPIO &&
+	          fakeResumeWiring().dshotKbaud == 300);
+	pump();
+	checkTrue("the configure that landed mid-bind rebuilds on the next pass",
+	          fakeRebuildCount() - binds == 2 && fakeResumeWiring().dshotPin == NEW_GPIO);
+	checkTrue("running on it", escTaskRunning() && escTaskDshotPin() == NEW_GPIO);
+
+	freshPump();
+	escTaskPark();
+	g_configured = false;
+	fakeSetGpioHook(configureOnWrite);
+	pump();
+	fakeSetGpioHook(nullptr);
+	checkTrue("parked on the wiring it read", g_configured && escTaskParked() &&
+	          padLow(SIG_GPIO) && !padLow(NEW_GPIO));
+	pump();
+	checkTrue("the configure that landed mid-park parks again on the next pass",
+	          escTaskParked() && padLow(NEW_GPIO) && padOff(SIG_GPIO));
+	backToRun();
+}
+
+/** @brief escTaskBoundMs() inside a bind, before its stamp. */
+static uint32_t g_boundInBind = 0xFFFFFFFFu;
+static void boundInBind() { g_boundInBind = escTaskBoundMs(); }
+
+/** @brief escTaskBoundMs(): the bind's clock, 0 while parked or released. */
+static void testBoundMs() {
+	section("DShot modes: the bind stamp");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	fakePwmReset();
+	escTaskConfigure(SIG_GPIO, 300, true, AUX_GPIO);
+	pump();
+	uint32_t first = millis();
+	checkInt("the fake clock at the bind", escTaskBoundMs(), first);
+	fakeAdvance(7);
+	pump();
+	checkInt("unchanged while running", escTaskBoundMs(), first);
+	escTaskConfigure(SIG_GPIO, 600, true, AUX_GPIO);
+	fakeSetBindHook(boundInBind);
+	pump();
+	fakeSetBindHook(nullptr);
+	checkInt("0 from the teardown to the rebuild's stamp", g_boundInBind, 0);
+	checkTrue("a rebuild after escTaskConfigure() stamps again",
+	          escTaskBoundMs() == millis() && escTaskBoundMs() != first);
+	checkTrue("parked", toParked());
+	checkInt("0 once parked", escTaskBoundMs(), 0);
+	escTaskStart();
+	fakeAdvance(3);
+	pump();
+	checkInt("Run from Park stamps", escTaskBoundMs(), millis());
+	escTaskSuspend();
+	pump();
+	checkTrue("released", escTaskSuspended());
+	checkInt("0 once released", escTaskBoundMs(), 0);
+	escTaskStart();
+	pump();
+	checkInt("Run from Release stamps", escTaskBoundMs(), millis());
+	backToRun();
+}
+
+/** @brief The text of @p path; empty when it cannot be read. */
+static std::string sourceText(const char *path) {
+	std::string s;
+	FILE *f = fopen(path, "rb");
+	if (!f) return s;
+	char buf[4096];
+	size_t n;
+	while ((n = fread(buf, 1, sizeof(buf), f)) > 0) s.append(buf, n);
+	fclose(f);
+	return s;
+}
+
+/** @brief The body of the function defined by @p head, to its `}` at a line's start. */
+static std::string bodyOf(const std::string &code, const char *head) {
+	size_t a = code.find(head);
+	if (a == std::string::npos) return std::string();
+	size_t b = code.find("\n}", a);
+	return b == std::string::npos ? std::string() : code.substr(a, b - a);
+}
+
+/** @brief Whether @p a occurs in @p text, and before @p b when @p b is given. */
+static bool before(const std::string &text, const char *a, const char *b) {
+	size_t i = text.find(a);
+	if (i == std::string::npos) return false;
+	if (!b) return true;
+	size_t j = text.find(b, i);
+	return j != std::string::npos;
+}
+
+/** @brief How often @p what occurs in @p text. */
+static int occurrences(const std::string &text, const char *what) {
+	int n = 0;
+	for (size_t i = text.find(what); i != std::string::npos; i = text.find(what, i + 1)) n++;
+	return n;
+}
+
+/**
+ * @brief escTaskPoll() is compiled only, and fakePumpPoll() runs a copy of
+ *        its sequence. This checks the shipped sequence for the steps the
+ *        copy relies on, so the two cannot drift apart unseen.
+ */
+static void testPollSource() {
+	section("DShot modes: escTaskPoll()'s sequence, as the fake copies it");
+
+	std::string src = sourceText("../src/esc_task.cpp");
+	checkTrue("esc_task.cpp read", !src.empty());
+	std::string teardown = bodyOf(src, "static void pumpTeardown() {");
+	std::string bind = bodyOf(src, "static void pumpBind() {");
+	std::string pads = bodyOf(src, "static void padsTo(EscPinMode to) {");
+	std::string poll = bodyOf(src, "void escTaskPoll() {");
+	checkTrue("the stamp 0 before the first bind",
+	          before(src, "static volatile uint32_t s_boundMs = 0;", nullptr));
+	checkTrue("the four functions found",
+	          !teardown.empty() && !bind.empty() && !pads.empty() && !poll.empty());
+	checkTrue("pumpTeardown() calls escTelTeardown()",
+	          before(teardown, "escTelTeardown(&s_tel);", nullptr));
+	checkTrue("pumpTeardown() zeroes the bind stamp before the pump goes down",
+	          before(teardown, "s_boundMs = 0;", "s_pumpUp = false;"));
+	checkTrue("pumpBind() clears the request before it reads the wiring",
+	          occurrences(bind, "s_rebuildReq = false;") == 1 &&
+	          before(bind, "s_rebuildReq = false;", "= s_dshotPin;") &&
+	          before(bind, "s_rebuildReq = false;", "= s_kissEnable"));
+	checkTrue("pumpBind() reports no mode before the pads out of Park",
+	          before(bind, "s_reached = EscPinMode::Run;", "escPadApply(&plan);"));
+	checkTrue("pumpBind() stamps after the bind",
+	          before(bind, "out_dshot_bind(", "s_boundMs = "));
+	checkTrue("padsTo() clears the request before it reads the wiring",
+	          occurrences(pads, "s_rebuildReq = false;") == 1 &&
+	          before(pads, "s_rebuildReq = false;", "= s_dshotPin;"));
+	checkTrue("padsTo() reports no mode before the pads, the mode after",
+	          before(pads, "s_reached = EscPinMode::Run;", "escPadApply(&plan);") &&
+	          before(pads, "escPadApply(&plan);", "s_reached = to;"));
+	checkTrue("escTaskPoll() clears no request itself",
+	          occurrences(poll, "s_rebuildReq") == 1);
+}
+
 void runClaimTests() {
 	section("Core1 jobs: the table as it ships");
 	checkTrue("the servo, KST, Hitec, S.BUS and ESC settings jobs are in the table",
@@ -1686,6 +1959,9 @@ void runClaimTests() {
 	testParkJobGuard();
 	testParkWiring();
 	testTeardownError();
+	testConfigureMidway();
+	testBoundMs();
+	testPollSource();
 
 	shippedJobs();
 	quiet();

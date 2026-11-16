@@ -236,6 +236,13 @@ int fakeRebuildCount();
 /** @brief The wiring the fake pump's last bind used. */
 FakeWiring fakeResumeWiring();
 
+/**
+ * @brief Call @p hook inside each fake bind, where out_dshot_bind() runs:
+ *        after the wiring is read, before the bind is reported.
+ * @param hook The hook; nullptr for none.
+ */
+void fakeSetBindHook(void (*hook)());
+
 /** @brief Whether the core1 job was idle at the last escTaskStart(). */
 bool fakeResumeJobIdle();
 
@@ -527,6 +534,14 @@ void fakePwmBreakSliceMap(bool on);
 
 /** @brief The record of one GPIO. @param gpio GPIO. @return The record. */
 FakePin fakePin(unsigned gpio);
+
+/**
+ * @brief Call @p hook after each GPIO write of the fake: gpio_put(),
+ *        gpio_set_dir(), gpio_set_function(), a pull, the input buffer and
+ *        the drive. Off while the hook runs.
+ * @param hook The hook, given the GPIO written; nullptr for none.
+ */
+void fakeSetGpioHook(void (*hook)(uint32_t gpio));
 
 /** @brief The record of one slice. @param slice Slice. @return The record. */
 FakeSlice fakeSlice(unsigned slice);

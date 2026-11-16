@@ -47,20 +47,28 @@ protocol.
 ### Added
 
 - After v0.1.0-rc1: the DShot pump's three modes, slice D1 of the DShot
-  lifetime design (`docs/design/dshot-lifetime.md`, branch
-  `ccr-dshot-life`). Core0 asks for Run (`escTaskStart()`, which replaces
-  `escTaskResume()`), Park (`escTaskPark()`) or Release (`escTaskSuspend()`),
-  and core1 reports `escTaskRunning()`, `escTaskParked()` and
-  `escTaskSuspended()`, the last true only in Release, so no core1 job binds
-  on a parked pin. Park drains for more than 250 ms after the last throttle
-  frame as a release does, then drives SIG low from the SIO (single-cycle
-  input/output) block at 2 mA and puts AUX on its pull-down with the input
-  buffer off; Release from Park frees the pins with no frame; Run from Park
-  binds once with the EDT enable first; a wiring change in Park parks again
-  and puts the old SIG in the pad's reset state (`escParkPlan()`). A
-  teardown clears `initError`, so `DSERR` names the current bind only.
-  Nothing calls `escTaskPark()` yet: the boot asks for Run and the pin claim
-  for Release and Run, so DShot runs from boot as before. Host tests in
+  lifetime design (`docs/design/dshot-lifetime.md`). Core0 asks for Run
+  (`escTaskStart()`, which replaces `escTaskResume()`), Park
+  (`escTaskPark()`) or Release (`escTaskSuspend()`), and core1 reports
+  `escTaskRunning()`, `escTaskParked()` and `escTaskSuspended()`, the last
+  true only in Release, so no core1 job binds on a parked pin. No mode is
+  reported while core1 changes the pads, so core0 never reads "parked" with
+  SIG not driven low. Park drains for more than 250 ms after the last
+  throttle frame as a release does, then drives SIG low from the SIO
+  (single-cycle input/output) block at 2 mA, with the output value 0 set
+  before the pad becomes an output, and puts AUX in input, pull-down,
+  input buffer off, the buffer off before the pull-down goes on
+  (RP2350-E9). Release from Park frees the pins with no frame; Run from
+  Park binds once with the EDT enable first; a wiring change in Park parks
+  again, puts the old SIG in input, pull-down, input buffer off, and writes
+  no pad whose state does not change, so SIG stays driven low across a
+  bitrate-only change (`escParkPlan()`). A configure that lands during a
+  bind or a park is rebuilt on the next pass: core1 clears the request
+  before it reads the wiring. `escTaskBoundMs()` is the `millis()` of
+  core1's last bind, 0 while parked or released. A teardown clears
+  `initError`, so `DSERR` names the current bind only. Nothing calls
+  `escTaskPark()` yet: the boot asks for Run and the pin claim for Release
+  and Run, so DShot runs from boot as before. Host tests in
   `test/test_claim.cpp`; not run on hardware.
 - After v0.1.0-rc1: the wiki shows the six screens no page showed, in both
   languages. USB BRIDGE's `RELEASING SIG GP0` strip, its failed bind

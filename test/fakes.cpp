@@ -304,6 +304,16 @@ void pwm_set_gpio_level(unsigned gpio, uint16_t level) {
 	g_pins[gpio].levelWrites++;
 	logWrite(gpio, time_us_64(), level);
 }
+static void (*g_gpioHook)(uint32_t) = nullptr;
+void fakeSetGpioHook(void (*hook)(uint32_t gpio)) { g_gpioHook = hook; }
+/** @brief Call the hook after a GPIO write, with the hook off meanwhile. */
+static void gpioHook(uint32_t gpio) {
+	void (*h)(uint32_t) = g_gpioHook;
+	if (!h) return;
+	g_gpioHook = nullptr;
+	h(gpio);
+	g_gpioHook = h;
+}
 extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	if (gpio >= FAKE_GPIOS) return;
 	if (fn != GPIO_FUNC_PWM) cutCheck(gpio);
@@ -315,6 +325,7 @@ extern "C" void gpio_set_function(uint32_t gpio, gpio_function fn) {
 	pad = (pad | PADS_BANK0_GPIO0_IE_BITS) & ~PADS_BANK0_GPIO0_OD_BITS;
 	ctrlWrite(gpio, (uint32_t)fn << IO_BANK0_GPIO0_CTRL_FUNCSEL_LSB, true);
 	pad &= ~PADS_BANK0_GPIO0_ISO_BITS;
+	gpioHook(gpio);
 }
 extern "C" void gpio_set_inover(unsigned gpio, unsigned value) {
 	if (gpio >= FAKE_GPIOS) return;
@@ -329,6 +340,7 @@ extern "C" void gpio_set_dir(uint32_t gpio, int out) {
 	g_pins[gpio].dirAt = ++g_pinSeq;
 	g_pins[gpio].output = out != 0;
 	fakeI2cPinDir(gpio, out != 0);
+	gpioHook(gpio);
 }
 /** @brief Set a pin's pulls in its pad register, as gpio_set_pulls() does, and stamp the write. */
 static void setPull(uint32_t gpio, FakePull pull) {
@@ -339,6 +351,7 @@ static void setPull(uint32_t gpio, FakePull pull) {
 	if (pull == FakePull::Down) pad |= PADS_BANK0_GPIO0_PDE_BITS;
 	g_pullTouched[gpio] = true;
 	g_pins[gpio].pullAt = ++g_pinSeq;
+	gpioHook(gpio);
 }
 extern "C" void gpio_disable_pulls(uint32_t gpio) { setPull(gpio, FakePull::None); }
 extern "C" void gpio_pull_down(uint32_t gpio) { setPull(gpio, FakePull::Down); }
@@ -348,9 +361,12 @@ extern "C" void gpio_put(uint32_t gpio, int value) {
 	g_pins[gpio].high = value != 0;
 	g_pins[gpio].puts++;
 	g_pins[gpio].putAt = ++g_pinSeq;
+	gpioHook(gpio);
 }
 extern "C" void gpio_set_input_enabled(uint32_t gpio, bool on) {
-	if (gpio < FAKE_GPIOS) g_pins[gpio].inputOff = !on;
+	if (gpio >= FAKE_GPIOS) return;
+	g_pins[gpio].inputOff = !on;
+	gpioHook(gpio);
 }
 // The drive in the pad register's DRIVE field, as the SDK writes it: read it
 // with fakePad().
@@ -359,6 +375,7 @@ extern "C" void gpio_set_drive_strength(uint32_t gpio, enum gpio_drive_strength 
 	uint32_t &pad = g_fakePadsBank0.io[gpio].value;
 	pad = (pad & ~PADS_BANK0_GPIO0_DRIVE_BITS) |
 	      (((uint32_t)drive << PADS_BANK0_GPIO0_DRIVE_LSB) & PADS_BANK0_GPIO0_DRIVE_BITS);
+	gpioHook(gpio);
 }
 
 /** @brief clk_sys and clk_peri: 150 MHz, as SDK 2.1.1 sets them. */
@@ -947,7 +964,10 @@ void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 // escPumpBind() starts every binding, escTelTeardown() is the teardown's
 // change to the telemetry, and escParkPlan() and escPadApply() set the pads
 // of a park, of a release from Park and of a bind from Park on the GPIO fake.
-// The rest of escTaskPoll() is not modelled: no PIO, so the teardown's and
+// The sequence around them -- pumpBind(), padsTo(), pumpTeardown() and the
+// order in which each reports -- is a copy of escTaskPoll()'s, which is
+// compiled only; testPollSource() in test_claim.cpp checks the shipped one
+// for the steps this copy relies on. The rest of escTaskPoll() is not modelled: no PIO, so the teardown's and
 // the bind's own pad writes are absent; no reply is read or folded into the
 // telemetry, there is no 1 ms frame timing (one pass sends one frame,
 // however much time has passed), and escPumpSlot() is given uiAlive true, no
@@ -965,6 +985,52 @@ static uint8_t    g_heldAux = ESC_NO_GPIO;
 static int        g_frames = 0;
 static EscFrame   g_lastFrame = {};
 
+static uint32_t   g_boundMs = 0;
+static void     (*g_bindHook)() = nullptr;
+
+void fakeSetBindHook(void (*hook)()) { g_bindHook = hook; }
+uint32_t escTaskBoundMs() { return g_boundMs; }
+
+// pumpBind(): the request cleared before the wiring is read, no mode
+// reported while the pads of a bind from Park change, the bind stamp last.
+// The hook stands for out_dshot_bind(), after the wiring is read.
+static void fakePumpBind() {
+	g_rebuildReq = false;
+	FakeWiring w = fakeWiring();
+	EscPinMode from = g_reached;
+	if (from == EscPinMode::Park) {
+		g_reached = EscPinMode::Run;
+		EscPadPlan plan = escParkPlan(from, EscPinMode::Run, g_heldSig, g_heldAux,
+		                              w.dshotPin, w.kissPin);
+		escPadApply(&plan);
+	}
+	if (g_bindHook) g_bindHook();
+	g_reached = EscPinMode::Run;
+	g_pumpUp = true;
+	g_heldSig = w.dshotPin;
+	g_heldAux = w.kissPin;
+	escPumpBind(&g_pump, &g_armed, &g_throttle);
+	g_rebuilds++;
+	g_rebuildWiring = w;
+	uint32_t stamp = millis();
+	g_boundMs = stamp ? stamp : 1u;
+}
+
+// padsTo(): the same order, no mode reported while the pads change.
+static void fakePadsTo(EscPinMode to) {
+	EscPinMode from = g_reached;
+	if (to == EscPinMode::Park || from == EscPinMode::Park) {
+		g_rebuildReq = false;
+		g_reached = EscPinMode::Run;
+		FakeWiring w = fakeWiring();
+		EscPadPlan plan = escParkPlan(from, to, g_heldSig, g_heldAux, w.dshotPin, w.kissPin);
+		escPadApply(&plan);
+		g_heldSig = w.dshotPin;
+		g_heldAux = w.kissPin;
+	}
+	g_reached = to;
+}
+
 void fakePumpPoll() {
 	uint32_t ms = millis();
 	const EscCmdRequest noRequest = {0, false, 0};
@@ -972,42 +1038,20 @@ void fakePumpPoll() {
 	EscHandover h = escHandoverStep(want, g_reached, g_rebuildReq, g_pumpUp,
 	                                g_pump.lastThrottleMs, ms);
 	if (h == EscHandover::Teardown) {
+		// pumpTeardown(): the stamp first.
+		g_boundMs = 0;
 		g_pumpUp = false;
-		g_rebuildReq = false;
 		escTelTeardown(&g_tel);
 		h = escHandoverStep(want, g_reached, false, false, 0, 0);
 	}
-	FakeWiring w = fakeWiring();
 	switch (h) {
-		case EscHandover::Bind: {
-			if (g_reached == EscPinMode::Park) {
-				EscPadPlan plan = escParkPlan(EscPinMode::Run, g_heldSig, g_heldAux,
-				                              w.dshotPin, w.kissPin);
-				escPadApply(&plan);
-			}
-			escPumpBind(&g_pump, &g_armed, &g_throttle);
-			g_reached = EscPinMode::Run;
-			g_pumpUp = true;
-			g_rebuildReq = false;
-			g_heldSig = w.dshotPin;
-			g_heldAux = w.kissPin;
-			g_rebuilds++;
-			g_rebuildWiring = w;
+		case EscHandover::Bind:
+			fakePumpBind();
 			break;
-		}
 		case EscHandover::Park:
-		case EscHandover::Release: {
-			EscPinMode to = h == EscHandover::Park ? EscPinMode::Park : EscPinMode::Release;
-			if (to == EscPinMode::Park || g_reached == EscPinMode::Park) {
-				EscPadPlan plan = escParkPlan(to, g_heldSig, g_heldAux, w.dshotPin, w.kissPin);
-				escPadApply(&plan);
-				g_heldSig = w.dshotPin;
-				g_heldAux = w.kissPin;
-				g_rebuildReq = false;
-			}
-			g_reached = to;
+		case EscHandover::Release:
+			fakePadsTo(h == EscHandover::Park ? EscPinMode::Park : EscPinMode::Release);
 			return;
-		}
 		case EscHandover::Hold:
 			return;
 		default:
