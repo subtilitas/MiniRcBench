@@ -225,7 +225,7 @@ enum class TesterCtl : uint8_t {
 /**
  * @brief The track's text after the DShot driver refused the bind
  *        (EscTelemetry::initError, DSERR in the status bar), in place of
- *        @ref UI_TESTER_GATE_TEXT: the bind stamp stays 0, so HOLD TO ARM
+ *        @ref UI_TESTER_GATE_TEXT. The bind stamp stays 0, so HOLD TO ARM
  *        stays disabled until a later bind succeeds. 21 characters, 125 px.
  */
 #define UI_TESTER_REFUSED_TEXT "DSHOT COULD NOT START"
