@@ -560,7 +560,6 @@ static void testLeaveParks() {
 	          strlen("ESC TESTER'S DSHOT ON SIG GP0 READS") == UI_LEAVE_STEP_CHARS);
 	checkTrue("the last step: BACK TO SERVO.",
 	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "BACK TO SERVO.", false));
-	fakeDumpFrame("shot_leave_servo_hub.ppm");
 	pressId(UI_FIX(ServoCtl::Release));
 	fakeRelease();
 	framesNoPump(2);
@@ -623,7 +622,6 @@ static void testHubLines() {
 	const int noteY = UI_HUB_ENTRY_Y + UI_HUB_LINE_DY + UI_HUB_LINE_H;
 	checkTrue("SIG GP0: no MONITOR line", !fakeTextIs(UI_MARGIN, noteY, UI_RX_MONITOR_GP1, C_AMBER, C_BG, 1) &&
 	          allOf(0, noteY, GFX_W, 7, C_BG));
-	fakeDumpFrame("shot_rx_hub.ppm");
 	tapId(UI_FIX(UI_BACK));
 	lifeFrames(1);
 	escTaskConfigure(AUX_GPIO, settings()->dshotKbaud, false, SIG_GPIO);

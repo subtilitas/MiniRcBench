@@ -103,7 +103,7 @@ struct UiHubEntry {
 	 *        enable GPIO; null: the entry has no power line.
 	 */
 	const char     *powerSwitchedFmt;
-	/** @brief A `C_AMBER` line under the plain lines while @ref noteWhen holds; null for none. */
+	/** @brief A `C_AMBER` line under the plain lines while noteWhen holds; null for none. */
 	const char     *note;
 	/** @brief When @ref note shows; null: never. */
 	bool          (*noteWhen)();

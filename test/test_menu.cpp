@@ -389,7 +389,7 @@ static void testPinsBusy() {
 		checkInt("SETTINGS' row is whole", ctlRect(settingsRow).h, 40);
 		checkTrue("nor SETTINGS, which changes the wiring the claim latched",
 		          !ctlEnabled(settingsRow));
-		fakeDumpFrame("shot_menu_restarting.ppm");
+		fakeDumpFrame("shot_menu_parking.ppm");
 		ctlFind(settingsRow, &c);
 		fakePress(c.rect.x + c.rect.w / 2, c.rect.y + c.rect.h / 2);
 		framesNoPump(2);

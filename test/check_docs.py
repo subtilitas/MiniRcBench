@@ -148,6 +148,10 @@ REMOVED_TEXTS = [
     (r"MENU\s*(→|>|->|&gt;)\s*(ESC COMMANDS|SERVO TESTER|ANGLE METER)",
      "a tool as a MENU row, now an entry of the hub ESC CONFIG or SERVO "
      "(menu-c.md owner decision 4, slice 4)"),
+    (r"RESTART DSHOT|DSHOT RESTARTING|DSHOT RESTARTS ON|LEAVE, THEN DSHOT RETURNS",
+     "DShot's restart after a claim, now the leave page's hub title and the "
+     "busy captions; DShot runs only on ESC TESTER and ESC COMMANDS "
+     "(dshot-lifetime.md, slice D2)"),
 ]
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers
