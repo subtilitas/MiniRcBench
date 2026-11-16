@@ -9,6 +9,10 @@ enum gpio_function {
   GPIO_FUNC_SPI = 1, GPIO_FUNC_UART, GPIO_FUNC_I2C, GPIO_FUNC_PWM,
   GPIO_FUNC_SIO, GPIO_FUNC_PIO0, GPIO_FUNC_PIO1, GPIO_FUNC_PIO2, GPIO_FUNC_NULL = 0x1f
 };
+enum gpio_drive_strength {
+  GPIO_DRIVE_STRENGTH_2MA = 0, GPIO_DRIVE_STRENGTH_4MA, GPIO_DRIVE_STRENGTH_8MA,
+  GPIO_DRIVE_STRENGTH_12MA
+};
 enum gpio_override {
   GPIO_OVERRIDE_NORMAL = 0, GPIO_OVERRIDE_INVERT = 1,
   GPIO_OVERRIDE_LOW = 2, GPIO_OVERRIDE_HIGH = 3
@@ -24,4 +28,5 @@ void gpio_disable_pulls(uint32_t);
 void gpio_pull_down(uint32_t);
 void gpio_set_input_enabled(uint32_t, bool);
 void gpio_set_inover(unsigned, unsigned);
+void gpio_set_drive_strength(uint32_t, enum gpio_drive_strength);
 }

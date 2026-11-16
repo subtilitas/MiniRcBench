@@ -352,6 +352,14 @@ extern "C" void gpio_put(uint32_t gpio, int value) {
 extern "C" void gpio_set_input_enabled(uint32_t gpio, bool on) {
 	if (gpio < FAKE_GPIOS) g_pins[gpio].inputOff = !on;
 }
+// The drive in the pad register's DRIVE field, as the SDK writes it: read it
+// with fakePad().
+extern "C" void gpio_set_drive_strength(uint32_t gpio, enum gpio_drive_strength drive) {
+	if (gpio >= FAKE_GPIOS) return;
+	uint32_t &pad = g_fakePadsBank0.io[gpio].value;
+	pad = (pad & ~PADS_BANK0_GPIO0_DRIVE_BITS) |
+	      (((uint32_t)drive << PADS_BANK0_GPIO0_DRIVE_LSB) & PADS_BANK0_GPIO0_DRIVE_BITS);
+}
 
 /** @brief clk_sys and clk_peri: 150 MHz, as SDK 2.1.1 sets them. */
 static uint32_t g_clockHz[2] = { 150000000u, 150000000u };
@@ -848,14 +856,14 @@ const char *am32BlEscTypeName() { return "F051"; }
 // ---------------------------------------------------------------------------
 static uint16_t g_throttle = 0;
 static bool     g_armed = false;
-static bool     g_suspendReq = false;
+static EscPinMode g_want = EscPinMode::Run;
+static EscPinMode g_reached = EscPinMode::Run;
 static bool     g_rebuildReq = false;
-static bool     g_suspended = false;
 static EscTelemetry g_tel;
 
 uint16_t fakeThrottle() { return g_throttle; }
 bool fakeArmed() { return g_armed; }
-bool fakePinReturned() { return !g_suspendReq; }
+bool fakePinReturned() { return g_want == EscPinMode::Run; }
 void fakeSetTelemetry(const EscTelemetry *t) { g_tel = *t; }
 
 // These three mirror esc_task.cpp deliberately, clamp for clamp. They used not
@@ -934,10 +942,14 @@ bool escEdtRequested() { return g_edtRequested; }
 void escSnapshot(EscTelemetry *o) { *o = g_tel; }
 
 // The pump's handover on the shipped rules: escHandoverStep() decides run,
-// drain or teardown, escDrainSlot() or escPumpSlot() decides the frame,
-// escPumpFrameSent() stamps it, and escPumpBind() starts every binding. The
-// rest of escTaskPoll() is not modelled: no PIO, no reply is read or folded
-// into the telemetry, there is no 1 ms frame timing (one pass sends one frame,
+// drain, teardown, bind, park, release or hold, escDrainSlot() or
+// escPumpSlot() decides the frame, escPumpFrameSent() stamps it,
+// escPumpBind() starts every binding, escTelTeardown() is the teardown's
+// change to the telemetry, and escParkPlan() and escPadApply() set the pads
+// of a park, of a release from Park and of a bind from Park on the GPIO fake.
+// The rest of escTaskPoll() is not modelled: no PIO, so the teardown's and
+// the bind's own pad writes are absent; no reply is read or folded into the
+// telemetry, there is no 1 ms frame timing (one pass sends one frame,
 // however much time has passed), and escPumpSlot() is given uiAlive true, no
 // command request, no reply and no KISS receiver. Core1 is not a thread here:
 // fakePumpPoll() is one pass, and the tests call it between UI frames, so a
@@ -948,39 +960,82 @@ static int        g_resumes = 0;
 static int        g_rebuilds = 0;
 static FakeWiring g_rebuildWiring = {};
 static bool       g_resumeJobIdle = true;
+static uint8_t    g_heldSig = ESC_NO_GPIO;
+static uint8_t    g_heldAux = ESC_NO_GPIO;
+static int        g_frames = 0;
+static EscFrame   g_lastFrame = {};
 
 void fakePumpPoll() {
 	uint32_t ms = millis();
 	const EscCmdRequest noRequest = {0, false, 0};
-	EscHandover h = escHandoverStep(g_suspendReq, g_rebuildReq, g_pumpUp,
+	EscPinMode want = g_want;
+	EscHandover h = escHandoverStep(want, g_reached, g_rebuildReq, g_pumpUp,
 	                                g_pump.lastThrottleMs, ms);
 	if (h == EscHandover::Teardown) {
 		g_pumpUp = false;
 		g_rebuildReq = false;
-		if (g_suspendReq) {
-			g_suspended = true;
+		escTelTeardown(&g_tel);
+		h = escHandoverStep(want, g_reached, false, false, 0, 0);
+	}
+	FakeWiring w = fakeWiring();
+	switch (h) {
+		case EscHandover::Bind: {
+			if (g_reached == EscPinMode::Park) {
+				EscPadPlan plan = escParkPlan(EscPinMode::Run, g_heldSig, g_heldAux,
+				                              w.dshotPin, w.kissPin);
+				escPadApply(&plan);
+			}
+			escPumpBind(&g_pump, &g_armed, &g_throttle);
+			g_reached = EscPinMode::Run;
+			g_pumpUp = true;
+			g_rebuildReq = false;
+			g_heldSig = w.dshotPin;
+			g_heldAux = w.kissPin;
+			g_rebuilds++;
+			g_rebuildWiring = w;
+			break;
+		}
+		case EscHandover::Park:
+		case EscHandover::Release: {
+			EscPinMode to = h == EscHandover::Park ? EscPinMode::Park : EscPinMode::Release;
+			if (to == EscPinMode::Park || g_reached == EscPinMode::Park) {
+				EscPadPlan plan = escParkPlan(to, g_heldSig, g_heldAux, w.dshotPin, w.kissPin);
+				escPadApply(&plan);
+				g_heldSig = w.dshotPin;
+				g_heldAux = w.kissPin;
+				g_rebuildReq = false;
+			}
+			g_reached = to;
 			return;
 		}
-	}
-	if (!g_suspendReq && !g_pumpUp) {
-		escPumpBind(&g_pump, &g_armed, &g_throttle);
-		g_pumpUp = true;
-		g_suspended = false;
-		g_rebuilds++;
-		g_rebuildWiring = fakeWiring();
+		case EscHandover::Hold:
+			return;
+		default:
+			break;
 	}
 	EscSlot slot = h == EscHandover::Drain
 	             ? escDrainSlot()
 	             : escPumpSlot(&g_pump, &g_tel, g_armed, true, g_throttle,
 	                           &noRequest, DSHOT_REPLY_NONE, false, ms);
 	escPumpFrameSent(&g_pump, &slot.frame, ms);
+	g_frames++;
+	g_lastFrame = slot.frame;
+}
+
+int fakeFrameCount() { return g_frames; }
+EscFrame fakeLastFrame() { return g_lastFrame; }
+bool escTaskParked() { return escModeReported(g_reached, g_pumpUp, EscPinMode::Park); }
+bool escTaskRunning() { return escModeReported(g_reached, g_pumpUp, EscPinMode::Run); }
+void escTaskPark() {
+	escSetArmed(false);
+	g_want = EscPinMode::Park;
 }
 
 uint32_t fakeLastThrottleMs() { return g_pump.lastThrottleMs; }
 
 void escTaskSuspend() {
 	escSetArmed(false);
-	g_suspendReq = true;
+	g_want = EscPinMode::Release;
 }
 // The transport must let go of the pin before DShot is asked to take it back.
 static bool g_am32EndBeforeResume = false;
@@ -989,13 +1044,15 @@ static int g_am32Ends = 0;  /**< am32BlEnd() calls. */
 int fakeAm32Ends() { return g_am32Ends; }
 void am32BlEnd() {
 	g_am32Ends++;
-	g_am32EndBeforeResume = g_suspendReq;
+	g_am32EndBeforeResume = g_want == EscPinMode::Release;
 }
-bool escTaskSuspended() { return g_suspended; }
-// Only the request, as in esc_task.cpp: the rebuild is the next
+bool escTaskSuspended() {
+	return escModeReported(g_reached, g_pumpUp, EscPinMode::Release);
+}
+// Only the request, as in esc_task.cpp: the bind is the next
 // fakePumpPoll().
-void escTaskResume() {
-	g_suspendReq = false;
+void escTaskStart() {
+	g_want = EscPinMode::Run;
 	g_resumes++;
 	g_resumeJobIdle = core1JobPhase() == Core1JobPhase::Idle;
 }

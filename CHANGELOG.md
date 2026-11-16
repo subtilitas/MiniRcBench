@@ -46,6 +46,22 @@ protocol.
 
 ### Added
 
+- After v0.1.0-rc1: the DShot pump's three modes, slice D1 of the DShot
+  lifetime design (`docs/design/dshot-lifetime.md`, branch
+  `ccr-dshot-life`). Core0 asks for Run (`escTaskStart()`, which replaces
+  `escTaskResume()`), Park (`escTaskPark()`) or Release (`escTaskSuspend()`),
+  and core1 reports `escTaskRunning()`, `escTaskParked()` and
+  `escTaskSuspended()`, the last true only in Release, so no core1 job binds
+  on a parked pin. Park drains for more than 250 ms after the last throttle
+  frame as a release does, then drives SIG low from the SIO (single-cycle
+  input/output) block at 2 mA and puts AUX on its pull-down with the input
+  buffer off; Release from Park frees the pins with no frame; Run from Park
+  binds once with the EDT enable first; a wiring change in Park parks again
+  and puts the old SIG in the pad's reset state (`escParkPlan()`). A
+  teardown clears `initError`, so `DSERR` names the current bind only.
+  Nothing calls `escTaskPark()` yet: the boot asks for Run and the pin claim
+  for Release and Run, so DShot runs from boot as before. Host tests in
+  `test/test_claim.cpp`; not run on hardware.
 - After v0.1.0-rc1: the wiki shows the six screens no page showed, in both
   languages. USB BRIDGE's `RELEASING SIG GP0` strip, its failed bind
   (`SIG GP0 COULD NOT BE TAKEN (PIO)` with `RETRY`), the card held by USB

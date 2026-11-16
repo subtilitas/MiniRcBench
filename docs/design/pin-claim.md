@@ -196,7 +196,7 @@ the exception.
    page keeps it until it is Free, through BRIDGE's rebind on the page.
    After an EFM8 answer ESC SETTINGS has both: its escwire job, and the
    leave page it sets before the job starts.
-6. **Restoring.** Core0 calls `escTaskResume()`. Core1 rebuilds the driver from
+6. **Restoring.** Core0 calls `escTaskStart()`. Core1 rebuilds the driver from
    the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
    first look after `escTaskSuspended()` turns false. Nothing is left for
    core0 to do in this step, so it ends without a poll once the screen has
@@ -411,7 +411,7 @@ a strip has no room ([menu-b.md](menu-b.md) decision 10).
 
 ### Restoring DShot
 
-`escTaskResume()` rebuilds the driver from the wiring `esc_task.cpp` latched:
+`escTaskStart()` rebuilds the driver from the wiring `esc_task.cpp` latched:
 the same SIG pin, bitrate, bidirectional mode, KISS enable and KISS pin. Pole
 count and throttle ceiling live in the settings block and are untouched. The
 pump starts disarmed with LATCH off, as after a SETTINGS change. Its first
@@ -429,7 +429,7 @@ servo PWM and `kst_line_close()` each leave an input with the pull-down on.
 for about 27 µs per frame at 600 kbit/s, once per `DSHOT_PERIOD_US`, 1000 µs.
 A PWM servo left on SIG measures that as a pulse of about 973 µs at 1 kHz: it
 drives towards one end of its travel, at a frame rate that overheats an
-analogue servo. So before `escTaskResume()` the SERVO TESTER, KST SERVO and
+analogue servo. So before `escTaskStart()` the SERVO TESTER, KST SERVO and
 HITEC SERVO screens show the leave page of
 [menu-b.md](menu-b.md#the-leave-page),
 `src/ui_leave.*`, whose unplug step reads, once the pin is let go:
@@ -605,7 +605,8 @@ still feeds the servo nothing.
 ## Testing
 
 `test/test_claim.cpp`, built. `escTaskPoll()` makes its decisions with pure
-functions in `esc_task.h`: `escHandoverStep()` (run, drain or teardown),
+functions in `esc_task.h`: `escHandoverStep()` (run, drain, teardown,
+bind, park, release or hold),
 `escDrainSlot()`, `escPumpSlot()`, `escPumpFrameSent()`, which stamps the
 last throttle frame, and `escPumpBind()`, which disarms. The suite runs those
 functions one 1 ms slot at a time, as `escTaskPoll()` calls them, and the fake
@@ -623,13 +624,31 @@ of the two cores' steps:
   rebuild; none needed after a long disarm or with no throttle since the
   bind; the bind starts disarmed at throttle zero;
 - order: DShot released before any job bind; job idle before
-  `escTaskResume()`; `pinClaimUnplugDue()`, the flag the leave page waits
+  `escTaskStart()`; `pinClaimUnplugDue()`, the flag the leave page waits
   for, before restore for SERVO and KST and not for AM32;
 - BACK in every state, including `Stopping`, `Restoring` and a failed bind;
   RETRY after a failed bind; Busy while `Restoring`;
 - restore: the pins, bitrate and KISS settings handed to the rebuild equal
   those before the claim; the pump starts disarmed;
-- the heartbeat rule per job, with the clock across a `millis()` rollover.
+- the heartbeat rule per job, with the clock across a `millis()` rollover;
+- the pump's three modes, below.
+
+The pump's three modes, as built (slice D1 of the DShot lifetime design,
+`docs/design/dshot-lifetime.md`). Core0 asks for Run with `escTaskStart()`,
+for Park with `escTaskPark()` and for Release with `escTaskSuspend()`;
+core1 reports `escTaskRunning()`, `escTaskParked()` and `escTaskSuspended()`
+(`escModeReported()`). `escTaskSuspended()` is true only in Release, so
+`core1JobStart()` is refused while the pins are parked. Park drains as a
+release does, then tears down and parks: SIG an SIO (single-cycle
+input/output) output driving low at 2 mA, AUX an input with the pull-down
+on and the input buffer off. From Park, Release frees the pins on the next
+pass with no frame: SIG on its pull-up, AUX a plain input. Run from Park
+puts SIG back on its pull-up at 4 mA and binds once, with the EDT enable
+first. A wiring change in Park parks again on the new wiring: a GPIO the
+old wiring held goes to the pad's reset state (`escParkPlan()`). A teardown
+clears `initError`. The boot still asks for Run and the claim still asks
+for Release and Run, so nothing parks in use yet. `test_claim.cpp` tests
+each of these against the fake pump and the GPIO fake.
 
 `test/test_bridge.cpp` runs the USB bridge's claim with the job as it ships,
 on a line fake (`test/fake_bridge_line.h`): DShot asked back only once the

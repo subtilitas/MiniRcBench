@@ -30,6 +30,9 @@
 #include "ui_menu.h"
 #include "plat.h"
 
+#include <hardware/gpio.h>
+#include <hardware/structs/pads_bank0.h>
+
 #include "../src/core1_job.cpp"   // NOLINT -- see the note above
 
 #include <string.h>
@@ -352,18 +355,40 @@ static void testHandoverRules() {
 	checkInt("a throttle frame stamps it", escThrottleStamp(&thr, 77, 900), 900);
 	checkInt("a throttle frame at millis() 0 stamps 1", escThrottleStamp(&thr, 0, 0), 1);
 
+	const EscPinMode RUN = EscPinMode::Run, PARK = EscPinMode::Park,
+	                 REL = EscPinMode::Release;
 	checkTrue("no request: run, even right after a throttle frame",
-	          escHandoverStep(false, false, true, 5000, 5001) == EscHandover::Run);
+	          escHandoverStep(RUN, RUN, false, true, 5000, 5001) == EscHandover::Run);
 	checkTrue("a suspend 250 ms after a throttle frame: drain",
-	          escHandoverStep(true, false, true, 5000, 5250) == EscHandover::Drain);
+	          escHandoverStep(REL, RUN, false, true, 5000, 5250) == EscHandover::Drain);
 	checkTrue("251 ms after: teardown",
-	          escHandoverStep(true, false, true, 5000, 5251) == EscHandover::Teardown);
+	          escHandoverStep(REL, RUN, false, true, 5000, 5251) == EscHandover::Teardown);
 	checkTrue("a rebuild drains too",
-	          escHandoverStep(false, true, true, 5000, 5100) == EscHandover::Drain);
-	checkTrue("nothing bound: teardown at once",
-	          escHandoverStep(true, false, false, 5000, 5001) == EscHandover::Teardown);
+	          escHandoverStep(RUN, RUN, true, true, 5000, 5100) == EscHandover::Drain);
+	checkTrue("nothing bound: released at once",
+	          escHandoverStep(REL, RUN, false, false, 5000, 5001) == EscHandover::Release);
 	checkTrue("no throttle frame since the bind: teardown at once",
-	          escHandoverStep(true, false, true, 0, 5001) == EscHandover::Teardown);
+	          escHandoverStep(REL, RUN, false, true, 0, 5001) == EscHandover::Teardown);
+	checkTrue("a park drains as a suspend does",
+	          escHandoverStep(PARK, RUN, false, true, 5000, 5250) == EscHandover::Drain);
+	checkTrue("and tears down after it",
+	          escHandoverStep(PARK, RUN, false, true, 5000, 5251) == EscHandover::Teardown);
+	checkTrue("down after the teardown, Park wanted: park",
+	          escHandoverStep(PARK, RUN, false, false, 0, 5251) == EscHandover::Park);
+	checkTrue("parked: hold", escHandoverStep(PARK, PARK, false, false, 0, 6000) == EscHandover::Hold);
+	checkTrue("parked, the wiring changed: park again",
+	          escHandoverStep(PARK, PARK, true, false, 0, 6000) == EscHandover::Park);
+	checkTrue("parked, Release wanted: release with no drain",
+	          escHandoverStep(REL, PARK, false, false, 5000, 5001) == EscHandover::Release);
+	checkTrue("released: hold", escHandoverStep(REL, REL, false, false, 0, 6000) == EscHandover::Hold);
+	checkTrue("released, the wiring changed: hold, the pins are the claim's",
+	          escHandoverStep(REL, REL, true, false, 0, 6000) == EscHandover::Hold);
+	checkTrue("parked, Run wanted: bind",
+	          escHandoverStep(RUN, PARK, false, false, 0, 6000) == EscHandover::Bind);
+	checkTrue("released, Run wanted: bind",
+	          escHandoverStep(RUN, REL, false, false, 0, 6000) == EscHandover::Bind);
+	checkTrue("a start during the drain: run on",
+	          escHandoverStep(RUN, RUN, false, true, 5000, 5100) == EscHandover::Run);
 
 	EscSlot d = escDrainSlot();
 	checkTrue("a drain slot is throttle zero, no command, no KISS request",
@@ -401,10 +426,11 @@ struct HandoverSim {
 	bool     armed;               /**< core0's s_armed. */
 	uint16_t throttle;            /**< core0's s_throttle. */
 	EscCmdRequest req;            /**< core0's s_cmdReq. */
-	bool     suspendReq;          /**< core0's s_suspendReq. */
+	bool     suspendReq;          /**< core0 asked for Release, else Run. */
 	bool     rebuildReq;          /**< core0's s_rebuildReq. */
 	bool     pumpUp;              /**< s_pumpUp. */
 	bool     suspended;           /**< s_suspended. */
+	EscPinMode reached;           /**< s_reached. */
 	uint32_t ms;                  /**< millis() of the slot about to run. */
 	int      binds;               /**< Binds so far. */
 	int      teardowns;           /**< Teardowns so far. */
@@ -416,22 +442,27 @@ struct HandoverSim {
 };
 
 static void hsSlot(HandoverSim *h) {
-	EscHandover act = escHandoverStep(h->suspendReq, h->rebuildReq, h->pumpUp,
+	EscPinMode want = h->suspendReq ? EscPinMode::Release : EscPinMode::Run;
+	EscHandover act = escHandoverStep(want, h->reached, h->rebuildReq, h->pumpUp,
 	                                  h->pump.lastThrottleMs, h->ms);
 	if (act == EscHandover::Teardown) {
 		h->pumpUp = false;
 		h->rebuildReq = false;
 		h->teardowns++;
 		h->teardownMs = h->ms;
-		if (h->suspendReq) {
-			h->suspended = true;
-			h->ms++;
-			return;
-		}
+		act = escHandoverStep(want, h->reached, false, false, 0, 0);
 	}
-	if (!h->suspendReq && !h->pumpUp) {
+	if (act == EscHandover::Release) {
+		h->reached = EscPinMode::Release;
+		h->suspended = true;
+		h->ms++;
+		return;
+	}
+	if (act == EscHandover::Bind) {
 		escPumpBind(&h->pump, &h->armed, &h->throttle);
 		h->pumpUp = true;
+		h->rebuildReq = false;
+		h->reached = EscPinMode::Run;
 		h->suspended = false;
 		h->binds++;
 	}
@@ -746,7 +777,7 @@ static void testJobGuard() {
 	core1JobPoll();
 	checkTrue("the third pass lets go: idle", g_servoJob.releases == 1 &&
 	                                          core1JobPhase() == Core1JobPhase::Idle);
-	escTaskResume();
+	escTaskStart();
 	pump();
 
 	removeJobs();
@@ -763,7 +794,7 @@ static void testJobGuard() {
 	core1JobStop();
 	core1JobPoll();
 	checkTrue("stopped before its bind: idle", core1JobPhase() == Core1JobPhase::Idle);
-	escTaskResume();
+	escTaskStart();
 	pump();
 	checkTrue("idle, no error", core1JobRunning() == Core1Job::None &&
 	                            core1JobError() == CORE1_JOB_OK);
@@ -1345,6 +1376,275 @@ static void testAm32Screen() {
 	frames(2);
 }
 
+// ---------------------------------------------------------------------------
+// The pump's three modes (docs/design/dshot-lifetime.md, slice D1)
+// ---------------------------------------------------------------------------
+
+#define NEW_GPIO 2
+
+/** @brief The pad's drive field, GPIO_DRIVE_STRENGTH_*. */
+static unsigned padDrive(unsigned gpio) {
+	return (fakePad(gpio) & PADS_BANK0_GPIO0_DRIVE_BITS) >> PADS_BANK0_GPIO0_DRIVE_LSB;
+}
+
+/** @brief SIG while parked: an SIO output driving low at 2 mA. */
+static bool padLow(unsigned gpio) {
+	FakePin p = fakePin(gpio);
+	return p.function == GPIO_FUNC_SIO && p.output && !p.high &&
+	       padDrive(gpio) == GPIO_DRIVE_STRENGTH_2MA;
+}
+
+/** @brief The reset state: an input, the pull-down on, the buffer off, 4 mA. */
+static bool padOff(unsigned gpio) {
+	FakePin p = fakePin(gpio);
+	return !p.output && p.pull == FakePull::Down && p.inputOff &&
+	       padDrive(gpio) == GPIO_DRIVE_STRENGTH_4MA;
+}
+
+/** @brief An input with the pull-up on, the buffer on, 4 mA. */
+static bool padPullUp(unsigned gpio) {
+	FakePin p = fakePin(gpio);
+	return !p.output && p.pull == FakePull::Up && !p.inputOff &&
+	       padDrive(gpio) == GPIO_DRIVE_STRENGTH_4MA;
+}
+
+/** @brief Park from a running pump, past any drain, and report whether it parked. */
+static bool toParked() {
+	escTaskPark();
+	for (int i = 0; i < 400 && !escTaskParked(); i++) { fakeAdvance(1); pump(); }
+	return escTaskParked();
+}
+
+/** @brief Back to Run on the board's default wiring. */
+static void backToRun() {
+	escTaskStart();
+	freshPump();
+}
+
+/** @brief escParkPlan(), entry by entry. */
+static void testParkPlan() {
+	section("DShot modes: the pad plan");
+
+	EscPadPlan p = escParkPlan(EscPinMode::Park, ESC_NO_GPIO, ESC_NO_GPIO, 0, 1);
+	checkTrue("first park: AUX off, then SIG low",
+	          p.count == 2 && p.gpio[0] == 1 && p.pad[0] == EscPad::Off &&
+	          p.gpio[1] == 0 && p.pad[1] == EscPad::Low);
+	p = escParkPlan(EscPinMode::Park, 0, 1, 2, 1);
+	checkTrue("SIG moved: the old SIG off, AUX off, the new SIG low",
+	          p.count == 3 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off &&
+	          p.gpio[1] == 1 && p.pad[1] == EscPad::Off &&
+	          p.gpio[2] == 2 && p.pad[2] == EscPad::Low);
+	p = escParkPlan(EscPinMode::Park, 0, 1, 1, 0);
+	checkTrue("a swap: the old SIG once, off as the new AUX; the new SIG low",
+	          p.count == 2 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off &&
+	          p.gpio[1] == 1 && p.pad[1] == EscPad::Low);
+	p = escParkPlan(EscPinMode::Park, 0, 1, 1, 1);
+	checkTrue("SIG and AUX on one GPIO: SIG's state, the old SIG off",
+	          p.count == 2 && p.gpio[0] == 0 && p.pad[0] == EscPad::Off &&
+	          p.gpio[1] == 1 && p.pad[1] == EscPad::Low);
+	p = escParkPlan(EscPinMode::Release, 0, 1, 0, 1);
+	checkTrue("release: AUX a plain input, SIG on its pull-up",
+	          p.count == 2 && p.gpio[0] == 1 && p.pad[0] == EscPad::Input &&
+	          p.gpio[1] == 0 && p.pad[1] == EscPad::PullUp);
+	p = escParkPlan(EscPinMode::Run, 0, 1, 0, 1);
+	checkTrue("before a bind: AUX stays off, SIG on its pull-up",
+	          p.count == 2 && p.gpio[0] == 1 && p.pad[0] == EscPad::Off &&
+	          p.gpio[1] == 0 && p.pad[1] == EscPad::PullUp);
+
+	checkTrue("reported: Run only bound",
+	          escModeReported(EscPinMode::Run, true, EscPinMode::Run) &&
+	          !escModeReported(EscPinMode::Run, false, EscPinMode::Run));
+	checkTrue("Park and Release only reached, the pump down",
+	          escModeReported(EscPinMode::Park, false, EscPinMode::Park) &&
+	          !escModeReported(EscPinMode::Park, true, EscPinMode::Park) &&
+	          escModeReported(EscPinMode::Release, false, EscPinMode::Release));
+	checkTrue("parked is not released",
+	          !escModeReported(EscPinMode::Park, false, EscPinMode::Release));
+	checkTrue("before the first bind no mode is reported",
+	          !escModeReported(EscPinMode::Run, false, EscPinMode::Park) &&
+	          !escModeReported(EscPinMode::Run, false, EscPinMode::Release));
+}
+
+/** @brief Park after a throttle frame drains; with none it parks at once. */
+static void testParkDrain() {
+	section("DShot modes: Park drains, then parks");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	fakePwmReset();
+	checkTrue("running", escTaskRunning() && !escTaskParked() && !escTaskSuspended());
+	escSetArmed(true);
+	escSetThrottle(300);
+	pump();
+	uint32_t stamp = fakeLastThrottleMs();
+	checkInt("one throttle frame out", stamp, millis());
+	escTaskPark();
+	checkTrue("Park disarms", !fakeArmed() && fakeThrottle() == 0);
+	int bad = 0, sent = 0;
+	for (int i = 0; i < 250; i++) {
+		fakeAdvance(1);
+		int before = fakeFrameCount();
+		pump();
+		EscFrame f = fakeLastFrame();
+		sent += fakeFrameCount() - before;
+		if (f.sendCommand || f.throttle || f.requestKiss) bad++;
+	}
+	checkTrue("250 ms after the throttle frame: still running", escTaskRunning() && !escTaskParked());
+	checkInt("a frame each pass", sent, 250);
+	checkInt("each throttle zero, no command, no KISS request", bad, 0);
+	checkTrue("SIG not yet parked", !padLow(SIG_GPIO));
+	int before = fakeFrameCount();
+	fakeAdvance(1);
+	pump();
+	checkTrue("parked at 251 ms", escTaskParked() && !escTaskRunning() && !escTaskSuspended());
+	checkInt("with no frame on that pass", fakeFrameCount() - before, 0);
+	checkTrue("SIG driven low at 2 mA", padLow(SIG_GPIO));
+	checkTrue("AUX on its pull-down, the buffer off", padOff(AUX_GPIO));
+	pump();
+	checkInt("parked: no frames", fakeFrameCount() - before, 0);
+
+	escTaskStart();
+	pump();
+	checkTrue("running again", escTaskRunning());
+	fakeAdvance(1000);
+	pump();
+	before = fakeFrameCount();
+	escTaskPark();
+	pump();
+	checkTrue("no throttle frame since the bind: parked on the first pass",
+	          escTaskParked() && fakeFrameCount() == before);
+	backToRun();
+}
+
+/** @brief Release from Park on the first pass with no frame; Run from Park binds once. */
+static void testParkReleaseRun() {
+	section("DShot modes: Release and Run from Park");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	fakePwmReset();
+	checkTrue("parked", toParked());
+	int frames = fakeFrameCount();
+	int binds = fakeRebuildCount();
+	escTaskSuspend();
+	checkTrue("asked for, not yet released", !escTaskSuspended());
+	pump();
+	checkTrue("released on the first pass", escTaskSuspended() && !escTaskParked());
+	checkInt("with no frame", fakeFrameCount() - frames, 0);
+	checkTrue("SIG on its pull-up at 4 mA", padPullUp(SIG_GPIO));
+	FakePin aux = fakePin(AUX_GPIO);
+	checkTrue("AUX a plain input", !aux.output && aux.pull == FakePull::None && !aux.inputOff);
+	checkInt("and no bind", fakeRebuildCount() - binds, 0);
+
+	escTaskPark();
+	pump();
+	checkTrue("parked again from Release", escTaskParked() && padLow(SIG_GPIO) && padOff(AUX_GPIO));
+
+	escTaskStart();
+	pump();
+	checkTrue("Run from Park binds", escTaskRunning() && !escTaskParked());
+	checkInt("once", fakeRebuildCount() - binds, 1);
+	EscFrame f = fakeLastFrame();
+	checkTrue("with the EDT enable first",
+	          f.sendCommand && f.command == DSHOT_CMD_EDT_ENABLE);
+	checkTrue("SIG back on its pull-up at 4 mA before the bind", padPullUp(SIG_GPIO));
+	for (int i = 0; i < 20; i++) { fakeAdvance(1); pump(); }
+	checkInt("and only once", fakeRebuildCount() - binds, 1);
+	backToRun();
+}
+
+/** @brief The guard of core1JobStart() against a parked pin. */
+static void testParkJobGuard() {
+	section("DShot modes: a job never binds on a parked pin");
+
+	uiInit();
+	freshPump();
+	installJobs();
+	checkTrue("parked", toParked());
+	checkTrue("escTaskSuspended() is false while parked", !escTaskSuspended());
+	checkTrue("core1JobStart() refused", !core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	core1JobPoll();
+	checkInt("and core1 binds nothing", g_servoJob.binds, 0);
+	escTaskSuspend();
+	pump();
+	checkTrue("released: started", core1JobStart(Core1Job::Servo, SIG_GPIO, 0xFF));
+	core1JobStop();
+	core1JobPoll();
+	checkTrue("idle again", core1JobPhase() == Core1JobPhase::Idle);
+	removeJobs();
+	backToRun();
+}
+
+/** @brief A wiring change while parked parks again; while running it rebuilds. */
+static void testParkWiring() {
+	section("DShot modes: a wiring change");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	fakePwmReset();
+	checkTrue("parked", toParked());
+	int binds = fakeRebuildCount();
+	escTaskConfigure(NEW_GPIO, 600, true, AUX_GPIO);
+	pump();
+	checkTrue("still parked", escTaskParked());
+	checkTrue("the old SIG: input, pull-down, buffer off", padOff(SIG_GPIO));
+	checkTrue("the new SIG low", padLow(NEW_GPIO));
+	checkTrue("AUX on its pull-down", padOff(AUX_GPIO));
+	checkInt("no bind", fakeRebuildCount() - binds, 0);
+
+	escTaskConfigure(SIG_GPIO, 600, true, AUX_GPIO);
+	pump();
+	checkTrue("back on the default wiring: SIG low", padLow(SIG_GPIO));
+	checkTrue("GP2 off", padOff(NEW_GPIO));
+	escTaskConfigure(AUX_GPIO, 600, true, SIG_GPIO);
+	pump();
+	checkTrue("a swap: the old SIG is AUX, off", padOff(SIG_GPIO));
+	checkTrue("the new SIG low", padLow(AUX_GPIO));
+	checkInt("still no bind", fakeRebuildCount() - binds, 0);
+
+	escTaskStart();
+	pump();
+	checkTrue("Run binds on the swapped wiring",
+	          escTaskRunning() && fakeResumeWiring().dshotPin == AUX_GPIO);
+	escTaskConfigure(SIG_GPIO, 600, true, AUX_GPIO);
+	binds = fakeRebuildCount();
+	pump();
+	checkTrue("while running a change rebuilds, as testHandoverRules() checks",
+	          escTaskRunning() && fakeRebuildCount() - binds == 1 &&
+	          fakeResumeWiring().dshotPin == SIG_GPIO);
+	backToRun();
+}
+
+/** @brief A teardown clears initError, so DSERR names the current bind only. */
+static void testTeardownError() {
+	section("DShot modes: a teardown clears initError");
+
+	uiInit();
+	freshPump();
+	removeJobs();
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	t.initError = true;
+	fakeSetTelemetry(&t);
+	escTaskPark();
+	pump();
+	escSnapshot(&t);
+	checkTrue("parked, initError clear", escTaskParked() && !t.initError);
+	escTaskStart();
+	pump();
+	t.initError = true;
+	fakeSetTelemetry(&t);
+	escTaskSuspend();
+	pump();
+	escSnapshot(&t);
+	checkTrue("released, initError clear", escTaskSuspended() && !t.initError);
+	quiet();
+	backToRun();
+}
+
 void runClaimTests() {
 	section("Core1 jobs: the table as it ships");
 	checkTrue("the servo, KST, Hitec, S.BUS and ESC settings jobs are in the table",
@@ -1380,6 +1680,12 @@ void runClaimTests() {
 	testNoSaveDuringClaim();
 	testLeavePagePerClaim();
 	testAm32Screen();
+	testParkPlan();
+	testParkDrain();
+	testParkReleaseRun();
+	testParkJobGuard();
+	testParkWiring();
+	testTeardownError();
 
 	shippedJobs();
 	quiet();
