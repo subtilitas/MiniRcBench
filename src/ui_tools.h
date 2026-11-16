@@ -4,8 +4,8 @@
  *        (docs/design/angle-meter.md, decision 1; docs/design/menu-b.md,
  *        "MENU").
  *
- * The chooser follows PROGRAMMER's pattern (ui_servo_prog.h), as ESC CONFIG
- * (ui_esc_config.h) and RX SIGNALS (ui_rx_signals.h) do: one 228 x 46 px
+ * TOOLS is a hub (ui_hub.h), as PROGRAMMER (ui_servo_prog.h), ESC CONFIG
+ * (ui_esc_config.h) and RX SIGNALS (ui_rx_signals.h) are: one 228 x 46 px
  * button per entry at an 80 px pitch, with its lines under it. It claims
  * nothing: DShot runs on SIG while it shows, and the strip says so. A tap
  * on ANGLE METER opens the meter (ui_angle.h) through uiChooseTool(). BACK
@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 
+#include "ui_hub.h"
 #include "ui_screen.h"
 
 struct TouchState;
@@ -32,25 +33,24 @@ struct TouchState;
  */
 #define UI_TOOLS_STRIP_FMT "DSHOT RUNS ON SIG GP%u"
 
-/** @brief Lines under an entry. */
-#define UI_TOOLS_LINES 2
-
-/** @brief One entry on the chooser. */
-struct UiToolsEntry {
-	const char     *label;                  /**< Scale 2 on the button, at most 18 characters. */
-	const char     *lines[UI_TOOLS_LINES];  /**< Scale 1 under the button, `C_DIM`; null ends them. */
-	const UiScreen *screen;                 /**< The screen the tap opens. */
-};
-
 /** @brief TOOLS' controls besides BACK. */
 enum class ToolsCtl : uint8_t {
-	Angle = 1,  /**< ANGLE METER: opens the meter. */
+	Angle = (uint8_t)HubCtl::Entry,  /**< ANGLE METER: opens the meter. */
 };
 
 /** @brief The entries, top to bottom: ANGLE METER. */
-extern const UiToolsEntry UI_TOOLS_ENTRIES[];
+extern const UiHubEntry UI_TOOLS_ENTRIES[];
 /** @brief How many. */
 extern const uint8_t UI_TOOLS_ENTRIES_COUNT;
+/** @brief TOOLS as a hub: its title, uiToolsStrip() and `UI_TOOLS_ENTRIES`. */
+extern const UiHub UI_TOOLS_HUB;
+
+/**
+ * @brief TOOLS' strip: @ref UI_TOOLS_STRIP_FMT with DShot's pin, which is SIG.
+ * @param buf The text.
+ * @param n   Room in @p buf.
+ */
+void uiToolsStrip(char *buf, size_t n);
 
 /** @brief Open the chooser. */
 void uiToolsEnter();

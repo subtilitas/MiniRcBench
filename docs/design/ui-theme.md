@@ -1233,7 +1233,7 @@ The tests the plan names, and where they are:
   SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR;
   the neutral chip in `testChipNeutral()` and through `chipIs()`,
   `menuChipIs()` and `neutralChipIs()` on its four screens; the rule in `testHeaderRule()` and
-  in `checkControlTable()` of `test/ui_ids.h`, which 158 frames of screens
+  in `checkControlTable()` of `test/ui_ids.h`, which 162 frames of screens
   with a header pass through; each hint by its text and `C_DIM`; SPEED's
   fill and a running channel's fill.
 
@@ -1286,7 +1286,7 @@ Mutations, each run against the suite and restored:
 | High contrast's `TC_AMBER` green 88 to 92 | 4: the word, three ratios |
 | The edit buttons and REPAIR back on `C_GRID` with `C_ONACCENT` | 8, on all five screens and REPAIR |
 | `uiChip()` fills with `C_GRID` | 21: the widget in both themes, MENU, ESC COMMANDS, ANGLE METER, USB BRIDGE |
-| The rule not drawn | 162: the widget's four and 158 control-table frames |
+| The rule not drawn | 166: the widget's four and 162 control-table frames |
 | Every hint back to `C_GRID` | 18 |
 | Both sliders' fill back to `C_DIM` | 4: SPEED and a running channel |
 

@@ -46,6 +46,7 @@ void runSbusOutUiTests();
 void runWidgetTests();
 void runIdTests();
 void runMenuTests();
+void runHubTests();
 void runEscCmdUiTests();
 void runBackupTests();
 void runSdCacheTests();
@@ -102,6 +103,7 @@ int main() {
 	runBackupTests();
 	runSdCacheTests();
 	runMenuTests();
+	runHubTests();
 	runEscCmdUiTests();
 	runAngleUiTests();
 	runDiagTests();

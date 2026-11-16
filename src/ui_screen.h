@@ -166,28 +166,11 @@ struct UiScreen {
 };
 
 /**
- * @brief One entry of PROGRAMMER, the chooser (ui_servo_prog.h): a button
- *        that opens a tool, with the lines under it. A new servo brand is one
- *        line in `UI_PROGRAMMERS` (ui_registry.cpp).
- */
-struct UiProgEntry {
-	const char     *label;     /**< Scale 2 on the button, at most 18 characters. */
-	const char     *models;    /**< Scale 1 under the button, `C_DIM`; null for none. */
-	const UiScreen *screen;    /**< The tool the tap opens. */
-	void          (*enter)();  /**< Run in place of the tool's own `enter`: it sets the family. */
-	bool          (*enabled)();  /**< Whether the entry acts; null: always. */
-	/** @brief The power line while SERVO SUPPLY is OWN, `C_DIM`; null for none. */
-	const char     *powerOwn;
-	/** @brief The power line with the switched supply, `C_DIM`, `%u` its enable GPIO. */
-	const char     *powerSwitchedFmt;
-	const char     *why[2];    /**< `C_AMBER` lines in place of the power line while disabled. */
-};
-
-/**
  * @brief Open @p s from the open tool, as MENU opens its rows: after this
  *        frame's tick the navigation opens @p s through uiOpenTool() in
  *        ui.cpp, running @p enter in place of `s->enter`, and BACK or
- *        RESTART DSHOT there return to MENU. PROGRAMMER's entries call it.
+ *        RESTART DSHOT there return to MENU. A hub's entries call it
+ *        (ui_hub.h).
  * @param s     The tool.
  * @param enter Its entry point for this route; null runs `s->enter`.
  */

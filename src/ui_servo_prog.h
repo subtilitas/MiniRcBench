@@ -1,15 +1,15 @@
 /**
  * @file ui_servo_prog.h
- * @brief PROGRAMMER: the chooser behind MENU's SERVO PROGRAMMER row.
+ * @brief PROGRAMMER: the hub behind MENU's SERVO PROGRAMMER row.
  *
- * The chooser lists the servo programmers of `UI_PROGRAMMERS`
- * (ui_registry.h), one 228 x 46 px button each at an 80 px pitch, with the
- * models, the power line or, while an entry is disabled, the amber lines
- * that say why under it. It claims nothing: DShot runs on SIG while it
- * shows. A tap on an entry opens the entry's tool through uiChooseTool(),
- * whose own entry point runs on that frame and claims SIG there. BACK
- * returns to MENU, and so do the tools' BACK before a claim held and their
- * RESTART DSHOT.
+ * PROGRAMMER is a hub (ui_hub.h) of the servo programmers of
+ * `UI_PROGRAMMERS` (ui_registry.h), one 228 x 46 px button each at an 80 px
+ * pitch, with the models, the power line or, while an entry is disabled, the
+ * amber lines that say why under it. It claims nothing: DShot runs on SIG
+ * while it shows. A tap on an entry opens the entry's tool through
+ * uiChooseTool(), whose own entry point runs on that frame and claims SIG
+ * there. BACK returns to MENU, and so do the tools' BACK before a claim held
+ * and their RESTART DSHOT.
  *
  * The screen opens only while the pin claim is Free (`freePins`).
  *
@@ -20,6 +20,7 @@
 
 #include <stdint.h>
 
+#include "ui_hub.h"
 #include "ui_screen.h"
 
 struct TouchState;
@@ -43,40 +44,41 @@ struct TouchState;
 /** @brief An entry's power line with the switched supply, `%u` its enable GPIO: 30 characters. */
 #define UI_PROG_SWITCHED_FMT "THE BENCH SWITCHES IT ON GP%u."
 
-/**
- * @defgroup ui_prog_layout PROGRAMMER's layout
- * @{
- */
-#define UI_PROG_ENTRY_Y     62   /**< The first entry's top, @ref UI_BODY_Y. */
-#define UI_PROG_ENTRY_PITCH 80   /**< Entry top to entry top. */
-#define UI_PROG_ENTRY_W     228  /**< From x 6, @ref UI_EDGE, to x 233. */
-#define UI_PROG_ENTRY_H     46
-#define UI_PROG_LINE_DY     50   /**< An entry's first line, from its top: 4 px under it. */
-#define UI_PROG_LINE_H      12   /**< Line to line, scale 1. */
-#define UI_PROG_LINE_CHARS  37   /**< A line from x 8 at scale 1: 221 px, to x 228. */
-#define UI_PROG_LABEL_CHARS 18   /**< A label at scale 2: 214 px in the 228 px button. */
-/** @} */
-
 /** @brief PROGRAMMER's controls besides BACK: entry i is `PROG_ENTRY(i)`. */
 enum class ServoProgCtl : uint8_t {
-	Entry = 1,  /**< The first entry; entry i is Entry + i. */
+	Entry = (uint8_t)HubCtl::Entry,  /**< The first entry; entry i is Entry + i. */
 };
 
 /** @brief The control of entry @p i of `UI_PROGRAMMERS`. */
-#define PROG_ENTRY(i) UI_FIX((uint8_t)ServoProgCtl::Entry + (i))
+#define PROG_ENTRY(i) HUB_ENTRY(i)
 
-/** @brief Open the chooser. */
+/** @brief PROGRAMMER's entries, top to bottom. */
+extern const UiHubEntry UI_PROGRAMMERS[];
+/** @brief How many. */
+extern const uint8_t UI_PROGRAMMERS_COUNT;
+/** @brief PROGRAMMER as a hub: its title, uiServoProgStrip() and `UI_PROGRAMMERS`. */
+extern const UiHub UI_PROG_HUB;
+
+/**
+ * @brief PROGRAMMER's strip: @ref UI_PROG_STRIP_FMT with DShot's pin, which
+ *        is SIG while the claim is Free, and `OWN` or the supply's `GP28`.
+ * @param buf The text.
+ * @param n   Room in @p buf.
+ */
+void uiServoProgStrip(char *buf, size_t n);
+
+/** @brief Open PROGRAMMER. */
 void uiServoProgEnter();
 
 /**
- * @brief Run one frame of the chooser.
+ * @brief Run one frame of PROGRAMMER.
  * @param t This frame's touch.
  * @return false once BACK has left it.
  */
 bool uiServoProgTick(const TouchState *t);
 
 /**
- * @brief The chooser's controls on the current frame: BACK and the entries,
+ * @brief PROGRAMMER's controls on the current frame: BACK and the entries,
  *        each enabled as its `enabled` says.
  * @param out At most @p max controls.
  * @param max Room in @p out.
