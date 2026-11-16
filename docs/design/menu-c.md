@@ -1221,7 +1221,38 @@ a tool through its hub (`toolEntry()`, `hubEntry()` and `revealEntry()` in
 `test/ui_ids.h`), and the cases that expected MENU after a tool expect its
 hub.
 
-MUTATIONS_TABLE
+Mutations, each run against the whole suite and restored:
+
+| Mutation | Result |
+|---|---|
+| A new line of 38 characters under SERVO TESTER | the build fails: "a SERVO line is too wide, or runs into the next entry" |
+| A sixth SERVO entry with a line of 38 characters | the build fails on the same assertion, and on "SERVO does not scroll its 146 px" |
+| A sixth SERVO entry whose line fits | the build fails on both: HITEC CLASSIC's three lines then stand over another entry |
+| A content of 400 px: `contentPx` without the 4 px, at run time | 26 checks fail, among them "146 px: HITEC CLASSIC's third line ends at y 316, with 3 px free under it" and "the scroll range: 404 - 258 px" |
+| `uiHubResume()` sets the scroll to 0 | 3 checks fail, among them "SERVO kept its scroll, 146 px" |
+| SERVO's entry point resumes in place of `uiHubEnter()` | 3398 checks fail, the first "hub entry 3 can be scrolled whole" |
+| The press floor 1 px in place of 40 px | 1281 checks fail, among them "scroll 0: entry 3, HITEC D SERIES, is listed at (6, 302), 228 x 18 px, and does not act" |
+| The control table lists a cut entry as acting | 4 checks fail, the same case among them |
+| A scrolling hub takes taps as a page does | 3170 checks fail, the first "hub entry 3 can be scrolled whole" |
+| A hub that fills the page takes the list's gesture | 3 checks fail, the first "ESC CONFIG: a press moved 10 px inside ESC COMMANDS stays a press, drawn pressed" |
+| The hub drawn without its scroll bar | 3 checks fail, among them "the scroll bar at x 235 to 237, y 62 to 225, C_GRID" |
+| The scroll left out of the hub's repaint key | 29 checks fail |
+| No mark on a hub row | 17 checks fail, among them "ESC CONFIG's row carries >" |
+| The mark in `C_TEXT` | 17 checks fail, the same |
+| The mark at scale 1 | 17 checks fail, the same |
+| The mark from x 212 | 1 check fails: "the mark is 10 px wide and its last column is x 222" |
+| The mark in `C_CYAN` on a disabled row | none: equivalent, since no row that opens a hub is ever refused |
+| A seventh MENU row, ESC COMMANDS | the build fails: "MENU does not have its six rows" |
+| A hub label of 18 characters, `ESC CONFIGURATIONS` | the build fails: "a MENU label runs into its status or its mark", and the title's `static_assert` |
+| ANGLE METER before SERVO TESTER in SERVO's table | 1209 checks fail, among them "SERVO TESTER, ANGLE METER, then KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC" |
+| ESC COMMANDS after ESC SETTINGS in ESC CONFIG's table | the build fails: "EscCfgCtl does not name ESC CONFIG's entries in their order" |
+| The full stop dropped from `SENT AS DSHOT COMMANDS.` | 1 check fails: ESC COMMANDS' lines at y 112 and 124 |
+| SERVO's strip with one space before `SERVO SUPPLY` | 6 checks fail, the strip at OWN, GP28 and GP29 among them |
+| ESC COMMANDS without `freePins` | the build fails: "a hub entry's screen has no pinUser and no freePins" |
+| `uiSettingsToolSections()` without the walk over a hub's entries | 4 checks fail, the first "three sections: B and A behind the hub, then C" |
+| A section added once per entry | 3 checks fail, the same case |
+| A fourth line allowed under the last entry | 1 check fails: "four lines fit under no entry, the last among them" |
+| A hub of nine entries allowed | 1 check fails: "1 to 8 entries fit, more than 3 as a list; 0 and 9 do not" |
 
 The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises)
 marked built by this slice: menu-b.md decision 19's (`ui_hub` in place of
