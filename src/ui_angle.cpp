@@ -234,7 +234,8 @@ static void setupFromSettings(AngleSetup *s) {
 
 /**
  * @brief Save the angle fields, never while armed: a flash erase parks
- *        core1. Unreachable armed, since MENU disarms; checked anyway.
+ *        core1. Unreachable armed, since every open through `uiOpenTool()`
+ *        disarms; checked anyway.
  */
 static bool saveAngle() { return !uiArmed() && settingsSaveAngle(); }
 

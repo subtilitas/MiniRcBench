@@ -158,7 +158,7 @@ static void freshHitec(uint8_t family, bool switched) {
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
 	fakeSetTelemetry(&t);
-	uiInit();
+	uiInitTester();
 	escTaskConfigure(0, 600, false, 1);
 	supply(switched);
 	fakeHitecLineReset(family);
@@ -480,7 +480,7 @@ static void testEntry() {
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		memset(&t, 0, sizeof(t));
 		fakeSetTelemetry(&t);
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 		hitecFrames(2);
 	}
 
@@ -501,7 +501,7 @@ static void testEntry() {
 	          fakeHitecLineOpens() == 0);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	hitecFrames(2);
 
 	section("Hitec entry: with the switched supply the job starts after the claim");
@@ -1354,7 +1354,7 @@ static void testStallAndBack() {
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) hitecFrame();
 	checkTrue("the claim is free", pinClaimState() == ClaimState::Free);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	hitecFrames(2);
 	supply(false);
 }

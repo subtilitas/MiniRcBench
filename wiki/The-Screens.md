@@ -2,45 +2,51 @@
 
 # The Screens
 
-The firmware has fourteen screens. The tester is the root. `MENU` opens the
-list of tools, and every tool is left with `BACK`, which returns to the
-screen that opened it: `MENU`, or the choice the tool was picked on.
+The firmware has fourteen screens. `MENU` is the root and the first screen
+after the splash: the list of tools, with no `BACK`. Its first row,
+`ESC TESTER`, opens the tester, whose `MENU` button returns to `MENU`.
+Every other tool is left with `BACK`, which returns to the screen that
+opened it: `MENU`, or the choice the tool was picked on.
 ESC CONFIG opens the choice of the ESC tools. SERVO PROGRAMMER opens
 PROGRAMMER, the choice of the KST and Hitec programmers. RX SIGNALS opens
 the choice of the receiver signal tools. TOOLS opens the choice of the bench
 tools that use no signal pin.
 SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
-returns to the tester.
+returns to the tester. DShot runs from the end of the splash on every screen, `MENU`
+included, except while a tool holds the signal pins.
 
 ```
-Tester ──MENU──> MENU ──┬── ESC COMMANDS ──BACK──> MENU
-   ▲                    ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
-   │                    │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
-   │                    │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> ESC CONFIG)
-   │                    │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> ESC CONFIG)
-   │                    │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
-   │                    │        (once the line is bound: BACK──> leave page ──RESTART DSHOT──> ESC CONFIG)
-   │                    ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
-   │                    ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
-   │                    │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, RESTART DSHOT──> PROGRAMMER
-   │                    │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> leave page ──LEAVE, RESTART DSHOT──> PROGRAMMER
-   │                    │    └── HITEC CLASSIC  ──> HITEC SERVO, as D SERIES
-   │                    │   (with no servo in programming mode the leave page opens at UNPLUG THE SERVO.)
-   │                    │   (ESC HEX, ESC WRITE, SET: BACK goes one level up)
-   │                    ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
-   │                    │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RESTART DSHOT──> RX SIGNALS
-   │                    │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> leave page ──RESTART DSHOT──> RX SIGNALS   (SET: BACK goes one level up)
-   │                    ├── TOOLS ──> TOOLS ──BACK──> MENU
-   │                    │    └── ANGLE METER ──BACK──> TOOLS   (SETUP, FLIP CAL: BACK goes one level up)
-   │                    ├── SD LOG       ──BACK──> MENU
-   │                    └── SETTINGS     ──BACK──> MENU
-   └──── BACK on MENU ──┘
-Tester ──14 POLES or MAX 20% (disarmed)──> SETTINGS ──BACK──> Tester
+Splash ──3 s──> MENU (the root, no BACK)
+MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
+       │                    └── 14 POLES or MAX 20% (disarmed) ──> SETTINGS ──BACK──> Tester
+       ├── ESC COMMANDS ──BACK──> MENU
+       ├── ESC CONFIG ──> ESC CONFIG ──BACK──> MENU
+       │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
+       │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> ESC CONFIG)
+       │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, RESTART DSHOT──> ESC CONFIG)
+       │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
+       │        (once the line is bound: BACK──> leave page ──RESTART DSHOT──> ESC CONFIG)
+       ├── SERVO TESTER ──BACK──> leave page ──RESTART DSHOT──> MENU
+       ├── SERVO PROGRAMMER ──> PROGRAMMER ──BACK──> MENU
+       │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, RESTART DSHOT──> PROGRAMMER
+       │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> leave page ──LEAVE, RESTART DSHOT──> PROGRAMMER
+       │    └── HITEC CLASSIC  ──> HITEC SERVO, as D SERIES
+       │   (with no servo in programming mode the leave page opens at UNPLUG THE SERVO.)
+       │   (ESC HEX, ESC WRITE, SET: BACK goes one level up)
+       ├── RX SIGNALS ──> RX SIGNALS ──BACK──> MENU
+       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RESTART DSHOT──> RX SIGNALS
+       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> leave page ──RESTART DSHOT──> RX SIGNALS   (SET: BACK goes one level up)
+       ├── TOOLS ──> TOOLS ──BACK──> MENU
+       │    └── ANGLE METER ──BACK──> TOOLS   (SETUP, FLIP CAL: BACK goes one level up)
+       ├── SD LOG       ──BACK──> MENU
+       └── SETTINGS     ──BACK──> MENU
 ```
 
-**BACK is at the top right**, in the header band, on every screen except the
-tester. The header is 36 px tall and `BACK` is 64 × 32 px. The tester is the
-root and has no header. On the leave page of SERVO TESTER, KST SERVO, HITEC
+**BACK is at the top right**, in the header band, on every screen except
+`MENU` and the tester. The header is 36 px tall and `BACK` is 64 × 32 px.
+`MENU` is the root: its header reads `MENU` and has no `BACK`, since
+nothing lies behind it. The tester has no header; its `MENU` button is its
+way back. On the leave page of SERVO TESTER, KST SERVO, HITEC
 SERVO, S.BUS MONITOR and ESC SETTINGS, `BACK` is drawn disabled, an outline with
 a grey label, and a tap on it does nothing: each way on is a labelled button,
 `STAY`, `NEXT SERVO`, `BACK TO SERVO`, `BACK TO MONITOR` or `RESTART DSHOT`. The
@@ -101,6 +107,12 @@ that does not act a hollow thumb.
 ## The tester
 
 <img src="img/tester-armed.png" width="240" alt="The tester screen">
+
+`MENU`'s first row, `ESC TESTER`, opens the tester. It opens **disarmed**,
+at throttle 0, with `LATCH` off, every time. It has no header: its `MENU`
+button, at the bottom right, returns to `MENU` and first disarms, sets the
+throttle to 0 and turns `LATCH` off. While the signal pins are in use, the
+`ESC TESTER` row is drawn as an outline and a tap on it opens nothing.
 
 **Top row.** From left to right:
 
@@ -223,15 +235,15 @@ beside `THROTTLE`; with `LATCH` on the caption reads `LATCHED`. While disarmed
 the bar reads `ARM TO ENABLE`.
 
 **Pole count and ceiling open SETTINGS.** While the tester is disarmed,
-`14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETTINGS.
-The tap disarms as `MENU` does, and `BACK` on SETTINGS returns to the tester.
-While armed the underline goes, `KV EST` takes the pole count's place, and a tap
-on them does nothing: the pole count lies in the throttle pad and `MAX` reaches
-into the bar's grab area, so the press drives the throttle as there. While DShot
-restarts after a servo tool the underline goes too and a tap does nothing, as
-`MENU` draws SETTINGS disabled then. While the 3D note takes the row, only `MAX`
-opens SETTINGS. Disarmed, the hint `SWIPE = THROTTLE` is in the dim label
-colour; armed, it takes the text colour.
+`14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETTINGS. The
+tap disarms as the `MENU` button does, and `BACK` on SETTINGS returns to the
+tester. While armed the underline goes, `KV EST` takes the pole count's place,
+and a tap on them does nothing: the pole count lies in the throttle pad and
+`MAX` reaches into the bar's grab area, so the press drives the throttle as
+there. While DShot restarts after a servo tool the underline goes too and a tap
+does nothing, as `MENU` draws SETTINGS disabled then. While the 3D note takes
+the row, only `MAX` opens SETTINGS. Disarmed, the hint `SWIPE = THROTTLE` is
+in the dim label colour; armed, it takes the text colour.
 
 <img src="img/tester-disarmed.png" width="240" alt="The tester disarmed with telemetry: SAFE in green, 14 POLES and MAX 20% underlined, SWIPE = THROTTLE dim, ARM TO ENABLE in the bar">
 
@@ -274,8 +286,10 @@ bench check is listed in STATUS.md in the repository, open item 23.
 
 <img src="img/menu.png" width="240" alt="The MENU screen">
 
-Reached with the tester's `MENU` button. Opening it **disarms**, sets the
-throttle to 0 and turns `LATCH` off.
+The first screen after the splash, and the root: the header reads `MENU`
+and has no `BACK`. The tester's `MENU` button returns here and first
+**disarms**, sets the throttle to 0 and turns `LATCH` off. DShot runs from
+the end of the splash behind `MENU`, so the strip's chip reads the ESC's telemetry.
 
 Under the title, a strip names the two signal pins, SIG for the ESC and AUX
 for the KISS wire or a second servo, and the DShot rate, for example
@@ -300,20 +314,21 @@ starts answering, and repeats it every 1 s while eRPM arrives and EDT does not.
 The ESC does not acknowledge the enable, so the chip shows *received frames*,
 not sent commands.
 
-Below the strip is a list of eight rows, 40 px tall at a 42 px pitch, by
-what sits on the signal pin: the ESC, a servo, then the bench. Each row has
-a name on the left and its state on the right; a tool's row shows no state,
-since the strip names the pins. `BACK` returns to the tester.
+Below the strip is a list of nine rows, 40 px tall at a 42 px pitch:
+`ESC TESTER` first, then by what sits on the signal pin: the ESC, a servo,
+then the bench. Each row has a name on the left and its state on the
+right; a tool's row shows no state, since the strip names the pins.
 
-**Scrolling.** Six rows fit the screen. TOOLS is the sixth, whole and
-tappable without a drag. The seventh, SD LOG, shows only 6 px at first; drag
-MENU up 34 px to bring it whole into view. The eighth, SETTINGS, starts below
-the screen: drag MENU up 76 px to bring SETTINGS and its `UNSAVED` status
-into view. A row takes a tap only while it shows whole. A 3 px scroll bar
-at the right edge shows the position.
+**Scrolling.** Six rows fit the screen. RX SIGNALS is the sixth, whole and
+tappable without a drag. The seventh, TOOLS, shows only 6 px at first; drag MENU
+up 36 px to bring it whole into view. The eighth, SD LOG, is whole after a drag
+of 78 px. The ninth, SETTINGS, starts below the screen: drag MENU up 120 px to
+bring SETTINGS and its `UNSAVED` status into view. A row takes a tap only while
+it shows whole. A 3 px scroll bar at the right edge shows the position.
 
 | Row | State on the right | A tap |
 |---|---|---|
+| **ESC TESTER** | nothing | Opens the tester, disarmed, at throttle 0, with `LATCH` off. See [The tester](#the-tester) |
 | **ESC COMMANDS** | nothing | Opens ESC COMMANDS: the DShot beacons, the direction and 3D mode. See [ESC COMMANDS](#esc-commands) |
 | **ESC CONFIG** | nothing | Opens ESC CONFIG, the choice of the ESC tools. See [ESC CONFIG](#esc-config) |
 | **SERVO TESTER** | nothing | Opens the servo tester |
@@ -325,8 +340,9 @@ at the right edge shows the position.
 
 While the signal pins are still in use, for example while DShot restarts
 after the servo tester, the KST programmer or the Hitec programmer, the strip
-reads `DSHOT RESTARTING ON SIG GP0` in amber. ESC COMMANDS, SERVO TESTER
-and SETTINGS are then drawn as an outline under their usual state, and a tap
+reads `DSHOT RESTARTING ON SIG GP0` in amber. ESC TESTER, ESC COMMANDS,
+SERVO TESTER and SETTINGS are then drawn as an outline under their usual
+state, and a tap
 on such a row opens nothing.
 They act again once DShot runs. SD LOG claims no pin and stays available.
 ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS and TOOLS open as always; the choice

@@ -1379,7 +1379,7 @@ The tests the plan names, and where they are:
   `test/test_ui.cpp`: the four corner pixels of the SAFE badge, of the
   ARMED badge and of the `SDERR` chip hold the fill.
 - **Every screen.** `buttonCornersClear()` in `test/ui_ids.h`, which
-  `checkControlTable()` runs on 175 frames of the suite: each control
+  `checkControlTable()` runs on 178 frames of the suite: each control
   that is drawn as a button has the three pixels outside each corner in
   the colour of the ground beside it. `testCornerWalk()` in
   `test/test_ids.cpp` holds the walk itself.
@@ -1466,14 +1466,14 @@ Mutations, each run against the suite and restored:
 
 | Mutation | Failing checks |
 |---|---|
-| The solver put back: every inset 0 | 213: `testRound()`'s 14, the widgets' 23, and the walk on every screen |
+| The solver put back: every inset 0 | 219: `testRound()`'s 14, the widgets' 23, and the walk on every screen |
 | The solver's bound `(r - 1) * (r - 1)` in place of `r * r - r` | 46: `testRound()`, the widgets, the walk's own cases |
 | The frame's first corner rows not joined to the straight edge | 28 |
 | A frame's corner row does not reach the row above it | 2: the 12 px frame at 1 px and at 2 px. At 5 px the two are the same |
 | The frame 1 px thick in High contrast too | 23, a slider's hollow thumb among them |
-| The fill's corner rows inset on the left only | 176 |
-| `uiButton()` passes a radius of 0 | 199 |
-| `uiButton()` fills a square under the rounded frame | 168 |
+| The fill's corner rows inset on the left only | 180 |
+| `uiButton()` passes a radius of 0 | 203 |
+| `uiButton()` fills a square under the rounded frame | 172 |
 | A pressed button's second frame at 5 px, not 3 px | 2: "nothing differs from the square button outside 3 x 3 px a corner", in both themes |
 | `dashFrame()` starts its gaps at the corner, not `UI_RADIUS` px in | 21: the percentages, the gaps' places, the corners |
 | `uiChip()` draws a state's chip through `gfxRoundRect()`, 5 px | 29, on eight screens |

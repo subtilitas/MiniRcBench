@@ -107,9 +107,14 @@ its names and SETTINGS, its layout table, its write rule and BACK guard, the
 one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
 readouts that open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's
 label, MENU's rows by device with PROGRAMMER, the chooser of the servo
-programmers, and the design notes and checks no single slice owned. MENU has
-eight rows: ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
-SIGNALS, TOOLS, SD LOG and SETTINGS.
+programmers, and the design notes and checks no single slice owned.
+Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 3,
+tested on the host only: the hub widget under the four choosers, the
+navigation stack, and MENU as the root. MENU is the first screen after the
+splash and has no BACK. It has nine rows: ESC TESTER, ESC COMMANDS, ESC
+CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX SIGNALS, TOOLS, SD LOG and
+SETTINGS. DShot still runs from boot behind MENU until slice D2 of
+`docs/design/dshot-lifetime.md`.
 The uses that the design note's decision 11 names take their role's colour,
 and a value changed and not yet written is cyan.
 
@@ -430,8 +435,10 @@ Two constraints on these dependencies:
 
 For 3 s (`SPLASH_MS`) after power-up the board shows its name, the board the
 image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
-example `VERSION 0.1.0`. DShot starts on the ESC pin when the splash ends,
-so the last line names that pin in amber: `UNPLUG ANY SERVO FROM GP0 NOW`. A
+example `VERSION 0.1.0`. DShot starts on the ESC pin when the splash ends
+and runs from then on behind MENU, the first screen, until slice D2 of
+`docs/design/dshot-lifetime.md`, so the last line names that pin in amber:
+`UNPLUG ANY SERVO FROM GP0 NOW`. A
 servo left on it reads the DShot frames as pulses and drives towards one end
 of its travel. When `settingsLoad()` carried a block of settings version 2,
 3 or 4 over (`settingsCarriedOver()`), two amber lines at y 40 and y 52 read
@@ -444,14 +451,16 @@ answered once since `touchInit()`, the splash shows
 `TOUCH CONTROLLER NOT FOUND` in amber at y 64, under those two lines and
 above the name; the line goes at the controller's first answer
 (`uiSplashTick()`). The splash reads the touch every 25 ms into a state of
-its own, so a finger resting on the glass when the tester appears gives no
-press edge: it does not arm, does not move the throttle and does not start
-a hold. Lifting it still ends a tap where it rests, on a button that acts
-on release such as LATCH or MENU, because the driver keeps where the press
-began; on the pole count or the ceiling the lift opens SETTINGS. If you
-touched the screen at power-up, lift the finger before HOLD TO ARM.
+its own, so a finger resting on the glass when MENU appears gives no press
+edge. A MENU row takes a tap only from a press that began on it, so lifting
+that finger opens nothing.
 
 **Main screen**
+
+The main screen is the ESC tester. MENU's first row, **ESC TESTER**,
+opens it, disarmed, at throttle 0, with LATCH off. It has no header; its
+**MENU** button returns to MENU. The row is drawn disabled while the pin
+claim is not free.
 
 - **HOLD TO ARM**: press and hold for 1 s (`ARM_HOLD_MS`). Arming is refused
   unless the throttle has been at zero for 250 ms (`ARM_ZERO_THROTTLE_MS`).
@@ -497,16 +506,16 @@ touched the screen at power-up, lift the finger before HOLD TO ARM.
   replaces the note, and the note returns on release. The pad works the same.
 - **LATCH**: off by default, blue while on. Turning it off sets the
   throttle to zero.
-- **MENU**: the list of tools and settings. Opening it disarms, sets the
-  throttle to zero and turns LATCH off.
+- **MENU**: back to MENU, the list of tools and settings. The tap
+  disarms, sets the throttle to zero and turns LATCH off first.
 - **Pole count and ceiling**: `14 POLES` at x 10, y 114, and `MAX 20%` at
   x 88, y 236, both in the text colour. While disarmed and while the pin
   claim is free, each is underlined in the text colour (y 122 and y 244) and
   a tap on it opens SETTINGS (`TesterCtl::Poles` at {4, 106, 72, 22},
-  `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs MENU's disarm first,
-  through `uiOpenTool()` in `src/ui.cpp`, and `BACK` on SETTINGS opened this
-  way returns to the tester. While armed they show no underline, `KV EST`
-  stands in the pole count's place ([Telemetry and
+  `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs the MENU button's
+  disarm first, through `uiOpenTool()` in `src/ui.cpp`, and `BACK` on
+  SETTINGS opened this way returns to the tester. While armed they show no
+  underline, `KV EST` stands in the pole count's place ([Telemetry and
   logging](#telemetry-and-logging)), and a press on them is the throttle
   pad's or the throttle bar's: the pole count lies in
   the pad, `MAX` reaches into the bar's grab area. While another screen
@@ -586,15 +595,20 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 *EDT live, EDT silent, no ESC answering, and PROGRAMMER, the servo
 programmers' chooser.*
 
-MENU is a list of rows. Each row is 40 px tall at a 42 px pitch, with the name
-at scale 2 on the left and its state right-aligned. MENU's **BACK** returns
-to the tester. **BACK** returns to the screen that opened the one on show: a
-tool opened from a MENU row returns to MENU, a tool opened from a chooser
-to that chooser, and SETTINGS opened from the tester's pole count or
-ceiling to the tester. The screens form a stack of at most three over the
-tester, MENU, a chooser and its tool, and **BACK** pops one (slice 2 of
+MENU is the first screen after the splash and the root of the navigation
+(slice 3 of `docs/design/menu-c.md`): its header reads `MENU` and draws no
+**BACK**, since nothing lies behind it. MENU is a list of rows. Each row is
+40 px tall at a 42 px pitch, with the name at scale 2 on the left and its
+state right-aligned. **BACK** returns to the screen that opened the one on
+show: a tool opened from a MENU row returns to MENU, a tool opened from a
+chooser to that chooser, and SETTINGS opened from the tester's pole count
+or ceiling to the tester. The tester returns to MENU by its **MENU**
+button. The screens form a stack of at most three, MENU at the bottom:
+MENU; the tester, a chooser, SD LOG or SETTINGS; a chooser's tool, or
+SETTINGS over the tester. **BACK** pops one (slice 2 of
 `docs/design/menu-c.md`). The leave page's RESTART DSHOT returns where
-BACK would.
+BACK would. DShot still runs from boot behind MENU until slice D2 of
+`docs/design/dshot-lifetime.md`, so the strip's chip reads its telemetry.
 
 - **EDT ON / EDT OFF / NO ESC**: a read-only chip on the strip under the
   title, square and 12 px tall, so it does not look like a button.
@@ -610,6 +624,7 @@ BACK would.
 
 | Row | State on the right | A tap |
 |---|---|---|
+| **ESC TESTER** | nothing | Opens the tester, disarmed, at throttle 0, LATCH off. See Main screen above |
 | **ESC COMMANDS** | nothing | Opens ESC COMMANDS: BEEP 1 to 5, the direction and 3D mode, each change saved in the ESC. See [ESC commands](#esc-commands) |
 | **ESC CONFIG** | nothing | Opens ESC CONFIG, the chooser of the ESC tools: ESC SETTINGS and USB BRIDGE. See [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
 | **SERVO TESTER** | nothing | Opens the servo tester. See [Servo tester](#servo-tester) |
@@ -619,28 +634,29 @@ BACK would.
 | **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
 | **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 
-The rows go by what sits on the signal pin: the ESC, a servo, then the
-bench. A tool row shows no state: the strip names the pins.
+ESC TESTER is the first row. The rows after it go by what sits on the
+signal pin: the ESC, a servo, then the bench. A tool row shows no state:
+the strip names the pins.
 
-- **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC COMMANDS
-  needs DShot running on SIG, and SETTINGS changes the wiring a claim
-  latched. While the claim is not free, for example after RESTART DSHOT
-  until the DShot pump runs again, these rows are drawn disabled, an
-  outline, SETTINGS under its own status and the tool rows with none, a tap
-  opens nothing, and the strip's caption reads `DSHOT RESTARTING ON SIG GP0`
-  in amber. The choosers' rows act whatever the claim: ESC CONFIG, SERVO
-  PROGRAMMER, RX SIGNALS and TOOLS open, and each draws its entries
-  disabled meanwhile, since every entry's tool claims a pin or, as ANGLE
-  METER, which saves to flash, opens only while the pins are free; the
-  chooser's strip then reads the same amber caption. A tool opened some
-  other way while another claim holds reads `WAIT: DSHOT RESTARTING`; no
-  path through the screens reaches that.
-- **Rows**: six rows fit the screen without scrolling. MENU holds eight, so
-  it scrolls by 78 px, with a 3 px scroll bar at x 235. TOOLS is the sixth
-  row, whole and tappable without a drag. SD LOG, the seventh, shows 6 px at
-  y 314 and is whole after a drag of 34 px; SETTINGS, the eighth, starts
-  below the screen and is whole after a drag of 76 px. A row takes a tap
-  only while 40 px of it show.
+- **DSHOT RESTARTING**: SERVO TESTER claims the signal pins, ESC TESTER and ESC
+  COMMANDS need DShot running on SIG, and SETTINGS changes the wiring a claim
+  latched. While the claim is not free, for example after RESTART DSHOT until
+  the DShot pump runs again, these rows are drawn disabled, an outline, SETTINGS
+  under its own status and the tool rows with none, a tap opens nothing, and the
+  strip's caption reads `DSHOT RESTARTING ON SIG GP0` in amber. The choosers'
+  rows act whatever the claim: ESC CONFIG, SERVO PROGRAMMER, RX SIGNALS and
+  TOOLS open, and each draws its entries disabled meanwhile, since every entry's
+  tool claims a pin or, as ANGLE METER, which saves to flash, opens only while
+  the pins are free; the chooser's strip then reads the same amber caption. A
+  tool opened some other way while another claim holds reads `WAIT: DSHOT
+  RESTARTING`; no path through the screens reaches that.
+- **Rows**: six rows fit the screen without scrolling. MENU holds nine, so
+  it scrolls by 120 px, with a 3 px scroll bar at x 235. RX SIGNALS is the
+  sixth row, whole and tappable without a drag. TOOLS, the seventh, shows
+  6 px at y 314 and is whole after a drag of 36 px; SD LOG, the eighth, is
+  whole after a drag of 78 px; SETTINGS, the ninth, after 120 px. A row
+  takes a tap only while 40 px of it show. Slice 4 of
+  `docs/design/menu-c.md` brings MENU to six rows that do not scroll.
 
 **PROGRAMMER**
 
@@ -859,15 +875,15 @@ splash's two lines, `UPDATED` on MENU's SETTINGS row, and the note line
 above, pole count and throttle ceiling included. Erasing the flash sector stops
 core1, and with it the DShot pump, for the length of the erase. That duration
 is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
-SAVE`); opening MENU disarms, so the refusal is a backstop. **HOLD DEFAULTS**
-(1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`) loads the compiled
-defaults, pole count and throttle ceiling included, into the live settings;
-the angle meter's setup and calibration, which SETTINGS does not show, keep
-their values. A
-tap loads nothing, a slide off the button cancels the hold, and a bar over
-the button and a `C_RED` fill, as on every hold of `src/ui_hold.*`, show it
-running. It has no armed check: SETTINGS opens only through MENU, which
-disarms. Flash changes only on the next save.
+SAVE`); the way off the tester disarms, so the refusal is a backstop.
+**HOLD DEFAULTS** (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`)
+loads the compiled defaults, pole count and throttle ceiling included, into the
+live settings; the angle meter's setup and calibration, which SETTINGS does not
+show, keep their values. A tap loads nothing, a slide off the button cancels
+the hold, and a bar over the button and a `C_RED` fill, as on every hold of
+`src/ui_hold.*`, show it running. It has no armed check: SETTINGS opens only from MENU or from a
+disarmed tester's readouts, and leaving the tester disarms. Flash changes
+only on the next save.
 
 Every value applies when changed. Only persistence needs the hold, so a value
 can be tried and then discarded by leaving without saving. The note line reads
@@ -3544,9 +3560,9 @@ settings block, version 6 ([Using it](#using-it), SETTINGS). SETTINGS does
 not show them, and its HOLD DEFAULTS keeps them.
 
 **Pins.** The meter claims no pin: DShot keeps running on SIG, and the ESC
-is disarmed as MENU opens. The meter opens only while the pin claim is
-free, since the meter's save writes flash: TOOLS opens whatever the claim
-and draws ANGLE METER disabled meanwhile.
+is disarmed as the tester returns to MENU. The meter opens only while the
+pin claim is free, since the meter's save writes flash: TOOLS opens
+whatever the claim and draws ANGLE METER disabled meanwhile.
 
 ## Device backups
 
@@ -3606,13 +3622,15 @@ In the firmware:
   controller reports, so a wet screen or something lying on the glass keeps
   the tester armed.
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
-- Opening MENU disarms. Every tool but SETTINGS opens only from MENU;
-  SETTINGS also opens from a tap on the tester's pole count or ceiling, only
-  while disarmed, and that tap runs the same disarm first. While a pin claim is
-  not free, after RESTART DSHOT until the DShot pump runs again, MENU draws
-  the tools that claim the pins and SETTINGS disabled, a chooser draws its
-  entries disabled, the strips read `DSHOT RESTARTING ON SIG GP0`, and the
-  tester's two readouts do not act.
+- The tester opens from MENU disarmed, at throttle 0, with LATCH off, and its
+  MENU button disarms, zeroes the throttle and turns LATCH off before it returns
+  to MENU. Every tool but SETTINGS opens only from MENU; SETTINGS also opens
+  from a tap on the tester's pole count or ceiling, only while disarmed, and
+  that tap runs the same disarm first. While a pin claim is not free, after
+  RESTART DSHOT until the DShot pump runs again, MENU draws ESC TESTER, the
+  tools that claim the pins and SETTINGS disabled, a chooser draws its entries
+  disabled, the strips read `DSHOT RESTARTING ON SIG GP0`, and the tester's two
+  readouts do not act.
 - Before DShot gives up the signal pin, to the AM32 editor or for a pin
   change, it sends throttle zero for at least 250 ms after the last throttle
   frame.
@@ -3693,7 +3711,7 @@ src/
   ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry and the control ids
   ui_registry.{h,cpp}   one line per MENU row and per PROGRAMMER, RX SIGNALS, ESC CONFIG and TOOLS entry, and the checks that their texts fit
   ui_hub.{h,cpp}        the hub: the one widget under the four choosers, UiHubEntry, UiHub and hubEntriesFit()
-  ui_menu.{h,cpp}       MENU
+  ui_menu.{h,cpp}       MENU, the root and the first screen
   ui_esc_cmd.{h,cpp}    ESC COMMANDS: BEEP 1 to 5, direction and 3D mode, through the command slot
   esc_3d.{h,cpp}        the tester's 3D note, which ESC SETTINGS and ESC COMMANDS set
   ui_servo_prog.{h,cpp} PROGRAMMER: the chooser of the servo programmers, a hub
@@ -3923,7 +3941,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 15,998 of 16,258 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,006 of 16,266 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

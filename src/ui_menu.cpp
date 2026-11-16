@@ -25,7 +25,7 @@
 
 /**
  * @defgroup menu_layout MENU layout
- * @brief Six 40 px rows fit under the strip; eight rows scroll 78 px.
+ * @brief Six 40 px rows fit under the strip; nine rows scroll 120 px.
  * @{
  */
 #define MENU_VIEW_Y0   UI_BODY_Y              /**< First row of the list, y 62. */
@@ -149,7 +149,6 @@ static uint32_t frameKey(MenuEdt edt, bool runCue) {
 		h = mix(h, rowPressed(i));
 		h = mix(h, rowActs(i));
 	}
-	h = mix(h, uiPressing(uiBackRect(), s_t));
 	return h | 1u;
 }
 
@@ -178,7 +177,8 @@ static_assert(UI_MARGIN + 6 * (int)(sizeof("SIG GP1  AUX GP0  DSHOT1200") - 1) -
 
 static void drawMenu(MenuEdt edt, bool runCue) {
 	gfxFill(C_BG);
-	uiHeader("MENU", s_t);
+	// The root: no BACK (docs/design/menu-c.md decision 10).
+	uiHeaderRoot("MENU");
 	uiStripClear();
 	char cap[40];
 	uint16_t capCol = C_DIM;
@@ -225,7 +225,6 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
 	*open = nullptr;
-	if (uiBackTapped(s_t)) return UiMenuResult::Back;
 
 	UiListEvent e = uiListTouch(&s_list, s_t);
 	UiMenuResult r = UiMenuResult::Stay;
@@ -261,11 +260,10 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 }
 
 static uint8_t menuControls(UiControl *out, uint8_t max) {
+	// The root has no BACK: the table holds the rows only.
 	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
-	uint8_t first = n;
 	uiListAddRows(&s_list, out, &n, max, true);
-	for (uint8_t i = first; i < n; i++)
+	for (uint8_t i = 0; i < n; i++)
 		if (!rowActs(out[i].id.row)) out[i].enabled = false;
 	return n;
 }

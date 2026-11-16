@@ -1,15 +1,17 @@
 # Menu structure C
 
-Status: proposed; slices 1 and 2 of [the build plan](#build-plan) are built
-([slice 2 as built](#slice-2-as-built)), and so are slices 7, 8 and 9, the
-look's palette, neutral fills and radius
+Status: proposed; slices 1 to 3 of [the build plan](#build-plan) are built
+([slice 2 as built](#slice-2-as-built), [slice 3 as
+built](#slice-3-as-built)), and so are slices 7, 8 and 9, the look's
+palette, neutral fills and radius
 ([ui-theme.md](ui-theme.md#slices-7-and-8-as-built),
-[slice 9](ui-theme.md#slice-9-as-built)).
-The owner decided its questions on 2026-11-15.
+[slice 9](ui-theme.md#slice-9-as-built)). The
+owner decided its questions on 2026-11-15.
 The two questions the answers raised are settled by the developer's calls of
 2026-11-16, pending the owner's review ([Decisions](#decisions)). The
 revision lines of [the tables below](#decisions-of-menu-bmd-this-revises)
-stand in the notes they revise, marked "Not built".
+stand in the notes they revise, marked "Not built", or "Built (slice 3)"
+where slice 3 made the whole line true.
 
 The owner's request of 2026-11-15: "Optimize the Menu structure and make it
 similar to the Rcbench structure but adapted to the small display."
@@ -753,7 +755,7 @@ line built when the slice that changes the decision merges.
 | 1, six rows that never scroll; 33, seven rows scroll 36 px; the revision of 2026-11-15 under [MENU](menu-b.md#menu), eight rows scroll 78 px | owner | Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1 and 4 of 2026-11-15: MENU is the start screen (decision 1) and has six rows (decision 4), ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it does not scroll. Not built. |
 | 2, SERVO PROGRAMMER and its chooser | owner | Revised by [menu-c.md](menu-c.md#the-hub), after its owner decisions 4 and 6 of 2026-11-15: no MENU row reads SERVO PROGRAMMER and no screen is titled PROGRAMMER. KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC are entries 3 to 5 of the hub SERVO, with the lines and the gate of this decision; CLASSIC's second line reads `AND SETUP > SERVO SUPPLY GP28/29.` A future brand adds a hub entry. Not built. |
 | 4, SETTINGS from the tester | owner | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the screen reads SETUP. Not built. |
-| 5, BACK goes one level up, or is drawn disabled | this note's rule; the owner confirmed the leave page's BACK (25) | Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15 and decision 10: MENU, the root, draws no BACK. A tool opened from a hub returns to the hub, where this decision's table says MENU. Not built. |
+| 5, BACK goes one level up, or is drawn disabled | this note's rule; the owner confirmed the leave page's BACK (25) | Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15 and decision 10: MENU, the root, draws no BACK. A tool opened from a hub returns to the hub, where this decision's table says MENU. Built (slice 3). |
 | 13, a title names its screen | rule | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the hubs are titled ESC PROGRAM, SERVO and RECEIVER; SD LOG's title reads LOGS and SETTINGS' reads SETUP; PROGRAMMER and TOOLS are gone. Not built. |
 | 16 and 23, MENU order by device | 23 owner | Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15: the order by device stays, one row per device class after ESC TESTER: ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Not built. |
 | 17, SETTINGS returns to where it was opened | choice | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the screen reads SETUP. Not built. |
@@ -774,7 +776,7 @@ Decisions of other notes, each the owner's but the last:
 
 | Decision | The line |
 |---|---|
-| [menu.md](menu.md#decisions) 1, MENU behind the tester's button | Revised by [menu-c.md](menu-c.md#decisions) owner decision 1 of 2026-11-15: MENU is the root; the tester is MENU's first row and its MENU button returns there. Not built. |
+| [menu.md](menu.md#decisions) 1, MENU behind the tester's button | Revised by [menu-c.md](menu-c.md#decisions) owner decision 1 of 2026-11-15: MENU is the root; the tester is MENU's first row and its MENU button returns there. Built (slice 3). |
 | [menu.md](menu.md#decisions) 12, the names MENU and SETTINGS | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: SETTINGS reads SETUP. Not built. |
 | [menu.md](menu.md#decisions) 13, one SETTINGS list | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15 for the name only: SETUP stays one list in sections. Not built. |
 | [esc-commands.md](esc-commands.md#decisions) 1, ESC COMMANDS as MENU's first row | Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15 and choice 8: owner decision 4 puts ESC COMMANDS in a hub; menu-c.md's choice 8, which the owner has not decided, makes it the first entry of the hub ESC PROGRAM. Not built. |
@@ -993,6 +995,109 @@ tool's hub ([pin-claim.md](pin-claim.md#decisions) decision 4's line).
 MENU without BACK is slice 3's; `ui_hub` in place of the choosers is slice
 1's, the loss of `UiScreenId::ServoProg` and `Tools` slice 4's; the
 button's label and park are D2's.
+
+## Slice 3 as built
+
+Files: `src/ui.cpp` (the stack with MENU at its bottom, `uiInit()`,
+`testerEnter()`, `testerTick()`, `UI_TESTER`, `uiTick()`); `src/ui_menu.cpp`
+and `src/ui_menu.h` (no BACK, `UiMenuResult::Back` gone);
+`src/ui_widgets.cpp` and `src/ui_widgets.h` (`uiHeaderRoot()`);
+`src/ui_registry.cpp` (the row); `src/ui.h` (`UI_TESTER_LABEL`);
+`src/ui_screen.h` (`UI_NAV_MAX`, `uiNavDepth()`, `uiNavAt()`).
+
+- **MENU is the root.** `uiInit()` pushes MENU and runs `uiMenuEnter()`, so
+  the first frame after the splash draws MENU. MENU is at depth 0 of the
+  stack and is never popped. `UI_NAV_MAX` stays 3 and now counts MENU:
+  MENU; the tester, a chooser, SD LOG or SETTINGS; a chooser's tool, or
+  SETTINGS over the tester. `uiNavDepth()` is 1 on MENU, and `uiNavAt()`
+  past the top reads `UiScreenId::Menu`, the root.
+- **No BACK.** The variant of `uiHeader()` is a function of its own,
+  `uiHeaderRoot()`: the band and the title, no BACK. MENU draws it, its
+  control table holds the rows only, and its tick no longer reads a tap at
+  BACK's place; `UiMenuResult::Back` is gone.
+- **The row.** `{ "ESC TESTER", 0, &UI_TESTER }` is the first line of
+  `UI_MENU`, with no status: 10 characters, 118 px at scale 2 from x 16,
+  ending at x 134. `menuRowsFit()` holds. MENU has nine rows and scrolls
+  9 × 42 − 258 = 120 px until slice 4: RX SIGNALS, the sixth row, is
+  whole at scroll 0; TOOLS, the seventh, shows 6 px at y 314 and is whole
+  after 36 px; SD LOG after 78 px; SETTINGS after 120 px.
+- **The tester is a screen.** `UI_TESTER` gains `enter`, `tick` and
+  `freePins`. MENU refuses the row while the claim is not Free, as it
+  refuses ESC COMMANDS'. `uiOpenTool()` runs `testerDisarm()` before the
+  push and `testerEnter()` runs it again and clears the press and drag
+  state, so the tester opens disarmed, at throttle 0, with LATCH off, on
+  every open. `testerTick()` is the tester's frame as it was: the touch,
+  the 30 s idle disarm, #49's touch-loss stop, the throttle sent, the kV
+  settle, the draw. The MENU button runs `testerDisarm()` on its tap and
+  the tick returns false, so the stack pops the tester to MENU on that
+  frame, with the throttle sent as 0. A readout pushes SETTINGS over the
+  tester, as before; its BACK pops to the tester, which redraws every
+  region.
+- **No arm state crosses MENU.** Every way off the tester disarms first:
+  the MENU button and a readout, through `testerDisarm()`. Only MENU's row
+  pushes the tester, and only the tester pushes a screen over itself,
+  SETTINGS, which pushes nothing. MENU's frame tells the log the arm state
+  (`sdLogSetArmed()`), as it did when MENU lay over the tester, so a log
+  started by arming stops on MENU's first frame. MENU does not send a
+  throttle; the last frame on the tester sent 0.
+- **DShot is unchanged.** It runs from boot behind MENU, on every screen as
+  at cff09ae, until D2. The splash's `UNPLUG ANY SERVO FROM GP0 NOW` and
+  MENU's EDT chip read a running DShot and stay; the chip goes in D2
+  ([decision 12](#decisions)).
+- **A finger resting from the splash.** MENU's rows take a tap only from a
+  press that began on them (`uiListTouch()`), so the lift of a finger that
+  rested on the glass through the splash opens nothing. The tester is not
+  the first screen, so that lift reaches no LATCH, MENU or readout.
+- **MENU after the tester** opens at scroll 0 (`uiMenuEnter()` on the pop),
+  as MENU opened from the tester did.
+
+Tests. `testMenuRoot()` in `test/test_menu.cpp`: after `uiInit()` the
+screen is MENU, alone on the stack; its table has no `UI_BACK` and the
+header draws none; a tap at BACK's place leaves nothing; a tap on row 0
+opens `Tester` over MENU, disarmed, at throttle 0, LATCH off;
+`TesterCtl::Menu` on an armed tester with LATCH on and a throttle standing
+returns to MENU, disarmed, the throttle 0 and sent as 0, the log stopped on
+MENU's first frame, and 40 frames of MENU keep it so; the row opens the
+tester again clear. `testPinsBusy()`: while the claim restores, ESC TESTER
+is drawn disabled, reports disabled and a tap on it opens nothing; once
+Free it acts. `testSettingsRowVisible()`: the nine rows in order, ESC
+TESTER at y 62 with no status, the scroll to 120 px. `testSplashTouch()` in
+`test/test_ui.cpp`: the splash ends on MENU; a finger resting on ESC
+TESTER's row or at ARM's place from the splash on opens nothing and arms
+nothing. `checkControlTable()` in `test/ui_ids.h` checks every frame it
+reads on MENU and on the tester for no BACK in the table, and on MENU for
+none drawn. The suites that start on the tester open it through the row:
+`uiInitTester()` and `openTester()` in `test/ui_ids.h`; `backToTester()`
+goes back to MENU and through the row; a case that tapped MENU's BACK taps
+the row. The stack's cases count MENU (`test/test_hub.cpp`,
+`test/test_ui.cpp`, `test/test_kst_ui.cpp`).
+
+Mutations, each run against the whole suite and restored:
+
+| Mutation | Result |
+|---|---|
+| BACK drawn at the root and put in MENU's table: `uiHeader()` in `drawMenu()` | 18 checks fail, the first "MENU: no BACK in the table" of `checkControlTable()` |
+| BACK drawn at the root, the table unchanged | 9 checks fail, the first "MENU: no BACK drawn" |
+| MENU acts on a tap at BACK's place | 13 checks fail, the first "a tap where BACK stands elsewhere leaves nothing" |
+| The tester's MENU button leaves without `testerDisarm()` | 9 checks fail, the first "opening MENU force-disarms" |
+| `UI_TESTER` without `freePins` | 6 checks fail, the first "ESC TESTER, whose DShot needs the pin, does not act" |
+| MENU's frame without `sdLogSetArmed()` | 1 check fails: "the log hears the disarm on MENU's first frame" |
+| `uiInit()` opens the tester over MENU | 385 checks fail, the first "the splash ends on MENU" |
+| The `navPop` guard `s_navDepth > 1` changed to `> 0` | none: equivalent, since MENU is never popped and the guard is unreachable at depth 1 |
+| The MENU button's frame leaves before `escSetThrottle(s_throttle)` | none: equivalent, since `escSetArmed(false)` in `testerDisarm()` already zeroes the throttle |
+| `testerEnter()` empty | none: equivalent, since `uiOpenTool()` runs `testerDisarm()` before every push and the press state needs a press edge; kept as a guard for another route to the tester |
+| `uiOpenTool()` and `testerEnter()` without the disarm | 3 checks fail, the first "back on the tester: LATCH is off" |
+| The tester drawn on the frame it leaves | the suite fails, the first "the tester's MENU opens MENU" |
+| The row ESC TESTER removed from `UI_MENU` | 2597 checks fail, the first "list row -1 can be scrolled whole" |
+| `testerDisarm()` keeps LATCH | 7 checks fail, the first "LATCH is off: re-armed, the throttle springs back" |
+
+The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises)
+marked built by this slice: menu-b.md decision 5's (MENU draws no BACK;
+slice 2 built the hub's return) and [menu.md](menu.md#decisions) decision
+1's. The others name more than this slice builds: the six rows and the
+names are slices 4 and 5, and DShot only on ESC TESTER and ESC COMMANDS is
+D2, so the line under menu-b.md's ["Not changed"](menu-b.md#not-changed)
+stays "Not built".
 
 ## Open questions
 

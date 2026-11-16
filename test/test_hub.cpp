@@ -56,9 +56,9 @@ static void hubFrames(int n) {
 
 /** @brief The tester, from a fresh boot with the compiled defaults. */
 static void freshTester() {
-	// A claim outlives uiInit(); let the last test's claim end first.
+	// A claim outlives uiInitTester(); let the last test's claim end first.
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) hubFrames(1);
-	fakeFlashClear(); settingsLoad(); uiInit();
+	fakeFlashClear(); settingsLoad(); uiInitTester();
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
@@ -577,14 +577,15 @@ static void testHubClaimGate() {
 }
 
 /**
- * @brief The stack holds at most three screens over the tester: MENU, a
- *        chooser, its tool. A tool that asks to open another screen at that
- *        depth is refused and stays open.
+ * @brief The stack holds at most three screens, MENU, the root, at the
+ *        bottom: MENU, a chooser, its tool. A tool that asks to open another
+ *        screen at that depth is refused and stays open.
  */
 static void testNavDepth() {
-	section("navigation: at most three screens over the tester");
+	section("navigation: at most three screens, MENU at the bottom");
 	freshTester();
-	checkTrue("the tester: an empty stack", uiNavDepth() == 0 && uiNavAt(0) == UiScreenId::Tester);
+	checkTrue("the tester: over MENU, two screens",
+	          uiNavDepth() == 2 && uiNavAt(0) == UiScreenId::Menu && uiNavAt(1) == UiScreenId::Tester);
 	openChooser();
 	tapId(PROG_ENTRY(0));
 	hubFrames(2);
@@ -594,7 +595,7 @@ static void testNavDepth() {
 	hubFrames(1);
 	checkTrue("a fourth screen asked for is refused: KST SERVO stays open",
 	          uiNavDepth() == UI_NAV_MAX && uiCurrentScreen() == UiScreenId::Kst);
-	checkTrue("uiNavAt() past the top reads the tester", uiNavAt(UI_NAV_MAX) == UiScreenId::Tester);
+	checkTrue("uiNavAt() past the top reads MENU, the root", uiNavAt(UI_NAV_MAX) == UiScreenId::Menu);
 	tapId(UI_FIX(UI_BACK));
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) {
 		if (ctlEnabled(UI_FIX(KstCtl::Leave))) tapId(UI_FIX(KstCtl::Leave));

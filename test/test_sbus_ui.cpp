@@ -316,7 +316,7 @@ static void freshUi() {
 	fakeClockSet(clk_peri, 150000000u);
 	fakeUartReset();
 	noEsc();
-	uiInit();
+	uiInitTester();
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
@@ -452,7 +452,7 @@ static void testChooser() {
 	checkTrue("DShot runs again", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the chooser's BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief The default wiring: the claim, the waiting monitor, frames, BACK. */
@@ -673,7 +673,7 @@ static void testMonitor() {
 	sbFrames(4);
 	checkTrue("the claim Free, GP1 left with no inversion", pinClaimState() == ClaimState::Free &&
 	          fakePin(SBUS_GPIO).inover == GPIO_OVERRIDE_NORMAL);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /** @brief GP1 is SIG: the screen's own ESC check, its texts, the leave page's lines. */
@@ -736,7 +736,7 @@ static void testGp1Sig() {
 	checkTrue("RESTART DSHOT: RX SIGNALS, Free", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	noEsc();
 
 	// In the default wiring the receiver does not go onto SIG: no check.
@@ -755,7 +755,7 @@ static void testGp1Sig() {
 	sbFrames(4);
 	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	noEsc();
 }
 
@@ -779,7 +779,7 @@ static void testRefusals() {
 	checkTrue("BACK before a claim: RX SIGNALS, nothing claimed", uiCurrentScreen() == UiScreenId::RxSignals &&
 	          pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	noEsc();
 
 	// No role on GP1: unreachable through SETTINGS, whose steppers swap.
@@ -801,7 +801,7 @@ static void testRefusals() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals && pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// clk_peri at 1 MHz: uart_init() reaches 62,500 baud, and the bind
 	// refuses; RETRY binds once the clock is right.
@@ -836,7 +836,7 @@ static void testRefusals() {
 	sbFrames(4);
 	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// Backstops the UI cannot reach. Another claim holds the pins when
 	// MONITOR is tapped: the claim's Busy rule comes before the screen's
@@ -878,7 +878,7 @@ static void testRefusals() {
 	sbFrames(4);
 	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// BACK during Stopping: DShot resumes at once, no leave page.
 	freshUi();
@@ -897,7 +897,7 @@ static void testRefusals() {
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbFrames(4);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**
@@ -932,7 +932,7 @@ static void testKeepClearsHold() {
 	sbFrames(4);
 	checkTrue("RESTART DSHOT: RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**

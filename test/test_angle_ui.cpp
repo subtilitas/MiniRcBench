@@ -140,7 +140,7 @@ static void freshBench(bool part = true) {
 	fakeAdvance(QMI8658_RESET_GAP_MS);
 	s_q = part ? fakeI2cAddQmi8658(IMU) : nullptr;
 	if (s_q) s_q->temp = (int16_t)(31.4 * 256.0);
-	uiInit();
+	uiInitTester();
 	frames(2);
 }
 
@@ -197,15 +197,15 @@ static AngleReading reading() {
  *        its line; BACK returns to MENU.
  */
 static void testTools() {
-	section("TOOLS: MENU's sixth row, the chooser, ANGLE METER");
+	section("TOOLS: MENU's seventh row, the chooser, ANGLE METER");
 	freshBench();
 	tapId(UI_FIX(TesterCtl::Menu));
 	frames(1);
 	const UiControlId row = menuRow(&UI_TOOLS);
 	const UiRect r = ctlRect(row);
-	checkTrue("MENU's sixth row reads TOOLS, 58 px at scale 2 from x 16, no status",
-	          uiMenuRowOf(&UI_TOOLS) == 5 && gfxTextW(UI_TOOLS_TITLE, 2) == 58 &&
-	          r.y == 272 && r.h == 40 &&
+	checkTrue("MENU's seventh row, whole after a drag, reads TOOLS, 58 px at scale 2 from x 16, no status",
+	          uiMenuRowOf(&UI_TOOLS) == 6 && gfxTextW(UI_TOOLS_TITLE, 2) == 58 &&
+	          r.h == 40 && r.y + r.h <= GFX_H &&
 	          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_TOOLS_TITLE, C_TEXT, C_PANEL, 2) &&
 	          allOf(r.x + 100, r.y + 4, r.w - 104, r.h - 8, C_PANEL));
 	checkTrue("the chooser opens whatever the claim's state and claims nothing",
@@ -242,7 +242,7 @@ static void testTools() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("still nothing sent to 0x6B", fakeI2cTransactionsTo(IMU) == 0);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 // ---------------------------------------------------------------------------
@@ -432,7 +432,7 @@ static void testNoImu() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK leaves", uiCurrentScreen() == UiScreenId::Tools);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 // ---------------------------------------------------------------------------
@@ -719,7 +719,7 @@ static void testSetup() {
 	          !settingsAngleDirty() &&
 	          [] { SettingsBlock b; memcpy(&b, fakeFlashBytes(), sizeof(b)); return b.s.angleAlong == 1; }());
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 /**
@@ -743,7 +743,7 @@ static void testDefaultsKeepMeter() {
 	*settings() = c;
 	checkTrue("a calibrated setup saved", settingsSave());
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	frames(2);
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_SETTINGS));
@@ -810,7 +810,7 @@ static void testOnlyExit() {
 	checkTrue("the main view's BACK leaves, CTRL7 00h", uiCurrentScreen() == UiScreenId::Tools &&
 	          qmi8658State() == ImuState::Closed && s_q->reg[0x08] == 0x00);
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 // ---------------------------------------------------------------------------
@@ -1087,5 +1087,5 @@ void runAngleUiTests() {
 	fakeI2cReset();
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 }

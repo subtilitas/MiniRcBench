@@ -100,7 +100,8 @@ Herstellers; in dieser Anleitung ist es nicht gezeichnet.
    hier nicht geprüft.
 4. Kopiere die `.uf2`-Datei auf dieses Laufwerk. Die Platine startet neu.
 5. Der Startbildschirm erscheint 3 s lang und nennt die Platine,
-   `RP2350-TOUCH-LCD-2.8`. Danach erscheint der Tester-Bildschirm.
+   `RP2350-TOUCH-LCD-2.8`. Danach erscheint `MENU`; seine erste Zeile,
+   `ESC TESTER`, öffnet den Tester.
 
 <img src="img/splash.png" width="240" alt="Der Startbildschirm">
 

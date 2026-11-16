@@ -567,8 +567,9 @@ static void mainText(MainText *m) {
 				addLine(m, HITEC_UI_ESC_2, C_AMBER);
 				return;
 			// Neither is reachable through the UI: the chooser opens only
-			// while the claim is Free, and MENU disarms. Kept so that a
-			// refusal never leaves the view blank.
+			// while the claim is Free, and every open through `uiOpenTool()`
+			// disarms. Kept so that a refusal
+			// never leaves the view blank.
 			case ClaimRefusal::Armed: addLine(m, "DISARM FIRST", C_AMBER); return;
 			default:                  addLine(m, UI_WAIT_RESTART_TEXT, C_AMBER); return;
 		}

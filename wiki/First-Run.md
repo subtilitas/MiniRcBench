@@ -73,12 +73,12 @@ own battery. The order does not matter. The firmware sends the telemetry
 enable to every ESC that starts answering, so the ESC can be connected or
 power-cycled at any time.
 
-The splash screen shows for 3 s, then the tester screen appears. It names
-the board the firmware is built for, RP2350-TOUCH-LCD-2.8, and the firmware
-version, for example `VERSION 0.1.0`. Its last line, in amber, names the ESC
-pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot starts on that pin when the
-splash ends, and a servo left on it reads the frames as pulses and moves to
-one end of its travel.
+The splash screen shows for 3 s, then `MENU` appears, the list of tools. The
+splash names the board the firmware is built for, RP2350-TOUCH-LCD-2.8, and the
+firmware version, for example `VERSION 0.1.0`. Its last line, in amber, names
+the ESC pin: `UNPLUG ANY SERVO FROM GP0 NOW`. DShot starts on that pin when the
+splash ends, and a servo left on it reads the frames as pulses and moves to one
+end of its travel.
 
 <img src="img/splash.png" width="240" alt="Splash screen">
 
@@ -102,11 +102,20 @@ that never had saved settings shows none of this.
 
 If the touch controller did not answer at power-up, the splash shows
 `TOUCH CONTROLLER NOT FOUND` in amber above the name. The line goes as soon
-as the controller answers. If it is still there when the tester appears,
+as the controller answers. If it is still there when `MENU` appears,
 touch does not work; see
 [Troubleshooting](Troubleshooting#the-screen-does-not-react-to-touch).
 
 <img src="img/splash-no-touch.png" width="240" alt="The splash with TOUCH CONTROLLER NOT FOUND in amber above the name">
+
+`MENU` is where every tool starts. Its header has no `BACK`: nothing lies
+behind it. Tap its first row, `ESC TESTER`, to open the tester. The tester
+opens disarmed, at throttle 0, with `LATCH` off; its `MENU` button at the
+bottom right returns to `MENU`. DShot already runs on the ESC pin while
+`MENU` shows, so the ESC hears zero-throttle frames from the end of the
+splash on.
+
+<img src="img/menu.png" width="240" alt="MENU after the splash: ESC TESTER is the first row">
 
 ---
 
@@ -148,11 +157,8 @@ while the throttle finger rests on the glass may not register. A wet
 screen, or a lead lying across the glass, can count as a finger and block
 every tap.
 
-A finger already on the glass when the tester appears does not arm and
-does not move the throttle. Lifting it still acts as a tap where it rests
-on a button that acts on release, such as `LATCH` or `MENU`; on `14 POLES`
-or `MAX 20%` its lift opens SETTINGS. If you touched the screen at power-up,
-lift the finger before `HOLD TO ARM`.
+A finger already on the glass when `MENU` appears opens nothing when it
+lifts: a row takes a tap only from a press that began on it.
 
 If the touch controller stops answering while the tester is armed, the
 tester disarms once four reads in a row have failed over 100 ms or more,
@@ -186,8 +192,9 @@ it. The bar shows a grab handle and its caption reads `LATCHED`. Turning
 
 ## Raising the ceiling
 
-`MENU` on the tester opens the list of tools. Opening it always disarms.
-`SETTINGS` is the last row: drag `MENU` up 76 px and tap it. Or, while
+`MENU` on the tester returns to the list of tools, and always disarms on
+the way. `SETTINGS` is the last row: drag `MENU` up 120 px and tap it. Or,
+while
 disarmed, tap `MAX 20%` or `14 POLES` on the
 tester, underlined while a tap on them works: the tap disarms the same way
 and opens SETTINGS, and `BACK` there returns to the tester.

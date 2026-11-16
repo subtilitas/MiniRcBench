@@ -164,7 +164,7 @@ static void freshUi(FakeEscReply r = escAck) {
 	EscTelemetry t;
 	memset(&t, 0, sizeof(t));
 	fakeSetTelemetry(&t);
-	uiInit();
+	uiInitTester();
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
@@ -303,7 +303,7 @@ static void testLayout() {
 	checkTrue("RESTART DSHOT: ESC CONFIG, Free, the console back", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          pinClaimState() == ClaimState::Free && fakeConsoleOn() && !escTaskSuspended());
 	tapId(UI_FIX(UI_BACK));  // to MENU
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 static void testTraffic() {
@@ -530,7 +530,7 @@ static void testBackStates() {
 	brFrames(4);
 	checkTrue("Free, the console never switched", pinClaimState() == ClaimState::Free &&
 	          fakeConsoleSwitches() == 0);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// A failed bind.
 	freshUi();
@@ -592,7 +592,7 @@ static void testBackStates() {
 	usbBridgeRunCueClear();
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	fakeBridgeLineRefuse(0);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// USB DRIVE holds the card.
 	freshUi();
@@ -627,7 +627,7 @@ static void testBackStates() {
 	          pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	fakeMscSet(MscState::Idle, 0);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// A claim another holds: the refusal, as ESC SETTINGS shows it.
 	freshUi();
@@ -649,7 +649,7 @@ static void testBackStates() {
 	brFrames(3);
 	checkTrue("asked again each frame: the bridge's claim once Free", pinClaimHolder() == PinUser::Bridge);
 	leaveBridge();
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 }
 
 static void testLostAndGp1() {
@@ -674,7 +674,7 @@ static void testLostAndGp1() {
 	fakeDumpFrame("shot_bridge_lost.ppm");
 	fakeCdcHostStall(false);
 	leaveBridge();
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	freshUi();
 	settings()->dshotPin = 1;
@@ -687,7 +687,7 @@ static void testLostAndGp1() {
 	checkTrue("SIG on GP1: the strip, and the line on GP1",
 	          leftIs(UI_STRIP_Y + 4, "SIG GP1  19200 8N1", C_DIM) && fakeBridgeLinePin() == 1);
 	leaveBridge();
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	settings()->dshotPin = 0;
 	settings()->kissPin = 1;
 	escTaskConfigure(0, settings()->dshotKbaud, settings()->kissEnable != 0, 1);
@@ -743,7 +743,7 @@ static void testReadOnly() {
 		checkTrue("RESTART DSHOT: ESC CONFIG, Free, the cue gone", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free && !usbBridgeRunCue(0));
 		tapId(UI_FIX(UI_BACK));  // to MENU
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 	g_efm8 = false;
 
@@ -775,7 +775,7 @@ static void testReadOnly() {
 	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
 	memset(&t, 0, sizeof(t));
 	fakeSetTelemetry(&t);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 
 	// Every BACK on a Running bridge gives the page: no traffic at all, an
 	// INIT handed over and not yet answered, MSP alone.
@@ -822,7 +822,7 @@ static void testReadOnly() {
 		checkTrue("RESTART DSHOT: ESC CONFIG, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free);
 		tapId(UI_FIX(UI_BACK));  // to MENU
-		tapId(UI_FIX(UI_BACK));
+		openTester();
 	}
 }
 

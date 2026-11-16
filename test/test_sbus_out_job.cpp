@@ -1299,7 +1299,7 @@ static void testProbeAm32() {
 	// MENU shows it.
 	fakeFlashClear();
 	settingsLoad();
-	uiInit();
+	uiInitTester();
 	outFrames(2);
 	tapId(UI_FIX(TesterCtl::Menu));
 	outFrames(2);
@@ -1316,7 +1316,7 @@ static void testProbeAm32() {
 	          !fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, AM32_UI_RUN_CUE, UI_COL_WARN, C_BG, 1));
 	memset(&t, 0, sizeof(t));
 	fakeSetTelemetry(&t);
-	tapId(UI_FIX(UI_BACK));
+	openTester();
 	outFrames(1);
 	fakeEwAnswerEach(false);
 }
