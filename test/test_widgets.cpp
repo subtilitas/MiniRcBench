@@ -4,7 +4,7 @@
  *        src/ui_list.cpp, src/ui_hold.cpp, src/ui_leave.cpp and
  *        src/ui_widgets.cpp as shipped.
  *
- * The screens that use them, ESC SETTINGS, SERVO, SERVO SET and SETUP, are
+ * The screens that use them, ESC SETTINGS, SERVO, SERVO SET and ANGLE SET, are
  * tested through the UI in test_ui.cpp and test_servo.cpp. This file holds
  * each rule at its boundary.
  */
@@ -1918,10 +1918,10 @@ static void testLeaveSteps() {
 	UiLeave l;
 	UiLeaveText t = {};
 	t.step[0][0] = "UNPLUG THE SERVO.";
-	uiLeaveBackStep(&t, 1, "RX SIGNALS");
-	checkTrue("the last step: BACK TO RX SIGNALS., the button RX SIGNALS",
-	          strcmp(t.step[1][0], "BACK TO RX SIGNALS.") == 0 && t.step[1][1] == nullptr &&
-	          strcmp(t.hub, "RX SIGNALS") == 0);
+	uiLeaveBackStep(&t, 1, "RECEIVER");
+	checkTrue("the last step: BACK TO RECEIVER., the button RECEIVER",
+	          strcmp(t.step[1][0], "BACK TO RECEIVER.") == 0 && t.step[1][1] == nullptr &&
+	          strcmp(t.hub, "RECEIVER") == 0);
 	uiLeaveOpen(&l, UiLeavePhase::Releasing, 1000);
 	gfxFill(C_RED);
 	uiLeaveDraw(&l, t, idle(), 0);
@@ -1929,7 +1929,7 @@ static void testLeaveSteps() {
 	          fakeTextIs(UI_MARGIN, 66, "1", C_AMBER, C_BG, 1) &&
 	          fakeTextIs(20, 66, "UNPLUG THE SERVO.", C_AMBER, C_BG, 1));
 	checkTrue("the next step 14 px on, at y 80, numbered 2",
-	          fakeTextIs(UI_MARGIN, 80, "2", C_DIM, C_BG, 1) && fakeTextIs(20, 80, "BACK TO RX SIGNALS.", C_DIM, C_BG, 1));
+	          fakeTextIs(UI_MARGIN, 80, "2", C_DIM, C_BG, 1) && fakeTextIs(20, 80, "BACK TO RECEIVER.", C_DIM, C_BG, 1));
 	checkTrue("a one-line step's bar: y 66 to y 72", px(1, 72) == C_AMBER && px(1, 73) == C_BG);
 
 	// Three steps of three lines: the third step's second line would start

@@ -88,7 +88,7 @@ The firmware does it, with no button.
 
 The first 10 frames the tester sends to the ESC are the enable: each time ESC
 TESTER or ESC COMMANDS opens, and after a change of SIG PIN, DSHOT, KISS TELEM
-or AUX PIN under SETTINGS opened over the tester. No frame goes out at power-up
+or AUX PIN under SETUP opened over the tester. No frame goes out at power-up
 or on any other screen: the signal wire is held low there. They take 10 ms.
 Every reply is decoded with EDT on from the first one, so an ESC that kept EDT
 on through one of those restarts shows its voltage and temperature at once and
@@ -143,7 +143,7 @@ The board only receives on this line. The receiver is a UART (universal
 asynchronous receiver-transmitter) built from a PIO (programmable I/O) state
 machine, so **either free GPIO works**. GPIO means
 general-purpose input/output pin. Turn it on under
-**MENU → SETTINGS → KISS TELEM**. KISS listens on AUX, set in the row below,
+**MENU → SETUP → KISS TELEM**. KISS listens on AUX, set in the row below,
 **AUX PIN**, with its J5 pin under the value. A step of AUX PIN or SIG PIN
 swaps the two, so the KISS wire never shares the ESC signal pin.
 
@@ -167,5 +167,5 @@ above 5 %.
 
 A poor link usually comes from the signal wire: too long, unshielded, or routed
 near motor phase wires. Shorten it first. Otherwise set **DSHOT** to 300
-under SETTINGS. The `LINK` row on the SETTINGS screen updates live while
-SETTINGS is open over the tester, from a tap on `MAX`, where DShot runs.
+under SETUP. The `LINK` row on the SETUP screen updates live while
+SETUP is open over the tester, from a tap on `MAX`, where DShot runs.

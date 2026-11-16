@@ -93,7 +93,7 @@ Das macht die Firmware, ohne Schaltfläche.
 
 Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe: jedes
 Mal, wenn ESC TESTER oder ESC COMMANDS öffnet, und nach einer Änderung von SIG
-PIN, DSHOT, KISS TELEM oder AUX PIN unter SETTINGS, das über dem Tester geöffnet
+PIN, DSHOT, KISS TELEM oder AUX PIN unter SETUP, das über dem Tester geöffnet
 ist. Beim Einschalten und auf jedem anderen Bildschirm geht kein Frame hinaus:
 Das Signalkabel liegt dort auf Low. Sie dauern 10 ms. Jede Antwort wird von der
 ersten an mit EDT-Decodierung gelesen. Ein ESC, der EDT über einen dieser
@@ -151,7 +151,7 @@ Die Platine empfängt auf dieser Leitung nur. Der Empfänger ist ein UART
 (Universal Asynchronous Receiver-Transmitter) aus einer PIO-Zustandsmaschine
 (PIO: programmierbare Ein-/Ausgabe), daher **funktionieren beide freien
 GPIOs**. GPIO steht für General Purpose Input/Output, frei
-verwendbarer Pin. Einschalten unter **MENU → SETTINGS → KISS TELEM**. KISS
+verwendbarer Pin. Einschalten unter **MENU → SETUP → KISS TELEM**. KISS
 empfängt auf AUX, gesetzt in der Zeile darunter, **AUX PIN**, mit seinem
 J5-Pin unter dem Wert. Ein Schritt von AUX PIN oder SIG PIN tauscht die
 beiden, sodass das KISS-Kabel nie den Pin des ESC-Signals teilt.
@@ -177,6 +177,6 @@ oberhalb von 5 % bernsteinfarben.
 
 Eine schlechte Verbindung kommt meist vom Signalkabel: zu lang, ungeschirmt
 oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT** unter
-SETTINGS auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm SETTINGS ist
-live, solange SETTINGS über dem Tester offen ist, nach einem Tippen auf
+SETUP auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm SETUP ist
+live, solange SETUP über dem Tester offen ist, nach einem Tippen auf
 `MAX`, wo DShot läuft.

@@ -7,7 +7,7 @@
 #
 #   RX_SRCS        C++ sources linked into the suite: the monitor's core1
 #                  job, on the UART0 fake of fakes.cpp; the formatter, S.BUS
-#                  MONITOR and RX SIGNALS, the chooser; the S.BUS output's
+#                  MONITOR and RECEIVER, the chooser; the S.BUS output's
 #                  core1 job, on the TX side of the same fake, its formatter
 #                  and S.BUS OUTPUT
 #   RX_TESTS       the test files; test_sbus_job.cpp holds runSbusJobTests(),

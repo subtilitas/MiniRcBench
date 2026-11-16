@@ -688,7 +688,7 @@ static void mainBody(MainText *m) {
 						snprintf(conv, sizeof(conv), "CHECK THE CONVERTER ON GP%u, ITS WIRING AND THE SIGNAL.",
 						         (unsigned)servoSupplyPin());
 						addWrapped(m, conv, C_TEXT);
-						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETTINGS > SERVO SUPPLY AT OWN.",
+						addWrapped(m, "A SERVO ON ITS OWN SUPPLY NEEDS SETUP > SERVO SUPPLY AT OWN.",
 						           C_TEXT);
 						return;
 					}

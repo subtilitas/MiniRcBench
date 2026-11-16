@@ -1096,7 +1096,7 @@ static void testAngleClamp() {
 
 /**
  * @brief settingsSaveAngle(): the angle fields of the live settings over the
- *        saved ones, so a SETTINGS change that was not saved stays unsaved.
+ *        saved ones, so a SETUP change that was not saved stays unsaved.
  */
 static void testSaveAngle() {
 	section("Settings: the angle meter's save writes its fields alone");
@@ -1107,8 +1107,8 @@ static void testSaveAngle() {
 	          settingsStored() && stored().version == SETTINGS_VERSION && !settingsDirty());
 
 	Settings saved = *settings();
-	settings()->poles = 22;               // SETTINGS, not saved
-	settings()->angleLengthMm = 40;       // SETUP
+	settings()->poles = 22;               // SETUP, not saved
+	settings()->angleLengthMm = 40;       // ANGLE SET
 	settings()->angleAlong = 1;
 	settings()->angleInvert = 1;
 	settings()->angleCalValid = 1;
@@ -1123,7 +1123,7 @@ static void testSaveAngle() {
 	          b.s.angleInvert == 1 && b.s.angleCalValid == 1 && b.s.angleCalOffG[0] == 0.03f &&
 	          b.s.angleCalGain[2] == 1.01f);
 	checkInt("and the pole count as saved, not the live one", b.s.poles, saved.poles);
-	checkTrue("so SETTINGS still has a change to save", settingsDirty() && settings()->poles == 22);
+	checkTrue("so SETUP still has a change to save", settingsDirty() && settings()->poles == 22);
 	checkTrue("and the meter none: settingsAngleDirty() false", !settingsAngleDirty());
 	writes = fakeFlashWrites();
 	checkTrue("the same angle fields again: nothing written",

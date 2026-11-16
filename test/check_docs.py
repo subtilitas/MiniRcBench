@@ -104,7 +104,7 @@ SPDX_RE = re.compile(
 # matched line by line in README.md and wiki/*.md, code spans included.
 REMOVED_TEXTS = [
     (r"PINS BUSY", "MENU's busy status (decision 15 f)"),
-    (r"HOLD RESET|`RESET`", "SETTINGS' RESET, now HOLD DEFAULTS (decision 14)"),
+    (r"HOLD RESET|`RESET`", "SETUP's RESET, now HOLD DEFAULTS (decision 14)"),
     (r"\*\*HOLD\*\*", "the tester's HOLD, now LATCH (decision 15 a)"),
     (r"`MODE`", "the MODE chip, now PROG MODE (decision 15 g)"),
     (r"(\*\*|`)(ESC|KISS) PIN(\*\*|`)", "SIG PIN and AUX PIN (decision 10)"),
@@ -136,7 +136,7 @@ REMOVED_TEXTS = [
     (r"THROTTLE SCALE DIFFERS",
      "the tester's 3D note, now 0-50% REVERSED AT 2X (esc-commands.md, decision 9)"),
     (r"AM32 (CONFIG|WRITE|HEX)\b|\bFW \d+\.\d+",
-     "AM32's titles and the strip's FW, now ESC CONFIG, ESC SETTINGS, ESC WRITE, "
+     "AM32's titles and the strip's FW, now ESC SETTINGS, ESC WRITE, "
      "ESC HEX and AM32 n.n (bluejay-blheli-s.md, call A)"),
     (r"ANSWERED: NOT READ YET",
      "slice 2's EFM8 status, now ANSWERED: READING. (bluejay-blheli-s.md, slice 3)"),
@@ -146,8 +146,15 @@ REMOVED_TEXTS = [
      "MENU's rows SERVO PROGRAMMER and TOOLS and the screens PROGRAMMER and TOOLS, "
      "now entries of the hub SERVO (menu-c.md owner decisions 4 and 5, slice 4)"),
     (r"MENU\s*(→|>|->|&gt;)\s*(ESC COMMANDS|SERVO TESTER|ANGLE METER)",
-     "a tool as a MENU row, now an entry of the hub ESC CONFIG or SERVO "
+     "a tool as a MENU row, now an entry of the hub ESC PROGRAM or SERVO "
      "(menu-c.md owner decision 4, slice 4)"),
+    (r"\bESC CONFIG\b|\bRX SIGNALS\b|\bSD LOG\b|\bANGLE SETUP\b|"
+     r"MENU\s*(→|>|->|&gt;)\s*SETTINGS\b|"
+     r"(?<!ESC )(?<!AM32 )\bSETTINGS\s*(→|>|->|&gt;)|"
+     r"(\||^#+\s+|\*\*|`)\s*SETTINGS\s*(\||$|\*\*|`)",
+     "the screens ESC CONFIG, RX SIGNALS, SD LOG and SETTINGS, now ESC PROGRAM, "
+     "RECEIVER, LOGS and SETUP, and ANGLE METER's ANGLE SETUP, now ANGLE SET "
+     "(menu-c.md owner decision 6 and decision 17, slice 5)"),
     (r"RESTART DSHOT|DSHOT RESTARTING|DSHOT RESTARTS ON|LEAVE, THEN DSHOT RETURNS",
      "DShot's restart after a claim, now the leave page's hub title and the "
      "busy captions; DShot runs only on ESC TESTER and ESC COMMANDS "

@@ -219,7 +219,7 @@ MscState mscGetState();
 /**
  * @brief Blocks the host has read since the medium last appeared.
  *
- * Shown on the SD LOG screen while serving, because a progress figure is the
+ * Shown on the LOGS screen while serving, because a progress figure is the
  * difference between "it is copying" and "it has hung", and USB full speed
  * moves about a megabyte a second — long enough on a full card to want to know.
  *

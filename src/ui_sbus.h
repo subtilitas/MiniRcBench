@@ -3,8 +3,8 @@
  * @brief S.BUS MONITOR: a receiver's S.BUS output on GP1, its 16 channels,
  *        two digital channels, link state, frame rate and error counts.
  *
- * S.BUS is Futaba's serial bus for receiver channels. Entry: MENU → RX
- * SIGNALS → MONITOR (ui_rx_signals.h). The screen claims the role that is
+ * S.BUS is Futaba's serial bus for receiver channels. Entry: MENU →
+ * RECEIVER → MONITOR (ui_rx_signals.h). The screen claims the role that is
  * GP1 (sbusClaimRoles(): SIG and AUX in the default wiring, SIG alone when
  * SIG is GP1) for PinUser::Sbus, and core1's S.BUS job (sbus_job.h) receives
  * on it through UART0 with the pad's input inverted. The screen drives
@@ -14,7 +14,7 @@
  * Before it claims, the screen checks the wiring:
  *
  * - **No role on GP1.** No claim: `S.BUS NEEDS GP1.`
- *   `SET A PIN TO GP1 IN SETTINGS.` Unreachable through SETTINGS on this
+ *   `SET A PIN TO GP1 IN SETUP.` Unreachable through SETUP on this
  *   board, whose two steppers swap GP0 and GP1; kept as the backstop over
  *   the job's CORE1_JOB_NO_GP1.
  * - **GP1 is SIG.** The claim's ESC check is off for this user (pin_claim.h,
@@ -28,8 +28,8 @@
  * once, and the page opens releasing, as SERVO TESTER's does. Its step names
  * where DShot restarts; BACK TO MONITOR keeps the claim and binds the job
  * again, with every count at 0; RESTART DSHOT, live 1000 ms after the pin is
- * let go, returns to RX SIGNALS. BACK before a claim held, or during
- * Stopping, returns to RX SIGNALS with DShot resumed.
+ * let go, returns to RECEIVER. BACK before a claim held, or during
+ * Stopping, returns to RECEIVER with DShot resumed.
  *
  * @see docs/design/rx-signals.md, "Screen"
  */
@@ -83,7 +83,7 @@ struct UiScreen;
 /** @brief No role on GP1, line 1, amber. */
 #define SBUS_UI_NO_GP1_1    "S.BUS NEEDS GP1."
 /** @brief ...line 2. */
-#define SBUS_UI_NO_GP1_2    "SET A PIN TO GP1 IN SETTINGS."
+#define SBUS_UI_NO_GP1_2    "SET A PIN TO GP1 IN SETUP."
 /** @brief An ESC answers on GP1 while it is SIG, line 1, amber: 26 characters. */
 #define SBUS_UI_ESC_1       "AN ESC ANSWERS ON SIG GP1."
 /** @brief KISS frames on GP1 while it is AUX, line 1, amber: 29 characters. */

@@ -110,9 +110,9 @@ static void testHelpersReport() {
 	checkTrue("a tap on DISARM by id disarms", !uiArmed());
 }
 
-/** @brief MENU, SETTINGS and SD LOG by id. */
+/** @brief MENU, SETUP and LOGS by id. */
 static void testMenuSettingsLog() {
-	section("Control ids: MENU, SETTINGS and SD LOG");
+	section("Control ids: MENU, SETUP and LOGS");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
@@ -121,9 +121,9 @@ static void testMenuSettingsLog() {
 	idFrames(1);
 	checkControlTable("MENU");
 	checkTrue("ESC TESTER acts", ctlEnabled(menuRow(&UI_TESTER)));
-	checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
+	checkTrue("ESC PROGRAM acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
 	checkTrue("SERVO acts", ctlEnabled(menuRow(&UI_SERVO_HUB_SCREEN)));
-	checkTrue("RX SIGNALS acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
+	checkTrue("RECEIVER acts", ctlEnabled(menuRow(&UI_RX_SIGNALS)));
 	checkTrue("the six rows by id, no seventh", ctlPresent(UI_ROW(5, Row)) && !ctlPresent(UI_ROW(6, Row)));
 
 	tapId(toolEntry(&UI_ESC_CMD));
@@ -147,15 +147,15 @@ static void testMenuSettingsLog() {
 		idFrames(1);
 	}
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: ESC CONFIG, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("BACK: ESC PROGRAM, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: MENU", uiCurrentScreen() == UiScreenId::Menu);
 	idFrames(1);
 
 	tapId(menuRow(&UI_RX_SIGNALS));
-	checkTrue("RX SIGNALS opens", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("RECEIVER opens", uiCurrentScreen() == UiScreenId::RxSignals);
 	idFrames(1);
-	checkControlTable("RX SIGNALS");
+	checkControlTable("RECEIVER");
 	checkTrue("its entries by id: MONITOR and OUTPUT act",
 	          ctlEnabled(UI_FIX(RxCtl::Monitor)) && ctlEnabled(UI_FIX(RxCtl::Output)) &&
 	          !ctlPresent(UI_FIX(3)));
@@ -185,16 +185,16 @@ static void testMenuSettingsLog() {
 	          ctlPresent(UI_FIX(SbusOutCtl::Release)) && !ctlEnabled(UI_FIX(SbusOutCtl::Release)));
 	idFrames(44);
 	tapId(UI_FIX(SbusOutCtl::Release));
-	checkTrue("RESTART DSHOT: RX SIGNALS, the opener", uiCurrentScreen() == UiScreenId::RxSignals);
+	checkTrue("RESTART DSHOT: RECEIVER, the opener", uiCurrentScreen() == UiScreenId::RxSignals);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
 	checkTrue("Free", pinClaimState() == ClaimState::Free);
 	idFrames(1);
 
 	tapId(menuRow(&UI_ESC_CONFIG));
-	checkTrue("ESC CONFIG opens", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("ESC PROGRAM opens", uiCurrentScreen() == UiScreenId::EscConfig);
 	idFrames(1);
-	checkControlTable("ESC CONFIG");
+	checkControlTable("ESC PROGRAM");
 	checkTrue("its entries by id: ESC COMMANDS, ESC SETTINGS and USB BRIDGE act, no fourth",
 	          ctlEnabled(UI_FIX(EscCfgCtl::Commands)) && ctlEnabled(UI_FIX(EscCfgCtl::Settings)) &&
 	          ctlEnabled(UI_FIX(EscCfgCtl::Bridge)) && !ctlPresent(UI_FIX(4)));
@@ -217,7 +217,7 @@ static void testMenuSettingsLog() {
 	          ctlPresent(UI_FIX(BridgeCtl::Release)) && !ctlEnabled(UI_FIX(BridgeCtl::Release)));
 	idFrames(44);
 	tapId(UI_FIX(BridgeCtl::Release));
-	checkTrue("RESTART DSHOT: ESC CONFIG, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("RESTART DSHOT: ESC PROGRAM, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) idFrames(1);
 	idFrames(1);
@@ -236,13 +236,13 @@ static void testMenuSettingsLog() {
 	          uiCurrentScreen() == UiScreenId::Angle && uiAngleView() == AngleView::Main);
 	idFrames(4);
 	checkControlTable("ANGLE METER");
-	checkTrue("its controls by id: ZERO, drawn disabled with no part answering, RESET MAX and SETUP act",
+	checkTrue("its controls by id: ZERO, drawn disabled with no part answering, RESET MAX and ANGLE SET act",
 	          ctlPresent(UI_FIX(AngleCtl::Zero)) && !ctlEnabled(UI_FIX(AngleCtl::Zero)) &&
 	          ctlEnabled(UI_FIX(AngleCtl::ResetMax)) && ctlEnabled(UI_FIX(AngleCtl::Setup)) &&
 	          !ctlPresent(UI_FIX(AngleCtl::Along)) && !ctlPresent(UI_FIX(AngleCtl::Keep)));
 	tapId(UI_FIX(AngleCtl::Setup));
-	checkControlTable("ANGLE SETUP");
-	checkTrue("SETUP's controls: ALONG AXIS, LENGTH's - and +, SIGN, FLIP, all acting",
+	checkControlTable("ANGLE SET");
+	checkTrue("ANGLE SET's controls: ALONG AXIS, LENGTH's - and +, SIGN, FLIP, all acting",
 	          ctlEnabled(UI_FIX(AngleCtl::Along)) && ctlEnabled(UI_FIX(AngleCtl::LenMinus)) &&
 	          ctlEnabled(UI_FIX(AngleCtl::LenPlus)) && ctlEnabled(UI_FIX(AngleCtl::Sign)) &&
 	          ctlEnabled(UI_FIX(AngleCtl::Flip)) && !ctlPresent(UI_FIX(AngleCtl::Zero)));
@@ -252,9 +252,9 @@ static void testMenuSettingsLog() {
 	          ctlPresent(UI_FIX(AngleCtl::Keep)) && !ctlEnabled(UI_FIX(AngleCtl::Keep)) &&
 	          ctlEnabled(UI_FIX(AngleCtl::Again)) && !ctlPresent(UI_FIX(AngleCtl::Flip)));
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("FLIP CAL's BACK: SETUP", uiAngleView() == AngleView::Setup);
+	checkTrue("FLIP CAL's BACK: ANGLE SET", uiAngleView() == AngleView::Setup);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("SETUP's BACK: the main view", uiAngleView() == AngleView::Main);
+	checkTrue("ANGLE SET's BACK: the main view", uiAngleView() == AngleView::Main);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK: SERVO, the opener", uiCurrentScreen() == UiScreenId::ServoHub);
 	idFrames(1);
@@ -268,17 +268,17 @@ static void testMenuSettingsLog() {
 	idFrames(1);
 
 	tapId(menuRow(&UI_SETTINGS));
-	checkTrue("SETTINGS opens", uiCurrentScreen() == UiScreenId::Settings);
+	checkTrue("SETUP opens", uiCurrentScreen() == UiScreenId::Settings);
 	idFrames(1);
-	checkControlTable("SETTINGS at 0 px");
+	checkControlTable("SETUP at 0 px");
 	revealRow((int)SettingsRowId::Aux);
-	checkControlTable("SETTINGS, AUX PIN in view");
+	checkControlTable("SETUP, AUX PIN in view");
 	bool kissOn = settings()->kissEnable != 0;
 	checkTrue("AUX PIN acts", ctlEnabled(UI_ROW(SettingsRowId::Aux, Plus)));
 	tapId(UI_ROW(SettingsRowId::Kiss, Toggle));
 	checkTrue("KISS TELEM by id toggles it", (settings()->kissEnable != 0) != kissOn);
 	checkTrue("and AUX PIN acts either way", ctlEnabled(UI_ROW(SettingsRowId::Aux, Plus)));
-	checkControlTable("SETTINGS, KISS toggled");
+	checkControlTable("SETUP, KISS toggled");
 	revealRow((int)SettingsRowId::BuiltFor);
 	checkTrue("BUILT FOR shows and has no control", ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Row)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::BuiltFor, Minus)) &&
@@ -288,18 +288,18 @@ static void testMenuSettingsLog() {
 	          !ctlEnabled(UI_ROW(SettingsRowId::Version, Row)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Minus)) &&
 	          !ctlPresent(UI_ROW(SettingsRowId::Version, Toggle)));
-	checkControlTable("SETTINGS at the end");
+	checkControlTable("SETUP at the end");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SETTINGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from SETUP reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	SdLogStatus st;
 	memset(&st, 0, sizeof(st));
 	st.state = SdLogState::NoCard;
 	fakeSdLogSet(&st);
 	tapId(menuRow(&UI_SDLOG));
-	checkTrue("SD LOG opens", uiCurrentScreen() == UiScreenId::SdLog);
+	checkTrue("LOGS opens", uiCurrentScreen() == UiScreenId::SdLog);
 	idFrames(1);
-	checkControlTable("SD LOG, no card");
+	checkControlTable("LOGS, no card");
 	checkTrue("no card: START does not act", !ctlEnabled(UI_FIX(SdLogCtl::Toggle)));
 	checkTrue("nor USB DRIVE", !ctlEnabled(UI_FIX(SdLogCtl::Usb)));
 	checkTrue("RETRY acts", ctlEnabled(UI_FIX(SdLogCtl::Retry)));
@@ -307,13 +307,13 @@ static void testMenuSettingsLog() {
 	fakeSdLogSet(&st); idFrames(1);
 	checkTrue("a card: START acts", ctlEnabled(UI_FIX(SdLogCtl::Toggle)));
 	fakeMscSet(MscState::Serving, 0); idFrames(1);
-	checkControlTable("SD LOG, card held");
+	checkControlTable("LOGS, card held");
 	checkTrue("card held: EJECT acts", ctlEnabled(UI_FIX(SdLogCtl::Toggle)));
 	checkTrue("RETRY is gone", !ctlPresent(UI_FIX(SdLogCtl::Retry)));
 	checkTrue("and USB DRIVE", !ctlPresent(UI_FIX(SdLogCtl::Usb)));
 	fakeMscSet(MscState::Idle, 0); idFrames(1);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from SD LOG reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from LOGS reaches MENU", uiCurrentScreen() == UiScreenId::Menu);
 	openTester();
 	checkTrue("MENU's row ESC TESTER reaches the tester", uiCurrentScreen() == UiScreenId::Tester);
 }
@@ -415,7 +415,7 @@ static void testAm32() {
 	          !ctlEnabled(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	tapId(UI_FIX(UI_BACK));
 	idFrames(20);
-	checkTrue("BACK from AM32 reaches ESC CONFIG, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("BACK from AM32 reaches ESC PROGRAM, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
 }
 
 /** @brief Whether @p id's rectangle on the current frame is x, y, w, h. */
@@ -433,25 +433,25 @@ static bool labelCentred(UiControlId id, const char *label, uint16_t col, uint16
 }
 
 /**
- * @brief Decision 14 of docs/design/menu-b.md, the layout table, on SETTINGS,
- *        SD LOG and SERVO SET: the button edge x 6 to x 234, the two-button
+ * @brief Decision 14 of docs/design/menu-b.md, the layout table, on SETUP,
+ *        LOGS and SERVO SET: the button edge x 6 to x 234, the two-button
  *        footer 6/150 and 162/72 at y 268, 46 px tall, the editor's 44 px
  *        - and +, each label inside its button with 4 px each side.
  */
 static void testLayoutTable() {
-	section("Control ids: the layout table on SETTINGS, SD LOG and SERVO SET");
+	section("Control ids: the layout table on SETUP, LOGS and SERVO SET");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(menuRow(&UI_SETTINGS));
 	idFrames(1);
-	checkTrue("SETTINGS: HOLD TO SAVE at 6/150, y 268, 46 px",
+	checkTrue("SETUP: HOLD TO SAVE at 6/150, y 268, 46 px",
 	          rectIs(UI_FIX(SettingsCtl::Save), 6, 268, 150, 46));
 	checkTrue("HOLD DEFAULTS at 162/72, ending at the button edge, x 234",
 	          rectIs(UI_FIX(SettingsCtl::Defaults), 162, 268, 72, 46) &&
 	          162 + 72 == GFX_W - UI_EDGE);
 	checkTrue("HOLD TO SAVE's label inside its button",
 	          labelCentred(UI_FIX(SettingsCtl::Save), "HOLD TO SAVE", C_TEXT, C_PANEL, 1));
-	checkControlTable("SETTINGS, the footer");
+	checkControlTable("SETUP, the footer");
 	tapId(UI_FIX(UI_BACK));
 
 	SdLogStatus st;
@@ -460,7 +460,7 @@ static void testLayoutTable() {
 	fakeSdLogSet(&st);
 	tapId(menuRow(&UI_SDLOG));
 	idFrames(1);
-	checkTrue("SD LOG: START from x 6 to x 234, y 240, 44 px",
+	checkTrue("LOGS: START from x 6 to x 234, y 240, 44 px",
 	          rectIs(UI_FIX(SdLogCtl::Toggle), 6, 240, 228, 44));
 	checkTrue("RETRY MOUNT 6/112 and USB DRIVE 122/112, y 288, 30 px",
 	          rectIs(UI_FIX(SdLogCtl::Retry), 6, 288, 112, 30) &&
@@ -469,7 +469,7 @@ static void testLayoutTable() {
 	          labelCentred(UI_FIX(SdLogCtl::Toggle), "START", C_TEXT, C_PANEL, 2) &&
 	          labelCentred(UI_FIX(SdLogCtl::Retry), "RETRY MOUNT", C_TEXT, C_PANEL, 1) &&
 	          labelCentred(UI_FIX(SdLogCtl::Usb), "USB DRIVE", C_TEXT, C_PANEL, 1));
-	checkControlTable("SD LOG, the button edge");
+	checkControlTable("LOGS, the button edge");
 	fakeMscSet(MscState::Serving, 0); idFrames(1);
 	checkTrue("card held: EJECT keeps START's rectangle",
 	          rectIs(UI_FIX(SdLogCtl::Toggle), 6, 240, 228, 44));

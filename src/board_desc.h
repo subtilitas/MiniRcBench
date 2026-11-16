@@ -33,7 +33,7 @@
  * nothing reads is a field that goes stale without anyone noticing.
  */
 struct BoardDesc {
-	/** @brief Short name, shown on the splash and on SETTINGS. */
+	/** @brief Short name, shown on the splash and on SETUP. */
 	const char *label;
 
 	/**
@@ -80,7 +80,7 @@ struct BoardDesc {
 	/**
 	 * @brief GPIOs free for the ESC or telemetry wire, as a bitmask.
 	 *
-	 * The thing SETTINGS steps through. Everything outside it drives an
+	 * The thing SETUP steps through. Everything outside it drives an
 	 * on-board peripheral. @see settingsPinFree()
 	 */
 	uint32_t freeGpioMask;

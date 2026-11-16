@@ -1,7 +1,7 @@
 /**
  * @file test_bridge_ui.cpp
  * @brief USB BRIDGE through the real UI (slice 2 of
- *        docs/design/usb-bridge.md): the entry on ESC CONFIG, the claim, the
+ *        docs/design/usb-bridge.md): the entry on ESC PROGRAM, the claim, the
  *        screen's lines, BACK in each state, the leave page, and the console.
  *
  * A UI frame here is 25 ms: core1's job, `tud_task()` and usbBridgeTask()
@@ -179,7 +179,7 @@ static void freshUi(FakeEscReply r = escAck) {
 	brFrames(4);
 }
 
-/** @brief Tester → MENU → ESC CONFIG → USB BRIDGE, by id. */
+/** @brief Tester → MENU → ESC PROGRAM → USB BRIDGE, by id. */
 static void openBridgeScreen() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	brFrames(1);
@@ -225,14 +225,14 @@ static bool backToPage() {
 
 /**
  * @brief BACK, then through the leave page if it opened, until Free; then
- *        BACK from ESC CONFIG, the opener, to MENU.
+ *        BACK from ESC PROGRAM, the opener, to MENU.
  */
 static void leaveBridge() {
 	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	if (uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Release))) restartFromPage();
 	for (int k = 0; k < 20 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
-	checkTrue("the bridge left: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("the bridge left: ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));
 }
 
@@ -252,7 +252,7 @@ static void testLayout() {
 	brFrames(1);
 	fakeRelease();
 	framesNoPump(1);
-	checkTrue("ESC CONFIG's USB BRIDGE opens the screen", uiCurrentScreen() == UiScreenId::Bridge);
+	checkTrue("ESC PROGRAM's USB BRIDGE opens the screen", uiCurrentScreen() == UiScreenId::Bridge);
 	checkTrue("which claims SIG for the bridge on the tap's frame",
 	          pinClaimHolder() == PinUser::Bridge && pinClaimState() == ClaimState::Stopping);
 	framesNoPump(1);
@@ -300,7 +300,7 @@ static void testLayout() {
 	          uiCurrentScreen() == UiScreenId::Bridge && ctlPresent(UI_FIX(BridgeCtl::Release)) &&
 	          !fakeConsoleOn());
 	restartFromPage();
-	checkTrue("RESTART DSHOT: ESC CONFIG, Free, the console back", uiCurrentScreen() == UiScreenId::EscConfig &&
+	checkTrue("RESTART DSHOT: ESC PROGRAM, Free, the console back", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          pinClaimState() == ClaimState::Free && fakeConsoleOn() && !escTaskSuspended());
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	openTester();
@@ -395,7 +395,7 @@ static void testWriteAndLeave() {
 	checkTrue("its first step, current: POWER THE ESC OFF., 107 px",
 	          leaveStepIs(UI_LEAVE_STEP_Y, '1', BRIDGE_UI_LEAVE_1, true) &&
 	          gfxTextW(BRIDGE_UI_LEAVE_1, 1) == 107);
-	checkTrue("the second: BACK TO ESC CONFIG.", leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', "BACK TO ESC CONFIG.", false));
+	checkTrue("the second: BACK TO ESC PROGRAM.", leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', "BACK TO ESC PROGRAM.", false));
 	checkTrue("the note at y 158, 185 px", fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y, BRIDGE_UI_LEAVE_NOTE, C_DIM,
 	                                                   C_BG, 1) &&
 	          gfxTextW(BRIDGE_UI_LEAVE_NOTE, 1) == 185);
@@ -431,7 +431,7 @@ static void testWriteAndLeave() {
 	brFrames(43);
 	checkTrue("1000 ms after the line was let go: RESTART DSHOT live", ctlEnabled(UI_FIX(BridgeCtl::Release)));
 	tapId(UI_FIX(BridgeCtl::Release));
-	checkTrue("RESTART DSHOT: ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("RESTART DSHOT: ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
 	brFrames(1);
@@ -523,7 +523,7 @@ static void testBackStates() {
 	framesNoPump(1);
 	fakeRelease();
 	framesNoPump(1);
-	checkTrue("BACK while Stopping: ESC CONFIG, parked at once",
+	checkTrue("BACK while Stopping: ESC PROGRAM, parked at once",
 	          uiCurrentScreen() == UiScreenId::EscConfig && fakeParkCount() == resumes + 1 &&
 	          fakeBridgeLineOpens() == 0);
 	tapId(UI_FIX(UI_BACK));  // to MENU
@@ -574,7 +574,7 @@ static void testBackStates() {
 	const int r2 = fakeParkCount();
 	fakeAdvance(600);   // the stamp is stale on MENU: NO ESC, the cue's line shows
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from a failed bind: ESC CONFIG, parked", uiCurrentScreen() == UiScreenId::EscConfig &&
+	checkTrue("BACK from a failed bind: ESC PROGRAM, parked", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeParkCount() == r2 + 1);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	brFrames(4);
@@ -623,7 +623,7 @@ static void testBackStates() {
 	tapId(UI_FIX(EscCfgCtl::Bridge));
 	brFrames(2);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK with no claim: ESC CONFIG, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
+	checkTrue("BACK with no claim: ESC PROGRAM, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	fakeMscSet(MscState::Idle, 0);
@@ -638,7 +638,7 @@ static void testBackStates() {
 	usbBridgeRunCueClear();
 	pinClaimBegin(PinUser::Am32, PIN_SIG);
 	brFrames(1);
-	checkTrue("a claim held: ESC CONFIG gates USB BRIDGE", !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)));
+	checkTrue("a claim held: ESC PROGRAM gates USB BRIDGE", !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)));
 	// Opened by hand past the hub's gate: the screen's own refusal.
 	uiChooseTool(&UI_BRIDGE, nullptr);
 	brFrames(2);
@@ -734,13 +734,13 @@ static void testReadOnly() {
 		          ctlPresent(UI_FIX(BridgeCtl::Release)) && escTaskSuspended());
 		checkTrue("its steps; no FLASH note after a session with no write",
 		          leaveStepIs(UI_LEAVE_STEP_Y, '1', BRIDGE_UI_LEAVE_1, true) &&
-		          leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', "BACK TO ESC CONFIG.", false) &&
+		          leaveStepIs(UI_LEAVE_STEP_Y + 14, '2', "BACK TO ESC PROGRAM.", false) &&
 		          allOf(0, UI_LEAVE_NOTE_Y, GFX_W, 8, C_BG));
 		if (g_efm8) fakeDumpFrame("shot_bridge_leave_read.ppm");
 		brFrames(44);
 		tapId(UI_FIX(BridgeCtl::Release));
 		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
-		checkTrue("RESTART DSHOT: ESC CONFIG, Free, the cue gone", uiCurrentScreen() == UiScreenId::EscConfig &&
+		checkTrue("RESTART DSHOT: ESC PROGRAM, Free, the cue gone", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free && !usbBridgeRunCue(0));
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		openTester();
@@ -819,7 +819,7 @@ static void testReadOnly() {
 		brFrames(44);
 		tapId(UI_FIX(BridgeCtl::Release));
 		for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
-		checkTrue("RESTART DSHOT: ESC CONFIG, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
+		checkTrue("RESTART DSHOT: ESC PROGRAM, Free", uiCurrentScreen() == UiScreenId::EscConfig &&
 		          pinClaimState() == ClaimState::Free);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		openTester();
@@ -922,30 +922,30 @@ static void testFourWay() {
 }
 
 /**
- * @brief docs/design/menu-c.md slice 2: USB BRIDGE returns to ESC CONFIG,
+ * @brief docs/design/menu-c.md slice 2: USB BRIDGE returns to ESC PROGRAM,
  *        the chooser that opened it, by BACK with no claim and by RESTART
  *        DSHOT, the leave page's last button.
  */
 static void testNavOpener() {
-	section("Navigation: USB BRIDGE returns to ESC CONFIG, its opener");
+	section("Navigation: USB BRIDGE returns to ESC PROGRAM, its opener");
 	freshUi();
 	fakeMscSet(MscState::Serving, 0);
 	openBridgeScreen();
 	brFrames(2);
-	checkTrue("USB DRIVE holds the card: MENU, ESC CONFIG, USB BRIDGE, no claim",
+	checkTrue("USB DRIVE holds the card: MENU, ESC PROGRAM, USB BRIDGE, no claim",
 	          navIsTool(UiScreenId::EscConfig, UiScreenId::Bridge) && pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK with no claim: ESC CONFIG", navIsHub(UiScreenId::EscConfig));
+	checkTrue("BACK with no claim: ESC PROGRAM", navIsHub(UiScreenId::EscConfig));
 	fakeMscSet(MscState::Idle, 0);
 	checkTrue("then MENU and the tester", backToTester());
 
 	freshUi();
 	openBridgeScreen();
-	checkTrue("the bridge open: MENU, ESC CONFIG, USB BRIDGE",
+	checkTrue("the bridge open: MENU, ESC PROGRAM, USB BRIDGE",
 	          untilOpen() && navIsTool(UiScreenId::EscConfig, UiScreenId::Bridge));
 	checkTrue("BACK: the leave page", backToPage());
 	restartFromPage();
-	checkTrue("RESTART DSHOT: ESC CONFIG, the claim Free",
+	checkTrue("RESTART DSHOT: ESC PROGRAM, the claim Free",
 	          navIsHub(UiScreenId::EscConfig) && pinClaimState() == ClaimState::Free);
 	checkTrue("then MENU and the tester", backToTester());
 }

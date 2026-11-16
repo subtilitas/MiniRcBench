@@ -6,7 +6,7 @@ The tester records telemetry to microSD in Betaflight blackbox format, at
 500 frames per second. A frame averages 14.5 bytes (measured), which is
 7.3 kB/s or 26 MB per hour.
 
-<img src="img/log-screen.png" width="240" alt="The SD LOG screen while recording">
+<img src="img/log-screen.png" width="240" alt="The LOGS screen while recording">
 
 ---
 
@@ -14,7 +14,7 @@ The tester records telemetry to microSD in Betaflight blackbox format, at
 
 Use a microSD card formatted FAT32 (File Allocation Table). The card is
 mounted once at boot, and the board has no card-detect pin. Insert the card
-before power-up, or press `RETRY MOUNT` on the SD LOG screen after inserting
+before power-up, or press `RETRY MOUNT` on the LOGS screen after inserting
 it.
 
 Files are written to the directory `LOGS` as `LOG00001.BFL`, `LOG00002.BFL`,
@@ -34,7 +34,7 @@ The board reads `LOGS` once, at the first log after the card is mounted
 (power-up, `RETRY MOUNT`, the end of `USB DRIVE`, a tool's remount) and at
 the first log after a card error, and counts on from there. With many logs
 on the card that first start reads more of the card: one 512-byte block per
-16 files with short names. The SD LOG screen names the last log of the
+16 files with short names. The LOGS screen names the last log of the
 session (see `FILE` below).
 
 After `LOG99999.BFL` no number is left: no log starts, and the note reads
@@ -70,7 +70,7 @@ it, and `--help` lists the options.
 The clock takes the computer's local time: no time zone and no daylight
 saving. After a daylight-saving change, set it again.
 
-SETTINGS → BOARD → `CLOCK` shows the time to the minute, or `NOT SET` in
+SETUP → BOARD → `CLOCK` shows the time to the minute, or `NOT SET` in
 grey; the line under it reads `SET AT EACH POWER-UP`. Until the set, files
 carry FAT date 0 and a run summary reads `Clock at start: not set`. A set
 during a log is allowed: the log goes on, and its summary adds `(clock set
@@ -92,24 +92,24 @@ dates on a card are not verified.
 
 **Automatic:** arming starts a log, disarming stops it.
 
-**Manual:** `START` on the SD LOG screen starts a log at any time. A log
+**Manual:** `START` on the LOGS screen starts a log at any time. A log
 started by hand is not stopped by a disarm. `STOP` ends it.
 
 The tester screen shows the state in its top row: `REC` (red) while recording,
 `SD` while idle, `SDERR` after a card error, `NOSD` with no card. `SDERR` is
 drawn on an amber chip, between the arm badge and `BOARD`, so a recording that
-stopped on its own shows while armed. SD LOG says what happened.
+stopped on its own shows while armed. LOGS says what happened.
 
 A log also ends when KST SERVO, HITEC SERVO or ESC SETTINGS opens: the tool
-needs the card for its backup. SD LOG then reads
+needs the card for its backup. LOGS then reads
 `RECORDING STOPPED BY KST SERVO` (or `HITEC SERVO`, `ESC SETTINGS`). Press
 `START` for a new log after the tool. The servo tester stops it too, at
 `HOLD TO START` with the current sensor fitted, to write its own log,
 `LOGS/SRVnnnnn.CSV` ([Servo Tester](Servo-Tester#the-log-on-the-card));
-SD LOG then reads `RECORDING STOPPED BY SERVO TESTER`.
+LOGS then reads `RECORDING STOPPED BY SERVO TESTER`.
 
 **Stop the recording before cutting the board's power or pulling the card:**
-disarm, or press `STOP` on SD LOG, and wait until the top row reads `SD`. A
+disarm, or press `STOP` on LOGS, and wait until the top row reads `SD`. A
 stop writes the end of the log, gives back the unused space, closes the file
 and writes its run summary beside it. A log cut by a power loss or a pulled
 card is not closed. What it holds depends on when it was cut:
@@ -140,7 +140,7 @@ Each log that stops clean gets a text file beside it with the same number:
 `LOG00012.TXT` beside `LOG00012.BFL`. Any text editor opens it. The stop
 writes it once the log is closed: `STOP`, the disarm that ends a log arming
 started, and a tool taking the card. A log that a card error ended gets
-none. SD LOG shows the summary after the stop (see
+none. LOGS shows the summary after the stop (see
 [The last run](#the-last-run)).
 
 It holds one value a line:
@@ -156,7 +156,7 @@ It holds one value a line:
 | `Min voltage` | The lowest voltage while armed, from the same sources; a reading of 0.00 V does not count |
 | `Used, ESC counter` | How far the KISS counter of milliampere hours (mAh) rose during the log |
 | `Used, from current` | The current added up over time, with the time it was known |
-| `Frames` to `Worst flush` | The counters SD LOG shows while recording |
+| `Frames` to `Worst flush` | The counters LOGS shows while recording |
 
 A maximum or minimum counts a value only when three new readings in a row
 reach it, so one damaged reply sets none. The `raw` figure in brackets
@@ -193,9 +193,9 @@ deleted on a computer, is replaced.
 
 When the summary cannot be written, on a full card or after a failed write,
 the log stays whole on the card and `STATUS` stays `READY`. No `.TXT` is
-left, or, after a write that failed at the very end, an empty one. SD LOG
+left, or, after a write that failed at the very end, an empty one. LOGS
 then reads `NOT SAVED` in its `SUMMARY` row. The summary and its rows on
-SD LOG are tested with the firmware's host tests, the file over the FatFs
+LOGS are tested with the firmware's host tests, the file over the FatFs
 library on a simulated card; on a card and on the board they are not
 tested.
 
@@ -203,7 +203,7 @@ tested.
 
 ## Reading the screen
 
-Open it with **MENU → SD LOG**, the fifth row. The row shows the same
+Open it with **MENU → LOGS**, the fifth row. The row shows the same
 state: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a
 computer holds the card.
 
@@ -233,7 +233,7 @@ run summary shows: before the first log, after a mount and after
 
 ### The last run
 
-<img src="img/log-last.png" width="240" alt="SD LOG after STOP: FILE reads LOG00001.BFL (LAST), the rows below it the run">
+<img src="img/log-last.png" width="240" alt="LOGS after STOP: FILE reads LOG00001.BFL (LAST), the rows below it the run">
 
 Once a log stops, the rows below `FILE` show its run summary, the same
 figures as its `.TXT`:
@@ -261,11 +261,11 @@ After a log a card error ended, the rows show its run up to the failure,
 `SUMMARY` reads `NOT SAVED`, and the lines above `START` say how it ended. A
 `START` that fails keeps the last run, as it keeps `FILE`. The tester shows
 nothing of the run: after a log that arming started and disarming stopped,
-open SD LOG to see it.
+open LOGS to see it.
 
 ### How the last log ended
 
-<img src="img/log-card-full.png" width="240" alt="SD LOG after a write found the card full: the run, NOT SAVED: CARD FULL">
+<img src="img/log-card-full.png" width="240" alt="LOGS after a write found the card full: the run, NOT SAVED: CARD FULL">
 
 When a log ends on its own, or a tool takes the card, amber lines above
 `START` say how, and what to do. A disarm that ends a log arming started, and
@@ -317,7 +317,7 @@ mounted.
 
 <img src="img/log-usb-serving.png" width="240" alt="The card served as a USB drive">
 
-`USB DRIVE` on the SD LOG screen presents the card to the computer on the USB
+`USB DRIVE` on the LOGS screen presents the card to the computer on the USB
 (Universal Serial Bus) cable as a removable drive. Copy the `.BFL` files and
 their `.TXT` summaries off, eject the drive on the computer, and the tester
 takes the card back. The screen shows the amount read so far, for example
@@ -332,7 +332,7 @@ A "write protected" message from the computer is expected.
 
 **The card is handed over, not shared.** FAT has no arbitration between two
 writers. Before the drive appears the logger flushes, closes and unmounts, and
-it does not touch the card until eject. Meanwhile the SD LOG screen shows the
+it does not touch the card until eject. Meanwhile the LOGS screen shows the
 handover in place of its counters.
 
 Without a card, `USB DRIVE` is drawn unavailable and does nothing.
@@ -405,4 +405,4 @@ check one source against the other.
 ## If the card is not the problem
 
 Logging is compiled in by default. A firmware built with `SD_LOG_ENABLE=0`
-still shows the SD LOG screen, and it always reports `NO CARD`.
+still shows the LOGS screen, and it always reports `NO CARD`.

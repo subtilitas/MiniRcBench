@@ -33,7 +33,7 @@
  *
  * A list set up with uiListInitPx() has content of a given height and no
  * rows: it scrolls and reports no tap or swipe. A screen with rows of
- * several heights, SETTINGS, hit-tests its own rows on it.
+ * several heights, SETUP, hit-tests its own rows on it.
  *
  * Pure but for uiListDraw(), which draws through gfx.h.
  */

@@ -44,7 +44,7 @@ PAIRS = [
     ("Servo-Tester", "Servotester"),
     ("KST-Programming", "KST-Programmierung"),
     ("Hitec-Programming", "Hitec-Programmierung"),
-    ("RX-Signals", "RX-Signale"),
+    ("Receiver", "Empfaenger"),
     ("USB-Bridge", "USB-Bruecke"),
     ("Angle-Meter", "Winkelmesser"),
     ("Troubleshooting", "Fehlersuche"),
@@ -54,7 +54,7 @@ PAIRS = [
 # output's warnings (docs/design/sbus-output.md, "Warnings"). The screen
 # texts are English on both pages.
 REQUIRED_TEXTS = {
-    ("RX-Signals", "RX-Signale"): [
+    ("Receiver", "Empfaenger"): [
         "`GP0 GOES TO A FLIGHT CONTROLLER.`",
         "`NEVER TO AN ESC. PROPS OFF.`",
         "`S.BUS TO A FLIGHT CONTROLLER.`",

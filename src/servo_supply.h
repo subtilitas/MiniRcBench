@@ -4,7 +4,7 @@
  *        the enable input, EN, of a DC-DC converter on GP28 (J4 pin 11) or
  *        GP29 (J4 pin 12).
  *
- * Optional. `SERVO SUPPLY` in SETTINGS (@ref Settings::servoSupply) says
+ * Optional. `SERVO SUPPLY` in SETUP (@ref Settings::servoSupply) says
  * whether a converter is fitted and on which pin: @ref ServoSupplyMode::None,
  * the default, @ref ServoSupplyMode::Gp28 or @ref ServoSupplyMode::Gp29, an
  * active-high enable. With None nothing here touches either pin. GP28 and
@@ -17,7 +17,7 @@
  * so the converter's external pull-down alone holds EN low: 10 kΩ to 100 kΩ
  * for an EN with no internal pull-up (docs/design/kst-programming.md,
  * "Hardware"). Two cores write the pin's pad, never at once: core0 at boot
- * and at a SETTINGS change, which no claim overlaps, and core1 inside a claim.
+ * and at a SETUP change, which no claim overlaps, and core1 inside a claim.
  *
  * servoSupplyIsOn() is the level the bench drives, not the voltage on the
  * servo. The servo job reads the voltage back from the current sensor
@@ -30,7 +30,7 @@
 
 #include <stdint.h>
 
-/** @brief What SETTINGS says is fitted: the value of @ref Settings::servoSupply. */
+/** @brief What SETUP says is fitted: the value of @ref Settings::servoSupply. */
 enum class ServoSupplyMode : uint8_t {
 	None = 0,  /**< No switch: no pin is driven. */
 	Gp28 = 1,  /**< An active-high enable on GP28, J4 pin 11. */
@@ -57,7 +57,7 @@ uint8_t servoSupplyPin();
 void servoSupplyInit();
 
 /**
- * @brief Core0, from SETTINGS outside every claim: the enable pin of @p mode
+ * @brief Core0, from SETUP outside every claim: the enable pin of @p mode
  *        to an undriven input, SIO function, output disabled, both pulls off,
  *        input disabled. The pin of the mode before stays that way; None from
  *        boot leaves both pins untouched.

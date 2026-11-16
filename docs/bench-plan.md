@@ -140,7 +140,7 @@ Pins by role and number, as [docs/wiring.svg](wiring.svg) draws them. SIG
 is GP0, J4 pin 9 or J5 pin 2; AUX is GP1, J4 pin 10 or J5 pin 1; GND is
 J4 pin 1 or 5, or J5 pin 4; EN is GP28, J4 pin 11, or GP29, J4 pin 12; J3
 pin 1 is SCL (GP7), pin 2 SDA (GP6), pin 3 3V3, pin 4 GND. These are the
-pins of a board with blank flash; SETTINGS → SIG PIN swaps SIG and AUX.
+pins of a board with blank flash; SETUP → SIG PIN swaps SIG and AUX.
 J5 pin 3 and J4 pin 6 are 3.3 V out and are never connected, J4 pin 2 is
 USB VBUS and feeds no servo or ESC, and J4 pins 7 and 8 are the shared I2C
 bus: do not use.
@@ -148,7 +148,7 @@ bus: do not use.
 | Setup | Wiring | Drawing |
 |---|---|---|
 | **A**, the board alone | USB-C to the PC; a LiPo cell on the battery connector where the test says | |
-| **E**, an ESC on SIG | ESC signal to SIG, ESC ground to GND; the ESC lead's middle wire, BEC +5 V, cut or depinned; the ESC on its own pack or bench supply 2; telemetry to AUX where the test says (SETTINGS → KISS TELEM); motor without propeller, clamped | part A |
+| **E**, an ESC on SIG | ESC signal to SIG, ESC ground to GND; the ESC lead's middle wire, BEC +5 V, cut or depinned; the ESC on its own pack or bench supply 2; telemetry to AUX where the test says (SETUP → KISS TELEM); motor without propeller, clamped | part A |
 | **S**, a servo on its own supply | servo A signal to SIG, servo B to AUX for two servos, servo minus to the supply's minus with one ground tap to GND; the servo's middle wire to its supply, never to a connector pin; SERVO SUPPLY at `OWN` | part B |
 | **C**, a servo on the switched supply | as S, with the boost converter's VOUT to the servo's plus through the INA219's screw terminal (VIN+ from VOUT, VIN- to the servo's plus), EN to GP28 (J4 pin 11) or GP29 (J4 pin 12) with SERVO SUPPLY at that pin, only after `CS-B6` has measured EN at or below 0.5 V with the board unpowered; the pull-down from EN to GND at the converter: 10 kΩ to 100 kΩ for an EN with no pull-up, and with a pull-up to VIN at most 0.135 times that pull-up at 4.2 V, so EN stays at or below 0.5 V with the board off (wiring.svg; kst-programming.md, "Hardware"); the INA219 on J3 by a pigtail, CURRENT SENSE at `INA219`; SIG, EN and GND on one J4 pigtail, J5 free. An ESC on this lead gets VOUT on its BEC wire: ESCs go on Setup E's lead only | part C |
 | **R**, a receiver on AUX | receiver S.BUS output to GP1 (AUX), receiver ground to GND; the receiver on its own supply, never the board's | |
@@ -218,19 +218,19 @@ and a LiPo cell on its battery connector where a test says.
 [STATUS.md](../STATUS.md#open-items) open items 15, 16 and 19.
 
 - **Verifies:** a stored block of version 2, 3, 4 or 5 is carried over into
-  version 6 at the first boot, field by field, and SETTINGS reads `UPDATED`.
+  version 6 at the first boot, field by field, and SETUP reads `UPDATED`.
   **Why:** the carry-over runs only in `settingsLoad()` on flash; the host
   suite runs it on a model.
 - **Setup:** A. The v0.1.0-rc1 image, which writes a version 5 block; a
   DshotDisplay 2.x image, which writes version 2, as well if one is at hand.
   Run it first, before the main image saves any setting.
 - **Steps:** flash the older image; change MAX THROTTLE, the DShot rate and
-  the theme, and save; flash the main image; open SETTINGS.
+  the theme, and save; flash the main image; open SETUP.
 - **Pass:** each changed value reads as set in the older firmware, and
-  SETTINGS' MENU row reads `UPDATED` until the block is saved over (README.md,
+  SETUP's MENU row reads `UPDATED` until the block is saved over (README.md,
   MENU table).
 - **Record:** the older firmware and its block version; each value before
-  and after; a photo of SETTINGS.
+  and after; a photo of SETUP.
 - **Result to:** STATUS verification table, row "Settings in flash"; open
   items 15, 16 and 19.
 - **Safety:** nothing on the pins.
@@ -301,7 +301,7 @@ and a LiPo cell on its battery connector where a test says.
   in flash" is not recorded on hardware (46a64a7 states no coverage).
 - **Setup:** A.
 - **Steps:** change MAX THROTTLE and SIG PIN, save; power off and on; read
-  SETTINGS. Then HOLD DEFAULTS for 1 s, save, power-cycle.
+  SETUP. Then HOLD DEFAULTS for 1 s, save, power-cycle.
 - **Pass:** the saved values after the first power cycle, the compiled
   defaults after the second.
 - **Record:** the values each time.
@@ -314,21 +314,21 @@ and a LiPo cell on its battery connector where a test says.
 [menu-b.md](design/menu-b.md#slice-2-as-built), slice 2 as built.
 
 - **Verifies:** menu structure B on the panel: MENU's rows and their
-  scroll, SETTINGS' list, the list and hold widgets, the colour roles in
+  scroll, SETUP's list, the list and hold widgets, the colour roles in
   both themes. **Why:** slices 2 to 9 run in the host suite only; the
   colours have not been looked at on the panel.
 - **Setup:** A.
-- **Steps:** open each MENU row and each SETTINGS section, normal and
-  high-contrast theme; drag MENU to SETTINGS; hold HOLD DEFAULTS and slide
+- **Steps:** open each MENU row and each SETUP section, normal and
+  high-contrast theme; drag MENU to SETUP; hold HOLD DEFAULTS and slide
   off; compare with the previews in `docs/`.
 - **Pass:** criterion not set in the note. In the high-contrast palette,
   open item 18 names the pairs that differ in brightness only: the KISS and
   EDT tags, the DShot rate with and without EDT, `SWIPE = THROTTLE` armed
-  and disarmed, SETTINGS' captions against its labels.
+  and disarmed, SETUP's captions against its labels.
 - **Record:** a photo of each screen in each theme; which of those pairs
   can be told apart.
 - **Result to:** verification table, the menu structure B rows, "List and
-  hold widgets", "MENU layout", "SETTINGS layout" and "Touch handling,
+  hold widgets", "MENU layout", "SETUP layout" and "Touch handling,
   high-contrast theme, throttle gauge"; open item 18 and menu-b.md's
   slice 2 points.
 - **Safety:** none.
@@ -369,7 +369,7 @@ and a LiPo cell on its battery connector where a test says.
 [diagnostics.md](design/diagnostics.md#not-tested-on-hardware), "Not
 tested on hardware", numbered here in its order; STATUS open item 17.
 
-- **Verifies:** SETTINGS → DIAGNOSTICS → LAST RESTART after each kind of
+- **Verifies:** SETUP → DIAGNOSTICS → LAST RESTART after each kind of
   restart. **Why:** nothing of `src/diag.*` has run on a chip; the reset
   registers' behaviour in three cases is not known.
 - **Setup:** A; the SWD probe for DG-4 and DG-7; picotool for DG-6. For
@@ -409,7 +409,7 @@ item 1; STATUS open item 26.
   (OS) is 1 after the first power-up. **Why:** the clock driver's read at
   start-up has not run on the part.
 - **Setup:** A.
-- **Steps:** power up from off; open SETTINGS → BOARD.
+- **Steps:** power up from off; open SETUP → BOARD.
 - **Pass:** `CLOCK` reads `NOT SET` with `SET AT EACH POWER-UP` under it, as
   a part with OS at 1 reads; `python3 tools/set_clock.py --query` answers
   `CLOCK NOT SET`.
@@ -427,7 +427,7 @@ item 1; STATUS open item 26.
   through TinyUSB have not run.
 - **Setup:** A; the PC with `tools/set_clock.py` on Windows, Linux or
   macOS (record which).
-- **Steps:** `python3 tools/set_clock.py`; read `CLOCK` on SETTINGS → BOARD;
+- **Steps:** `python3 tools/set_clock.py`; read `CLOCK` on SETUP → BOARD;
   power off and on; read it; set it again and leave the board on USB for
   24 h; `python3 tools/set_clock.py --query` against the PC's clock.
 - **Pass:** `CLOCK SET` answered and the time shown to the minute; `NOT SET`
@@ -451,10 +451,10 @@ STATUS open item 6.
   and an SDXC card. **Why:** the driver has not run on hardware; only the
   previous driver mounted a 64 GB card (036adfe).
 - **Setup:** A; each card in turn.
-- **Steps:** insert; open SD LOG; START a log for 10 s; STOP.
-- **Pass:** SD LOG reads `READY` and the log is written, for each card.
-- **Record:** each card's make, size, type and file system; the state SD
-  LOG shows.
+- **Steps:** insert; open LOGS; START a log for 10 s; STOP.
+- **Pass:** LOGS reads `READY` and the log is written, for each card.
+- **Record:** each card's make, size, type and file system; the state
+  LOGS shows.
 - **Result to:** verification table, row "SDIO card driver"; open item 6.
 - **Safety:** none.
 
@@ -489,7 +489,7 @@ items 2 and 6.
   figures to size `SD_LOG_BUFFER_BYTES` (8192 bytes, about 1.1 s at
   7.3 kB/s) from. **Why:** the ring's size is not measured.
 - **Setup:** A; each card of SD-1, and the slow and the fragmented card.
-- **Steps:** START on SD LOG; run 10 min; read BUF PEAK and WORST FLUSH
+- **Steps:** START on LOGS; run 10 min; read BUF PEAK and WORST FLUSH
   during the run; STOP; read the log's `.TXT`. Record the rate, the log's
   size over its time; if it is below 7.3 kB/s with no ESC, repeat the test
   under Setup E in Session 2.
@@ -510,7 +510,7 @@ STATUS open item 4.
   the USB card reader is not recorded on hardware.
 - **Setup:** A, a card with logs from SD-2.
 - **Steps:** USB to the PC; with no log recording and the tester
-  disarmed, MENU → SD LOG → USB DRIVE; the drive appears on the PC; copy
+  disarmed, MENU → LOGS → USB DRIVE; the drive appears on the PC; copy
   every log to the PC; compare sizes; open a `.BFL` in logwiju. `OI-20b` and
   `VT-2` start from this step.
 - **Pass:** the files copy whole and the logs open; arming is refused while
@@ -525,12 +525,12 @@ STATUS open item 4.
 [STATUS.md](../STATUS.md#open-items) open item 20.
 
 - **Verifies:** a pulled cable reaches the firmware as a bus suspend, so the
-  card stays with the host until EJECT on SD LOG. **Why:** this is read
+  card stays with the host until EJECT on LOGS. **Why:** this is read
   from TinyUSB 0.18.0's source and not seen on the board (open item 20, and
   the verification table's row "USB card reader").
 - **Setup:** A with the cell; the card on USB DRIVE, as in SD-3's steps.
-- **Steps:** pull the cable; read SD LOG; tap EJECT.
-- **Pass:** SD LOG reads `USB DRIVE` until EJECT and `READY` after it, as
+- **Steps:** pull the cable; read LOGS; tap EJECT.
+- **Pass:** LOGS reads `USB DRIVE` until EJECT and `READY` after it, as
   open item 20 says.
 - **Record:** the state before and after EJECT.
 - **Result to:** open item 20.
@@ -548,7 +548,7 @@ STATUS open item 4.
   log.
 - **Pass:** criterion not set in the note; the new log is written after the
   card is back.
-- **Record:** SD LOG's state at the pull and after; the card checked on the
+- **Record:** LOGS' state at the pull and after; the card checked on the
   PC.
 - **Result to:** open item 6.
 - **Safety:** none.
@@ -592,7 +592,7 @@ STATUS open item 4.
 - **Verifies:** the time from STOP to the `.TXT` written, on a slow card.
   **Why:** the summary's write at the stop is not measured.
 - **Setup:** A; the slow card and the fast one.
-- **Steps:** log 60 s; STOP; time STOP until SD LOG shows the summary.
+- **Steps:** log 60 s; STOP; time STOP until LOGS shows the summary.
 - **Pass:** criterion not set in the note; record the time.
 - **Record:** the time per card.
 - **Result to:** run-summary.md, slice 6; open item 26.
@@ -632,10 +632,10 @@ numbered here. None of it has run on hardware.
 
 | Test | Steps | Pass | Record |
 |---|---|---|---|
-| DL-1 | the analyser on SIG and AUX from before power-up; power the board; wait 10 s on MENU; open SERVO, RX SIGNALS, SD LOG and SETTINGS | no DShot frame; SIG low from shortly after reset, through the splash and every screen; AUX low on its pull-down | the time from power-up to SIG driven low; any edge |
+| DL-1 | the analyser on SIG and AUX from before power-up; power the board; wait 10 s on MENU; open SERVO, RECEIVER, LOGS and SETUP | no DShot frame; SIG low from shortly after reset, through the splash and every screen; AUX low on its pull-down | the time from power-up to SIG driven low; any edge |
 | DL-2 | the AM32 ESC on SIG; tap ESC TESTER; hold HOLD TO ARM from 0.5 s on, then again from 1.6 s on | the 10 EDT enable frames first, then zero throttle; `DSHOT STARTING: WAIT 1.5 S` for 1.5 s; no arm from the first press, an arm 1 s into the second | the capture; the time from the tap to the first frame |
 | DL-3 | armed, LATCH on at 10 %; tap MENU | zero-throttle frames from the tap until more than 250 ms after the last throttle frame, then SIG driven low, no frame | the capture; what the ESC does (signal-loss behaviour, not recorded) |
-| DL-4 | from ESC CONFIG, ESC COMMANDS, then BACK; then USB BRIDGE and its leave page | ESC COMMANDS binds with the enable first; BACK parks at once (no drain, no throttle was sent); USB BRIDGE puts SIG on its pull-up with no frame; the leave page's ESC CONFIG drives SIG low again, no frame | the captures |
+| DL-4 | from ESC PROGRAM, ESC COMMANDS, then BACK; then USB BRIDGE and its leave page | ESC COMMANDS binds with the enable first; BACK parks at once (no drain, no throttle was sent); USB BRIDGE puts SIG on its pull-up with no frame; the leave page's ESC PROGRAM drives SIG low again, no frame | the captures |
 | DL-5 | a Bluejay ESC, powered, on the parked SIG for 60 s; then ESC TESTER | the ESC does not enter its bootloader on the low line (from source, not measured); it answers eRPM once the tester opens | whether the ESC answers, and after how long |
 
 #### OI-15a. An ESC on SIG at each DShot rate
@@ -648,7 +648,7 @@ rows "DShot driver in `src/dshot/`" (`VT-1`) and "DShot bitrate label"
   status bar's `DSHOTnnn` label. **Why:** the driver has not run on hardware
   in MiniRcBench; rcbench ran it at DShot600 on one AM32 2.21 ESC only.
 - **Setup:** E, the AM32 ESC, then each other ESC firmware at hand.
-- **Steps:** set SETTINGS → DSHOT to each rate; read the tester's LINK and
+- **Steps:** set SETUP → DSHOT to each rate; read the tester's LINK and
   the top row; arm and run at 10 % for 10 s; disarm.
 - **Pass:** LINK above 0/S at each rate (open item 15); the label reads the
   rate set, dim, then in the text colour once an EDT enable has been sent
@@ -748,9 +748,9 @@ order; [pin-claim.md](design/pin-claim.md#hardware).
 
   | ID | Step | Pass (open item 8) |
   |---|---|---|
-  | PC-1 | run at 10 %, disarm, open ESC SETTINGS (MENU → ESC CONFIG) within 250 ms of the last throttle frame | zero frames for at least 250 ms after the last throttle frame, then no edges |
+  | PC-1 | run at 10 %, disarm, open ESC SETTINGS (MENU → ESC PROGRAM) within 250 ms of the last throttle frame | zero frames for at least 250 ms after the last throttle frame, then no edges |
   | PC-2 | the line after the teardown | idle high: the teardown stops, releases and puts the pull-up back |
-  | PC-3 | a SETTINGS pin change in the same window | criterion not set apart from PC-1's; record whether the drain holds |
+  | PC-3 | a SETUP pin change in the same window | criterion not set apart from PC-1's; record whether the drain holds |
   | PC-4 | leave the AM32 session with BACK | DShot back, the EDT enable as its first frames |
 
 - **Record:** the captures; the time from the last throttle frame to the
@@ -782,11 +782,11 @@ order; [pin-claim.md](design/pin-claim.md#hardware).
 
 [run-summary.md](design/run-summary.md#tests), item 4.
 
-- **Verifies:** the summary in `LOGS/LOGnnnnn.TXT` and on SD LOG against the
+- **Verifies:** the summary in `LOGS/LOGnnnnn.TXT` and on LOGS against the
   log. **Why:** slices 1 to 3 run in the host suite only.
 - **Setup:** E; one run with EDT only, one with KISS on AUX; a card.
 - **Steps:** arm (the log starts with the arm); run 30 % for 20 s; disarm;
-  read SD LOG; open the `.BFL` in logwiju.
+  read LOGS; open the `.BFL` in logwiju.
 - **Pass:** criterion not set in the note: compare the maxima and minimum
   with logwiju, and the current integral with the KISS counter's rise.
 - **Record:** each figure from both sides.
@@ -944,7 +944,7 @@ step 3.
   editor has hardware use from before the claim (ab79c67, bd90e17); the
   claim, its drain, the swipe and the backup are not tested on hardware.
 - **Setup:** E, the AM32 ESC; a card.
-- **Steps:** MENU → ESC CONFIG → ESC SETTINGS; swipe a value 16 px; WRITE...
+- **Steps:** MENU → ESC PROGRAM → ESC SETTINGS; swipe a value 16 px; WRITE...
   and its 1 s hold; read again; BACK.
 - **Pass:** one coarse step per 16 px; a backup file in `BACKUP/` before the
   write; the value read back as written.
@@ -1639,12 +1639,12 @@ Setup E with its safety rules.
 
 [rx-signals.md](design/rx-signals.md#bench), "Bench", the S.BUS bullet,
 split here into RX-1 to RX-8 in its order; STATUS open item 19. Setup R;
-MENU → RX SIGNALS → MONITOR. "Only hardware settles these."
+MENU → RECEIVER → MONITOR. "Only hardware settles these."
 
 - **Why:** the UART inversion on the pin, a receiver's level and frames on
   GP1 and the screen's reading of them are not tested on hardware.
 - **Result to:** verification table, rows "S.BUS monitor's core1 job" and
-  "S.BUS MONITOR and RX SIGNALS"; open item 19; rx-signals.md slice 6.
+  "S.BUS MONITOR and RECEIVER"; open item 19; rx-signals.md slice 6.
 - **Safety:** the receiver on its own supply, never J5 pin 3, J4 pin 6 or
   J4 pin 2; the board powered before the receiver, the receiver off before
   the board.
@@ -1663,7 +1663,7 @@ MENU → RX SIGNALS → MONITOR. "Only hardware settles these."
 ### 6B. The S.BUS output without an ESC or an FC
 
 [sbus-output.md](design/sbus-output.md#bench), "Bench", bullets 1 and 2,
-numbered here SO-1 and SO-2; STATUS open item 31. MENU → RX SIGNALS →
+numbered here SO-1 and SO-2; STATUS open item 31. MENU → RECEIVER →
 OUTPUT. Nothing on GP0 but the scope or the second board. The bootloader
 probe runs at each bind with nothing to answer it.
 
@@ -1877,7 +1877,7 @@ SO-4, SO-6, SO-3.
 ## Session 9 (risky): the USB bridge with desktop tools
 
 Prerequisites: all of Session 3 (ESC SETTINGS reads each ESC used here);
-`SD-3` (the card reader enumerates). Setup U; MENU → ESC CONFIG → USB
+`SD-3` (the card reader enumerates). Setup U; MENU → ESC PROGRAM → USB
 BRIDGE; the logic analyser on SIG.
 
 [usb-bridge.md](design/usb-bridge.md#bench), "Bench", B1 to B11; STATUS

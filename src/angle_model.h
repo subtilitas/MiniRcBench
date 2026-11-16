@@ -98,7 +98,7 @@ struct AngleCal {
 	float gain[3];  /**< The gain `k` of each chip axis; the flip finds the normal's, the others stay 1. */
 };
 
-/** @brief What SETUP and the board set: ALONG AXIS, SIGN, LENGTH, the calibration, the axis map. */
+/** @brief What ANGLE SET and the board set: ALONG AXIS, SIGN, LENGTH, the calibration, the axis map. */
 struct AngleSetup {
 	AngleAlong along;     /**< ALONG AXIS. */
 	bool       invert;    /**< SIGN at `INVERT`: the reading turned. */

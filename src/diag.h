@@ -7,7 +7,7 @@
  * (`powman_hw->chip_reset`), the watchdog's REASON register
  * (`watchdog_hw->reason`), `watchdog_enable_caused_reboot()` and the boot
  * ROM's `rom_get_last_boot_type()`. diagCaptureRestart() reads them once at
- * boot. SETTINGS shows the result and the uptime under DIAGNOSTICS.
+ * boot. SETUP shows the result and the uptime under DIAGNOSTICS.
  *
  * Not tested on hardware: which reason a given restart produces on the board
  * is not recorded. @see docs/design/diagnostics.md

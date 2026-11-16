@@ -16,11 +16,11 @@ It needs no laptop or configurator. It does not update ESC firmware.
 
 ## Connecting
 
-Open **MENU → ESC CONFIG**, then tap **ESC SETTINGS**.
+Open **MENU → ESC PROGRAM**, then tap **ESC SETTINGS**.
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS and USB BRIDGE">
+<img src="img/esc-chooser.png" width="240" alt="ESC PROGRAM: ESC COMMANDS, ESC SETTINGS and USB BRIDGE">
 
-`ESC CONFIG` is a hub, a list of the three ESC tools. It takes no pin, and
+`ESC PROGRAM` is a hub, a list of the three ESC tools. It takes no pin, and
 DShot is off while it shows: the signal pin is held low.
 `ESC COMMANDS` sends DShot commands: see
 [The Screens](The-Screens#esc-commands). `USB BRIDGE` lets a desktop ESC
@@ -91,7 +91,7 @@ to a line, and no field. The strip reads, in amber,
 The backup goes to the card as the view opens, since nothing is written later.
 It holds the 48 bytes, no field line, and the line
 `Layout not known: fields not read, not verified`. The view has one control,
-`BACK`, which goes to ESC CONFIG: no row, no `WRITE...`, `REVERT` or `HEX`, and
+`BACK`, which goes to ESC PROGRAM: no row, no `WRITE...`, `REVERT` or `HEX`, and
 the screen has no way from this view to the write. The title stays
 `ESC SETTINGS`. The write itself also refuses settings read in such a layout:
 `LAYOUT NOT KNOWN: NOT WRITTEN`. To change the settings of such an ESC, use the
@@ -246,7 +246,7 @@ from `BACK`: that ESC's bootloader may wait too. Its strip reads
 **Leaving the list.** `BACK` from the list sends the bootloader LEAVE,
 which starts the ESC's firmware: the page reads `LEAVING` and
 `KEEP THE PROPELLER OFF.` in amber. About a third of a second later the
-signal pin is held low and the screen returns to ESC CONFIG; DShot runs only
+signal pin is held low and the screen returns to ESC PROGRAM; DShot runs only
 once ESC TESTER or ESC COMMANDS opens. LEAVE has no answer: whether the ESC
 started is not seen, and not verified on an ESC. MENU's
 `POWER-CYCLE THE ESC TO RUN IT` stays until the ESC sends eRPM on ESC TESTER
@@ -262,20 +262,20 @@ If the ESC stops answering before its page is read, the page shows
 Everywhere else after such an answer, on the connect page while reading,
 after a page that is not taken, or after the search started again, the
 bootloader may still wait for commands, and DShot frames could pass as one.
-So `BACK` opens a leave page instead of returning to ESC CONFIG at once:
+So `BACK` opens a leave page instead of returning to ESC PROGRAM at once:
 
 1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR
    COMMANDS` / `AND MAY READ DSHOT AS ONE.`
-2. `PLUG IT IN ONCE ESC CONFIG SHOWS.`
+2. `PLUG IT IN ONCE ESC PROGRAM SHOWS.`
 
 <img src="img/am32-leave.png" width="240" alt="The leave page: step 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
 
 `STAY` returns to the screen. While the leave page is open the tester's
 greeting and its first look at the page run on, and the read of the whole
 page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
-`ESC CONFIG`, the hub's title, takes LEAVE's place and acts 1 s later; it
-holds the signal pin low, starts no DShot and returns to ESC CONFIG. Plug the
-battery back in once ESC CONFIG shows: on a low line a Bluejay or BLHeli_S
+`ESC PROGRAM`, the hub's title, takes LEAVE's place and acts 1 s later; it
+holds the signal pin low, starts no DShot and returns to ESC PROGRAM. Plug the
+battery back in once ESC PROGRAM shows: on a low line a Bluejay or BLHeli_S
 ESC starts its firmware rather than its bootloader (read from the firmwares'
 source, not measured). `BACK` is grey on this page. The last button clears
 MENU's `POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the
@@ -444,10 +444,10 @@ values that were read. `HEX` is labelled in the text colour.
 **BACK with changes not written asks first.** The first `BACK` keeps the list
 and puts two amber lines on the strip: `2 CHANGES NOT WRITTEN.` and
 `BACK AGAIN DISCARDS THEM.` (`1 CHANGE NOT WRITTEN.` and
-`BACK AGAIN DISCARDS IT.` for one). A second `BACK` returns to ESC CONFIG and
+`BACK AGAIN DISCARDS IT.` for one). A second `BACK` returns to ESC PROGRAM and
 drops the changes; nothing goes to the ESC. Any other touch takes the lines
 away and keeps the changes. There is no timeout. Without changes, `BACK`
-returns to ESC CONFIG at once.
+returns to ESC PROGRAM at once.
 
 <img src="img/am32-discard.png" width="240" alt="The strip after BACK with two changes: 2 CHANGES NOT WRITTEN. and BACK AGAIN DISCARDS THEM. in amber">
 
@@ -549,7 +549,7 @@ When a result repeats:
 1. Check the signal and ground wires.
 2. Leave with `BACK`, twice: the first names the edits, the second drops
    them.
-3. Open **MENU → ESC CONFIG → ESC SETTINGS** again and power-cycle the ESC
+3. Open **MENU → ESC PROGRAM → ESC SETTINGS** again and power-cycle the ESC
    while the screen is open, as under [Connecting](#connecting). The screen
    then reads what the ESC holds.
 4. Compare it with the backup, the newest `BACKUP/AMnnn.TXT` on the card.
@@ -573,7 +573,7 @@ list.
 ## Leaving
 
 `BACK` on the list holds the signal pin low again, with no DShot, and returns
-to ESC CONFIG, the hub it was opened from; with changes not written it
+to ESC PROGRAM, the hub it was opened from; with changes not written it
 asks first, as under
 [Editing](#editing). The tester is disarmed.
 

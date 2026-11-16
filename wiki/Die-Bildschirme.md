@@ -6,40 +6,40 @@ Die Firmware hat sechzehn Bildschirme. `MENU` ist die Wurzel und der erste
 Bildschirm nach dem Startbildschirm: sechs Zeilen, ohne `BACK`. Ihre erste
 Zeile, `ESC TESTER`, öffnet den Tester, dessen Schaltfläche `MENU` zu
 `MENU` zurückführt. Die nächsten drei Zeilen öffnen je eine Auswahl, eine
-Liste der Werkzeuge für eine Geräteart: ESC CONFIG die ESC-Werkzeuge, SERVO
-die Servo-Werkzeuge, RX SIGNALS die Werkzeuge für Empfängersignale. Jedes
+Liste der Werkzeuge für eine Geräteart: ESC PROGRAM die ESC-Werkzeuge, SERVO
+die Servo-Werkzeuge, RECEIVER die Werkzeuge für Empfängersignale. Jedes
 Werkzeug liegt zwei Tippen von `MENU` entfernt. Ein Werkzeug verlässt du mit
 `BACK`, das zu der Auswahl zurückführt, die es geöffnet hat, und das `BACK`
-der Auswahl führt zu `MENU` zurück. SETTINGS öffnet auch über
+der Auswahl führt zu `MENU` zurück. SETUP öffnet auch über
 die Polzahl und die Obergrenze des Testers; `BACK` führt dann zum Tester
 zurück. DShot läuft nur, solange `ESC TESTER` oder `ESC COMMANDS` offen ist,
-oder SETTINGS über dem Tester. Überall sonst, `MENU` eingeschlossen und vom
+oder SETUP über dem Tester. Überall sonst, `MENU` eingeschlossen und vom
 Einschalten an, liegt der ESC-Signalpin auf Low, und nichts wird gesendet.
 
 ```
 Startbildschirm ──3 s──> MENU (die Wurzel, kein BACK)
 MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
-       │                    └── 14 POLES oder MAX 20% (entschärft) ──> SETTINGS ──BACK──> Tester
-       ├── ESC CONFIG > ──> ESC CONFIG ──BACK──> MENU
-       │    ├── ESC COMMANDS ──BACK──> ESC CONFIG
-       │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
-       │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> ESC CONFIG)
-       │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, ESC CONFIG──> ESC CONFIG)
-       │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
-       │        (sobald die Leitung gebunden ist: BACK──> Verlassenseite ──ESC CONFIG──> ESC CONFIG)
+       │                    └── 14 POLES oder MAX 20% (entschärft) ──> SETUP ──BACK──> Tester
+       ├── ESC PROGRAM > ──> ESC PROGRAM ──BACK──> MENU
+       │    ├── ESC COMMANDS ──BACK──> ESC PROGRAM
+       │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC PROGRAM
+       │    │   (eine Bluejay- oder BLHeli_S-Liste: BACK──> LEAVE gesendet──> ESC PROGRAM)
+       │    │   (sonst nach einer Antwort von Bluejay oder BLHeli_S: BACK──> Verlassenseite ──LEAVE, ESC PROGRAM──> ESC PROGRAM)
+       │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC PROGRAM
+       │        (sobald die Leitung gebunden ist: BACK──> Verlassenseite ──ESC PROGRAM──> ESC PROGRAM)
        ├── SERVO > ──> SERVO ──BACK──> MENU
        │    ├── SERVO TESTER ──BACK──> Verlassenseite ──SERVO──> SERVO
-       │    ├── ANGLE METER ──BACK──> SERVO   (SETUP, FLIP CAL: BACK eine Ebene hoch)
+       │    ├── ANGLE METER ──BACK──> SERVO   (ANGLE SET, FLIP CAL: BACK eine Ebene hoch)
        │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> Verlassenseite ──LEAVE, SERVO──> SERVO
        │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> Verlassenseite ──LEAVE, SERVO──> SERVO
        │    └── HITEC CLASSIC  ──> HITEC SERVO, wie D SERIES
        │   (ohne Servo im Programmiermodus öffnet die Verlassenseite bei UNPLUG THE SERVO.)
        │   (ESC HEX, ESC WRITE, SET: BACK eine Ebene hoch)
-       ├── RX SIGNALS > ──> RX SIGNALS ──BACK──> MENU
-       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RX SIGNALS──> RX SIGNALS
-       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> Verlassenseite ──RX SIGNALS──> RX SIGNALS   (SET: BACK eine Ebene hoch)
-       ├── SD LOG       ──BACK──> MENU
-       └── SETTINGS     ──BACK──> MENU
+       ├── RECEIVER > ──> RECEIVER ──BACK──> MENU
+       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> Verlassenseite ──RECEIVER──> RECEIVER
+       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> Verlassenseite ──RECEIVER──> RECEIVER   (SET: BACK eine Ebene hoch)
+       ├── LOGS       ──BACK──> MENU
+       └── SETUP     ──BACK──> MENU
 ```
 
 **BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer `MENU`
@@ -61,7 +61,7 @@ nummeriert ihre Schritte; der aktuelle ist bernsteinfarben, mit einem Balken
 am linken Rand. Vor `LEAVE` heißen die Tasten `STAY`, das zum Werkzeug
 zurückführt, und `LEAVE`. Nach `LEAVE` ist der nächste Schritt aktuell, und
 die breite Taste trägt an der Stelle von `LEAVE` den Titel der Auswahl,
-`SERVO`, `RX SIGNALS` oder `ESC CONFIG`; der letzte Schritt lautet `BACK TO`
+`SERVO`, `RECEIVER` oder `ESC PROGRAM`; der letzte Schritt lautet `BACK TO`
 und dieser Titel. Sie und die linke Taste, `NEXT SERVO` oder
 `BACK TO MONITOR` (keine auf ESC SETTINGS und USB BRIDGE), sind deaktiviert
 gezeichnet, bis der Pin freigegeben ist; der Titel der Auswahl wartet danach
@@ -94,8 +94,8 @@ Schaltfläche `MENU` des Testers sind cyan mit dunkler Beschriftung, und ein
 `BACK`, das nichts auslöst, ist deaktiviert gezeichnet, nicht cyan. Es ist
 das Zeichen `>` an einer Zeile von `MENU`, die eine Auswahl öffnet. Es ist
 eine Einstellung der Werkbank, als cyanfarbener Text: die Werte und die
-Abschnittsnamen von SETTINGS, die Werte von SERVO SET und OUTPUT SET, LENGTH
-auf ANGLE SETUP. Und es ist ein geänderter Wert, der noch nicht
+Abschnittsnamen von SETUP, die Werte von SERVO SET und OUTPUT SET, LENGTH
+auf ANGLE SET. Und es ist ein geänderter Wert, der noch nicht
 geschrieben oder übernommen ist: dunkler Text auf einer cyanfarbenen Fläche,
 mit einem cyanfarbenen Balken am linken Rand seiner Zeile. Ein Wert, der aus
 einem ESC oder einem Servo gelesen wurde, steht in der Textfarbe. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
@@ -103,9 +103,9 @@ oder auslösen, stehen in der Textfarbe oder in Grau. Eine Schaltfläche hat
 abgerundete Ecken. Ein Feld auf der Leiste unter einem Titel ist eckig, damit
 es nicht wie eine Schaltfläche aussieht; das Scharf-Feld des Testers und sein
 Feld `SDERR` sind ebenfalls eckig. Nicht jede Verwendung folgt der Tabelle:
-Hellgrün markiert auch Zustände wie `READY` auf SD LOG und die über USB
+Hellgrün markiert auch Zustände wie `READY` auf LOGS und die über USB
 bereitgestellte Karte, und viele Fehler stehen in Bernstein oder in der
-Textfarbe, zum Beispiel `CARD ERROR` auf SD LOG und `WRITE FAILED` bei AM32.
+Textfarbe, zum Beispiel `CARD ERROR` auf LOGS und `WRITE FAILED` bei AM32.
 
 **Das normale Farbschema übernimmt seine Farben von rcbench,** der größeren
 Werkbank desselben Besitzers: ein fast schwarzer Bildschirm mit einem
@@ -154,7 +154,7 @@ Low.
 
 - das Scharf-Feld: `SAFE` (grün) oder `ARMED` (rot);
 - `DSHOT` und die DShot-Bitrate in kbit/s, zum Beispiel `DSHOT600`, wie unter
-  SETTINGS → DSHOT eingestellt, gedämpft, und in der Textfarbe, sobald eine
+  SETUP → DSHOT eingestellt, gedämpft, und in der Textfarbe, sobald eine
   EDT-Freigabe (Extended DShot Telemetry) gesendet wurde. `DSERR`
   in Bernstein ersetzt sie, wenn die Anzeige ihren DShot-Ausgang nicht
   einrichten konnte; dann wird nichts an den ESC gesendet;
@@ -205,7 +205,7 @@ entspricht dem Gas, und der Motor läuft ohne Propeller.
 - `KV EST 1758`: die Schätzung, auf eine ganze Zahl gerundet.
 - `KV EST 75%+`: Das Gas liegt unter 75 %, dort erscheint keine Schätzung.
   Bei der voreingestellten Obergrenze `MAX 20%` erscheint sie nie; für die
-  Messung `MAX` in SETTINGS anheben, Propeller ab.
+  Messung `MAX` in SETUP anheben, Propeller ab.
 - `KV EST --`: kein Wert. Eine Eingabe fehlt, das Gas hat sich in der
   letzten Sekunde um mehr als 1 % bewegt, oder der Motor wird noch
   schneller.
@@ -283,17 +283,17 @@ Prozentwert bezieht sich auf den vollen DShot-Bereich (0–2000 = 0–100 %): Be
 steht als `MAX 20%` in der Textfarbe neben `THROTTLE`; mit `LATCH` an steht
 dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
-**Polzahl und Obergrenze öffnen SETTINGS.** Solange der Tester entschärft ist,
+**Polzahl und Obergrenze öffnen SETUP.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
-öffnet SETTINGS. Das Tippen entschärft wie die Schaltfläche `MENU`, und `BACK`
-in SETTINGS führt zum Tester zurück. Scharf verschwindet die Unterstreichung,
+öffnet SETUP. Das Tippen entschärft wie die Schaltfläche `MENU`, und `BACK`
+in SETUP führt zum Tester zurück. Scharf verschwindet die Unterstreichung,
 `KV EST` nimmt den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die
 Polzahl liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens,
 also steuert der Druck dort das Gas. Solange ein anderes Werkzeug die
 Signalpins hält, verschwindet die Unterstreichung ebenfalls und ein Tippen tut
-nichts, so wie `MENU` SETTINGS dann gesperrt zeichnet; bei offenem Tester kann
+nichts, so wie `MENU` SETUP dann gesperrt zeichnet; bei offenem Tester kann
 kein Werkzeug sie nehmen. Solange der 3D-Hinweis die Zeile
-einnimmt, öffnet nur `MAX` SETTINGS. Entschärft steht der Hinweis
+einnimmt, öffnet nur `MAX` SETUP. Entschärft steht der Hinweis
 `SWIPE = THROTTLE` in der gedämpften Farbe der Beschriftungen; scharf steht
 er in der Textfarbe.
 
@@ -305,7 +305,7 @@ Finger es loslässt; blau, solange an), `MENU`.
 Solange ein Computer die SD-Karte über USB hält, ist Scharfschalten gesperrt:
 `HOLD TO ARM` ist nur als Umriss gezeichnet, und der Balken zeigt
 `EJECT THE USB DRIVE TO ARM` in Bernstein. Wirf das Laufwerk am Computer aus
-oder drücke `EJECT` in SD LOG, dann ist die Schaltfläche wieder bedienbar
+oder drücke `EJECT` in LOGS, dann ist die Schaltfläche wieder bedienbar
 (siehe [SD-Aufzeichnung](SD-Aufzeichnung)). Ebenso gesperrt ist
 Scharfschalten 1,5 s lang nach dem Start von DShot, und solange der
 Touch-Controller nicht antwortet.
@@ -363,8 +363,8 @@ Platine neu startet ([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
 Unter der Leiste steht eine Liste mit sechs Zeilen von 40 px Höhe und 42 px
 Abstand: zuerst `ESC TESTER`, dann eine Zeile je Geräteart am Signalpin, der
 ESC, ein Servo, ein Empfänger, dann die Aufzeichnung und die Einstellungen.
-Jede Zeile zeigt links ihren Namen. `SD LOG` und `SETTINGS` zeigen rechts
-ihren Zustand. `ESC CONFIG`, `SERVO` und `RX SIGNALS` zeigen dort
+Jede Zeile zeigt links ihren Namen. `LOGS` und `SETUP` zeigen rechts
+ihren Zustand. `ESC PROGRAM`, `SERVO` und `RECEIVER` zeigen dort
 stattdessen `>`: Jede öffnet eine Auswahl, eine Liste von Werkzeugen, eine
 Ebene tiefer.
 
@@ -375,11 +375,11 @@ Rollbalken, und ein Ziehen verschiebt nichts.
 | Zeile | Rechts | Ein Tippen |
 |---|---|---|
 | **ESC TESTER** | nichts | Öffnet den Tester, entschärft, mit Gas 0 und `LATCH` aus. Siehe [Der Tester](#der-tester) |
-| **ESC CONFIG** | `>` | Öffnet ESC CONFIG, die Auswahl der ESC-Werkzeuge: ESC COMMANDS, ESC SETTINGS und USB BRIDGE. Siehe [ESC CONFIG](#esc-config) |
+| **ESC PROGRAM** | `>` | Öffnet ESC PROGRAM, die Auswahl der ESC-Werkzeuge: ESC COMMANDS, ESC SETTINGS und USB BRIDGE. Siehe [ESC PROGRAM](#esc-program) |
 | **SERVO** | `>` | Öffnet SERVO, die Auswahl der Servo-Werkzeuge: SERVO TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES und HITEC CLASSIC. Siehe [SERVO](#servo) |
-| **RX SIGNALS** | `>` | Öffnet RX SIGNALS, die Auswahl der Werkzeuge für Empfängersignale: MONITOR und OUTPUT. Siehe [RX SIGNALS](#rx-signals) |
-| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
-| **SETTINGS** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETTINGS |
+| **RECEIVER** | `>` | Öffnet RECEIVER, die Auswahl der Werkzeuge für Empfängersignale: MONITOR und OUTPUT. Siehe [RECEIVER](#receiver) |
+| **LOGS** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`, solange ein Computer die Karte hält | Öffnet den Aufzeichnungs-Bildschirm |
+| **SETUP** | `UNSAVED`, solange ein Wert vom Flash abweicht; sonst `UPDATED`, solange ein Zurücksetzen oder eine Übernahme durch ein Update nicht überspeichert ist; sonst nichts. Alles in Bernstein | Öffnet SETUP |
 
 Jedes Werkzeug liegt zwei Tippen von MENU entfernt: die Zeile der Auswahl,
 dann der Eintrag des Werkzeugs. `BACK` auf einem Werkzeug führt zu seiner
@@ -389,21 +389,21 @@ Solange die Signalpins noch belegt sind, zeigt die Leiste in Bernstein
 `SETTING SIG GP0 LOW` für den Moment, in dem der Pin nach einer
 Verlassenseite auf Low gesetzt wird, oder `RELEASING SIG GP0`, solange ein
 Werkzeug den Pin freigibt, wie die USB-Brücke bis zu 250 ms lang. ESC TESTER
-und SETTINGS sind dann als Umriss unter ihrem üblichen Zustand gezeichnet,
+und SETUP sind dann als Umriss unter ihrem üblichen Zustand gezeichnet,
 und ein Tippen auf eine solche Zeile öffnet nichts. Sie wirken wieder,
-sobald der Pin frei ist. SD LOG belegt keinen Pin und bleibt bedienbar. ESC
-CONFIG, SERVO und RX SIGNALS öffnen wie immer; die Auswahl zeichnet ihre
+sobald der Pin frei ist. LOGS belegt keinen Pin und bleibt bedienbar. ESC
+PROGRAM, SERVO und RECEIVER öffnen wie immer; die Auswahl zeichnet ihre
 Einträge so lange als Umriss, mit derselben Bernstein-Zeile als zweiter
 Zeile ihrer Leiste.
 
-<img src="img/menu-parking.png" width="240" alt="MENU, während der Pin auf Low gesetzt wird: SETTING SIG GP0 LOW in der Leiste, ESC TESTER und SETTINGS als Umriss, ESC CONFIG, SERVO und RX SIGNALS gefüllt, jede mit ihrem Zeichen">
+<img src="img/menu-parking.png" width="240" alt="MENU, während der Pin auf Low gesetzt wird: SETTING SIG GP0 LOW in der Leiste, ESC TESTER und SETUP als Umriss, ESC PROGRAM, SERVO und RECEIVER gefüllt, jede mit ihrem Zeichen">
 
-`UNSAVED` in der Zeile SETTINGS heißt, dass ein Wert vom Flash abweicht. Die
-Schaltfläche zum Speichern liegt in SETTINGS.
+`UNSAVED` in der Zeile SETUP heißt, dass ein Wert vom Flash abweicht. Die
+Schaltfläche zum Speichern liegt in SETUP.
 
-<img src="img/menu-unsaved.png" width="240" alt="UNSAVED in der Zeile SETTINGS, Änderungen noch nicht im Flash">
+<img src="img/menu-unsaved.png" width="240" alt="UNSAVED in der Zeile SETUP, Änderungen noch nicht im Flash">
 
-`UPDATED` in der Zeile SETTINGS heißt, dass ein Firmware-Update die
+`UPDATED` in der Zeile SETUP heißt, dass ein Firmware-Update die
 gespeicherten Einstellungen verändert hat. Entweder hat es Einstellungen
 eines älteren Formats übernommen, Version 2, 3, 4 oder 5: Die Werte, die das
 alte Format kennt, bleiben erhalten, geprüft wie beim Speichern, und die
@@ -411,20 +411,20 @@ neueren, darunter `CURRENT SENSE` sowie Einrichtung und Kalibrierung des
 Winkelmessers, stehen auf ihrer Voreinstellung. Oder es
 fand ein Format, das es nicht kennt, und hat es verworfen: Jeder Wert,
 darunter Polzahl, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` und
-`CURRENT SENSE`, steht auf seiner Voreinstellung. Prüfe sie in SETTINGS und
+`CURRENT SENSE`, steht auf seiner Voreinstellung. Prüfe sie in SETUP und
 halte `HOLD TO SAVE`; ein gelungenes Speichern beendet die Markierung, auch
 ohne Änderung. Siehe
 [Fehlersuche](Fehlersuche#meine-einstellungen-setzen-sich-zurück). Der
 Startbildschirm sagt dasselbe beim Einschalten (siehe
 [Erste Schritte](Erste-Schritte#einschalten)).
 
-<img src="img/menu-updated.png" width="240" alt="UPDATED in der Zeile SETTINGS, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
+<img src="img/menu-updated.png" width="240" alt="UPDATED in der Zeile SETUP, nachdem ein Update die gespeicherten Einstellungen verworfen hat">
 
-### ESC CONFIG
+### ESC PROGRAM
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS und USB BRIDGE, jedes mit seinen zwei Zeilen">
+<img src="img/esc-chooser.png" width="240" alt="ESC PROGRAM: ESC COMMANDS, ESC SETTINGS und USB BRIDGE, jedes mit seinen zwei Zeilen">
 
-`MENU → ESC CONFIG` öffnet eine Auswahl aus drei Einträgen, je eine
+`MENU → ESC PROGRAM` öffnet eine Auswahl aus drei Einträgen, je eine
 Schaltfläche mit zwei Zeilen darunter: **ESC COMMANDS**, das DShot-Befehle
 sendet, darunter `BEEP 1 TO 5, DIRECTION, 3D MODE.` und
 `SENT AS DSHOT COMMANDS.`; **ESC SETTINGS**, das den Bildschirm für
@@ -432,9 +432,9 @@ ESC-Einstellungen öffnet, AM32, Bluejay und BLHeli_S gelesen und
 geschrieben; und **USB BRIDGE**, über das ein ESC-Programm auf dem Computer
 den ESC erreicht, darunter `A DESKTOP ESC TOOL OVER USB.` und
 `MSP, 4-WAY AND PASSTHROUGH.`. Die Leiste nennt den Signalpin, `SIG GP0`.
-ESC CONFIG belegt keinen Pin; das Tippen auf ESC SETTINGS oder USB BRIDGE
+ESC PROGRAM belegt keinen Pin; das Tippen auf ESC SETTINGS oder USB BRIDGE
 belegt SIG, ESC COMMANDS belegt keinen. `BACK` führt zu `MENU` zurück;
-`BACK` auf jedem der drei Werkzeuge führt zu ESC CONFIG zurück. Solange der
+`BACK` auf jedem der drei Werkzeuge führt zu ESC PROGRAM zurück. Solange der
 Signalpin noch belegt ist, sind die drei Einträge Umrisse, und die zweite
 Zeile der Leiste zeigt `RELEASING SIG GP0` oder `SETTING SIG GP0 LOW` in
 Bernstein. Siehe
@@ -446,9 +446,9 @@ und [USB-Brücke](USB-Bruecke).
 
 <img src="img/esccmd.png" width="240" alt="ESC COMMANDS in Ruhe: BEEP 1 bis 5, NORMAL und REVERSED, 3D OFF und 3D ON und die sechs gedimmten Zeilen"> <img src="img/esccmd-3d-on.png" width="240" alt="ESC COMMANDS nach 3D ON: SENT 10 (3D ON), THEN 12 (SAVE). und drei bernsteinfarbene Zeilen">
 
-`MENU → ESC CONFIG → ESC COMMANDS` sendet DShot-Befehle an den ESC an SIG.
+`MENU → ESC PROGRAM → ESC COMMANDS` sendet DShot-Befehle an den ESC an SIG.
 Die Seite belegt keinen Pin. DShot startet an SIG, wenn sie öffnet, und
-endet, wenn `BACK` zu ESC CONFIG zurückführt; der Pin liegt dann auf Low. Die
+endet, wenn `BACK` zu ESC PROGRAM zurückführt; der Pin liegt dann auf Low. Die
 Leiste zeigt `SIG GP0  DSHOT600` und das EDT-Feld: `EDT ON` in Grün, solange
 Extended-DShot-Telemetry-Frames eintreffen, `EDT OFF` in Rot, solange
 eRPM-Frames eintreffen und EDT-Frames nicht, und `NO ESC`, ein Rahmen mit
@@ -499,7 +499,7 @@ bisher von diesem Board an einen ESC gesendet.
 
 ### SERVO
 
-<img src="img/servo-hub.png" width="240" alt="SERVO am Anfang: SERVO TESTER, ANGLE METER und KST / CHASERVO ganz sichtbar, jedes mit seiner Zeile, HITEC D SERIES am Bildschirmrand abgeschnitten, rechts der Rollbalken"> <img src="img/servo-hub-scrolled.png" width="240" alt="SERVO bis ans Ende gezogen, mit SERVO SUPPLY auf OWN: KST / CHASERVO und HITEC D SERIES mit POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC als Umriss mit NEEDS THE CONVERTER OF WIRING PART C und AND SETTINGS > SERVO SUPPLY GP28/29. in Bernstein"> <img src="img/servo-hub-switched.png" width="240" alt="SERVO am Ende mit SERVO SUPPLY auf GP28: die drei Programmierer mit THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC bedienbar">
+<img src="img/servo-hub.png" width="240" alt="SERVO am Anfang: SERVO TESTER, ANGLE METER und KST / CHASERVO ganz sichtbar, jedes mit seiner Zeile, HITEC D SERIES am Bildschirmrand abgeschnitten, rechts der Rollbalken"> <img src="img/servo-hub-scrolled.png" width="240" alt="SERVO bis ans Ende gezogen, mit SERVO SUPPLY auf OWN: KST / CHASERVO und HITEC D SERIES mit POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC als Umriss mit NEEDS THE CONVERTER OF WIRING PART C und AND SETUP > SERVO SUPPLY GP28/29. in Bernstein"> <img src="img/servo-hub-switched.png" width="240" alt="SERVO am Ende mit SERVO SUPPLY auf GP28: die drei Programmierer mit THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC bedienbar">
 
 `MENU → SERVO` öffnet SERVO, die Auswahl der fünf Servo-Werkzeuge, in der
 Reihenfolge der Nutzung: **SERVO TESTER** treibt ein Servo, **ANGLE METER**
@@ -530,7 +530,7 @@ Servo, das schon vor dem Tippen Strom hat, sähe die ersten Frames des
 Programmierers schon mit dem Tippen. HITEC CLASSIC braucht die geschaltete
 Versorgung: unter `OWN` ist es als Umriss gezeichnet, tut nichts und sagt in
 Bernstein warum, `NEEDS THE CONVERTER OF WIRING PART C` und
-`AND SETTINGS > SERVO SUPPLY GP28/29.`
+`AND SETUP > SERVO SUPPLY GP28/29.`
 
 | Eintrag | Zeile darunter | Öffnet |
 |---|---|---|
@@ -548,28 +548,28 @@ SERVO mit seinen Einträgen als Umriss und `SETTING SIG GP0 LOW` oder
 `RELEASING SIG GP0` in Bernstein an der Stelle der Zeile NO ESC CHECK; ein
 Tippen auf einen Eintrag öffnet nichts, bis der Pin frei ist.
 
-### RX SIGNALS
+### RECEIVER
 
-<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT mit S.BUS TO A FLIGHT CONTROLLER. und ON GP0, NEVER TO AN ESC.">
+<img src="img/rx-chooser.png" width="240" alt="RECEIVER: MONITOR mit S.BUS FROM A RECEIVER, ON GP1., OUTPUT mit S.BUS TO A FLIGHT CONTROLLER. und ON GP0, NEVER TO AN ESC.">
 
-`MENU → RX SIGNALS` öffnet eine Auswahl aus zwei Einträgen:
+`MENU → RECEIVER` öffnet eine Auswahl aus zwei Einträgen:
 **MONITOR**, das S.BUS MONITOR öffnet, und **OUTPUT**, das S.BUS OUTPUT
 öffnet, einen S.BUS-Ausgang zu einem Flugcontroller, mit seiner Warnung
 darunter: `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` Die
 Leiste nennt beide Signalpins, `SIG GP0  AUX GP1`, über der Bernstein-Zeile
-`NO ESC CHECK: UNPLUG ANY ESC FIRST.`, wie auf SERVO. RX SIGNALS belegt
+`NO ESC CHECK: UNPLUG ANY ESC FIRST.`, wie auf SERVO. RECEIVER belegt
 keinen Pin, und DShot ist aus, solange es zu sehen ist. Mit SIG auf GP1 trägt
 MONITOR eine zweite Zeile, `GP1 IS SIG: PLUG IN AFTER THE TAP.`: GP1 liegt bis
-zum Tippen auf Low. `BACK` führt zu `MENU` zurück; `RX SIGNALS`, die letzte
-Taste der Verlassenseite beider Werkzeuge, führt zu RX SIGNALS zurück.
+zum Tippen auf Low. `BACK` führt zu `MENU` zurück; `RECEIVER`, die letzte
+Taste der Verlassenseite beider Werkzeuge, führt zu RECEIVER zurück.
 Solange der Signalpin noch belegt ist, sind beide Einträge Umrisse, wie auf
-SERVO. Siehe [RX-Signale](RX-Signale).
+SERVO. Siehe [Empfänger](Empfaenger).
 
 ---
 
-## SETTINGS
+## SETUP
 
-<img src="img/settings.png" width="240" alt="Der SETTINGS-Bildschirm">
+<img src="img/settings.png" width="240" alt="Der SETUP-Bildschirm">
 
 Motor- und Verkabelungseinstellungen, Anzeigeeinstellungen, die Platine,
 Diagnose und die Schaltfläche, die alle Einstellungen ins Flash schreibt. Eine
@@ -626,7 +626,7 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
 - Die Hinweiszeile: ein Text, der erste, der zutrifft, in dieser Reihenfolge:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (rot) oder
      `NOT WHILE ARMED - DISARM TO SAVE` (rot), bis zum nächsten Speichern
-     oder Verlassen von SETTINGS;
+     oder Verlassen von SETUP;
   2. `ADJUSTED TO THIS BOARD'S LIMITS` (Bernstein), bis zur nächsten
      Änderung;
   3. `DEFAULTS LOADED - RESTART TO UNDO` (Voreinstellungen geladen, ein
@@ -643,9 +643,9 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   8. `SAVED SETTINGS IN USE`, oder `NOTHING SAVED: DEFAULTS IN USE`, wenn
      nichts gespeichert ist.
 
-<img src="img/settings-carried.png" width="240" alt="SETTINGS, nachdem ein Update die gespeicherten Einstellungen übernommen hat: CARRIED OVER BY UPDATE - CHECK, SAVE in der Hinweiszeile">
+<img src="img/settings-carried.png" width="240" alt="SETUP, nachdem ein Update die gespeicherten Einstellungen übernommen hat: CARRIED OVER BY UPDATE - CHECK, SAVE in der Hinweiszeile">
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
+<img src="img/settings-pin.png" width="240" alt="SETUP, nachdem SIG PIN auf GP1 gewechselt hat: UNPLUG ANY SERVO FROM GP1 NOW über LINK, UNSAVED in der Hinweiszeile">
 
 - `HOLD TO SAVE` (150 × 46 px) und `HOLD DEFAULTS` (72 × 46 px), die
   Beschriftung in zwei Zeilen, `HOLD` über `DEFAULTS`, in Bernstein.
@@ -655,7 +655,7 @@ Bitrate baut den DShot-Treiber vor dem nächsten Frame neu auf. `HOLD TO SAVE`
 1 s lang schreibt ins Flash. `HOLD DEFAULTS` 1 s lang ersetzt die laufenden
 Einstellungen durch die kompilierten Voreinstellungen, Polzahl und
 Gas-Obergrenze eingeschlossen; Einrichtung und Kalibrierung des
-Winkelmessers, die SETTINGS nicht zeigt, behalten ihre Werte, und das Flash
+Winkelmessers, die SETUP nicht zeigt, behalten ihre Werte, und das Flash
 bleibt unverändert. Ein Tippen
 bewirkt nichts, ein Wegschieben vom Knopf bricht das Halten ab. Ein Balken
 über dem Knopf füllt sich, solange er gehalten wird, und der Knopf wird rot,
@@ -673,18 +673,18 @@ einer Firmware-Datei auf die Platine `UPDATE`. Nicht auf Hardware getestet:
 Welchen Grund ein bestimmter Neustart auf der Platine zeigt, ist nicht
 festgehalten.
 
-<img src="img/settings-supply.png" width="240" alt="SETTINGS bis SERVO SUPPLY verschoben, auf GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS bis zum Ende verschoben: BOARD und DIAGNOSTICS">
+<img src="img/settings-supply.png" width="240" alt="SETUP bis SERVO SUPPLY verschoben, auf GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETUP bis zum Ende verschoben: BOARD und DIAGNOSTICS">
 
-<img src="img/settings-sense.png" width="240" alt="SETTINGS: CURRENT SENSE auf INA219, FOUND">
+<img src="img/settings-sense.png" width="240" alt="SETUP: CURRENT SENSE auf INA219, FOUND">
 
-<img src="img/settings-contrast.png" width="240" alt="SETTINGS mit hohem Kontrast"> <img src="img/tester-contrast.png" width="240" alt="Der Tester-Bildschirm mit hohem Kontrast">
+<img src="img/settings-contrast.png" width="240" alt="SETUP mit hohem Kontrast"> <img src="img/tester-contrast.png" width="240" alt="Der Tester-Bildschirm mit hohem Kontrast">
 
 *Hoher Kontrast gilt für jeden Bildschirm und setzt die
 Hintergrundbeleuchtung auf 255, solange er an ist.*
 
 ---
 
-## SD LOG
+## LOGS
 
 <img src="img/log-ready.png" width="240" alt="SD-LOG-Bildschirm, Karte bereit">
 
@@ -705,7 +705,7 @@ BLHeli_S-ESC über das Signalkabel. `WRITE...` öffnet mit einem Tippen
 `HEX` zeigt die Bytes unter dem Titel `ESC HEX`. Einstellungen in einem
 Layout, das der Tester nicht kennt, also nicht 2 bis 4, öffnen nur zum
 Lesen: die Bytes hexadezimal, `NOT VERIFIED.`, eine Sicherung auf der
-SD-Karte und kein Schreiben. `BACK` führt zu ESC CONFIG zurück, bei
+SD-Karte und kein Schreiben. `BACK` führt zu ESC PROGRAM zurück, bei
 ungeschriebenen Änderungen nach einer Warnung. Siehe
 [AM32-Konfiguration](AM32-Konfiguration).
 
@@ -804,8 +804,8 @@ digitalen Kanäle CH17 und CH18, die Framerate und die Fehlerzähler. Er
 nimmt GP1: als AUX in der Standardverdrahtung, als SIG, wenn
 SIG PIN auf GP1 steht; dort wartet er, solange ein ESC antwortet. `BACK`
 öffnet die Verlassenseite bei `1 UNPLUG THE RECEIVER.`; `BACK TO MONITOR`
-beginnt von vorn, jeder Zähler auf 0, und `RX SIGNALS` legt die Pins auf
-Low und führt zu RX SIGNALS. Siehe [RX-Signale](RX-Signale).
+beginnt von vorn, jeder Zähler auf 0, und `RECEIVER` legt die Pins auf
+Low und führt zu RECEIVER. Siehe [Empfänger](Empfaenger).
 
 ---
 
@@ -823,8 +823,8 @@ Frames und ein Touch-Controller, der nicht antwortet, wie beim Tester,
 halten die Frames an; der letzte Fall zeigt `STOPPED: TOUCH DID NOT ANSWER`.
 `BACK` öffnet die Verlassenseite bei
 `1 UNPLUG THE FLIGHT CONTROLLER.`; `BACK TO OUTPUT` prüft GP0 erneut, und
-`RX SIGNALS` legt die Pins auf Low und führt zu RX SIGNALS. Siehe
-[RX-Signale](RX-Signale).
+`RECEIVER` legt die Pins auf Low und führt zu RECEIVER. Siehe
+[Empfänger](Empfaenger).
 
 ---
 
@@ -836,9 +836,9 @@ Misst Winkel an der Schwerkraft mit dem Beschleunigungssensor der Platine:
 den Winkel um die Achse in Größe 5, die Neigung der Achse und den Chip
 `SETTLED` in der Leiste, mit gesetzter LENGTH den Weg der Endleiste in mm,
 MAX je Seite und die Temperatur der Platine. In der Fußleiste `ZERO`,
-`RESET MAX` und `SETUP`; SETUP enthält ALONG AXIS, LENGTH, SIGN und die
+`RESET MAX` und `ANGLE SET`; ANGLE SET enthält ALONG AXIS, LENGTH, SIGN und die
 Kalibrierung in drei Lagen, FLIP CAL. `BACK` auf der Hauptansicht schaltet
-den Beschleunigungssensor ab und führt zu SERVO, der Auswahl; auf SETUP und
+den Beschleunigungssensor ab und führt zu SERVO, der Auswahl; auf ANGLE SET und
 FLIP CAL geht es eine Ebene hoch. Nicht auf Hardware getestet; die Genauigkeit
 ist nicht gemessen. Siehe [Winkelmesser](Winkelmesser).
 

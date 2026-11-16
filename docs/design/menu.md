@@ -962,12 +962,12 @@ is accepted.
     the chooser reads
     PROGRAMMER.
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
-    SETTINGS reads SETUP. Not built.
+    SETTINGS reads SETUP. Built (slice 5).
 13. **One SETTINGS list.** One list in sections, ESC TESTER, WIRING, SERVO
     SUPPLY (from slice 3), DISPLAY and BOARD, and no hub of sections, until
     about 20 rows.
     Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15
-    for the name only: SETUP stays one list in sections. Not built.
+    for the name only: SETUP stays one list in sections. Built (slice 5).
 
 Choices made in this design where the decisions above left the choice; the
 owner has not decided them:

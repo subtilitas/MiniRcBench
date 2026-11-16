@@ -6,39 +6,39 @@ The firmware has sixteen screens. `MENU` is the root and the first screen
 after the splash: six rows, with no `BACK`. Its first row, `ESC TESTER`,
 opens the tester, whose `MENU` button returns to `MENU`. The next three
 rows each open a hub, a list of the tools for one kind of device: ESC
-CONFIG the ESC tools, SERVO the servo tools, RX SIGNALS the receiver signal
+PROGRAM the ESC tools, SERVO the servo tools, RECEIVER the receiver signal
 tools. Every tool is two taps from `MENU`. A tool is left with `BACK`,
 which returns to the hub that opened it, and the hub's `BACK` returns to
 `MENU`.
-SETTINGS also opens from the tester's pole count and ceiling; `BACK` then
+SETUP also opens from the tester's pole count and ceiling; `BACK` then
 returns to the tester. DShot runs only while `ESC TESTER` or `ESC COMMANDS` is
-open, or SETTINGS over the tester. Everywhere else, `MENU` included and from
+open, or SETUP over the tester. Everywhere else, `MENU` included and from
 power-up on, the ESC signal pin is held low and nothing is sent.
 
 ```
 Splash ──3 s──> MENU (the root, no BACK)
 MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
-       │                    └── 14 POLES or MAX 20% (disarmed) ──> SETTINGS ──BACK──> Tester
-       ├── ESC CONFIG > ──> ESC CONFIG ──BACK──> MENU
-       │    ├── ESC COMMANDS ──BACK──> ESC CONFIG
-       │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC CONFIG
-       │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> ESC CONFIG)
-       │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, ESC CONFIG──> ESC CONFIG)
-       │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC CONFIG
-       │        (once the line is bound: BACK──> leave page ──ESC CONFIG──> ESC CONFIG)
+       │                    └── 14 POLES or MAX 20% (disarmed) ──> SETUP ──BACK──> Tester
+       ├── ESC PROGRAM > ──> ESC PROGRAM ──BACK──> MENU
+       │    ├── ESC COMMANDS ──BACK──> ESC PROGRAM
+       │    ├── ESC SETTINGS ──> ESC SETTINGS ──BACK──> ESC PROGRAM
+       │    │   (a Bluejay or BLHeli_S list: BACK──> LEAVE sent──> ESC PROGRAM)
+       │    │   (elsewhere after a Bluejay or BLHeli_S answer: BACK──> leave page ──LEAVE, ESC PROGRAM──> ESC PROGRAM)
+       │    └── USB BRIDGE ──> USB BRIDGE ──BACK──> ESC PROGRAM
+       │        (once the line is bound: BACK──> leave page ──ESC PROGRAM──> ESC PROGRAM)
        ├── SERVO > ──> SERVO ──BACK──> MENU
        │    ├── SERVO TESTER ──BACK──> leave page ──SERVO──> SERVO
-       │    ├── ANGLE METER ──BACK──> SERVO   (SETUP, FLIP CAL: BACK goes one level up)
+       │    ├── ANGLE METER ──BACK──> SERVO   (ANGLE SET, FLIP CAL: BACK goes one level up)
        │    ├── KST / CHASERVO ──> KST SERVO   ──BACK──> leave page ──LEAVE, SERVO──> SERVO
        │    ├── HITEC D SERIES ──> HITEC SERVO ──BACK──> leave page ──LEAVE, SERVO──> SERVO
        │    └── HITEC CLASSIC  ──> HITEC SERVO, as D SERIES
        │   (with no servo in programming mode the leave page opens at UNPLUG THE SERVO.)
        │   (ESC HEX, ESC WRITE, SET: BACK goes one level up)
-       ├── RX SIGNALS > ──> RX SIGNALS ──BACK──> MENU
-       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RX SIGNALS──> RX SIGNALS
-       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> leave page ──RX SIGNALS──> RX SIGNALS   (SET: BACK goes one level up)
-       ├── SD LOG       ──BACK──> MENU
-       └── SETTINGS     ──BACK──> MENU
+       ├── RECEIVER > ──> RECEIVER ──BACK──> MENU
+       │    ├── MONITOR ──> S.BUS MONITOR ──BACK──> leave page ──RECEIVER──> RECEIVER
+       │    └── OUTPUT  ──> S.BUS OUTPUT  ──BACK──> leave page ──RECEIVER──> RECEIVER   (SET: BACK goes one level up)
+       ├── LOGS       ──BACK──> MENU
+       └── SETUP     ──BACK──> MENU
 ```
 
 **BACK is at the top right**, in the header band, on every screen except
@@ -57,7 +57,7 @@ on an ESC whose Bluejay or BLHeli_S bootloader answered, back to the hub with
 the signal pin held low. It numbers its steps; the current one is amber with a
 bar at the left edge. Before `LEAVE` the buttons read `STAY`, which returns to
 the tool, and `LEAVE`. After `LEAVE` the next step is current, and the wide
-button reads the hub's title, `SERVO`, `RX SIGNALS` or `ESC CONFIG`, in
+button reads the hub's title, `SERVO`, `RECEIVER` or `ESC PROGRAM`, in
 `LEAVE`'s place; the last step reads `BACK TO` and that title. It and the left
 button, `NEXT SERVO` or `BACK TO MONITOR` (none on ESC SETTINGS or USB
 BRIDGE), are drawn disabled until the pin is let go; the hub's title then
@@ -85,16 +85,16 @@ and has four uses. It is the way back: `BACK` in a header and the tester's
 `MENU` button are cyan with a dark label, and a `BACK` that does nothing is
 drawn disabled, not cyan. It is the mark `>` on a `MENU` row that opens a
 hub. It is a setting of the bench, as cyan text: the values and section
-captions of SETTINGS, the values of SERVO SET and OUTPUT SET, LENGTH on ANGLE
+captions of SETUP, the values of SERVO SET and OUTPUT SET, LENGTH on ANGLE
 SETUP. And it is a value changed and not yet written or applied: dark text
 on a cyan fill, with a cyan bar at its row's left edge. A value read from an
 ESC or a servo is in the text colour. Labels, captions and the buttons that
 open or command something are in the text colour or grey. A button has
 rounded corners. A chip on the strip under a title is square, so it does not
 look like a button; the tester's arm badge and its `SDERR` chip are square
-too. Not every use follows the table: lime also marks states such as SD LOG's
+too. Not every use follows the table: lime also marks states such as LOGS'
 `READY` and the card served over USB, and many failures are amber or in the
-text colour, for example `CARD ERROR` on SD LOG and AM32's `WRITE FAILED`.
+text colour, for example `CARD ERROR` on LOGS and AM32's `WRITE FAILED`.
 
 **The normal theme takes its colours from rcbench,** the larger bench of the
 same owner: a near-black screen with a blue cast and blue-grey neutrals. A
@@ -137,7 +137,7 @@ and the pin is held low.
 
 - the arm badge: `SAFE` (green) or `ARMED` (red);
 - `DSHOT` and the DShot bitrate in kbit/s, for example `DSHOT600`, as set
-  under SETTINGS → DSHOT, dim, and in the text colour once an EDT (Extended
+  under SETUP → DSHOT, dim, and in the text colour once an EDT (Extended
   DShot Telemetry) enable has been sent. `DSERR` in amber replaces it when
   the display could not set up its DShot output; nothing is sent to the ESC
   then;
@@ -184,7 +184,7 @@ propeller.
 
 - `KV EST 1758`: the estimate, rounded to a whole number.
 - `KV EST 75%+`: the throttle is below 75 %, where the estimate does not
-  show. At the default `MAX 20%` it never shows; raise `MAX` in SETTINGS
+  show. At the default `MAX 20%` it never shows; raise `MAX` in SETUP
   for the reading, propeller off.
 - `KV EST --`: no figure. An input is missing, the throttle moved by more
   than 1 % within the last second, or the motor is still speeding up.
@@ -253,16 +253,16 @@ full-width drag reads `20%`. The ceiling reads `MAX 20%` in the text colour
 beside `THROTTLE`; with `LATCH` on the caption reads `LATCHED`. While disarmed
 the bar reads `ARM TO ENABLE`.
 
-**Pole count and ceiling open SETTINGS.** While the tester is disarmed,
-`14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETTINGS. The
-tap disarms as the `MENU` button does, and `BACK` on SETTINGS returns to the
+**Pole count and ceiling open SETUP.** While the tester is disarmed,
+`14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETUP. The
+tap disarms as the `MENU` button does, and `BACK` on SETUP returns to the
 tester. While armed the underline goes, `KV EST` takes the pole count's place,
 and a tap on them does nothing: the pole count lies in the throttle pad and
 `MAX` reaches into the bar's grab area, so the press drives the throttle as
 there. While another tool holds the signal pins the underline goes too and a
-tap does nothing, as `MENU` draws SETTINGS disabled then; with the tester
+tap does nothing, as `MENU` draws SETUP disabled then; with the tester
 open no tool can take them. While the 3D note takes
-the row, only `MAX` opens SETTINGS. Disarmed, the hint `SWIPE = THROTTLE` is
+the row, only `MAX` opens SETUP. Disarmed, the hint `SWIPE = THROTTLE` is
 in the dim label colour; armed, it takes the text colour.
 
 <img src="img/tester-disarmed.png" width="240" alt="The tester disarmed with telemetry: SAFE in green, 14 POLES and MAX 20% underlined, SWIPE = THROTTLE dim, ARM TO ENABLE in the bar">
@@ -272,7 +272,7 @@ finger leaves it; blue while on), `MENU`.
 
 While a computer holds the SD card over USB, arming is refused: `HOLD TO ARM`
 is drawn as an outline, and the bar reads `EJECT THE USB DRIVE TO ARM` in
-amber. Eject the drive on the computer, or press `EJECT` on SD LOG, and the
+amber. Eject the drive on the computer, or press `EJECT` on LOGS, and the
 button is live again (see [SD Logging](SD-Logging)). Arming is refused the
 same way for 1.5 s after DShot starts, and while the touch controller does
 not answer.
@@ -327,8 +327,8 @@ SETTINGS' leave page is tapped, or the board restarts
 Below the strip is a list of six rows, 40 px tall at a 42 px pitch:
 `ESC TESTER` first, then one row for each kind of device on the signal pin,
 the ESC, a servo, a receiver, then the log and the settings. Each row has a
-name on the left. `SD LOG` and `SETTINGS` show their state on the right.
-`ESC CONFIG`, `SERVO` and `RX SIGNALS` show `>` there instead: each opens a
+name on the left. `LOGS` and `SETUP` show their state on the right.
+`ESC PROGRAM`, `SERVO` and `RECEIVER` show `>` there instead: each opens a
 hub, a list of tools, one level down.
 
 **No scrolling.** The six rows fit the screen: every row is whole and takes
@@ -337,11 +337,11 @@ a tap at once. MENU has no scroll bar, and a drag moves nothing.
 | Row | On the right | A tap |
 |---|---|---|
 | **ESC TESTER** | nothing | Opens the tester, disarmed, at throttle 0, with `LATCH` off. See [The tester](#the-tester) |
-| **ESC CONFIG** | `>` | Opens ESC CONFIG, the hub of the ESC tools: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. See [ESC CONFIG](#esc-config) |
+| **ESC PROGRAM** | `>` | Opens ESC PROGRAM, the hub of the ESC tools: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. See [ESC PROGRAM](#esc-program) |
 | **SERVO** | `>` | Opens SERVO, the hub of the servo tools: SERVO TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC. See [SERVO](#servo) |
-| **RX SIGNALS** | `>` | Opens RX SIGNALS, the hub of the receiver signal tools: MONITOR and OUTPUT. See [RX SIGNALS](#rx-signals) |
-| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
-| **SETTINGS** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber | Opens SETTINGS |
+| **RECEIVER** | `>` | Opens RECEIVER, the hub of the receiver signal tools: MONITOR and OUTPUT. See [RECEIVER](#receiver) |
+| **LOGS** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a computer holds the card | Opens the logging screen |
+| **SETUP** | `UNSAVED` while a value differs from flash; else `UPDATED` while an update's reset or carry-over of the settings is not saved over; else nothing. All amber | Opens SETUP |
 
 Every tool is two taps from MENU: the hub's row, then the tool's entry.
 `BACK` on a tool returns to its hub, and `BACK` on the hub to `MENU`.
@@ -349,59 +349,59 @@ Every tool is two taps from MENU: the hub's row, then the tool's entry.
 While the signal pins are still in use, the strip reads in amber
 `SETTING SIG GP0 LOW` for the moment the pin is set low after a leave page,
 or `RELEASING SIG GP0` while a tool lets the pin go, as the USB bridge does
-for up to 250 ms. ESC TESTER and SETTINGS are then drawn as an outline under
+for up to 250 ms. ESC TESTER and SETUP are then drawn as an outline under
 their usual state, and a tap on such a row opens nothing. They act again once
-the pin is free. SD LOG claims no pin and stays available. ESC CONFIG, SERVO
-and RX SIGNALS open as always; the hub draws its entries as outlines
+the pin is free. LOGS claims no pin and stays available. ESC PROGRAM, SERVO
+and RECEIVER open as always; the hub draws its entries as outlines
 meanwhile, with the same amber line as its strip's second line.
 
-<img src="img/menu-parking.png" width="240" alt="MENU while the pin is set low: SETTING SIG GP0 LOW on the strip, ESC TESTER and SETTINGS drawn as outlines, ESC CONFIG, SERVO and RX SIGNALS filled, each with its mark">
+<img src="img/menu-parking.png" width="240" alt="MENU while the pin is set low: SETTING SIG GP0 LOW on the strip, ESC TESTER and SETUP drawn as outlines, ESC PROGRAM, SERVO and RECEIVER filled, each with its mark">
 
-`UNSAVED` on the SETTINGS row means a value differs from flash. The save button
-is on SETTINGS.
+`UNSAVED` on the SETUP row means a value differs from flash. The save button
+is on SETUP.
 
-<img src="img/menu-unsaved.png" width="240" alt="UNSAVED on the SETTINGS row, with changes not yet written to flash">
+<img src="img/menu-unsaved.png" width="240" alt="UNSAVED on the SETUP row, with changes not yet written to flash">
 
-`UPDATED` on the SETTINGS row means a firmware update changed the saved
+`UPDATED` on the SETUP row means a firmware update changed the saved
 settings. Either it carried settings of an older layout over, version 2, 3,
 4 or 5: the values the old layout has are kept, checked as on a save, and
 the newer ones, `CURRENT SENSE` and the angle meter's setup and calibration
 among them, are at their defaults. Or it
 found a layout it does not know and discarded it: every value, the pole
 count, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` and `CURRENT SENSE`
-among them, is at its compiled default. Check them in SETTINGS and hold
+among them, is at its compiled default. Check them in SETUP and hold
 `HOLD TO SAVE`; a save that lands ends the marker, also with nothing
 changed. See
 [Troubleshooting](Troubleshooting#my-settings-reset-themselves). The splash
 says the same at start-up (see [First Run](First-Run#powering-up)).
 
-<img src="img/menu-updated.png" width="240" alt="UPDATED on the SETTINGS row after an update discarded the saved settings">
+<img src="img/menu-updated.png" width="240" alt="UPDATED on the SETUP row after an update discarded the saved settings">
 
-### ESC CONFIG
+### ESC PROGRAM
 
-<img src="img/esc-chooser.png" width="240" alt="ESC CONFIG: ESC COMMANDS, ESC SETTINGS and USB BRIDGE, each with its two lines">
+<img src="img/esc-chooser.png" width="240" alt="ESC PROGRAM: ESC COMMANDS, ESC SETTINGS and USB BRIDGE, each with its two lines">
 
-`MENU → ESC CONFIG` opens a hub of three entries, one button each with two lines
-under it: **ESC COMMANDS**, which sends DShot commands, with
+`MENU → ESC PROGRAM` opens a hub of three entries, one button each with two
+lines under it: **ESC COMMANDS**, which sends DShot commands, with
 `BEEP 1 TO 5, DIRECTION, 3D MODE.` and `SENT AS DSHOT COMMANDS.` under it; **ESC
 SETTINGS**, which opens the ESC settings screen, AM32, Bluejay and BLHeli_S read
 and written; and **USB BRIDGE**, which lets a desktop ESC tool reach the ESC,
 with `A DESKTOP ESC TOOL OVER USB.` and `MSP, 4-WAY AND PASSTHROUGH.` under it.
-The strip names the signal pin, `SIG GP0`. ESC CONFIG takes no pin; the tap on
+The strip names the signal pin, `SIG GP0`. ESC PROGRAM takes no pin; the tap on
 ESC SETTINGS or USB BRIDGE takes SIG, and ESC COMMANDS takes none. `BACK`
-returns to `MENU`; `BACK` on any of the three tools returns to ESC CONFIG. While
-the signal pin is still in use the three entries are outlines and the strip's
-second line reads `RELEASING SIG GP0` or `SETTING SIG GP0 LOW` in amber. See
-[ESC COMMANDS](#esc-commands) below, [AM32 Configuration](AM32-Configuration)
+returns to `MENU`; `BACK` on any of the three tools returns to ESC PROGRAM.
+While the signal pin is still in use the three entries are outlines and the
+strip's second line reads `RELEASING SIG GP0` or `SETTING SIG GP0 LOW` in
+amber. See [ESC COMMANDS](#esc-commands) below, [AM32 Configuration](AM32-Configuration)
 and [USB Bridge](USB-Bridge).
 
 ### ESC COMMANDS
 
 <img src="img/esccmd.png" width="240" alt="ESC COMMANDS at rest: BEEP 1 to 5, NORMAL and REVERSED, 3D OFF and 3D ON, and the six dim lines"> <img src="img/esccmd-3d-on.png" width="240" alt="ESC COMMANDS after 3D ON: SENT 10 (3D ON), THEN 12 (SAVE). and three amber lines">
 
-`MENU → ESC CONFIG → ESC COMMANDS` sends DShot commands to the ESC on SIG.
+`MENU → ESC PROGRAM → ESC COMMANDS` sends DShot commands to the ESC on SIG.
 It takes no pin. DShot starts on SIG when it opens and stops when `BACK`
-returns to ESC CONFIG; the pin is then held low. The strip reads
+returns to ESC PROGRAM; the pin is then held low. The strip reads
 `SIG GP0  DSHOT600` and carries the EDT chip: `EDT ON` in green while
 Extended DShot Telemetry frames arrive, `EDT OFF` in red while eRPM frames
 arrive and EDT frames do not, and `NO ESC`, a frame with a dim label, while no
@@ -449,7 +449,7 @@ has been sent to an ESC from this board yet.
 
 ### SERVO
 
-<img src="img/servo-hub.png" width="240" alt="SERVO at the top: SERVO TESTER, ANGLE METER and KST / CHASERVO whole, each with its line, HITEC D SERIES cut at the screen's edge, the scroll bar at the right"> <img src="img/servo-hub-scrolled.png" width="240" alt="SERVO dragged to its end with SERVO SUPPLY at OWN: KST / CHASERVO and HITEC D SERIES with POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC as an outline with NEEDS THE CONVERTER OF WIRING PART C and AND SETTINGS > SERVO SUPPLY GP28/29. in amber"> <img src="img/servo-hub-switched.png" width="240" alt="SERVO at its end with SERVO SUPPLY at GP28: the three programmers with THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC live">
+<img src="img/servo-hub.png" width="240" alt="SERVO at the top: SERVO TESTER, ANGLE METER and KST / CHASERVO whole, each with its line, HITEC D SERIES cut at the screen's edge, the scroll bar at the right"> <img src="img/servo-hub-scrolled.png" width="240" alt="SERVO dragged to its end with SERVO SUPPLY at OWN: KST / CHASERVO and HITEC D SERIES with POWER THE SERVO UP AFTER THE TAP., HITEC CLASSIC as an outline with NEEDS THE CONVERTER OF WIRING PART C and AND SETUP > SERVO SUPPLY GP28/29. in amber"> <img src="img/servo-hub-switched.png" width="240" alt="SERVO at its end with SERVO SUPPLY at GP28: the three programmers with THE BENCH SWITCHES IT ON GP28., HITEC CLASSIC live">
 
 `MENU → SERVO` opens SERVO, the hub of the five servo tools, in the order of
 use: **SERVO TESTER** drives a servo, **ANGLE METER** measures a surface's
@@ -475,7 +475,7 @@ Under the three programmers a line says when the servo is powered:
 before the tap would see the programmer's first frames on its tap. HITEC CLASSIC
 needs the switched supply: under `OWN` it is drawn as an outline, does nothing,
 and says why in amber, `NEEDS THE CONVERTER OF WIRING PART C` and
-`AND SETTINGS > SERVO SUPPLY GP28/29.`
+`AND SETUP > SERVO SUPPLY GP28/29.`
 
 | Entry | Line under it | Opens |
 |---|---|---|
@@ -493,28 +493,28 @@ outlines and `SETTING SIG GP0 LOW` or `RELEASING SIG GP0` in amber in place
 of the NO ESC CHECK line; a tap on an entry opens nothing until the pin is
 free.
 
-### RX SIGNALS
+### RECEIVER
 
-<img src="img/rx-chooser.png" width="240" alt="RX SIGNALS: MONITOR with S.BUS FROM A RECEIVER, ON GP1., OUTPUT with S.BUS TO A FLIGHT CONTROLLER. and ON GP0, NEVER TO AN ESC.">
+<img src="img/rx-chooser.png" width="240" alt="RECEIVER: MONITOR with S.BUS FROM A RECEIVER, ON GP1., OUTPUT with S.BUS TO A FLIGHT CONTROLLER. and ON GP0, NEVER TO AN ESC.">
 
-`MENU → RX SIGNALS` opens a hub of two entries: **MONITOR**,
+`MENU → RECEIVER` opens a hub of two entries: **MONITOR**,
 which opens S.BUS MONITOR, and **OUTPUT**, which opens S.BUS OUTPUT, an
 S.BUS output to a flight controller, with its warning under it:
 `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.` The strip names
 both signal pins, `SIG GP0  AUX GP1`, over the amber line
-`NO ESC CHECK: UNPLUG ANY ESC FIRST.`, as on SERVO. RX SIGNALS takes no pin,
+`NO ESC CHECK: UNPLUG ANY ESC FIRST.`, as on SERVO. RECEIVER takes no pin,
 and DShot is off while it shows. With SIG on GP1 MONITOR carries a second
 line, `GP1 IS SIG: PLUG IN AFTER THE TAP.`: GP1 is held low until the tap.
-`BACK` returns to `MENU`; `RX SIGNALS`, the last button of either tool's
-leave page, returns to RX SIGNALS. While the signal pin is still in use both
+`BACK` returns to `MENU`; `RECEIVER`, the last button of either tool's
+leave page, returns to RECEIVER. While the signal pin is still in use both
 entries are outlines, as on SERVO.
-See [RX Signals](RX-Signals).
+See [Receiver](Receiver).
 
 ---
 
-## SETTINGS
+## SETUP
 
-<img src="img/settings.png" width="240" alt="The SETTINGS screen">
+<img src="img/settings.png" width="240" alt="The SETUP screen">
 
 Motor and wiring settings, display settings, the board, diagnostics, and the
 button that writes all settings to flash. One list, in sections, scrolls under
@@ -565,7 +565,7 @@ Under the list, these stay in place:
 - The note line: one text, the first that applies, in this order:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (red) or
      `NOT WHILE ARMED - DISARM TO SAVE` (red), until the next save or
-     leaving SETTINGS;
+     leaving SETUP;
   2. `ADJUSTED TO THIS BOARD'S LIMITS` (amber), until the next change;
   3. `DEFAULTS LOADED - RESTART TO UNDO` (amber) after `HOLD DEFAULTS`, while a
      restart would bring the saved values back, until another change or a
@@ -579,9 +579,9 @@ Under the list, these stay in place:
   8. `SAVED SETTINGS IN USE`, or `NOTHING SAVED: DEFAULTS IN USE` with
      nothing stored.
 
-<img src="img/settings-carried.png" width="240" alt="SETTINGS after an update carried the saved settings over: CARRIED OVER BY UPDATE - CHECK, SAVE on the note line">
+<img src="img/settings-carried.png" width="240" alt="SETUP after an update carried the saved settings over: CARRIED OVER BY UPDATE - CHECK, SAVE on the note line">
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
+<img src="img/settings-pin.png" width="240" alt="SETUP after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 - `HOLD TO SAVE` (150 × 46 px) and `HOLD DEFAULTS` (72 × 46 px), its label
   on two lines, `HOLD` over `DEFAULTS`, in amber.
@@ -590,7 +590,7 @@ Under the list, these stay in place:
 rebuilds the DShot driver before the next frame. `HOLD TO SAVE` for 1 s writes
 to flash. `HOLD DEFAULTS` for 1 s replaces the live settings with the
 compiled defaults, the pole count and the throttle ceiling included; the
-angle meter's setup and calibration, which SETTINGS does not show, keep their
+angle meter's setup and calibration, which SETUP does not show, keep their
 values, and flash is untouched. A tap does nothing, and sliding off the button
 cancels the hold. A bar over the button fills while it is held, and the button
 turns red, as every hold does. Leaving the screen keeps the
@@ -605,20 +605,20 @@ source, not verified on hardware, the restart after copying a firmware file
 onto the board reads `UPDATE`. Not tested on hardware: which reason a given
 restart shows on the board is not recorded.
 
-<img src="img/settings-supply.png" width="240" alt="SETTINGS scrolled to SERVO SUPPLY, set to GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETTINGS scrolled to the end: BOARD and DIAGNOSTICS">
+<img src="img/settings-supply.png" width="240" alt="SETUP scrolled to SERVO SUPPLY, set to GP29"> <img src="img/settings-scrolled.png" width="240" alt="SETUP scrolled to the end: BOARD and DIAGNOSTICS">
 
-<img src="img/settings-sense.png" width="240" alt="SETTINGS: CURRENT SENSE at INA219, FOUND">
+<img src="img/settings-sense.png" width="240" alt="SETUP: CURRENT SENSE at INA219, FOUND">
 
-<img src="img/settings-contrast.png" width="240" alt="SETTINGS in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
+<img src="img/settings-contrast.png" width="240" alt="SETUP in high contrast"> <img src="img/tester-contrast.png" width="240" alt="The tester screen in high contrast">
 
 *High contrast applies to every screen and sets the backlight to 255 while
 it is on.*
 
 ---
 
-## SD LOG
+## LOGS
 
-<img src="img/log-ready.png" width="240" alt="The SD LOG screen, card ready">
+<img src="img/log-ready.png" width="240" alt="The LOGS screen, card ready">
 
 Recording state and counters, and after a stop the last log's run.
 `BACK` returns to `MENU`. See [SD Logging](SD-Logging).
@@ -636,7 +636,7 @@ and its `HOLD TO WRITE`, 1 s, writes, with a backup on the SD card first.
 `HEX` shows the bytes under the title `ESC HEX`. Settings in a layout the
 tester does not know, other than 2 to 4, open read-only: the bytes in hex,
 `NOT VERIFIED.`, a backup on the SD card and no write. `BACK` returns to
-ESC CONFIG, after a warning when changes are not written. See
+ESC PROGRAM, after a warning when changes are not written. See
 [AM32 Configuration](AM32-Configuration).
 
 ---
@@ -726,8 +726,8 @@ channel bars over the raw value with the value in µs, the digital channels
 CH17 and CH18, the frame rate and the error counts. It takes GP1: as AUX in
 the default wiring, as SIG when SIG PIN is GP1, where it waits while an ESC
 answers. `BACK` opens the leave page at `1 UNPLUG THE RECEIVER.`;
-`BACK TO MONITOR` starts again with every count at 0, and `RX SIGNALS` holds
-the pins low and returns to RX SIGNALS. See [RX Signals](RX-Signals).
+`BACK TO MONITOR` starts again with every count at 0, and `RECEIVER` holds
+the pins low and returns to RECEIVER. See [Receiver](Receiver).
 
 ---
 
@@ -744,9 +744,9 @@ throttle channel stops at MAX THROTTLE's ceiling. `STOP`, a stalled screen,
 does not answer, as on the tester, stop the frames; the last reads
 `STOPPED: TOUCH DID NOT ANSWER`. `BACK`
 opens the leave page at `1 UNPLUG THE FLIGHT CONTROLLER.`; `BACK TO OUTPUT`
-checks GP0 again, and `RX SIGNALS` holds the pins low and returns to RX
-SIGNALS. See
-[RX Signals](RX-Signals).
+checks GP0 again, and `RECEIVER` holds the pins low and returns to
+RECEIVER. See
+[Receiver](Receiver).
 
 ---
 
@@ -757,10 +757,10 @@ SIGNALS. See
 Reads angles from gravity with the board's own accelerometer: the angle
 about the axis at scale 5, the axis's tilt and the `SETTLED` chip on the
 strip, the trailing edge's travel in mm with LENGTH set, MAX each side and
-the board's temperature. `ZERO`, `RESET MAX` and `SETUP` in the footer;
-SETUP holds ALONG AXIS, LENGTH, SIGN and the three-pose calibration, FLIP
+the board's temperature. `ZERO`, `RESET MAX` and `ANGLE SET` in the footer;
+ANGLE SET holds ALONG AXIS, LENGTH, SIGN and the three-pose calibration, FLIP
 CAL. `BACK` on the main view turns the accelerometer off and returns to
-SERVO, the hub; on SETUP and FLIP CAL it goes one level up. Not tested on
+SERVO, the hub; on ANGLE SET and FLIP CAL it goes one level up. Not tested on
 hardware; the accuracy is not measured. See [Angle Meter](Angle-Meter).
 
 ---

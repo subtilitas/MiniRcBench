@@ -37,8 +37,8 @@ constexpr UiMenuEntry UI_MENU[] = {
 	{ UI_ESC_CFG_TITLE,    0, &UI_ESC_CONFIG       },   // the hub: ESC COMMANDS, ESC SETTINGS, USB BRIDGE
 	{ UI_SERVO_HUB_TITLE,  0, &UI_SERVO_HUB_SCREEN },   // the hub: the tester, the angle meter, the programmers
 	{ UI_RX_TITLE,         0, &UI_RX_SIGNALS       },   // the hub: MONITOR, OUTPUT
-	{ "SD LOG",           10, &UI_SDLOG            },   // ui_sdlog.cpp: CARD ERROR
-	{ "SETTINGS",          7, &UI_SETTINGS         },   // ui_settings.cpp: UNSAVED, UPDATED
+	{ "LOGS",           10, &UI_SDLOG            },   // ui_sdlog.cpp: CARD ERROR
+	{ "SETUP",          7, &UI_SETTINGS         },   // ui_settings.cpp: UNSAVED, UPDATED
 };
 constexpr uint8_t UI_MENU_COUNT = (uint8_t)(sizeof(UI_MENU) / sizeof(UI_MENU[0]));
 static_assert(UI_MENU_COUNT == 6, "MENU does not have its six rows");
@@ -59,7 +59,7 @@ static constexpr bool hubHasStrip(const UiHub &h) {
 }
 
 /**
- * @brief ESC CONFIG's entries, top to bottom (docs/design/menu-c.md, "The
+ * @brief ESC PROGRAM's entries, top to bottom (docs/design/menu-c.md, "The
  *        hub"; docs/design/bluejay-blheli-s.md decision 1 and the
  *        developer's call B; docs/design/usb-bridge.md decision 1). ESC
  *        COMMANDS sends beacons 1 to 5, the direction and the 3D mode as
@@ -77,15 +77,15 @@ constexpr UiHubEntry UI_ESC_CFG_ENTRIES[] = {
 };
 constexpr uint8_t UI_ESC_CFG_ENTRIES_COUNT =
 	(uint8_t)(sizeof(UI_ESC_CFG_ENTRIES) / sizeof(UI_ESC_CFG_ENTRIES[0]));
-// No NO ESC CHECK line: ESC CONFIG's tools need the ESC on SIG.
+// No NO ESC CHECK line: ESC PROGRAM's tools need the ESC on SIG.
 constexpr UiHub UI_ESC_CFG_HUB = { UI_ESC_CFG_TITLE, uiEscConfigStrip, UI_ESC_CFG_ENTRIES,
                                    UI_ESC_CFG_ENTRIES_COUNT, nullptr };
-static_assert(hubEntriesFit(UI_ESC_CFG_HUB), "an ESC CONFIG line is too wide, or runs into the next entry");
+static_assert(hubEntriesFit(UI_ESC_CFG_HUB), "an ESC PROGRAM line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_ESC_CFG_HUB), "the hub has no strip, which uiHubTick calls");
 static_assert(hubScreensGuardPins(UI_ESC_CFG_HUB), "a hub entry's screen has no pinUser and no freePins");
 static_assert(UI_ESC_CFG_ENTRIES_COUNT == 3 && UI_ESC_CFG_ENTRIES[0].screen == &UI_ESC_CMD &&
               UI_ESC_CFG_ENTRIES[1].screen == &UI_AM32 && UI_ESC_CFG_ENTRIES[2].screen == &UI_BRIDGE,
-              "EscCfgCtl does not name ESC CONFIG's entries in their order");
+              "EscCfgCtl does not name ESC PROGRAM's entries in their order");
 
 /**
  * @brief SERVO's entries, top to bottom, in the order of use: drive,
@@ -107,7 +107,7 @@ constexpr UiHubEntry UI_SERVO_ENTRIES[] = {
 	{ "HITEC D SERIES", { "D485HW, D645MW AND THE OTHERS", nullptr }, &UI_HITEC, uiHitecEnterD, nullptr,
 	  { nullptr, nullptr }, UI_PROG_POWER_AFTER, UI_PROG_SWITCHED_FMT, nullptr, nullptr },
 	{ "HITEC CLASSIC", { "HS-5XXX, HS-7XXX", nullptr }, &UI_HITEC, uiHitecEnterClassic, servoSupplyFitted,
-	  { "NEEDS THE CONVERTER OF WIRING PART C", "AND SETTINGS > SERVO SUPPLY GP28/29." },
+	  { "NEEDS THE CONVERTER OF WIRING PART C", "AND SETUP > SERVO SUPPLY GP28/29." },
 	  nullptr, UI_PROG_SWITCHED_FMT, nullptr, nullptr },
 };
 constexpr uint8_t UI_SERVO_ENTRIES_COUNT =
@@ -129,7 +129,7 @@ static_assert(uiHubContentPx(UI_SERVO_ENTRIES_COUNT) - (GFX_H - UI_HUB_ENTRY_Y) 
               "SERVO does not scroll its 146 px");
 
 /**
- * @brief RX SIGNALS' entries, top to bottom (docs/design/rx-signals.md,
+ * @brief RECEIVER's entries, top to bottom (docs/design/rx-signals.md,
  *        decision 4). OUTPUT's two lines are the S.BUS output's warning
  *        (docs/design/sbus-output.md, "Warnings").
  */
@@ -145,7 +145,7 @@ constexpr UiHubEntry UI_RX_ENTRIES[] = {
 constexpr uint8_t UI_RX_ENTRIES_COUNT = (uint8_t)(sizeof(UI_RX_ENTRIES) / sizeof(UI_RX_ENTRIES[0]));
 constexpr UiHub UI_RX_HUB = { UI_RX_TITLE, uiRxSignalsStrip, UI_RX_ENTRIES, UI_RX_ENTRIES_COUNT,
                               UI_HUB_NO_ESC_CHECK };
-static_assert(hubEntriesFit(UI_RX_HUB), "an RX SIGNALS line is too wide, or runs into the next entry");
+static_assert(hubEntriesFit(UI_RX_HUB), "a RECEIVER line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_RX_HUB), "the hub has no strip, which uiHubTick calls");
 static_assert(hubScreensGuardPins(UI_RX_HUB), "a hub entry's screen has no pinUser and no freePins");
 

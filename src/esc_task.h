@@ -397,7 +397,7 @@ static inline EdtAutoAction edtAutoAction(bool linkUp, bool edtFresh,
  * - The first frames after every bind are the EDT enable (escEdtBind()), so
  *   the first reply already answers an enable.
  * - An ESC that kept EDT on across a board restart, a pump rebuild after a
- *   SETTINGS change, or an AM32 settings session sends EDT frames from its
+ *   SETUP change, or an AM32 settings session sends EDT frames from its
  *   first reply. Read as eRPM, a voltage frame of 66 counts (16.5 V) is a
  *   period of 264 us: a false reading of 227,272 eRPM, 32,467 RPM at
  *   14 poles.
@@ -909,7 +909,7 @@ static inline bool escPumpTeardown(EscPump *p, const EscCmdRequest *req) {
  *        on the first free frame. Pure.
  *
  * Called once per bind, before the first frame. A bind is a new ESC as far
- * as the pump is concerned: after a SETTINGS change, and after a pin claim. It
+ * as the pump is concerned: after a SETUP change, and after a pin claim. It
  * starts disarmed whatever core0 last commanded, so arming again takes the
  * full hold on the tester screen. @see escEdtBind(), escPumpRelease()
  *
@@ -1192,7 +1192,7 @@ enum class EscHandover : uint8_t {
  * @brief Decide the pin handover for one pass of escTaskPoll(). Pure.
  *
  * A bound pump leaves Run for Park or Release (the pin claim), or rebuilds
- * (a SETTINGS change), only after the drain: while escDrainDone() is false
+ * (a SETUP change), only after the drain: while escDrainDone() is false
  * it keeps its slots and sends escDrainSlot() in each. Then it tears down,
  * and core1 steps again with the pump down, so a rebuild binds in the same
  * pass and a Park or a Release follows the teardown at once.
@@ -1560,7 +1560,7 @@ void escTaskSuspend();
  * @brief Ask core1 for Run: the pump bound and sending.
  *
  * If core1 has torn the pump down, it binds it again from the latched wiring:
- * disarmed, with the EDT enable as its first frames, as after a SETTINGS
+ * disarmed, with the EDT enable as its first frames, as after a SETUP
  * change. From Park it first puts SIG on its pull-up at 4 mA. A start during
  * the drain leaves the running pump as it is. @see escTaskConfigure()
  */
@@ -1611,7 +1611,7 @@ uint32_t escTaskBoundMs();
  *
  * Core0 hands the values across rather than core1 reading the settings
  * struct directly: core0 owns that struct and edits it a field at a time
- * while the SETTINGS is open. Core1 latches the values when it binds or
+ * while the SETUP is open. Core1 latches the values when it binds or
  * parks. A configure that lands during core1's reads can be latched
  * half-applied for one pass, while disarmed, and the request still set
  * rebuilds it on the next pass.
@@ -1626,7 +1626,7 @@ uint32_t escTaskBoundMs();
  * the ESC on the old pin stops hearing frames the moment it is released.
  *
  * Safe to call with unchanged values; it is a no-op if nothing differs, so the
- * SETTINGS can call it freely rather than tracking what it changed.
+ * SETUP can call it freely rather than tracking what it changed.
  *
  * @param dshotPin   GPIO for the ESC signal wire.
  * @param dshotKbaud DShot bitrate.

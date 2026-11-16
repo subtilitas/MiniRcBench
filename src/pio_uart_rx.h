@@ -6,7 +6,7 @@
  * The RP2350's two hardware UARTs can only receive on GPIOs where `n % 4 == 1`
  * — eight pins out of thirty, and which of the two instances each belongs to
  * alternates in pairs of groups. On the 2.8" the free pins are GP0 and GP1;
- * only GP1 is a UART RX pin, and SETTINGS may put the ESC wire on it.
+ * only GP1 is a UART RX pin, and SETUP may put the ESC wire on it.
  *
  * A state machine samples whichever pin it is told to, so the KISS pin need
  * not be a UART RX pin: any free GPIO that is not the ESC pin will do.
@@ -51,7 +51,7 @@ bool pioUartRxBegin(uint8_t pin, uint32_t baud);
  *
  * Safe to call when nothing is running. The pin is handed back as a
  * high-impedance input: whatever owns it next — the ESC signal, after a pin
- * change in SETTINGS — must not find it still driven by a PIO.
+ * change in SETUP — must not find it still driven by a PIO.
  */
 void pioUartRxEnd(void);
 

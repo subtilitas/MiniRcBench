@@ -392,7 +392,7 @@ static inline void openProgrammer(void (*enter)()) {
 }
 
 /**
- * @brief From MENU, through its ESC CONFIG row and the hub, to ESC
+ * @brief From MENU, through its ESC PROGRAM row and the hub, to ESC
  *        SETTINGS: the entry's tap opens the screen, which claims SIG on
  *        that frame.
  */

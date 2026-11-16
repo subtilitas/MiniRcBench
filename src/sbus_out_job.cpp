@@ -403,7 +403,7 @@ static void sbusOutJobStep(uint32_t nowMs, bool uiAlive) {
 
 	uint32_t nowUs = micros();
 	uart_hw_t *hw = uart_get_hw(uart0);
-	// MAX THROTTLE cannot change during a claim: SETTINGS opens only while
+	// MAX THROTTLE cannot change during a claim: SETUP opens only while
 	// the claim is Free.
 	sbusOutCoreTake(&s_core, &cmd, nowUs, uiAlive, sbusOutCeilRaw(settings()->maxThrottle));
 	uint8_t out[SBUS_FRAME_BYTES];

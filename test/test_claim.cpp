@@ -554,7 +554,7 @@ static void testHandoverSlots() {
 	checkTrue("with the EDT enable first", h->last.sendCommand &&
 	                                       h->last.command == DSHOT_CMD_EDT_ENABLE);
 
-	// A SETTINGS pin change: escTaskConfigure() disarms, then the rebuild.
+	// A SETUP pin change: escTaskConfigure() disarms, then the rebuild.
 	hsRun(h, 20);
 	h->armed = true;
 	h->throttle = 200;
@@ -1352,7 +1352,7 @@ static void testAm32Screen() {
 	checkTrue("no core1 job", core1JobRunning() == Core1Job::None);
 	resumes = fakeParkCount();
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from AM32 returns to ESC CONFIG, its opener",
+	checkTrue("BACK from AM32 returns to ESC PROGRAM, its opener",
 	          uiCurrentScreen() == UiScreenId::EscConfig);
 	checkTrue("BACK parks the pins, no unplug page, no DShot",
 	          !fakePinReturned() && !pinClaimUnplugDue());
@@ -1366,7 +1366,7 @@ static void testAm32Screen() {
 	// Out to the tester and into AM32 again, with no claim call from the test
 	// in between: only the screens' own calls see Parking end.
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from ESC CONFIG returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK from ESC PROGRAM returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	openTester();
 	checkTrue("MENU's row ESC TESTER returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
 	tapId(UI_FIX(TesterCtl::Menu));
@@ -1377,7 +1377,7 @@ static void testAm32Screen() {
 	checkTrue("AM32 opened again takes the pin again",
 	          !fakePinReturned() && escTaskSuspended());
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the second AM32 returns to ESC CONFIG",
+	checkTrue("BACK from the second AM32 returns to ESC PROGRAM",
 	          uiCurrentScreen() == UiScreenId::EscConfig);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
@@ -1414,21 +1414,21 @@ static void testAm32Screen() {
 	checkTrue("and takes the pin on the first frame more than 250 ms after it",
 	          pinClaimState() == ClaimState::Held && waited > 250 && waited <= 275);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the drained AM32 returns to ESC CONFIG",
+	checkTrue("BACK from the drained AM32 returns to ESC PROGRAM",
 	          uiCurrentScreen() == UiScreenId::EscConfig);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 
-	// Another claim holds. ESC CONFIG refuses AM32 while the claim is not
+	// Another claim holds. ESC PROGRAM refuses AM32 while the claim is not
 	// Free: the entry is drawn disabled, does not act, and a tap opens
 	// nothing. Once the claim is Free, the entry opens AM32, which claims at
 	// once.
 	checkTrue("a SERVO claim holds",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 	frames(1);
-	checkControlTable("ESC CONFIG, the pins busy");
+	checkControlTable("ESC PROGRAM, the pins busy");
 	const UiControlId entry = UI_FIX(EscCfgCtl::Settings);
-	checkTrue("ESC CONFIG: ESC SETTINGS drawn disabled, the strip's busy caption", busyShown(entry));
+	checkTrue("ESC PROGRAM: ESC SETTINGS drawn disabled, the strip's busy caption", busyShown(entry));
 	checkTrue("and its entry does not act", !ctlEnabled(entry));
 	tapId(entry, IdExpect::Disabled);
 	frames(1);
@@ -1441,7 +1441,7 @@ static void testAm32Screen() {
 	checkTrue("AM32 opens, and claims on the tap",
 	          uiCurrentScreen() == UiScreenId::Am32 && pinClaimHolder() == PinUser::Am32);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK from the last AM32 returns to ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+	checkTrue("BACK from the last AM32 returns to ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 	frames(1);
 	checkTrue("free", pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));
@@ -1898,7 +1898,7 @@ static void testTeardownError() {
 	backToRun();
 }
 
-/** @brief Configures a new SIG, once: a SETTINGS change landing mid-bind. */
+/** @brief Configures a new SIG, once: a SETUP change landing mid-bind. */
 static void configureNewSig() { escTaskConfigure(NEW_GPIO, 600, true, AUX_GPIO); }
 
 /** @brief The GPIO hook form of configureNewSig(): once, on the first write. */

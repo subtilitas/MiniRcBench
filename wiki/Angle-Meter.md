@@ -24,7 +24,7 @@ treat a reading as a comparison of two settings, not as an exact angle.
 |---|---|
 | Strip | The board edge that lies along the axis, `LONG EDGE` or `SHORT EDGE`, and that axis's tilt from the horizontal in whole degrees, amber from 45°. The chip: `SETTLED` (green), `MOVING` (a frame with a dim label, no fill), `TOO STEEP`, `STARTING` or `NO IMU` (amber) |
 | Angle | The angle in tenths of a degree, from the zero, or from level before a zero; the line under it reads `FROM ZERO` or `NOT ZEROED: FROM LEVEL`. `---` while the meter starts, when no reading has come for 300 ms, and while the axis is tilted 70° or more |
-| Travel | With LENGTH set in SETUP, how far the trailing edge has moved, and `L 40 MM, HINGE TO TRAILING EDGE`. Without it, `SET LENGTH IN SETUP FOR MM` |
+| Travel | With LENGTH set in ANGLE SET, how far the trailing edge has moved, and `L 40 MM, HINGE TO TRAILING EDGE`. Without it, `SET LENGTH IN ANGLE SET FOR MM` |
 | MAX | The largest settled angle each side since ZERO or RESET MAX, the negative side first, `--` for a side with none; under it their travel |
 | Temperature | The temperature of the board's sensor, and after a zero its change since then, amber from 2.0 °C |
 
@@ -38,7 +38,7 @@ readings only while it shows.
   `NOT SETTLED IN 10 S: NO ZERO`, and the old zero stays. ZERO clears MAX.
   It is drawn as an outline while the sensor does not answer.
 - **RESET MAX** clears MAX.
-- **SETUP** opens SETUP.
+- **ANGLE SET** opens ANGLE SET.
 - **BACK** turns the sensor off and returns to SERVO. The zero and MAX are
   gone then: the next visit starts from level, since the model may have
   moved in between.
@@ -50,9 +50,9 @@ zero holds only while both stay where they were.
 
 ---
 
-## SETUP
+## ANGLE SET
 
-<img src="img/angle-setup.png" width="240" alt="ANGLE SETUP: ALONG AXIS LONG, LENGTH 40, SIGN INVERT, CALIBRATION FLIP with NOT CALIBRATED">
+<img src="img/angle-setup.png" width="240" alt="ANGLE SET: ALONG AXIS LONG, LENGTH 40, SIGN INVERT, CALIBRATION FLIP with NOT CALIBRATED">
 
 | Row | Values | What it does |
 |---|---|---|
@@ -63,11 +63,11 @@ zero holds only while both stay where they were.
 
 A change applies at once. `BACK` returns to the main view and saves the
 setup to the board when it differs from what the board has saved. If that
-save fails, the main view reads `SETUP NOT SAVED TO FLASH.`, also on later
-visits, and the values stay in use until the board restarts. `BACK` on SETUP
+save fails, the main view reads `ANGLE SET NOT SAVED TO FLASH.`, also on later
+visits, and the values stay in use until the board restarts. `BACK` on ANGLE SET
 tries the save again, with or without a change, and `HOLD TO SAVE` on
-SETTINGS stores them too. The setup and the calibration are kept across a
-restart. `HOLD DEFAULTS` on SETTINGS keeps them, since SETTINGS does not
+SETUP stores them too. The setup and the calibration are kept across a
+restart. `HOLD DEFAULTS` on SETUP keeps them, since SETUP does not
 show them.
 
 ### Which edge along the axis
@@ -149,7 +149,7 @@ steady surface, level or not.
 The page then shows the offset of each of the sensor's three axes in mg and
 the gain of the axis through the screen. Hold `HOLD TO KEEP` for 1 s to use
 and save it: `KEPT AND SAVED.`. A new calibration drops the zero and MAX.
-`AGAIN` starts over; `BACK` returns to SETUP without keeping it. A result
+`AGAIN` starts over; `BACK` returns to ANGLE SET without keeping it. A result
 with an offset beyond 0.2 g or a gain outside 0.88 to 1.12 is not offered:
 `THE POSES GAVE NO CALIBRATION`. How well the flip works on the fitted
 sensor, and whether these limits suit it, is not measured.

@@ -3,7 +3,7 @@
  * @brief The restart reason's decoding, its capture through the SDK fakes,
  *        and the uptime's text. @see diag.h
  *
- * The screen side, the DIAGNOSTICS rows on SETTINGS, is in test_menu.cpp.
+ * The screen side, the DIAGNOSTICS rows on SETUP, is in test_menu.cpp.
  */
 
 #include "check.h"

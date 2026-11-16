@@ -39,7 +39,7 @@
  * then it closes. The servo stays in programming mode until its supply is
  * off; whether it follows PWM before that is not measured.
  *
- * **Switched supply** (servo_supply.h, SETTINGS > SERVO SUPPLY at GP28 or
+ * **Switched supply** (servo_supply.h, SETUP > SERVO SUPPLY at GP28 or
  * GP29). The bind takes the enable pin low and the release makes it an
  * input again; between them:
  *

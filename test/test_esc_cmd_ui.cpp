@@ -1,6 +1,6 @@
 /**
  * @file test_esc_cmd_ui.cpp
- * @brief ESC COMMANDS through the real UI: its entry of ESC CONFIG, its layout and
+ * @brief ESC COMMANDS through the real UI: its entry of ESC PROGRAM, its layout and
  *        texts, every control and refusal, the holds at 999 and 1000 ms,
  *        BACK while a request waits, and the tester's 3D note.
  *
@@ -73,7 +73,7 @@ static void freshEc() {
 	ecFrames(2);
 }
 
-/** @brief MENU, ESC CONFIG, the hub, then its entry ESC COMMANDS. */
+/** @brief MENU, ESC PROGRAM, the hub, then its entry ESC COMMANDS. */
 static void openEc() {
 	tapId(UI_FIX(TesterCtl::Menu));
 	tapId(toolEntry(&UI_ESC_CMD));
@@ -134,14 +134,14 @@ static bool drawnLive(EscCmdCtl c, bool live) {
 }
 
 static void testRowAndOpen() {
-	section("ESC COMMANDS: ESC CONFIG's first entry, open only while the claim is Free");
+	section("ESC COMMANDS: ESC PROGRAM's first entry, open only while the claim is Free");
 	freshEc();
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
 	fakeRelease(); ecFrames(2);
 	checkTrue("armed on the tester", uiArmed() && fakeArmed());
 	openEc();
-	checkTrue("ESC CONFIG's first entry opens ESC COMMANDS, over the hub",
+	checkTrue("ESC PROGRAM's first entry opens ESC COMMANDS, over the hub",
 	          navIsTool(UiScreenId::EscConfig, UiScreenId::EscCmd) &&
 	          UI_ESC_CFG_ENTRIES[0].screen == &UI_ESC_CMD && uiMenuRowOf(&UI_ESC_CMD) == -1);
 	checkTrue("disarmed on the way in, the throttle 0",
@@ -152,7 +152,7 @@ static void testRowAndOpen() {
 	          !UI_ESC_CMD.status);
 	checkControlTable("ESC COMMANDS");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK returns to ESC CONFIG, the hub that opened it", navIsHub(UiScreenId::EscConfig));
+	checkTrue("BACK returns to ESC PROGRAM, the hub that opened it", navIsHub(UiScreenId::EscConfig));
 
 	testerToMenu();
 	checkTrue("another claim holds the pins",
@@ -581,7 +581,7 @@ static void testBackCancels() {
 	openEc();
 	int cancels = fakeCommandCancels();
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK leaves to ESC CONFIG and cancels", uiCurrentScreen() == UiScreenId::EscConfig &&
+	checkTrue("BACK leaves to ESC PROGRAM and cancels", uiCurrentScreen() == UiScreenId::EscConfig &&
 	          fakeCommandCancels() == cancels + 1);
 	tapId(toolEntry(&UI_ESC_CMD));
 	tapId(UI_FIX(EscCmdCtl::Beep2));

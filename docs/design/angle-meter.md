@@ -598,7 +598,7 @@ every 1000 ms; or `NOT A QMI8658: ID 0X00.` (23, 137 px) with the ID read.
 ### SETUP
 
 Revised by [menu-c.md](menu-c.md#decisions) decision 17, pending the owner's
-review: the view reads ANGLE SET and its button SET. Not built.
+review: the view reads ANGLE SET and its button SET. Built (slice 5).
 
 Header `ANGLE SETUP`, 11 characters, 130 px. Rows as SETTINGS draws them
 (`src/ui_settings.cpp`): 44 px rows at a 50 px pitch; toggles 94 px wide

@@ -1,6 +1,6 @@
 /**
  * @file ui_angle.h
- * @brief ANGLE METER: the main view, SETUP and FLIP CAL, on the angle model
+ * @brief ANGLE METER: the main view, ANGLE SET and FLIP CAL, on the angle model
  *        (angle_model.h) and the QMI8658 driver (qmi8658.h).
  *
  * Entry: MENU → SERVO → ANGLE METER, the second entry of the hub SERVO
@@ -12,7 +12,7 @@
  * qmi8658Stop(), which writes CTRL7 00h, and returns to SERVO; the next visit
  * starts unzeroed (docs/design/angle-meter.md, decision 4).
  *
- * The meter is open while any of its three views shows: SETUP and FLIP CAL
+ * The meter is open while any of its three views shows: ANGLE SET and FLIP CAL
  * are its own pages, and going to them and back neither stops the driver nor
  * drops the zero and MAX, unless ALONG AXIS or the calibration changes.
  *
@@ -25,8 +25,8 @@
  *   the travel in mm while LENGTH is set, MAX each side with its travel, and
  *   the IMU's temperature with its change since the zero. ZERO arms on its
  *   tap and takes the zero from a settled reading after the lift; RESET MAX
- *   clears MAX; SETUP opens SETUP.
- * - **SETUP.** ALONG AXIS, LENGTH, SIGN and CALIBRATION, drawn as SETTINGS
+ *   clears MAX; SET opens ANGLE SET.
+ * - **ANGLE SET.** ALONG AXIS, LENGTH, SIGN and CALIBRATION, drawn as SETUP
  *   draws its rows. A row applies at once; BACK returns to the main view and
  *   saves the four fields while they differ from flash (settingsAngleDirty(),
  *   settingsSaveAngle()), so a save that failed is tried again; the main
@@ -34,7 +34,7 @@
  * - **FLIP CAL.** The three poses of the flip, each step's lines and the live
  *   angle. Touches are ignored while the board lies screen down. With a
  *   result, the 1 s HOLD TO KEEP applies the calibration and saves it; AGAIN
- *   starts over; BACK returns to SETUP without keeping it.
+ *   starts over; BACK returns to ANGLE SET without keeping it.
  *
  * No save is made while the ESC is armed; the meter opens through MENU, which
  * disarms. Nothing on the screen states an accuracy: none is measured
@@ -52,8 +52,8 @@ struct TouchState;
 
 /** @brief The main view's title, and SERVO's entry: 11 characters, 130 px at scale 2. */
 #define UI_ANGLE_TITLE       "ANGLE METER"
-/** @brief SETUP's title: 11 characters, 130 px. */
-#define UI_ANGLE_SETUP_TITLE "ANGLE SETUP"
+/** @brief ANGLE SET's title: 9 characters, 106 px. */
+#define UI_ANGLE_SETUP_TITLE "ANGLE SET"
 /** @brief FLIP CAL's title: 8 characters, 94 px. */
 #define UI_ANGLE_FLIP_TITLE  "FLIP CAL"
 
@@ -65,12 +65,12 @@ struct TouchState;
 #define UI_ANGLE_FROM_ZERO    "FROM ZERO"                       /**< Under the angle once zeroed. */
 #define UI_ANGLE_STEEP_LINE   "TURN THE AXIS NEARER LEVEL."     /**< Under the `---` while too steep, `UI_COL_WARN`. */
 #define UI_ANGLE_LEN_FMT      "L %u MM, HINGE TO TRAILING EDGE" /**< LENGTH set. */
-#define UI_ANGLE_LEN_OFF      "SET LENGTH IN SETUP FOR MM"      /**< LENGTH `OFF`. */
+#define UI_ANGLE_LEN_OFF      "SET LENGTH IN ANGLE SET FOR MM"  /**< LENGTH `OFF`. */
 #define UI_ANGLE_NO_ANSWER    "NO ANSWER FROM THE IMU AT 0X6B." /**< No part answering, or offline. */
 #define UI_ANGLE_WRONG_FMT    "NOT A QMI8658: ID 0X%02X."       /**< Another part at 0x6B, its WHO_AM_I. */
 #define UI_ANGLE_HINT_ARMED   "ZERO WHEN SETTLED: HOLD STILL"   /**< ZERO armed. */
 #define UI_ANGLE_HINT_TIMEOUT "NOT SETTLED IN 10 S: NO ZERO"    /**< ZERO timed out; the old zero stays. */
-#define UI_ANGLE_HINT_UNSAVED "SETUP NOT SAVED TO FLASH."       /**< The meter's fields differ from flash: a save failed; the values stay live. */
+#define UI_ANGLE_HINT_UNSAVED "ANGLE SET NOT SAVED TO FLASH."   /**< The meter's fields differ from flash: a save failed; the values stay live. */
 #define UI_ANGLE_CAL_YES      "CALIBRATED"                      /**< CALIBRATION's caption with a calibration. */
 #define UI_ANGLE_CAL_NO       "NOT CALIBRATED"                  /**< And without. */
 #define UI_ANGLE_KEPT         "KEPT AND SAVED."                 /**< FLIP CAL after HOLD TO KEEP. */
@@ -81,20 +81,20 @@ struct TouchState;
 enum class AngleCtl : uint8_t {
 	Zero = 1,  /**< Main view: ZERO, live while the IMU is online. */
 	ResetMax,  /**< Main view: RESET MAX. */
-	Setup,     /**< Main view: SETUP. */
-	Along,     /**< SETUP: ALONG AXIS, `LONG` or `SHORT`. */
-	LenMinus,  /**< SETUP: LENGTH's `-`, to `OFF` below 10 mm. */
-	LenPlus,   /**< SETUP: LENGTH's `+`, to 500 mm. */
-	Sign,      /**< SETUP: SIGN, `NORMAL` or `INVERT`. */
-	Flip,      /**< SETUP: CALIBRATION's `FLIP`, opens FLIP CAL. */
+	Setup,     /**< Main view: ANGLE SET. */
+	Along,     /**< ANGLE SET: ALONG AXIS, `LONG` or `SHORT`. */
+	LenMinus,  /**< ANGLE SET: LENGTH's `-`, to `OFF` below 10 mm. */
+	LenPlus,   /**< ANGLE SET: LENGTH's `+`, to 500 mm. */
+	Sign,      /**< ANGLE SET: SIGN, `NORMAL` or `INVERT`. */
+	Flip,      /**< ANGLE SET: CALIBRATION's `FLIP`, opens FLIP CAL. */
 	Keep,      /**< FLIP CAL: HOLD TO KEEP, live with a result not yet kept. */
 	Again,     /**< FLIP CAL: AGAIN, the flip from step 1. */
 };
 
 /** @brief Which view shows. */
 enum class AngleView : uint8_t {
-	Main,   /**< The reading, ZERO, RESET MAX, SETUP. */
-	Setup,  /**< ANGLE SETUP. */
+	Main,   /**< The reading, ZERO, RESET MAX, SET. */
+	Setup,  /**< ANGLE SET. */
 	Flip,   /**< FLIP CAL. */
 };
 

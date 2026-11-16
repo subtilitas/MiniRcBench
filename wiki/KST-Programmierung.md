@@ -24,7 +24,7 @@ Digital).
 > die Platine mit einem Servo am ESC-Pin **startet**, und wenn du diesen
 > Bildschirm verlässt. Der Bildschirm fordert dich vorher zum Abziehen auf.
 
-Mit **SETTINGS → SERVO SUPPLY** auf `OWN`, der Voreinstellung, schaltest du
+Mit **SETUP → SERVO SUPPLY** auf `OWN`, der Voreinstellung, schaltest du
 das Servo von Hand ein und aus, mit einem Stecker oder einem Schalter. Mit
 `GP28` oder `GP29` schaltet der Prüfstand die Versorgung des Servos über einen
 DC-DC-Wandler (Gleichspannungswandler): siehe
@@ -64,7 +64,7 @@ siehe [Geschaltete Versorgung](#geschaltete-versorgung).
 - Schalte zuerst die Platine ein und dann die Servoversorgung, und beim
   Ausschalten zuerst die Servoversorgung.
 - Verbinde die beiden Massen einmal, an der Platine.
-- SIG ist der ESC-Pin, so wie unter **MENU → SETTINGS → SIG PIN**
+- SIG ist der ESC-Pin, so wie unter **MENU → SETUP → SIG PIN**
   eingestellt, mit seinem J5-Pin unter dem Wert. Voreingestellt ist GP0.
 - Zieh jeden ESC vom ESC-Pin ab. Der Bildschirm wartet, solange ein ESC
   darauf antwortet, erkennt aber nicht jeden ESC.
@@ -536,7 +536,7 @@ bewirkt beim Loslassen nichts.
 
 ## Geschaltete Versorgung
 
-Mit **SETTINGS → SERVO SUPPLY** auf `GP28` oder `GP29` schaltet das Gerät das Servo
+Mit **SETUP → SERVO SUPPLY** auf `GP28` oder `GP29` schaltet das Gerät das Servo
 selbst, über einen DC-DC-Wandler, dessen Enable-Eingang an GP28, J4 Pin 11,
 oder GP29, J4 Pin 12,
 liegt. Der Wandler liefert 5 V, mehr als 1 A, und hat einen externen
@@ -566,7 +566,7 @@ BEC-Leitung.**
   eine laufende Operation geendet hat. Das Servo verlässt den
   Programmiermodus, und seine Sicherung im Speicher geht verloren. RETRY
   schaltet es ein und liest es erneut.
-- **Die Abschaltungen des Stromsensors**, mit SETTINGS → CURRENT SENSE auf
+- **Die Abschaltungen des Stromsensors**, mit SETUP → CURRENT SENSE auf
   `INA219` und antwortendem Sensor: Solange die Versorgung an ist, schalten ein
   Messwert von 3,0 A oder mehr oder Messwerte unter 4,0 V für 1 s, nachdem die
   Versorgung hochkam, sie sofort ab, auch während eines Lesens oder Schreibens.

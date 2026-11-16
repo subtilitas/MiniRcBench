@@ -1,6 +1,6 @@
 /**
  * @file ui_angle.cpp
- * @brief ANGLE METER, its SETUP and its FLIP CAL. @see ui_angle.h
+ * @brief ANGLE METER, its ANGLE SET and its FLIP CAL. @see ui_angle.h
  *
  * Each view is a set of regions. A region's key hashes everything it draws;
  * a frame repaints a region only when its key changed, so a new angle
@@ -46,7 +46,7 @@ static constexpr int textW(int chars, int scale) { return chars > 0 ? (6 * chars
 #define MAX_CAP_Y   170  /**< MAX's caption, scale 1, beside them. */
 #define MAXMM_Y     186  /**< MAX's travel. */
 #define TEMP_Y      204  /**< The IMU's temperature. */
-#define HINT_Y      252  /**< ZERO's hint, or SETUP's failed save. */
+#define HINT_Y      252  /**< ZERO's hint, or ANGLE SET's failed save. */
 #define BTN_W       72   /**< Each footer button. */
 #define ZERO_X      UI_EDGE
 #define RMAX_X      84
@@ -70,7 +70,7 @@ static_assert(BTN_W >= UI_LIST_TAP_MIN && UI_FOOT_H >= UI_LIST_TAP_MIN, "a foote
 
 // --- the main view's texts, widest first ---
 static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_TITLE), 2) + 4 <= UI_BACK_X, "the title runs into BACK");
-static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_SETUP_TITLE), 2) + 4 <= UI_BACK_X, "SETUP's title runs into BACK");
+static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_SETUP_TITLE), 2) + 4 <= UI_BACK_X, "ANGLE SET's title runs into BACK");
 static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_FLIP_TITLE), 2) + 4 <= UI_BACK_X, "FLIP CAL's title runs into BACK");
 /** @brief The strip's widest caption: `SHORT EDGE  AXIS TILT 90°`, 25 characters, 149 px. */
 #define STRIP_WIDEST "SHORT EDGE  AXIS TILT 90`"
@@ -97,14 +97,14 @@ static_assert(UI_MARGIN + textW(LEN(UI_ANGLE_HINT_ARMED), 1) <= ANG_R &&
               UI_MARGIN + textW(LEN(UI_ANGLE_HINT_TIMEOUT), 1) <= ANG_R &&
               UI_MARGIN + textW(LEN(UI_ANGLE_HINT_UNSAVED), 1) <= ANG_R, "a hint runs off the panel");
 static_assert(textW(LEN("ZERO"), 2) + 8 <= BTN_W && textW(LEN("RESET MAX"), 1) + 8 <= BTN_W &&
-              textW(LEN("SETUP"), 2) + 8 <= BTN_W, "a footer label does not fit its button");
+              textW(LEN("SET"), 2) + 8 <= BTN_W, "a footer label does not fit its button");
 
 /**
- * @defgroup ui_angle_setup_layout SETUP's layout: SETTINGS' rows
+ * @defgroup ui_angle_setup_layout ANGLE SET's layout: SETUP's rows
  *           (ui_settings.cpp)
  * @{
  */
-#define ROW_Y0       UI_STRIP_Y  /**< The first row, y 40: SETUP has no strip. */
+#define ROW_Y0       UI_STRIP_Y  /**< The first row, y 40: ANGLE SET has no strip. */
 #define ROW_H        44
 #define ROW_PITCH    50
 #define VAL_R        132  /**< LENGTH's value ends here. */
@@ -119,11 +119,11 @@ static_assert(textW(LEN("ZERO"), 2) + 8 <= BTN_W && textW(LEN("RESET MAX"), 1) +
 #define ROWS         4    /**< ALONG AXIS, LENGTH, SIGN, CALIBRATION. */
 /** @} */
 
-static_assert(ROW_Y0 + (ROWS - 1) * ROW_PITCH + ROW_H <= UI_FOOT_Y, "SETUP's rows run off the view");
+static_assert(ROW_Y0 + (ROWS - 1) * ROW_PITCH + ROW_H <= UI_FOOT_Y, "ANGLE SET's rows run off the view");
 static_assert(BTN_M_X + ROW_BTN_W < BTN_P_X && BTN_P_X + ROW_BTN_W <= GFX_W - 4 &&
-              BTN_M_X + TOGGLE_W <= GFX_W - 4, "SETUP's buttons overlap or leave the panel");
+              BTN_M_X + TOGGLE_W <= GFX_W - 4, "ANGLE SET's buttons overlap or leave the panel");
 static_assert(ROW_H >= UI_LIST_TAP_MIN && ROW_BTN_W >= UI_LIST_TAP_MIN && TOGGLE_W >= UI_LIST_TAP_MIN,
-              "a SETUP control is below the floor");
+              "an ANGLE SET control is below the floor");
 static_assert(UI_MARGIN + textW(LEN("CALIBRATION"), 1) + 4 <= BTN_M_X &&
               UI_MARGIN + textW(LEN("ALONG AXIS"), 1) + 4 <= BTN_M_X &&
               UI_MARGIN + textW(LEN("SIGN"), 1) + 4 <= BTN_M_X, "a toggle's label runs into it");
@@ -445,7 +445,7 @@ static void mainFrame() {
 			gfxRect(0, UI_FOOT_Y, GFX_W, UI_FOOT_H, C_BG);
 			uiButton(BTN_ZERO, "ZERO", C_PANEL, C_TEXT, 2, uiPressing(BTN_ZERO, s_t), zeroLive);
 			uiButton(BTN_RMAX, "RESET MAX", C_PANEL, C_TEXT, 1, uiPressing(BTN_RMAX, s_t));
-			uiButton(BTN_SETUP, "SETUP", C_PANEL, C_TEXT, 2, uiPressing(BTN_SETUP, s_t));
+			uiButton(BTN_SETUP, "SET", C_PANEL, C_TEXT, 2, uiPressing(BTN_SETUP, s_t));
 		}
 	}
 }
@@ -453,7 +453,7 @@ static void mainFrame() {
 /** @brief The main view's taps. @return false once BACK has left. */
 static bool mainTouch(uint32_t now) {
 	if (uiBackTapped(s_t)) {
-		// The meter's only exit: SETUP's and FLIP CAL's BACK stay in it.
+		// The meter's only exit: ANGLE SET's and FLIP CAL's BACK stay in it.
 		qmi8658Stop();
 		return false;
 	}
@@ -472,10 +472,10 @@ static bool mainTouch(uint32_t now) {
 }
 
 // ---------------------------------------------------------------------------
-// SETUP
+// ANGLE SET
 // ---------------------------------------------------------------------------
 
-/** @brief SETUP's row @p i, its top. */
+/** @brief ANGLE SET's row @p i, its top. */
 static int rowY(int i) { return ROW_Y0 + i * ROW_PITCH; }
 
 static UiRect toggleRect(int i) { return UiRect{ BTN_M_X, (int16_t)rowY(i), TOGGLE_W, ROW_H }; }
@@ -528,7 +528,7 @@ static void setupFrame() {
 		drawToggleRow(3, "CALIBRATION", cal ? UI_ANGLE_CAL_YES : UI_ANGLE_CAL_NO, "FLIP");
 }
 
-/** @brief SETUP's taps and steps. */
+/** @brief ANGLE SET's taps and steps. */
 static void setupTouch(uint32_t now) {
 	Settings *st = settings();
 	if (uiBackTapped(s_t)) {
@@ -646,7 +646,7 @@ static void flipFrame(uint32_t now) {
 	if (regionDue(5, k)) {
 		gfxRect(0, UI_FOOT_Y, GFX_W, UI_FOOT_H, C_BG);
 		uiHoldDrawBar(&s_keepHold, BTN_KEEP, UI_FOOT_Y - 4, now);
-		// Every hold fills C_RED with C_ONACCENT text while held, as SETTINGS'.
+		// Every hold fills C_RED with C_ONACCENT text while held, as SETUP's.
 		uiButton(BTN_KEEP, "HOLD TO KEEP", holding ? C_RED : C_PANEL, holding ? C_ONACCENT : C_TEXT, 2,
 		         holding, live);
 		uiButton(BTN_AGAIN, "AGAIN", C_PANEL, C_TEXT, 2, uiPressing(BTN_AGAIN, s_t), !down);

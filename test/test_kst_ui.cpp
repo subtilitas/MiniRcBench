@@ -1409,7 +1409,7 @@ static void testFlushWait() {
 	{
 		SdLogStatus ended;
 		sdLogStatus(&ended);
-		checkTrue("SD LOG learns KST SERVO stopped it", ended.end == SdLogEnd::ByKst);
+		checkTrue("LOGS learns KST SERVO stopped it", ended.end == SdLogEnd::ByKst);
 	}
 	sim_t *sim = fakeKstSim();
 	selectField(KST_F_DEAD_BAND);
@@ -1675,8 +1675,8 @@ static void testSwitchedTimeout() {
 	checkTrue("the converter on GP28",
 	          lineIs(80, "CHECK THE CONVERTER ON GP28, ITS", C_TEXT));
 	checkTrue("and a servo on its own supply: SERVO SUPPLY AT OWN",
-	          lineIs(112, "A SERVO ON ITS OWN SUPPLY NEEDS", C_TEXT) &&
-	          lineIs(126, "SETTINGS > SERVO SUPPLY AT OWN.", C_TEXT));
+	          lineIs(112, "A SERVO ON ITS OWN SUPPLY NEEDS SETUP", C_TEXT) &&
+	          lineIs(126, "> SERVO SUPPLY AT OWN.", C_TEXT));
 	leaveAll();
 	settings()->servoSupply = 0;
 	servoSupplyConfigure(0);

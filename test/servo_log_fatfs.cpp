@@ -747,7 +747,7 @@ static void testRun(const char *vol, BYTE fmt, DWORD au) {
 	f_mkdir("/LOGS");
 	DWORD freeBefore = freeClusters();
 
-	// A blackbox log started by hand on SD LOG, still running.
+	// A blackbox log started by hand on LOGS, still running.
 	checkTrue("a blackbox log runs", sdLogStart() && sdLogActive());
 	runFor(100);
 	unsigned seqBefore = g_smp.seq;

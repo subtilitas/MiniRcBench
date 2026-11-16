@@ -34,7 +34,7 @@
  * an operation before the search is not taken. A step is called at least once
  * per transaction: a transaction takes 2.87 ms or more.
  *
- * **Switched supply.** A search begun with @p switched true (SETTINGS > SERVO
+ * **Switched supply.** A search begun with @p switched true (SETUP > SERVO
  * SUPPLY at GP28 or GP29) powers the servo up itself. One attempt:
  *
  * 1. Supply off, for @ref KST_SUPPLY_OFF_MS from the switch-off command.

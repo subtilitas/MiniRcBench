@@ -74,7 +74,7 @@ ohne sie zu stellen, und `--help` nennt die Optionen.
 Die Uhr übernimmt die Ortszeit des Computers: keine Zeitzone und keine
 Sommerzeit. Nach einer Umstellung auf oder von Sommerzeit neu stellen.
 
-SETTINGS → BOARD → `CLOCK` zeigt die Zeit auf die Minute, oder grau
+SETUP → BOARD → `CLOCK` zeigt die Zeit auf die Minute, oder grau
 `NOT SET`; die Zeile darunter lautet `SET AT EACH POWER-UP` (bei jedem
 Einschalten stellen). Bis zum Stellen tragen Dateien das FAT-Datum 0, und
 eine Zusammenfassung lautet `Clock at start: not set`. Stellen während
@@ -107,19 +107,19 @@ Der Tester-Bildschirm zeigt den Zustand in der oberen Zeile: `REC` (rot)
 während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 `NOSD` ohne Karte. `SDERR` steht auf einem bernsteinfarbenen Feld zwischen der
 Scharf-Anzeige und `BOARD`, damit eine Aufzeichnung, die von selbst endete,
-auch im scharfen Zustand auffällt. SD LOG sagt, was geschah.
+auch im scharfen Zustand auffällt. LOGS sagt, was geschah.
 
 Eine Aufzeichnung endet auch, wenn KST SERVO, HITEC SERVO oder ESC SETTINGS
-öffnet: Das Werkzeug braucht die Karte für seine Sicherung. SD LOG zeigt dann
+öffnet: Das Werkzeug braucht die Karte für seine Sicherung. LOGS zeigt dann
 `RECORDING STOPPED BY KST SERVO` (oder `HITEC SERVO`, `ESC SETTINGS`). Nach dem
 Werkzeug startet `START` eine neue Aufzeichnung. Auch der Servotester beendet
 sie, bei `HOLD TO START` mit eingebautem Stromsensor, um seine eigene
 Aufzeichnung `LOGS/SRVnnnnn.CSV` zu schreiben
-([Servotester](Servotester#die-aufzeichnung-auf-der-karte)); SD LOG zeigt dann
+([Servotester](Servotester#die-aufzeichnung-auf-der-karte)); LOGS zeigt dann
 `RECORDING STOPPED BY SERVO TESTER`.
 
 **Beende die Aufzeichnung, bevor du die Versorgung der Platine trennst oder die
-Karte ziehst:** entschärfen oder `STOP` auf SD LOG drücken und warten, bis die
+Karte ziehst:** entschärfen oder `STOP` auf LOGS drücken und warten, bis die
 obere Zeile `SD` zeigt. Das Beenden schreibt das Ende der Aufzeichnung, gibt
 den ungenutzten Platz zurück, schließt die Datei und schreibt die
 Zusammenfassung des Laufs daneben. Eine Aufzeichnung, die ein Stromausfall oder
@@ -154,7 +154,7 @@ derselben Nummer: `LOG00012.TXT` neben `LOG00012.BFL`. Jeder Texteditor
 öffnet sie. Das Beenden schreibt sie, sobald die Aufzeichnung geschlossen
 ist: `STOP`, das Entschärfen, das eine durch Scharfschalten begonnene
 Aufzeichnung beendet, und ein Werkzeug, das die Karte nimmt. Eine
-Aufzeichnung, die ein Kartenfehler beendete, bekommt keine. SD LOG zeigt die
+Aufzeichnung, die ein Kartenfehler beendete, bekommt keine. LOGS zeigt die
 Zusammenfassung nach dem Beenden (siehe [Der letzte Lauf](#der-letzte-lauf)).
 
 Sie enthält einen Wert je Zeile:
@@ -170,7 +170,7 @@ Sie enthält einen Wert je Zeile:
 | `Min voltage` | Die niedrigste Spannung im scharfen Zustand, aus denselben Quellen; ein Wert von 0,00 V zählt nicht |
 | `Used, ESC counter` | Um wie viel der KISS-Zähler der Milliamperestunden (mAh) während der Aufzeichnung stieg |
 | `Used, from current` | Der Strom über die Zeit aufsummiert, mit der Zeit, in der er bekannt war |
-| `Frames` bis `Worst flush` | Die Zähler, die SD LOG während der Aufzeichnung zeigt |
+| `Frames` bis `Worst flush` | Die Zähler, die LOGS während der Aufzeichnung zeigt |
 
 Ein Maximum oder Minimum zählt einen Wert erst, wenn drei neue Messwerte in
 Folge ihn erreichen, damit eine einzelne beschädigte Antwort keinen setzt.
@@ -210,9 +210,9 @@ wird ersetzt.
 Lässt sich die Zusammenfassung nicht schreiben, weil die Karte voll ist
 oder ein Schreibvorgang fehlschlug, bleibt die Aufzeichnung vollständig auf
 der Karte, und `STATUS` bleibt `READY`. Es bleibt keine `.TXT` zurück, oder,
-nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. SD LOG
+nach einem Schreibvorgang, der ganz am Ende fehlschlug, eine leere. LOGS
 zeigt dann `NOT SAVED` in der Zeile `SUMMARY`. Die Zusammenfassung und ihre
-Zeilen auf SD LOG sind mit den Host-Tests der Firmware geprüft, die Datei
+Zeilen auf LOGS sind mit den Host-Tests der Firmware geprüft, die Datei
 über der FatFs-Bibliothek auf einer simulierten Karte; an einer Karte und
 auf der Platine sind sie nicht getestet.
 
@@ -220,7 +220,7 @@ auf der Platine sind sie nicht getestet.
 
 ## Den Bildschirm lesen
 
-Öffnen über **MENU → SD LOG**, die fünfte Zeile. Die Zeile zeigt denselben
+Öffnen über **MENU → LOGS**, die fünfte Zeile. Die Zeile zeigt denselben
 Zustand: `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, oder `USB DRIVE`,
 solange ein Computer die Karte hält.
 
@@ -252,7 +252,7 @@ tritt der Lauf der letzten Aufzeichnung an ihre Stelle.
 
 ### Der letzte Lauf
 
-<img src="img/log-last.png" width="240" alt="SD LOG nach STOP: FILE zeigt LOG00001.BFL (LAST), die Zeilen darunter den Lauf">
+<img src="img/log-last.png" width="240" alt="LOGS nach STOP: FILE zeigt LOG00001.BFL (LAST), die Zeilen darunter den Lauf">
 
 Sobald eine Aufzeichnung endet, zeigen die Zeilen unter `FILE` ihre
 Zusammenfassung, dieselben Werte wie ihre `.TXT`:
@@ -283,11 +283,11 @@ ihren Lauf bis zum Fehler, `SUMMARY` lautet `NOT SAVED`, und die Zeilen über
 `START` sagen, wie sie endete. Ein `START`, der fehlschlägt, behält den
 letzten Lauf, wie er `FILE` behält. Der Tester zeigt nichts vom Lauf: Nach
 einer Aufzeichnung, die Scharfschalten begann und Entschärfen beendete,
-SD LOG öffnen, um ihn zu sehen.
+LOGS öffnen, um ihn zu sehen.
 
 ### Wie die letzte Aufzeichnung endete
 
-<img src="img/log-card-full.png" width="240" alt="SD LOG, nachdem ein Schreibvorgang die Karte voll fand: der Lauf, NOT SAVED: CARD FULL">
+<img src="img/log-card-full.png" width="240" alt="LOGS, nachdem ein Schreibvorgang die Karte voll fand: der Lauf, NOT SAVED: CARD FULL">
 
 Endet eine Aufzeichnung von selbst, oder nimmt ein Werkzeug die Karte, sagen
 Zeilen in Bernstein über `START`, wie, und was zu tun ist. Ein Entschärfen,

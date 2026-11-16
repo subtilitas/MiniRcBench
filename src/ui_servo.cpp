@@ -175,7 +175,7 @@ static_assert(SERVO_DIAL_Y - SERVO_DIAL_ARC_R - 4 > 82,
 
 static const UiRect BTN_MINUS    = { UI_EDGE, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
 static const UiRect BTN_PLUS     = { GFX_W - SET_EDIT_W - UI_EDGE, SET_EDIT_Y, SET_EDIT_W, SET_EDIT_H };
-/** @brief The two-button footer, 6/150 and 162/72, as SETTINGS and SERVO's own. */
+/** @brief The two-button footer, 6/150 and 162/72, as SETUP and SERVO's own. */
 static const UiRect BTN_APPLY    = { UI_EDGE, SET_FOOT_Y, 150, SET_FOOT_H };
 static const UiRect BTN_DEFAULTS = { 162, SET_FOOT_Y, 72, SET_FOOT_H };
 /** @brief The SET list's viewport. */
@@ -1160,7 +1160,7 @@ static void setNote(const char **l1, const char **l2, uint16_t *col) {
 			snprintf(a, sizeof(a), "KISS WIRE ON AUX GP%u IS LIVE.", gpioOf(PIN_AUX));
 			*l1 = a; *l2 = "TWO SERVOS NEED IT UNPLUGGED.";
 		} else {
-			// Unreachable through SETTINGS, whose steppers swap SIG and
+			// Unreachable through SETUP, whose steppers swap SIG and
 			// AUX; a backstop for pins configured some other way.
 			*l1 = SERVO_UI_SAME_PIN_1; *l2 = SERVO_UI_SAME_PIN_2;
 		}

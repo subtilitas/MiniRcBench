@@ -26,7 +26,7 @@ zweier Einstellungen, nicht als genauen Winkel.
 |---|---|
 | Leiste | Die Kante der Platine, die entlang der Achse liegt, `LONG EDGE` oder `SHORT EDGE`, und die Neigung dieser Achse gegen die Waagerechte in ganzen Grad, ab 45° in Bernstein. Der Chip: `SETTLED` (grün), `MOVING` (ein Rahmen mit gedämpfter Beschriftung, ohne Füllung), `TOO STEEP`, `STARTING` oder `NO IMU` (Bernstein) |
 | Winkel | Der Winkel in Zehntelgrad, vom Nullpunkt aus, vor einem Nullpunkt von der Waagerechten; die Zeile darunter zeigt `FROM ZERO` oder `NOT ZEROED: FROM LEVEL`. `---`, solange der Winkelmesser startet, wenn 300 ms kein Messwert kam und solange die Achse um 70° oder mehr geneigt ist |
-| Weg | Mit gesetzter LENGTH in SETUP, wie weit sich die Endleiste bewegt hat, und `L 40 MM, HINGE TO TRAILING EDGE`. Ohne sie `SET LENGTH IN SETUP FOR MM` |
+| Weg | Mit gesetzter LENGTH in ANGLE SET, wie weit sich die Endleiste bewegt hat, und `L 40 MM, HINGE TO TRAILING EDGE`. Ohne sie `SET LENGTH IN ANGLE SET FOR MM` |
 | MAX | Der größte ruhige Winkel je Seite seit ZERO oder RESET MAX, die negative Seite zuerst, `--` für eine Seite ohne; darunter ihr Weg |
 | Temperatur | Die Temperatur des Sensors der Platine und nach einem Nullpunkt ihre Änderung seitdem, ab 2,0 °C in Bernstein |
 
@@ -41,7 +41,7 @@ geblieben. Lies Werte nur ab, solange es angezeigt wird.
   löscht MAX. Es ist als Umriss gezeichnet, solange der Sensor nicht
   antwortet.
 - **RESET MAX** löscht MAX.
-- **SETUP** öffnet SETUP.
+- **ANGLE SET** öffnet ANGLE SET.
 - **BACK** schaltet den Sensor ab und führt zu SERVO. Nullpunkt und MAX
   sind dann weg: Der nächste Besuch beginnt bei der Waagerechten, da sich
   das Modell inzwischen bewegt haben kann.
@@ -54,9 +54,9 @@ sie waren.
 
 ---
 
-## SETUP
+## ANGLE SET
 
-<img src="img/angle-setup.png" width="240" alt="ANGLE SETUP: ALONG AXIS LONG, LENGTH 40, SIGN INVERT, CALIBRATION FLIP mit NOT CALIBRATED">
+<img src="img/angle-setup.png" width="240" alt="ANGLE SET: ALONG AXIS LONG, LENGTH 40, SIGN INVERT, CALIBRATION FLIP mit NOT CALIBRATED">
 
 | Zeile | Werte | Was sie tut |
 |---|---|---|
@@ -68,11 +68,11 @@ sie waren.
 Eine Änderung gilt sofort. `BACK` führt zur Hauptansicht und speichert die
 Einrichtung auf der Platine, wenn sie von der gespeicherten abweicht.
 Schlägt das Speichern fehl, zeigt die Hauptansicht
-`SETUP NOT SAVED TO FLASH.`, auch bei späteren Besuchen, und die Werte
-gelten bis zum Neustart der Platine. `BACK` auf SETUP versucht das
-Speichern erneut, mit oder ohne Änderung, und `HOLD TO SAVE` in SETTINGS
+`ANGLE SET NOT SAVED TO FLASH.`, auch bei späteren Besuchen, und die Werte
+gelten bis zum Neustart der Platine. `BACK` auf ANGLE SET versucht das
+Speichern erneut, mit oder ohne Änderung, und `HOLD TO SAVE` in SETUP
 speichert sie ebenfalls. Einrichtung und Kalibrierung bleiben über einen
-Neustart erhalten. `HOLD DEFAULTS` in SETTINGS behält sie, da SETTINGS sie
+Neustart erhalten. `HOLD DEFAULTS` in SETUP behält sie, da SETUP sie
 nicht zeigt.
 
 ### Welche Kante entlang der Achse
@@ -161,7 +161,7 @@ Die Seite zeigt dann den Nullpunktfehler jeder der drei Achsen des Sensors
 in mg und die Verstärkung der Achse durch den Bildschirm. Halte
 `HOLD TO KEEP` 1 s, um sie zu übernehmen und zu speichern: `KEPT AND SAVED.`.
 Eine neue Kalibrierung verwirft Nullpunkt und MAX. `AGAIN` beginnt von
-vorn; `BACK` führt zu SETUP, ohne sie zu übernehmen. Ein Ergebnis mit einem
+vorn; `BACK` führt zu ANGLE SET, ohne sie zu übernehmen. Ein Ergebnis mit einem
 Nullpunktfehler über 0,2 g oder einer Verstärkung außerhalb 0,88 bis 1,12
 wird nicht angeboten: `THE POSES GAVE NO CALIBRATION`. Wie gut die
 Kalibrierung mit dem verbauten Sensor arbeitet und ob diese Grenzen zu ihm

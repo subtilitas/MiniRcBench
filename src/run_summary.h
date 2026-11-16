@@ -1,7 +1,7 @@
 /**
  * @file run_summary.h
  * @brief The run summary of one blackbox log: its extremes, the charge used,
- *        the armed time, the text of its `.TXT` file and SD LOG's rows.
+ *        the armed time, the text of its `.TXT` file and LOGS' rows.
  *        Pure; host-testable.
  *
  * The logger hands every frame's snapshot and merged reading to
@@ -47,7 +47,7 @@ struct EscTelemetry;
 /** @brief How a log ended, as its summary records it. */
 enum class RunSumEnd : uint8_t {
 	Running = 0,  /**< The log runs: runSumEnd() has not been called. */
-	Stop,         /**< STOP on SD LOG. */
+	Stop,         /**< STOP on LOGS. */
 	Disarm,       /**< The disarm that stops a log arming started. */
 	ByKst,        /**< KST SERVO took the card. */
 	ByHitec,      /**< HITEC SERVO took the card. */
@@ -275,7 +275,7 @@ void runSumTxtName(uint32_t n, char *out);
 size_t runSumText(const RunSum *s, const SdLogStatus *st, uint8_t poles,
                   char *out, size_t n);
 
-/** @brief SD LOG's rows 2 to 8 after a stop. */
+/** @brief LOGS' rows 2 to 8 after a stop. */
 enum class RunSumRow : uint8_t {
 	MaxRpm = 0,  /**< `MAX RPM`. */
 	MaxCurrent,  /**< `MAX CURRENT`. */
@@ -287,7 +287,7 @@ enum class RunSumRow : uint8_t {
 	Count,       /**< The number of rows. */
 };
 
-/** @brief What one of SD LOG's run rows shows. */
+/** @brief What one of LOGS' run rows shows. */
 struct RunSumRowText {
 	const char *label;  /**< The row's label. */
 	char value[24];     /**< The value, or `--` when unknown; holds the longest,
@@ -298,7 +298,7 @@ struct RunSumRowText {
 };
 
 /**
- * @brief The text of one of SD LOG's run rows. Values follow the tester's
+ * @brief The text of one of LOGS' run rows. Values follow the tester's
  *        tiles: `14.82V`, `23.41A`, `312mAh`, and a temperature with a
  *        backtick before the C, which the font draws as a degree sign; EDT
  *        current in whole amperes, `23A`.

@@ -22,7 +22,7 @@ with a backup on the SD (Secure Digital) card first.
 > **boots** with a servo on the ESC pin, and when you leave this screen. The
 > screen asks you to unplug the servo first.
 
-With **SETTINGS → SERVO SUPPLY** at `OWN`, the default, you power the servo
+With **SETUP → SERVO SUPPLY** at `OWN`, the default, you power the servo
 up and down by hand, with a plug or a switch. With `GP28` or `GP29` the bench
 switches the servo's supply through a DC-DC (direct current to direct
 current) converter: see [Switched supply](#switched-supply).
@@ -60,7 +60,7 @@ see [Switched supply](#switched-supply).
 - Switch the board on before the servo supply, and the servo supply off
   before the board.
 - Join the two grounds once, at the board.
-- SIG is the ESC pin, as set under **MENU → SETTINGS → SIG PIN**, with its
+- SIG is the ESC pin, as set under **MENU → SETUP → SIG PIN**, with its
   J5 pin under the value. GP0 is the default.
 - Unplug any ESC from the ESC pin. The screen waits while an ESC answers on
   it, but it cannot see every ESC.
@@ -495,7 +495,7 @@ page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 BACK TO SERVO.`
 
 ## Switched supply
 
-With **SETTINGS → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo itself
+With **SETUP → SERVO SUPPLY** at `GP28` or `GP29`, the bench powers the servo itself
 through a DC-DC converter whose enable input is on GP28, J4 pin 11, or
 GP29, J4 pin 12. The
 converter gives 5 V, more than 1 A, and has an external pull-down on its
@@ -522,7 +522,7 @@ this lead gets the converter's output on its BEC wire.**
 - **A screen that stalls** for 250 ms switches the supply off once a running
   operation has ended. The servo leaves programming mode and its backup in
   memory goes. RETRY powers it up and reads it again.
-- **The current sensor's cuts**, with SETTINGS → CURRENT SENSE at `INA219`
+- **The current sensor's cuts**, with SETUP → CURRENT SENSE at `INA219`
   and the sensor answering: while the supply is on, one reading of 3.0 A or
   more, or readings under 4.0 V for 1 s after the supply came up, switch it off
   at once, during a read or a write too. The frame on the wire finishes: the

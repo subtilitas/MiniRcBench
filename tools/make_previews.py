@@ -43,7 +43,7 @@ PREVIEWS = {
     ],
     # MENU with DShot parked and no chip (docs/design/dshot-lifetime.md,
     # slice D2), SERVO, the hub its SERVO row opens, at scroll 0 and at its
-    # end, and RX SIGNALS, each hub with its NO ESC CHECK line.
+    # end, and RECEIVER, each hub with its NO ESC CHECK line.
     "menu-preview": [
         "shot_menu",
         "shot_servo_hub",
@@ -64,7 +64,7 @@ PREVIEWS = {
         "shot_log_screen",
         "shot_log_last",
     ],
-    # The SETTINGS screen at the top of its list and scrolled to its end, the
+    # The SETUP screen at the top of its list and scrolled to its end, the
     # same screen in high contrast, and MENU reading UNSAVED after it. The
     # contrast pair is the point: a palette that reads well on its own tells
     # you nothing about whether the two are actually different enough to
@@ -91,7 +91,7 @@ PREVIEWS = {
         "shot_am32_hex",
         "shot_am32_written",
     ],
-    # ESC CONFIG, the hub, then ESC SETTINGS after a Bluejay or
+    # ESC PROGRAM, the hub, then ESC SETTINGS after a Bluejay or
     # BLHeli_S bootloader answered: the connect page while the escwire job
     # reads, the read-only list, and the leave page BACK opens where no LEAVE
     # goes out.
@@ -155,14 +155,14 @@ PREVIEWS = {
         "shot_bridge_leave",
     ],
     # ANGLE METER: the main view after a zero with LENGTH set and SIGN at
-    # INVERT, SETUP, and FLIP CAL with its result. Its entry of the hub
+    # INVERT, ANGLE SET, and FLIP CAL with its result. Its entry of the hub
     # SERVO is in menu-preview.
     "angle-preview": [
         "shot_angle_main",
         "shot_angle_setup",
         "shot_angle_flip",
     ],
-    # S.BUS MONITOR: RX SIGNALS, the hub, then the monitor with frames,
+    # S.BUS MONITOR: RECEIVER, the hub, then the monitor with frames,
     # in failsafe, and after the receiver stopped, the last frame dim.
     "sbus-preview": [
         "shot_rx_chooser",

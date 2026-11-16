@@ -1,7 +1,7 @@
 /**
  * @file ui_hub.h
- * @brief The hub: the one chooser widget under ESC CONFIG, SERVO and RX
- *        SIGNALS, the three MENU rows that carry `>`.
+ * @brief The hub: the one chooser widget under ESC PROGRAM, SERVO and
+ *        RECEIVER, the three MENU rows that carry `>`.
  *
  * A hub is a title, a strip and a table of entries (@ref UiHub). Each entry
  * (@ref UiHubEntry) is one 228 x 46 px button at x 6 with its label at
@@ -30,12 +30,12 @@
  * caption in amber, as MENU's does (uiBusyCaption()). A disabled entry
  * reports disabled and takes no tap.
  *
- * SERVO and RX SIGNALS carry a warning as the strip's second line while the
+ * SERVO and RECEIVER carry a warning as the strip's second line while the
  * claim is Free (@ref UiHub::warn): `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in
  * `C_AMBER`. With DShot parked no ESC answers, so the claim's ESC check
  * passes; the line stands before every entry tap, and KST and Hitec entries
  * send on their tap (docs/design/dshot-lifetime.md, decisions 7 and 11). ESC
- * CONFIG draws none: its tools need the ESC on SIG. An entry's @ref
+ * PROGRAM draws none: its tools need the ESC on SIG. An entry's @ref
  * UiHubEntry::note is an amber line under its plain lines while its
  * condition holds: MONITOR's while SIG is GP1.
  *
@@ -125,7 +125,7 @@ struct UiHub {
 };
 
 /**
- * @brief The second strip line of SERVO and RX SIGNALS while the claim is
+ * @brief The second strip line of SERVO and RECEIVER while the claim is
  *        Free (docs/design/dshot-lifetime.md, decisions 7 and 11): 35
  *        characters, 209 px.
  */

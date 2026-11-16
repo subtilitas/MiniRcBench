@@ -45,7 +45,7 @@ lead needs a pigtail with a JST-SH plug.
 
 GP means GPIO (general-purpose input/output pin). The ESC pin is SIG; the
 KISS telemetry wire, if you fit one, goes on AUX, GP1. Both can be changed
-later under **MENU → SETTINGS → SIG PIN** and **AUX PIN**, where a step
+later under **MENU → SETUP → SIG PIN** and **AUX PIN**, where a step
 swaps the two, and the setting is stored in flash.
 
 > **Cut or de-pin the middle wire of the ESC lead first.**
@@ -62,7 +62,7 @@ swaps the two, and the setting is stored in flash.
 > that can destroy the board. Leave J5 pin 3 unconnected.
 
 Keep the signal wire short. The maximum working length is not measured. If the
-`LINK` error rate rises, set **DSHOT** to 300 under **MENU → SETTINGS**.
+`LINK` error rate rises, set **DSHOT** to 300 under **MENU → SETUP**.
 
 ---
 
@@ -85,17 +85,17 @@ when you open `ESC TESTER` or `ESC COMMANDS`.
 After a firmware update that changed the layout of the stored settings from
 version 2, 3, 4 or 5, the saved settings are carried over: the splash shows
 `SETTINGS CARRIED OVER FROM AN UPDATE` and
-`CHECK MENU > SETTINGS, THEN SAVE` in amber above the name. Check them in
-SETTINGS and hold `HOLD TO SAVE`
+`CHECK MENU > SETUP, THEN SAVE` in amber above the name. Check them in
+SETUP and hold `HOLD TO SAVE`
 ([Troubleshooting](Troubleshooting#my-settings-reset-themselves)).
 
 After an update from a layout the firmware does not know, the saved
 settings are discarded and every setting starts at its compiled default.
 The splash then shows two amber lines above the name:
-`SETTINGS RESET BY UPDATE` and `CHECK MENU > SETTINGS`. Check at least the
+`SETTINGS RESET BY UPDATE` and `CHECK MENU > SETUP`. Check at least the
 pole count, `MAX THROTTLE`, `SIG PIN`, KISS, `SERVO SUPPLY` and
 `CURRENT SENSE`, then hold `HOLD TO SAVE`. Until a save lands, MENU's
-SETTINGS row reads `UPDATED`, after a carry-over as after a reset. A board
+SETUP row reads `UPDATED`, after a carry-over as after a reset. A board
 that never had saved settings shows none of this.
 
 <img src="img/splash-reset.png" width="240" alt="Splash screen after an update discarded the saved settings">
@@ -203,13 +203,13 @@ it. The bar shows a grab handle and its caption reads `LATCHED`. Turning
 ## Raising the ceiling
 
 `MENU` on the tester returns to the list of tools, and always disarms on
-the way. `SETTINGS` is the last row, on the screen with no drag: tap it. Or,
+the way. `SETUP` is the last row, on the screen with no drag: tap it. Or,
 while
 disarmed, tap `MAX 20%` or `14 POLES` on the
 tester, underlined while a tap on them works: the tap disarms the same way
-and opens SETTINGS, and `BACK` there returns to the tester.
+and opens SETUP, and `BACK` there returns to the tester.
 
-<img src="img/settings.png" width="240" alt="SETTINGS after a change: MOTOR POLES at 16 and UNSAVED - HOLD SAVE TO KEEP">
+<img src="img/settings.png" width="240" alt="SETUP after a change: MOTOR POLES at 16 and UNSAVED - HOLD SAVE TO KEEP">
 
 - **MOTOR POLES**: converts the reported eRPM (electrical RPM) to RPM with
   `RPM = eRPM / (poles / 2)`. Range 2–28, even values only. Default 14. A
@@ -221,7 +221,7 @@ and opens SETTINGS, and `BACK` there returns to the tester.
 Both rows are at the top of the list. Both values are stored only when saved,
 with `HOLD TO SAVE` under the list. The note line reads
 `UNSAVED - HOLD SAVE TO KEEP` until then, and `MENU` shows `UNSAVED` on its
-`SETTINGS` row.
+`SETUP` row.
 
 `SIG PIN`, further down, moves the ESC pin to the other GPIO at once: over
 the tester DShot moves with it, from `MENU` the next tester uses it. While it
@@ -229,7 +229,7 @@ is not the pin in use at power-up, a line of its own above `LINK` reads in
 amber `UNPLUG ANY SERVO FROM GP1 NOW`; the note line under it still says
 whether the settings are saved.
 
-<img src="img/settings-pin.png" width="240" alt="SETTINGS after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
+<img src="img/settings-pin.png" width="240" alt="SETUP after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 ---
 

@@ -32,20 +32,20 @@ struct TouchState;
 enum class UiScreenId : uint8_t {
 	Tester,    /**< ESC TESTER, MENU's first row: throttle, ARM, LATCH, MENU, the two readouts. */
 	Menu,      /**< MENU, the root: the list of tools and actions. */
-	Settings,  /**< SETTINGS, one list in sections. */
-	SdLog,     /**< SD LOG. */
-	Am32,      /**< ESC SETTINGS, opened from ESC CONFIG. */
+	Settings,  /**< SETUP, one list in sections. */
+	SdLog,     /**< LOGS. */
+	Am32,      /**< ESC SETTINGS, opened from ESC PROGRAM. */
 	Servo,     /**< SERVO TESTER, its SET view and its leave page, opened from SERVO. */
 	Kst,       /**< KST SERVO: the search, the field list, FILES, the write and leave pages. */
 	Hitec,     /**< HITEC SERVO: the entry, the field list, FILES, the write and leave pages. */
-	EscCmd,    /**< ESC COMMANDS, opened from ESC CONFIG: BEEP 1 to 5, direction and 3D mode. */
+	EscCmd,    /**< ESC COMMANDS, opened from ESC PROGRAM: BEEP 1 to 5, direction and 3D mode. */
 	ServoHub,  /**< SERVO, the hub behind MENU's SERVO row: the tester, the angle meter and the three programmers. */
-	RxSignals, /**< RX SIGNALS, the hub behind MENU's RX SIGNALS row: MONITOR and OUTPUT. */
-	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RX SIGNALS. */
-	SbusOut,   /**< S.BUS OUTPUT, its SET view and its leave page, opened from RX SIGNALS. */
-	EscConfig, /**< ESC CONFIG, the hub behind MENU's ESC CONFIG row: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. */
-	Bridge,    /**< USB BRIDGE and its leave page, opened from ESC CONFIG. */
-	Angle,     /**< ANGLE METER, its SETUP and its FLIP CAL, opened from SERVO. */
+	RxSignals, /**< RECEIVER, the hub behind MENU's RECEIVER row: MONITOR and OUTPUT. */
+	Sbus,      /**< S.BUS MONITOR and its leave page, opened from RECEIVER. */
+	SbusOut,   /**< S.BUS OUTPUT, its SET view and its leave page, opened from RECEIVER. */
+	EscConfig, /**< ESC PROGRAM, the hub behind MENU's ESC PROGRAM row: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. */
+	Bridge,    /**< USB BRIDGE and its leave page, opened from ESC PROGRAM. */
+	Angle,     /**< ANGLE METER, its ANGLE SET and its FLIP CAL, opened from SERVO. */
 	Count,     /**< How many screens; not a screen. */
 };
 
@@ -89,14 +89,14 @@ struct UiControl {
 /** @brief Most controls one screen reports. */
 #define UI_CONTROLS_MAX 32
 
-/** @brief How a SETTINGS row is set. */
+/** @brief How a SETUP row is set. */
 enum class SettingsKind : uint8_t {
 	Stepper,   /**< `-` and `+`: a step on touch-down, repeating while held. */
 	Toggle,    /**< One wide button, fires on release. */
 	ReadOnly,  /**< A value and no control. */
 };
 
-/** @brief One SETTINGS row. */
+/** @brief One SETUP row. */
 struct SettingsRow {
 	const char  *label;   /**< Scale 1. */
 	SettingsKind kind;
@@ -126,7 +126,7 @@ struct SettingsRow {
 	void (*sub)(char *buf, size_t n);
 };
 
-/** @brief A captioned run of SETTINGS rows. */
+/** @brief A captioned run of SETUP rows. */
 struct SettingsSection {
 	const char        *caption;  /**< ESC TESTER, WIRING, ... */
 	const SettingsRow *rows;
@@ -151,13 +151,13 @@ struct UiScreen {
 	void (*action)();
 	/** @brief Writes at most max controls of the current frame to out, and returns how many. */
 	uint8_t (*controls)(UiControl *out, uint8_t max);
-	/** @brief The tool's persisted SETTINGS rows, or null. */
+	/** @brief The tool's persisted SETUP rows, or null. */
 	const SettingsSection *settings;
 	/**
 	 * @brief Opens only while the pin claim is Free, without claiming:
-	 *        SETTINGS, which changes the wiring a claim latched; ESC
+	 *        SETUP, which changes the wiring a claim latched; ESC
 	 *        COMMANDS, which sends on SIG; and the angle meter, which saves
-	 *        to flash as SETTINGS does. A tool with a @ref pinUser waits
+	 *        to flash as SETUP does. A tool with a @ref pinUser waits
 	 *        for Free anyway. The hubs open whatever the claim's state and
 	 *        gate each entry instead (ui_hub.h).
 	 */
@@ -209,8 +209,8 @@ const char *uiNavOpenerTitle();
 
 /**
  * @brief Most screens on the navigation stack, MENU, the root, among them:
- *        MENU; a hub, the tester, SD LOG or SETTINGS; a hub's tool, or
- *        SETTINGS over the tester (docs/design/menu-c.md, "Navigation").
+ *        MENU; a hub, the tester, LOGS or SETUP; a hub's tool, or
+ *        SETUP over the tester (docs/design/menu-c.md, "Navigation").
  */
 #define UI_NAV_MAX 3
 

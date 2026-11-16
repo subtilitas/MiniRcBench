@@ -31,21 +31,21 @@ the two servo programmers take the pins through the pin claim of
 `docs/design/pin-claim.md`. An optional INA219 current sensor on the
 board's I2C (Inter-Integrated Circuit) bus reads the servo supply's current
 and voltage (see [Current sensor](#current-sensor); design note
-`docs/design/current-sense.md`). SETTINGS shows the firmware version and,
+`docs/design/current-sense.md`). SETUP shows the firmware version and,
 under DIAGNOSTICS, the reason for the last restart and the time since boot
 (design note `docs/design/diagnostics.md`). With a sensor and a card, each
 servo tester run is logged to `LOGS/SRVnnnnn.CSV` (see
 [Servo tester](#servo-tester)).
 
 An S.BUS (Futaba's serial bus for receiver channels) receiver monitor, MENU →
-RX SIGNALS → MONITOR, shows a receiver's 16 channels, its two digital
+RECEIVER → MONITOR, shows a receiver's 16 channels, its two digital
 channels, the link state, the frame rate and the error counts (see
 [S.BUS monitor](#sbus-monitor); design note `docs/design/rx-signals.md`).
 During its pin claim it receives on GP1 through UART0 (universal asynchronous
 receiver-transmitter 0) with the pad's input inverted and decodes the frames
 with rcbench's decoder. It is tested on the host only; the inversion on the
-pin is not measured. An S.BUS output to a flight controller (FC), MENU → RX
-SIGNALS → OUTPUT, sends a frame every 14 ms on GP0 through UART0 with the
+pin is not measured. An S.BUS output to a flight controller (FC), MENU →
+RECEIVER → OUTPUT, sends a frame every 14 ms on GP0 through UART0 with the
 pad's output inverted: 16 channels on sliders, CH17, CH18 and the two flags,
 the throttle channel under MAX THROTTLE (see [S.BUS output](#sbus-output);
 design note `docs/design/sbus-output.md`). Before START it checks GP0 for an
@@ -58,13 +58,13 @@ throw from gravity, in degrees and in mm, with ZERO, MAX each side and a
 three-pose calibration (see [Angle meter](#angle-meter); design note
 `docs/design/angle-meter.md`). It is built and tested on the host only:
 nothing of it has run on a board, and its accuracy is not measured. A run
-summary per blackbox log, written beside the log and shown on SD LOG, with the
+summary per blackbox log, written beside the log and shown on LOGS, with the
 board's PCF85063 real-time clock dating the files on the card as an option, is
 described in `docs/design/run-summary.md`; the owner answered its questions
 on 2026-11-15. Its slices 1 to 5 are built and host-tested: the summary
 computed from the telemetry, the logger writing it as
 `LOGS/LOGnnnnn.TXT` beside each log
-([Blackbox logging to microSD](#blackbox-logging-to-microsd)), SD LOG
+([Blackbox logging to microSD](#blackbox-logging-to-microsd)), LOGS
 showing it after a stop, the clock read at start-up, dating the files and
 the summary's clock lines while it runs, and the clock set from a computer
 over the USB serial port with `tools/set_clock.py`
@@ -72,7 +72,7 @@ over the USB serial port with `tools/set_clock.py`
 in the RTC socket J2, so its clock is set again after each power-up, and
 files written before the set have FAT date 0. Nothing of it has run on the
 board.
-An ESC COMMANDS page, the first entry of the hub ESC CONFIG (see
+An ESC COMMANDS page, the first entry of the hub ESC PROGRAM (see
 [ESC commands](#esc-commands)),
 sends DShot beacons, direction and 3D mode, each change saved in the ESC
 behind a 1 s hold (slices 1 and 2 of
@@ -88,7 +88,7 @@ ESC's bootloader on SIG over the board's USB serial port, by passthrough at
 19200 baud or through MSP (the MultiWii Serial Protocol) and the 4-way
 interface of flight controllers, is described in `docs/design/usb-bridge.md`;
 the owner answered its questions on 2026-11-15. It
-is entered from `ESC CONFIG`, the hub behind MENU's second row, beside
+is entered from `ESC PROGRAM`, the hub behind MENU's second row, beside
 `ESC COMMANDS` and `ESC SETTINGS`. Its
 slices 1 to 3 are built, tested on the host only: its pin user, its core1
 job and its line, two PIO state machines on SIG, passthrough with the
@@ -98,32 +98,33 @@ Reading and editing Bluejay and BLHeli_S ESC settings over the signal
 wire, from the connect page of `ESC SETTINGS`, with rcbench's escwire
 module, is described in `docs/design/bluejay-blheli-s.md`; the owner
 answered its questions on 2026-11-15. Its slices 1 to 4 are built, tested on
-the host only: the copies, the hub `ESC CONFIG` on MENU, the title
+the host only: the copies, the hub `ESC PROGRAM` on MENU, the title
 `ESC SETTINGS`, the connect cycle and the read, and the write with its
 backup; nothing has been sent to an ESC from this board (see
 [A Bluejay or BLHeli_S ESC](#a-bluejay-or-blheli_s-esc)). The restore is
 not built.
 Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
-its names and SETTINGS, its layout table, its write rule and BACK guard, the
+its names and SETUP, its layout table, its write rule and BACK guard, the
 one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
-readouts that open SETTINGS with LATCH, SERVO TESTER's title, the MENU row's
+readouts that open SETUP with LATCH, SERVO TESTER's title, the MENU row's
 label, MENU's rows by device with one entry point for the servo
 programmers, and the design notes and checks no single slice owned.
-Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 4,
+Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 5,
 tested on the host only: the hub widget, the navigation stack, MENU as the
 root, and six rows over three hubs. MENU is the first screen after the
 splash and has no BACK. It has six rows and does not scroll: ESC TESTER,
-ESC CONFIG, SERVO, RX SIGNALS, SD LOG and SETTINGS. ESC CONFIG, SERVO and
-RX SIGNALS each open a hub, a list of tools, and carry the mark `>`: ESC
-CONFIG holds ESC COMMANDS, ESC SETTINGS and USB BRIDGE; SERVO holds SERVO
+ESC PROGRAM, SERVO, RECEIVER, LOGS and SETUP. ESC PROGRAM, SERVO and
+RECEIVER each open a hub, a list of tools, and carry the mark `>`: ESC
+PROGRAM holds ESC COMMANDS, ESC SETTINGS and USB BRIDGE; SERVO holds SERVO
 TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC and
-scrolls 146 px; RX SIGNALS holds MONITOR and OUTPUT. Every tool is two taps
-from MENU and returns to its hub. The names of slice 5 of that note, ESC
-PROGRAM, RECEIVER, LOGS and SETUP, are not built. Slice D2 of
+scrolls 146 px; RECEIVER holds MONITOR and OUTPUT. Every tool is two taps
+from MENU and returns to its hub. The four names are rcbench's, ESC PROGRAM,
+RECEIVER, LOGS and SETUP (slice 5), and ANGLE METER's view reads ANGLE SET.
+Slice D2 of
 `docs/design/dshot-lifetime.md` is built, tested on the host only: no DShot
 frame leaves the board at power-up, and DShot runs only while ESC TESTER or
-ESC COMMANDS is open, or SETTINGS over the tester. Everywhere else SIG is
+ESC COMMANDS is open, or SETUP over the tester. Everywhere else SIG is
 driven low and AUX rests on its pull-down.
 The uses that the design note's decision 11 names take their role's colour.
 Cyan is the accent, as on rcbench (slice 10 of the build plan in
@@ -183,7 +184,7 @@ core1 starts: SIG an SIO output driving low at 2 mA, AUX an input with the
 pull-down on and the input buffer off. No DShot frame leaves the board at
 power-up. Once a frame the UI computes `uiDshotWanted()` from the navigation
 stack and hands it to `pinClaimDshot()`: Run while ESC TESTER or ESC
-COMMANDS is on top, or SETTINGS over the tester, Park everywhere else. Run
+COMMANDS is on top, or SETUP over the tester, Park everywhere else. Run
 binds the pump, EDT (Extended DShot Telemetry) enable first, with the KISS
 receiver when KISS is on. Leaving disarms; core1 sends zero frames until more
 than 250 ms (`ARM_ZERO_THROTTLE_MS`) after the last throttle frame, if one
@@ -223,7 +224,7 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 |---|---|---|
 | LCD (liquid-crystal display) SCK / MOSI / CS / DC / RST | 10 / 11 / 13 / 14 / 15 | SPI1. SCK is serial clock, MOSI master out, slave in, CS chip select, DC data/command, RST reset. GP12 is the panel's MISO (master in, slave out) line, wired and not used |
 | LCD backlight | 16 | NPN (negative-positive-negative) transistor as low-side switch, 20 kHz, 8-bit, from a PIO state machine on pio0 (`src/backlight.pio`), so PWM slice 0 stays free |
-| Touch + IMU + RTC I2C SDA / SCL | 6 / 7 | I2C1, **shared bus** (touch 0x1A, IMU 0x6B, RTC 0x51), 400 kHz, on J3 too. SDA is serial data, SCL serial clock. An optional INA219 current sensor at 0x40 shares it, under SETTINGS → CURRENT SENSE |
+| Touch + IMU + RTC I2C SDA / SCL | 6 / 7 | I2C1, **shared bus** (touch 0x1A, IMU 0x6B, RTC 0x51), 400 kHz, on J3 too. SDA is serial data, SCL serial clock. An optional INA219 current sensor at 0x40 shares it, under SETUP → CURRENT SENSE |
 | Touch INT / RESET | 18 / 17 | Interrupt, active low. The touch reset is a net of its own, separate from LCD_RST |
 | microSD CLK / CMD / D0–D3 | 19 / 20 / 21–24 | 4-bit SDIO (Secure Digital Input/Output) on PIO, blackbox logging, see below. CLK is clock, CMD command, D0–D3 the data lines |
 | Power latch | 26 | `PIN_BAT_EN`, driven high first at boot |
@@ -231,9 +232,9 @@ The pin map is `src/board_rp2350_touch_lcd_2_8.h`.
 | Battery sense | 27 | ADC (analog-to-digital converter) input 1, 200k/100k divider → `VBAT = Vadc × 3` |
 | I2S audio BCK / LRCK / DIN | 2 / 3 / 4 | PCM5101A codec, not used by the firmware. I2S is Inter-IC Sound; BCK is bit clock, LRCK left-right clock, DIN data in |
 | RTC INT, IMU INT1 / INT2 | 5, 8 / 9 | Not used by the firmware |
-| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) first greets on GP0 for an ESC's bootloader with the ESC settings' line driver, then sends on GP0 with the pad's output inverted, for S.BUS OUTPUT. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETTINGS → SIG PIN |
-| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETTINGS → AUX PIN |
-| Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETTINGS → SERVO SUPPLY. An output at 3.3 V |
+| ESC signal (SIG) | 0 | J4 pin 9, J5 pin 2, free. The TX (transmit) pin of UART0 (universal asynchronous receiver-transmitter 0). The S.BUS monitor's job uses UART0's receiver only; the S.BUS output's job (`src/sbus_out_job.h`) first greets on GP0 for an ESC's bootloader with the ESC settings' line driver, then sends on GP0 with the pad's output inverted, for S.BUS OUTPUT. The USB bridge's 19200 baud line is two PIO state machines on SIG. Set under SETUP → SIG PIN |
+| KISS telemetry RX (receive; KISS is a serial ESC telemetry protocol), AUX | 1 | J4 pin 10, J5 pin 1, free. The RX pin of UART0. Optional third wire; also the servo tester's second servo, and the S.BUS job's input, through UART0 with the pad's input inverted. Set under SETUP → AUX PIN |
+| Switched servo supply enable (EN) | 28 or 29 | J4 pin 11 or J4 pin 12. Optional, under SETUP → SERVO SUPPLY. An output at 3.3 V |
 
 Only GP0 and GP1 are free (`BOARD_FREE_GPIO_MASK` = `0x00000003`). Both are
 "Digital IO (FT)" pins, fault tolerant (RP2350 datasheet, Tables 1674 and
@@ -311,7 +312,7 @@ servo supply EN      GP28  J4 pin 11, or GP29  J4 pin 12 (optional)
 > unconnected.
 
 SIG, the ESC pin, and AUX, the KISS telemetry pin, are set on the board
-under **MENU → SETTINGS → SIG PIN** and **AUX PIN** and stored in flash. A
+under **MENU → SETUP → SIG PIN** and **AUX PIN** and stored in flash. A
 step of either row swaps SIG and AUX, so the two never share a GPIO; the
 J5 pin of each shows under its value. `DSHOT_PIN_LCD_2_8` in `config.h` is
 the pin a board with blank flash starts on, **GP0**, J4 pin 9 or J5 pin 2.
@@ -325,7 +326,7 @@ An ESC on the wrong one of the two pins produces no error. **LINK** stays at
 **Power the ESC from its own battery.** Do not power a motor from the board's
 5 V pin. Connect the ESC ground to the board ground, and keep the signal wire
 short. The maximum working lead length is not measured. If the **LINK** error
-rate rises, set **DSHOT** to 300 under **MENU → SETTINGS**.
+rate rises, set **DSHOT** to 300 under **MENU → SETUP**.
 
 The board has a power-button latch on GP26 (`PIN_BAT_EN`). The firmware drives
 it high as the first action at boot. Without it, the board loses power when
@@ -336,7 +337,7 @@ effect.
 
 The image is for the RP2350-Touch-LCD-2.8 only. It does not check which board
 it runs on: flashed onto another board, it can drive pins that are wired to
-other parts there. The splash and SETTINGS → BUILT FOR name the board the
+other parts there. The splash and SETUP → BUILT FOR name the board the
 image is built for. DshotDisplay supports the RP2350-Touch-LCD-2.
 
 ---
@@ -397,7 +398,7 @@ onto the USB drive that appears.
 This image's settings layout is version 6. A block of versions 2 to 5,
 written by an earlier image, is carried over, each newer setting at its
 default; a block of any other layout version is discarded, and the board
-starts from the compiled defaults, the ESC pin GP0. See SETTINGS under
+starts from the compiled defaults, the ESC pin GP0. See SETUP under
 [Using it](#using-it).
 
 `-DSTRICT=ON` adds `-Werror` for this project's own sources. CI (continuous integration) sets it. It is
@@ -468,10 +469,10 @@ driven low from `escTaskInit()` on, before the splash, and DShot starts only
 when ESC TESTER or ESC COMMANDS opens (`docs/design/dshot-lifetime.md`). The
 splash names no pin. When `settingsLoad()` carried a block of settings version
 2, 3 or 4 over (`settingsCarriedOver()`), two amber lines at y 40 and y 52 read
-`SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETTINGS, THEN SAVE`;
+`SETTINGS CARRIED OVER FROM AN UPDATE` and `CHECK MENU > SETUP, THEN SAVE`;
 when it discarded a whole block of a version it has no layout for
 (`settingsResetByUpdate()`), they read `SETTINGS RESET BY UPDATE` and
-`CHECK MENU > SETTINGS`. Blank flash and a damaged block show neither. While the
+`CHECK MENU > SETUP`. Blank flash and a damaged block show neither. While the
 touch controller has not answered once since `touchInit()`, the splash shows
 `TOUCH CONTROLLER NOT FOUND` in amber at y 64, under those two lines and above
 the name; the line goes at the controller's first answer (`uiSplashTick()`). The
@@ -537,16 +538,16 @@ claim is not free.
 - **Pole count and ceiling**: `14 POLES` at x 10, y 114, and `MAX 20%` at
   x 88, y 236, both in the text colour. While disarmed and while the pin
   claim is free, each is underlined in the text colour (y 122 and y 244) and
-  a tap on it opens SETTINGS (`TesterCtl::Poles` at {4, 106, 72, 22},
+  a tap on it opens SETUP (`TesterCtl::Poles` at {4, 106, 72, 22},
   `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs the MENU button's
   disarm first, through `uiOpenTool()` in `src/ui.cpp`, and `BACK` on
-  SETTINGS opened this way returns to the tester. While armed they show no
+  SETUP opened this way returns to the tester. While armed they show no
   underline, `KV EST` stands in the pole count's place ([Telemetry and
   logging](#telemetry-and-logging)), and a press on them is the throttle
   pad's or the throttle bar's: the pole count lies in
   the pad, `MAX` reaches into the bar's grab area. While another screen
   holds the signal pins they show no underline and a tap does nothing, as
-  MENU's SETTINGS row is refused; with DShot running for the tester no claim
+  MENU's SETUP row is refused; with DShot running for the tester no claim
   starts, so this is a backstop. While the 3D note takes
   the row, the pole count and its target are gone; `MAX` still acts.
 
@@ -586,7 +587,7 @@ servo programmers, ESC SETTINGS and the USB bridge read and write settings
 or firmware, each operation ends by itself (KST SERVO's search after 30 s),
 and a write is not cut. The USB bridge's PC decides what it sends, and with
 DShot off there is no motor to stop. S.BUS MONITOR, the angle meter,
-SETTINGS and SD LOG drive no output.
+SETUP and LOGS drive no output.
 
 The driver reports a finger up after two failed reads, 50 ms, so without
 this a latched throttle would run until the idle interlock, 30 s after the
@@ -620,7 +621,7 @@ Arming and disarming dim the backlight to a quarter for 120 ms
 ![MENU](docs/menu-preview.png)
 
 *MENU with DShot parked, SERVO, the hub of the servo tools, at scroll 0 and
-at its end, and RX SIGNALS, each hub with its NO ESC CHECK line.*
+at its end, and RECEIVER, each hub with its NO ESC CHECK line.*
 
 MENU is the first screen after the splash and the root of the navigation
 (slice 3 of `docs/design/menu-c.md`): its header reads `MENU` and draws no
@@ -629,17 +630,17 @@ BACK is cyan with a dark label; a BACK that does nothing is drawn disabled
 and is not cyan. MENU is a list of rows. Each row is
 40 px tall at a 42 px pitch, with the name at scale 2 on the left and its
 state right-aligned. **BACK** returns to the screen that opened the one on
-show: a hub, SD LOG or SETTINGS opened from a MENU row returns to MENU, a
-tool opened from a hub to that hub, and SETTINGS opened from the tester's
+show: a hub, LOGS or SETUP opened from a MENU row returns to MENU, a
+tool opened from a hub to that hub, and SETUP opened from the tester's
 pole count or ceiling to the tester. The tester returns to MENU by its
 **MENU** button. The screens form a stack of at most three, MENU at the
-bottom: MENU; the tester, a hub, SD LOG or SETTINGS; a hub's tool, or
-SETTINGS over the tester. **BACK** pops one (slice 2 of
+bottom: MENU; the tester, a hub, LOGS or SETUP; a hub's tool, or
+SETUP over the tester. **BACK** pops one (slice 2 of
 `docs/design/menu-c.md`). The leave page's last button returns where BACK
 would.
 
-- **DShot on MENU**: none. DShot is parked on MENU, in the hubs, on SD LOG
-  and on SETTINGS opened from MENU: SIG driven low, AUX on its pull-down
+- **DShot on MENU**: none. DShot is parked on MENU, in the hubs, on LOGS
+  and on SETUP opened from MENU: SIG driven low, AUX on its pull-down
   (slice D2 of `docs/design/dshot-lifetime.md`). MENU draws no EDT chip,
   since it would read nothing; ESC COMMANDS keeps the chip. The strip's
   caption names both signal pins by role and number and the DShot rate the
@@ -648,27 +649,27 @@ would.
 | Row | At the right | A tap |
 |---|---|---|
 | **ESC TESTER** | nothing | Opens the tester, disarmed, at throttle 0, LATCH off. See Main screen above |
-| **ESC CONFIG** | `>` | Opens ESC CONFIG, the hub of the ESC tools: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. See [ESC commands](#esc-commands), [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
+| **ESC PROGRAM** | `>` | Opens ESC PROGRAM, the hub of the ESC tools: ESC COMMANDS, ESC SETTINGS and USB BRIDGE. See [ESC commands](#esc-commands), [AM32 ESC configuration](#am32-esc-configuration) and [USB bridge](#usb-bridge) |
 | **SERVO** | `>` | Opens SERVO, the hub of the servo tools: SERVO TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. See below |
-| **RX SIGNALS** | `>` | Opens RX SIGNALS, the hub of the receiver signal tools: MONITOR and OUTPUT. See [S.BUS monitor](#sbus-monitor) and [S.BUS output](#sbus-output) |
-| **SD LOG** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
-| **SETTINGS** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETTINGS: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
+| **RECEIVER** | `>` | Opens RECEIVER, the hub of the receiver signal tools: MONITOR and OUTPUT. See [S.BUS monitor](#sbus-monitor) and [S.BUS output](#sbus-output) |
+| **LOGS** | `NO CARD`, `READY`, `RECORDING`, `CARD ERROR`, or `USB DRIVE` while a USB host holds the card | Opens the logging status. See below |
+| **SETUP** | `UNSAVED` while the live settings differ from flash; else `UPDATED` while an update's reset or carry-over is not saved over (`settingsResetByUpdate()`, `settingsCarriedOver()`); else nothing; both amber | Opens SETUP: the tester, the wiring, the servo supply and current sensor, the display, the board, diagnostics. See below |
 
 ESC TESTER is the first row. The three rows after it go by what sits on
 the signal pin, one row a device class: the ESC, a servo, a receiver. Each
 opens a hub and carries the mark `>` at scale 2 from x 213, in cyan, where
-SD LOG and SETTINGS carry a state. A new brand, protocol or tool adds a hub
+LOGS and SETUP carry a state. A new brand, protocol or tool adds a hub
 entry, not a MENU row.
 
-- **The busy caption**: ESC TESTER needs DShot running on SIG, and SETTINGS
+- **The busy caption**: ESC TESTER needs DShot running on SIG, and SETUP
   changes the wiring a claim latched. While the claim is not free these two
-  rows are drawn disabled, an outline, SETTINGS under its own status and ESC
+  rows are drawn disabled, an outline, SETUP under its own status and ESC
   TESTER with none, a tap opens nothing, and the strip's caption reads, in
   amber, `RELEASING SIG GP0` while a claim lets the pin go, as the USB
   bridge's release does for at most 250 ms (`BRIDGE_RELEASE_MAX_MS`), or
   `SETTING SIG GP0 LOW` while the claim parks the pins after the leave page,
-  one core1 pass. The hubs' rows act whatever the claim: ESC CONFIG, SERVO
-  and RX SIGNALS open, and each draws its entries disabled meanwhile, since
+  one core1 pass. The hubs' rows act whatever the claim: ESC PROGRAM, SERVO
+  and RECEIVER open, and each draws its entries disabled meanwhile, since
   every entry's tool claims a pin or, as ESC COMMANDS, which sends on SIG,
   and ANGLE METER, which saves to flash, opens only while the pins are free;
   the hub's strip then reads the same amber caption as its second line. A
@@ -676,12 +677,12 @@ entry, not a MENU row.
   `WAIT: THE PINS ARE BUSY`; no path through the screens reaches that.
 - **Rows**: the six rows take 252 px of the 258 px under the strip, so MENU
   does not scroll and draws no scroll bar. Row i starts at y 62 + 42 × i;
-  the last, SETTINGS, ends at y 311. Every row is whole and takes a tap
+  the last, SETUP, ends at y 311. Every row is whole and takes a tap
   with no drag.
 
 **The hubs**
 
-ESC CONFIG, SERVO and RX SIGNALS are drawn and run by one widget, the hub
+ESC PROGRAM, SERVO and RECEIVER are drawn and run by one widget, the hub
 (`src/ui_hub.h`): each is a table of `UiHubEntry` in `src/ui_registry.cpp`,
 checked at build time by `hubEntriesFit()`. An entry is a button, 228 x
 46 px, at an 80 px pitch from y 62, with up to two lines under it, three
@@ -691,19 +692,19 @@ claims a pin claims it on that frame. **BACK** returns to MENU; a tool's
 **BACK** before a claim holds, and its leave page's last button, return to
 the hub.
 
-SERVO and RX SIGNALS draw a second strip line in amber while the claim is
+SERVO and RECEIVER draw a second strip line in amber while the claim is
 free: `NO ESC CHECK: UNPLUG ANY ESC FIRST.`, 35 characters, 209 px. With
 DShot parked no ESC answers, so the claim's ESC check (an eRPM frame within
 500 ms) passes; servo pulses of 1000 to 2000 µs are a valid PWM throttle, and
 KST and Hitec entries send on their tap, so the line stands before every
 entry tap. While the claim is not free the busy caption takes the line. ESC
-CONFIG draws none: its tools need the ESC on SIG (decisions 7 and 11 of
-`docs/design/dshot-lifetime.md`, pending the owner's review). On RX
-SIGNALS, while SIG is GP1, MONITOR carries a second amber line,
+PROGRAM draws none: its tools need the ESC on SIG (decisions 7 and 11 of
+`docs/design/dshot-lifetime.md`, pending the owner's review). On
+RECEIVER, while SIG is GP1, MONITOR carries a second amber line,
 `GP1 IS SIG: PLUG IN AFTER THE TAP.`: SIG is driven low until the tap
 claims it, and a receiver plugged in before drives against the pad.
 
-Up to three entries fill the page: ESC CONFIG, three, and RX SIGNALS, two,
+Up to three entries fill the page: ESC PROGRAM, three, and RECEIVER, two,
 do not scroll. With more, the hub is a list (`src/ui_list.h`) in the 258 px
 under the strip, with a 3 px scroll bar at x 235, and a vertical drag
 scrolls it.
@@ -727,13 +728,13 @@ at; SERVO opened from MENU starts at scroll 0. The strip reads
 | **ANGLE METER** | `INCIDENCE, DECALAGE, DIHEDRAL, THROW` | the same |
 | **KST / CHASERVO** | `POWER THE SERVO UP AFTER THE TAP.` | `THE BENCH SWITCHES IT ON GP28.` |
 | **HITEC D SERIES** | `D485HW, D645MW AND THE OTHERS`, `POWER THE SERVO UP AFTER THE TAP.` | the models, `THE BENCH SWITCHES IT ON GP28.` |
-| **HITEC CLASSIC** | drawn disabled: `HS-5XXX, HS-7XXX`, then in amber `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETTINGS > SERVO SUPPLY GP28/29.` | live: the models, `THE BENCH SWITCHES IT ON GP28.` |
+| **HITEC CLASSIC** | drawn disabled: `HS-5XXX, HS-7XXX`, then in amber `NEEDS THE CONVERTER OF WIRING PART C` and `AND SETUP > SERVO SUPPLY GP28/29.` | live: the models, `THE BENCH SWITCHES IT ON GP28.` |
 
 A servo powered before the tap would take DShot's frames, about a 970 us
 pulse at 1000 Hz, and move: so the tap comes first, and the servo is
 powered after it, or by the bench.
 
-**SD LOG screen**
+**LOGS screen**
 
 - **STATUS**: `NO CARD`, `READY`, `RECORDING` or `CARD ERROR`. The board has
   no card-detect pin, so the firmware learns of a card only by mounting it.
@@ -790,16 +791,16 @@ powered after it, or by the bench.
 - **BACK**: returns to MENU, also while a host holds the card. The handover
   continues, and arming stays blocked until the card is ejected.
 
-**SETTINGS screen**
+**SETUP screen**
 
-![SETTINGS](docs/settings-preview.png)
+![SETUP](docs/settings-preview.png)
 
-*SETTINGS at the top, scrolled to the end, in high contrast, and the UNSAVED
+*SETUP at the top, scrolled to the end, in high contrast, and the UNSAVED
 marker it puts on MENU.*
 
-SETTINGS opens from MENU, or from a tap on the tester's pole count or
+SETUP opens from MENU, or from a tap on the tester's pole count or
 ceiling while disarmed; **BACK** returns to where it was opened from.
-SETTINGS is one list in sections. The list fills y 40 to 239 (to y 227 while
+SETUP is one list in sections. The list fills y 40 to 239 (to y 227 while
 the ESC pin's warning shows, see below) and scrolls under a drag. A row is
 44 px tall at a 50 px pitch. **MOTOR POLES** and
 **MAX THROTTLE** lead it, so they need no scroll. The sections, in order:
@@ -873,7 +874,7 @@ section name, a row's label or value, or the gap between rows. After 6 px of
 vertical travel the list follows the finger. A press on a control never
 scrolls: `-` and `+` step on touch-down and repeat while held, and a toggle
 acts on release. A control cut by the edge of the list takes a press only
-while at least 40 px of it show (`UI_LIST_TAP_MIN`). Opening SETTINGS sets the
+while at least 40 px of it show (`UI_LIST_TAP_MIN`). Opening SETUP sets the
 scroll to 0 px.
 
 Below the list, fixed and not scrolled:
@@ -911,7 +912,7 @@ b9e94dc, the file's last change, holds version 2 with the same layout.
 Flash is not rewritten at the load: the old block stays the only copy until
 a save lands, so a power loss at boot cannot lose it, and every boot until
 then carries it over again. Until a save lands the splash shows its two lines,
-MENU's SETTINGS row `UPDATED`, and the note line
+MENU's SETUP row `UPDATED`, and the note line
 `CARRIED OVER BY UPDATE - CHECK, SAVE` while nothing else is pending; HOLD
 TO SAVE writes a version 6 block even with nothing changed.
 
@@ -921,7 +922,7 @@ compiled defaults load, every setting and the ESC pin included.
 DshotDisplay discards this project's blocks the same way. Such a block (the
 magic, another version, at most `SETTINGS_OTHER_MAX` bytes of payload and
 its own CRC right) sets `settingsResetByUpdate()` until a save lands: the
-splash's two lines, `UPDATED` on MENU's SETTINGS row, and the note line
+splash's two lines, `UPDATED` on MENU's SETUP row, and the note line
 `RESET BY UPDATE - CHECK AND SAVE` while nothing else is pending.
 
 **HOLD TO SAVE** (1 s, `UI_HOLD_MS`) writes all settings to flash: every row
@@ -931,10 +932,10 @@ is not measured. Saving is refused while armed (`NOT WHILE ARMED - DISARM TO
 SAVE`); the way off the tester disarms, so the refusal is a backstop.
 **HOLD DEFAULTS** (1 s, `UI_HOLD_MS`, the same hold widget, `src/ui_hold.*`)
 loads the compiled defaults, pole count and throttle ceiling included, into the
-live settings; the angle meter's setup and calibration, which SETTINGS does not
+live settings; the angle meter's setup and calibration, which SETUP does not
 show, keep their values. A tap loads nothing, a slide off the button cancels
 the hold, and a bar over the button and a `C_RED` fill, as on every hold of
-`src/ui_hold.*`, show it running. It has no armed check: SETTINGS opens only from MENU or from a
+`src/ui_hold.*`, show it running. It has no armed check: SETUP opens only from MENU or from a
 disarmed tester's readouts, and leaving the tester disarms. Flash changes
 only on the next save.
 
@@ -948,10 +949,10 @@ left and differ from what the next boot loads (the saved settings, or the
 compiled defaults when none are stored). Any other change ends it, and so
 does every completed HOLD TO SAVE, failed saves included: a save whose
 read-back fails has already rewritten the sector. MENU shows `UNSAVED` on
-the SETTINGS row while the live settings differ from flash.
+the SETUP row while the live settings differ from flash.
 
 SIG PIN moves DShot's pin at once (`escTaskConfigure()`): over the tester,
-where DShot runs, it binds on the new pin while SETTINGS shows; opened from
+where DShot runs, it binds on the new pin while SETUP shows; opened from
 MENU, the parked SIG moves and the next ESC TESTER binds there. While the
 live ESC pin is not the one `settingsLoad()` put live
 (`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) reads, in
@@ -959,16 +960,16 @@ amber, for example
 `UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`), so
 it scrolls 12 px further; its top rows do not move. The rule is the boot pin
 rather than the saved pin, which a save would end, or the pin at opening, which
-a return to SETTINGS would end. Opened from MENU the line warns of what the
+a return to SETUP would end. Opened from MENU the line warns of what the
 next ESC TESTER sends; slice D4 of `docs/design/dshot-lifetime.md` shows it
-only while DShot runs under SETTINGS. With KISS on, a step of SIG PIN or AUX
+only while DShot runs under SETUP. With KISS on, a step of SIG PIN or AUX
 PIN swaps the two, so DShot runs on the wire the ESC's KISS pad was on until
 the wires are swapped as well: the line
 then reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` (`SETTINGS_SWAP_NOTE`, 36
 characters, 215 px). The note line keeps its own order: SAVE FAILED and NOT
 WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF, until the
 next change (KISS OFF follows a KISS pin the board does not free, which no
-SETTINGS row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
+SETUP row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
 SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
 FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
 
@@ -1005,11 +1006,11 @@ Cyan is the accent, as on rcbench, and marks four things:
   cyan with a near-black label. A BACK that would do nothing is drawn
   disabled, with a frame and a faint label, and is not cyan. MENU, the
   root, draws no BACK.
-- **A row that opens a hub.** The mark `>` on MENU's rows ESC CONFIG, SERVO
-  and RX SIGNALS.
+- **A row that opens a hub.** The mark `>` on MENU's rows ESC PROGRAM, SERVO
+  and RECEIVER.
 - **A setting.** A value of the bench's own settings is cyan text with no
-  fill: SETTINGS' values beside `-` and `+` and its section captions, the
-  values of SERVO SET and OUTPUT SET, and LENGTH on ANGLE SETUP. A value
+  fill: SETUP's values beside `-` and `+` and its section captions, the
+  values of SERVO SET and OUTPUT SET, and LENGTH on ANGLE SET. A value
   that is a button's label keeps the button's colours. A value read from a
   device, on ESC SETTINGS, KST SERVO and HITEC SERVO, is in the text
   colour.
@@ -1075,7 +1076,7 @@ reading is 25 times coarser. Consumption in mAh appears on the temperature
 tile with KISS only. EDT does not carry it.
 
 The tester's top row shows `DSHOT` plus the bitrate the DShot driver runs
-at, for example `DSHOT600`, as set under SETTINGS → DSHOT, dim, and in the
+at, for example `DSHOT600`, as set under SETUP → DSHOT, dim, and in the
 text colour once an EDT enable has been sent; `DSHOT1200`, the widest, ends
 at x 156. `DSERR` in amber replaces it when the driver could not claim its
 two PIO state machines; nothing is sent to the ESC then.
@@ -1123,7 +1124,7 @@ The firmware enables EDT itself. There is no button.
 The first frames the DShot pump sends after it starts are the enable,
 `EDT_ENABLE_REPEATS` (10) identical frames of DShot command 13. The pump
 starts when ESC TESTER or ESC COMMANDS opens, not at power-up, and again after
-a change of the ESC pin, the bitrate, KISS or the KISS pin under SETTINGS
+a change of the ESC pin, the bitrate, KISS or the KISS pin under SETUP
 opened over the tester. On MENU, in the hubs and in every other tool it is
 parked and receives nothing. Every reply is decoded with EDT on, from the
 first one:
@@ -1329,7 +1330,7 @@ mounting the card again on its own after a card fault, and every logging
 error forget the number, since a card swapped or edited in a card reader
 looks the same to a board with no card-detect line
 (`src/sd_log_next.cpp`, tested over FatFs by `make -C test lognum`). After
-`LOG99999.BFL` no log starts and SD LOG says so. A file is
+`LOG99999.BFL` no log starts and LOGS says so. A file is
 created new, never over an existing one. Logs an earlier firmware wrote to
 the card's root stay there and are not counted. Files carry the time of the
 board's real-time clock while the clock is set in that power-up, else FAT
@@ -1345,11 +1346,11 @@ or `not set`), how the log ended (`STOP`, `DISARM`, `KST SERVO`,
 time, the maximum RPM, current and temperature, the minimum voltage while
 armed, the charge used by the KISS counter and from the current, and the
 logger's counters
-that SD LOG shows while a log runs (frames, dropped frames, kilobytes
+that LOGS shows while a log runs (frames, dropped frames, kilobytes
 written, buffer peak, worst flush). Each extreme is the value held over
 three consecutive new readings, with its source and the raw extreme beside
-it. After the stop SD LOG shows the held values, the charge and the armed
-time in its rows 2 to 8, and whether the `.TXT` was saved (see SD LOG
+it. After the stop LOGS shows the held values, the charge and the armed
+time in its rows 2 to 8, and whether the `.TXT` was saved (see LOGS
 screen above); a log a card error ended shows its run up to the failure,
 `NOT SAVED`.
 
@@ -1384,14 +1385,14 @@ run summary takes the clock at the log's start and
 at its stop. Tested against a register-level model of
 the part in `test/fake_i2c.*` (`test/test_clock.cpp`); not tested on hardware.
 
-![SD log screen](docs/log-preview.png)
+![LOGS screen](docs/log-preview.png)
 
 The card runs over 4-bit PIO SDIO at 10 MHz (`SD_LOG_SDIO_HZ`), with the
 driver in `src/sdio/`, which is not tested on hardware. The board cannot use
 hardware SPI for the card: its SD clock is on GP19, which is SPI0 TX in the
 pin mux.
 
-Open the screen with **MENU → SD LOG**, the fifth row. By default arming
+Open the screen with **MENU → LOGS**, the fifth row. By default arming
 starts a log and disarming stops it (`SD_LOG_AUTO_ON_ARM`). Auto-stop ends
 only a log that auto-start began. **START/STOP** is always available.
 
@@ -1406,12 +1407,12 @@ means it was too small.
 
 The logger drops frames rather than block. The UI never waits for the card.
 
-**Getting the files off:** **MENU → SD LOG → USB DRIVE** presents the card
+**Getting the files off:** **MENU → LOGS → USB DRIVE** presents the card
 to the USB host as a read-only removable drive, using MSC (mass storage
 class) on the same USB cable as the serial port. The logger unmounts before
 the drive appears and touches the card again only after eject. The host and
 the firmware never share the FAT volume.
-While the host holds the card, SD LOG counts what it has read, for example
+While the host holds the card, LOGS counts what it has read, for example
 `3.0 MB READ`, in lime, a live reading.
 Without a card the button is drawn unavailable and does nothing. With a card,
 the request is refused while armed (`DISARM FIRST`) or while recording (`STOP
@@ -1420,7 +1421,7 @@ RECORDING FIRST`). Arming is blocked while the host holds the card. See
 gives the card back as an eject does. TinyUSB 0.18.0's RP2040 port, which the
 RP2350 uses, forces VBUS detection on and never reports an unplug: a cable
 pulled with the board on its battery arrives as a bus suspend, as a sleeping
-host does, and a suspend is not handled. EJECT on SD LOG takes the card back
+host does, and a suspend is not handled. EJECT on LOGS takes the card back
 then. Not tested on hardware.
 
 ### Setting the clock
@@ -1484,7 +1485,7 @@ summary then reads `Clock at stop: 2026-11-14 15:44:31 (clock set during
 the log)`. The set holds core0 for its 770 µs on the bus: a log frame due
 in that time is taken up to 770 µs late, and the frames keep their 2 ms
 schedule, which `sdLogTick()` resets only when it falls 8 ms behind; not
-measured on the board. SETTINGS → BOARD → CLOCK shows the kept time to the
+measured on the board. SETUP → BOARD → CLOCK shows the kept time to the
 minute or `NOT SET`.
 
 ### Tuning
@@ -1494,16 +1495,16 @@ not one derived from measurement.
 
 Six of these are only *defaults*: the ESC pin, the DShot bitrate, the KISS
 wire, the pole count, the throttle ceiling and the backlight. Each can be
-changed under **MENU → SETTINGS** and stored in flash. On a board with saved
+changed under **MENU → SETUP** and stored in flash. On a board with saved
 settings the stored value wins, so editing `config.h` and reflashing changes
-nothing for those six. The SETTINGS note line says which set is in use.
+nothing for those six. The SETUP note line says which set is in use.
 
 | Setting | Default | What it does |
 |---|---|---|
 | `DSHOT_PIN_LCD_2_8` | `0` | ESC signal GPIO the board starts on |
 | `KISS_TELEM_ENABLE` | `1` | Compile the KISS path in at all |
-| `KISS_ENABLE_LCD_2_8` | `0` | Whether the board listens for a KISS wire. **Off**: the board has two free pins and the ESC takes one. One tap under SETTINGS turns it on |
-| `KISS_PIN_LCD_2_8` | `1` | GPIO for the telemetry wire. Receive only, changeable under SETTINGS. The other of the two free pins; `DSHOT_PIN_LCD_2_8` has GP0 |
+| `KISS_ENABLE_LCD_2_8` | `0` | Whether the board listens for a KISS wire. **Off**: the board has two free pins and the ESC takes one. One tap under SETUP turns it on |
+| `KISS_PIN_LCD_2_8` | `1` | GPIO for the telemetry wire. Receive only, changeable under SETUP. The other of the two free pins; `DSHOT_PIN_LCD_2_8` has GP0 |
 | `KISS_REQUEST_EVERY_N` | `20` | Request every Nth DShot frame; 20 at 1 kHz is 50 Hz. Values below 2 overlap replies and fail an `#error` |
 | `KISS_STALE_MS` | `500` | How long a KISS frame stays in use before the display falls back to EDT |
 | `EDT_STALE_MS` | `1000` | How long an EDT field stays valid after its last frame. Then the tile shows `--` |
@@ -1567,7 +1568,7 @@ against EDT from the log itself.
 
 ## ESC commands
 
-**MENU → ESC CONFIG → ESC COMMANDS** sends DShot commands to the ESC on SIG:
+**MENU → ESC PROGRAM → ESC COMMANDS** sends DShot commands to the ESC on SIG:
 beacons 1 to 5, the spin direction and 3D mode. A change is saved in the ESC
 in the same sequence. The design is `docs/design/esc-commands.md`. Every
 command goes through the command slot on core1 (see [Telemetry and
@@ -1580,7 +1581,7 @@ and BLHeli_S sources and the BLHeli_32 specification text, not measured.
 *At rest, a beacon going out, 3D ON sent, and no ESC answering.*
 
 The page claims no pin. DShot starts on SIG when it opens and parks when it
-closes, with no drain, since the page sends no throttle; ESC CONFIG draws its
+closes, with no drain, since the page sends no throttle; ESC PROGRAM draws its
 entry disabled while a pin claim is not free. Opening it disarms the tester. It
 has no arm control.
 
@@ -1635,13 +1636,13 @@ not stored. The tester shows no note for the direction.
 
 ## AM32 ESC configuration
 
-**MENU → ESC CONFIG → ESC SETTINGS** reads, edits and writes the settings
+**MENU → ESC PROGRAM → ESC SETTINGS** reads, edits and writes the settings
 of an AM32, Bluejay or BLHeli_S ESC over the signal wire. It does not flash
 ESC firmware and never changes a Bluejay or BLHeli_S ESC's tags. The
 transports are `src/am32_bl.h` for the greeting and AM32, and rcbench's
 escwire session on core1 for Bluejay and BLHeli_S (`src/escwire_job.h`).
 
-MENU's second row, **ESC CONFIG**, opens a hub (`src/ui_esc_config.h`) of three
+MENU's second row, **ESC PROGRAM**, opens a hub (`src/ui_esc_config.h`) of three
 entries: `ESC COMMANDS` (142 px at scale 2) with the lines
 `BEEP 1 TO 5, DIRECTION, 3D MODE.` and `SENT AS DSHOT COMMANDS.` ([ESC
 commands](#esc-commands)), `ESC SETTINGS` (142 px) with
@@ -1650,15 +1651,15 @@ and `USB BRIDGE` (118 px) with `A DESKTOP ESC TOOL OVER USB.` and
 `MSP, 4-WAY AND PASSTHROUGH.` under it ([USB bridge](#usb-bridge)). The strip
 reads `SIG GP0`. The hub claims nothing; the tap on ESC SETTINGS or USB BRIDGE
 claims SIG. Its BACK returns to MENU; the tools' BACK and the leave page's last
-button, `ESC CONFIG`, return to ESC CONFIG. The row acts whatever the pin
+button, `ESC PROGRAM`, return to ESC PROGRAM. The row acts whatever the pin
 claim's state; while the claim is not free the hub draws its three entries
 disabled and its strip's second line reads the busy caption in amber,
-`RELEASING SIG GP0` or `SETTING SIG GP0 LOW`. ESC CONFIG draws no NO ESC CHECK
+`RELEASING SIG GP0` or `SETTING SIG GP0 LOW`. ESC PROGRAM draws no NO ESC CHECK
 line. ESC SETTINGS' titles are one set for every firmware, `ESC SETTINGS`,
 `ESC HEX` and `ESC WRITE`, and the list's strip names the firmware, for example
 `NEOESC f051  F051  AM32 2.16`.
 
-![ESC CONFIG and a Bluejay ESC](docs/esc-preview.png)
+![ESC PROGRAM and a Bluejay ESC](docs/esc-preview.png)
 
 ![A Bluejay or BLHeli_S page](docs/efm8-preview.png)
 
@@ -1667,7 +1668,7 @@ line. ESC SETTINGS' titles are one set for every firmware, `ESC SETTINGS`,
 ![AM32 config](docs/am32-preview.png)
 
 Entering the screen claims the signal pin (`src/pin_claim.h`): the pump,
-parked since ESC CONFIG opened, puts SIG on its pull-up and hands the pin to
+parked since ESC PROGRAM opened, puts SIG on its pull-up and hands the pin to
 the bootloader transport, after the rest of a drain if ESC TESTER was left
 less than 250 ms before; the strip reads `RELEASING SIG GP0` meanwhile.
 Leaving parks the pin again, SIG driven low, at once or, after a Bluejay or
@@ -1904,7 +1905,7 @@ line, then the line parked. The page reads `LEAVING` over `THE ESC STARTS
 ITS FIRMWARE ON` / `LEAVE. ESC TESTER THEN RUNS IT.` and, in amber,
 `KEEP THE PROPELLER OFF.`; BACK is drawn disabled. Once LEAVE went out the
 job lets SIG go and the pins park, SIG driven low, with no leave page, and
-the screen returns to ESC CONFIG. No DShot runs until ESC TESTER or ESC
+the screen returns to ESC PROGRAM. No DShot runs until ESC TESTER or ESC
 COMMANDS opens. LEAVE has no answer: whether the firmware started is not
 seen, and not verified on an ESC, so MENU's run cue stays until an eRPM
 frame after it. A LEAVE that did not go out opens the leave page below.
@@ -1922,16 +1923,16 @@ of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
 | Step | Text | Width |
 |---|---|---|
 | 1, current until LEAVE | `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.` | 35, 33 and 26 characters: 209, 197 and 155 px from x 20 |
-| 2, current after LEAVE | `PLUG IT IN ONCE ESC CONFIG SHOWS.` | 33, 197 px |
+| 2, current after LEAVE | `PLUG IT IN ONCE ESC PROGRAM SHOWS.` | 33, 197 px |
 
 The strip reads `EFM8 E8B2  SIG GP0`, and BACK is drawn disabled.
 **STAY** returns to the page BACK left, the claim and the job kept: a read
 under way goes on. **LEAVE** cuts the job's entry or read, sends nothing and
-lets SIG go, or lets the AM32 transport go of it, and **ESC CONFIG**, the
+lets SIG go, or lets the AM32 transport go of it, and **ESC PROGRAM**, the
 hub's title, takes the wide button, live 1000 ms later. Its tap parks the
 pins, SIG driven low, where an EFM8 does not enter its bootloader (from
 source, not measured), clears MENU's run cue, since the steps power-cycled
-the ESC, and returns to ESC CONFIG. It starts no DShot. There is no left
+the ESC, and returns to ESC PROGRAM. It starts no DShot. There is no left
 button after LEAVE. An AM32 session in which no EFM8 bootloader answered has
 no leave page: BACK parks the pins at once.
 
@@ -1960,7 +1961,7 @@ bytes, in the dim label colour: `THE BYTES AS READ. THE FIELD TABLE` /
 The backup goes to the card as the view opens, since no write follows. The
 view's one control is BACK: no row, no `WRITE...`, REVERT or HEX, and the
 screen has no transition from the view to the write. The view keeps the title
-`ESC SETTINGS`, and its BACK goes to ESC CONFIG. The write itself checks the
+`ESC SETTINGS`, and its BACK goes to ESC PROGRAM. The write itself checks the
 layout of the bytes as read before anything else (`writeRefused()`), so a
 way to it would still write nothing: `LAYOUT NOT KNOWN: NOT WRITTEN`.
 
@@ -2001,9 +2002,9 @@ BACK on the list with edits not written arms a guard (decision 7 of
 `docs/design/menu-b.md`): the strip reads, in amber,
 `2 CHANGES NOT WRITTEN.` over `BACK AGAIN DISCARDS THEM.`, or
 `1 CHANGE NOT WRITTEN.` over `BACK AGAIN DISCARDS IT.` A second BACK goes
-to ESC CONFIG and drops the edits; a press anywhere else disarms the guard
+to ESC PROGRAM and drops the edits; a press anywhere else disarms the guard
 and the strip returns. There is no timer. Without edits BACK goes to ESC
-CONFIG at once.
+PROGRAM at once.
 
 **WRITE...** opens `ESC WRITE` on a tap; nothing on the list is held. The
 page lists each field that changes, from the ESC as read to the edit: the
@@ -2184,12 +2185,12 @@ ground only.
   before the board. A servo fed while the board is off can drive its signal
   wire into an unpowered pin, rated 3.63 V.
 - The two grounds are joined once, at the board.
-- SIG and AUX are the pins set under MENU → SETTINGS → SIG PIN and AUX PIN,
-  both whatever KISS is. A step of either swaps the two, so SETTINGS never
+- SIG and AUX are the pins set under MENU → SETUP → SIG PIN and AUX PIN,
+  both whatever KISS is. A step of either swaps the two, so SETUP never
   puts both on one GPIO, and `settingsValidate()` moves AUX off SIG in a
   stored block. Pins on one GPIO set some other way leave one servo only,
   with `SIG AND AUX ARE THE SAME GPIO.` and
-  `SET SIG PIN OR AUX PIN IN SETTINGS.` on the SET screen.
+  `SET SIG PIN OR AUX PIN IN SETUP.` on the SET screen.
 
 > **Unplug the servo before ESC TESTER or ESC COMMANDS.** Those two screens
 > drive SIG with bidirectional DShot, which idles high and pulls low for
@@ -2258,7 +2259,7 @@ While SAFE with one servo, the readout row reads `TWO SERVOS:` and
 `SET > SERVOS` on the right: SET's SERVOS row switches the second servo on.
 The hint is not shown while the claim refuses AUX.
 
-**Switched supply.** With SETTINGS → SERVO SUPPLY at `GP28` or `GP29` the
+**Switched supply.** With SETUP → SERVO SUPPLY at `GP28` or `GP29` the
 servo tester switches the servo's supply, the boost converter of part C of
 the [wiring diagram](#wiring-diagram) (decision 20 of
 `docs/design/servo-tester.md`, built as slice 3 of
@@ -2447,9 +2448,9 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   the card: its entry with the reserved size, then every block of rows that
   reached the card, followed by whatever the card held in that space before, as
   a blackbox log is left. The rows still in RAM, up to about 16 KiB, are lost.
-- A running blackbox log stops at HOLD TO START, and SD LOG then reads
+- A running blackbox log stops at HOLD TO START, and LOGS then reads
   `RECORDING STOPPED BY SERVO TESTER`; its `.TXT` says `Ended by: SERVO TESTER`.
-  SD LOG's last-run rows stay those of the blackbox log; the servo log has no
+  LOGS' last-run rows stay those of the blackbox log; the servo log has no
   rows there.
 - The SD write cache is on from the open to the close
   (`docs/design/sd-write-cache.md`). During the run core0 never waits for the
@@ -2473,8 +2474,8 @@ ms,pulse_a_us,pulse_b_us,current_ma,bus_mv,flags
   a full card and of a fragmented one; the whole 4 MiB used stops it at the
   limit; the close writes the rest of the rows and the end line where the card
   has room. A card removed, or a block the card does not take, stops the writing
-  too; at the run's end the card is mounted again (`cardCacheRecover()`), and SD
-  LOG shows whether one is there. The file then holds the blocks written before,
+  too; at the run's end the card is mounted again (`cardCacheRecover()`), and
+  LOGS shows whether one is there. The file then holds the blocks written before,
   at its reserved size.
 - In the host model: the open took 558 ms the first time after a mount with a
   blackbox log to stop and 121 ms the next, on a card that reads a block in 1 ms
@@ -2591,7 +2592,7 @@ hand: a plug, or a switch in its positive lead.
 - The power-on order and the unplug rule of the [servo tester
   wiring](#wiring) apply here too.
 
-**Switched supply (optional).** With SETTINGS → SERVO SUPPLY at `GP28` or
+**Switched supply (optional).** With SETUP → SERVO SUPPLY at `GP28` or
 `GP29`, the bench powers the servo itself through a boost converter whose
 enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 
@@ -2655,7 +2656,7 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    power-ups in 30 s, the strip `SIG GP0  TRY 3  SUPPLY OFF 1.4 S` or
    `SUPPLY ON`. A timed-out switched search reads `NO ANSWER IN 14 POWER-UPS`
    and names the converter, and that a servo on its own supply needs
-   `SETTINGS > SERVO SUPPLY AT OWN`. While an ESC answers on SIG the screen
+   `SETUP > SERVO SUPPLY AT OWN`. While an ESC answers on SIG the screen
    claims nothing and reads `AN ESC ANSWERS ON SIG GP0.`, the strip
    `CHECKING SIG GP0 FOR AN ESC`.
 2. Power the servo up during the search: the screen says `POWER UP` /
@@ -2861,7 +2862,7 @@ not 0 answers ID 0 is not measured.
 
 - No pull-up resistor on the signal wire: the bench's PRECHARGE receive
   needs none, and rcbench's PULL-UP receive is not offered.
-- With SETTINGS → SERVO SUPPLY at `GP28` or `GP29`, the bench powers the servo through
+- With SETUP → SERVO SUPPLY at `GP28` or `GP29`, the bench powers the servo through
   the converter of the [KST switched supply](#kst-servo-programming) and
   power-cycles it for the entry. **An ESC on this lead gets the converter's
   output on its BEC wire**, its own regulated supply; the claim's ESC check
@@ -3037,7 +3038,7 @@ SERVO, the hub, offers HITEC CLASSIC (HS-5xxx, HS-7xxx) with SERVO SUPPLY at
 `GP28` or `GP29`, since a classic servo enters programming mode only at its
 power-up. Under `OWN` it is drawn disabled, with
 `NEEDS THE CONVERTER OF WIRING PART C` and
-`AND SETTINGS > SERVO SUPPLY GP28/29.`: the switched supply is the DC-DC
+`AND SETUP > SERVO SUPPLY GP28/29.`: the switched supply is the DC-DC
 converter of part C of the [wiring diagram](#wiring-diagram), and the
 setting only names its enable pin. A classic servo drives the signal line
 high itself, through about 1 kΩ, to its supply: 5 V nominal from the
@@ -3072,7 +3073,7 @@ own factory cells, and the HS-5xxx and HS-7xxx layouts.
 
 ## S.BUS monitor
 
-**MENU → RX SIGNALS → MONITOR** opens S.BUS MONITOR, which reads the S.BUS
+**MENU → RECEIVER → MONITOR** opens S.BUS MONITOR, which reads the S.BUS
 (Futaba's serial bus for receiver channels) output of a receiver on GP1: the
 16 proportional channels, the two digital channels CH17 and CH18, the link
 state, the frame rate and the error counts. It sends nothing. The receive
@@ -3099,7 +3100,7 @@ not measured. Design note: `docs/design/rx-signals.md`; the screen is
   GP1 = J5 pin 1 or J4 pin 10, GND = J5 pin 4 or J4 pin 1 or 5
 ```
 
-- GP1 is AUX, the KISS pin, in the default wiring. With SETTINGS → SIG PIN
+- GP1 is AUX, the KISS pin, in the default wiring. With SETUP → SIG PIN
   at GP1 it is SIG; the monitor reads GP1 in either role, because GP1 is
   UART0's receive pin.
 - The receiver takes power from its own supply, never from the board's
@@ -3113,13 +3114,13 @@ not measured. Design note: `docs/design/rx-signals.md`; the screen is
 
 ### Using it
 
-The RX SIGNALS row opens RX SIGNALS (`src/ui_rx_signals.cpp`), a hub
+The RECEIVER row opens RECEIVER (`src/ui_rx_signals.cpp`), a hub
 with two entries, 228 x 46 px at y 62 and 142. It claims
 nothing. Its strip names both pins, `SIG GP0  AUX GP1`. **MONITOR** opens
 S.BUS MONITOR. **OUTPUT** opens S.BUS OUTPUT ([S.BUS output](#sbus-output));
 its lines carry the output's warning, `S.BUS TO A FLIGHT CONTROLLER.`
 `ON GP0, NEVER TO AN ESC.` While the pin claim is not free the row still
-opens RX SIGNALS, which draws both entries disabled, as every hub does.
+opens RECEIVER, which draws both entries disabled, as every hub does.
 
 S.BUS MONITOR claims the role that is GP1 (`src/pin_claim.h`): SIG and AUX
 in the default wiring, SIG alone when SIG is GP1. Before the claim it
@@ -3137,8 +3138,8 @@ checks:
 - **KISS frames on GP1**, GP1 as AUX: `KISS WIRE ON AUX GP1 IS LIVE.` and
   the same second and third lines; the claim follows 500 ms after the last
   frame.
-- **No role on GP1**: `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` On
-  this board SETTINGS' two steppers swap GP0 and GP1, so this does not
+- **No role on GP1**: `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETUP.` On
+  this board SETUP's two steppers swap GP0 and GP1, so this does not
   happen through the screens.
 
 While the claim drains DShot the body reads `RELEASING AUX GP1`, then
@@ -3174,9 +3175,9 @@ on that.
 `SIG GP1 IS HELD LOW, WHERE` `THE RECEIVER DRIVES THE LINE.` when SIG is
 GP1. The job lets GP1 go at once, with
 UART0 off and no inversion left on the pad. **BACK TO MONITOR** keeps the
-claim and starts again with every count at 0; **RX SIGNALS**, the hub's
-title, acts 1 s after the pin is let go, parks the pins and returns to RX
-SIGNALS. **BACK** before the claim holds returns to RX SIGNALS, the pins
+claim and starts again with every count at 0; **RECEIVER**, the hub's
+title, acts 1 s after the pin is let go, parks the pins and returns to
+RECEIVER. **BACK** before the claim holds returns to RECEIVER, the pins
 parked.
 
 Not verified:
@@ -3195,7 +3196,7 @@ Not verified:
 
 ## S.BUS output
 
-**MENU → RX SIGNALS → OUTPUT** opens S.BUS OUTPUT, which sends S.BUS frames
+**MENU → RECEIVER → OUTPUT** opens S.BUS OUTPUT, which sends S.BUS frames
 on GP0 to a flight controller's (FC's) S.BUS input: 16 channels from raw 172
 to 1811 (1000 µs to 2000 µs), the digital channels CH17 and CH18, and the
 failsafe and frame-lost bits, one frame every 14 ms. The line is UART0's
@@ -3233,7 +3234,7 @@ view while SAFE, the second line in SET's footer, and
 ```
 
 - GP0 is SIG, the ESC pin, in the default wiring: the FC lead goes where
-  the ESC was. With SETTINGS → SIG PIN at GP1, GP0 is AUX and the output
+  the ESC was. With SETUP → SIG PIN at GP1, GP0 is AUX and the output
   claims both pins.
 - The board sends signal and ground only; the FC takes power from its own
   USB port or supply. With the FC on its battery its ESCs and motors are
@@ -3263,7 +3264,7 @@ What the rows' area shows in place of the channels:
 | `RELEASING SIG GP0`, then `TAKING SIG GP0` | the claim drains DShot, then the job binds |
 | `CHECKING SIG GP0 FOR AN ESC.` | the bootloader check runs |
 | `AN ESC BOOTLOADER ANSWERS ON SIG GP0.` `UNPLUG THE ESC BATTERY AND LEAD.` `START WAITS UNTIL NONE ANSWERS.` | a Bluejay, BLHeli_S or AM32 bootloader answered; the check repeats, and MENU's strip reads `POWER-CYCLE THE ESC TO RUN IT` |
-| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | neither SIG nor AUX is GP0; SETTINGS swaps the two, so this does not happen through the screens |
+| `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETUP.` | neither SIG nor AUX is GP0; SETUP swaps the two, so this does not happen through the screens |
 | `SIG GP0 COULD NOT BE TAKEN (CLOCK)` and **RETRY** | UART0 could not reach 100,000 baud, or the check's line could not get its clock |
 | `SIG GP0 COULD NOT BE TAKEN (PIO)` or `(DMA)`, and **RETRY** | the check's line found no PIO (programmable input/output) state machine or no free DMA (direct memory access) channel |
 | `SIG GP0 COULD NOT BE TAKEN (REFUSED)` and **RETRY** | the check's line driver did not take the pin (`CORE1_JOB_PIN`) |
@@ -3321,14 +3322,14 @@ While RUNNING the footer's right button is STOP; while SAFE the footer reads
 lets GP0 go after the frame on the wire, low. Step 1 reads
 `UNPLUG THE FLIGHT CONTROLLER.` with `ESC TESTER SENDS DSHOT ON SIG GP0.`
 (the ESC's pin, GP1 when SIG is GP1). **BACK TO OUTPUT** keeps the claim: a
-new visit, with a new bootloader check before START. **RX SIGNALS**, the
-hub's title, acts 1 s after GP0 is let go, parks the pins and returns to RX
-SIGNALS. After a Bluejay or BLHeli_S
+new visit, with a new bootloader check before START. **RECEIVER**, the
+hub's title, acts 1 s after GP0 is let go, parks the pins and returns to
+RECEIVER. After a Bluejay or BLHeli_S
 bootloader answered, BACK stops the frames and opens the page with ESC
 SETTINGS' first step, `UNPLUG THE ESC BATTERY, THEN LEAVE.`, STAY and LEAVE,
 and a last step `THEN PLUG THE ESC BACK IN.`: the bootloader waits for
 commands and may read DShot as one. **BACK** before the claim holds returns
-to RX SIGNALS, the pins parked.
+to RECEIVER, the pins parked.
 
 Not verified:
 
@@ -3344,7 +3345,7 @@ Not verified:
 
 ## USB bridge
 
-**MENU → ESC CONFIG → USB BRIDGE** lets a desktop ESC tool on the board's
+**MENU → ESC PROGRAM → USB BRIDGE** lets a desktop ESC tool on the board's
 USB serial port reach the ESC's bootloader on SIG at 19200 baud 8N1
 (eight data bits, no parity, one stop bit). The board is then a USB-serial
 adapter whose TX and RX are joined on the ESC's signal wire, or a flight
@@ -3457,9 +3458,9 @@ BACK is never sent, and the note stays.
 | When | BACK |
 |---|---|
 | a write-class frame waits for its answer, at most 3000 ms | drawn disabled; the first line reads `WRITING: DO NOT UNPLUG ESC OR USB.`, amber |
-| before the line is bound: Stopping, or a failed bind | returns to ESC CONFIG; the pins park at once, or once the job has let the line go |
+| before the line is bound: Stopping, or a failed bind | returns to ESC PROGRAM; the pins park at once, or once the job has let the line go |
 | a failed rebind after `BRIDGE` on the leave page | the leave page again, with the note if it stands: a claim that has had the page keeps it until its last button |
-| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `BACK TO ESC CONFIG.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, and the note stays for its next BACK until a RUN; `ESC CONFIG`, live 1000 ms after the line is let go, ends the claim and the note with it, parks the pins and returns to ESC CONFIG |
+| the bridge running, whatever was sent | the leave page: `POWER THE ESC OFF.`, `BACK TO ESC PROGRAM.`, after a write with no RUN behind it also the note `FLASH THE ESC AGAIN BEFORE USE.`; `BRIDGE` returns to the bridge, and the note stays for its next BACK until a RUN; `ESC PROGRAM`, live 1000 ms after the line is let go, ends the claim and the note with it, parks the pins and returns to ESC PROGRAM |
 
 Once the line is bound the ESC may wait in its bootloader whatever the
 tool sent: one powered up while SIG is held high enters it, AM32 2.22
@@ -3532,7 +3533,7 @@ module's default (`INA219_ADDR`). Part C of the
 The design note's "Electrical" section has the circuit, the ratings and the
 bus's pull-ups.
 
-**SETTINGS → CURRENT SENSE.** `NONE`, the default, or `INA219`, in the
+**SETUP → CURRENT SENSE.** `NONE`, the default, or `INA219`, in the
 SERVO SUPPLY section below SERVO SUPPLY. With `INA219` the bench probes the
 part at boot and every 1000 ms while it is not online, and the row's caption
 reads `FOUND`, `NOT FOUND`, or `OTHER PART` for a part at 0x40 that is no
@@ -3592,7 +3593,7 @@ design note's bench tests B1 to B9 are open.
 
 ![Angle meter](docs/angle-preview.png)
 
-*The main view after a zero with LENGTH set and SIGN at INVERT, SETUP, and
+*The main view after a zero with LENGTH set and SIGN at INVERT, ANGLE SET, and
 FLIP CAL with a result.*
 
 **How it reads.** Opening the meter opens the IMU driver (`src/qmi8658.*`):
@@ -3615,10 +3616,10 @@ the meter is closed.
 |---|---|
 | Strip | The edge along the axis and its tilt in whole degrees, `LONG EDGE  AXIS TILT 3°`, amber from 45°; the chip `SETTLED` (green), `MOVING` (the neutral chip: a frame, a dim label), `TOO STEEP`, `STARTING` or `NO IMU` (amber) |
 | Angle | Scale 5, in tenths of a degree, from the zero or, before a zero, from level: `NOT ZEROED: FROM LEVEL` or `FROM ZERO` under it. `---` while the model has no reading, at the start and 300 ms after the last frame, and while the axis is tilted 70° or more, with `TURN THE AXIS NEARER LEVEL.` under it. With no part answering at 0x6B, `NO ANSWER FROM THE IMU AT 0X6B.`; with another part there, `NOT A QMI8658: ID 0X3C.` with its WHO_AM_I |
-| Travel | With LENGTH set, the trailing edge's travel, LENGTH × sin(angle), at scale 3, and `L 40 MM, HINGE TO TRAILING EDGE`; with LENGTH `OFF`, `SET LENGTH IN SETUP FOR MM` |
+| Travel | With LENGTH set, the trailing edge's travel, LENGTH × sin(angle), at scale 3, and `L 40 MM, HINGE TO TRAILING EDGE`; with LENGTH `OFF`, `SET LENGTH IN ANGLE SET FOR MM` |
 | MAX | The largest settled angle each side since ZERO or RESET MAX, negative first, `--` for a side with none, and under it their travel |
 | Temperature | The IMU's temperature, and after a zero its change since then, amber from 2.0 °C |
-| Footer | ZERO, RESET MAX, SETUP |
+| Footer | ZERO, RESET MAX, ANGLE SET |
 
 ZERO arms on its tap, `ZERO WHEN SETTLED: HOLD STILL`, and takes the zero
 from the first settled reading at least 1000 ms after the finger lifts, so
@@ -3629,7 +3630,7 @@ knock while the surface moves does not set it. The zero and MAX last for the
 visit: BACK drops them, and the next visit starts from level. The screen
 shows 0.1° and 0.1 mm; that is the display's resolution, not an accuracy.
 
-**SETUP.** Rows as SETTINGS draws them; LENGTH's value is cyan text, the
+**ANGLE SET.** Rows as SETUP draws them; LENGTH's value is cyan text, the
 colour of a setting. A row applies at once; BACK returns
 to the main view and saves the four fields while they differ from flash
 (`settingsAngleDirty()`).
@@ -3642,12 +3643,12 @@ to the main view and saves the four fields while they differ from flash
 | CALIBRATION | `FLIP` | Opens FLIP CAL. The caption reads `CALIBRATED` or `NOT CALIBRATED` |
 
 The save, `settingsSaveAngle()`, writes the meter's four fields over the
-settings as last saved, so a change made on SETTINGS and not saved stays
+settings as last saved, so a change made on SETUP and not saved stays
 unsaved. While the fields differ from flash, after a save that failed, the
-main view reads `SETUP NOT SAVED TO FLASH.`, on later visits too; the values
-stay live until a restart, and SETUP's next BACK tries the save again, with
-or without an edit. SETTINGS' HOLD TO SAVE stores them too. The IMU keeps
-running on SETUP and FLIP CAL.
+main view reads `ANGLE SET NOT SAVED TO FLASH.`, on later visits too; the values
+stay live until a restart, and ANGLE SET's next BACK tries the save again, with
+or without an edit. SETUP's HOLD TO SAVE stores them too. The IMU keeps
+running on ANGLE SET and FLIP CAL.
 
 **FLIP CAL.** Three poses on a flat, steady surface, level or not, each held
 still for 2 s: screen up; turned end for end on the same spot, lifted off and
@@ -3660,13 +3661,13 @@ the axis along the normal, `OFFSET X 30  Y -20  Z 40 MG` and `GAIN Z 1.020`;
 an offset past ±0.2 g or a gain outside 0.88 to 1.12 gives no result. The
 1 s HOLD TO KEEP applies it and saves it: `KEPT AND SAVED.`, or
 `APPLIED, NOT SAVED TO FLASH.` when the save fails. A new calibration drops
-the zero and MAX. AGAIN starts over; BACK returns to SETUP without keeping a
+the zero and MAX. AGAIN starts over; BACK returns to ANGLE SET without keeping a
 result. The gains of the two in-plane axes stay 1. Whether the flip's limits
 and the calibration are right for the fitted part is not measured (bench
 tests B5 and B6).
 
 **Settings.** ALONG AXIS, SIGN, LENGTH and the calibration are kept in the
-settings block, version 6 ([Using it](#using-it), SETTINGS). SETTINGS does
+settings block, version 6 ([Using it](#using-it), SETUP). SETUP does
 not show them, and its HOLD DEFAULTS keeps them.
 
 **Pins.** The meter claims no pin: DShot keeps running on SIG, and the ESC
@@ -3721,7 +3722,7 @@ In the firmware:
 
 - Boots with DShot off: no DShot frame at power-up, SIG held low, AUX on its
   pull-down. DShot runs only while ESC TESTER or ESC COMMANDS is open, or
-  SETTINGS over the tester, and opens disarmed with zero-throttle frames.
+  SETUP over the tester, and opens disarmed with zero-throttle frames.
 - Arming needs a 1 s hold with the throttle at zero for at least 250 ms.
   Only a press that lands on the button while arming is allowed counts: the
   press that disarms, or one made while a USB host holds the card, does not
@@ -3736,10 +3737,10 @@ In the firmware:
 - Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
 - The tester opens from MENU disarmed, at throttle 0, with LATCH off, and its
   MENU button disarms, zeroes the throttle and turns LATCH off before it returns
-  to MENU. Every tool but SETTINGS opens only from MENU or from a hub that
-  MENU opens; SETTINGS also opens from a tap on the tester's pole count or
+  to MENU. Every tool but SETUP opens only from MENU or from a hub that
+  MENU opens; SETUP also opens from a tap on the tester's pole count or
   ceiling, only while disarmed, and that tap runs the same disarm first.
-  While a pin claim is not free, MENU draws ESC TESTER and SETTINGS
+  While a pin claim is not free, MENU draws ESC TESTER and SETUP
   disabled, a hub draws its entries disabled, and the strips read
   `RELEASING SIG GP0` or `SETTING SIG GP0 LOW`.
 - Before DShot stops, on leaving ESC TESTER or for a pin change, it sends
@@ -3779,7 +3780,7 @@ In the firmware:
 - On SERVO TESTER → SET a heli profile, a rate above 60 Hz, a profile taken
   further past its travel and a second servo on such a profile wait for
   HOLD TO APPLY (1 s).
-- SETTINGS loads the compiled defaults only after a 1 s hold of HOLD
+- SETUP loads the compiled defaults only after a 1 s hold of HOLD
   DEFAULTS.
 - The servo tester starts SAFE, with no pulses; HOLD TO START is a 1 s hold
   that puts every pin at CENTRE, and STOP acts on touch. A hold counts only
@@ -3787,7 +3788,7 @@ In the firmware:
   the button is drawn disabled starts nothing. Core1 ends the
   pulses if core0 sends no heartbeat for 250 ms. The servo screen does not
   claim the pins while an ESC answers on them, which with DShot parked it
-  sees only within 500 ms of the last answer: the hubs SERVO and RX SIGNALS
+  sees only within 500 ms of the last answer: the hubs SERVO and RECEIVER
   warn `NO ESC CHECK: UNPLUG ANY ESC FIRST.` before every entry tap. The
   leave page parks the pins on its last button, 1 s after they are let go,
   and starts no DShot. With the
@@ -3830,17 +3831,17 @@ src/
     out_dshot.{h,c}, dshot.pio          RP2350 pin driver: 2 state machines, 16 instructions
   ui.{h,cpp}            the tester (arm/throttle state machine, touch handling) and the navigation
   ui_screen.h           UiScreen, SettingsRow, SettingsSection, UiMenuEntry and the control ids
-  ui_registry.{h,cpp}   one line per MENU row and per ESC CONFIG, SERVO and RX SIGNALS entry, and the checks that their texts fit
-  ui_hub.{h,cpp}        the hub: the one widget under ESC CONFIG, SERVO and RX SIGNALS, a list once it has more than three entries; UiHubEntry, UiHub and hubEntriesFit()
+  ui_registry.{h,cpp}   one line per MENU row and per ESC PROGRAM, SERVO and RECEIVER entry, and the checks that their texts fit
+  ui_hub.{h,cpp}        the hub: the one widget under ESC PROGRAM, SERVO and RECEIVER, a list once it has more than three entries; UiHubEntry, UiHub and hubEntriesFit()
   ui_menu.{h,cpp}       MENU, the root and the first screen
   ui_esc_cmd.{h,cpp}    ESC COMMANDS: BEEP 1 to 5, direction and 3D mode, through the command slot
   esc_3d.{h,cpp}        the tester's 3D note, which ESC SETTINGS and ESC COMMANDS set
   ui_servo_hub.{h,cpp}  SERVO: the hub of the servo tester, the angle meter and the three servo programmers
-  ui_rx_signals.{h,cpp} RX SIGNALS: the hub of MONITOR and OUTPUT
-  ui_esc_config.{h,cpp} ESC CONFIG: the hub of ESC COMMANDS, ESC SETTINGS and USB BRIDGE
-  ui_settings.{h,cpp}   SETTINGS: sections, pins, bitrate, contrast, hold-to-save
+  ui_rx_signals.{h,cpp} RECEIVER: the hub of MONITOR and OUTPUT
+  ui_esc_config.{h,cpp} ESC PROGRAM: the hub of ESC COMMANDS, ESC SETTINGS and USB BRIDGE
+  ui_settings.{h,cpp}   SETUP: sections, pins, bitrate, contrast, hold-to-save
   diag.{h,cpp}          the restart reason, decoded from the reset registers, and the uptime
-  ui_sdlog.{h,cpp}      SD LOG screen
+  ui_sdlog.{h,cpp}      LOGS screen
   ui_widgets.{h,cpp}    shared header, buttons, rows and chips
   ui_list.{h,cpp}       the scrolling list: pixel scroll, axis lock, tap, swipe
   ui_hold.{h,cpp}       the hold-to-act control: 1 s timer, one firing, its bar
@@ -4000,21 +4001,21 @@ layout change is visible in the frames:
 - twelve of the tester: disarmed, armed, live, stale, no ESC, an ESC
   answering at rest, with KISS values, the kV estimate at 79 %, the 3D mode
   note, `SDERR` while armed, the card held by a USB host, high contrast;
-- five of MENU: on arrival, SETTINGS' `UNSAVED` and `UPDATED`, the busy
+- five of MENU: on arrival, SETUP's `UNSAVED` and `UPDATED`, the busy
   caption `SETTING SIG GP0 LOW`, AM32's power-cycle cue;
 - four of ESC COMMANDS: at rest, a beacon going out, 3D ON sent, and
   no ESC answering;
 - three of MENU → SERVO, the hub: at scroll 0, at its end with SERVO SUPPLY
   at `OWN`, and at its end with the supply at a pin;
-- one of MENU → RX SIGNALS, the hub;
-- one of MENU → ESC CONFIG, the hub;
+- one of MENU → RECEIVER, the hub;
+- one of MENU → ESC PROGRAM, the hub;
 - eight of S.BUS MONITOR: waiting for the first frame, frames, failsafe,
   the receiver gone, an ESC answering on GP1 as SIG, no role on GP1, and the
   leave page with GP1 as AUX and as SIG;
-- seven of MENU → SETTINGS: the top, scrolled to the end, high contrast,
+- seven of MENU → SETUP: the top, scrolled to the end, high contrast,
   SERVO SUPPLY at a pin, the CURRENT SENSE row with a sensor found, the
   warning for SIG moved off the boot pin, settings carried over by an update;
-- eight of MENU → SD LOG: ready, recording, no card, a card found by RETRY
+- eight of MENU → LOGS: ready, recording, no card, a card found by RETRY
   MOUNT, the last log's run after STOP, a full card with its run not saved,
   USB DRIVE refused, USB DRIVE serving;
 - nineteen of ESC SETTINGS: the connect page, a reply it cannot parse, a
@@ -4049,7 +4050,7 @@ run shifts it. A screen that draws from the clock is therefore captured
 after the test sets the clock: `fakeClockAlign()` moves it to a whole spinner
 turn (1800 ms) before the KST search spinner and the ESC SETTINGS connect
 spinner, and `fakeClockSetMs()` sets the time since boot to 10000 h before
-SETTINGS' UPTIME. The images in `docs/` and `wiki/img/` do not change when a
+SETUP's UPTIME. The images in `docs/` and `wiki/img/` do not change when a
 test is added or removed.
 
 `make previews` restitches the images in `docs/` from those frames. It is a separate
@@ -4089,8 +4090,8 @@ GP1 on the UART function and its input inverted, reads each character in the
 format set, 8N1 after `uart_init()`, and loads a character caught in its middle
 as a framing error. `test/sbus_line.h` puts a receiver's frames on that line,
 120 µs a byte, with parity, framing and break faults, cut frames and any
-footer. `test_sbus_ui.cpp` runs S.BUS MONITOR on it through MENU and RX
-SIGNALS, with core1's job passes every 500 µs between UI frames.
+footer. `test_sbus_ui.cpp` runs S.BUS MONITOR on it through MENU and
+RECEIVER, with core1's job passes every 500 µs between UI frames.
 The S.BUS output's job runs against the same fake's transmitter: each UARTDR
 write enters a 32-entry TX FIFO and goes out at the format and rate set, 120 µs
 a character at 8E2, with TXFE, TXFF and BUSY from it, and a character still on
@@ -4113,7 +4114,7 @@ reaches a pin user, a core1 job or a command kind by a cast or walks the
 user rows or the job table. It is a lint of the sources, backed by the UI
 tests: a value made through `memcpy()` or a macro is not caught.
 `test_sbus_out_ui.cpp` runs S.BUS OUTPUT on the job, the probe and the
-transmitter through MENU and RX SIGNALS, reading each command the screen
+transmitter through MENU and RECEIVER, reading each command the screen
 sent from the job's command block (`sbusOutJobHeld()`).
 
 `esc_task.cpp` cannot be linked either, so core0's side of the command slot is
@@ -4182,7 +4183,7 @@ the driver opened by the meter and CTRL7 00h on BACK, nothing to
 0x6B before or after; the angle, the strip's tilt, amber from 45°, `---`
 and TOO STEEP from 70°, SETTLED and MOVING, a stale reading, no part, another
 part and a part lost; ZERO a second after the lift and its 10 s limit, MAX
-from settled frames, RESET MAX, the temperature warning; SETUP's rows,
+from settled frames, RESET MAX, the temperature warning; ANGLE SET's rows,
 LENGTH's steps and hold-to-repeat, one save on BACK and none without a
 change, a failed save; FLIP CAL's steps, touches ignored screen down, HOLD
 TO KEEP at 1000 ms and not 975 ms, its save and a failed one; and the widest

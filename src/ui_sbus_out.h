@@ -4,8 +4,8 @@
  *        channels on sliders, CH17, CH18 and the two flags on SET, the
  *        throttle channel under MAX THROTTLE.
  *
- * S.BUS is Futaba's serial bus for receiver channels. Entry: MENU → RX
- * SIGNALS → OUTPUT (ui_rx_signals.h). The screen claims the role that is GP0
+ * S.BUS is Futaba's serial bus for receiver channels. Entry: MENU →
+ * RECEIVER → OUTPUT (ui_rx_signals.h). The screen claims the role that is GP0
  * (sbusOutClaimRoles(): SIG in the default wiring, SIG and AUX when GP0 is
  * AUX) for PinUser::SbusOut, whose row has the claim's ESC check, and core1's
  * S.BUS output job (sbus_out_job.h) probes GP0 for an ESC's bootloader, then
@@ -37,7 +37,7 @@
  *
  * **The warnings.** While SAFE the main view's two notes read
  * `GP0 GOES TO A FLIGHT CONTROLLER.` `NEVER TO AN ESC. PROPS OFF.`, and
- * SET's footer the second; RX SIGNALS carries them under OUTPUT. The probe
+ * SET's footer the second; RECEIVER carries them under OUTPUT. The probe
  * misses an ESC that is unpowered during it or plugged in after it.
  *
  * **Leaving.** BACK on the main view is the leave: the job lets GP0 go
@@ -48,9 +48,9 @@
  * docs/design/bluejay-blheli-s.md, `UNPLUG THE ESC BATTERY, THEN LEAVE.`;
  * STAY returns to the screen. BACK TO OUTPUT keeps the claim: the job binds
  * again, a new visit with a new probe. RESTART DSHOT, live 1000 ms after GP0
- * is let go, returns to RX SIGNALS; after decision 8's page it also calls
+ * is let go, returns to RECEIVER; after decision 8's page it also calls
  * sbusOutProbeRestart(), which clears the EFM8 mark and MENU's cue. BACK
- * before a claim held, or while Stopping, returns to RX SIGNALS with DShot
+ * before a claim held, or while Stopping, returns to RECEIVER with DShot
  * resumed.
  *
  * @see docs/design/sbus-output.md, "Screen"
@@ -130,7 +130,7 @@ struct UiScreen;
 /** @brief No role on GP0, amber: 16 characters. */
 #define SBOUT_UI_NO_GP0_1 "S.BUS NEEDS GP0."
 /** @brief ...line 2: 29 characters, 173 px. */
-#define SBOUT_UI_NO_GP0_2 "SET A PIN TO GP0 IN SETTINGS."
+#define SBOUT_UI_NO_GP0_2 "SET A PIN TO GP0 IN SETUP."
 /** @brief SET's note while RUNNING: 27 characters, 161 px. */
 #define SBOUT_UI_SET_STOP  "STOP TO CHANGE THE CHANNEL."
 /** @brief SET's note while SAFE: 23 characters, 137 px. */

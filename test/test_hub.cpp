@@ -1,7 +1,7 @@
 /**
  * @file test_hub.cpp
- * @brief The hub, `ui_hub`, the one widget under ESC CONFIG, SERVO and RX
- *        SIGNALS: slices 1, 2 and 4 of menu structure C.
+ * @brief The hub, `ui_hub`, the one widget under ESC PROGRAM, SERVO and
+ *        RECEIVER: slices 1, 2 and 4 of menu structure C.
  *
  * Through the real UI: each of the three screens reports BACK and then one
  * control per entry that shows, at the entry's visible rectangle and
@@ -126,9 +126,9 @@ struct HubCase {
 };
 
 static const HubCase HUB_CASES[] = {
-	{ "ESC CONFIG", &UI_ESC_CONFIG, &UI_ESC_CFG_HUB, UiScreenId::EscConfig, 3 },
+	{ "ESC PROGRAM", &UI_ESC_CONFIG, &UI_ESC_CFG_HUB, UiScreenId::EscConfig, 3 },
 	{ "SERVO", &UI_SERVO_HUB_SCREEN, &UI_SERVO_HUB, UiScreenId::ServoHub, 5 },
-	{ "RX SIGNALS", &UI_RX_SIGNALS, &UI_RX_HUB, UiScreenId::RxSignals, 2 },
+	{ "RECEIVER", &UI_RX_SIGNALS, &UI_RX_HUB, UiScreenId::RxSignals, 2 },
 };
 
 /**
@@ -924,14 +924,14 @@ static void testServoScroll() {
 			const UiRect r = uiHubEntryRect(0);
 			fakePress(r.x + r.w / 2, r.y + 12); hubFrames(1);
 			fakeHold(r.x + r.w / 2, r.y + 22); hubFrames(1);
-			checkTrue("ESC CONFIG: a press moved 10 px inside ESC COMMANDS stays a press, drawn pressed",
+			checkTrue("ESC PROGRAM: a press moved 10 px inside ESC COMMANDS stays a press, drawn pressed",
 			          navIsHub(UiScreenId::EscConfig) && !buttonIs(r, "ESC COMMANDS", true));
 			fakeRelease(); hubFrames(2);
 			checkTrue("and its lift inside the button opens ESC COMMANDS",
 			          navIsTool(UiScreenId::EscConfig, UiScreenId::EscCmd));
 			tapId(UI_FIX(UI_BACK));
 			hubFrames(1);
-			checkTrue("BACK: ESC CONFIG", navIsHub(UiScreenId::EscConfig));
+			checkTrue("BACK: ESC PROGRAM", navIsHub(UiScreenId::EscConfig));
 		}
 		checkTrue("BACK: MENU, then the tester", backToTester());
 	}

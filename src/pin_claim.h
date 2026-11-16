@@ -203,8 +203,8 @@ struct ClaimFacts {
  *   pins, and not while Run is wanted for ESC TESTER or ESC COMMANDS.
  * - **EscAnswering**, SERVO, KST, HITEC and the S.BUS output. With the pump
  *   parked nothing answers, so it refuses only within 500 ms of the last
- *   answer after ESC TESTER or ESC COMMANDS closed; the hubs SERVO and RX
- *   SIGNALS warn `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in its place
+ *   answer after ESC TESTER or ESC COMMANDS closed; the hubs SERVO and
+ *   RECEIVER warn `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in its place
  *   (docs/design/dshot-lifetime.md, decisions 7 and 11). Servo pulses
  *   of 1000 to 2000 us are a valid PWM throttle signal, a KST or Hitec entry
  *   sends frames into whatever is on the wire, and S.BUS frames must not
@@ -217,7 +217,7 @@ struct ClaimFacts {
  * - **KissLive**, AUX asked for. An ESC telemetry output drives AUX, and servo
  *   PWM would drive against it; for the S.BUS monitor the telemetry wire is
  *   where the receiver goes.
- * - **SamePin**, AUX asked for. With KISS off, SETTINGS can put the ESC pin on
+ * - **SamePin**, AUX asked for. With KISS off, SETUP can put the ESC pin on
  *   the KISS pin's GPIO, and two servos on one pin are one compare register
  *   driven twice.
  *
