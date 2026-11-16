@@ -33,6 +33,8 @@
 #include "usb_msc.h"
 #include "plat.h"
 #include "tusb.h"
+#include "bridge_wire.h"
+#include "touch.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -946,6 +948,251 @@ static void testNavOpener() {
 	checkTrue("then MENU and the tester", backToTester());
 }
 
+// ---------------------------------------------------------------------------
+// Decision 13 of docs/design/dshot-lifetime.md: the cue at a claim's end
+// ---------------------------------------------------------------------------
+
+/** @brief Frames with the pump's pass and core0's loop, and no core1 job pass: a start stays pending. */
+static void framesNoJob(int n) {
+	for (int i = 0; i < n; i++) {
+		fakeAdvance(25);
+		tud_task();
+		usbBridgeTask();
+		fakePumpPoll();
+		uiTick();
+	}
+}
+
+/** @brief BACK tapped through uiTick(), the frames run by @p frames. */
+static void tapBackWith(void (*frames)(int)) {
+	const UiRect back = uiBackRect();
+	fakePress(back.x + 10, back.y + 10);
+	frames(2);
+	fakeRelease();
+	frames(1);
+}
+
+/** @brief The model ESC: 25 bytes after each frame, so it answers more than the bridge sends. */
+static int esc25(const uint8_t *, int, uint8_t *r, uint32_t *d) {
+	*d = 300;
+	memset(r, 0x55, 25);
+	return 25;
+}
+
+/** @brief From MENU: ESC PROGRAM, then a tap on USB BRIDGE; the claim begins on the tap's last frame. */
+static void claimFromMenu() {
+	tapId(menuRow(&UI_ESC_CONFIG));
+	brFrames(1);
+	tapId(UI_FIX(EscCfgCtl::Bridge));
+}
+
+/**
+ * @brief A first claim whose line sends 400 bytes and receives 500, the
+ *        model ESC's answers among them, ended at the leave page's last
+ *        button: the counts stay until the next bind. Ends on MENU.
+ */
+static void leftovers() {
+	usbBridgeRunCueClear();
+	freshUi(esc25);
+	openBridgeScreen();
+	untilOpen();
+	uint8_t f[100];
+	for (int i = 0; i < 100; i++) f[i] = (uint8_t)(i + 1);
+	for (int k = 0; k < 4; k++) {
+		fakeCdcHostWrite(f, sizeof(f));
+		brFrames(10);
+	}
+	tapId(UI_FIX(UI_BACK));
+	brFrames(1);
+	restartFromPage();
+	BridgeWireStats w;
+	bridgeWireStats(&w);
+	checkTrue("leftovers: 400 sent, 500 received, the cue gone at the last button",
+	          w.sent == 400 && w.received == 500 && !usbBridgeRunCue(0));
+	tapId(UI_FIX(UI_BACK));   // to MENU
+	brFrames(1);
+}
+
+/** @brief After a decision 13 case: ESC PROGRAM, MENU, then ESC TESTER, on the step when @p cue. */
+static void cueEnd(const char *name, bool cue) {
+	char what[128];
+	snprintf(what, sizeof(what), "%s: %s", name, cue ? "the cue stands" : "the cue is clear");
+	checkTrue(what, usbBridgeRunCue(0) == cue);
+	for (int k = 0; k < 4 && uiCurrentScreen() == UiScreenId::Bridge; k++) tapBackWith(brFrames);
+	snprintf(what, sizeof(what), "%s: BACK reaches ESC PROGRAM", name);
+	checkTrue(what, uiCurrentScreen() == UiScreenId::EscConfig);
+	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) brFrames(1);
+	tapId(UI_FIX(UI_BACK));   // to MENU
+	brFrames(1);
+	const int binds = fakeRebuildCount();
+	tapId(menuRow(&UI_TESTER));
+	brFrames(2);
+	snprintf(what, sizeof(what), "%s: ESC TESTER %s", name,
+	         cue ? "on the start step, parked, no bind" : "runs, bound once");
+	checkTrue(what, uiCurrentScreen() == UiScreenId::Tester &&
+	          (cue ? uiStartStepShown() && escTaskParked() && fakeRebuildCount() == binds
+	               : !uiStartStepShown() && escTaskRunning() && fakeRebuildCount() == binds + 1));
+	tapId(UI_FIX(TesterCtl::Menu));
+	brFrames(20);
+	usbBridgeRunCueClear();
+}
+
+/** @brief Frames with no core1 job pass until the claim is Held and its start pending. */
+static bool heldPending() {
+	for (int k = 0; k < 20 && !(pinClaimState() == ClaimState::Held &&
+	                            core1JobPhase() == Core1JobPhase::Starting); k++)
+		framesNoJob(1);
+	return pinClaimState() == ClaimState::Held && core1JobPhase() == Core1JobPhase::Starting;
+}
+
+/** @brief The hook of case (b): core1's pass, which binds the line. */
+static void hookBind() { core1JobPoll(); }
+
+/** @brief The hook of case (c): the bind, then one byte from the ESC, counted. */
+static void hookBindInject() {
+	core1JobPoll();
+	fakeBridgeLineInject(0xA5);
+	BridgeWireStats w;
+	for (int k = 0; k < 40; k++) {
+		fakeAdvanceUs(250);
+		core1JobPoll();
+		bridgeWireStats(&w);
+		if (w.received) break;
+	}
+}
+
+/**
+ * @brief The race: BACK tapped, uiBridgeTick() called directly with core1's
+ *        bind put after the frame's pinClaimPoll() by @p hook.
+ * @return uiBridgeTick()'s result.
+ */
+static bool raceBack(void (*hook)()) {
+	const UiRect back = uiBackRect();
+	fakePress(back.x + 10, back.y + 10);
+	framesNoJob(2);
+	fakeRelease();
+	fakeAdvance(25);
+	TouchState t;
+	touchPoll(&t);
+	fakeCsExitOnce(hook);
+	bool stays = uiBridgeTick(&t);
+	fakeCsExitOnce(nullptr);
+	return stays;
+}
+
+static void testCueAtClaimEnd() {
+	section("USB BRIDGE: the run cue at a claim's end (dshot-lifetime.md decision 13)");
+
+	// (a) Held, the start pending, core1's pass held back: BACK.
+	usbBridgeRunCueClear();
+	freshUi();
+	testerToMenu();
+	uint32_t binds = bridgeWireBinds();
+	int opens = fakeBridgeLineOpens();
+	claimFromMenu();
+	checkTrue("(a) Held, the start pending", heldPending() && usbBridgeRunCue(0));
+	tapBackWith(framesNoJob);
+	checkTrue("(a) BACK: no leave page, ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
+	brFrames(4);
+	checkTrue("(a) no bind: the binds and the opens unchanged",
+	          bridgeWireBinds() == binds && fakeBridgeLineOpens() == opens);
+	cueEnd("(a)", false);
+
+	// (b) The race: core1's bind after the frame's pinClaimPoll().
+	usbBridgeRunCueClear();
+	freshUi();
+	testerToMenu();
+	binds = bridgeWireBinds();
+	claimFromMenu();
+	checkTrue("(b) Held, the start pending", heldPending());
+	const bool stays = raceBack(hookBind);
+	checkTrue("(b) the line opened once, bridgeWireBinds() moved, nothing on the wire",
+	          fakeBridgeLineOpens() == 1 && bridgeWireBinds() == binds + 1 &&
+	          fakeBridgeLineWireCount() == 0);
+	checkTrue("(b) uiBridgeTick() returned false, no leave page",
+	          !stays && !pinClaimLeavePage() && pinClaimState() != ClaimState::Running);
+	cueEnd("(b)", false);
+
+	// (c) The race after leftovers, with one byte from the ESC.
+	leftovers();
+	binds = bridgeWireBinds();
+	opens = fakeBridgeLineOpens();
+	claimFromMenu();
+	checkTrue("(c) Held, the start pending, the leftovers there", heldPending());
+	const bool stays2 = raceBack(hookBindInject);
+	BridgeWireStats w;
+	bridgeWireStats(&w);
+	checkTrue("(c) bound once, the ESC's byte counted: received 1, sent 0",
+	          bridgeWireBinds() == binds + 1 && fakeBridgeLineOpens() == opens + 1 &&
+	          w.received == 1 && w.sent == 0);
+	checkTrue("(c) no leave page", !stays2 && !pinClaimLeavePage());
+	cueEnd("(c)", true);
+
+	// (d) Running, the leave page's last button.
+	usbBridgeRunCueClear();
+	freshUi();
+	openBridgeScreen();
+	checkTrue("(d) the line bound, Running", untilOpen() && pinClaimState() == ClaimState::Running &&
+	          usbBridgeRunCue(0));
+	checkTrue("(d) BACK: the leave page", backToPage());
+	restartFromPage();
+	cueEnd("(d)", false);
+
+	// (e) The leftovers, then binds that fail: the first and RETRY's.
+	leftovers();
+	binds = bridgeWireBinds();
+	opens = fakeBridgeLineOpens();
+	fakeBridgeLineRefuse(CORE1_JOB_PIO);
+	claimFromMenu();
+	brFrames(4);
+	bridgeWireStats(&w);
+	checkTrue("(e) a failed bind: the counts zeroed, bridgeWireBinds() moved, nothing opened",
+	          bridgeWireBinds() == binds + 1 && fakeBridgeLineOpens() == opens &&
+	          w.sent == 0 && w.received == 0);
+	tapId(UI_FIX(BridgeCtl::Retry));
+	brFrames(4);
+	checkTrue("(e) RETRY's failed bind: moved again, nothing opened",
+	          bridgeWireBinds() == binds + 2 && fakeBridgeLineOpens() == opens);
+	fakeBridgeLineRefuse(0);
+	const int dshotBinds = fakeRebuildCount();
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("(e) BACK: no leave page, Parking", uiCurrentScreen() == UiScreenId::EscConfig &&
+	          pinClaimState() == ClaimState::Parking);
+	brFrames(1);
+	checkTrue("(e) then Free, no bind", pinClaimState() == ClaimState::Free &&
+	          fakeRebuildCount() == dshotBinds && escTaskParked());
+	cueEnd("(e)", false);
+
+	// (f) The leftovers; BACK while Held, before the line binds.
+	leftovers();
+	binds = bridgeWireBinds();
+	claimFromMenu();
+	checkTrue("(f) Held, the start pending", heldPending());
+	tapBackWith(framesNoJob);
+	brFrames(4);
+	checkTrue("(f) no bind, the leftovers not read", bridgeWireBinds() == binds);
+	cueEnd("(f)", false);
+
+	// (g) The leftovers; the claim stays Stopping with no pump pass.
+	leftovers();
+	binds = bridgeWireBinds();
+	tapId(menuRow(&UI_ESC_CONFIG));
+	brFrames(1);
+	const UiRect br = ctlRect(UI_FIX(EscCfgCtl::Bridge));
+	fakePress(br.x + br.w / 2, br.y + br.h / 2);
+	brFrames(1);
+	fakeRelease();
+	framesNoPump(1);
+	checkTrue("(g) Stopping", pinClaimState() == ClaimState::Stopping);
+	tapBackWith(framesNoPump);
+	checkTrue("(g) BACK: parked at once, no job, no bind, no leave page",
+	          uiCurrentScreen() == UiScreenId::EscConfig && core1JobRunning() == Core1Job::None &&
+	          bridgeWireBinds() == binds);
+	brFrames(2);
+	cueEnd("(g)", false);
+	openTester();
+}
+
 void runBridgeUiTests() {
 	g_together = 0;
 	testLayout();
@@ -956,6 +1203,7 @@ void runBridgeUiTests() {
 	testReadOnly();
 	testFourWay();
 	testNavOpener();
+	testCueAtClaimEnd();
 	checkInt("DShot never up with the bridge's line", g_together, 0);
 	freshUi();
 	fakeBridgeLineReset();

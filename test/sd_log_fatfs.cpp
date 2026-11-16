@@ -691,8 +691,41 @@ static void runVolume(const char *vol, BYTE fmt, LBA_t sectors, DWORD au) {
 	f_mount(nullptr, "", 0);
 }
 
+/**
+ * @brief The eRPM column only while fresh: a hand log across a parked pump
+ *        logs 0, not the last eRPM frozen (docs/design/dshot-lifetime.md,
+ *        slice D3), as the run summary takes it.
+ */
+static void testErpmFresh() {
+	section("Logger: the eRPM column only while its frame is fresh");
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	t.erpm = 7000;
+	t.lastRpmMs = 10000;
+	checkInt("a frame 0 ms old: its value", sdLogErpmField(&t, 10000), 7000);
+	checkInt("499 ms old: its value", sdLogErpmField(&t, 10499), 7000);
+	checkInt("500 ms old: 0", sdLogErpmField(&t, 10500), 0);
+	checkInt("older than 500 ms, a parked pump: 0", sdLogErpmField(&t, 60000), 0);
+	t.lastRpmMs = 0;
+	checkInt("no eRPM frame ever: 0", sdLogErpmField(&t, 100), 0);
+	// The frame takes its column from it: the encoder's input is not read
+	// back here, so the source says it (make lognum runs from test/).
+	std::string src;
+	FILE *f = fopen("../src/sd_log.cpp", "rb");
+	if (f) {
+		char buf[4096];
+		size_t n;
+		while ((n = fread(buf, 1, sizeof(buf), f)) > 0) src.append(buf, n);
+		fclose(f);
+	}
+	checkTrue("sdLogTick() writes the column through sdLogErpmField()",
+	          src.find("v[BB_F_ERPM]         = sdLogErpmField(&t, nowMs);") != std::string::npos &&
+	          src.find("v[BB_F_ERPM]         = (int32_t)t.erpm") == std::string::npos);
+}
+
 int main() {
 	testPure();
+	testErpmFresh();
 	runVolume("FAT32", FM_FAT32, 2u * 1024u * 1024u, 4096);      // 1 GiB, 4 KiB clusters
 	runVolume("exFAT", FM_EXFAT, 2u * 1024u * 1024u, 32768);     // 1 GiB, 32 KiB clusters
 	testTxtNotSaved();
