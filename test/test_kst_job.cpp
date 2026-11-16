@@ -141,7 +141,7 @@ static void finish() {
 	core1JobStop();
 	// A switched claim closes KST_SUPPLY_OFF_MS after its last switch-off.
 	for (int i = 0; i < 3000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 }
 
@@ -228,7 +228,7 @@ static void testBind() {
 		checkInt("the status names the line's error", status().lineError, r.err);
 	}
 	fakeKstLineRefuse(0);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 }
 
@@ -507,7 +507,7 @@ static void testLeave() {
 	core1JobPoll();
 	checkTrue("the release of a closed line: idle at once",
 	          core1JobPhase() == Core1JobPhase::Idle && fakeKstLineCloses() == 1);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 
 	// Leave inside a frame of the search: the frame finishes, then 100 ms.
@@ -542,7 +542,7 @@ static void testLeave() {
 	checkTrue("the frame finished, none other", sim->n_frames == frames);
 	checkTrue("100 ms low before the close",
 	          fakeKstLineClosedUs() - sim->end_us >= KST_LEAVE_LOW_MS * 1000u);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 
 	// The release from each state with no frame running: 100 ms low, then
@@ -562,7 +562,7 @@ static void testLeave() {
 		         QUIET_NAMES[i]);
 		checkTrue(what, core1JobPhase() == Core1JobPhase::Idle && !kstLineIsOpen() &&
 		                low >= KST_LEAVE_LOW_MS * 1000u && low <= (KST_LEAVE_LOW_MS + 2) * 1000u);
-		escTaskResume();
+		escTaskStart();
 		fakePumpPoll();
 	}
 
@@ -575,7 +575,7 @@ static void testLeave() {
 	checkTrue("the release during a read: idle, the line closed",
 	          core1JobPhase() == Core1JobPhase::Idle && !kstLineIsOpen());
 	checkInt("the read ended aborted", status().result, KST_SES_ERR_ABORTED);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 }
 
@@ -899,7 +899,7 @@ static void testSwitchedLatch() {
 	FakePin p = fakePin(servoSupplyPinOf(1));
 	checkTrue("a failed bind: GP28 undriven", core1JobError() == CORE1_JOB_PIO && !p.output && p.inputOff);
 	fakeKstLineRefuse(0);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 	servoSupplyConfigure(0);
 	settings()->servoSupply = 0;

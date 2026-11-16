@@ -143,7 +143,7 @@ static void finish() {
 	g_stamp = false;
 	core1JobStop();
 	for (int i = 0; i < 3000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 	supply(false);
 }
@@ -205,7 +205,7 @@ static void testBind() {
 		char what[64];
 		snprintf(what, sizeof(what), "a refused open: %s, GP28 not driven", NAMES[i]);
 		checkTrue(what, core1JobError() == JOB[i] && !fakePin(servoSupplyPinOf(1)).output);
-		escTaskResume();
+		escTaskStart();
 		fakePumpPoll();
 		supply(false);
 	}
@@ -600,7 +600,7 @@ static void testLeave() {
 	for (int i = 0; i < 3000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
 	checkTrue("the release waits 2000 ms off before the line closes",
 	          core1JobPhase() == Core1JobPhase::Idle && fakeHitecLineClosedUs() - stopUs >= 2000000u);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 	supply(false);
 
@@ -638,7 +638,7 @@ static void testLeave() {
 	checkTrue("the release during a write: written, then 2000 ms off, then idle",
 	          core1JobPhase() == Core1JobPhase::Idle && holds &&
 	          fakeHitecLineClosedUs() - fakeHitecSim()->lastOffUs >= 2000000u);
-	escTaskResume();
+	escTaskStart();
 	fakePumpPoll();
 	supply(false);
 
