@@ -9,21 +9,27 @@
  * starting 50 px under the entry's top at a 12 px pitch. A page holds
  * @ref UI_HUB_PAGE_ENTRIES entries; a hub does not scroll.
  *
- * A hub claims nothing. A tap on an entry opens the entry's tool through
- * uiChooseTool(), whose entry point runs on that frame, after the hub's
- * tick. BACK leaves the hub.
+ * A hub claims nothing and opens whatever the pin claim's state. A tap on
+ * an entry opens the entry's tool through uiChooseTool(), whose entry point
+ * runs on that frame, after the hub's tick; the tool is pushed over the hub,
+ * and its BACK and its leave page's last button return to the hub, which
+ * resumes as it was left (uiHubResume()). BACK leaves the hub.
  *
  * An entry is drawn, reported in the control table and tapped on one value,
- * uiHubEntryActs(): a disabled entry is drawn disabled with its `why` lines
- * in amber, reports disabled and takes no tap.
+ * uiHubEntryActs(): its own gate holds and uiPinsRefuse() does not refuse
+ * its tool. An entry whose own gate fails is drawn disabled with its `why`
+ * lines in amber. While the claim refuses, the refused entries are drawn
+ * disabled with their own lines, and the strip reads
+ * @ref UI_MENU_RESTARTING_FMT in amber, as MENU's does. A disabled entry
+ * reports disabled and takes no tap. Slice 2 of menu structure C.
  *
  * The four screens keep a file each (ui_servo_prog.h, ui_esc_config.h,
  * ui_rx_signals.h, ui_tools.h) with the title, the strip and the `UiScreen`;
  * their tables are in ui_registry.cpp, each checked by hubEntriesFit() at
  * build time.
  *
- * The hub is slice 1 of menu structure C (docs/design/menu-c.md, "The hub",
- * a note on the branch `ccr-menu-rcb`). The geometry is PROGRAMMER's.
+ * The hub is slice 1 of menu structure C (docs/design/menu-c.md, "The hub").
+ * The geometry is PROGRAMMER's.
  *
  * @see docs/design/menu-b.md, "PROGRAMMER, the chooser"
  */
@@ -166,8 +172,9 @@ constexpr bool hubEntriesFit(const UiHub &h) {
 UiRect uiHubEntryRect(int i);
 
 /**
- * @brief Whether entry @p i of @p h acts: its own gate holds. The hub draws
- *        the entry, reports it and takes its tap on this value.
+ * @brief Whether entry @p i of @p h acts: its own gate holds, and
+ *        uiPinsRefuse() does not refuse its tool. The hub draws the entry,
+ *        reports it and takes its tap on this value.
  * @param h The hub.
  * @param i The entry, from 0.
  * @return false while the entry is drawn disabled.
@@ -176,6 +183,12 @@ bool uiHubEntryActs(const UiHub &h, int i);
 
 /** @brief Open a hub: its next frame repaints. */
 void uiHubEnter();
+
+/**
+ * @brief Show a hub again after the tool it opened has left: its next frame
+ *        repaints, and the hub keeps the state it was left in.
+ */
+void uiHubResume();
 
 /**
  * @brief Run one frame of @p h.

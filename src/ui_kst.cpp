@@ -1964,7 +1964,3 @@ bool uiKstTick(const TouchState *t) {
 	return true;
 }
 
-const UiScreen UI_KST = {
-	UiScreenId::Kst, "KST SERVO", PinUser::Kst, nullptr,
-	uiKstEnter, uiKstTick, nullptr, uiKstControls, nullptr, false,
-};

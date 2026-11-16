@@ -39,7 +39,7 @@ readings only while it shows.
   It is drawn as an outline while the sensor does not answer.
 - **RESET MAX** clears MAX.
 - **SETUP** opens SETUP.
-- **BACK** turns the sensor off and returns to `MENU`. The zero and MAX are
+- **BACK** turns the sensor off and returns to TOOLS. The zero and MAX are
   gone then: the next visit starts from level, since the model may have
   moved in between.
 

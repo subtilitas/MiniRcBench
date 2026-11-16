@@ -2040,7 +2040,6 @@ static void doWrite() {
 	else snprintf(s_status, sizeof(s_status), ST_VERIFIED);
 }
 
-
 /** @brief The card for the backup line: 2 mounted, 1 held by a USB host, 0 none. */
 static uint8_t cardSeen() {
 	if (cardMounted()) return 2;
@@ -2272,7 +2271,7 @@ bool uiAm32Tick(const TouchState *t) {
 	// every state. Doing it here rather than per-state stops it being a button
 	// that is visible but inert on whichever screen forgot to check for it.
 	// On release, like every navigation tap. It goes one level up: ESC HEX
-	// and ESC WRITE to the list, the list through its guard to MENU. While
+	// and ESC WRITE to the list, the list through its guard to ESC CONFIG. While
 	// the write runs it is drawn disabled and does nothing (backLive()).
 	if (backLive()) {
 		bool back = false;
@@ -2491,7 +2490,3 @@ bool uiAm32RunCue(uint32_t lastRpmMs) {
 	return s_blReached;
 }
 
-const UiScreen UI_AM32 = {
-	UiScreenId::Am32, AM32_UI_TITLE, PinUser::Am32, nullptr,
-	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr, false,
-};

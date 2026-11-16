@@ -36,6 +36,8 @@
 
 #include <stdint.h>
 
+#include "ui_screen.h"
+
 #include "am32_eeprom.h"
 
 struct TouchState;
@@ -309,4 +311,7 @@ uint8_t uiAm32Controls(UiControl *out, uint8_t max);
 
 struct UiScreen;
 /** @brief ESC SETTINGS. */
-extern const UiScreen UI_AM32;
+inline constexpr const UiScreen UI_AM32 = {
+	UiScreenId::Am32, AM32_UI_TITLE, PinUser::Am32, nullptr,
+	uiAm32Enter, uiAm32Tick, nullptr, uiAm32Controls, nullptr, false,
+};

@@ -1313,6 +1313,23 @@ protocol.
   README.md and the wiki pages The Screens, Telemetry, Servo Tester, USB
   Bridge and Angle Meter, in both languages, describe the palette and the
   changed widgets.
+- After v0.1.0-rc1: a tool chosen on a chooser returns to that chooser, slice
+  2 of [menu-c.md](docs/design/menu-c.md#slice-2-as-built), by owner decision
+  7 of 2026-11-15. ESC SETTINGS and USB BRIDGE return to ESC CONFIG, KST
+  SERVO and HITEC SERVO to PROGRAMMER, S.BUS MONITOR and S.BUS OUTPUT to RX
+  SIGNALS, ANGLE METER to TOOLS, by BACK and by the leave page's last button,
+  `RESTART DSHOT`, which keeps its label and what it does to the pin.
+  Before, both returned to MENU. The screens form a stack of at most three
+  over the tester in `src/ui.cpp`: MENU, a chooser, its tool; BACK pops
+  one, and `uiNavDepth()` and `uiNavAt()` read it. A chooser shown again
+  keeps its state. The four choosers open whatever the pin claim's state:
+  MENU no longer draws their rows disabled while DShot restarts. Each draws
+  its entries disabled instead, keeping their lines, while `uiPinsRefuse()`
+  refuses the entry's tool, and its strip reads `DSHOT RESTARTING ON SIG
+  GP0` in amber meanwhile. MENU, the tester as the root, the choosers'
+  titles and entries and DShot are as before. Host tests by control id for
+  each of the eight entries, the claim's gate on the four choosers and the
+  stack's limit, mutation-checked.
 - After v0.1.0-rc1: the four choosers run on one widget, the hub
   (`src/ui_hub.*`), slice 1 of menu structure C, a proposed design note,
   `docs/design/menu-c.md` on the branch `ccr-menu-rcb`. PROGRAMMER, ESC

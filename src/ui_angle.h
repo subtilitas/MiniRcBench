@@ -8,7 +8,7 @@
  * model with no zero and no MAX, and opens the driver, qmi8658Start(). Every
  * frame gives the driver's newest sample to the model, which takes each
  * sample once, and ages the reading. BACK on the main view closes the driver,
- * qmi8658Stop(), which writes CTRL7 00h, and returns to MENU; the next visit
+ * qmi8658Stop(), which writes CTRL7 00h, and returns to TOOLS; the next visit
  * starts unzeroed (docs/design/angle-meter.md, decision 4).
  *
  * The meter is open while any of its three views shows: SETUP and FLIP CAL
@@ -122,4 +122,7 @@ AngleView uiAngleView();
 const AngleModel *uiAngleModel();
 
 /** @brief ANGLE METER. */
-extern const UiScreen UI_ANGLE;
+inline constexpr const UiScreen UI_ANGLE = {
+	UiScreenId::Angle, UI_ANGLE_TITLE, PinUser::None, nullptr,
+	uiAngleEnter, uiAngleTick, nullptr, uiAngleControls, nullptr, true,
+};

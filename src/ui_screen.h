@@ -156,21 +156,22 @@ struct UiScreen {
 	const SettingsSection *settings;
 	/**
 	 * @brief Opens only while the pin claim is Free, without claiming:
-	 *        SETTINGS, which changes the wiring a claim latched;
-	 *        PROGRAMMER, RX SIGNALS and ESC CONFIG, whose entries open tools
-	 *        that claim; TOOLS, as the other choosers, and the angle meter,
-	 *        which saves to flash as SETTINGS does.
-	 *        A tool with a @ref pinUser waits for Free anyway.
+	 *        SETTINGS, which changes the wiring a claim latched; ESC
+	 *        COMMANDS, which sends on SIG; and the angle meter, which saves
+	 *        to flash as SETTINGS does. A tool with a @ref pinUser waits
+	 *        for Free anyway. The hubs open whatever the claim's state and
+	 *        gate each entry instead (ui_hub.h).
 	 */
 	bool freePins;
 };
 
 /**
- * @brief Open @p s from the open tool, as MENU opens its rows: after this
- *        frame's tick the navigation opens @p s through uiOpenTool() in
- *        ui.cpp, running @p enter in place of `s->enter`, and BACK or
- *        RESTART DSHOT there return to MENU. A hub's entries call it
- *        (ui_hub.h).
+ * @brief Open @p s from the open screen, as MENU opens its rows: after this
+ *        frame's tick the navigation pushes @p s over the open screen
+ *        through uiOpenTool() in ui.cpp, running @p enter in place of
+ *        `s->enter`. BACK there, and the leave page's last button, pop it
+ *        back to the open screen (docs/design/menu-c.md owner decision 7).
+ *        A hub's entries call it (ui_hub.h).
  * @param s     The tool.
  * @param enter Its entry point for this route; null runs `s->enter`.
  */
@@ -198,6 +199,27 @@ inline bool uiPinsRefuse(const UiScreen *s) {
 
 /** @brief The open screen. */
 UiScreenId uiCurrentScreen();
+
+/**
+ * @brief Most screens on the navigation stack over the tester: MENU, a hub,
+ *        a hub's tool (docs/design/menu-c.md, "Navigation").
+ */
+#define UI_NAV_MAX 3
+
+/**
+ * @brief How many screens are on the navigation stack over the tester: 0
+ *        while the tester is open, at most @ref UI_NAV_MAX.
+ */
+uint8_t uiNavDepth();
+
+/**
+ * @brief The screen at depth @p i of the navigation stack, 0 the bottom.
+ *        The open screen is at uiNavDepth() - 1.
+ * @param i The depth, from 0.
+ * @return Its id; `UiScreenId::Tester`, the root, for @p i at or past
+ *         uiNavDepth().
+ */
+UiScreenId uiNavAt(uint8_t i);
 
 /**
  * @brief The open screen's controls on the current frame.

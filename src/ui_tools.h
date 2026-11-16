@@ -9,11 +9,11 @@
  * button per entry at an 80 px pitch, with its lines under it. It claims
  * nothing: DShot runs on SIG while it shows, and the strip says so. A tap
  * on ANGLE METER opens the meter (ui_angle.h) through uiChooseTool(). BACK
- * returns to MENU, and so does the meter's BACK.
+ * returns to MENU; the meter's BACK returns here, to TOOLS.
  *
- * The screen opens only while the pin claim is Free (`freePins`), as the
- * other choosers: MENU draws the row disabled under
- * `DSHOT RESTARTING ON SIG GP0` meanwhile.
+ * The screen opens whatever the pin claim's state. While the claim is not
+ * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
+ * (uiHubEntryActs()).
  */
 
 #pragma once

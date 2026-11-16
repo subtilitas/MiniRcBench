@@ -10,12 +10,12 @@
  * SIG while it shows. A tap on ESC SETTINGS opens the settings screen
  * (ui_am32.h), a tap on USB BRIDGE the bridge (ui_bridge.h), each through
  * uiChooseTool(), whose own entry point asks for the pin claim on that
- * frame. BACK returns to MENU, and so do the tools' BACK and their
- * RESTART DSHOT.
+ * frame. BACK returns to MENU. The tools' BACK and their RESTART DSHOT
+ * return here, to ESC CONFIG.
  *
- * The screen opens only while the pin claim is Free (`freePins`): MENU draws
- * the row disabled under `DSHOT RESTARTING ON SIG GP0` meanwhile, as it does
- * PROGRAMMER's and RX SIGNALS'.
+ * The screen opens whatever the pin claim's state. While the claim is not
+ * Free it draws its entries disabled under `DSHOT RESTARTING ON SIG GP0`
+ * (uiHubEntryActs()).
  */
 
 #pragma once

@@ -85,14 +85,14 @@ to a line, and no field. The strip reads, in amber,
 
 <img src="img/am32-readonly.png" width="240" alt="The read-only view of a layout 5 block: LAYOUT 5 NOT KNOWN: READ-ONLY. and NOT VERIFIED. BACKUP AM001 in amber, the 48 bytes in hex">
 
-The backup goes to the card as the view opens, since nothing is written
-later. It holds the 48 bytes, no field line, and the line
+The backup goes to the card as the view opens, since nothing is written later.
+It holds the 48 bytes, no field line, and the line
 `Layout not known: fields not read, not verified`. The view has one control,
-`BACK`, which goes to MENU: no row, no `WRITE...`, `REVERT` or `HEX`, and the
-screen has no way from this view to the write. The title stays
-`ESC SETTINGS`. The write itself also refuses settings read
-in such a layout: `LAYOUT NOT KNOWN: NOT WRITTEN`. To change the settings of
-such an ESC, use the AM32 configurator.
+`BACK`, which goes to ESC CONFIG: no row, no `WRITE...`, `REVERT` or `HEX`, and
+the screen has no way from this view to the write. The title stays
+`ESC SETTINGS`. The write itself also refuses settings read in such a layout:
+`LAYOUT NOT KNOWN: NOT WRITTEN`. To change the settings of such an ESC, use the
+AM32 configurator.
 
 The firmware does not record which firmware an ESC that does not answer
 runs.
@@ -243,7 +243,7 @@ from `BACK`: that ESC's bootloader may wait too. Its strip reads
 **Leaving the list.** `BACK` from the list sends the bootloader LEAVE,
 which starts the ESC's firmware: the page reads `LEAVING` and
 `KEEP THE PROPELLER OFF.` in amber. About a third of a second later DShot
-returns on the signal pin and the screen returns to MENU. LEAVE has no
+returns on the signal pin and the screen returns to ESC CONFIG. LEAVE has no
 answer: whether the ESC started is not seen, and not verified on an ESC.
 MENU's `POWER-CYCLE THE ESC TO RUN IT` stays until the ESC sends eRPM.
 
@@ -257,7 +257,7 @@ If the ESC stops answering before its page is read, the page shows
 Everywhere else after such an answer, on the connect page while reading,
 after a page that is not taken, or after the search started again, the
 bootloader may still wait for commands, and DShot frames could pass as one.
-So `BACK` opens a leave page instead of returning to MENU at once:
+So `BACK` opens a leave page instead of returning to ESC CONFIG at once:
 
 1. `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR
    COMMANDS` / `AND MAY READ DSHOT AS ONE.`
@@ -269,7 +269,8 @@ So `BACK` opens a leave page instead of returning to MENU at once:
 greeting and its first look at the page run on, and the read of the whole
 page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
 `RESTART DSHOT` takes LEAVE's place and acts 1 s later; it starts DShot on
-the signal pin and returns to MENU. Plug the battery back in after that.
+the signal pin and returns to ESC CONFIG. Plug the battery back in after
+that.
 `BACK` is grey on this page. RESTART DSHOT clears MENU's
 `POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the ESC. The
 tester cannot see
@@ -436,10 +437,10 @@ values that were read. `HEX` is labelled in the text colour.
 **BACK with changes not written asks first.** The first `BACK` keeps the list
 and puts two amber lines on the strip: `2 CHANGES NOT WRITTEN.` and
 `BACK AGAIN DISCARDS THEM.` (`1 CHANGE NOT WRITTEN.` and
-`BACK AGAIN DISCARDS IT.` for one). A second `BACK` returns to MENU and
+`BACK AGAIN DISCARDS IT.` for one). A second `BACK` returns to ESC CONFIG and
 drops the changes; nothing goes to the ESC. Any other touch takes the lines
 away and keeps the changes. There is no timeout. Without changes, `BACK`
-returns to MENU at once.
+returns to ESC CONFIG at once.
 
 <img src="img/am32-discard.png" width="240" alt="The strip after BACK with two changes: 2 CHANGES NOT WRITTEN. and BACK AGAIN DISCARDS THEM. in amber">
 
@@ -565,7 +566,8 @@ list.
 ## Leaving
 
 `BACK` on the list hands the signal pin back to the DShot driver and returns
-to `MENU`; with changes not written it asks first, as under
+to ESC CONFIG, the choice it was opened from; with changes not written it
+asks first, as under
 [Editing](#editing). The tester is disarmed.
 
 The firmware sends an AM32 bootloader no command to start the ESC firmware

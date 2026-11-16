@@ -59,9 +59,9 @@ tap. The page takes no pin: DShot keeps running.
 - **OUTPUT** opens S.BUS OUTPUT. The two lines under it are its warning:
   `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`
 
-`BACK` returns to `MENU`. While DShot restarts after another tool, the
-RX SIGNALS row in `MENU` is an outline and does nothing, as the other rows
-that lead to a pin.
+`BACK` returns to `MENU`. While DShot restarts after another tool, RX
+SIGNALS opens as always, MONITOR and OUTPUT are outlines and do nothing, and
+the strip reads `DSHOT RESTARTING ON SIG GP0` in amber.
 
 ---
 
@@ -140,7 +140,7 @@ DShot's output and the receiver's would drive one wire against each other.
 
 - `BACK TO MONITOR` keeps the pin and returns to the monitor with every
   count at 0.
-- `RESTART DSHOT` returns to `MENU` and gives the pins back to DShot. It
+- `RESTART DSHOT` returns to RX SIGNALS and gives the pins back to DShot. It
   waits 1 s after the pin is let go.
 
 `BACK` on the page is an outline and does nothing.
@@ -272,7 +272,7 @@ signal comes back on that pin.
 
 - `BACK TO OUTPUT` keeps the pin and returns to the screen; the bootloader
   check runs again before START.
-- `RESTART DSHOT` returns to `MENU` and gives the pin back to DShot. It
+- `RESTART DSHOT` returns to RX SIGNALS and gives the pin back to DShot. It
   waits 1 s after the pin is let go.
 
 After a Bluejay or BLHeli_S bootloader answered the check, `BACK` first

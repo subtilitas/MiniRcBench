@@ -225,7 +225,7 @@ static bool tapUntilGone(UiControlId id) {
 	return !ctlPresent(id);
 }
 
-/** @brief From any view: leave, restart DShot, back to the tester. */
+/** @brief From any view: leave, restart DShot, back through PROGRAMMER and MENU to the tester. */
 static void leaveAll() {
 	for (int i = 0; i < 8 && uiCurrentScreen() == UiScreenId::Kst; i++) {
 		KstView v = uiKstView();
@@ -244,7 +244,7 @@ static void leaveAll() {
 		kstFrames(2);
 	}
 	kstFrames(8);
-	if (uiCurrentScreen() == UiScreenId::Menu) tapId(UI_FIX(UI_BACK));
+	if (uiCurrentScreen() == UiScreenId::ServoProg || uiCurrentScreen() == UiScreenId::Menu) backToTester();
 	kstFrames(2);
 }
 
@@ -693,8 +693,9 @@ static void testLeaveAndBack() {
 	          pinClaimState() == ClaimState::Leaving);
 	tapId(UI_FIX(KstCtl::Restart));
 	kstFrames(8);
-	checkTrue("RESTART DSHOT: MENU, the pin back to DShot",
-	          uiCurrentScreen() == UiScreenId::Menu && pinClaimState() == ClaimState::Free);
+	checkTrue("RESTART DSHOT: PROGRAMMER, the pin back to DShot",
+	          uiCurrentScreen() == UiScreenId::ServoProg && pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 	kstFrames(2);
 }
@@ -832,7 +833,8 @@ static void testRefusalsAndFailures() {
 	          lineIs(UI_STRIP_Y + 4, "CHECKING SIG GP0 FOR AN ESC", C_DIM));
 	checkControlTable("KST, an ESC answers");
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK before a claim: MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("BACK before a claim: PROGRAMMER", uiCurrentScreen() == UiScreenId::ServoProg);
+	tapId(UI_FIX(UI_BACK));  // to MENU
 	tapId(UI_FIX(UI_BACK));
 	kstFrames(2);
 
@@ -1760,6 +1762,8 @@ static void testSwitchedSupply() {
 	checkTrue("GP28 an undriven input after the claim", !p.output && p.inputOff);
 	tapId(UI_FIX(KstCtl::Restart));
 	kstFrames(8);
+	checkTrue("RESTART DSHOT: PROGRAMMER", uiCurrentScreen() == UiScreenId::ServoProg);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 	kstFrames(2);
 
@@ -2331,6 +2335,39 @@ static void testColourRoles() {
 	leaveAll();
 }
 
+/**
+ * @brief docs/design/menu-c.md slice 2: KST / CHASERVO returns to
+ *        PROGRAMMER, the chooser that opened it, by BACK before a claim and
+ *        by RESTART DSHOT, the leave page's last button.
+ */
+static void testNavOpener() {
+	section("Navigation: KST / CHASERVO returns to PROGRAMMER, its opener");
+	freshKst(false);
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	t.lastRpmMs = millis();
+	fakeSetTelemetry(&t);
+	openKst();
+	checkTrue("an ESC answers: the stack MENU, PROGRAMMER, KST SERVO, no claim",
+	          navIsTool(UiScreenId::ServoProg, UiScreenId::Kst) && pinClaimHolder() == PinUser::None);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK before a claim: PROGRAMMER", navIsHub(UiScreenId::ServoProg));
+	checkTrue("BACK there: MENU, then the tester", backToTester() && uiNavDepth() == 0);
+
+	freshKst();
+	checkTrue("the list", toList());
+	checkTrue("open: MENU, PROGRAMMER, KST SERVO", navIsTool(UiScreenId::ServoProg, UiScreenId::Kst));
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: the leave page", uiKstView() == KstView::Leave);
+	tapId(UI_FIX(KstCtl::Leave));
+	checkTrue("LEAVE, then RESTART DSHOT live", untilEnabled(UI_FIX(KstCtl::Restart), 200));
+	tapId(UI_FIX(KstCtl::Restart));
+	kstFrames(8);
+	checkTrue("RESTART DSHOT: PROGRAMMER, the claim Free",
+	          navIsHub(UiScreenId::ServoProg) && pinClaimState() == ClaimState::Free);
+	checkTrue("then MENU and the tester", backToTester());
+}
+
 void runKstUiTests() {
 	testRecordWarningOnSearch();
 	testOpenAndSearch();
@@ -2357,6 +2394,7 @@ void runKstUiTests() {
 	testSupplyCuts();
 	testCardPhase();
 	testBoardLow();
+	testNavOpener();
 	testColourRoles();
 	fakeKstLineReset();
 	noCard();

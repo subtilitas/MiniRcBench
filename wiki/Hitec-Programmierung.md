@@ -126,8 +126,8 @@ erst mit `RESTART DSHOT` neu. `NEXT SERVO` startet dort eine neue Sitzung
 derselben Familie; für ein Servo der D-Serie an `OWN` führt es immer
 wieder zum Warten auf `READ`, damit auch das nächste Servo erst nach dem
 Tippen Strom bekommt. Solange der Treiber noch anhält
-oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu `MENU`
-zurück.
+oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu
+PROGRAMMER zurück.
 
 <img src="img/hitec-esc.png" width="240" alt="HITEC SERVO, während ein ESC auf GP0 antwortet: CHECKING SIG GP0 FOR AN ESC in der Leiste, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein">
 
@@ -141,7 +141,8 @@ zurück.
 - Solange der Tester scharf ist, zeigt der Bildschirm `DISARM FIRST`.
   Solange die Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`.
   Beides ist über die Bildschirme nicht erreichbar: Das Öffnen von `MENU`
-  entschärft, und `SERVO PROGRAMMER` öffnet nur, solange die Pins frei sind.
+  entschärft, und PROGRAMMER zeichnet seine Einträge gesperrt, solange die
+  Pins belegt sind.
 
 Während der Job sich bindet, zeigt die Leiste `TAKING SIG GP0`.
 
@@ -572,7 +573,7 @@ Es behält den Pin und startet eine Sitzung für das nächste Servo. Mit `OWN`
 zeigt die Seite `NEXT SERVO: POWER IT AFTER THE TAP.`: Der Bildschirm kehrt
 zum Warten auf `READ` zurück. Mit geschalteter Versorgung beginnt der
 Eintritt sofort. **`RESTART DSHOT`** wirkt 1 s
-danach: Der ESC-Treiber übernimmt den Pin wieder, und `MENU` erscheint. Ein
+danach: Der ESC-Treiber übernimmt den Pin wieder, und PROGRAMMER erscheint. Ein
 Doppeltippen auf `LEAVE` landet, während `RESTART DSHOT` grau ist, und
 startet nichts neu; ein Druck, der begann, während es grau war, bewirkt
 beim Loslassen nichts.

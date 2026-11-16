@@ -479,7 +479,3 @@ bool uiBridgeTick(const TouchState *t) {
 	return true;
 }
 
-const UiScreen UI_BRIDGE = {
-	UiScreenId::Bridge, BRIDGE_UI_TITLE, PinUser::Bridge, nullptr,
-	uiBridgeEnter, uiBridgeTick, nullptr, uiBridgeControls, nullptr, false,
-};

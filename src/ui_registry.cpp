@@ -58,6 +58,16 @@ constexpr UiHubEntry UI_PROGRAMMERS[] = {
 };
 constexpr uint8_t UI_PROGRAMMERS_COUNT =
 	(uint8_t)(sizeof(UI_PROGRAMMERS) / sizeof(UI_PROGRAMMERS[0]));
+/**
+ * @brief Every entry's screen has a pinUser or opens only while the pins are
+ *        free (freePins). The hub's gate and its amber strip read the pin
+ *        claim for the entry; a screen with neither is never refused.
+ */
+static constexpr bool hubScreensGuardPins(const UiHub &h) {
+	for (uint8_t i = 0; i < h.count; i++)
+		if (h.entries[i].screen->pinUser == PinUser::None && !h.entries[i].screen->freePins) return false;
+	return true;
+}
 /** @brief Whether @p h has a strip function, which uiHubTick calls unchecked. */
 static constexpr bool hubHasStrip(const UiHub &h) {
 	return h.strip != nullptr;
@@ -65,6 +75,7 @@ static constexpr bool hubHasStrip(const UiHub &h) {
 constexpr UiHub UI_PROG_HUB = { UI_PROG_TITLE, uiServoProgStrip, UI_PROGRAMMERS, UI_PROGRAMMERS_COUNT };
 static_assert(hubEntriesFit(UI_PROG_HUB), "a PROGRAMMER line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_PROG_HUB), "the hub has no strip, which uiHubTick calls");
+static_assert(hubScreensGuardPins(UI_PROG_HUB), "a hub entry's screen has no pinUser and no freePins");
 static constexpr bool programmersHaveSwitchedFmt() {
 	for (uint8_t i = 0; i < UI_PROGRAMMERS_COUNT; i++)
 		if (!UI_PROGRAMMERS[i].powerSwitchedFmt) return false;
@@ -114,6 +125,7 @@ constexpr uint8_t UI_RX_ENTRIES_COUNT = (uint8_t)(sizeof(UI_RX_ENTRIES) / sizeof
 constexpr UiHub UI_RX_HUB = { UI_RX_TITLE, uiRxSignalsStrip, UI_RX_ENTRIES, UI_RX_ENTRIES_COUNT };
 static_assert(hubEntriesFit(UI_RX_HUB), "an RX SIGNALS line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_RX_HUB), "the hub has no strip, which uiHubTick calls");
+static_assert(hubScreensGuardPins(UI_RX_HUB), "a hub entry's screen has no pinUser and no freePins");
 
 /**
  * @brief ESC CONFIG's entries, top to bottom (docs/design/bluejay-blheli-s.md
@@ -134,6 +146,7 @@ constexpr UiHub UI_ESC_CFG_HUB = { UI_ESC_CFG_TITLE, uiEscConfigStrip, UI_ESC_CF
                                    UI_ESC_CFG_ENTRIES_COUNT };
 static_assert(hubEntriesFit(UI_ESC_CFG_HUB), "an ESC CONFIG line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_ESC_CFG_HUB), "the hub has no strip, which uiHubTick calls");
+static_assert(hubScreensGuardPins(UI_ESC_CFG_HUB), "a hub entry's screen has no pinUser and no freePins");
 
 /**
  * @brief TOOLS' entries, top to bottom (docs/design/angle-meter.md,
@@ -148,4 +161,5 @@ constexpr uint8_t UI_TOOLS_ENTRIES_COUNT =
 constexpr UiHub UI_TOOLS_HUB = { UI_TOOLS_TITLE, uiToolsStrip, UI_TOOLS_ENTRIES, UI_TOOLS_ENTRIES_COUNT };
 static_assert(hubEntriesFit(UI_TOOLS_HUB), "a TOOLS line is too wide, or runs into the next entry");
 static_assert(hubHasStrip(UI_TOOLS_HUB), "the hub has no strip, which uiHubTick calls");
+static_assert(hubScreensGuardPins(UI_TOOLS_HUB), "a hub entry's screen has no pinUser and no freePins");
 

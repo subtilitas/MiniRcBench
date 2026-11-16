@@ -758,7 +758,3 @@ AngleView uiAngleView() { return s_view; }
 
 const AngleModel *uiAngleModel() { return &s_m; }
 
-const UiScreen UI_ANGLE = {
-	UiScreenId::Angle, UI_ANGLE_TITLE, PinUser::None, nullptr,
-	uiAngleEnter, uiAngleTick, nullptr, uiAngleControls, nullptr, true,
-};

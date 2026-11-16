@@ -61,8 +61,9 @@ welche Rolle GP1 hat. Die Seite belegt keinen Pin: DShot läuft weiter.
   Warnung: `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`
 
 `BACK` führt zu `MENU` zurück. Während DShot nach einem anderen Werkzeug
-neu startet, ist die Zeile RX SIGNALS in `MENU` ein Umriss und tut nichts,
-wie die anderen Zeilen, die zu einem Pin führen.
+neu startet, öffnet RX SIGNALS wie immer, MONITOR und OUTPUT sind Umrisse
+und tun nichts, und die Leiste zeigt `DSHOT RESTARTING ON SIG GP0` in
+Bernstein.
 
 ---
 
@@ -145,7 +146,7 @@ gegeneinander treiben.
 
 - `BACK TO MONITOR` behält den Pin und kehrt zum Monitor zurück, jeder
   Zähler auf 0.
-- `RESTART DSHOT` führt zu `MENU` und gibt die Pins an DShot zurück. Es
+- `RESTART DSHOT` führt zu RX SIGNALS und gibt die Pins an DShot zurück. Es
   wartet 1 s, nachdem der Pin freigegeben ist.
 
 `BACK` auf der Seite ist ein Umriss und tut nichts.
@@ -283,7 +284,8 @@ ESC-Signal kommt auf diesem Pin zurück.
 
 - `BACK TO OUTPUT` behält den Pin und führt zum Bildschirm zurück; vor START
   läuft die Bootloader-Prüfung erneut.
-- `RESTART DSHOT` führt zu `MENU` zurück und gibt den Pin an DShot zurück.
+- `RESTART DSHOT` führt zu RX SIGNALS zurück und gibt den Pin an DShot
+  zurück.
   Es wartet 1 s, nachdem der Pin freigegeben ist.
 
 Hat ein Bootloader von Bluejay oder BLHeli_S auf die Prüfung geantwortet,

@@ -238,8 +238,8 @@ static void testPinsBusy() {
 		// pass, so the claim stays Restoring.
 		const UiControlId toolsRow = UI_ROW(uiMenuRowOf(&UI_TOOLS), Row);
 		checkInt("TOOLS' row is whole without a drag", ctlRect(toolsRow).h, 40);
-		checkTrue("TOOLS, a chooser, does not act, as the other choosers",
-		          !ctlEnabled(toolsRow));
+		checkTrue("TOOLS, a chooser, acts, as the other choosers: each gates its entries",
+		          ctlEnabled(toolsRow));
 		checkTrue("SERVO TESTER does not act", !ctlEnabled(menuRow(&UI_SERVO)));
 		char want[40];
 		snprintf(want, sizeof(want), "DSHOT RESTARTING ON SIG GP%u", (unsigned)settings()->dshotPin);
@@ -249,12 +249,12 @@ static void testPinsBusy() {
 		checkTrue("SERVO TESTER is an outline with no status: the strip names the pins",
 		          pixel(sr.x + 4, sr.y + sr.h / 2) == C_BG &&
 		          allOf(sr.x + 160, sr.y + 4, sr.w - 164, sr.h - 8, C_BG));
-		checkTrue("nor ESC CONFIG", !ctlEnabled(menuRow(&UI_ESC_CONFIG)));
-		checkTrue("nor SERVO PROGRAMMER, whose entries claim", !ctlEnabled(menuRow(&UI_SERVO_PROG)));
+		checkTrue("ESC CONFIG acts", ctlEnabled(menuRow(&UI_ESC_CONFIG)));
+		checkTrue("SERVO PROGRAMMER acts, though its entries claim", ctlEnabled(menuRow(&UI_SERVO_PROG)));
 		const UiRect rx = ctlRect(menuRow(&UI_RX_SIGNALS));
-		checkTrue("nor RX SIGNALS, whose MONITOR claims: an outline with no status",
-		          !ctlEnabled(menuRow(&UI_RX_SIGNALS)) && pixel(rx.x + 4, rx.y + rx.h / 2) == C_BG &&
-		          allOf(rx.x + 160, rx.y + 4, rx.w - 164, rx.h - 8, C_BG));
+		checkTrue("RX SIGNALS acts, filled, with no status",
+		          ctlEnabled(menuRow(&UI_RX_SIGNALS)) && pixel(rx.x + 4, rx.y + rx.h / 2) == C_PANEL &&
+		          allOf(rx.x + 160, rx.y + 4, rx.w - 164, rx.h - 8, C_PANEL));
 		fakePress(120, 250); framesNoPump(1);
 		for (int k = 1; k <= 14; k++) { fakeHold(120, 250 - 6 * k); framesNoPump(1); }
 		fakeRelease(); framesNoPump(1);
@@ -408,13 +408,13 @@ static void testSettingsRowVisible() {
 }
 
 /**
- * @brief RX SIGNALS (rx-signals.md, decision 4): the row acts while the
- *        claim is Free and opens its chooser, which claims nothing; while the
- *        claim is not Free it is drawn disabled, as PROGRAMMER's row, with
- *        no status (menu-b.md, decision 18).
+ * @brief RX SIGNALS (rx-signals.md, decision 4): the row acts whatever the
+ *        claim's state and opens its chooser, which claims nothing, with no
+ *        status (menu-b.md, decision 18). While the claim is not Free the
+ *        chooser draws its two entries disabled (menu-c.md, slice 2).
  */
 static void testRxSignalsRow() {
-	section("MENU: RX SIGNALS opens its chooser, refused while the claim is not Free");
+	section("MENU: RX SIGNALS opens its chooser, which gates its entries on the claim");
 	freshTester();
 	openMenu();
 	const UiControlId row = menuRow(&UI_RX_SIGNALS);
@@ -431,8 +431,8 @@ static void testRxSignalsRow() {
 	};
 	checkTrue("claim Free: filled, the label in C_TEXT, no status", pinClaimState() == ClaimState::Free &&
 	          rxLive());
-	checkTrue("the row is RX SIGNALS' chooser, which opens only while the claim is Free",
-	          UI_RX_SIGNALS.freePins && UI_RX_SIGNALS.pinUser == PinUser::None &&
+	checkTrue("the row is RX SIGNALS' chooser, which opens whatever the claim's state",
+	          !UI_RX_SIGNALS.freePins && UI_RX_SIGNALS.pinUser == PinUser::None &&
 	          UI_RX_SIGNALS.id == UiScreenId::RxSignals);
 	// A claim taken under MENU, as only a test can: Stopping, then Held.
 	checkTrue("a claim taken", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
@@ -440,17 +440,20 @@ static void testRxSignalsRow() {
 		menuFrames(1);
 		pinClaimPoll();
 		char what[64];
-		snprintf(what, sizeof(what), "claim state %d: RX SIGNALS drawn disabled, no status",
+		snprintf(what, sizeof(what), "claim state %d: RX SIGNALS filled and acting, no status",
 		         (int)pinClaimState());
-		checkTrue(what, pinClaimState() != ClaimState::Free && rxDisabled());
+		checkTrue(what, pinClaimState() != ClaimState::Free && rxLive() && !rxDisabled());
 	}
-	tapId(row, IdExpect::Disabled);
-	checkTrue("a tap opens nothing", uiCurrentScreen() == UiScreenId::Menu);
-	fakePress(r.x + r.w / 2, r.y + r.h / 2);
+	tapId(row);
+	checkTrue("a tap opens RX SIGNALS", uiCurrentScreen() == UiScreenId::RxSignals);
 	menuFrames(1);
-	checkTrue("a press draws no pressed look", rxDisabled());
-	fakeRelease();
-	menuFrames(1);
+	checkTrue("whose MONITOR and OUTPUT are drawn disabled and gated",
+	          !ctlEnabled(UI_FIX(RxCtl::Monitor)) && !ctlEnabled(UI_FIX(RxCtl::Output)));
+	tapId(UI_FIX(RxCtl::Monitor), IdExpect::Disabled);
+	checkTrue("a tap on MONITOR opens nothing and claims nothing",
+	          uiCurrentScreen() == UiScreenId::RxSignals && pinClaimHolder() == PinUser::Am32);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	pinClaimEnd(PinUser::Am32);
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	menuFrames(1);
@@ -640,16 +643,21 @@ static void testEscConfig() {
 		          uiMenuRowOf(&UI_ESC_CONFIG) == 1 && gfxTextW(UI_ESC_CFG_TITLE, 2) == 118 &&
 		          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_ESC_CFG_TITLE, C_TEXT, C_PANEL, 2) &&
 		          allOf(r.x + 160, r.y + 4, r.w - 164, r.h - 8, C_PANEL));
-		checkTrue("the chooser opens only while the claim is Free and claims nothing",
-		          UI_ESC_CONFIG.freePins && UI_ESC_CONFIG.pinUser == PinUser::None &&
+		checkTrue("the chooser opens whatever the claim's state and claims nothing",
+		          !UI_ESC_CONFIG.freePins && UI_ESC_CONFIG.pinUser == PinUser::None &&
 		          UI_ESC_CONFIG.id == UiScreenId::EscConfig && !UI_ESC_CONFIG.status);
 		checkTrue("a claim taken", pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::None);
 		menuFrames(1);
-		checkTrue("while the claim is not Free: drawn disabled, gated",
-		          !ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_BG &&
-		          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_ESC_CFG_TITLE, C_DIM, C_BG, 2));
-		tapId(row, IdExpect::Disabled);
-		checkTrue("a tap opens nothing", uiCurrentScreen() == UiScreenId::Menu);
+		checkTrue("while the claim is not Free: drawn live, acting",
+		          ctlEnabled(row) && pixel(r.x + 4, r.y + r.h / 2) == C_PANEL &&
+		          fakeTextIs(UI_MARGIN + 8, r.y + 13, UI_ESC_CFG_TITLE, C_TEXT, C_PANEL, 2));
+		tapId(row);
+		checkTrue("a tap opens ESC CONFIG", uiCurrentScreen() == UiScreenId::EscConfig);
+		menuFrames(1);
+		checkTrue("whose ESC SETTINGS and USB BRIDGE are drawn disabled and gated",
+		          !ctlEnabled(UI_FIX(EscCfgCtl::Settings)) && !ctlEnabled(UI_FIX(EscCfgCtl::Bridge)));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 		pinClaimEnd(PinUser::Servo);
 		for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) {
 			menuFrames(1);
@@ -706,12 +714,10 @@ static void testEscConfig() {
 		menuFrames(44);
 		tapId(UI_FIX(BridgeCtl::Restart));
 	}
-	checkTrue("USB BRIDGE's BACK, or its RESTART DSHOT, returns to MENU, not the chooser",
-	          uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("USB BRIDGE's BACK, or its RESTART DSHOT, returns to the chooser, its opener",
+	          uiCurrentScreen() == UiScreenId::EscConfig);
 	for (int k = 0; k < 40 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	checkTrue("DShot runs again", pinClaimState() == ClaimState::Free);
-	tapId(menuRow(&UI_ESC_CONFIG));
-	menuFrames(1);
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("the chooser's BACK returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(menuRow(&UI_ESC_CONFIG));
@@ -725,9 +731,11 @@ static void testEscConfig() {
 	checkTrue("its lift opens ESC SETTINGS", uiCurrentScreen() == UiScreenId::Am32);
 	checkTrue("which claims SIG on the tap's frame", pinClaimHolder() == PinUser::Am32);
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("ESC SETTINGS' BACK returns to MENU, not the chooser", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("ESC SETTINGS' BACK returns to the chooser, its opener",
+	          uiCurrentScreen() == UiScreenId::EscConfig);
 	for (int k = 0; k < 4 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	checkTrue("DShot runs again", pinClaimState() == ClaimState::Free);
+	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));
 }
 

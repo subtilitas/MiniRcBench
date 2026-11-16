@@ -60,7 +60,7 @@ or `CLOCK` in place of `PIO`, and `RETRY` appears:
 - `CLOCK`: the system clock (`clk_sys`) is too slow for the line's rate;
 - `REFUSED`: the board's second core did not take the job.
 
-`RETRY` tries again. `BACK` goes straight to `MENU`, with no leave page, while
+`RETRY` tries again. `BACK` goes straight to ESC CONFIG, with no leave page, while
 DShot stops and after a failed bind: the bridge never took the line.
 
 While the bridge is open the board's console is off: no telemetry line
