@@ -197,6 +197,13 @@ run time, because the DShot driver is always resident and the SDIO card
 driver holds pio1. When no state machine is free the effect is that of an
 unplugged wire.
 
+Revised by the owner's decision 2 of 2026-11-15
+([menu-c.md](menu-c.md#decisions)): DShot, and with it the KISS receiver,
+runs only while ESC TESTER or ESC COMMANDS is open. Revised by
+[dshot-lifetime.md](dshot-lifetime.md#decisions) decision 5, pending the
+owner's review: elsewhere AUX rests on its pull-down with the input buffer
+off. Not built.
+
 Any free GPIO that is not the ESC's can receive. KISS listens on AUX, the
 pin [pin-claim.md](pin-claim.md#the-two-pins) names, which SETTINGS sets in
 its AUX PIN row; the ESC's pin is SIG, set in SIG PIN. The default is GP1, J4
