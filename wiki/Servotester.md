@@ -159,9 +159,10 @@ oder länger, hält ein laufendes Servo an wie bei `STOP`, ob im Sweep oder auf
 einer Position, im Hauptbildschirm wie in SET. Ohne antwortenden
 Touch-Controller ist `STOP` nicht erreichbar, und der Servotester hat keine
 Leerlaufsperre. Die Skala zeigt `TOUCH NOT ANSWERING` in Bernstein, bis der
-Controller antwortet, darunter `THE SERVO IS STOPPED.`, wenn ein laufendes
-Servo anhielt, sonst `HOLD TO START WORKS ONCE IT ANSWERS.`; `HOLD TO START`
-ist so lange gesperrt gezeichnet. Dieser Hinweis geht jedem anderen auf der
+Controller antwortet, darunter `THE SERVO IS STOPPED.`, wenn dieser Halt oder
+die Abschaltung nach 250 ms ohne Bildschirm oder Touch einen Lauf beendete,
+sonst `HOLD TO START WORKS ONCE IT ANSWERS.`; `HOLD TO START` ist so lange
+gesperrt gezeichnet. Dieser Hinweis geht jedem anderen auf der
 Skala vor, auch `PREPARING THE LOG...`.
 
 ---

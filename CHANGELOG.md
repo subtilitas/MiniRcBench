@@ -59,8 +59,9 @@ protocol.
   hint, and the 3D note, in amber. SERVO TESTER stops a running servo as
   STOP does, on the main view and on SET, refuses HOLD TO START and shows
   the same note on its dial, before every other note there, over `THE SERVO
-  IS STOPPED.` when the stop ended a run and `HOLD TO START WORKS ONCE IT
-  ANSWERS.` otherwise; a Start waiting for a log to open is not sent while
+  IS STOPPED.` when the stop or core1's 250 ms cut (the heartbeat, or the
+  touch silent with the switched supply) ended a run and `HOLD TO START
+  WORKS ONCE IT ANSWERS.` otherwise; a Start waiting for a log to open is not sent while
   the touch does not answer, and the log ends; with the switched supply this
   comes before core1's 250 ms touch cut, which stays behind it for UI frames
   too slow to count four failed reads in 250 ms. S.BUS OUTPUT stops its

@@ -76,7 +76,7 @@ struct TouchState;
 #define SERVO_UI_TOUCH_WAIT_1 "START WAITS: TOUCH DOES NOT ANSWER."
 /** @brief ...and its second line, dim. */
 #define SERVO_UI_TOUCH_WAIT_2 "HOLD TO START WORKS ONCE IT ANSWERS."
-/** @brief The touch-loss note's second line after the touch-loss stop ended a run, dim. */
+/** @brief The touch-loss note's second line after the touch-loss stop or core1's 250 ms cut ended a run, dim. */
 #define SERVO_UI_TOUCH_LOST_2 "THE SERVO IS STOPPED."
 /** @brief The supply cut because the touch controller did not answer for 250 ms. */
 #define SERVO_UI_TOUCH_SILENT "STOPPED: TOUCH DID NOT ANSWER"

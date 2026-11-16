@@ -145,9 +145,10 @@ If four reads of the touch controller in a row have failed, over 100 ms or more,
 a running servo stops as on `STOP`, sweeping or holding a position, on the main
 screen and on SET. A touch that does not answer cannot reach `STOP`, and the
 servo tester has no idle stop. The dial reads `TOUCH NOT ANSWERING` in amber
-until the controller answers, over `THE SERVO IS STOPPED.` when a running servo
-stopped and over `HOLD TO START WORKS ONCE IT ANSWERS.` otherwise; `HOLD TO
-START` is drawn disabled meanwhile. This note comes before every other note on
+until the controller answers, over `THE SERVO IS STOPPED.` when this stop or
+the cut after 250 ms without the screen or the touch ended a run, and over
+`HOLD TO START WORKS ONCE IT ANSWERS.` otherwise; `HOLD TO START` is drawn
+disabled meanwhile. This note comes before every other note on
 the dial, `PREPARING THE LOG...` included.
 
 ---

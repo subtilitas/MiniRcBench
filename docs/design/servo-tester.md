@@ -52,7 +52,7 @@ states under other names.
 | Stopping | DISARM, on press, instant | STOP, on press, instant: level 0 from the next frame |
 | UI stalls 250 ms | throttle forced to zero | level 0, sweep ends, `Tripped` latched while RUNNING |
 | Idle | auto-disarm after `IDLE_DISARM_MS`, 30 s | none: a sweep may run unattended as an endurance test |
-| Touch not answering: 4 failed reads in a row (`TOUCH_LOST_READS`) and 100 ms since the last answer (`TOUCH_LOST_MS`), `uiTouchLost()` | disarm, as DISARM does; HOLD TO ARM refused while it lasts | STOP's command, on SERVO and SET, sent each frame until the job reports SAFE; HOLD TO START refused while it lasts |
+| Touch not answering: no answer since `touchInit()`, or 4 failed reads in a row (`TOUCH_LOST_READS`) and 100 ms since the last answer (`TOUCH_LOST_MS`), `uiTouchLost()` | disarm, as DISARM does; HOLD TO ARM refused while it lasts | STOP's command, on the main view and SET, sent each frame until the job reports SAFE; HOLD TO START refused while it lasts |
 
 The last row is an addition to the decisions above, not a revision of
 them: a touch that does not answer cannot press STOP or DISARM.

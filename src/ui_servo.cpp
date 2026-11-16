@@ -546,14 +546,13 @@ static void claimMessage(const char **l1, const char **l2, const char **l3,
  *
  * First wins: a touch controller that does not answer (uiTouchLost()),
  * which stops the servo and refuses START, its second line
- * `THE SERVO IS STOPPED.` after it ended a run and HOLD TO START's wait
- * otherwise; a log being prepared; a trip, by its cause (the
- * heartbeat, a silent touch controller, a stuck bus, a cut of
- * supply_guard.h); with the switch, a
- * supply that did not come
- * up, then why START is refused (a current sensor not found, a stuck bus,
- * a silent touch controller), then the ESC warning; without it, CENTRE at
- * START and the throttle warning.
+ * `THE SERVO IS STOPPED.` after it or core1's 250 ms cut (TouchSilent or the
+ * heartbeat) ended a run and HOLD TO START's wait otherwise; a log being
+ * prepared; a trip, by its cause (the heartbeat, a silent touch controller,
+ * a stuck bus, a cut of supply_guard.h); with the switch, a supply that did
+ * not come up, then why START is refused (a current sensor not found, a
+ * stuck bus, a silent touch controller), then the ESC warning; without it,
+ * CENTRE at START and the throttle warning.
  */
 static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	unsigned sig = gpioOf(PIN_SIG);
@@ -561,7 +560,11 @@ static void safeNotes(char *a, char *b, size_t n, uint16_t *ca, uint16_t *cb) {
 	if (uiTouchLost()) {
 		// The tester's note, and why the servo stopped or does not start.
 		snprintf(a, n, "%s", UI_TOUCH_LOST_TEXT);
-		snprintf(b, n, "%s", s_touchStop ? SERVO_UI_TOUCH_LOST_2 : SERVO_UI_TOUCH_WAIT_2);
+		// A run ended by either core's touch rule: core0's stop, or core1's
+		// 250 ms cut (TouchSilent, or the heartbeat when frames lag).
+		bool cut = s_st.tripped && (s_st.powerFault == ServoPowerFault::TouchSilent ||
+		                            s_st.powerFault == ServoPowerFault::None);
+		snprintf(b, n, "%s", s_touchStop || cut ? SERVO_UI_TOUCH_LOST_2 : SERVO_UI_TOUCH_WAIT_2);
 		*ca = C_AMBER;
 		return;
 	}

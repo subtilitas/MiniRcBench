@@ -2076,8 +2076,9 @@ position, has STOP and BACK as its only stops, both by touch. When the touch
 controller does not answer (`uiTouchLost()`, the rule under "Touch"), the
 screen sends the command STOP sends, on the main view and on SET, and the dial
 reads `TOUCH NOT ANSWERING` until it answers, over `THE SERVO IS STOPPED.`
-when that stop ended a run and over `HOLD TO START WORKS ONCE IT ANSWERS.`
-otherwise; HOLD TO START is disabled meanwhile. The touch note comes before
+when that stop or core1's 250 ms cut (the heartbeat, or the touch silent with
+the switched supply) ended a run and over `HOLD TO START WORKS ONCE IT
+ANSWERS.` otherwise; HOLD TO START is disabled meanwhile. The touch note comes before
 every other note of the dial, the log's included.
 
 The strip's caption names the pin by role and number, the frame rate and
