@@ -75,7 +75,7 @@ unplugged or replaced therefore leaves no old values on screen.
 `--` means one of:
 
 - the ESC does not support EDT (RPM still works);
-- EDT is supported but not enabled yet. Watch the chip on the `MENU` screen;
+- EDT is supported but not enabled yet. Watch the chip on ESC COMMANDS;
 - the ESC stopped answering.
 
 An **expired status tile reads `--`, never `OK`**.
@@ -86,9 +86,10 @@ An **expired status tile reads `--`, never `OK`**.
 
 The firmware does it, with no button.
 
-The first 10 frames the tester sends to the ESC are the enable: at power-up,
-after a change of SIG PIN, DSHOT, KISS TELEM or AUX PIN under SETTINGS, and when
-the AM32 screen hands the signal wire back. They take 10 ms. Every reply is
+The first 10 frames the tester sends to the ESC are the enable: each time ESC
+TESTER or ESC COMMANDS opens, and after a change of SIG PIN, DSHOT, KISS TELEM
+or AUX PIN under SETTINGS opened over the tester. No frame goes out at
+power-up or on any other screen: the signal wire is held low there. They take 10 ms. Every reply is
 decoded with EDT on from the first one, so an ESC that kept EDT on through one
 of those restarts shows its voltage and temperature at once and never a false
 RPM. An ESC with AM32 or Bluejay shows the correct RPM with EDT off; for other
@@ -110,9 +111,11 @@ hold:
 An ESC executes a DShot command only after a run of identical frames, so an
 enable sent at another time would be lost.
 
-<img src="img/menu-edt-on.png" width="240" alt="EDT ON"> <img src="img/menu-edt-off.png" width="240" alt="EDT OFF">
+<img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS with no ESC answering: the chip reads NO ESC">
 
-The chip reads `NO ESC` in a frame with no fill while no eRPM arrives; red
+The EDT chip is on ESC COMMANDS, which runs DShot. It reads green `EDT ON`
+while EDT frames arrive, and `NO ESC` in a frame with no fill while no eRPM
+arrives; red
 `EDT OFF` means
 the ESC answers and sends no EDT. If the chip stays red with an ESC that
 supports EDT, see
@@ -164,4 +167,5 @@ above 5 %.
 
 A poor link usually comes from the signal wire: too long, unshielded, or routed
 near motor phase wires. Shorten it first. Otherwise set **DSHOT** to 300
-under **MENU → SETTINGS**. The `LINK` row on the SETTINGS screen updates live.
+under SETTINGS. The `LINK` row on the SETTINGS screen updates live while
+SETTINGS is open over the tester, from a tap on `MAX`, where DShot runs.

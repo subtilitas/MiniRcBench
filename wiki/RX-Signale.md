@@ -54,22 +54,30 @@ Siehe auch [Verdrahtung](Verdrahtung).
 
 `MENU → RX SIGNALS` öffnet eine Auswahl, eine Seite mit zwei Schaltflächen.
 Die Leiste nennt beide Signalpins, `SIG GP0  AUX GP1`, so siehst du vor dem
-Tippen, welche Rolle GP1 hat. Die Seite belegt keinen Pin: DShot läuft weiter.
+Tippen, welche Rolle GP1 hat. Die Seite belegt keinen Pin, und DShot ist
+aus, solange sie zu sehen ist.
 
 - **MONITOR** öffnet S.BUS MONITOR.
 - **OUTPUT** öffnet S.BUS OUTPUT. Die zwei Zeilen darunter sind seine
   Warnung: `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`
 
-`BACK` führt zu `MENU` zurück. Während DShot nach einem anderen Werkzeug
-neu startet, öffnet RX SIGNALS wie immer, MONITOR und OUTPUT sind Umrisse
-und tun nichts, und die Leiste zeigt `DSHOT RESTARTING ON SIG GP0` in
-Bernstein.
+Unter den Pins der Leiste zeigt eine zweite Zeile
+`NO ESC CHECK: UNPLUG ANY ESC FIRST.` in Bernstein. DShot ist auf RX SIGNALS
+aus, daher sieht der Prüfstand keinen ESC an den Pins: Zieh jeden ESC ab,
+bevor du einen Eintrag antippst. Mit SIG auf GP1 trägt MONITOR
+`GP1 IS SIG: PLUG IN AFTER THE TAP.` in Bernstein: GP1 liegt bis zum Tippen
+auf Low, steck den Empfänger also danach ein.
+
+`BACK` führt zu `MENU` zurück. Solange die Pins nach einem anderen Werkzeug
+noch belegt sind, öffnet RX SIGNALS wie immer, MONITOR und OUTPUT sind
+Umrisse und tun nichts, und die zweite Zeile der Leiste zeigt
+`SETTING SIG GP0 LOW` oder `RELEASING SIG GP0` in Bernstein.
 
 ---
 
 ## S.BUS MONITOR
 
-Beim Öffnen nimmt der Bildschirm GP1 von DShot. Währenddessen steht dort
+Beim Öffnen nimmt der Bildschirm GP1. Währenddessen steht dort
 `RELEASING AUX GP1`, dann `TAKING AUX GP1`, dann erscheinen die Kanäle.
 
 | Teil | Was er zeigt |
@@ -123,13 +131,15 @@ Balken ist über dem Rohwert gezeichnet und in beiden Fällen gleich.
 
 | Text | Warum | Was tun |
 |---|---|---|
-| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG liegt auf GP1, und dort antwortet ein ESC. Der Empfänger würde den Signaleingang des ESC treiben | Zieh den ESC ab. Der Bildschirm nimmt den Pin 500 ms, nachdem der ESC verstummt; steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint. Der Chip erscheint erst, wenn der Pin belegt ist und der Job läuft; bis dahin treibt DShot GP1 weiter |
+| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG liegt auf GP1, und dort antwortet ein ESC. Der Empfänger würde den Signaleingang des ESC treiben | Zieh den ESC ab. Der Bildschirm nimmt den Pin 500 ms, nachdem der ESC verstummt; steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint. Der Chip erscheint erst, wenn der Pin belegt ist und der Job läuft; bis dahin liegt GP1 auf Low |
 | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | auf GP1 kommt KISS-Telemetrie an | Zieh die Telemetrieleitung ab. Steck den Empfänger erst an, wenn der Verbindungs-Chip erscheint |
 | `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | weder SIG noch AUX liegt auf GP1 | Setze SIG PIN oder AUX PIN auf GP1. SETTINGS tauscht die beiden, daher kommt das auf dieser Platine nicht vor |
 | `AUX GP1 COULD NOT BE TAKEN (CLOCK)` | der serielle Empfänger der Platine konnte 100.000 Baud nicht erreichen | `RETRY` |
 
 Die ESC-Prüfung übersieht einen ESC, der nicht in bidirektionalem DShot
-antwortet.
+antwortet. Da DShot außerhalb von ESC TESTER und ESC COMMANDS aus ist,
+antwortet ein ESC nur innerhalb von 500 ms nach dem Verlassen eines davon:
+Die Zeile `NO ESC CHECK` der Auswahl ist die Prüfung, die bleibt.
 
 <img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR wartet: AN ESC ANSWERS ON SIG GP1. und UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in Bernstein"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR ohne Rolle auf GP1: S.BUS NEEDS GP1. und SET A PIN TO GP1 IN SETTINGS. in Bernstein">
 
@@ -139,19 +149,20 @@ antwortet.
 
 `BACK` öffnet die Verlassenseite, wie beim [Servotester](Servotester). Die
 Platine gibt GP1 sofort frei. Schritt 1 lautet `UNPLUG THE RECEIVER.` und
-sagt, wo DShot neu startet: `DSHOT RESTARTS ON SIG GP0.`, oder, wenn SIG auf
-GP1 liegt, `DSHOT RESTARTS ON SIG GP1, WHERE THE RECEIVER DRIVES THE LINE.`
-Dort würden der Ausgang von DShot und der des Empfängers eine Leitung
-gegeneinander treiben.
+sagt, was danach an SIG folgt: `ESC TESTER SENDS DSHOT ON SIG GP0.`, oder,
+wenn SIG auf GP1 liegt, `SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE
+LINE.` Dort würden der Low-Ausgang der Platine und der des Empfängers eine
+Leitung gegeneinander treiben.
 
 - `BACK TO MONITOR` behält den Pin und kehrt zum Monitor zurück, jeder
   Zähler auf 0.
-- `RESTART DSHOT` führt zu RX SIGNALS und gibt die Pins an DShot zurück. Es
-  wartet 1 s, nachdem der Pin freigegeben ist.
+- `RX SIGNALS`, der Titel der Auswahl, führt zu RX SIGNALS und legt die
+  Pins auf Low; kein DShot startet. Es wartet 1 s, nachdem der Pin
+  freigegeben ist.
 
 `BACK` auf der Seite ist ein Umriss und tut nichts.
 
-<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., DSHOT RESTARTS ON SIG GP0., BACK TO MONITOR, RESTART DSHOT noch grau"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: DSHOT RESTARTS ON SIG GP1, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RX SIGNALS noch grau"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 
@@ -197,7 +208,7 @@ feste, wiederholbare Werte senden.
 
 ### Vor START
 
-Der Bildschirm nimmt GP0 von DShot und prüft den Pin dann etwa 1,1 s lang
+Der Bildschirm nimmt GP0 und prüft den Pin dann etwa 1,1 s lang
 auf den Bootloader eines ESC: eine stille Sekunde, dann drei Begrüßungen, wie
 ESC SETTINGS. Er wiederholt die Prüfung, bis eine Runde keine Antwort
 bekommt. Erst dann zeigt der Chip `SAFE`, und **HOLD TO START** wird
@@ -279,23 +290,23 @@ Frames laufen, steht `STOP` unten rechts; gestoppt steht unten
 ### Verlassen des Ausgangs
 
 `BACK` hält die Frames an und öffnet die Verlassenseite. Schritt 1 lautet
-`UNPLUG THE FLIGHT CONTROLLER.` und `DSHOT RESTARTS ON SIG GP0.`: Das
-ESC-Signal kommt auf diesem Pin zurück.
+`UNPLUG THE FLIGHT CONTROLLER.` und `ESC TESTER SENDS DSHOT ON SIG GP0.`:
+Der nächste ESC TESTER oder ESC COMMANDS treibt diesen Pin.
 
 - `BACK TO OUTPUT` behält den Pin und führt zum Bildschirm zurück; vor START
   läuft die Bootloader-Prüfung erneut.
-- `RESTART DSHOT` führt zu RX SIGNALS zurück und gibt den Pin an DShot
-  zurück.
-  Es wartet 1 s, nachdem der Pin freigegeben ist.
+- `RX SIGNALS`, der Titel der Auswahl, führt zu RX SIGNALS zurück und legt
+  den Pin auf Low; kein DShot startet. Es wartet 1 s, nachdem der Pin
+  freigegeben ist.
 
 Hat ein Bootloader von Bluejay oder BLHeli_S auf die Prüfung geantwortet,
 zeigt `BACK` zuerst den Schritt von ESC SETTINGS:
 `UNPLUG THE ESC BATTERY, THEN LEAVE.` Der ESC wartet in seinem Bootloader und
 könnte DShot als Befehl lesen. `STAY` führt zum Bildschirm zurück, `LEAVE`
-gibt den Pin frei; der letzte Schritt erinnert daran, den ESC nach
-`RESTART DSHOT` wieder anzustecken.
+gibt den Pin frei; der letzte Schritt erinnert daran, den ESC wieder
+anzustecken, sobald RX SIGNALS zu sehen ist.
 
-<img src="img/sbus-out-leave.png" width="240" alt="Die Verlassenseite von S.BUS OUTPUT: 1 UNPLUG THE FLIGHT CONTROLLER., DSHOT RESTARTS ON SIG GP0., BACK TO OUTPUT, RESTART DSHOT"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="Die Verlassenseite, nachdem ein Bootloader von Bluejay oder BLHeli_S geantwortet hat: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
+<img src="img/sbus-out-leave.png" width="240" alt="Die Verlassenseite von S.BUS OUTPUT: 1 UNPLUG THE FLIGHT CONTROLLER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO OUTPUT, RX SIGNALS"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="Die Verlassenseite, nachdem ein Bootloader von Bluejay oder BLHeli_S geantwortet hat: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY und LEAVE">
 
 ---
 

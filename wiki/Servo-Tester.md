@@ -10,13 +10,12 @@ horn on the screen is drawn where the pulse puts it, not where the servo is.
 
 <img src="img/servo-running.png" width="240" alt="The servo screen, running">
 
-> **Unplug the servo before DShot runs.** Outside this screen the ESC pin
-> carries DShot. A servo on that pin reads it as a pulse of about 970 µs at
-> 1000 Hz: it drives towards one end of its travel, at a frame rate that
-> overheats an analogue servo. That happens when the board **boots** with a
-> servo on the ESC pin, which the splash screen warns of with
-> `UNPLUG ANY SERVO FROM GP0 NOW`, and when you leave this screen. The screen
-> asks you to unplug it first.
+> **Unplug the servo before ESC TESTER or ESC COMMANDS.** Those two screens
+> drive the ESC pin with DShot. A servo on that pin reads it as a pulse of
+> about 970 µs at 1000 Hz: it drives towards one end of its travel, at a
+> frame rate that overheats an analogue servo. Everywhere else, from power-up
+> on, the board holds the ESC pin low and sends nothing. The leave page asks
+> you to unplug the servo before you go on.
 
 ---
 
@@ -53,8 +52,11 @@ itself ([The switched supply](#the-switched-supply)).
   under **MENU → SETTINGS → SIG PIN** and **AUX PIN**, which show the J5 pin
   under the value. GP0 and GP1 are the defaults. AUX PIN acts whether KISS is
   on or off, and a step of either row swaps the two.
-- Unplug any ESC from SIG. The screen waits while an ESC answers on
-  it, but it cannot see every ESC.
+- Unplug any ESC from SIG. SERVO's strip says so in amber,
+  `NO ESC CHECK: UNPLUG ANY ESC FIRST.`: DShot is off outside ESC TESTER and
+  ESC COMMANDS, so an ESC answers only within 500 ms of leaving one of them.
+  The screen waits while an ESC answers on SIG, but it cannot see every
+  ESC.
 
 ---
 
@@ -62,9 +64,10 @@ itself ([The switched supply](#the-switched-supply)).
 
 Open **MENU → SERVO**, then tap **SERVO TESTER**, the first entry (see
 [The Screens](The-Screens#servo)). The screen is titled `SERVO TESTER`, as
-its entry. `RESTART DSHOT` at the end of a session returns to SERVO.
+its entry. `SERVO`, the leave page's last button, returns to SERVO at the end
+of a session.
 
-The screen takes the two signal pins from the ESC driver. If an ESC answers on
+The screen takes the two signal pins, held low until then. If an ESC answers on
 SIG, it waits and says `AN ESC ANSWERS ON SIG GP0.` Unplug the ESC; the
 screen takes the pins by itself 500 ms later. Servo pulses of 1000 µs to
 2000 µs are a valid throttle signal for many ESCs.
@@ -449,21 +452,21 @@ starts at STANDARD PWM, 50 Hz, one servo.
 
 `BACK` ends the pulses and opens the leave page, whose first step asks you
 to unplug the servo: `1 UNPLUG THE SERVO.`, with
-`DSHOT RESTARTS ON SIG GP0 AND READS` and `AS A 970 US PULSE AT 1000 HZ.`,
-then `2 RESTART DSHOT.` The last pulse completes first, which takes up to
-41 ms at 50 Hz. A weak pull-down then holds SIG low until DShot runs again.
-With two servos it also holds AUX low until the KISS receiver takes it, or
-for good with KISS off. The strip names the pins the screen holds,
+`ESC TESTER'S DSHOT ON SIG GP0 READS` and `AS A 970 US PULSE AT 1000 HZ.`,
+then `2 BACK TO SERVO.` The last pulse completes first, which takes up to
+41 ms at 50 Hz. A weak pull-down then holds SIG low until the last button
+drives it low; AUX rests on its pull-down. The strip names the pins the screen holds,
 `SIG GP0  AUX GP1`, or `SIG GP0` when it holds SIG alone.
 
-<img src="img/leave-servo.png" width="240" alt="The leave page: 1 UNPLUG THE SERVO., BACK TO SERVO and RESTART DSHOT">
+<img src="img/leave-servo.png" width="240" alt="The leave page: 1 UNPLUG THE SERVO., NEXT SERVO and SERVO">
 
 Until the last pulse has completed the page reads `RELEASING THE PINS`, or
 `RELEASING THE PIN` with SIG alone, and both buttons are grey. Then
-`BACK TO SERVO` acts: it returns to the servo screen, SAFE, and keeps the
-pins. Unplug the servo, then tap `RESTART DSHOT`: it acts 1 s after the
-pins are let go, so a quick second tap after `BACK` restarts nothing. The
-ESC driver takes the pins back and `MENU` returns. `BACK` on the page is
+`NEXT SERVO` acts: it returns to the servo screen, SAFE, and keeps the
+pins. Unplug the servo, then tap `SERVO`, the hub's title: it acts 1 s after
+the pins are let go, so a quick second tap after `BACK` ends nothing. SIG is
+driven low, no DShot starts, and SERVO, the hub, returns. A servo left on
+SIG meets DShot at the next ESC TESTER or ESC COMMANDS. `BACK` on the page is
 grey and does nothing.
 
 ---

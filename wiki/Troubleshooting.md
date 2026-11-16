@@ -61,17 +61,18 @@ after a restart, report it as described under [Still stuck](#still-stuck).
 
 <img src="img/tester-noesc.png" width="240" alt="No telemetry">
 
-Nothing answers on the signal wire, and the chip under the title on the
-`MENU` screen reads `NO ESC`. Check in this order:
+Nothing answers on the signal wire: the tester shows no telemetry, and the
+chip under the title of ESC COMMANDS reads `NO ESC`. DShot runs only while
+the tester or ESC COMMANDS is open, so check there. Check in this order:
 
 1. **The ESC has not been power-cycled since ESC SETTINGS.** Leaving that
    screen sends the bootloader no command to start the ESC firmware, and
    what the ESC does then is not recorded. Power-cycle the ESC before you
    test it: [AM32 Configuration](AM32-Configuration#leaving).
-2. **Wrong pin.** Compare **MENU → SETTINGS → SIG PIN** with where the wire
-   is; the J5 pin is shown under the value.
-   The `LINK` row on that screen is live. A packet rate above zero means the
-   pin is correct.
+2. **Wrong pin.** Compare **SETTINGS → SIG PIN** with where the wire is; the
+   J5 pin is shown under the value. Open SETTINGS from the tester, by a tap
+   on `MAX` while disarmed: there DShot keeps running and the `LINK` row is
+   live. A packet rate above zero means the pin is correct.
 3. **No common ground.** The ESC ground and the board ground must be
    connected.
 4. **The ESC has no power.** It runs from its own battery, not from the board.
@@ -87,7 +88,7 @@ Nothing answers on the signal wire, and the chip under the title on the
 The ESC sends eRPM (electrical RPM) and no EDT (Extended DShot Telemetry).
 Either it does not support EDT, or EDT is not enabled yet.
 
-Check the chip under the title on the `MENU` screen. If it reads `EDT OFF`,
+Check the chip under the title of ESC COMMANDS. If it reads `EDT OFF`,
 see the next section. If the ESC firmware does not support EDT, two wires give
 RPM only. A [KISS telemetry wire](Telemetry#the-optional-third-wire) provides
 voltage, current, temperature and mAh.
@@ -237,8 +238,8 @@ screen does not work.
   and the screen reads its settings; Bluejay 0.21 and BLHeli_S 16.3 to 16.7
   can be written. `BACK` from its
   list sends LEAVE, which starts the ESC; `BACK` before the list opens a
-  leave page: unplug the ESC battery, `LEAVE`, `RESTART DSHOT`, then plug
-  it in ([AM32 Configuration](AM32-Configuration#efm8-escs)).
+  leave page: unplug the ESC battery, `LEAVE`, `ESC CONFIG`, then plug it
+  in ([AM32 Configuration](AM32-Configuration#efm8-escs)).
 - **`HALF WRITTEN: KEEP THE ESC POWERED.`** or
   **`NO ANSWER IN THE WRITE: KEEP POWER.`**: a Bluejay or BLHeli_S write was
   cut after the ESC's page was erased. Do not unplug the ESC battery: fix

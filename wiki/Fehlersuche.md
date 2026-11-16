@@ -68,17 +68,21 @@ geprüft. Bleibt die Zeile nach einem Neustart, melde es wie unter
 
 <img src="img/tester-noesc.png" width="240" alt="Keine Telemetrie">
 
-Auf dem Signalkabel antwortet nichts, und das Feld unter dem Titel des
-Bildschirms `MENU` zeigt `NO ESC`. Prüfe in dieser Reihenfolge:
+Auf dem Signalkabel antwortet nichts: Der Tester zeigt keine Telemetrie,
+und das Feld unter dem Titel von ESC COMMANDS zeigt `NO ESC`. DShot läuft nur,
+solange der Tester oder ESC COMMANDS offen ist, prüfe also dort. Prüfe in
+dieser Reihenfolge:
 
 1. **Der ESC ist seit ESC SETTINGS nicht neu gestartet.** Beim Verlassen
    dieses Bildschirms schickt die Firmware dem Bootloader keinen Befehl, die
    ESC-Firmware zu starten, und was der ESC dann tut, ist nicht
    aufgezeichnet. Starte den ESC neu, bevor du ihn testest:
    [AM32-Konfiguration](AM32-Konfiguration#verlassen).
-2. **Falscher Pin.** Vergleiche **MENU → SETTINGS → SIG PIN** damit, wo das
-   Kabel steckt; der J5-Pin steht unter dem Wert. Die `LINK`-Zeile auf diesem
-   Bildschirm ist live. Eine Paketrate über null heißt, der Pin stimmt.
+2. **Falscher Pin.** Vergleiche **SETTINGS → SIG PIN** damit, wo das Kabel
+   steckt; der J5-Pin steht unter dem Wert. Öffne SETTINGS vom Tester aus,
+   mit einem Tippen auf `MAX` im entschärften Zustand: Dort läuft DShot
+   weiter, und die `LINK`-Zeile ist live. Eine Paketrate über null heißt, der
+   Pin stimmt.
 3. **Keine gemeinsame Masse.** Die Masse des ESC und die der Platine müssen
    verbunden sein.
 4. **Der ESC hat keinen Strom.** Er läuft an seinem eigenen Akku, nicht an der
@@ -96,7 +100,7 @@ Der ESC sendet eRPM (elektrische Drehzahl) und kein EDT (Extended DShot
 Telemetry). Entweder beherrscht er kein EDT, oder EDT ist noch nicht
 freigegeben.
 
-Sieh auf das Feld unter dem Titel des Bildschirms `MENU`. Steht dort
+Sieh auf das Feld unter dem Titel von ESC COMMANDS. Steht dort
 `EDT OFF`, lies den nächsten Abschnitt. Beherrscht die ESC-Firmware kein EDT,
 liefern zwei Kabel nur die Drehzahl. Ein
 [KISS-Telemetriekabel](Telemetrie#das-optionale-dritte-kabel) liefert
@@ -256,7 +260,7 @@ vor dem Öffnen des Bildschirms funktioniert nicht.
   geantwortet, und der Bildschirm liest seine Einstellungen; Bluejay 0.21
   und BLHeli_S 16.3 bis 16.7 lassen sich schreiben. `BACK` aus seiner Liste
   sendet LEAVE, das den ESC startet; `BACK` vor der Liste öffnet eine
-  Verlassenseite: ESC-Akku abziehen, `LEAVE`, `RESTART DSHOT`, dann wieder
+  Verlassenseite: ESC-Akku abziehen, `LEAVE`, `ESC CONFIG`, dann wieder
   anstecken ([AM32-Konfiguration](AM32-Konfiguration#efm8-escs)).
 - **`HALF WRITTEN: KEEP THE ESC POWERED.`** oder
   **`NO ANSWER IN THE WRITE: KEEP POWER.`**: Ein Schreiben auf Bluejay oder

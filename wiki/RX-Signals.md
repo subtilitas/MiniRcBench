@@ -53,21 +53,28 @@ See also [Wiring](Wiring).
 
 `MENU → RX SIGNALS` opens a hub, a page with two buttons. The strip names both
 signal pins, `SIG GP0  AUX GP1`, so you see which role GP1 has before you
-tap. The page takes no pin: DShot keeps running.
+tap. The page takes no pin, and DShot is off while it shows.
 
 - **MONITOR** opens S.BUS MONITOR.
 - **OUTPUT** opens S.BUS OUTPUT. The two lines under it are its warning:
   `S.BUS TO A FLIGHT CONTROLLER.` `ON GP0, NEVER TO AN ESC.`
 
-`BACK` returns to `MENU`. While DShot restarts after another tool, RX
-SIGNALS opens as always, MONITOR and OUTPUT are outlines and do nothing, and
-the strip reads `DSHOT RESTARTING ON SIG GP0` in amber.
+Under the strip's pins a second line reads
+`NO ESC CHECK: UNPLUG ANY ESC FIRST.` in amber. DShot is off on RX SIGNALS,
+so the bench cannot see an ESC on the pins: unplug any ESC before you tap an
+entry. With SIG on GP1, MONITOR carries `GP1 IS SIG: PLUG IN AFTER THE TAP.`
+in amber: GP1 is held low until the tap, so plug the receiver in after it.
+
+`BACK` returns to `MENU`. While the pins are still in use after another
+tool, RX SIGNALS opens as always, MONITOR and OUTPUT are outlines and do
+nothing, and the strip's second line reads `SETTING SIG GP0 LOW` or
+`RELEASING SIG GP0` in amber.
 
 ---
 
 ## S.BUS MONITOR
 
-The screen takes GP1 from DShot when it opens. While it does, the body
+The screen takes GP1 when it opens. While it does, the body
 reads `RELEASING AUX GP1`, then `TAKING AUX GP1`, then the channels appear.
 
 | Part | What it shows |
@@ -119,12 +126,15 @@ same either way.
 
 | Text | Why | What to do |
 |---|---|---|
-| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG is GP1, and an ESC answers there. The receiver would drive the ESC's signal input | Unplug the ESC. The screen takes the pin 500 ms after the ESC goes quiet; plug the receiver in once the link chip shows. The chip appears only when the claim holds and the job runs; until then DShot keeps driving GP1 |
+| `AN ESC ANSWERS ON SIG GP1.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | SIG is GP1, and an ESC answers there. The receiver would drive the ESC's signal input | Unplug the ESC. The screen takes the pin 500 ms after the ESC goes quiet; plug the receiver in once the link chip shows. The chip appears only when the claim holds and the job runs; until then GP1 is held low |
 | `KISS WIRE ON AUX GP1 IS LIVE.` `UNPLUG IT. PLUG THE RECEIVER IN` `ONCE THE LINK CHIP SHOWS.` | KISS telemetry arrives on GP1 | Unplug the telemetry wire. Plug the receiver in once the link chip shows |
 | `S.BUS NEEDS GP1.` `SET A PIN TO GP1 IN SETTINGS.` | neither SIG nor AUX is GP1 | Set SIG PIN or AUX PIN to GP1. SETTINGS swaps the two, so this does not happen on this board |
 | `AUX GP1 COULD NOT BE TAKEN (CLOCK)` | the board's serial receiver could not reach 100,000 baud | `RETRY` |
 
-The ESC check misses an ESC that does not answer in bidirectional DShot.
+The ESC check misses an ESC that does not answer in bidirectional DShot. With
+DShot off outside ESC TESTER and ESC COMMANDS, an ESC answers only within
+500 ms of leaving one of them: the hub's `NO ESC CHECK` line is the check
+that stands.
 
 <img src="img/sbus-esc.png" width="240" alt="S.BUS MONITOR waiting: AN ESC ANSWERS ON SIG GP1. and UNPLUG IT. PLUG THE RECEIVER IN ONCE THE LINK CHIP SHOWS. in amber"> <img src="img/sbus-no-gp1.png" width="240" alt="S.BUS MONITOR with no role on GP1: S.BUS NEEDS GP1. and SET A PIN TO GP1 IN SETTINGS. in amber">
 
@@ -134,18 +144,19 @@ The ESC check misses an ESC that does not answer in bidirectional DShot.
 
 `BACK` opens the leave page, as on the [servo tester](Servo-Tester). The
 board lets GP1 go at once. Step 1 reads `UNPLUG THE RECEIVER.` and says
-where DShot restarts: `DSHOT RESTARTS ON SIG GP0.`, or, when SIG is GP1,
-`DSHOT RESTARTS ON SIG GP1, WHERE THE RECEIVER DRIVES THE LINE.` There
-DShot's output and the receiver's would drive one wire against each other.
+what follows on SIG: `ESC TESTER SENDS DSHOT ON SIG GP0.`, or, when SIG is
+GP1, `SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.` There the
+board's low output and the receiver's would drive one wire against each
+other.
 
 - `BACK TO MONITOR` keeps the pin and returns to the monitor with every
   count at 0.
-- `RESTART DSHOT` returns to RX SIGNALS and gives the pins back to DShot. It
-  waits 1 s after the pin is let go.
+- `RX SIGNALS`, the hub's title, returns to RX SIGNALS and holds the pins
+  low; no DShot starts. It waits 1 s after the pin is let go.
 
 `BACK` on the page is an outline and does nothing.
 
-<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., DSHOT RESTARTS ON SIG GP0., BACK TO MONITOR, RESTART DSHOT still grey"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: DSHOT RESTARTS ON SIG GP1, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RX SIGNALS still grey"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 
@@ -188,7 +199,7 @@ repeatable values.
 
 ### Before START
 
-The screen takes GP0 from DShot, then checks it for an ESC's bootloader for
+The screen takes GP0, then checks it for an ESC's bootloader for
 about 1.1 s: a quiet second, then three greetings, as ESC SETTINGS does. It
 repeats the check until one round gets no answer. Only then does the chip
 read `SAFE` and **HOLD TO START** become available.
@@ -267,21 +278,21 @@ Tap a row, then `-` or `+`; a change applies at once. While frames go out,
 ### Leaving the output
 
 `BACK` stops the frames and opens the leave page. Step 1 reads
-`UNPLUG THE FLIGHT CONTROLLER.` and `DSHOT RESTARTS ON SIG GP0.`: the ESC
-signal comes back on that pin.
+`UNPLUG THE FLIGHT CONTROLLER.` and `ESC TESTER SENDS DSHOT ON SIG GP0.`:
+the next ESC TESTER or ESC COMMANDS drives that pin.
 
 - `BACK TO OUTPUT` keeps the pin and returns to the screen; the bootloader
   check runs again before START.
-- `RESTART DSHOT` returns to RX SIGNALS and gives the pin back to DShot. It
-  waits 1 s after the pin is let go.
+- `RX SIGNALS`, the hub's title, returns to RX SIGNALS and holds the pin
+  low; no DShot starts. It waits 1 s after the pin is let go.
 
 After a Bluejay or BLHeli_S bootloader answered the check, `BACK` first
 shows ESC SETTINGS' step: `UNPLUG THE ESC BATTERY, THEN LEAVE.` The ESC waits
 in its bootloader and might read DShot as a command. `STAY` returns to the
 screen, `LEAVE` lets the pin go; the last step reminds you to plug the ESC
-back in after `RESTART DSHOT`.
+back in once RX SIGNALS shows.
 
-<img src="img/sbus-out-leave.png" width="240" alt="The S.BUS OUTPUT leave page: 1 UNPLUG THE FLIGHT CONTROLLER., DSHOT RESTARTS ON SIG GP0., BACK TO OUTPUT, RESTART DSHOT"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="The leave page after a Bluejay or BLHeli_S bootloader answered: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
+<img src="img/sbus-out-leave.png" width="240" alt="The S.BUS OUTPUT leave page: 1 UNPLUG THE FLIGHT CONTROLLER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO OUTPUT, RX SIGNALS"> <img src="img/sbus-out-efm8-leave.png" width="240" alt="The leave page after a Bluejay or BLHeli_S bootloader answered: 1 UNPLUG THE ESC BATTERY, THEN LEAVE., STAY and LEAVE">
 
 ---
 

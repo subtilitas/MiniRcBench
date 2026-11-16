@@ -80,7 +80,7 @@ abgezogener oder getauschter ESC hinterlässt daher keine alten Werte.
 
 - der ESC beherrscht kein EDT (die Drehzahl funktioniert trotzdem);
 - EDT wird beherrscht, ist aber noch nicht freigegeben. Beobachte das Feld auf
-  dem Bildschirm `MENU`;
+  ESC COMMANDS;
 - der ESC antwortet nicht mehr.
 
 Eine **verfallene Statuskachel zeigt `--`, nie `OK`**.
@@ -92,9 +92,10 @@ Eine **verfallene Statuskachel zeigt `--`, nie `OK`**.
 Das macht die Firmware, ohne Schaltfläche.
 
 Die ersten 10 Frames, die der Tester an den ESC sendet, sind die Freigabe:
-nach dem Einschalten, nach einer Änderung von SIG PIN, DSHOT, KISS TELEM
-oder AUX PIN unter SETTINGS und wenn der AM32-Bildschirm das
-Signalkabel zurückgibt. Sie dauern 10 ms. Jede Antwort wird von der ersten an
+jedes Mal, wenn ESC TESTER oder ESC COMMANDS öffnet, und nach einer Änderung
+von SIG PIN, DSHOT, KISS TELEM oder AUX PIN unter SETTINGS, das über dem
+Tester geöffnet ist. Beim Einschalten und auf jedem anderen Bildschirm geht
+kein Frame hinaus: Das Signalkabel liegt dort auf Low. Sie dauern 10 ms. Jede Antwort wird von der ersten an
 mit EDT-Decodierung gelesen. Ein ESC, der EDT über einen dieser Neustarts
 hinweg eingeschaltet behalten hat, zeigt Spannung und Temperatur sofort und
 nie eine falsche Drehzahl. Ein ESC mit AM32 oder Bluejay zeigt bei
@@ -118,10 +119,11 @@ gesendet, wenn alles davon zutrifft:
 Ein ESC führt einen DShot-Befehl erst nach einer Folge gleicher Frames aus.
 Eine Freigabe zu einem anderen Zeitpunkt ginge verloren.
 
-<img src="img/menu-edt-on.png" width="240" alt="EDT ON"> <img src="img/menu-edt-off.png" width="240" alt="EDT OFF">
+<img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS ohne antwortenden ESC: das Feld zeigt NO ESC">
 
-Solange kein eRPM eintrifft, zeigt das Feld `NO ESC` in einem Rahmen ohne
-Füllung; ein rotes `EDT OFF` heißt, der ESC antwortet und sendet kein EDT.
+Das EDT-Feld steht auf ESC COMMANDS, das DShot laufen lässt. Es zeigt grünes
+`EDT ON`, solange EDT-Frames eintreffen, und `NO ESC` in einem Rahmen ohne
+Füllung, solange kein eRPM eintrifft; ein rotes `EDT OFF` heißt, der ESC antwortet und sendet kein EDT.
 Bleibt das Feld rot, obwohl der ESC EDT beherrscht, siehe
 [Fehlersuche](Fehlersuche#edt-bleibt-aus).
 
@@ -175,5 +177,6 @@ oberhalb von 5 % bernsteinfarben.
 
 Eine schlechte Verbindung kommt meist vom Signalkabel: zu lang, ungeschirmt
 oder nahe an den Motorphasen verlegt. Zuerst kürzen. Sonst **DSHOT** unter
-**MENU → SETTINGS** auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm
-SETTINGS ist live.
+SETTINGS auf 300 stellen. Die `LINK`-Zeile auf dem Bildschirm SETTINGS ist
+live, solange SETTINGS über dem Tester offen ist, nach einem Tippen auf
+`MAX`, wo DShot läuft.

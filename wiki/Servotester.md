@@ -11,13 +11,13 @@ zeigt, wohin der Impuls das Servo schickt, nicht, wo das Servo steht.
 
 <img src="img/servo-running.png" width="240" alt="Der Servobildschirm im Betrieb">
 
-> **Zieh das Servo ab, bevor DShot läuft.** Außerhalb dieses Bildschirms liegt
-> auf dem ESC-Pin DShot. Ein Servo an diesem Pin liest das als Impuls von etwa
-> 970 µs mit 1000 Hz: Es fährt Richtung eines Endanschlags, mit einer
-> Framerate, bei der ein analoges Servo überhitzt. Das passiert, wenn die
-> Platine mit einem Servo am ESC-Pin **startet**, wovor der Startbildschirm
-> mit `UNPLUG ANY SERVO FROM GP0 NOW` warnt, und wenn du diesen Bildschirm
-> verlässt. Der Bildschirm fordert dich vorher zum Abziehen auf.
+> **Zieh das Servo ab, bevor du ESC TESTER oder ESC COMMANDS öffnest.**
+> Diese beiden Bildschirme treiben den ESC-Pin mit DShot. Ein Servo an diesem
+> Pin liest das als Impuls von etwa 970 µs mit 1000 Hz: Es fährt Richtung
+> eines Endanschlags, mit einer Framerate, bei der ein analoges Servo
+> überhitzt. Überall sonst, vom Einschalten an, hält die Platine den ESC-Pin
+> auf Low und sendet nichts. Die Verlassenseite fordert dich auf, das Servo
+> abzuziehen, bevor es weitergeht.
 
 ---
 
@@ -57,8 +57,11 @@ geschaltete Wandler des Prüfstands, Teil C des
   J5-Pin unter dem Wert zeigen. Voreingestellt sind GP0 und GP1. AUX PIN
   wirkt, ob KISS an oder aus ist, und ein Schritt einer der beiden Zeilen
   tauscht die beiden.
-- Zieh jeden ESC von SIG ab. Der Bildschirm wartet, solange ein ESC
-  darauf antwortet, erkennt aber nicht jeden ESC.
+- Zieh jeden ESC von SIG ab. Die Leiste von SERVO sagt das in Bernstein,
+  `NO ESC CHECK: UNPLUG ANY ESC FIRST.`: DShot ist außerhalb von ESC TESTER
+  und ESC COMMANDS aus, daher antwortet ein ESC nur innerhalb von 500 ms nach
+  dem Verlassen eines davon. Der Bildschirm wartet, solange ein ESC auf SIG
+  antwortet, erkennt aber nicht jeden ESC.
 
 ---
 
@@ -66,10 +69,11 @@ geschaltete Wandler des Prüfstands, Teil C des
 
 **MENU → SERVO** öffnen, dann **SERVO TESTER** antippen, den ersten Eintrag
 (siehe [Die Bildschirme](Die-Bildschirme#servo)). Der Bildschirm trägt den
-Titel `SERVO TESTER`, wie sein Eintrag. `RESTART DSHOT` am Ende einer
-Sitzung führt zu SERVO zurück.
+Titel `SERVO TESTER`, wie sein Eintrag. `SERVO`, die letzte Taste der
+Verlassenseite, führt am Ende einer Sitzung zu SERVO zurück.
 
-Der Bildschirm übernimmt die beiden Signalpins vom ESC-Treiber. Antwortet ein
+Der Bildschirm übernimmt die beiden Signalpins, die bis dahin auf Low
+liegen. Antwortet ein
 ESC auf SIG, wartet er und zeigt `AN ESC ANSWERS ON SIG GP0.` Zieh den
 ESC ab; 500 ms später übernimmt der Bildschirm die Pins von selbst.
 Servoimpulse von 1000 µs bis 2000 µs sind für viele ESCs ein gültiges
@@ -484,23 +488,24 @@ Servobildschirm öffnest, beginnt er mit STANDARD PWM, 50 Hz und einem Servo.
 
 `BACK` beendet die Impulse und öffnet die Verlassenseite, deren erster
 Schritt dich auffordert, das Servo abzuziehen: `1 UNPLUG THE SERVO.`, mit
-`DSHOT RESTARTS ON SIG GP0 AND READS` und `AS A 970 US PULSE AT 1000 HZ.`,
-dann `2 RESTART DSHOT.` Der letzte Impuls läuft vorher vollständig aus; bei
+`ESC TESTER'S DSHOT ON SIG GP0 READS` und `AS A 970 US PULSE AT 1000 HZ.`,
+dann `2 BACK TO SERVO.` Der letzte Impuls läuft vorher vollständig aus; bei
 50 Hz dauert das bis zu 41 ms. Danach hält ein schwacher Pull-down SIG auf
-Low, bis DShot wieder läuft. Mit zwei Servos hält er auch AUX auf Low, bis
-der KISS-Empfänger ihn übernimmt; ist KISS aus, bleibt er auf Low. Die
+Low, bis die letzte Taste ihn aktiv auf Low legt; AUX bleibt an seinem
+Pull-down. Die
 Leiste nennt die Pins, die der Bildschirm hält, `SIG GP0  AUX GP1`, oder
 `SIG GP0`, wenn er SIG allein hält.
 
-<img src="img/leave-servo.png" width="240" alt="Die Verlassenseite: 1 UNPLUG THE SERVO., BACK TO SERVO und RESTART DSHOT">
+<img src="img/leave-servo.png" width="240" alt="Die Verlassenseite: 1 UNPLUG THE SERVO., NEXT SERVO und SERVO">
 
 Bis der letzte Impuls ausgelaufen ist, zeigt die Seite `RELEASING THE PINS`,
 mit SIG allein `RELEASING THE PIN`, und beide Tasten sind grau. Dann wirkt
-`BACK TO SERVO`: Es führt zum Servobildschirm zurück, in SAFE, und behält
-die Pins. Zieh das Servo ab und tippe dann auf `RESTART DSHOT`: Es wirkt
-1 s, nachdem die Pins freigegeben sind, damit ein schnelles zweites Tippen
-nach `BACK` nichts neu startet. Der ESC-Treiber übernimmt die Pins wieder,
-und `MENU` erscheint. `BACK` auf der Seite ist grau und bewirkt nichts.
+`NEXT SERVO`: Es führt zum Servobildschirm zurück, in SAFE, und behält die
+Pins. Zieh das Servo ab und tippe dann auf `SERVO`, den Titel der Auswahl:
+Es wirkt 1 s, nachdem die Pins freigegeben sind, damit ein schnelles zweites
+Tippen nach `BACK` nichts beendet. SIG liegt dann auf Low, kein DShot
+startet, und SERVO, die Auswahl, erscheint. Ein Servo, das an SIG bleibt,
+trifft beim nächsten ESC TESTER oder ESC COMMANDS auf DShot. `BACK` auf der Seite ist grau und bewirkt nichts.
 
 ---
 
