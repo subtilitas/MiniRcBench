@@ -84,7 +84,7 @@ frame. While it does, the strip reads `RELEASING SIG GP0`, then
   then `UNPLUG IT: KST FRAMES MAY READ` and `AS THROTTLE.` It takes the pin
   when the ESC is gone. `BACK` meanwhile returns to SERVO.
 - While the ESC is armed, the screen says `DISARM FIRST`. While the pins are
-  still in use, it says `WAIT: DSHOT RESTARTING`. Neither is reachable
+  still in use, it says `WAIT: THE PINS ARE BUSY`. Neither is reachable
   through the screens.
 - If the board cannot set up the line, the screen says
   `SIG GP0 COULD NOT BE TAKEN (` followed by `REFUSED`, `PWM`, `PIO`, `DMA`
@@ -438,16 +438,16 @@ and does nothing.
 too, once a servo has answered. `BACK` on the leave page is grey and does
 nothing: each way on is a button.
 
-<img src="img/leave-kst.png" width="240" alt="The leave page: 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="After LEAVE: 2 UNPLUG THE SERVO. current, NEXT SERVO, RESTART DSHOT grey">
+<img src="img/leave-kst.png" width="240" alt="The leave page: 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="After LEAVE: 2 UNPLUG THE SERVO. current, NEXT SERVO, SERVO grey">
 
 The page numbers three steps. The current step is amber, with a bar at the
 left edge; the others are grey:
 
 1. `POWER THE SERVO OFF, THEN LEAVE.`, with
    `IT STAYS IN PROGRAMMING MODE UNTIL` and `ITS SUPPLY IS OFF.`
-2. `UNPLUG THE SERVO.`, with `DSHOT RESTARTS ON SIG GP0 AND READS` and
+2. `UNPLUG THE SERVO.`, with `ESC TESTER'S DSHOT ON SIG GP0 READS` and
    `AS A 970 US PULSE AT 1000 HZ.`
-3. `RESTART DSHOT.`
+3. `BACK TO SERVO.`
 
 Under the steps, in amber, the page names what LEAVE loses:
 `2 CHANGES NOT WRITTEN.` with pending changes, and
@@ -459,17 +459,17 @@ Under the steps, in amber, the page names what LEAVE loses:
 100 ms and lets the pin go. Step 2 is current from the tap on. `LEAVE` also
 leaves a session that is in doubt. While the pin goes the page reads
 `RELEASING THE PIN`, and the two buttons, `NEXT SERVO` and
-`RESTART DSHOT` in `LEAVE`'s place, are grey.
+`SERVO` in `LEAVE`'s place, are grey.
 
 **Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
 the pin and starts a new search, and the page reads
-`NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** acts 1 s after
-that: the ESC driver takes the pin back and SERVO returns. The second
-makes a double tap on `LEAVE` harmless: it lands while `RESTART DSHOT` is
+`NEXT SERVO: POWER IT AFTER THE TAP.` **`SERVO`**, the hub's title, acts
+1 s after that: the pin is held low, no DShot starts, and SERVO returns. The
+second makes a double tap on `LEAVE` harmless: it lands while `SERVO` is
 grey. A press that landed while it was grey does nothing when it lifts.
 
 `BACK` on the search before any servo answered lets the pin go and opens the
-page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 RESTART DSHOT.`
+page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 BACK TO SERVO.`
 
 ---
 

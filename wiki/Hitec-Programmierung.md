@@ -122,25 +122,28 @@ Die Leiste zeigt währenddessen `RELEASING SIG GP0 FROM DSHOT`.
 
 Gehört der Pin dem Servo, öffnet `BACK`, bevor das Servo im
 Programmiermodus ist, das Warten auf `READ` eingeschlossen, die
-Verlassenseite bei `1 UNPLUG THE SERVO.`, wie nach `LEAVE`: DShot startet
-erst mit `RESTART DSHOT` neu. `NEXT SERVO` startet dort eine neue Sitzung
+Verlassenseite bei `1 UNPLUG THE SERVO.`, wie nach `LEAVE`: Ihre letzte
+Taste, `SERVO`, legt den Pin auf Low und führt zur Auswahl zurück. `NEXT SERVO` startet dort eine neue Sitzung
 derselben Familie; für ein Servo der D-Serie an `OWN` führt es immer
 wieder zum Warten auf `READ`, damit auch das nächste Servo erst nach dem
 Tippen Strom bekommt. Solange der Treiber noch anhält
 oder der Bildschirm den Pin nicht übernommen hat, führt `BACK` zu
 SERVO zurück.
 
-<img src="img/hitec-esc.png" width="240" alt="HITEC SERVO, während ein ESC auf GP0 antwortet: CHECKING SIG GP0 FOR AN ESC in der Leiste, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und DSHOT STAYS ON THE PIN UNTIL THEN. in Bernstein">
+<img src="img/hitec-esc.png" width="240" alt="HITEC SERVO, während ein ESC auf GP0 antwortet: CHECKING SIG GP0 FOR AN ESC in der Leiste, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. und NOTHING IS SENT UNTIL THEN. in Bernstein">
 
 - Antwortet ein ESC auf dem Pin, übernimmt der Bildschirm nichts: Die
   Leiste zeigt `CHECKING SIG GP0 FOR AN ESC`, und zwei bernsteinfarbene
   Zeilen zeigen `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` und
-  `DSHOT STAYS ON THE PIN UNTIL THEN.` Der Bildschirm übernimmt den Pin,
-  sobald der ESC 500 ms lang still ist. Die Prüfung läuft nur, bevor der Pin
+  `NOTHING IS SENT UNTIL THEN.` Der Bildschirm übernimmt den Pin, sobald
+  der ESC 500 ms lang still ist. Da DShot außerhalb von ESC TESTER und ESC
+  COMMANDS aus ist, antwortet ein ESC nur innerhalb von 500 ms nach dem
+  Verlassen eines davon; deshalb warnt die Auswahl SERVO vor dem Tippen
+  `NO ESC CHECK: UNPLUG ANY ESC FIRST.` Die Prüfung läuft nur, bevor der Pin
   übernommen ist: Ein ESC, der danach angeschlossen wird, wird nicht
   erkannt.
 - Solange der Tester scharf ist, zeigt der Bildschirm `DISARM FIRST`.
-  Solange die Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`.
+  Solange die Pins noch belegt sind, zeigt er `WAIT: THE PINS ARE BUSY`.
   Beides ist über die Bildschirme nicht erreichbar: Der Weg vom Tester zu
   `MENU` entschärft, und SERVO zeichnet seine Einträge gesperrt,
   solange die Pins belegt sind.
@@ -541,7 +544,7 @@ Sicherung die älteste, gleich von welchem Gerät. Den Ring beschreibt die
 Lesens öffnet sie ebenfalls. `BACK` auf der Verlassenseite ist grau und
 bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-<img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE, den 2 s aus und 1 s mehr: NEXT SERVO und RESTART DSHOT aktiv">
+<img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE, den 2 s aus und 1 s mehr: NEXT SERVO und SERVO aktiv">
 
 Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`,
 `SUPPLY ON` oder `SUPPLY OFF`. Die Seite nummeriert drei Schritte; der
@@ -550,9 +553,9 @@ grau:
 
 1. `LEAVE SWITCHES THE SUPPLY OFF.` mit `GP28` oder `GP29`, oder
    `LEAVE RESTARTS THE SERVO.` mit `OWN`.
-2. `UNPLUG THE SERVO.`, mit `DSHOT RESTARTS ON SIG GP0 AND READS` und
+2. `UNPLUG THE SERVO.`, mit `ESC TESTER'S DSHOT ON SIG GP0 READS` und
    `AS A 970 US PULSE AT 1000 HZ.`
-3. `RESTART DSHOT.`
+3. `BACK TO SERVO.`
 
 Mit vorgemerkten Änderungen kommt `2 CHANGES NOT WRITTEN.` hinzu, nach
 einem fehlgeschlagenen Schreiben `A WRITE DID NOT END VERIFIED.`, in
@@ -564,7 +567,7 @@ Bernstein.
 | `READ AGAIN` | Liest das Servo erneut und führt zur Feldliste zurück. Vorgemerkte Änderungen bleiben |
 | `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `OWN` startet es das Servo mit seinen gespeicherten Werten neu |
 
-Nach `LEAVE` ist Schritt 2 aktuell, und `NEXT SERVO` und `RESTART DSHOT`,
+Nach `LEAVE` ist Schritt 2 aktuell, und `NEXT SERVO` und `SERVO`,
 an der Stelle von `LEAVE`, sind grau, solange der Pin freigegeben wird. Mit
 `GP28` oder `GP29` zeigt die Seite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, bis
 die Leitung geschlossen ist; mit `OWN` `RELEASING THE PIN`.
@@ -573,10 +576,10 @@ die Leitung geschlossen ist; mit `OWN` `RELEASING THE PIN`.
 Es behält den Pin und startet eine Sitzung für das nächste Servo. Mit `OWN`
 zeigt die Seite `NEXT SERVO: POWER IT AFTER THE TAP.`: Der Bildschirm kehrt
 zum Warten auf `READ` zurück. Mit geschalteter Versorgung beginnt der
-Eintritt sofort. **`RESTART DSHOT`** wirkt 1 s
-danach: Der ESC-Treiber übernimmt den Pin wieder, und SERVO erscheint, dort,
-wo es stand. Ein Doppeltippen auf `LEAVE` landet, während `RESTART DSHOT` grau
-ist, und startet nichts neu; ein Druck, der begann, während es grau war,
+Eintritt sofort. **`SERVO`**, der Titel der Auswahl, wirkt 1 s danach: Der
+Pin liegt auf Low, kein DShot startet, und SERVO erscheint, dort, wo es
+stand. Ein Doppeltippen auf `LEAVE` landet, während `SERVO` grau ist, und
+beendet nichts; ein Druck, der begann, während es grau war,
 bewirkt beim Loslassen nichts.
 
 `BACK` während des Eintritts, bevor das Servo geantwortet hat, bricht ihn ab

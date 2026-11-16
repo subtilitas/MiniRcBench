@@ -89,7 +89,7 @@ stattdessen `CHECKING SIG GP0 FOR AN ESC`.
   `AS THROTTLE.` Er übernimmt den Pin, sobald der ESC weg ist. `BACK` führt
   währenddessen zu SERVO zurück.
 - Solange der ESC scharf ist, zeigt der Bildschirm `DISARM FIRST`. Solange die
-  Pins noch belegt sind, zeigt er `WAIT: DSHOT RESTARTING`. Beides ist über
+  Pins noch belegt sind, zeigt er `WAIT: THE PINS ARE BUSY`. Beides ist über
   die Bildschirme nicht erreichbar.
 - Kann die Platine die Leitung nicht einrichten, zeigt der Bildschirm
   `SIG GP0 COULD NOT BE TAKEN (`, danach `REFUSED`, `PWM`, `PIO`, `DMA` oder
@@ -472,16 +472,16 @@ geschrieben. Ohne gewählte Zeile zeigt die Editorleiste
 sie ebenfalls, sobald ein Servo geantwortet hat. `BACK` auf der
 Verlassenseite ist grau und bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-<img src="img/leave-kst.png" width="240" alt="Die Verlassenseite: 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="Nach LEAVE: 2 UNPLUG THE SERVO. aktuell, NEXT SERVO, RESTART DSHOT grau">
+<img src="img/leave-kst.png" width="240" alt="Die Verlassenseite: 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="Nach LEAVE: 2 UNPLUG THE SERVO. aktuell, NEXT SERVO, SERVO grau">
 
 Die Seite nummeriert drei Schritte. Der aktuelle Schritt ist
 bernsteinfarben, mit einem Balken am linken Rand; die anderen sind grau:
 
 1. `POWER THE SERVO OFF, THEN LEAVE.`, mit
    `IT STAYS IN PROGRAMMING MODE UNTIL` und `ITS SUPPLY IS OFF.`
-2. `UNPLUG THE SERVO.`, mit `DSHOT RESTARTS ON SIG GP0 AND READS` und
+2. `UNPLUG THE SERVO.`, mit `ESC TESTER'S DSHOT ON SIG GP0 READS` und
    `AS A 970 US PULSE AT 1000 HZ.`
-3. `RESTART DSHOT.`
+3. `BACK TO SERVO.`
 
 Unter den Schritten nennt die Seite in Bernstein, was LEAVE verliert:
 `2 CHANGES NOT WRITTEN.` bei vorgemerkten Änderungen und
@@ -493,20 +493,20 @@ Unter den Schritten nennt die Seite in Bernstein, was LEAVE verliert:
 Leitung 100 ms lang auf Low und lässt den Pin los. Ab dem Tippen ist
 Schritt 2 aktuell. `LEAVE` verlässt auch eine Sitzung, die im Zweifel ist.
 Solange der Pin freigegeben wird, zeigt die Seite `RELEASING THE PIN`, und
-die beiden Tasten, `NEXT SERVO` und `RESTART DSHOT` an der Stelle von
+die beiden Tasten, `NEXT SERVO` und `SERVO` an der Stelle von
 `LEAVE`, sind grau.
 
 **Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
 Es behält den Pin und startet eine neue Suche, und die Seite zeigt
-`NEXT SERVO: POWER IT AFTER THE TAP.` **`RESTART DSHOT`** wirkt 1 s danach:
-Der ESC-Treiber übernimmt den Pin wieder, und SERVO erscheint. Die
-Sekunde macht ein Doppeltippen auf `LEAVE` harmlos: Es landet, während
-`RESTART DSHOT` grau ist. Ein Druck, der begann, während es grau war,
+`NEXT SERVO: POWER IT AFTER THE TAP.` **`SERVO`**, der Titel der Auswahl,
+wirkt 1 s danach: Der Pin liegt auf Low, kein DShot startet, und SERVO
+erscheint. Die Sekunde macht ein Doppeltippen auf `LEAVE` harmlos: Es
+landet, während `SERVO` grau ist. Ein Druck, der begann, während es grau war,
 bewirkt beim Loslassen nichts.
 
 `BACK` in der Suche, bevor ein Servo geantwortet hat, gibt den Pin frei und
 öffnet die Seite bei Schritt 2, mit 1 nummeriert: `1 UNPLUG THE SERVO.`,
-`2 RESTART DSHOT.`
+`2 BACK TO SERVO.`
 
 ---
 

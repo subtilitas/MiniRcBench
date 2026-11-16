@@ -110,23 +110,26 @@ input held high by its pull-up. The strip reads
 
 Once the pin is the servo's, `BACK` before the servo is in programming
 mode, the wait for `READ` included, opens the leave page at
-`1 UNPLUG THE SERVO.`, as after `LEAVE`: DShot restarts only on
-`RESTART DSHOT`. `NEXT SERVO` there starts a new session for the same
+`1 UNPLUG THE SERVO.`, as after `LEAVE`: its last button, `SERVO`, holds the
+pin low and returns to the hub. `NEXT SERVO` there starts a new session for the same
 family; for a D series servo on `OWN` it always returns to the wait for
 `READ`, so the next servo too is powered after the tap. While the driver
 still stops, or while the screen has not taken the pin, `BACK` returns to
 SERVO.
 
-<img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and DSHOT STAYS ON THE PIN UNTIL THEN. in amber">
+<img src="img/hitec-esc.png" width="240" alt="HITEC SERVO while an ESC answers on GP0: CHECKING SIG GP0 FOR AN ESC on the strip, AN ESC ANSWERS ON SIG GP0: UNPLUG IT. and NOTHING IS SENT UNTIL THEN. in amber">
 
 - If an ESC answers on the pin, the screen takes nothing: the strip reads
   `CHECKING SIG GP0 FOR AN ESC`, and two amber lines read
   `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` and
-  `DSHOT STAYS ON THE PIN UNTIL THEN.` The screen takes the pin once the
-  ESC has been quiet for 500 ms. The check runs only before the pin is
-  taken: an ESC connected after that is not detected.
+  `NOTHING IS SENT UNTIL THEN.` The screen takes the pin once the ESC has
+  been quiet for 500 ms. With DShot off outside ESC TESTER and ESC COMMANDS
+  an ESC answers only within 500 ms of leaving one of them, so the hub SERVO
+  warns `NO ESC CHECK: UNPLUG ANY ESC FIRST.` before the tap. The check runs
+  only before the pin is taken: an ESC connected after that is not
+  detected.
 - While the tester is armed, the screen reads `DISARM FIRST`. While the
-  pins are still in use, it reads `WAIT: DSHOT RESTARTING`. Neither is
+  pins are still in use, it reads `WAIT: THE PINS ARE BUSY`. Neither is
   reachable through the screens: leaving the tester for `MENU` disarms, and
   SERVO draws its entries disabled while the pins are in use.
 
@@ -494,7 +497,7 @@ belongs to. See [KST Programming](KST-Programming#files) for the ring.
 too. `BACK` on the leave page is grey and does nothing: each way on is a
 button.
 
-<img src="img/leave-hitec-failed.png" width="240" alt="The leave page with OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN and LEAVE"> <img src="img/leave-hitec.png" width="240" alt="The leave page with GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="After LEAVE, the 2 s off and 1 s more: NEXT SERVO and RESTART DSHOT live">
+<img src="img/leave-hitec-failed.png" width="240" alt="The leave page with OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN and LEAVE"> <img src="img/leave-hitec.png" width="240" alt="The leave page with GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="After LEAVE, the 2 s off and 1 s more: NEXT SERVO and SERVO live">
 
 The strip names the model, the pin and, with `GP28` or `GP29`, `SUPPLY ON` or
 `SUPPLY OFF`. The page numbers three steps; the current step is amber, with
@@ -502,9 +505,9 @@ a bar at the left edge, the others grey:
 
 1. `LEAVE SWITCHES THE SUPPLY OFF.` with `GP28` or `GP29`, or
    `LEAVE RESTARTS THE SERVO.` with `OWN`.
-2. `UNPLUG THE SERVO.`, with `DSHOT RESTARTS ON SIG GP0 AND READS` and
+2. `UNPLUG THE SERVO.`, with `ESC TESTER'S DSHOT ON SIG GP0 READS` and
    `AS A 970 US PULSE AT 1000 HZ.`
-3. `RESTART DSHOT.`
+3. `BACK TO SERVO.`
 
 With pending changes the page adds `2 CHANGES NOT WRITTEN.`, and after a
 write that failed `A WRITE DID NOT END VERIFIED.`, in amber.
@@ -515,7 +518,7 @@ write that failed `A WRITE DID NOT END VERIFIED.`, in amber.
 | `READ AGAIN` | Reads the servo again and returns to the field list. Pending changes stay |
 | `LEAVE` | Ends the session: with `GP28` or `GP29` it switches the supply off, with `OWN` it restarts the servo from its saved values |
 
-After `LEAVE`, step 2 is current, and `NEXT SERVO` and `RESTART DSHOT`, in
+After `LEAVE`, step 2 is current, and `NEXT SERVO` and `SERVO`, in
 `LEAVE`'s place, are grey while the pin is let go. With `GP28` or `GP29` the
 page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes; with
 `OWN`, `RELEASING THE PIN`.
@@ -524,10 +527,9 @@ page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes; with
 the pin and starts a session for the next servo. With `OWN` the page reads
 `NEXT SERVO: POWER IT AFTER THE TAP.`: the screen returns to the wait for
 `READ`. With the switched supply the entry starts at once.
-**`RESTART DSHOT`** acts 1 s after
-that: the ESC driver takes the pin back and SERVO returns, where it was
-left. A double tap on `LEAVE` lands while `RESTART DSHOT` is grey and restarts
-nothing, and a press that landed while it was grey does nothing when it lifts.
+**`SERVO`**, the hub's title, acts 1 s after that: the pin is held low, no
+DShot starts, and SERVO returns, where it was left. A double tap on `LEAVE`
+lands while `SERVO` is grey and ends nothing, and a press that landed while it was grey does nothing when it lifts.
 
 `BACK` during the entry, before the servo answered, stops it and opens the
 page at `1 UNPLUG THE SERVO.`
