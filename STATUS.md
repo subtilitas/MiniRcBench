@@ -565,36 +565,73 @@ ports the first branch's frame slot and ring.
 
 ## Next steps
 
+State as of 2026-11-16. 0.1.0 is not tagged; CHANGELOG still dates it
+2026-11-15, and the date moves to the tag day.
+
+The first MiniRcBench image to run on the board shows no picture. Images
+from main at 75b5ebb, 9eac294, 7b8691a and cff09ae each leave the panel
+fully dark, the backlight off, on the owner's Waveshare RP2350-Touch-LCD-2.8
+with no INA219 (current sensor) on J3. A DshotDisplay image runs on the same
+board. The backlight first turns on in `uiInit()`, so `setup()` in
+`src/main.cpp` stops or faults in one of the steps before it: `usbDevInit()`,
+`settingsLoad()`, `servoSupplyInit()`, `escTaskInit()`, `core1JobInit()`,
+`gfxInit()`, `st7789Init()`, `touchInit()`, `senseInit()` or `clockInit()`.
+The step is not known. The next step is a diagnostic image that blinks the
+backlight on GP16 a step's number of times before each step; the last group
+seen names the step. This blocks the bench and the release.
+
+Open pull requests and branches:
+
+- Pull request #129, slice D3 of
+  [dshot-lifetime.md](docs/design/dshot-lifetime.md) (branch
+  `ccr-dshot-d3`, head 15fe2cc). CI is green. Its safety review leaves two
+  should-fix items. First, a second bridge claim that ends by BACK before its
+  line binds clears the run cue of an earlier claim that saw an ESC byte; the
+  next ESC TESTER then sends DShot while an EFM8 bootloader may wait. The fix
+  in `usbBridgeRunCueSet()` (`src/usb_bridge.cpp`) is `s_escSeen = s_cue;`
+  before `s_cue = true;`, with a test case (h) in `test/test_bridge_ui.cpp`.
+  Second, bench row DL-7 needs an AM32 ESC in place of a Bluejay one. It is
+  not merged.
+- Branch `ccr-dshot-d3-wip` (0017f78) holds unchecked work towards both items
+  and the review's nits. It is not on the pull request.
+- Branch `ccr-dshot-d4` (bdb5641), slice D4, on 15fe2cc: SETUP's pin note
+  and LINK `OFF` while parked. It has no pull request and no finished review.
+
+Not built: slice 6 of [menu-c.md](docs/design/menu-c.md) (records and
+revision lines), slice D5 of dshot-lifetime.md (the documents and bench
+plan), and slices 11 to 14 of [ui-theme.md](docs/design/ui-theme.md) (green
+on the tools, the tester's arm control, the contrast pass and the look
+records). Eight review nits of pull request #126 wait for slices 13 and 14.
+The design calls taken without the owner in the menu, theme and DShot
+slices are recorded in each note's "as built" sections and wait for the
+owner's review.
+
 Pull request #49, the touch-loss stop of item 23, is merged before its bench
-check by the owner's decision of 2026-11-15 and is in 0.1.0; its bench test,
-OI-23, stays in the bench plan. The open pull requests were read from the
-GitHub REST (Representational State Transfer) API (application programming
-interface) on 2026-11-15.
+check by the owner's decision of 2026-11-15; its bench test, OI-23, stays in
+the bench plan.
 
 The release: by the owner's decision of 2026-11-15, 0.1.0 is released before
-the bench checks, in place of a second pre-release; the decision of 2026-11-14,
-v0.1.0 after the bench checks, is revised by it. CHANGELOG dates 0.1.0
-2026-11-15. The owner pushes the tag `v0.1.0` on the commit that carries this
-record; its Release run publishes the image, `SHA256SUMS.txt` and
-`THIRD_PARTY_NOTICES.txt`, and its Docs run publishes `wiki/` (item 7). The
-0.1.0 image has not run on hardware; no MiniRcBench image, rc1 included, has.
-Every tool after rc1, the servo log, the S.BUS output, the USB bridge and the
-Bluejay and BLHeli_S writes among them, is tested on the host only. v0.1.0-rc1
-exists, the tag at a93e1c1, published as a pre-release with
+the bench checks, in place of a second pre-release; the decision of
+2026-11-14, v0.1.0 after the bench checks, is revised by it. The owner's
+decisions of 2026-11-15 hold 0.1.0 for the menu, theme and DShot slices
+above. The owner pushes the tag `v0.1.0` on the final merge commit; its
+Release run publishes the image, `SHA256SUMS.txt` and
+`THIRD_PARTY_NOTICES.txt`, and its Docs run publishes `wiki/` (item 7).
+v0.1.0-rc1 exists, the tag at a93e1c1, published as a pre-release with
 `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes), `SHA256SUMS.txt`
 and `THIRD_PARTY_NOTICES.txt`, with no manual.
 
-The next work is the bench. [docs/bench-plan.md](docs/bench-plan.md) orders
-every bench test of the design notes and of the open items below into ten
-sessions that build on each other, from the board and the SD card to the
-destructive tests on spare parts, with the setups, pass criteria and the place
-each result goes. A defect found at the bench needs a fix and a new release.
-Menu structure B and the tools after it are built, host tests only; none has
-run on hardware (item 18).
+The bench follows a picture on the panel.
+[docs/bench-plan.md](docs/bench-plan.md) orders every bench test of the
+design notes and of the open items below into ten sessions that build on
+each other, from the board and the SD card to the destructive tests on spare
+parts, with the setups, pass criteria and the place each result goes. Every
+tool is tested on the host only (item 18).
 
 Waiting on the owner:
 
-- the tag `v0.1.0` on the merge commit of this record;
+- the review of the design calls above;
+- the tag `v0.1.0`, once the slices above are merged;
 - the bench, which needs the hardware and the instruments the plan lists;
 - the converter module's name (item 19) and item 21's open question on a
   second contact;
