@@ -279,9 +279,10 @@ sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
 in SETTINGS führt zum Tester zurück. Scharf verschwindet die Unterstreichung,
 `KV EST` nimmt den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die
 Polzahl liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens,
-also steuert der Druck dort das Gas. Während DShot nach einem Servo-Werkzeug neu
-startet, verschwindet die Unterstreichung ebenfalls und ein Tippen tut nichts,
-so wie `MENU` SETTINGS dann gesperrt zeichnet. Solange der 3D-Hinweis die Zeile
+also steuert der Druck dort das Gas. Solange ein anderes Werkzeug die
+Signalpins hält, verschwindet die Unterstreichung ebenfalls und ein Tippen tut
+nichts, so wie `MENU` SETTINGS dann gesperrt zeichnet; bei offenem Tester kann
+kein Werkzeug sie nehmen. Solange der 3D-Hinweis die Zeile
 einnimmt, öffnet nur `MAX` SETTINGS. Entschärft steht der Hinweis
 `SWIPE = THROTTLE` in der gedämpften Farbe der Beschriftungen; scharf steht
 er in der Textfarbe.

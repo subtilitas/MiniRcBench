@@ -67,10 +67,11 @@ crimp contacts.
 >   the switched supply. The minus wire also goes to a GND pin of the
 >   board: J5 pin 4, or J4 pin 1 or 5.
 
-> **No servo on SIG while the board starts.** Outside the servo screens SIG
-> carries DShot from the end of the 3 s splash on. A servo reads it as a pulse
-> and drives towards one end of its travel, at a frame rate that overheats an
-> analogue servo. Plug the servo in after its screen is open; for the KST
+> **No servo on SIG when you open ESC TESTER or ESC COMMANDS.** Those two
+> screens drive SIG with DShot; everywhere else, from power-up on, SIG is
+> held low and nothing is sent. A servo reads DShot as a pulse and drives
+> towards one end of its travel, at a frame rate that overheats an analogue
+> servo. Plug the servo in after its screen is open; for the KST
 > and Hitec programmers, after the tap on their entry of SERVO. On HITEC
 > SERVO with a servo on its own supply, wait for
 > `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.`, then power the servo and tap

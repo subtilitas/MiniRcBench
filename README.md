@@ -2833,12 +2833,12 @@ not 0 answers ID 0 is not measured.
 
 1. Tap HITEC D SERIES or HITEC CLASSIC on SERVO, the hub; a drag up brings
    them onto the panel. The tap opens HITEC
-   SERVO for that family, which claims SIG on that frame: DShot sends zero
-   frames for at least 250 ms after the last throttle frame, stops and
-   leaves the pin an input with the pull-up on. The strip reads
+   SERVO for that family, which claims SIG on that frame: the parked pump
+   leaves the pin an input with the pull-up on, after the rest of a drain
+   if ESC TESTER was left less than 250 ms before. The strip reads
    `RELEASING SIG GP0 FROM DSHOT` meanwhile. While an ESC answers on SIG
    the screen claims nothing and reads `AN ESC ANSWERS ON SIG GP0: UNPLUG
-   IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber, the strip
+   IT.` over `NOTHING IS SENT UNTIL THEN.` in amber, the strip
    `CHECKING SIG GP0 FOR AN ESC`; the claim follows once the ESC has been
    quiet for 500 ms, and BACK meanwhile returns to SERVO, the hub, as it does
    while DShot drains. With `GP28` or `GP29`, and for CLASSIC, the Hitec job and

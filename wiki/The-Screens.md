@@ -251,8 +251,9 @@ tap disarms as the `MENU` button does, and `BACK` on SETTINGS returns to the
 tester. While armed the underline goes, `KV EST` takes the pole count's place,
 and a tap on them does nothing: the pole count lies in the throttle pad and
 `MAX` reaches into the bar's grab area, so the press drives the throttle as
-there. While DShot restarts after a servo tool the underline goes too and a tap
-does nothing, as `MENU` draws SETTINGS disabled then. While the 3D note takes
+there. While another tool holds the signal pins the underline goes too and a
+tap does nothing, as `MENU` draws SETTINGS disabled then; with the tester
+open no tool can take them. While the 3D note takes
 the row, only `MAX` opens SETTINGS. Disarmed, the hint `SWIPE = THROTTLE` is
 in the dim label colour; armed, it takes the text colour.
 
