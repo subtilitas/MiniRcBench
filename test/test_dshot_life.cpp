@@ -1112,6 +1112,19 @@ static bool linkReads(const char *value, uint16_t col) {
 	       fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(value, 1), 242, value, col, C_BG, 1);
 }
 
+/**
+ * @brief SETUP's LINK reads the rate of the telemetry now, `998/S  0% ERR`,
+ *        lime with frames coming back and `C_DIM` with none.
+ */
+static bool linkReadsRate() {
+	EscTelemetry t;
+	escSnapshot(&t);
+	char want[32];
+	snprintf(want, sizeof(want), "%d/S  %d%% ERR", (int)t.packetRate, (int)t.errPercent);
+	uint16_t col = t.packetRate == 0 ? C_DIM : t.errPercent > 5 ? C_AMBER : C_LIME;
+	return linkReads(want, col);
+}
+
 /** @brief SETUP's pin note at y 230, amber, for GPIO @p gpio. */
 static bool pinNoteFor(unsigned gpio) {
 	char want[40];
@@ -1211,6 +1224,41 @@ static void testSetupTexts() {
 	          escTaskParked() && settings()->dshotPin == moved && moved != settingsBootDshotPin());
 	checkTrue("no pin note", pinLineEmpty() && !pinNoteFor(moved));
 	checkTrue("LINK reads OFF", linkReads(UI_SETTINGS_LINK_OFF, C_DIM));
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(1);
+
+	// SETUP from MENU within the drain after a throttled tester: the rate
+	// while zero frames still go out, OFF once core1 has parked, with no
+	// change on the note's line to repaint the screen.
+	freshLife();
+	fakeSetTelemetry(&t);
+	openTesterBound();
+	waitGate();
+	pressId(UI_FIX(TesterCtl::Arm));
+	holdId(UI_FIX(TesterCtl::Arm), 44);
+	fakeRelease();
+	lifeFrames(1);
+	tapId(UI_FIX(TesterCtl::Latch));
+	{
+		const UiRect r = ctlRect(UI_FIX(TesterCtl::Throttle));
+		const int y = r.y + r.h / 2;
+		fakePress(r.x + 10, y); lifeFrames(1);
+		for (int k = 1; k <= 6; k++) { fakeHold(r.x + 10 + 8 * k, y); lifeFrames(1); }
+		fakeRelease(); lifeFrames(1);
+	}
+	checkTrue("armed, a throttle stands", uiArmed() && fakeThrottle() > 0);
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(menuRow(&UI_SETTINGS));
+	lifeFrames(1);
+	checkTrue("SETUP from MENU within the drain: not parked yet, no pin note",
+	          uiCurrentScreen() == UiScreenId::Settings && !escTaskParked() &&
+	          !pinClaimDshotRunning() && pinLineEmpty());
+	checkTrue("LINK reads the rate while zero frames go out",
+	          linkReadsRate() && !linkReads(UI_SETTINGS_LINK_OFF, C_DIM));
+	for (int k = 0; k < 100 && !escTaskParked(); k++) lifeFrame(5);
+	lifeFrame(5);
+	checkTrue("parked: LINK reads OFF, no pin note",
+	          escTaskParked() && linkReads(UI_SETTINGS_LINK_OFF, C_DIM) && pinLineEmpty());
 	tapId(UI_FIX(UI_BACK));
 	lifeFrames(1);
 	memset(&t, 0, sizeof(t));
