@@ -511,6 +511,114 @@ static void testRebindCancels() {
 	lifeFrames(20);
 }
 
+/**
+ * @brief The drain race: armed with a latched throttle, MENU, then ESC
+ *        TESTER again within the 250 ms drain. Run is asked again before the
+ *        teardown: no new bind, the stamp unchanged, zero frames throughout,
+ *        and arming needs the 1000 ms hold only.
+ */
+static void testDrainRace() {
+	section("DShot lifetime: ESC TESTER again within the drain");
+
+	freshLife();
+	openTesterBound();
+	waitGate();
+	pressId(UI_FIX(TesterCtl::Arm));
+	holdId(UI_FIX(TesterCtl::Arm), 44);
+	fakeRelease();
+	lifeFrames(1);
+	checkTrue("armed", uiArmed() && fakeArmed());
+	tapId(UI_FIX(TesterCtl::Latch));
+	{
+		const UiRect t = ctlRect(UI_FIX(TesterCtl::Throttle));
+		const int y = t.y + t.h / 2;
+		fakePress(t.x + 10, y); lifeFrames(1);
+		for (int k = 1; k <= 6; k++) { fakeHold(t.x + 10 + 8 * k, y); lifeFrames(1); }
+		fakeRelease(); lifeFrames(1);
+	}
+	checkTrue("a latched throttle stands", fakeThrottle() > 0);
+	const uint32_t stamp = escTaskBoundMs();
+	const int binds = fakeRebuildCount();
+	tapId(UI_FIX(TesterCtl::Menu));
+	const uint32_t last = fakeLastThrottleMs();
+	checkTrue("MENU: disarmed, a throttle frame within the last frame",
+	          uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && millis() - last <= 25);
+	bool zeros = true, parked = false;
+	for (int k = 0; k < 20; k++) {
+		lifeFrame(5);
+		zeros = zeros && fakeLastFrame().throttle == 0 && !fakeLastFrame().sendCommand;
+		parked = parked || escTaskParked();
+	}
+	checkTrue("100 ms into the drain: zero frames, not parked", zeros && !parked &&
+	          millis() - last < ARM_ZERO_THROTTLE_MS);
+	tapId(menuRow(&UI_TESTER));
+	for (int k = 0; k < 80; k++) {
+		lifeFrame(5);
+		zeros = zeros && fakeLastFrame().throttle == 0 && !fakeLastFrame().sendCommand;
+		parked = parked || escTaskParked();
+	}
+	checkTrue("ESC TESTER again: no new bind, the stamp unchanged, never parked",
+	          uiCurrentScreen() == UiScreenId::Tester && fakeRebuildCount() == binds &&
+	          escTaskBoundMs() == stamp && !parked && escTaskRunning());
+	checkTrue("zero frames throughout, the tester disarmed", zeros && !uiArmed() && !fakeArmed());
+	checkTrue("the gate is open: the stamp is older than 1500 ms",
+	          !uiArmGated(escTaskBoundMs(), millis()) && ctlEnabled(UI_FIX(TesterCtl::Arm)));
+	int ax, ay;
+	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
+	fakePress(ax, ay);
+	lifeFrame(0);
+	const uint32_t landed = millis();
+	while (millis() < landed + 975) {
+		fakeHold(ax, ay);
+		lifeFrame(25);
+		zeros = zeros && fakeLastFrame().throttle == 0;
+	}
+	checkTrue("held 975 ms: not armed, zero frames", !uiArmed() && zeros);
+	fakeHold(ax, ay);
+	lifeFrame(25);
+	checkTrue("held 1000 ms: armed, the hold alone", uiArmed() && millis() == landed + 1000);
+	fakeRelease();
+	lifeFrame(25);
+	tapId(UI_FIX(TesterCtl::Arm));
+	lifeFrames(1);
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(20);
+	checkTrue("MENU: parked", escTaskParked());
+}
+
+/**
+ * @brief A refused bind: the stamp stays 0, HOLD TO ARM stays disabled, and
+ *        the track reads UI_TESTER_REFUSED_TEXT, not the gate's text.
+ */
+static void testRefusedBind() {
+	section("DShot lifetime: a refused bind");
+
+	freshLife();
+	fakeSetBindRefused(true);
+	openTesterBound();
+	checkTrue("bound with initError: the stamp 0", escTaskRunning() && escTaskBoundMs() == 0);
+	lifeFrames(120);
+	const UiRect t = ctlRect(UI_FIX(TesterCtl::Throttle));
+	checkTrue("3 s on: HOLD TO ARM disabled and drawn so",
+	          !ctlEnabled(UI_FIX(TesterCtl::Arm)) && armDrawnDisabled());
+	checkTrue("the track reads the refused text in amber, not the gate's",
+	          fakeTextIs(t.x + 8, t.y + (t.h - 7) / 2, UI_TESTER_REFUSED_TEXT, C_AMBER, C_PANEL, 1) &&
+	          !gateTextShown());
+	checkTrue("the text is 21 characters, 125 px, within the track",
+	          strlen(UI_TESTER_REFUSED_TEXT) == 21 && gfxTextW(UI_TESTER_REFUSED_TEXT, 1) == 125 &&
+	          8 + gfxTextW(UI_TESTER_REFUSED_TEXT, 1) + 8 <= t.w);
+	fakeSetBindRefused(false);
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(20);
+	openTesterBound();
+	checkTrue("a bind that succeeds: the gate's text again",
+	          escTaskBoundMs() != 0 && gateTextShown());
+	waitGate();
+	checkTrue("live once the gate opens", ctlEnabled(UI_FIX(TesterCtl::Arm)));
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(20);
+}
+
 /** @brief Busy while Run is wanted; pinClaimDshot() acts only while Free. */
 static void testClaimRules() {
 	section("DShot lifetime: the claim's Busy and pinClaimDshot() under a claim");
@@ -677,6 +785,8 @@ void runDshotLifeTests() {
 	testArmGate();
 	testTapToBind();
 	testRebindCancels();
+	testDrainRace();
+	testRefusedBind();
 	testClaimRules();
 	testLeaveParks();
 	testHubLines();

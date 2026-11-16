@@ -928,8 +928,13 @@ static void drawThrottle() {
 	int pct = (int)((uint32_t)s_throttle * 100 / 2000);
 	int maxPct = (int)((uint32_t)s_maxThrottle * 100 / 2000);
 	// Why HOLD TO ARM is drawn disabled, as the track says it: 1 a USB
-	// host holds the card, 2 the arm gate holds.
-	int card = mscHoldsCard(mscGetState()) ? 1 : armGatedNow() ? 2 : 0;
+	// host holds the card, 2 the arm gate holds while a bind is pending or
+	// younger than ARM_GATE_MS, 3 the driver refused the bind: the stamp
+	// stays 0 and the gate holds until the next bind.
+	int card = mscHoldsCard(mscGetState()) ? 1
+	         : !armGatedNow()               ? 0
+	         : s_tel.initError              ? 3
+	                                        : 2;
 	int readout = readoutsAct() ? 1 : 0;
 
 	if (s_shown.throttleRaw == (int)s_throttle && s_shown.maxPct == maxPct &&
@@ -997,7 +1002,8 @@ static void drawThrottle() {
 	// reason reads as a fault.
 	if (!s_armed) {
 		const char *why = card == 1 ? UI_TESTER_CARD_TEXT
-		                : card == 2 ? UI_TESTER_GATE_TEXT : "ARM TO ENABLE";
+		                : card == 2 ? UI_TESTER_GATE_TEXT
+		                : card == 3 ? UI_TESTER_REFUSED_TEXT : "ARM TO ENABLE";
 		gfxText(THR_TRACK_X + 8, THR_TRACK_Y + (THR_TRACK_H - 7) / 2,
 		        why, card ? C_AMBER : C_DIM, 1);
 	}
@@ -1009,6 +1015,9 @@ static_assert(8 + (6 * (int)(sizeof(UI_TESTER_CARD_TEXT) - 1) - 1) + 8 <= THR_TR
 /** @brief The track's text while the arm gate holds: 26 characters, 155 px. */
 static_assert(sizeof(UI_TESTER_GATE_TEXT) == sizeof(UI_TESTER_CARD_TEXT),
               "the arm gate's text is not the card text's length");
+/** @brief The track's text after a refused bind: 21 characters, 125 px. */
+static_assert(8 + (6 * (int)(sizeof(UI_TESTER_REFUSED_TEXT) - 1) - 1) + 8 <= THR_TRACK_W,
+              "the refused bind's text runs off the throttle track");
 
 /** @brief ARM/DISARM, LATCH and MENU buttons. */
 static void drawButtons() {

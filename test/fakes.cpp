@@ -1016,7 +1016,10 @@ static EscFrame   g_lastFrame = {};
 static uint32_t   g_boundMs = 0;
 static void     (*g_bindHook)() = nullptr;
 
+static bool       g_bindRefused = false;
+
 void fakeSetBindHook(void (*hook)()) { g_bindHook = hook; }
+void fakeSetBindRefused(bool refused) { g_bindRefused = refused; }
 uint32_t escTaskBoundMs() { return g_boundMs; }
 
 void fakePumpPowerOn() {
@@ -1051,8 +1054,9 @@ static void fakePumpBind() {
 	escPumpBind(&g_pump, &g_armed, &g_throttle);
 	g_rebuilds++;
 	g_rebuildWiring = w;
+	g_tel.initError = g_bindRefused;
 	uint32_t stamp = millis();
-	g_boundMs = stamp ? stamp : 1u;
+	g_boundMs = g_bindRefused ? 0u : stamp ? stamp : 1u;
 }
 
 // padsTo(): the same order, no mode reported while the pads change.
