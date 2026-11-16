@@ -819,10 +819,10 @@ static void drawList() {
 
 	gfxRect(0, HL_LIST_Y1 + 1, GFX_W, HL_FOOT_Y - HL_LIST_Y1 - 1, C_BG);
 	if (s_sel < 0) {
-		gfxTextCenter(HL_EDIT_Y + 12, "TAP A ROW TO EDIT IT", C_GRID, 1);
-		gfxTextCenter(HL_EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_GRID, 1);
+		gfxTextCenter(HL_EDIT_Y + 12, "TAP A ROW TO EDIT IT", C_DIM, 1);
+		gfxTextCenter(HL_EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, 1);
 	} else if (repairRow()) {
-		uiButton(BTN_REPAIR, "REPAIR", C_GRID, C_ONACCENT, 1, idleRead() && pressing(BTN_REPAIR), idleRead());
+		uiButton(BTN_REPAIR, "REPAIR", C_PANEL, C_TEXT, 1, idleRead() && pressing(BTN_REPAIR), idleRead());
 		char lines[3][48];
 		int x = BTN_REPAIR.x + BTN_REPAIR.w + 4;
 		int n = kstWrap("CHECKSUM BAD. THE SERVO MAY IGNORE PWM AND DRAW HIGH CURRENT.", (GFX_W - x - 6) / 6, lines, 3);
@@ -833,8 +833,8 @@ static void drawList() {
 		int cx = BTN_MINUS.x + BTN_MINUS.w + 2, cw = BTN_PLUS.x - 2 - cx;
 		if (edit) {
 			bool m = stepOk(-1), p = stepOk(+1);
-			uiButton(BTN_MINUS, "-", C_GRID, C_ONACCENT, 2, m && pressing(BTN_MINUS), m);
-			uiButton(BTN_PLUS, "+", C_GRID, C_ONACCENT, 2, p && pressing(BTN_PLUS), p);
+			uiButton(BTN_MINUS, "-", C_PANEL, C_TEXT, 2, m && pressing(BTN_MINUS), m);
+			uiButton(BTN_PLUS, "+", C_PANEL, C_TEXT, 2, p && pressing(BTN_PLUS), p);
 		}
 		char now[32], want[32], top[64];
 		hitecValueText(&s_st.image, s_layout, r.param, now, sizeof(now), nullptr);

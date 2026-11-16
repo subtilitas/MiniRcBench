@@ -89,7 +89,7 @@ struct UiScreen;
 #define BRIDGE_UI_RELEASING_FMT "RELEASING SIG GP%u"
 /** @brief The chip while DTR is set, on @ref UI_COL_LIVE. */
 #define BRIDGE_UI_PORT_OPEN     "PORT OPEN"
-/** @brief The chip while DTR is clear, on `C_GRID`: 11 characters, a 77 px chip from x 155. */
+/** @brief The chip while DTR is clear, the neutral chip: 11 characters, a 77 px chip from x 155. */
 #define BRIDGE_UI_PORT_CLOSED   "PORT CLOSED"
 /** @brief The mode's caption. */
 #define BRIDGE_UI_MODE          "MODE"

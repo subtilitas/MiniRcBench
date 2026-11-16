@@ -906,18 +906,18 @@ static void drawList() {
 	gfxRect(0, KL_LIST_Y1 + 1, GFX_W, KL_FOOT_Y - KL_LIST_Y1 - 1, C_BG);
 	if (s_sel < 0 && !s_st.fingerprintOk) {
 		gfxTextCenter(KL_EDIT_Y + 12, "READ ONLY: UNKNOWN LAYOUT", C_AMBER, 1);
-		gfxTextCenter(KL_EDIT_Y + 26, "NOTHING IS WRITTEN TO THIS SERVO", C_GRID, 1);
+		gfxTextCenter(KL_EDIT_Y + 26, "NOTHING IS WRITTEN TO THIS SERVO", C_DIM, 1);
 	} else if (s_sel < 0) {
-		gfxTextCenter(KL_EDIT_Y + 12, "TAP A ROW TO EDIT IT", C_GRID, 1);
-		gfxTextCenter(KL_EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_GRID, 1);
+		gfxTextCenter(KL_EDIT_Y + 12, "TAP A ROW TO EDIT IT", C_DIM, 1);
+		gfxTextCenter(KL_EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, 1);
 	} else {
 		const KstRow &r = rowAt(s_sel);
 		bool editable = kstRowEditable(s_sel);
 		int cx = BTN_MINUS.x + BTN_MINUS.w + 2, cw = BTN_PLUS.x - 2 - cx;
 		if (editable) {
 			bool m = stepOk(-1), p = stepOk(+1);
-			uiButton(BTN_MINUS, "-", C_GRID, C_ONACCENT, 2, m && pressing(BTN_MINUS), m);
-			uiButton(BTN_PLUS, "+", C_GRID, C_ONACCENT, 2, p && pressing(BTN_PLUS), p);
+			uiButton(BTN_MINUS, "-", C_PANEL, C_TEXT, 2, m && pressing(BTN_MINUS), m);
+			uiButton(BTN_PLUS, "+", C_PANEL, C_TEXT, 2, p && pressing(BTN_PLUS), p);
 		}
 		char now[24], want[24], top[48];
 		uint16_t rawNow = kst_field_get(&s_st.image, r.field);

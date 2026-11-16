@@ -3475,7 +3475,7 @@ static bool setValueHas(int row, uint16_t c) {
 /**
  * @brief The colour roles on SERVO TESTER and SERVO SET (docs/design/menu-b.md,
  *        decisions 8 and 11): command labels in the text colour, SPEED's fill
- *        dim, servo B blue; a pending row cyan with a cyan bar until HOLD TO
+ *        `C_GRID` (docs/design/ui-theme.md, "Widgets"), servo B blue; a pending row cyan with a cyan bar until HOLD TO
  *        APPLY, a selected row's value never lime, the PULSE rows grey while
  *        RUNNING.
  */
@@ -3488,8 +3488,15 @@ static void testColourRoles() {
 	          fakeTextIs(BTN_SET.x + (BTN_SET.w - gfxTextW("SET", 1)) / 2, BTN_SET.y + (BTN_SET.h - 7) / 2,
 	                     "SET", C_TEXT, C_PANEL, 1));
 	UiRect sr = uiSliderPaintedRect(&s_speed);
-	checkTrue("SPEED's fill dim, not cyan",
-	          someOf(sr.x, sr.y, sr.w, sr.h, C_DIM) && !someOf(sr.x, sr.y, sr.w, sr.h, C_CYAN));
+	// SPEED opens at 100 %: the fill runs the track's length, and the thumb
+	// stands at its right end.
+	const UiRect &tr = s_speed.track;
+	checkTrue("SPEED's fill is C_GRID, inside the track at its left end and its middle",
+	          (int)s_speed.value == 100 && pixel(tr.x + 3, tr.y + tr.h / 2) == C_GRID &&
+	          pixel(tr.x + tr.w / 2, tr.y + tr.h / 2) == C_GRID);
+	checkTrue("no C_DIM and no cyan in the slider: the fill is under the readout",
+	          !someOf(sr.x, sr.y, sr.w, sr.h, C_DIM) && !someOf(sr.x, sr.y, sr.w, sr.h, C_CYAN));
+	checkTrue("the thumb in the text colour", someOf(sr.x, sr.y, sr.w, sr.h, C_TEXT));
 
 	openSet();
 	selectRow(1);   // TYPE

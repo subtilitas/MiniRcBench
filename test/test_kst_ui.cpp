@@ -307,8 +307,16 @@ static void testEditAndWrite() {
 	sim_t *sim = fakeKstSim();
 	uint16_t deadBand = simField(KST_F_DEAD_BAND);
 
+	checkTrue("no row selected: the bar's two hints in C_DIM",
+	          !ctlPresent(UI_FIX(KstCtl::EditPlus)) &&
+	          fakeTextCentredIs(218 + 12, "TAP A ROW TO EDIT IT", C_DIM, C_BG, 1) &&
+	          fakeTextCentredIs(218 + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, C_BG, 1));
 	selectField(KST_F_DEAD_BAND);
 	checkTrue("a tap on DEAD BAND: the editor bar", ctlPresent(UI_FIX(KstCtl::EditPlus)));
+	checkTrue("- and + are neutral buttons: C_PANEL, the frame, C_TEXT at scale 2",
+	          ctlEnabled(UI_FIX(KstCtl::EditMinus)) && ctlEnabled(UI_FIX(KstCtl::EditPlus)) &&
+	          neutralButtonIs(UI_FIX(KstCtl::EditMinus), "-", 2) &&
+	          neutralButtonIs(UI_FIX(KstCtl::EditPlus), "+", 2));
 	checkControlTable("KST editor bar");
 	tapId(UI_FIX(KstCtl::EditMinus));
 	checkTrue("a step: WRITE and REVERT act", ctlEnabled(UI_FIX(KstCtl::Write)) &&
@@ -382,6 +390,9 @@ static void testEditAndWrite() {
 	selectField(KST_F_DUTY);
 	for (int i = 0; i < 12 && ctlEnabled(UI_FIX(KstCtl::EditPlus)); i++) tapId(UI_FIX(KstCtl::EditPlus));
 	checkTrue("MAX. DUTY's + stops", !ctlEnabled(UI_FIX(KstCtl::EditPlus)));
+	checkTrue("and is drawn disabled, C_BG with a C_GRID label; - stays neutral",
+	          disabledButtonIs(UI_FIX(KstCtl::EditPlus), "+", 2) &&
+	          neutralButtonIs(UI_FIX(KstCtl::EditMinus), "-", 2));
 	selectField(KST_F_DEAD_BAND);
 	checkTrue("another field, same changes: its + acts", ctlEnabled(UI_FIX(KstCtl::EditPlus)));
 	selectField(KST_F_DUTY);
@@ -733,6 +744,9 @@ static void testReadOnlyAndRecord() {
 	fakeKstSim()->reg[0x06] = 0x05;  // the fingerprint wants 04
 	checkTrue("to the field list", toList());
 	checkTrue("read, the fingerprint fails", !job().fingerprintOk);
+	checkTrue("the bar: READ ONLY: UNKNOWN LAYOUT, amber, over its hint in C_DIM",
+	          fakeTextCentredIs(218 + 12, "READ ONLY: UNKNOWN LAYOUT", C_AMBER, C_BG, 1) &&
+	          fakeTextCentredIs(218 + 26, "NOTHING IS WRITTEN TO THIS SERVO", C_DIM, C_BG, 1));
 	selectField(KST_F_DEAD_BAND);
 	tapId(UI_FIX(KstCtl::EditPlus));
 	checkTrue("READ ONLY: no write", !ctlEnabled(UI_FIX(KstCtl::Write)));

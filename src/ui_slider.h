@@ -118,6 +118,9 @@ UiRect uiSliderPaintedRect(const UiSlider *s);
 /**
  * @brief Draw the trough, the fill to the value, the thumb and the presets.
  * @param s    The slider.
- * @param fill Colour of the filled part; ignored while dimmed.
+ * @param fill Colour of the filled part; ignored while dimmed, which draws
+ *             `C_GRID`. SPEED and the channels of S.BUS OUTPUT pass
+ *             `C_GRID`: a slider's fill is the faint neutral, under the
+ *             readout over it (docs/design/ui-theme.md, "Widgets").
  */
 void uiSliderDraw(const UiSlider *s, uint16_t fill);

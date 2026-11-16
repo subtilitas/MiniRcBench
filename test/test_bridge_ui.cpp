@@ -105,8 +105,12 @@ static bool defaultLines(int skip0 = -1, int skip1 = -1) {
 	return true;
 }
 
-/** @brief The chip reads @p text on @p fill. */
+/**
+ * @brief The chip reads @p text in @p fg on @p fill; with `C_GRID`, as the
+ *        neutral chip, whose label is `C_DIM` on `C_BG`.
+ */
 static bool chipIs(const char *text, uint16_t fill, uint16_t fg) {
+	if (fill == C_GRID) return fg == C_DIM && neutralChipIs(text);
 	return fakeTextIs(uiChipX(text) + 6, UI_STRIP_Y + 4, text, fg, fill, 1) &&
 	       pixel(uiChipX(text) + 1, UI_STRIP_Y + 3) == fill;
 }
@@ -261,8 +265,11 @@ static void testLayout() {
 	          gfxTextW(BRIDGE_UI_TITLE, 2) == 118 && UI_MARGIN + 118 + 44 == UI_BACK_X);
 	checkTrue("the strip: SIG GP0  19200 8N1, 107 px", leftIs(UI_STRIP_Y + 4, "SIG GP0  19200 8N1", C_DIM) &&
 	          gfxTextW("SIG GP0  19200 8N1", 1) == 107);
-	checkTrue("DTR clear: PORT CLOSED on grey, from x 155", chipIs(BRIDGE_UI_PORT_CLOSED, C_GRID, C_ONACCENT) &&
+	checkTrue("DTR clear: PORT CLOSED, the neutral chip, from x 155", chipIs(BRIDGE_UI_PORT_CLOSED, C_GRID, C_DIM) &&
 	          uiChipX(BRIDGE_UI_PORT_CLOSED) == 155);
+	checkTrue("its frame C_GRID, C_BG inside, no label in the ink of a fill",
+	          pixel(155, UI_STRIP_Y + 2) == C_GRID && pixel(156, UI_STRIP_Y + 3) == C_BG &&
+	          !fakeTextIs(155 + 6, UI_STRIP_Y + 4, BRIDGE_UI_PORT_CLOSED, C_ONACCENT, C_GRID, 1));
 	checkTrue("MODE, dim, at y 62; WAITING at scale 2, y 72",
 	          leftIs(62, "MODE", C_DIM) && leftIs(72, "WAITING", C_TEXT, 2));
 	checkTrue("the captions at y 98, x 8 and x 122",
@@ -332,7 +339,7 @@ static void testTraffic() {
 	brFrames(2);
 	checkTrue("DTR falls: WAITING, THE PC CLOSED THE PORT., dim, PORT CLOSED",
 	          leftIs(72, "WAITING", C_TEXT, 2) && msgIs(0, BRIDGE_UI_CLOSED, C_DIM) &&
-	          defaultLines(0) && chipIs(BRIDGE_UI_PORT_CLOSED, C_GRID, C_ONACCENT));
+	          defaultLines(0) && chipIs(BRIDGE_UI_PORT_CLOSED, C_GRID, C_DIM));
 	checkInt("THE PC CLOSED THE PORT. is 137 px", gfxTextW(BRIDGE_UI_CLOSED, 1), 137);
 	fakeCdcDtr(true);
 	fakeCdcHostWrite(RUN, sizeof(RUN));

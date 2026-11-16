@@ -55,7 +55,7 @@ struct TouchState;
  */
 #define UI_MENU_EDT_ON  "EDT ON"   /**< On `C_GREEN`. */
 #define UI_MENU_EDT_OFF "EDT OFF"  /**< On `C_RED`: the ESC answers, EDT does not. */
-#define UI_MENU_NO_ESC  "NO ESC"   /**< On `C_GRID`: no eRPM within 500 ms. */
+#define UI_MENU_NO_ESC  "NO ESC"   /**< The neutral chip: no eRPM within 500 ms. */
 /** @} */
 
 /** @brief What a MENU frame asks of the navigation. */

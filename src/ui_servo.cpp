@@ -850,7 +850,7 @@ static void drawSpeed() {
 	UiRect pr = uiSliderPaintedRect(&s_speed);
 	gfxRect(0, pr.y, GFX_W, pr.h, C_BG);
 	gfxText(UI_MARGIN, SV_SPEED_Y + (SV_SPEED_H - 7) / 2, "SPEED", C_DIM, 1);
-	uiSliderDraw(&s_speed, C_DIM);
+	uiSliderDraw(&s_speed, C_GRID);
 	char buf[8];
 	snprintf(buf, sizeof(buf), "%d%%", (int)(s_speed.value + 0.5f));
 	gfxText(GFX_W - UI_MARGIN - gfxTextW(buf, 1), SV_SPEED_Y + (SV_SPEED_H - 7) / 2, buf, C_TEXT, 1);
@@ -1247,11 +1247,11 @@ static void drawSet(int holdPct) {
 	if (changed(2, &ke, sizeof(ke))) {
 		gfxRect(0, SET_LIST_Y1 + 1, GFX_W, SET_FOOT_Y - SET_LIST_Y1 - 1, C_BG);
 		if (s_sel < 0) {
-			gfxTextCenter(SET_EDIT_Y + 12, "TAP A ROW TO EDIT IT", C_GRID, 1);
-			gfxTextCenter(SET_EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_GRID, 1);
+			gfxTextCenter(SET_EDIT_Y + 12, "TAP A ROW TO EDIT IT", C_DIM, 1);
+			gfxTextCenter(SET_EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, 1);
 		} else {
-			uiButton(BTN_MINUS, "-", C_GRID, C_ONACCENT, 2, ke.m, ke.cm);
-			uiButton(BTN_PLUS, "+", C_GRID, C_ONACCENT, 2, ke.pl, ke.cp);
+			uiButton(BTN_MINUS, "-", C_PANEL, C_TEXT, 2, ke.m, ke.cm);
+			uiButton(BTN_PLUS, "+", C_PANEL, C_TEXT, 2, ke.pl, ke.cp);
 			int cx = BTN_MINUS.x + BTN_MINUS.w, cw = BTN_PLUS.x - cx;
 			const char *name = ROWS[s_sel].name;
 			gfxText(cx + (cw - gfxTextW(name, 1)) / 2, SET_EDIT_Y + 2, name, C_DIM, 1);
@@ -1261,7 +1261,7 @@ static void drawSet(int holdPct) {
 			UiValue st = setValue(s_sel);
 			gfxText(cx + (cw - gfxTextW(v, sc)) / 2, SET_EDIT_Y + 16, v, uiListValueColour(st), sc);
 			gfxText(cx + (cw - gfxTextW("SWIPE = COARSE", 1)) / 2, SET_EDIT_Y + 34,
-			        "SWIPE = COARSE", C_GRID, 1);
+			        "SWIPE = COARSE", C_DIM, 1);
 		}
 	}
 

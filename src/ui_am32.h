@@ -165,7 +165,7 @@ bool uiAm32Tick(const TouchState *t);
  * @brief A plausible block in a layout outside @ref AM32_LAYOUT_MIN_KNOWN to
  *        @ref AM32_LAYOUT_MAX_KNOWN, 2 to 4: the bytes in hex, no field, no
  *        control but BACK. The strip carries two amber lines, the editor
- *        bar's place two grey ones; each at most 37 characters, 221 px.
+ *        bar's place two `C_DIM` ones; each at most 37 characters, 221 px.
  * @{
  */
 /** @brief The strip's first line: the layout revision, 1 or 5 to 8, one digit. */
@@ -220,7 +220,7 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_EW_STOPPED_1 "THE ESC ANSWERED, THEN STOPPED."
 /** @brief Its second line: the connect cycle greets again. */
 #define AM32_UI_EW_STOPPED_2 "SEARCHING AGAIN."
-/** @brief The list's bar, second line, under EFM8_UI_BAR_EDIT or EFM8_UI_BAR_SHOWN: 33 characters, 197 px, grey. */
+/** @brief The list's bar, second line, under EFM8_UI_BAR_EDIT or EFM8_UI_BAR_SHOWN: 33 characters, 197 px, `C_DIM`. */
 #define AM32_UI_EW_BAR_2 "BACK SENDS LEAVE: THE ESC STARTS."
 /** @brief The page while LEAVE goes out: its heading. */
 #define AM32_UI_EXIT_HEAD "LEAVING"

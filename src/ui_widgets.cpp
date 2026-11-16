@@ -59,6 +59,9 @@ bool uiBackTapped(const TouchState *t) {
 
 void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
 	gfxRect(0, 0, GFX_W, UI_HDR_H, C_PANEL);
+	// The band's last row, y 35: the rule that ends the header. BACK ends at
+	// y 33 and the strip starts at y 40, so the rule moves nothing.
+	gfxHLine(0, UI_HDR_RULE_Y, GFX_W, C_GRID);
 	// Scale 2 is 14 px tall, centred in the band rather than at a hand-picked y,
 	// so the title sits on the same baseline on every screen.
 	gfxText(UI_MARGIN, (UI_HDR_H - 14) / 2, title, C_TEXT, 2);
@@ -121,6 +124,12 @@ void uiChip(const char *text, uint16_t fill) {
 	gfxRect(x, y, w, UI_CHIP_H, fill);
 	// y 44, the line of uiStripText(), so the chip reads level with the caption.
 	uint16_t fg = (fill == C_AMBER || fill == C_INK) ? C_PAPER : C_ONACCENT;
+	if (fill == C_GRID) {
+		// The neutral chip: no state to report, so no fill. C_GRID is the
+		// frame, 1 px, and the label is a label's colour.
+		gfxRect(x + 1, y + 1, w - 2, UI_CHIP_H - 2, C_BG);
+		fg = C_DIM;
+	}
 	gfxText(x + 6, y + (UI_CHIP_H - 7) / 2, text, fg, 1);
 }
 

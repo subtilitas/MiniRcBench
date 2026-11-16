@@ -619,7 +619,15 @@ static void testWrite() {
 	freshHitec(HITEC_D, false);
 	checkTrue("the field list", toList(HITEC_D));
 	int32_t before = jobSpeed();
+	checkTrue("no row selected: the bar's two hints in C_DIM",
+	          !ctlPresent(UI_FIX(HitecCtl::EditPlus)) &&
+	          fakeTextCentredIs(218 + 12, "TAP A ROW TO EDIT IT", C_DIM, C_BG, 1) &&
+	          fakeTextCentredIs(218 + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, C_BG, 1));
 	speedDown();
+	checkTrue("- and + are neutral buttons: C_PANEL, the frame, C_TEXT at scale 2",
+	          ctlEnabled(UI_FIX(HitecCtl::EditMinus)) && ctlEnabled(UI_FIX(HitecCtl::EditPlus)) &&
+	          neutralButtonIs(UI_FIX(HitecCtl::EditMinus), "-", 2) &&
+	          neutralButtonIs(UI_FIX(HitecCtl::EditPlus), "+", 2));
 
 	// WRITE...: nothing while pressed, nothing on a slide off; the tap's
 	// release opens the write page.
@@ -1065,6 +1073,8 @@ static void testClassic() {
 	tapId(UI_ROW(sumRow, Row));
 	checkTrue("REPAIR in place of - and +", ctlPresent(UI_FIX(HitecCtl::Repair)) &&
 	          !ctlPresent(UI_FIX(HitecCtl::EditMinus)));
+	checkTrue("REPAIR is a neutral button: C_PANEL, the frame, C_TEXT at scale 1",
+	          ctlEnabled(UI_FIX(HitecCtl::Repair)) && neutralButtonIs(UI_FIX(HitecCtl::Repair), "REPAIR", 1));
 	checkControlTable("Hitec repair");
 	fakeDumpFrame("shot_hitec_repair.ppm");
 	tapId(UI_FIX(HitecCtl::Repair));

@@ -94,8 +94,12 @@ static bool stripIs(const char *cap, uint16_t capCol, const char *chip, uint16_t
 	       fakeTextIs(uiChipX(chip) + 6, UI_STRIP_Y + 4, chip, fg, fill, 1);
 }
 
-/** @brief The chip reads @p chip on @p fill, whatever the caption. */
+/**
+ * @brief The chip reads @p chip on @p fill, whatever the caption; with
+ *        `C_GRID`, as the neutral chip.
+ */
 static bool chipIs(const char *chip, uint16_t fill) {
+	if (fill == C_GRID) return neutralChipIs(chip);
 	uint16_t fg = (fill == C_AMBER || fill == C_INK) ? C_PAPER : C_ONACCENT;
 	return fakeTextIs(uiChipX(chip) + 6, UI_STRIP_Y + 4, chip, fg, fill, 1);
 }
@@ -326,7 +330,9 @@ static void testReading() {
 
 	pose(12.4);
 	frames(8);
-	checkTrue("turned: MOVING on grey", chipIs("MOVING", C_GRID));
+	checkTrue("turned: MOVING, the neutral chip: frame, C_BG inside, C_DIM label", chipIs("MOVING", C_GRID));
+	checkTrue("and no label in the ink of a fill",
+	          !fakeTextIs(uiChipX("MOVING") + 6, UI_STRIP_Y + 4, "MOVING", C_ONACCENT, C_GRID, 1));
 	checkTrue("settles again", settle());
 	checkTrue("+12.4`", angleIs("+12.4`", C_LIME));
 	pose(-7.25);

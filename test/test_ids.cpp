@@ -335,6 +335,9 @@ static void testServo() {
 	checkTrue("SET shows HOLD TO APPLY", ctlPresent(UI_FIX(ServoCtl::Apply)));
 	checkTrue("nothing to apply yet", !ctlEnabled(UI_FIX(ServoCtl::Apply)));
 	checkTrue("no row selected: no editor bar", !ctlPresent(UI_FIX(ServoCtl::EditPlus)));
+	checkTrue("its two hints in C_DIM: TAP A ROW TO EDIT IT, SWIPE IT SIDEWAYS FOR COARSE",
+	          fakeTextCentredIs(218 + 12, "TAP A ROW TO EDIT IT", C_DIM, C_BG, 1) &&
+	          fakeTextCentredIs(218 + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, C_BG, 1));
 	checkControlTable("SET");
 	revealRow(11);
 	checkTrue("the last row scrolls whole", ctlRect(UI_ROW(11, Row)).h == listRowH());
@@ -380,6 +383,9 @@ static void testAm32() {
 	          ctlPresent(UI_FIX(Am32Ctl::Write)) && !ctlEnabled(UI_FIX(Am32Ctl::Write)) &&
 	          ctlPresent(UI_FIX(Am32Ctl::Revert)) && !ctlEnabled(UI_FIX(Am32Ctl::Revert)));
 	checkTrue("no editor bar before a row is selected", !ctlPresent(UI_FIX(Am32Ctl::EditPlus)));
+	checkTrue("its two hints in C_DIM: TAP A SETTING TO EDIT, SWIPE IT SIDEWAYS FOR COARSE",
+	          fakeTextCentredIs(218 + 12, "TAP A SETTING TO EDIT", C_DIM, C_BG, 1) &&
+	          fakeTextCentredIs(218 + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, C_BG, 1));
 	tapId(UI_ROW(1, Row));
 	checkTrue("a tap on a row by id shows the editor bar", ctlEnabled(UI_FIX(Am32Ctl::EditPlus)));
 	// The fake ESC's image puts some fields on their top rail, where + changes
@@ -480,9 +486,18 @@ static void testLayoutTable() {
 	checkTrue("the editor's - at x 6 and + ending at x 234, 44 x 44 px",
 	          rectIs(UI_FIX(ServoCtl::EditMinus), 6, 218, 44, 44) &&
 	          rectIs(UI_FIX(ServoCtl::EditPlus), 190, 218, 44, 44));
-	checkTrue("the hint centred between them, 140 px",
+	checkTrue("the hint centred between them, 140 px, C_DIM",
 	          fakeTextIs(50 + (140 - gfxTextW("SWIPE = COARSE", 1)) / 2, 218 + 34, "SWIPE = COARSE",
-	                     C_GRID, C_BG, 1));
+	                     C_DIM, C_BG, 1));
+	checkTrue("RATE at 50 HZ: + is a neutral button, C_PANEL, the frame, C_TEXT at scale 2",
+	          ctlEnabled(UI_FIX(ServoCtl::EditPlus)) && neutralButtonIs(UI_FIX(ServoCtl::EditPlus), "+", 2));
+	checkTrue("and - at its lowest step is drawn disabled, C_BG with a C_GRID label",
+	          !ctlEnabled(UI_FIX(ServoCtl::EditMinus)) && disabledButtonIs(UI_FIX(ServoCtl::EditMinus), "-", 2));
+	tapId(UI_FIX(ServoCtl::EditPlus));
+	checkTrue("one step up: both are neutral buttons",
+	          ctlEnabled(UI_FIX(ServoCtl::EditMinus)) && neutralButtonIs(UI_FIX(ServoCtl::EditMinus), "-", 2) &&
+	          neutralButtonIs(UI_FIX(ServoCtl::EditPlus), "+", 2));
+	tapId(UI_FIX(ServoCtl::EditMinus));
 	checkControlTable("SERVO SET, the layout table");
 	tapId(UI_FIX(UI_BACK));
 	tapId(UI_FIX(UI_BACK));

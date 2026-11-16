@@ -884,9 +884,9 @@ static void drawHexLine(int index, int y, void *) {
  * @param old  Its value as read when it changed, else null.
  */
 static void drawEditBar(const char *name, const char *val, const char *old) {
-	uiButton(BTN_MINUS, "-", C_GRID, C_ONACCENT, 1,
+	uiButton(BTN_MINUS, "-", C_PANEL, C_TEXT, 1,
 	         uiPressing(BTN_MINUS, s_frameTouch));
-	uiButton(BTN_PLUS,  "+", C_GRID, C_ONACCENT, 1,
+	uiButton(BTN_PLUS,  "+", C_PANEL, C_TEXT, 1,
 	         uiPressing(BTN_PLUS, s_frameTouch));
 	// The label is worth the space: the buttons are far from the row they
 	// act on, so the bar has to say what it is editing.
@@ -906,7 +906,7 @@ static void drawEditBar(const char *name, const char *val, const char *old) {
 	// Short enough to clear both buttons: the gap between them is only
 	// (BTN_PLUS_X - cx) px, and a longer caption ran under them.
 	const char *hint = "SWIPE = COARSE";
-	gfxText(cx + (cw - gfxTextW(hint, 1)) / 2, EDIT_Y + 33, hint, C_GRID, 1);
+	gfxText(cx + (cw - gfxTextW(hint, 1)) / 2, EDIT_Y + 33, hint, C_DIM, 1);
 }
 
 static void drawList() {
@@ -928,8 +928,8 @@ static void drawList() {
 		if (ch) am32FormatValue(sel, s_original, old, sizeof(old));
 		drawEditBar(sel->name, val, ch ? old : nullptr);
 	} else if (!s_hexView) {
-		gfxTextCenter(EDIT_Y + 12, "TAP A SETTING TO EDIT", C_GRID, 1);
-		gfxTextCenter(EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_GRID, 1);
+		gfxTextCenter(EDIT_Y + 12, "TAP A SETTING TO EDIT", C_DIM, 1);
+		gfxTextCenter(EDIT_Y + 26, "SWIPE IT SIDEWAYS FOR COARSE", C_DIM, 1);
 	}
 
 	// ---- footer ----
@@ -952,8 +952,8 @@ static void drawList() {
 static void drawView() {
 	uiListDraw(&s_list, drawHexLine, nullptr);
 	gfxRect(0, LIST_Y1 + 1, GFX_W, GFX_H - LIST_Y1 - 1, C_BG);
-	gfxTextCenter(EDIT_Y + 12, AM32_UI_RO_BYTES, C_GRID, 1);
-	gfxTextCenter(EDIT_Y + 26, AM32_UI_RO_TABLE, C_GRID, 1);
+	gfxTextCenter(EDIT_Y + 12, AM32_UI_RO_BYTES, C_DIM, 1);
+	gfxTextCenter(EDIT_Y + 26, AM32_UI_RO_TABLE, C_DIM, 1);
 }
 
 /**
@@ -1026,8 +1026,8 @@ static void drawEwList() {
 		if (ch) efm8ValueText(f, s_ewPage[f->off], old, sizeof(old));
 		drawEditBar(f->name, val, ch ? old : nullptr);
 	} else {
-		gfxTextCenter(EDIT_Y + 12, ewWritable() ? EFM8_UI_BAR_EDIT : EFM8_UI_BAR_SHOWN, C_GRID, 1);
-		gfxTextCenter(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_GRID, 1);
+		gfxTextCenter(EDIT_Y + 12, ewWritable() ? EFM8_UI_BAR_EDIT : EFM8_UI_BAR_SHOWN, C_DIM, 1);
+		gfxTextCenter(EDIT_Y + 26, AM32_UI_EW_BAR_2, C_DIM, 1);
 	}
 	if (s_ewMustRead) {
 		bool live = !s_ewOpRun;
@@ -1101,7 +1101,7 @@ static void drawWriteTail(bool page, bool running, const char *verified, bool ho
 		// C_RED while holding rather than C_REDDARK: that colour's other job
 		// is the dead-telemetry digit, which has to read as "off" and
 		// therefore inverts direction between the two palettes. A fill that
-		// carries white text needs to be dark in both, and C_RED is.
+		// carries C_ONACCENT text needs to stand off it in both, and C_RED does.
 		bool holding = s_writeHold.holding;
 		uiHoldDrawBar(&s_writeHold, BTN_OK, FOOT_Y - 4, millis());
 		uiButton(BTN_OK, "HOLD TO WRITE", holding ? C_RED : C_PANEL, holding ? C_ONACCENT : C_TEXT, 2,
