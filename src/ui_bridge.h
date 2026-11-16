@@ -26,21 +26,21 @@
  * | When | BACK |
  * |---|---|
  * | no claim: refused, USB DRIVE | to ESC PROGRAM |
- * | Stopping, or Held after a failed bind | pinClaimEnd(): DShot resumes at once; to ESC PROGRAM, and MENU's run cue stands from the claim's begin |
+ * | Stopping, or Held after a failed bind | pinClaimEnd(): the pins park at once; to ESC PROGRAM, and MENU's run cue stands from the claim's begin |
  * | a write-class frame waits for its answer, at most 3000 ms | drawn disabled (decision 7) |
- * | Held, the line binding | pinClaimEnd(), to ESC PROGRAM: DShot resumes once the job is idle, by the claim's rule, whether or not a screen polls it |
+ * | Held, the line binding | pinClaimEnd(), to ESC PROGRAM: the pins park once the job is idle, by the claim's rule, whether or not a screen polls it |
  * | Running | pinClaimWantLeavePage(), then pinClaimEnd(): the leave page, as the servo tools give it (decision 10 as revised): the ESC may wait in its bootloader whatever the tool sent |
  *
  * Nothing is sent at BACK, no RUN among it (decision 6). The leave page is
  * ui_leave.h's, opened releasing, as the job lets go of the line at once:
- * `POWER THE ESC OFF.`, `RESTART DSHOT.` and, after a write in this claim
+ * `POWER THE ESC OFF.`, `BACK TO ESC PROGRAM.` and, after a write in this claim
  * with no RUN behind it, the note `FLASH THE ESC AGAIN BEFORE USE.`
  * (usbBridgeWriteUnfinished()). Its left button, `BRIDGE`, keeps the claim
  * and returns to the bridge, its counts at 0 (pinClaimKeep()); the
  * unfinished write stays, and the next BACK's page carries the note until a
- * RUN. RESTART DSHOT, live 1000 ms after the line is let go, clears MENU's
+ * RUN. The last button, live 1000 ms after the line is let go, clears MENU's
  * run cue (usbBridgeRunCueClear()) and the unfinished write
- * (usbBridgeWriteUnfinishedClear()), ends the claim and returns to ESC
+ * (usbBridgeWriteUnfinishedClear()), parks the pins and returns to ESC
  * PROGRAM, the screen that opened the bridge: the
  * next entry starts with no note.
  * BACK on the page is drawn disabled. A claim that has had the page keeps it
@@ -160,7 +160,7 @@ bool uiBridgeTick(const TouchState *t);
 /**
  * @brief The controls on the current frame: BACK, disabled while a write
  *        waits and on the leave page; RETRY after a failed bind; BRIDGE
- *        and RESTART DSHOT on the leave page.
+ *        and the last button on the leave page.
  * @param out At most @p max controls.
  * @param max Room in @p out.
  * @return The number written.

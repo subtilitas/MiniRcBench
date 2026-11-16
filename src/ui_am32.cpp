@@ -212,7 +212,7 @@ enum Am32Screen : uint8_t {
 	/**
 	 * The leave page, after an EFM8 bootloader answered: BACK from any
 	 * other state but the EFM8 list opens it. STAY returns to s_leaveFrom;
-	 * LEAVE lets go of SIG; RESTART DSHOT gives it back to DShot.
+	 * LEAVE lets go of SIG; the last button parks it low.
 	 */
 	S_LEAVE,
 	/**
@@ -235,7 +235,7 @@ enum Am32Screen : uint8_t {
 	 * half written; BACK returns to s_keptFrom.
 	 */
 	S_EW_KEPT,
-	/** BACK from the EFM8 list: LEAVE goes out, then DShot returns. BACK is drawn disabled. */
+	/** BACK from the EFM8 list: LEAVE goes out, then the pins park. BACK is drawn disabled. */
 	S_EW_EXIT,
 	/**
 	 * The session ended without the page: the job lets SIG go, and the
@@ -1329,8 +1329,8 @@ void uiAm32Enter() {
 
 /**
  * @brief The transport lets go of the pin, the card's queued writes end,
- *        and the claim ends: DShot resumes within the call, or, once an EFM8
- *        bootloader answered, the claim waits for RESTART DSHOT.
+ *        and the claim ends: the pins park, or, once an EFM8 bootloader
+ *        answered, the claim waits for the leave page's last button.
  */
 static void endClaim() {
 	am32BlEnd();
@@ -1339,9 +1339,9 @@ static void endClaim() {
 }
 
 void uiAm32Exit() {
-	// The transport lets go of the pin before DShot takes it back. An AM32
-	// claim no EFM8 bootloader answered has started no core1 job and has no
-	// leave page, so pinClaimEnd() resumes the pump within the call.
+	// The transport lets go of the pin before core1 parks it. An AM32 claim
+	// no EFM8 bootloader answered has started no core1 job and has no leave
+	// page, so pinClaimEnd() moves the claim to Parking within the call.
 	endClaim();
 	s_state = S_HANDOVER;
 }
@@ -1614,12 +1614,12 @@ static void startExit() {
 
 /**
  * @brief S_EW_EXIT: LEAVE's `00 01` starts the ESC's firmware, so once it
- *        went out the claim gives SIG back to DShot without the leave page's
+ *        went out the claim parks SIG low without the leave page's
  *        steps (decision 3 of bluejay-blheli-s.md). LEAVE has no answer, so
  *        MENU's run cue stays until an eRPM frame after it shows the firmware
  *        runs (bench item B11). A LEAVE that did not go out opens the leave
  *        page.
- * @return false once DShot is on its way back: the screen leaves.
+ * @return false once the claim is Parking: the screen leaves.
  */
 static bool exitTick() {
 	pinClaimPoll();
@@ -1640,7 +1640,7 @@ static bool exitTick() {
 		snprintf(s_status, sizeof(s_status), AM32_UI_EXIT_SENT);
 		endClaim();
 	}
-	// The job lets SIG go first; DShot restarts once it is idle.
+	// The job lets SIG go first; the pins park once it is idle.
 	if (!pinClaimUnplugDue()) return true;
 	pinClaimRelease(PinUser::Am32);
 	s_state = S_HANDOVER;

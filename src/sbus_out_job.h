@@ -394,7 +394,7 @@ bool sbusOutProbeEfm8();
 bool sbusOutRunCue(uint32_t lastRpmMs);
 
 /**
- * @brief RESTART DSHOT on the leave page. Core0. After an EFM8 answer the
+ * @brief The leave page's last button. Core0. After an EFM8 answer the
  *        page's first step took the ESC's battery off: the EFM8 mark and
  *        the run cue go. After an AM32 answer alone nothing goes: the page
  *        does not ask for the ESC's battery, and the cue stays until an eRPM

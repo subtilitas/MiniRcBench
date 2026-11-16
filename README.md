@@ -3751,7 +3751,9 @@ In the firmware:
   stamped; a bind that moves the stamp cancels a timed press. Meanwhile HOLD
   TO ARM is drawn disabled and the track reads `DSHOT STARTING: WAIT 1.5 S`
   (decisions 10 and 12 of `docs/design/dshot-lifetime.md`, pending the
-  owner's review). AM32 takes a throttle only after more than 1 s of zero
+  owner's review). After the driver refused the bind (`DSERR`), no stamp
+  is set, HOLD TO ARM stays disabled and the track reads
+  `DSHOT COULD NOT START`. AM32 takes a throttle only after more than 1 s of zero
   input (from source); Bluejay's and BLHeli_S's times are not recorded.
 - A settings save is refused while armed, because erasing flash stops the
   DShot pump.
@@ -4062,7 +4064,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,112 of 16,372 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,116 of 16,376 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

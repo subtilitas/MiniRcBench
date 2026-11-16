@@ -409,15 +409,15 @@ static bool back() {
 	if (!s_claimed) return false;
 	// Once the line was bound the ESC may wait in its bootloader, entered at
 	// a power-up with SIG high, after AM32's 2 s without a signal, or by the
-	// tool, answered or not, and its flash may be cut: DShot waits for
-	// RESTART DSHOT on the leave page (decision 10 as revised).
+	// tool, answered or not, and its flash may be cut: the pins park only on
+	// the leave page's last button (decision 10 as revised).
 	if (pinClaimState() == ClaimState::Running)
 		pinClaimWantLeavePage(PinUser::Bridge);
 	pinClaimEnd(PinUser::Bridge);
 	if (!pinClaimLeavePage()) return false;
 	s_view = View::Leave;
 	s_full = true;
-	// The job lets the line go at once; RESTART DSHOT waits 1000 ms after.
+	// The job lets the line go at once; the last button waits 1000 ms after.
 	uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 	return true;
 }

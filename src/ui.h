@@ -223,6 +223,13 @@ enum class TesterCtl : uint8_t {
 #define UI_TESTER_GATE_TEXT "DSHOT STARTING: WAIT 1.5 S"
 
 /**
+ * @brief The track's text after the DShot driver refused the bind
+ *        (EscTelemetry::initError, DSERR in the status bar), in place of
+ *        @ref UI_TESTER_GATE_TEXT. The bind stamp stays 0, so HOLD TO ARM
+ *        stays disabled until a later bind succeeds. 21 characters, 125 px.
+ */
+#define UI_TESTER_REFUSED_TEXT "DSHOT COULD NOT START"
+/**
  * @brief SETUP's pin note, with the ESC pin's GPIO number for `%u`: a SIG PIN
  *        change moves the pin ESC TESTER's DShot runs on, and a servo there
  *        moves. The splash draws it no more: no DShot frame leaves the board

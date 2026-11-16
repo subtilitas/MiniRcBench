@@ -1679,7 +1679,7 @@ static void drawLeave() {
 /**
  * @brief End the claim; the leave page's release follows.
  * @return false when the screen left at once: the claim was not held, or
- *         DShot resumes without a release.
+ *         the pins park without a release.
  */
 static bool endClaim() {
 	KstCardPhase phase;

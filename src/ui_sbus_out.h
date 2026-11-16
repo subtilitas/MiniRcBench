@@ -47,11 +47,11 @@
  * opens the page before LEAVE with the first step of decision 8 of
  * docs/design/bluejay-blheli-s.md, `UNPLUG THE ESC BATTERY, THEN LEAVE.`;
  * STAY returns to the screen. BACK TO OUTPUT keeps the claim: the job binds
- * again, a new visit with a new probe. RESTART DSHOT, live 1000 ms after GP0
- * is let go, returns to RECEIVER; after decision 8's page it also calls
- * sbusOutProbeRestart(), which clears the EFM8 mark and MENU's cue. BACK
- * before a claim held, or while Stopping, returns to RECEIVER with DShot
- * resumed.
+ * again, a new visit with a new probe. The page's last button, live 1000 ms
+ * after GP0 is let go, parks the pins and returns to RECEIVER; after
+ * decision 8's page it also calls sbusOutProbeRestart(), which clears the
+ * EFM8 mark and MENU's cue. BACK before a claim held, or while Stopping,
+ * returns to RECEIVER with the pins parked.
  *
  * @see docs/design/sbus-output.md, "Screen"
  */
@@ -170,8 +170,8 @@ void uiSbusOutEnter();
 /**
  * @brief Run one frame of the screen.
  * @param t Touch state for this frame.
- * @return false once the screen has left: after RESTART DSHOT on the leave
- *         page, or after BACK when no job had run.
+ * @return false once the screen has left: after the leave page's last
+ *         button, or after BACK when no job had run.
  */
 bool uiSbusOutTick(const TouchState *t);
 

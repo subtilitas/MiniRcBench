@@ -22,7 +22,7 @@
  * change of SIG is answered on this screen.
  *
  * @see settings.h for what is stored and how it is validated;
- *      docs/design/menu.md, "SETTINGS".
+ *      docs/design/menu.md, "SETUP".
  */
 
 #pragma once

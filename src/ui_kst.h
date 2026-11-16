@@ -15,7 +15,7 @@
  * | List | the 27 fields, an editor bar, WRITE..., REVERT, FILES | WRITE...: Write; FILES: Files; BACK: Leave |
  * | Write | the changes, their soft rules, the backup line, HOLD TO WRITE or HOLD TO RESTORE, the result | OK or BACK: List; BACK is disabled while the write runs or waits for the card |
  * | Files | the card's files, SAVE AS, LOAD, RESTORE... | RESTORE...: Write, a restore; LOAD: List; BACK: List |
- * | Leave | the leave page (ui_leave.h): the steps, STAY, HOLD TO REBOOT with the switched supply, LEAVE; then NEXT SERVO and RESTART DSHOT | STAY: List, or Main after a loss; LEAVE: the release; NEXT SERVO: Main, a new session; RESTART DSHOT: PROGRAMMER; BACK is disabled |
+ * | Leave | the leave page (ui_leave.h): the steps, STAY, HOLD TO REBOOT with the switched supply, LEAVE; then NEXT SERVO and SERVO, the hub's title | STAY: List, or Main after a loss; LEAVE: the release; NEXT SERVO: Main, a new session; SERVO: Parking, then the hub SERVO; BACK is disabled |
  *
  * A loss of the servo, a read that answers nothing in the mode, returns
  * every view but Leave to Main, where the search runs again. A
@@ -26,8 +26,9 @@
  * Without a switched supply the servo stays in programming mode until its
  * supply is off, so the leave page's first step asks the user to power it
  * off before LEAVE; with the switched supply LEAVE switches it off.
- * RESTART DSHOT takes a press 1000 ms or more after the pin is let go
- * (docs/design/menu-b.md, decision 21).
+ * The page's last button takes a press 1000 ms or more after the pin is let
+ * go (docs/design/menu-b.md, decision 21); the pins then park, and DShot
+ * starts again only on ESC TESTER or ESC COMMANDS.
  *
  * @see docs/design/kst-programming.md, "Screens".
  */
@@ -50,7 +51,8 @@ void uiKstEnter();
 /**
  * @brief Run one frame of the screen.
  * @param t Touch state for this frame.
- * @return false once the screen has left: after RESTART DSHOT, or after
+ * @return false once the screen has left: after the leave page's last
+ *         button, or after
  *         BACK before a claim held the pin.
  */
 bool uiKstTick(const TouchState *t);

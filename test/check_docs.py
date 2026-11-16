@@ -27,7 +27,9 @@ Enforces what actually goes wrong, and nothing else:
      docs/design/bluejay-blheli-s.md) or a later design note replaced, and
      no image of a removed screen; nor does a fakeDumpFrame() call or
      tools/make_previews.py. CHANGELOG.md, STATUS.md and the design notes
-     keep those names as records and are not checked
+     keep those names as records and are not checked. The comments of
+     src/*.h name no DShot restart after a claim (STALE_RESTART); string
+     literals and code are not read there
   10. the hardware models, CAD files and drawings are CC BY-NC-SA 4.0 and
      the software is MIT. Every tracked file under hardware/ except
      hardware/LICENSE-CAD.txt, the README.md files and
@@ -155,11 +157,17 @@ REMOVED_TEXTS = [
      "the screens ESC CONFIG, RX SIGNALS, SD LOG and SETTINGS, now ESC PROGRAM, "
      "RECEIVER, LOGS and SETUP, and ANGLE METER's ANGLE SETUP, now ANGLE SET "
      "(menu-c.md owner decision 6 and decision 17, slice 5)"),
-    (r"RESTART DSHOT|DSHOT RESTARTING|DSHOT RESTARTS ON|LEAVE, THEN DSHOT RETURNS",
-     "DShot's restart after a claim, now the leave page's hub title and the "
-     "busy captions; DShot runs only on ESC TESTER and ESC COMMANDS "
-     "(dshot-lifetime.md, slice D2)"),
 ]
+# Rule 9: DShot's restart after a claim, checked in the manual and in the
+# comments of src/*.h. The second pattern is the comments' prose.
+STALE_RESTART = (
+    r"RESTART DSHOT|DSHOT RESTARTING|DSHOT RESTARTS ON|LEAVE, THEN DSHOT RETURNS|"
+    r"DShot (restarts|resumes|resumed|returns,|returns\.|takes it back)|"
+    r"back to DShot|resumes the pump|resumes DShot",
+    "DShot's restart after a claim, now the leave page's hub title and the "
+    "busy captions; DShot runs only on ESC TESTER and ESC COMMANDS "
+    "(dshot-lifetime.md, slice D2)")
+REMOVED_TEXTS.append(STALE_RESTART)
 # Rule 9: image names of removed screens, hyphenated as in wiki/img/; a name
 # that starts with one of these is refused, so kst-leave covers
 # kst-leave-pending.
@@ -282,9 +290,56 @@ def removed_image(name):
     return None
 
 
+def comment_lines(text):
+    """(line number, comment text) of each line of C++ source @p text that
+    holds a comment: the part inside a block comment or after `//`. A string
+    literal's quotes are skipped, so `//` inside one opens no comment."""
+    out = []
+    in_block = False
+    for n, line in enumerate(text.split("\n"), 1):
+        parts = []
+        i = 0
+        in_str = None
+        while i < len(line):
+            if in_block:
+                end = line.find("*/", i)
+                parts.append(line[i:] if end < 0 else line[i:end])
+                if end < 0:
+                    break
+                in_block = False
+                i = end + 2
+                continue
+            c = line[i]
+            if in_str:
+                if c == "\\":
+                    i += 2
+                    continue
+                if c == in_str:
+                    in_str = None
+            elif c in "\"'":
+                in_str = c
+            elif line.startswith("//", i):
+                parts.append(line[i + 2:])
+                break
+            elif line.startswith("/*", i):
+                in_block = True
+                i += 2
+                continue
+            i += 1
+        if parts:
+            out.append((n, " ".join(parts)))
+    return out
+
+
 def check_removed():
     """Rule 9: no removed screen text, view, MENU path or image comes back."""
     problems = []
+    pattern, why = STALE_RESTART
+    for path in HEADERS:
+        for n, line in comment_lines(open(path, encoding="utf-8").read()):
+            m = re.search(pattern, line)
+            if m:
+                problems.append(f"{path}:{n}: '{m.group(0)}' names {why}")
     for path in MANUAL_DOCS:
         for n, line in enumerate(open(path, encoding="utf-8"), 1):
             for pattern, why in REMOVED_TEXTS:

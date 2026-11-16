@@ -261,6 +261,14 @@ FakeWiring fakeResumeWiring();
 void fakeSetBindHook(void (*hook)());
 
 /**
+ * @brief Make each later fake bind fail as a refused out_dshot_bind() does
+ *        in pumpBind(): `initError` set and the bind stamp 0; the pump is
+ *        still up. False makes binds succeed again.
+ * @param refused Whether binds fail.
+ */
+void fakeSetBindRefused(bool refused);
+
+/**
  * @brief Put core1's side of the fake pump back to its power-on state, as
  *        esc_task.cpp's static initialisers leave it: no bind, Park
  *        wanted, Run reached with nothing bound, the bind stamp 0, nothing

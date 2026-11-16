@@ -129,7 +129,9 @@ throttle 0, and `HOLD TO ARM` waits 1.5 s after DShot started, so the ESC has
 seen DShot before it can arm. Meanwhile `HOLD TO ARM` is drawn as an outline
 and the bar reads `DSHOT STARTING: WAIT 1.5 S` in amber; a press that lands
 then does nothing, so lift and press again once the button is live. The
-earliest arm is 2.5 s after the tester opens. `MENU` stops DShot: the ESC
+earliest arm is 2.5 s after the tester opens. If DShot could not take the
+pin (`DSERR` in the status bar), the bar reads `DSHOT COULD NOT START` in
+amber and `HOLD TO ARM` stays an outline. `MENU` stops DShot: the ESC
 hears throttle 0 for at least 250 ms after the last throttle, then nothing,
 and the pin is held low.
 

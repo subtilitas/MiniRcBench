@@ -775,7 +775,7 @@ static void newVisit() {
 
 /**
  * @brief One frame of the leave page.
- * @return false once RESTART DSHOT gave GP0 back to DShot.
+ * @return false once the last button parked GP0.
  */
 static bool leaveTick() {
 	uint32_t now = millis();
@@ -792,7 +792,7 @@ static bool leaveTick() {
 		if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
 		s_full = true;
 	}
-	// The page gives RESTART DSHOT and BACK TO OUTPUT only once GP0 is let
+	// The page gives the last button and BACK TO OUTPUT only once GP0 is let
 	// go (uiLeavePoll()).
 	if (ev == UiLeaveEv::Release) {
 		pinClaimRelease(PinUser::SbusOut);
@@ -899,10 +899,10 @@ bool uiSbusOutTick(const TouchState *t) {
 			} else {
 				pinClaimEnd(PinUser::SbusOut);
 				ClaimState cs = pinClaimState();
-				// Restoring: core1 suspended the pump between pinClaimPoll()
-				// and pinClaimEnd().
+				// Parking: the claim was still Stopping at pinClaimEnd(), so the
+				// pins park with no leave page.
 				if (cs == ClaimState::Free || cs == ClaimState::Parking) return false;
-				// RESTART DSHOT waits 1000 ms after GP0 is let go.
+				// The last button waits 1000 ms after GP0 is let go.
 				uiLeaveOpen(&s_leave, UiLeavePhase::Releasing, UI_HOLD_MS);
 			}
 		}

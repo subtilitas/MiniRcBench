@@ -146,7 +146,9 @@ DShot gesehen hat, bevor er scharf werden kann. Solange ist `HOLD TO ARM` als
 Umriss gezeichnet, und der Balken zeigt `DSHOT STARTING: WAIT 1.5 S` in
 Bernstein; ein Druck in dieser Zeit bewirkt nichts, also loslassen und erneut
 drücken, sobald die Schaltfläche bedienbar ist. Frühestens 2,5 s nach dem
-Öffnen ist der Tester scharf. `MENU` beendet DShot: Der ESC hört mindestens
+Öffnen ist der Tester scharf. Konnte DShot den Pin nicht belegen (`DSERR` in
+der Statusleiste), zeigt der Balken `DSHOT COULD NOT START` in Bernstein, und
+`HOLD TO ARM` bleibt ein Umriss. `MENU` beendet DShot: Der ESC hört mindestens
 250 ms nach dem letzten Gas noch Gas 0, dann nichts, und der Pin liegt auf
 Low.
 
