@@ -1358,6 +1358,9 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    AM32 CONFIG's row becomes the chooser `ESC CONFIG`, holding `ESC
    SETTINGS` and `USB BRIDGE`. `ESC SETTINGS` is the one settings screen
    for AM32, Bluejay and BLHeli_S. This is the recommendation.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decisions 4 and 6 of
+   2026-11-15: the hub reads ESC PROGRAM and also holds ESC COMMANDS, as its
+   first entry. Not built.
 2. **Which modes.** Option (a): both, passthrough first as slice 2, MSP and
    the 4-way interface as slice 3. This is the recommendation.
 3. **How the mode is chosen.** Option (a): from the PC's first byte.

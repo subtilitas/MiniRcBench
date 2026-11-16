@@ -226,6 +226,9 @@ drawn disabled under `NOT BUILT`, and the titles read `ESC SETTINGS`,
 `ESC HEX` and `ESC WRITE`. `USB BRIDGE` is live from slice 2 of
 [usb-bridge.md](usb-bridge.md#slice-2-as-built), which gives it its
 screen.
+Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15: MENU
+is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO, RECEIVER,
+LOGS, SETUP; it does not scroll. Not built.
 
 Row 1 is built by slice 2 of
 [esc-commands.md](esc-commands.md#slice-2-as-built): `ESC COMMANDS` in BEEP
@@ -491,6 +494,8 @@ y  40 | V6  BACKUP IN RAM              [PROG MODE]|  strip; chip C_BLUE
   320 +-------------------------------------------+
 ```
 
+Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`. Not built.
+
 AM32 CONFIG has HEX in place of FILES. On KST, `READ ONLY` or `IN DOUBT`
 replaces `WRITE...`, drawn disabled, as today; on Hitec `READ AGAIN` replaces
 it after a write that left the image unknown.
@@ -684,15 +689,32 @@ Decisions of the owner, 2026-11-13:
 1. **Six rows.** MENU has six rows and never scrolls. The order is this
    note's choice, decision 16. Revised by decision 33 of 2026-11-14: seven
    rows, and MENU scrolls 36 px.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
+   MENU is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO,
+   RECEIVER, LOGS, SETUP; it does not scroll. Not built.
 2. **SERVO PROGRAMMER.** KST SERVO and HITEC SERVO fold into one row that
    opens a chooser: KST / CHASERVO, HITEC D SERIES, HITEC CLASSIC. CLASSIC is
    drawn disabled without the switched supply and names the path to enable
    it and the converter of wiring part C. Future brands add chooser entries.
+   Revised by [menu-c.md](menu-c.md#the-hub), after its owner decisions 4 and 6
+   of 2026-11-15: no MENU row reads SERVO PROGRAMMER and no screen is titled
+   PROGRAMMER. KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC are entries 3 to
+   5 of the hub SERVO, with the lines and the gate of this decision; CLASSIC's
+   second line reads `AND SETUP > SERVO SUPPLY GP28/29.` A future brand adds a
+   hub entry. Not built.
 3. **One leave page.** The leave page and the unplug page merge. Its button
    reads LEAVE, then RESTART DSHOT in the same rectangle once the pin is
    released; the instructions use one style.
+   Revised by [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9,
+   pending the owner's review: the leave page's last button reads the title of
+   the hub the tool returns to, SERVO, RECEIVER or ESC PROGRAM, in place of
+   RESTART DSHOT, and starts no DShot. The last step reads BACK TO SERVO, BACK
+   TO RECEIVER or BACK TO ESC PROGRAM. SERVO TESTER's left button reads NEXT
+   SERVO. Not built.
 4. **SETTINGS from the tester.** A tap on the MAX or the pole-count readout
    opens SETTINGS through the disarming path MENU uses.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
+   the screen reads SETUP. Not built.
 
 Rules for the audit findings. Each lists the code it touches, by file and
 function, and what it breaks. Test counts are lines that `grep -cE` finds
@@ -732,6 +754,9 @@ change.
      Die-Bildschirme; pin-claim.md "Restoring DShot" (the page) and decision
      4 (a revision line); kst-programming.md "Leave"; hitec-programming.md
      "Leave"; servo-tester.md "The unplug page".
+   - Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15
+     and decision 10: MENU, the root, draws no BACK. A tool opened from a hub
+     returns to the hub, where this decision's table says MENU. Not built.
 6. **A tap opens the write page; only the write page holds** (item 2). On
    AM32, KST and Hitec the list's button reads `WRITE...` and opens the write
    page on a tap; the page lists every change, old -> new, and its
@@ -803,6 +828,11 @@ change.
      KST-Programming / KST-Programmierung, Hitec-Programming /
      Hitec-Programmierung (the `*` and "lime"); kst-programming.md "Field
      list"; hitec-programming.md "Field list".
+   - Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15: a
+     changed value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3
+     px bar stays. Cyan text without a fill is a settings value. The editor
+     bar's and the write page's new value stay `C_CYAN` text after `old ->`. Not
+     built.
 9. **SERVO SUPPLY is a core section** (item 5). The section holds two
    rows, SERVO SUPPLY and CURRENT SENSE. `ROWS_SUPPLY`, `SEC_SUPPLY`,
    `supplyValue()`, `supplyStep()`, `senseValue()`, `senseOn()`,
@@ -920,6 +950,25 @@ change.
       KISS tag); wiki The-Screens / Die-Bildschirme, Telemetry / Telemetrie,
       SD-Logging / SD-Aufzeichnung, Servo-Tester / Servotester, the KST and
       Hitec pages ("MODE").
+    - Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15:
+      `C_CYAN` is rcbench's accent and has more than one meaning. It marks the
+      way back (BACK; the tester's `MENU` and the leave page's button to the hub
+      by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
+      row that opens a hub, a selected tab's label, a settings value and a
+      section caption. "Changed" is the cyan fill and the bar of decision 8.
+      SETUP's captions and values are `C_CYAN`. Not built.
+    - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15:
+      `C_GREEN` as a button's fill says that a press starts an output: HOLD TO
+      ARM, HOLD TO WRITE, HOLD TO START and HOLD TO APPLY, and by ui-theme.md
+      decisions 14 and 16, pending the owner's review, HOLD TO RESTORE and START
+      DSHOT. "Safe, done" is never a fill: it is a word in `C_GREEN`, or a
+      square chip with a `C_GREEN` frame and label on `C_BG`, the tester's SAFE
+      badge among them. Not built.
+    - Revised by [ui-theme.md](ui-theme.md#widgets): a chip with no state to
+      report, `NO ESC`, `PORT CLOSED` and `MOVING`, is a 1 px `C_GRID` frame on
+      `C_BG` with a `C_DIM` label, square and 12 px tall. Not built.
+    - Revised by [ui-theme.md](ui-theme.md#widgets): a slider's fill is
+      `C_GRID`. Not built.
 12. **The servo tester names the switched supply** (item 8). With SERVO
     SUPPLY at GP28 or GP29 the strip's second line reads
     `GP28 SUPPLY STAYS OFF HERE.` in `C_AMBER`. Built on `main`.
@@ -950,6 +999,10 @@ change.
     - Tests: none name a title; the screenshots change.
     - Docs: README "Servo tester"; wiki Servo-Tester / Servotester,
       AM32-Configuration / AM32-Konfiguration; servo-tester.md "SERVO".
+    - Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of
+      2026-11-15: the hubs are titled ESC PROGRAM, SERVO and RECEIVER; SD LOG's
+      title reads LOGS and SETTINGS' reads SETUP; PROGRAMMER and TOOLS are gone.
+      Not built.
 14. **One layout table** (item 10).
 
     | Item | Today | Rule |
@@ -986,6 +1039,10 @@ change.
       moved rectangles break none.
     - Docs: README "Using it" (RESET); wiki The-Screens / Die-Bildschirme,
       First-Run / Erste-Schritte, Troubleshooting / Fehlersuche (RESET).
+    - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15:
+      a hold that starts an output is `C_GREEN` with a `C_ONACCENT` label at
+      rest and `C_RED` while held, HOLD TO ARM included. Every other hold is
+      neutral at rest and `C_RED` while held. Not built.
 15. **Words that say what they mean** (item 11).
 
     | | Today | Becomes | Code |
@@ -1026,12 +1083,20 @@ Choices of this note where the decisions above leave the choice:
     rows together and SETTINGS last now that the tester opens it too. The
     owner chose this order on 2026-11-14 (decision 23); decision 32 adds RX
     SIGNALS after SERVO PROGRAMMER.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
+    the order by device stays, one row per device class after ESC TESTER: ESC
+    TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Not built.
 17. **SETTINGS returns to where it was opened.** BACK from SETTINGS opened
     on the tester returns to the tester. `ui.cpp` keeps the origin with the
     open tool.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
+    the screen reads SETUP. Not built.
 18. **MENU statuses report state.** BEEP, SD LOG and SETTINGS keep their
     statuses; the tool rows drop the pin, which the strip names. The
     claim's busy state is a screen state (decision 15 f).
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15
+    and decision 13: a row that opens a hub carries `>`; the rows SD LOG and
+    SETTINGS read LOGS and SETUP. Not built.
 19. **The chooser opens a tool.** `uiOpenTool()` in `ui.cpp` is the one route
     from a screen to another, used by the chooser and by the tester's
     readouts; [menu.md](menu.md#code) said no tool opens another. KST SERVO
@@ -1043,6 +1108,10 @@ Choices of this note where the decisions above leave the choice:
     when it opens, so the chooser's Hitec entries take the pin on their
     tap, before the family's entry runs. The chooser view itself still
     claims nothing.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15
+    and decision 8: the hub widget `ui_hub` replaces the chooser;
+    `UiScreenId::ServoProg` and `Tools` are gone; a chosen tool's origin is its
+    hub, not MENU. Not built.
 20. **The readouts act only while disarmed.** See the interlocks. The owner
     confirmed it on 2026-11-14 (decision 24).
 21. **RESTART DSHOT waits 1000 ms.** LEAVE and RESTART DSHOT share a
@@ -1050,6 +1119,10 @@ Choices of this note where the decisions above leave the choice:
     nobody unplugged, about 100 ms after LEAVE on KST and 41 ms on SERVO
     TESTER. RESTART DSHOT takes only a press that lands 1000 ms or more
     after the released phase began, and is drawn disabled until then.
+    Revised by [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9,
+    pending the owner's review, as the line under owner decision 3 says: the
+    wait stays 1000 ms and guards the button that reads the hub's title. Not
+    built.
 22. **OWN.** SERVO SUPPLY's first value reads OWN. The stored value, 0,
     does not change.
 
@@ -1059,10 +1132,17 @@ Decisions of the owner, 2026-11-14, answering the open questions of
 23. **MENU order** (question 1). By device: BEEP THE ESC, AM32 CONFIG,
     SERVO TESTER, SERVO PROGRAMMER, SD LOG, SETTINGS, as decision 16.
     Decision 32 adds a row.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
+    the order by device stays, one row per device class after ESC TESTER: ESC
+    TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Not built.
 24. **The readouts while armed** (question 2). Inert, as decision 20.
 25. **BACK on the leave page** (question 3). Drawn disabled, as decision 5.
 26. **The "changed" colour** (question 4). `C_CYAN` on every screen, as
     decision 8.
+    Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15: a
+    changed value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3 px
+    bar stays. Cyan text without a fill is a settings value. The editor bar's
+    and the write page's new value stay `C_CYAN` text after `old ->`. Not built.
 27. **Docs between slices** (question 5). Each slice updates its own
     README.md and wiki lines and images, not all in slice 10. This is
     against the note's recommendation, which was to change them in slice
@@ -1074,6 +1154,10 @@ Decisions of the owner, 2026-11-14, answering the open questions of
 29. **The no-switch value** (question 7). SERVO SUPPLY's no-switch value
     reads OWN, as decisions 15 e and 22.
 30. **RESTART DSHOT's wait** (question 8). 1000 ms, as decision 21.
+    Revised by [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9,
+    pending the owner's review, as the line under owner decision 3 says: the
+    wait stays 1000 ms and guards the button that reads the hub's title. Not
+    built.
 31. **HITEC SERVO takes SIG when it opens,** before the family is tapped
     (STATUS.md item 24). In structure B the Hitec entries of the chooser
     therefore take the pin on their tap. This changes decision 19.
@@ -1084,11 +1168,16 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     SETTINGS. This follows from the two decisions; "after SERVO
     PROGRAMMER" puts RX SIGNALS before SD LOG. Seven rows contradicted
     decision 1, six rows that never scroll; decision 33 settles it.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
+    the row follows SERVO and reads RECEIVER. Not built.
 33. **Seven rows scroll** (the question decision 32 raised). With seven
     rows MENU keeps its 40 px rows at the 42 px pitch and scrolls 36 px, as
     the seven-row MENU on `main` does; SETTINGS is reached with a short
     drag. This revises decision 1 of 2026-11-13, six rows that never
     scroll.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
+    MENU is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO,
+    RECEIVER, LOGS, SETUP; it does not scroll. Not built.
 
 Decisions of the owner, 2026-11-14, on slice 9, called A and B when taken:
 
@@ -1113,6 +1202,8 @@ Decisions of the owner, 2026-11-14, on slice 9, called A and B when taken:
     the screens of [rx-signals.md](rx-signals.md) exist. Its disabled look
     is not the busy-pins cue: it stays disabled whatever the claim state,
     and its status names why.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
+    the row follows SERVO and reads RECEIVER. Not built.
 
 ## Interlocks
 
@@ -1139,7 +1230,7 @@ deliberate actions than at 9f965a3.
 
 | What | Reason |
 |---|---|
-| The tester is the root | DShot runs on SIG from boot whatever screen shows; a menu as root would hide the armed state the tester exists to show. Revised by the owner's decision of 2026-11-15, [menu-c.md](menu-c.md) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Not built. |
+| The tester is the root | DShot runs on SIG from boot whatever screen shows; a menu as root would hide the armed state the tester exists to show. Revised by the owner's decisions 1 and 2 of 2026-11-15, [menu-c.md](menu-c.md#decisions) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Not built. |
 | The tester's band layout and button row, the SERVO TESTER controls, SD LOG's 30 px buttons | the touch-target change of [menu.md](menu.md#decisions) decision 5, kept separate |
 | HOLD TO ARM's own timer | [menu.md](menu.md#decisions) decision 17 |
 | `UI_HOLD_MS`, 1000 ms; every hold stays a hold | the write, save, start, apply, reboot and arm holds are the deliberate actions the interlocks count |

@@ -1062,6 +1062,8 @@ Decisions of the owner, 2026-11-15, answering the open questions of
    THE ESC`, MENU's first row, with BEEP 1 to 5 on the page. This is the
    recommendation. The other decisions of the day make MENU eight rows;
    see [menu-b.md](menu-b.md#menu).
+   Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15:
+   ESC COMMANDS is the first entry of the hub ESC PROGRAM. Not built.
 2. **Save with each change.** Option (a): each hold sends the change, then
    12 (save). This is the recommendation.
 3. **A hold on the page, or a write page.** Option (a): the 1000 ms hold

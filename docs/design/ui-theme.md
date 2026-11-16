@@ -1,10 +1,10 @@
 # UI theme after rcbench's
 
-Status: proposed, not built. The owner decided its five questions on
-2026-11-15. The two questions the answers raised are settled by the
-developer's calls of 2026-11-16, pending the owner's review
-([Decisions](#decisions)). Every colour is computed and not seen on the
-panel.
+Status: proposed, not built. The owner decided its five questions on 2026-11-15.
+The two questions the answers raised, and the colours of two buttons of the
+DShot lifetime, are settled by the developer's calls of 2026-11-16, pending the
+owner's review ([Decisions](#decisions)). Every colour is computed and not seen
+on the panel.
 
 The owner's request of 2026-11-15: "Adapt the color scheme and tui to the
 MiniRcBench from the big brother." The big brother is rcbench, the larger
@@ -19,10 +19,11 @@ does not cover three things:
   [menu-c.md](menu-c.md) plans them. [The widgets of
   menu-c.md](#the-widgets-of-menu-cmd) gives its widgets their look, and
   [its build plan](menu-c.md#build-plan) orders the slices of both notes.
-- DShot's lifetime and the pin claim: `docs/design/dshot-lifetime.md`,
-  written beside this note and not on this branch.
-- The touch-loss stop of draft pull request #49. Its texts take the roles of
-  this note unchanged.
+- DShot's lifetime and the pin claim:
+  [dshot-lifetime.md](dshot-lifetime.md). This note gives two of its
+  buttons their colours ([decision 16](#decisions)).
+- The touch-loss stop of pull request #49, head 27d67c1, merged before the
+  builds. Its texts take the roles of this note unchanged.
 
 Names. The proposal's screens carry the names of
 [menu-c.md](menu-c.md#names): SETUP for SETTINGS, LOGS for SD LOG, RECEIVER
@@ -30,16 +31,16 @@ for RX SIGNALS and ESC PROGRAM for ESC CONFIG. The sections on cff09ae and
 [the mock-ups](#mock-ups), which are rendered from cff09ae, keep the names
 in the code.
 
-Terms: UI is user interface, ESC electronic speed controller, DShot the
-digital ESC protocol the tester drives, EDT Extended DShot Telemetry, RPM
-revolutions per minute, KST and Hitec two servo brands, SD Secure Digital,
-SPI Serial Peripheral Interface, IPS in-plane switching, a kind of liquid
-crystal panel. RGB565 is a 16-bit colour: 5 bits red, 6 green, 5 blue. WCAG
-is the Web Content Accessibility Guidelines, version 2; its contrast ratio
-runs from 1 to 21, and it asks 4.5 for text and 3 for the parts of a
-control. CVD is colour vision deficiency: protanopia and deuteranopia, the
-two red-green kinds, and tritanopia, the blue-yellow kind. ΔE is the
-CIEDE2000 colour difference; this note calls a pair under 10 a collision.
+Terms: UI is user interface, ESC electronic speed controller, DShot the digital
+ESC protocol the tester drives, EDT Extended DShot Telemetry, RPM revolutions
+per minute, KST and Hitec two servo brands, SD Secure Digital, SPI Serial
+Peripheral Interface, IPS in-plane switching, a kind of liquid crystal panel,
+USB Universal Serial Bus, RAM random-access memory. RGB565 is a 16-bit colour: 5
+bits red, 6 green, 5 blue. WCAG is the Web Content Accessibility Guidelines,
+version 2; its contrast ratio runs from 1 to 21, and it asks 4.5 for text and 3
+for the parts of a control. CVD is colour vision deficiency: protanopia and
+deuteranopia, the two red-green kinds, and tritanopia, the blue-yellow kind. ΔE
+is the CIEDE2000 colour difference; this note calls a pair under 10 a collision.
 
 MiniRcBench is read at `main` cff09ae. rcbench is read at `origin/main`
 a2d10ccf; the checkout read is d75113c1, whose `shared/ui/` and
@@ -721,7 +722,8 @@ What each widget draws in the proposal. Rectangles are today's.
 | Button radius | 5 px (`UI_RADIUS`), drawn ([decision 4](#decisions)) | 8 px of 48 |
 | Pressed | `C_INK` frame, inner frame, label + 1 px | fill toward white |
 | Disabled | `C_BG`, frame, `C_GRID` label, whatever the button's fill at rest | `BG`, outline, `TEXT_FAINT` |
-| Start button | `C_GREEN`, `C_ONACCENT` label: HOLD TO ARM, HOLD TO WRITE, HOLD TO RESTORE, HOLD TO START, HOLD TO APPLY ([Green](#green)) | output action, available: `OK` |
+| Start button | `C_GREEN`, `C_ONACCENT` label: HOLD TO ARM, HOLD TO WRITE, HOLD TO RESTORE, HOLD TO START, HOLD TO APPLY, START DSHOT ([Green](#green)) | output action, available: `OK` |
+| The leave page's button to the hub | the hub's title, `SERVO`, `RECEIVER` or `ESC PROGRAM`, on `C_CYAN` with a `C_ONACCENT` label: a way back ([decision 16](#decisions)); disabled during its 1000 ms wait | the home tag |
 | Output on | `C_RED` fill, `C_ONACCENT` label: DISARM, STOP | output action, active: `DANGER` |
 | Hold | at rest green if it starts an output, else neutral; `C_RED` with `C_ONACCENT` while held; a 3 px `C_LIME` bar | green fading to red or amber, then a flash |
 | Editor `-`, `+`; REPAIR | neutral, as SETUP's `-` and `+` are today | edit: `PANEL_HI` |
@@ -778,7 +780,7 @@ Two uses of a colour change:
 
 | Use | Drawn as | rcbench's |
 |---|---|---|
-| The way back | BACK in the header and `MENU` on the tester: a `C_CYAN` button with a `C_ONACCENT` label | the home tag |
+| The way back | BACK in the header, `MENU` on the tester and the leave page's wide button to the hub: a `C_CYAN` button with a `C_ONACCENT` label | the home tag |
 | A row that opens a level | `>` at the right of a hub row of MENU, `C_CYAN`, scale 2 | the chevron; the icons |
 | A selected tab | its label in `C_CYAN`; no screen has a tab yet | a selected tab |
 | A settings value | `C_CYAN` text: SETUP, SERVO SET, OUTPUT SET, ANGLE METER's settings view | a settings value |
@@ -830,6 +832,7 @@ How "changed" stays apart from an unchanged cyan value:
 | HOLD TO RESTORE: KST, Hitec | the same button and the same write, from a file | `C_GREEN` | `C_RED` while held |
 | HOLD TO START: SERVO TESTER, S.BUS OUTPUT | output action: starts a run | `C_GREEN` | `C_RED` while held; then STOP, `C_RED` |
 | HOLD TO APPLY, SERVO SET | output action: the pulses change | `C_GREEN` | `C_RED` while held |
+| START DSHOT, the start step of ESC TESTER and ESC COMMANDS while the run cue stands | output action: DShot starts | `C_GREEN`; disabled for its first 1000 ms | the screen it opens |
 | HOLD TO SAVE, HOLD DEFAULTS, HOLD TO KEEP | edit: flash, no output | neutral | `C_RED` while held |
 | HOLD TO REBOOT, KST | a command; starts no output | neutral | `C_RED` while held |
 | ESC COMMANDS: BEEP 1 to 5; NORMAL, REVERSED, 3D OFF, 3D ON | a command; each button names a value | neutral | `C_RED` while held |
@@ -837,8 +840,10 @@ How "changed" stays apart from an unchanged cyan value:
 | LEAVE, STAY, `WRITE...`, `RESTORE...`, MIN, CENTRE, MAX, SWEEP | navigation and edit | neutral | |
 
 The first four rows are the owner's list. HOLD TO RESTORE is this note's
-reading of "the WRITE holds"; the rows under it are
-[decision 14](#decisions).
+reading of "the WRITE holds"; START DSHOT is [decision 16](#decisions);
+the rows under it are [decision 14](#decisions). The leave page's wide
+button to the hub is not a start: it is a way back, cyan
+([Cyan](#cyan)).
 
 rcbench's list has more: CENTER, SWEEP and the pulse buttons of its servo
 screens are green because a press moves an armed servo at once. Here MIN,
@@ -867,26 +872,27 @@ How green as "a press starts" stays apart from green as "safe, done":
 A green HOLD TO ARM does not say "safe". What keeps the arm control and
 ARMED unambiguous:
 
-1. **Two different things are green while the bench is safe,** and they
-   differ in every other way: the badge at the top left is a frame around
-   the word SAFE; the button at the bottom left is a fill under the order
-   HOLD TO ARM.
-2. **Nothing is filled green while armed.** The button reads DISARM on
-   `C_RED` at scale 2, and the badge reads ARMED on `C_RED`. A green fill
-   on the tester therefore means "not armed, and a hold arms".
-3. **ARMED is the only filled badge.** SAFE is an outline. rcbench does
-   the same, "readable by shape at arm's length, not by colour alone"
-   (`chip_look()`).
-4. **The hold shows.** From the first frame of the hold the button is
-   `C_RED`, and the `C_LIME` progress grows along the badge's lower edge,
-   92 px in 1000 ms (`ARM_HOLD_MS`). At cff09ae the button keeps its rest
-   fill while held and shows the press by its frame only (`drawButtons()`
-   in `src/ui.cpp`); it takes the rule of every hold.
-5. **Refused is not green.** While a USB host holds the card HOLD TO ARM
-   is the disabled button: `C_BG`, a frame, a `C_GRID` label.
-6. **The numbers.** Green against red in the one rectangle is 88.6, and
-   19.1 at the least through a simulation, the label and its scale apart
-   ([The cues of the decisions](#the-cues-of-the-decisions)).
+1. **Two different things are green while the bench is safe,** and they differ
+   in every other way: the badge at the top left is a frame around the word
+   SAFE; the button at the bottom left is a fill under the order HOLD TO ARM. 2.
+   **Nothing is filled green while armed.** The button reads DISARM on `C_RED`
+   at scale 2, and the badge reads ARMED on `C_RED`. A green fill on the tester
+   therefore means "not armed, and a hold arms". 3. **ARMED is the only filled
+   badge.** SAFE is an outline. rcbench does the same, "readable by shape at
+   arm's length, not by colour alone" (`chip_look()`). 4. **The hold shows.**
+   From the first frame of a hold that arming allows the button is `C_RED`, and
+   the `C_LIME` progress grows along the badge's lower edge, 92 px in 1000 ms
+   (`ARM_HOLD_MS`). At cff09ae the button keeps its rest fill while held and
+   shows the press by its frame only (`drawButtons()` in `src/ui.cpp`); it takes
+   the rule of every hold. 5. **Refused is not green.** HOLD TO ARM is the
+   disabled button, `C_BG`, a frame, a `C_GRID` label, while arming is refused:
+   while a USB host holds the card, while the arm gate of
+   [dshot-lifetime.md](dshot-lifetime.md#decisions) decisions 10 and 12 holds,
+   1500 ms from each bind, and while #49's touch loss refuses arming. A press
+   that lands on it then is not timed and draws no progress on the badge. 6.
+   **The numbers.** Green against red in the one rectangle is 88.6, and 19.1 at
+   the least through a simulation, the label and its scale apart ([The cues of
+   the decisions](#the-cues-of-the-decisions)).
 
 ### Units and groups
 
@@ -1022,66 +1028,100 @@ has not decided them:
 13. **The tester's badge and its `SDERR` chip are square**
     ([Widgets](#widgets)).
 
+Calls of the developer, 2026-11-16, in the owner's absence. Decisions 14
+and 15 took the note's own recommendation; decision 16 applies decisions 1
+and 2 to two buttons of the DShot lifetime. Each waits for the owner's
+review:
+
+14. Developer's call of 2026-11-16, pending the owner's review: **Which
+    other presses turn green?** Of the other presses, only HOLD TO RESTORE
+    turns green, because it is the WRITE hold's rectangle and the same
+    write. HOLD TO SAVE, HOLD DEFAULTS, HOLD TO KEEP, HOLD TO REBOOT,
+    the ESC COMMANDS buttons and START on LOGS stay neutral. The price:
+    rcbench's programmers fill CONNECT and its SAVE green, and these stay
+    neutral here.
+15. Developer's call of 2026-11-16, pending the owner's review: **Is the
+    tester's `MENU` cyan?** Yes: the tester's `MENU` button is cyan, the
+    way back being cyan on every screen. The price: the tester's button row
+    holds two bright fills while safe, the green HOLD TO ARM and the cyan
+    `MENU`, 66 px apart with LATCH between, and a tritanope sees them as
+    one colour, 4.8. A tap on `MENU` disarms and leaves; arming needs the
+    1000 ms hold; a slip between the two starts nothing.
+16. Developer's call of 2026-11-16, pending the owner's review: **The
+    colours of the lifetime's two new buttons.** The leave page's wide
+    button that reads the hub's title
+    ([dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9) returns
+    to the hub and starts nothing, so it is a way back: `C_CYAN` with a
+    `C_ONACCENT` label, as decision 15 has the tester's `MENU`. START DSHOT
+    on the start step (decision 8 there) starts DShot, so it is a start
+    button: `C_GREEN` at rest, by decision 2. Both are disabled, `C_BG`,
+    during their 1000 ms waits. Slice 11 draws them on the tools and ESC
+    COMMANDS, slice 12 START DSHOT on the tester.
+
 ## Revisions
 
-Decisions the theme revises, with the line the build adds under each. The
-notes are not edited now; slice 14 of
-[the build plan](menu-c.md#build-plan) adds the lines.
+Decisions the theme revises, with the line that stands under each now,
+marked "Not built", with "pending the owner's review" for each part that
+comes from a developer's call. Slice 14 of
+[the build plan](menu-c.md#build-plan) marks the lines built.
 
 1. **[menu-b.md](menu-b.md#decisions) decision 8,** "Changed is cyan, with
    a bar", and decision 26, the owner's choice of `C_CYAN`.
 
-   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of
-   > 2026-11-15: a changed value in a list row is `C_ONACCENT` on a
-   > `C_CYAN` fill, and the 3 px bar stays. Cyan text without a fill is a
-   > settings value. The editor bar's and the write page's new value stay
-   > `C_CYAN` text after `old ->`.
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15: a
+   > changed value in a list row is `C_ONACCENT` on a `C_CYAN` fill, and the 3
+   > px bar stays. Cyan text without a fill is a settings value. The editor
+   > bar's and the write page's new value stay `C_CYAN` text after `old ->`. Not
+   > built.
 
 2. **menu-b.md decision 11,** the role "changed: `C_CYAN`", and the rows
    "SETTINGS section captions", "SETTINGS `KISS PIN` value", "SETTINGS
    `ESC PIN` value" and "SETTINGS `MAX THROTTLE` value", each "becomes
    `C_TEXT`".
 
-   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of
-   > 2026-11-15: `C_CYAN` is rcbench's accent and has more than one
-   > meaning. It marks the way back (BACK, the tester's `MENU`), `>` on a
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15:
+   > `C_CYAN` is rcbench's accent and has more than one meaning. It marks the
+   > way back (BACK; the tester's `MENU` and the leave page's button to the hub
+   > by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
    > row that opens a hub, a selected tab's label, a settings value and a
    > section caption. "Changed" is the cyan fill and the bar of decision 8.
-   > SETUP's captions and values are `C_CYAN`.
+   > SETUP's captions and values are `C_CYAN`. Not built.
 
 3. **menu-b.md decision 11,** the role "safe, done: `C_GREEN`", with its
    uses "SAFE badge and chip, EDT ON chip".
 
-   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of
-   > 2026-11-15: `C_GREEN` as a button's fill says that a press starts an
-   > output: HOLD TO ARM, HOLD TO WRITE, HOLD TO RESTORE, HOLD TO START
-   > and HOLD TO APPLY. "Safe, done" is never a fill: it is a word in
-   > `C_GREEN`, or a square chip with a `C_GREEN` frame and label on
-   > `C_BG`, the tester's SAFE badge among them.
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15:
+   > `C_GREEN` as a button's fill says that a press starts an output: HOLD TO
+   > ARM, HOLD TO WRITE, HOLD TO START and HOLD TO APPLY, and by ui-theme.md
+   > decisions 14 and 16, pending the owner's review, HOLD TO RESTORE and START
+   > DSHOT. "Safe, done" is never a fill: it is a word in `C_GREEN`, or a square
+   > chip with a `C_GREEN` frame and label on `C_BG`, the tester's SAFE badge
+   > among them. Not built.
 
 4. **menu-b.md decision 14,** the row "Hold fill: `C_RED`".
 
-   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of
-   > 2026-11-15: a hold that starts an output is `C_GREEN` with a
-   > `C_ONACCENT` label at rest and `C_RED` while held, HOLD TO ARM
-   > included. Every other hold is neutral at rest and `C_RED` while held.
+   > Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15: a
+   > hold that starts an output is `C_GREEN` with a `C_ONACCENT` label at rest
+   > and `C_RED` while held, HOLD TO ARM included. Every other hold is neutral
+   > at rest and `C_RED` while held. Not built.
 
 5. **menu-b.md decision 11,** the row "MENU `NO ESC` chip, no eRPM:
    `C_GRID`, square".
 
-   > Revised by [ui-theme.md](ui-theme.md#widgets): a chip with no state
-   > to report, `NO ESC`, `PORT CLOSED` and `MOVING`, is a 1 px `C_GRID`
-   > frame on `C_BG` with a `C_DIM` label, square and 12 px tall.
+   > Revised by [ui-theme.md](ui-theme.md#widgets): a chip with no state to
+   > report, `NO ESC`, `PORT CLOSED` and `MOVING`, is a 1 px `C_GRID` frame on
+   > `C_BG` with a `C_DIM` label, square and 12 px tall. Not built.
 
 6. **menu-b.md decision 11,** the row "servo SPEED fill: `C_DIM`".
 
-   > Revised by [ui-theme.md](ui-theme.md#widgets): a slider's fill is
-   > `C_GRID`.
+   > Revised by [ui-theme.md](ui-theme.md#widgets): a slider's fill is `C_GRID`.
+   > Not built.
 
 7. **menu-b.md, "The field lists",** the drawing's line "`SWIPE = COARSE`:
    `C_GRID`".
 
-   > Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`.
+   > Revised by [ui-theme.md](ui-theme.md#widgets): a hint is `C_DIM`. Not
+   > built.
 
 8. **menu-b.md, "Slice 2 as built",** the chip block: the label on a fill.
    Not a decision; the build updates the paragraph and
@@ -1099,24 +1139,6 @@ Decisions the theme leaves as they are:
 
 [Decision 4](#decisions) closes open item 25 of
 [STATUS.md](../../STATUS.md).
-
-Calls of the developer, 2026-11-16, in the owner's absence. Each took the
-note's own recommendation and waits for the owner's review:
-
-14. Developer's call of 2026-11-16, pending the owner's review: **Which
-    other presses turn green?** Of the other presses, only HOLD TO RESTORE
-    turns green, because it is the WRITE hold's rectangle and the same
-    write. HOLD TO SAVE, HOLD TO DEFAULTS, HOLD TO KEEP, HOLD TO REBOOT,
-    the ESC COMMANDS buttons and START on LOGS stay neutral. The price:
-    rcbench's programmers fill CONNECT and its SAVE green, and these stay
-    neutral here.
-15. Developer's call of 2026-11-16, pending the owner's review: **Is the
-    tester's `MENU` cyan?** Yes: the tester's `MENU` button is cyan, the
-    way back being cyan on every screen. The price: the tester's button row
-    holds two bright fills while safe, the green HOLD TO ARM and the cyan
-    `MENU`, 66 px apart with LATCH between, and a tritanope sees them as
-    one colour, 4.8. A tap on `MENU` disarms and leaves; arming needs the
-    1000 ms hold; a slip between the two starts nothing.
 
 ## Slices
 
@@ -1139,8 +1161,10 @@ tests and its dependence on the DShot slices, D1 to D5. None needs hardware
 
 Notes on the slices:
 
-- **Slice 7 alone is shippable.** With only the palette, the six `C_GRID`
-  fills carry dark ink at 3.51 until slice 8.
+- **Slices 7 and 8 merge together.** With only the palette, the six
+  `C_GRID` fills, the editor's `-` and `+` and REPAIR among them, would
+  carry dark ink at 3.51; slice 8 makes them neutral in the same pull
+  request.
 - **Not seen on the panel.** Each slice's README, wiki and STATUS lines
   say so of the colours, until the owner has looked. The first things to
   look at are `TC_PANEL` against `TC_BG`, 1.37 computed, and the blue cast
@@ -1149,8 +1173,13 @@ Notes on the slices:
 - **"Grey".** README.md says "grey" 17 times for dim and disabled texts and
   the wiki pages do the same. With the palette they are blue-grey. Slice
   14 replaces the word by the role, "dim" or "faint", in both languages.
-- **Slices 10 and 12 touch what the structure builds:** the header without
-  BACK and the tester's button row. They follow slices 3 and 4.
+- **Slices 10 to 12 touch what the structure and the lifetime build.**
+  Slice 10, the header without BACK and the hub rows' `>`, follows slices
+  3, 4, 7 and 9. Slice 11 follows slice 10 and D3, for the leave page's
+  button to the hub and START DSHOT. Slice 12, the tester's button row,
+  follows slices 3, 9 and 11 and D3, for the arm gate's disabled HOLD TO
+  ARM and the tester's START DSHOT. [The build plan](menu-c.md#build-plan)
+  lists the same dependencies.
 - **Flash and RAM.** The palette is 34 bytes of the same size. The radius
   adds a loop per corner row; the frame cost is not measured.
 

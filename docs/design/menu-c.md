@@ -2,7 +2,9 @@
 
 Status: proposed, not built. The owner decided its questions on 2026-11-15.
 The two questions the answers raised are settled by the developer's calls of
-2026-11-16, pending the owner's review ([Decisions](#decisions)).
+2026-11-16, pending the owner's review ([Decisions](#decisions)). The
+revision lines of [the tables below](#decisions-of-menu-bmd-this-revises)
+stand in the notes they revise, marked "Not built".
 
 The owner's request of 2026-11-15: "Optimize the Menu structure and make it
 similar to the Rcbench structure but adapted to the small display."
@@ -12,7 +14,7 @@ this note through its task and are not yet in [STATUS.md](../../STATUS.md):
 
 - **MENU is the start screen**, in place of the ESC tester.
 - **No DShot at power-up.** DShot sends frames only while ESC TESTER or ESC
-  COMMANDS is open; back on MENU the frames stop.
+  COMMANDS is open.
 - **0.1.0 waits for this work.**
 - **Six rows:** ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP.
 
@@ -22,15 +24,15 @@ root. [The build plan](#build-plan) orders its slices and those of the look.
 It does not cover three things:
 
 - The DShot lifetime, the pin claim's changes and the core1 jobs.
-  `docs/design/dshot-lifetime.md` covers them; it is written beside this
-  note, on the branch `ccr-dshot-life`, and is not on this branch.
+  [dshot-lifetime.md](dshot-lifetime.md) covers them.
   [What the structure requires of
   DShot](#what-the-structure-requires-of-dshot) is its input.
 - Colours and the look of widgets. [ui-theme.md](ui-theme.md) plans them:
   [the widgets of this note](ui-theme.md#the-widgets-of-menu-cmd) and
   [the header](ui-theme.md#widgets). This note names a widget where the
   structure needs one.
-- The touch-loss stop of draft pull request #49.
+- The touch-loss stop of pull request #49, head 27d67c1, merged before the
+  builds of this note.
 
 Terms: UI is user interface, ESC electronic speed controller, DShot the
 digital ESC protocol the tester drives, EDT Extended DShot Telemetry, eRPM
@@ -262,11 +264,15 @@ The header reads `MENU` and draws no BACK. `MENU` at scale 2 is 46 px.
 
 The strip keeps its caption, `SIG GP0  AUX GP1  DSHOT600`, 26 characters,
 155 px; the widest, `SIG GP1  AUX GP0  DSHOT1200`, is 161 px. These are
-settings, not readings. The chip `EDT ON`, `EDT OFF` or `NO ESC` and the
-run cue `POWER-CYCLE THE ESC TO RUN IT` read the telemetry of a running
-DShot; with no DShot on MENU they have no source. The chip goes from MENU.
-Where the run cue goes is a question for the DShot design
-([requirement 6](#what-the-structure-requires-of-dshot)).
+settings, not readings. The chip `EDT ON`, `EDT OFF` or `NO ESC` reads
+the telemetry of a running DShot; with no DShot on MENU it has no source,
+and it goes from MENU in slice D2 ([decision 12](#decisions)). The run cue
+`POWER-CYCLE THE ESC TO RUN IT` stays MENU's second strip line, as
+[dshot-lifetime.md](dshot-lifetime.md#each-case) settles it: it clears on a
+LEAVE sent, on the leave page's last button, or on an eRPM frame newer than
+the bootloader's answer, which only ESC TESTER and ESC COMMANDS now
+receive, and while it stands those two open on the start step of
+dshot-lifetime.md decision 8.
 
 A row is drawn disabled and takes no tap while `uiPinsRefuse()` refuses its
 screen, as today. ESC TESTER has `freePins` set, as ESC COMMANDS has: DShot
@@ -538,32 +544,35 @@ one pointer line to the screen SETUP.
   `src/ui_settings.cpp`, `src/ui_sdlog.cpp`, `src/ui_rx_signals.cpp` and
   `src/ui_esc_config.cpp`, `SETTINGS_VERSION`, and the previews
   `docs/settings-preview.png` and `docs/log-preview.png`. No user reads
-  them, and 61 files of `src/` name `SETTINGS`.
+  them, and 62 files of `src/` name `SETTINGS`, 49 of them outside `ESC
+  SETTINGS` and `AM32 SETTINGS`.
 - **SETUP's sections** ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and
   DIAGNOSTICS, and its rows.
 - **CHANGELOG.md and the design notes.** They are records;
-  `test/check_docs.py` rule 9 does not check them. The build adds the
-  revision lines of [the tables below](#decisions-of-menu-bmd-this-revises)
-  and no other edit.
+  `test/check_docs.py` rule 9 does not check them. The revision lines of
+  [the tables below](#decisions-of-menu-bmd-this-revises) stand in them
+  now, marked "Not built"; the build marks them built and makes no other
+  edit to a decision.
 
 ### The rename slice's work
 
 Slice 5 of [the build plan](#build-plan). The counts are lines that name
-the word at cff09ae, comments included; `SETTINGS` is counted without `ESC
-SETTINGS` and `AM32 SETTINGS`. A line that names the stored settings stays,
-so fewer lines change than are counted.
+the word at cff09ae, comments included, by `git grep` with the case kept;
+`SETTINGS` is counted on the lines that still name it once `ESC SETTINGS`
+and `AM32 SETTINGS` are taken out. A line that names the stored settings
+stays, so fewer lines change than are counted.
 
 | Where | What changes | `ESC CONFIG` | `RX SIGNALS` | `SD LOG` | `SETTINGS` |
 |---|---|---|---|---|---|
-| `src/` | the four labels of `UI_MENU`, `UI_ESC_CFG_TITLE`, `UI_RX_TITLE`, the two `uiHeader()` titles and the two `UiScreen` titles of LOGS and SETUP, the seven texts above, the messages of the `static_assert`s, the comments | 24 lines in 10 files | 24 in 10 | 32 in 15 | 241 in 61, `ESC SETTINGS` included |
-| `test/` | the expectations that find a row, a title or a text by its words, and the helpers' comments. 18 lines pass one of the four words as a string | 24 | 27 | 68 | 191 |
+| `src/` | the four labels of `UI_MENU`, `UI_ESC_CFG_TITLE`, `UI_RX_TITLE`, the two `uiHeader()` titles and the two `UiScreen` titles of LOGS and SETUP, the seven texts above, the messages of the `static_assert`s, the comments | 24 lines in 10 files | 24 in 10 | 32 in 15 | 186 in 49 |
+| `test/` | the expectations that find a row, a title or a text by its words, and the helpers' comments. 18 lines pass one of the four words as a string | 24 | 27 | 68 | 333 |
 | `test/check_docs.py` | rule 9 gains the four old words as MENU paths and titles: `ESC CONFIG`, `RX SIGNALS`, `SD LOG`, and `SETTINGS` after `MENU >`, `MENU →` or before `>` and `→`; the bare word stays legal for `ESC SETTINGS` | | | | |
-| README.md | "Using it", "Layout", every tool's section, "The user manual" | 12 | 10 | 18 | 80 |
-| `wiki/`, English and German | every page but Setup, Einrichtung, USB-Bridge and USB-Bruecke for `SETTINGS`; The-Screens and Die-Bildschirme hold the tree | 32 on 7 pages | 26 on 4 | 65 on 11 | 213 on 25 |
+| README.md | "Using it", "Layout", every tool's section, "The user manual" | 12 | 10 | 18 | 78 |
+| `wiki/`, English and German | every page but Setup, Einrichtung, USB-Bridge and USB-Bruecke for `SETTINGS`; The-Screens and Die-Bildschirme hold the tree | 32 on 7 pages | 26 on 4 | 65 on 11 | 203 on 25 |
 | `tools/make_wiring.py` | four texts of the drawing: `MENU > SETTINGS; these are the`, `optional, SETTINGS > KISS TELEM`, `(SETTINGS > SERVO SUPPLY GP%d)`, `(SETTINGS > CURRENT SENSE)`. `docs/wiring.svg` and the wiki's copy are drawn again | | | | 4 |
 | `.github/workflows/release.yml` | the release text, lines 254, 261 and 273 | | | | 3 |
 | `tools/make_previews.py`, `test/ui_ids.h`, `test/rx.mk` | comments | 2 | 2 | | 2 |
-| STATUS.md, `docs/bench-plan.md` | the lines that describe the bench as it is; the record of what was built keeps its words | 13, 3 | 21, 3 | 21, 11 | 54, 18 |
+| STATUS.md, `docs/bench-plan.md` | the lines that describe the bench as it is; the record of what was built keeps its words | 13, 3 | 21, 3 | 21, 11 | 41, 18 |
 | The previews | the 17 of `docs/*-preview.png` and the wiki's images, by `tools/make_previews.py --wiki` | | | | |
 
 Wiki page titles. A page is renamed only where it is named after a screen:
@@ -603,8 +612,8 @@ there.
 
 ## What the structure requires of DShot
 
-Input for `docs/design/dshot-lifetime.md`, which decides the DShot lifetime
-and the pin claim. This note decides none of it.
+Input for [dshot-lifetime.md](dshot-lifetime.md), which decides the DShot
+lifetime and the pin claim. This note decides none of it.
 
 1. **Screens that need DShot running:** ESC TESTER and ESC COMMANDS. No
    other screen sends a frame or reads the ESC's telemetry for its own work.
@@ -616,6 +625,10 @@ and the pin claim. This note decides none of it.
 4. **ESC TESTER's readouts open SETUP.** By the owner's rule DShot stops
    there and starts again on BACK. SETUP can change SIG's pin and the DShot
    rate meanwhile (`applyLive()`).
+   Revised by dshot-lifetime.md decision 6, pending the owner's review:
+   DShot keeps running while SETUP is open over ESC TESTER, and a SIG PIN
+   change there binds DShot on the new pin while SETUP is on screen. Not
+   built.
 5. **SETUP's LINK line,** `LINK  998/S  0% ERR`, reads the running DShot's
    telemetry (`src/ui_settings.cpp`, `LINK_Y`). Without DShot it has no
    source.
@@ -647,7 +660,7 @@ and the pin claim. This note decides none of it.
 13. **A claiming tool returns to its hub.** After the leave page's last
     button the hub is open with nothing on SIG. From ESC SETTINGS or USB
     BRIDGE the next tap can be ESC COMMANDS, which starts DShot on the pin
-    just released.
+    the tool released.
 14. **New texts use the names of [Names](#names):** `SETUP`, `LOGS`,
     `RECEIVER`, `ESC PROGRAM`.
 15. **The look asks nothing of DShot.** [ui-theme.md](ui-theme.md) changes
@@ -712,10 +725,10 @@ note's own recommendation and waits for the owner's review:
     `SET LENGTH IN ANGLE SET FOR MM`, 30 characters, and `ANGLE SET NOT
     SAVED TO FLASH.`, 29. `SET` at scale 2 is 34 px in the 72 px button.
     SETUP then names one place, MENU's sixth row. Slice 5 changes the
-    texts in `src/ui_angle.cpp` and `src/ui_angle.h`. The line the build
-    adds to [angle-meter.md](angle-meter.md), where it names ANGLE SETUP:
+    texts in `src/ui_angle.cpp` and `src/ui_angle.h`. The line added to
+    [angle-meter.md](angle-meter.md#setup), where it names ANGLE SETUP:
     "Revised by menu-c.md decision 17, pending the owner's review: the view
-    reads ANGLE SET and its button SET."
+    reads ANGLE SET and its button SET. Not built."
 18. Developer's call of 2026-11-16, pending the owner's review: **The wiki
     page Setup.** Option (a): the page keeps its name, `Setup` and in
     German `Einrichtung`, and gains one line under its title that sends
@@ -724,38 +737,46 @@ note's own recommendation and waits for the owner's review:
 
 ## Decisions of menu-b.md this revises
 
-[menu-b.md](menu-b.md) is not edited now. The build adds each line below to
-the decision it names, when the slice that changes it merges.
+Each line below stands now in the decision it names, as
+[dshot-lifetime.md](dshot-lifetime.md#documents) adds its own, marked "Not
+built". A part that comes from a developer's call reads "pending the
+owner's review". No owner decision's text is changed; the build marks a
+line built when the slice that changes the decision merges.
 
-| Decision of menu-b.md | Whose | The line the build adds |
+| Decision of menu-b.md | Whose | The line |
 |---|---|---|
-| 1, six rows that never scroll; 33, seven rows scroll 36 px; the revision of 2026-11-15 under [MENU](menu-b.md#menu), eight rows scroll 78 px | owner | Revised by menu-c.md decision 4: MENU is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it does not scroll. |
-| 2, SERVO PROGRAMMER and its chooser | owner | Revised by menu-c.md: no MENU row reads SERVO PROGRAMMER and no screen is titled PROGRAMMER. KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC are entries 3 to 5 of the hub SERVO, with the lines and the gate of this decision; CLASSIC's second line reads `AND SETUP > SERVO SUPPLY GP28/29.` A future brand adds a hub entry. |
-| 4, SETTINGS from the tester | owner | Revised by menu-c.md decision 6: the screen reads SETUP. |
-| 5, BACK goes one level up, or is drawn disabled | this note's rule; the owner confirmed the leave page's BACK (25) | Revised by menu-c.md decisions 7 and 10: MENU, the root, draws no BACK. A tool opened from a hub returns to the hub, where this decision's table says MENU. |
-| 13, a title names its screen | rule | Revised by menu-c.md decision 6: the hubs are titled ESC PROGRAM, SERVO and RECEIVER; SD LOG's title reads LOGS and SETTINGS' reads SETUP; PROGRAMMER and TOOLS are gone. |
-| 16 and 23, MENU order by device | 23 owner | Revised by menu-c.md decision 4: the order by device stays, one row per device class after ESC TESTER: ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. |
-| 17, SETTINGS returns to where it was opened | choice | Revised by menu-c.md decision 6: the screen reads SETUP. |
-| 18, MENU statuses report state | choice | Revised by menu-c.md: a row that opens a hub carries `>`; the rows SD LOG and SETTINGS read LOGS and SETUP. |
-| 19, the chooser opens a tool | choice | Revised by menu-c.md decision 7: the hub widget `ui_hub` replaces the chooser; `UiScreenId::ServoProg` and `Tools` are gone; a chosen tool's origin is its hub, not MENU. |
-| 32, RX SIGNALS after SERVO PROGRAMMER; 35, RX SIGNALS shown | owner | Revised by menu-c.md decision 6: the row follows SERVO and reads RECEIVER. |
-| "Not changed": the tester is the root | reason of the note | Revised by the owner's decisions of 2026-11-15, menu-c.md decisions 1 and 2: MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. |
+| 1, six rows that never scroll; 33, seven rows scroll 36 px; the revision of 2026-11-15 under [MENU](menu-b.md#menu), eight rows scroll 78 px | owner | Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15: MENU is the start screen and has six rows, ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP; it does not scroll. Not built. |
+| 2, SERVO PROGRAMMER and its chooser | owner | Revised by [menu-c.md](menu-c.md#the-hub), after its owner decisions 4 and 6 of 2026-11-15: no MENU row reads SERVO PROGRAMMER and no screen is titled PROGRAMMER. KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC are entries 3 to 5 of the hub SERVO, with the lines and the gate of this decision; CLASSIC's second line reads `AND SETUP > SERVO SUPPLY GP28/29.` A future brand adds a hub entry. Not built. |
+| 4, SETTINGS from the tester | owner | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the screen reads SETUP. Not built. |
+| 5, BACK goes one level up, or is drawn disabled | this note's rule; the owner confirmed the leave page's BACK (25) | Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15 and decision 10: MENU, the root, draws no BACK. A tool opened from a hub returns to the hub, where this decision's table says MENU. Not built. |
+| 13, a title names its screen | rule | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the hubs are titled ESC PROGRAM, SERVO and RECEIVER; SD LOG's title reads LOGS and SETTINGS' reads SETUP; PROGRAMMER and TOOLS are gone. Not built. |
+| 16 and 23, MENU order by device | 23 owner | Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15: the order by device stays, one row per device class after ESC TESTER: ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Not built. |
+| 17, SETTINGS returns to where it was opened | choice | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the screen reads SETUP. Not built. |
+| 18, MENU statuses report state | choice | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15 and decision 13: a row that opens a hub carries `>`; the rows SD LOG and SETTINGS read LOGS and SETUP. Not built. |
+| 19, the chooser opens a tool | choice | Revised by [menu-c.md](menu-c.md#decisions) owner decision 7 of 2026-11-15 and decision 8: the hub widget `ui_hub` replaces the chooser; `UiScreenId::ServoProg` and `Tools` are gone; a chosen tool's origin is its hub, not MENU. Not built. |
+| 32, RX SIGNALS after SERVO PROGRAMMER; 35, RX SIGNALS shown | owner | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the row follows SERVO and reads RECEIVER. Not built. |
+| ["Not changed"](menu-b.md#not-changed): the tester is the root | reason of the note | Revised by the owner's decisions 1 and 2 of 2026-11-15, [menu-c.md](menu-c.md#decisions) and [dshot-lifetime.md](dshot-lifetime.md): MENU is the root; DShot runs only while ESC TESTER or ESC COMMANDS is open. Not built. |
 
-Not revised: owner decisions 3 (one leave page), 24 to 31 and 34, and
-decisions 6 to 12, 14, 15 and 20 to 22. [ui-theme.md](ui-theme.md#revisions)
-revises decisions 8, 11 and 14 for the look.
+Revised by the other notes, with their lines in menu-b.md too:
+[dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9, pending the
+owner's review, revises owner decisions 3 and 30 and decision 21, the leave
+page's last button and its wait; [ui-theme.md](ui-theme.md#revisions)
+revises decisions 8, 11 and 14 and owner decision 26 for the look.
+Revised by none of the three: owner decisions 24, 25, 27 to 29, 31 and 34,
+and decisions 6, 7, 9, 10, 12, 15, 20 and 22.
 
-Decisions of other notes, each the owner's:
+Decisions of other notes, each the owner's but the last:
 
-| Decision | The line the build adds |
+| Decision | The line |
 |---|---|
-| [menu.md](menu.md#decisions) 1, MENU behind the tester's button | Revised by menu-c.md decision 1: MENU is the root; the tester is MENU's first row and its MENU button returns there. |
-| [menu.md](menu.md#decisions) 12, the names MENU and SETTINGS | Revised by menu-c.md decision 6: SETTINGS reads SETUP. |
-| [menu.md](menu.md#decisions) 13, one SETTINGS list | Revised by menu-c.md decision 6 for the name only: SETUP stays one list in sections. |
-| [esc-commands.md](esc-commands.md#decisions) 1, ESC COMMANDS as MENU's first row | Revised by menu-c.md decision 4: ESC COMMANDS is the first entry of the hub ESC PROGRAM. |
-| [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) 1 and [usb-bridge.md](usb-bridge.md#decisions) 1, the chooser ESC CONFIG with ESC SETTINGS and USB BRIDGE | Revised by menu-c.md decisions 4 and 6: the hub reads ESC PROGRAM and also holds ESC COMMANDS, as its first entry. |
-| [angle-meter.md](angle-meter.md#decisions) 1, the MENU row TOOLS | Revised by menu-c.md decision 5: TOOLS is gone; ANGLE METER is the second entry of the hub SERVO. |
-| [rx-signals.md](rx-signals.md#decisions) 4, one row RX SIGNALS | Revised by menu-c.md decision 6: the row and its hub read RECEIVER. |
+| [menu.md](menu.md#decisions) 1, MENU behind the tester's button | Revised by [menu-c.md](menu-c.md#decisions) owner decision 1 of 2026-11-15: MENU is the root; the tester is MENU's first row and its MENU button returns there. Not built. |
+| [menu.md](menu.md#decisions) 12, the names MENU and SETTINGS | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: SETTINGS reads SETUP. Not built. |
+| [menu.md](menu.md#decisions) 13, one SETTINGS list | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15 for the name only: SETUP stays one list in sections. Not built. |
+| [esc-commands.md](esc-commands.md#decisions) 1, ESC COMMANDS as MENU's first row | Revised by [menu-c.md](menu-c.md#decisions) owner decision 4 of 2026-11-15: ESC COMMANDS is the first entry of the hub ESC PROGRAM. Not built. |
+| [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) 1 and [usb-bridge.md](usb-bridge.md#decisions) 1, the chooser ESC CONFIG with ESC SETTINGS and USB BRIDGE | Revised by [menu-c.md](menu-c.md#decisions) owner decisions 4 and 6 of 2026-11-15: the hub reads ESC PROGRAM and also holds ESC COMMANDS, as its first entry. Not built. |
+| [angle-meter.md](angle-meter.md#decisions) 1, the MENU row TOOLS | Revised by [menu-c.md](menu-c.md#decisions) owner decision 5 of 2026-11-15: TOOLS is gone; ANGLE METER is the second entry of the hub SERVO. Not built. |
+| [rx-signals.md](rx-signals.md#decisions) 4, one row RX SIGNALS | Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15: the row and its hub read RECEIVER. Not built. |
+| [angle-meter.md](angle-meter.md#setup), the view ANGLE SETUP, not a decision | Revised by [menu-c.md](menu-c.md#decisions) decision 17, pending the owner's review: the view reads ANGLE SET and its button SET. Not built. |
 
 A decision of another note that names SD LOG or SETTINGS in passing gains
 no line. `docs/design/README.md` gains the table of [Names](#names) once,
@@ -765,9 +786,9 @@ for a reader of the older notes.
 
 | What | Why |
 |---|---|
-| The pin claim, its states, its release order and the core1 jobs | the structure moves entry points; a claim still starts on the tap that opens a claiming tool. Their changes for DShot's lifetime are those of `docs/design/dshot-lifetime.md` |
+| The pin claim, its states, its release order and the core1 jobs | the structure moves entry points; a claim still starts on the tap that opens a claiming tool. Their changes for DShot's lifetime are those of [dshot-lifetime.md](dshot-lifetime.md#the-pin-claim) |
 | `uiPinsRefuse()` as the one gate | MENU and the hubs draw what it says |
-| The leave page, `ui_leave`, its three phases, STAY, LEAVE, NEXT SERVO, BACK TO SERVO, its BACK drawn disabled and the 1000 ms wait of its last button | [menu-b.md](menu-b.md#the-leave-page), owner decisions 3, 25 and 30. Only where its last button returns changes |
+| The leave page, `ui_leave`, its three phases, STAY, LEAVE, NEXT SERVO, its BACK drawn disabled and the 1000 ms wait of its last button | [menu-b.md](menu-b.md#the-leave-page), owner decisions 3, 25 and 30. This note changes only where its last button returns. By [dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9, pending the owner's review, the last button reads the hub's title and SERVO TESTER's `BACK TO SERVO` reads `NEXT SERVO` |
 | Every hold: HOLD TO ARM, HOLD TO WRITE, HOLD TO SAVE, HOLD TO START, HOLD TO APPLY, HOLD TO REBOOT, HOLD TO KEEP, and `UI_HOLD_MS`, 1000 ms | the holds are the deliberate actions the interlocks count. [ui-theme.md](ui-theme.md#decisions) changes their fill, not their time |
 | A tap opens the write page and only the write page holds | menu-b.md decision 6 |
 | The BACK guard over unwritten edits | menu-b.md decision 7 |
@@ -803,17 +824,13 @@ claim, which the Hitec row above states.
 ## Slices
 
 The slices of this note are slices 1 to 6 of [the build plan](#build-plan).
-Slices 1 to 4 keep the numbers they had at 71a060f. Slice 5 is new, the
-rename of owner decision 6. The records, slice 5 at 71a060f, are slice 6.
+Slice 5 is the rename of owner decision 6; slice 6 the records.
 
 ## Build plan
 
-One ordered list for this note and [ui-theme.md](ui-theme.md), which links
-here. Slices 1 to 6 build the structure, 7 to 14 the look. D1 to D5 are the
-slices of `docs/design/dshot-lifetime.md`, read on the branch
-`ccr-dshot-life` at 82ad438 for its slice table only. That table names
-this note's slices by their numbers at 71a060f: its "menu-c.md slice 5" is
-slice 6 here.
+One ordered list for this note, [ui-theme.md](ui-theme.md) and
+[dshot-lifetime.md](dshot-lifetime.md#slices), which link here. Slices 1 to
+6 build the structure, 7 to 14 the look, D1 to D5 the DShot lifetime.
 
 Each slice is host-tested and mutation-checked, and updates its own README,
 wiki pages in English and German, previews, CHANGELOG and STATUS lines, by
@@ -824,41 +841,58 @@ host, and every colour stays marked "not seen on the panel".
 
 The model a slice suits: Opus for safety and core logic; Fable for look,
 widgets and screen layout; Sonnet for mechanical renames, the docs and wiki
-pairs, and the previews.
+pairs, and the previews. D1 to D4 are Opus, D5 Sonnet.
 
 | Slice | What | Model | Host tests | D1 to D5 |
 |---|---|---|---|---|
 | 1. `ui_hub` | The widget, the one entry type and `hubEntriesFit()`. The four choosers become four tables on it. No screen, text or tap changes. | Fable | The existing chooser cases of `test_menu.cpp`, `test_kst_ui.cpp`, `test_hitec_ui.cpp`, `test_sbus_ui.cpp`, `test_sbus_out_ui.cpp`, `test_bridge_ui.cpp` and `test_angle_ui.cpp` pass unchanged. New: the control table of a hub lists each entry at its rectangle; a disabled entry reports disabled and takes no tap. Mutation: break `enabled`, the HITEC CLASSIC case fails. | independent. D1, the pump's three modes with no caller changed, can merge before it or with it |
-| 2. Navigation stack | In `src/ui.cpp`: BACK pops one screen; a chooser's tool returns to its chooser, by BACK and by the leave page's last button (owner decision 7); a chooser keeps its scroll; the choosers lose `freePins` and gate each entry on `uiPinsRefuse()`. The tester stays the root. | Opus | New, by control id: for each of the eight chooser entries, open it and leave it by BACK, and by the leave page's last button where it has one; `uiCurrentScreen()` is the opener. SETTINGS from a readout returns to the tester. A chooser opened while the claim is not Free draws its claiming entries disabled. Mutation: restore the origin MENU, the return cases fail. | **D2 needs it.** D2 changes what the leave page's last button does to the pin, and D4 what it reads; this slice changes where it returns |
-| 3. MENU as the root | The frame function starts on MENU; the header draws no BACK (`uiHeader()` gains the variant); the row ESC TESTER, first, with `freePins`; the tester opens disarmed and its MENU button returns to MENU; the EDT chip goes from the strip. Nine rows meanwhile, scrolling 9 × 42 − 258 = 120 px. | Opus | New: after `uiInit()` the screen is `Menu`; MENU's control table has no `UI_BACK`; a tap on row 0 opens `Tester`; `TesterCtl::Menu` disarms and returns; armed state, throttle and LATCH are clear on each open; the row is disabled while the claim is not Free. The suites that start on the tester (`test_ui.cpp` and the helpers `openMenu()`, `openSettings()`, `openServo()` and the others) open it through the row. Mutation: draw BACK at the root, the control-table case fails. | **D2 needs it** and D1, and follows at once; D3 follows D2. Until D2 merges, DShot runs on MENU as at cff09ae, so `main` is no less safe than cff09ae |
-| 4. Six rows, three hubs | SERVO holds SERVO TESTER, ANGLE METER and the three programmers, scrolling 146 px; ESC COMMANDS joins ESC CONFIG; PROGRAMMER and TOOLS go; `>` on the hub rows. The names are still those of cff09ae: ESC CONFIG, RX SIGNALS, SD LOG, SETTINGS. `buildItems()` of `src/ui_settings.cpp`, which walks `uiMenuEntries()` for a tool's section, walks the hubs' entries too. | Fable | New: `UI_MENU_COUNT` is 6 and `uiListMaxScroll()` of MENU is 0; every row is whole and acts at scroll 0; SERVO's range is 146 px; at scroll 0 entry 3 is listed and does not act; at 146 px HITEC CLASSIC's third line ends at y 316; each hub's entries open the screens of [the table](#every-screen-old-place-and-new-place). `menuRowsFit()` and `hubEntriesFit()` hold at build time. Mutation: a sixth entry line too long fails the build; a content of 400 px fails the y 316 case. | **D4 needs it** for the hubs it names. ESC COMMANDS keeps `freePins` as a hub entry; requirement 12 of [the list above](#what-the-structure-requires-of-dshot) is D2's and D3's |
-| 5. The rename | Owner decision 6, as [The rename slice's work](#the-rename-slices-work) lists it: the four labels and titles, the seven screen texts, the tests' expectations, README, the wiki in both languages with the page pair Receiver and Empfaenger, the wiring drawing, the release text, rule 9, the previews. It applies [decisions 17 and 18](#decisions). | Sonnet | The suite passes with the expectations changed and no case removed; `menuRowsFit()` and the title `static_assert`s hold. `python3 test/check_docs.py` with the four old words in rule 9; `tools/check_wiki.py` with the renamed pair; `tools/make_wiring.py --check`. Mutation: `SETTINGS` back in one screen text, its expectation fails; an old word in a wiki page, rule 9 fails. | D4's texts use the new names (requirement 14): D4 follows this slice, or this slice renames what D4 added |
-| 6. The structure's records | The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises) in menu-b.md, menu.md, esc-commands.md, bluejay-blheli-s.md, usb-bridge.md, angle-meter.md and rx-signals.md; the names table in `docs/design/README.md`; README "Layout" and "The user manual"; the tree of The-Screens and Die-Bildschirme. | Sonnet | `python3 test/check_docs.py` with the removed names `SERVO PROGRAMMER`, `PROGRAMMER` and `TOOLS` as MENU paths; `tools/check_wiki.py`. | **D5 goes with it:** the design notes' descriptions and the bench plan |
-| 7. Palette | `THEME_DARK` in `src/theme.cpp` as `rgb()` triples; the comments of `theme.h`: the table's `C_ONACCENT` row and the entries' meanings. Dark ink on every fill (ui-theme.md decision 3). | Fable | New, `test_widgets.cpp`: each word equals its triple; every entry but `TC_PAPER` differs from every other in both themes, so the colour probes stay valid; [the contrast table](ui-theme.md#contrast) as a check, each text pair 4.5 or more but the named exceptions, each label on a fill 4.5 or more. Mutation: one value changed. | independent |
-| 8. Neutral fills | The editor `-` and `+` of ESC SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR, as neutral buttons; the neutral chip, `uiChip()` with `C_GRID`; the header's rule; the hints in `C_DIM`; a slider's fill in `C_GRID`. | Fable | Each button's fill and label by control id, 5 screens. `test_ui.cpp` 1650 and 1670, `test_angle_ui.cpp` 329, `test_bridge_ui.cpp` 264 and 333 rewritten: frame, `C_BG` inside, `C_DIM` label; `chipIs()` gains the case. The rule's row on every screen with a header; `test_servo.cpp` 3394; the hints by text and colour. No fit check changes: no text moves. | independent |
+| 2. Navigation stack | In `src/ui.cpp`: BACK pops one screen; a chooser's tool returns to its chooser, by BACK and by the leave page's last button (owner decision 7); a chooser keeps its scroll; the choosers lose `freePins` and gate each entry on `uiPinsRefuse()`. The tester stays the root. | Opus | New, by control id: for each of the eight chooser entries, open it and leave it by BACK, and by the leave page's last button where it has one; `uiCurrentScreen()` is the opener. SETTINGS from a readout returns to the tester. A chooser opened while the claim is not Free draws its claiming entries disabled. Mutation: restore the origin MENU, the return cases fail. | **D2 needs it.** D2 changes what the leave page's last button does to the pin and what it reads; this slice changes where it returns |
+| 3. MENU as the root | The frame function starts on MENU; the header draws no BACK (`uiHeader()` gains the variant); the row ESC TESTER, first, with `freePins`; the tester opens disarmed and its MENU button returns to MENU. The EDT chip stays until D2. Nine rows meanwhile, scrolling 9 × 42 − 258 = 120 px. | Opus | New: after `uiInit()` the screen is `Menu`; MENU's control table has no `UI_BACK`; a tap on row 0 opens `Tester`; `TesterCtl::Menu` disarms and returns; armed state, throttle and LATCH are clear on each open; the row is disabled while the claim is not Free. The suites that start on the tester (`test_ui.cpp` and the helpers `openMenu()`, `openSettings()`, `openServo()` and the others) open it through the row. Mutation: draw BACK at the root, the control-table case fails. | **D2 needs it**, with slice 4 and D1. From this slice until D2 merges, DShot runs from boot behind MENU, on every screen as at cff09ae, so `main` is no less safe than cff09ae |
+| 4. Six rows, three hubs | SERVO holds SERVO TESTER, ANGLE METER and the three programmers, scrolling 146 px; ESC COMMANDS joins ESC CONFIG; PROGRAMMER and TOOLS go; `>` on the hub rows. The names are still those of cff09ae: ESC CONFIG, RX SIGNALS, SD LOG, SETTINGS. `buildItems()` of `src/ui_settings.cpp`, which walks `uiMenuEntries()` for a tool's section, walks the hubs' entries too. | Fable | New: `UI_MENU_COUNT` is 6 and `uiListMaxScroll()` of MENU is 0; every row is whole and acts at scroll 0; SERVO's range is 146 px; at scroll 0 entry 3 is listed and does not act; at 146 px HITEC CLASSIC's third line ends at y 316; each hub's entries open the screens of [the table](#every-screen-old-place-and-new-place). `menuRowsFit()` and `hubEntriesFit()` hold at build time. Mutation: a sixth entry line too long fails the build; a content of 400 px fails the y 316 case. | **D2 needs it:** D2's tests open each tool from its hub, D2 draws the line of dshot-lifetime.md decision 11 on SERVO and RECEIVER, and decision 9's labels read the hub's title. ESC COMMANDS keeps `freePins` as a hub entry; requirement 12 of [the list above](#what-the-structure-requires-of-dshot) is D2's and D3's |
+| 5. The rename | Owner decision 6, as [The rename slice's work](#the-rename-slices-work) lists it: the four labels and titles, the seven screen texts, the tests' expectations, README, the wiki in both languages with the page pair Receiver and Empfaenger, the wiring drawing, the release text, rule 9, the previews. It applies [decisions 17 and 18](#decisions). | Sonnet | The suite passes with the expectations changed and no case removed; `menuRowsFit()` and the title `static_assert`s hold. `python3 test/check_docs.py` with the four old words in rule 9; `tools/check_wiki.py` with the renamed pair; `tools/make_wiring.py --check`. Mutation: `SETTINGS` back in one screen text, its expectation fails; an old word in a wiki page, rule 9 fails. | **D4 follows it** (requirement 14). D2's texts take the hub's title as the hub draws it, so D2 does not wait for it |
+| 6. The structure's records | The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises), which stand in menu-b.md, menu.md, esc-commands.md, bluejay-blheli-s.md, usb-bridge.md, angle-meter.md and rx-signals.md, marked built; the names table in `docs/design/README.md`; README "Layout" and "The user manual"; the tree of The-Screens and Die-Bildschirme. | Sonnet | `python3 test/check_docs.py` with the removed names `SERVO PROGRAMMER`, `PROGRAMMER` and `TOOLS` as MENU paths; `tools/check_wiki.py`. | **D5 goes with it:** the design notes' descriptions and the bench plan |
+| 7. Palette | `THEME_DARK` in `src/theme.cpp` as `rgb()` triples; the comments of `theme.h`: the table's `C_ONACCENT` row and the entries' meanings. Dark ink on every fill (ui-theme.md decision 3). | Fable | New, `test_widgets.cpp`: each word equals its triple; every entry but `TC_PAPER` differs from every other in both themes, so the colour probes stay valid; [the contrast table](ui-theme.md#contrast) as a check, each text pair 4.5 or more but the named exceptions, each label on a fill 4.5 or more. Mutation: one value changed. | independent; merges to `main` in one pull request with slice 8 |
+| 8. Neutral fills | The editor `-` and `+` of ESC SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR, as neutral buttons; the neutral chip, `uiChip()` with `C_GRID`; the header's rule; the hints in `C_DIM`; a slider's fill in `C_GRID`. | Fable | Each button's fill and label by control id, 5 screens. `test_ui.cpp` 1650 and 1670, `test_angle_ui.cpp` 329, `test_bridge_ui.cpp` 264 and 333 rewritten: frame, `C_BG` inside, `C_DIM` label; `chipIs()` gains the case. The rule's row on every screen with a header; `test_servo.cpp` 3394; the hints by text and colour. No fit check changes: no text moves. | independent; merges with slice 7: slice 7 alone would leave these fills' dark ink at 3.51 |
 | 9. Radius | ui-theme.md decision 4: the corner solver of `gfxRoundRect()` and `roundFrame1px()` draws `UI_RADIUS`, 5 px. Chips stay square, and the tester's badge and its `SDERR` chip are drawn square. | Fable | `test_gfx.cpp`: the corner pixels of a 5 px fill and frame, insets 2, 1, 0. `test_widgets.cpp`: a chip's corner pixel lit, a button's not; the badge's corner pixel lit. Mutation: the solver put back. | independent |
 | 10. Cyan | ui-theme.md decision 1: BACK and the tester's `MENU` as the home tag; SETUP's values and section captions, and the plain values of SERVO SET, OUTPUT SET and ANGLE METER's settings view; a changed value as `C_ONACCENT` on a `C_CYAN` fill with the bar; `>` in `C_CYAN`. Needs slices 3, 4, 7 and 9. | Fable | `test_widgets.cpp`: `uiHeader()` draws BACK on `C_CYAN` with a `C_ONACCENT` label, disabled on `C_BG`, and none at the root; the 130 checks "BACK is drawn live" read the new fill through their one helper. `uiListDrawField()`: Changed is a `C_CYAN` rectangle behind `C_ONACCENT` ink, with the bar; Plain is `C_TEXT` on a device list and `C_CYAN` on a settings list; the fill ends 4 px or more after the label. SETUP: a value and a caption in `C_CYAN`, a warning value still `C_AMBER`. Mutation: the fill removed, the Changed case fails; BACK neutral, the header case fails. | independent |
-| 11. Green on the tools | ui-theme.md decision 2: HOLD TO WRITE and HOLD TO RESTORE of ESC WRITE, KST and Hitec, HOLD TO START of SERVO TESTER and S.BUS OUTPUT and HOLD TO APPLY are `C_GREEN` at rest and `C_RED` while held; `uiChip()` with `C_GREEN` draws the outline. Needs slices 7 and 9. | Fable | By control id: each hold's fill and label at rest, while held and disabled. `chipIs()` gains the outlined case; the SAFE, OK, SETTLED and EDT ON checks are rewritten. A walk over the suite's frames: every `C_GREEN` rectangle larger than a chip is a control of the start list. Mutation: one hold left neutral; the chip filled. | independent |
-| 12. Green on the tester | ui-theme.md decision 2 on the arm control: HOLD TO ARM `C_GREEN` at rest and `C_RED` from the first frame of the hold; the SAFE badge as an outlined, square chip; ARMED and DISARM as built. Needs slices 3, 9 and 11. | Opus | HOLD TO ARM: `C_GREEN` at rest, `C_RED` while held, `C_BG` while a USB host holds the card. SAFE: the frame and the word in `C_GREEN`, `C_BG` inside. ARMED: the `C_RED` fill. While armed the tester's frame holds no `C_GREEN` pixel. Mutation: the badge filled green; ARM left green while armed. | independent of their logic. It draws in `drawButtons()` and `drawStatusBar()` of `src/ui.cpp`, which D3, the tester on a starting pump, may touch: the second to merge rebases |
+| 11. Green on the tools | ui-theme.md decision 2: HOLD TO WRITE and HOLD TO RESTORE of ESC WRITE, KST and Hitec, HOLD TO START of SERVO TESTER and S.BUS OUTPUT and HOLD TO APPLY are `C_GREEN` at rest and `C_RED` while held; `uiChip()` with `C_GREEN` draws the outline. Two buttons of the DShot lifetime: the leave page's wide button to the hub (dshot-lifetime.md decision 9) is a way back, `C_CYAN` with a `C_ONACCENT` label; START DSHOT of the start step on ESC COMMANDS (decision 8) starts an output, `C_GREEN` at rest (ui-theme.md decision 16). Needs slices 7, 9 and 10. | Fable | By control id: each hold's fill and label at rest, while held and disabled. `chipIs()` gains the outlined case; the SAFE, OK, SETTLED and EDT ON checks are rewritten. A walk over the suite's frames: every `C_GREEN` rectangle larger than a chip is a control of the start list. Each tool's leave page: the wide button reads the hub's title, `C_BG` with a `C_GRID` label for its 1000 ms, then `C_CYAN` with `C_ONACCENT` ink. ESC COMMANDS' start step: START DSHOT `C_BG` for 999 ms, then `C_GREEN` with `C_ONACCENT` ink. Mutation: one hold left neutral; the chip filled; the hub button left neutral; START DSHOT neutral. | **after D3:** D2 draws the hub button and D3 START DSHOT |
+| 12. Green on the tester | ui-theme.md decision 2 on the arm control: HOLD TO ARM `C_GREEN` at rest and `C_RED` from the first frame of the hold; the SAFE badge as an outlined, square chip; ARMED and DISARM as built; HOLD TO ARM drawn disabled while the arm gate of dshot-lifetime.md decisions 10 and 12 or #49's touch loss refuses arming; START DSHOT on the tester's start step `C_GREEN` (ui-theme.md decision 16). Needs slices 3, 9 and 11. | Opus | HOLD TO ARM: `C_GREEN` at rest, `C_RED` while held, `C_BG` with a `C_GRID` label while a USB host holds the card, for 1499 ms after the bind, and while the touch is lost; `C_GREEN` at 1500 ms with the touch answering. SAFE: the frame and the word in `C_GREEN`, `C_BG` inside. ARMED: the `C_RED` fill. While armed the tester's frame holds no `C_GREEN` pixel. START DSHOT on ESC TESTER's start step: `C_BG` for 999 ms, then `C_GREEN`. Mutation: the badge filled green; ARM left green while armed; ARM green while the gate holds. | **after D3:** it draws the gate's state of D2 and the start step of D3 in `drawButtons()` and `drawStatusBar()` of `src/ui.cpp`, which D2 and D3 change first |
 | 13. Screens | One pass per screen in each theme for a pair the tables of ui-theme.md do not name: red text on `C_PANEL`, text on a role fill drawn outside `uiChip()` and `uiButton()`. | Fable | A walk over the suite's frames: no text pixel under 4.5 against its background outside the listed exceptions, as a suite check or a script over the shots. | **after D3 and D4**, so that their states and texts are in the walk |
 | 14. The look's records and previews | The revision lines of [ui-theme.md](ui-theme.md#revisions); `tools/make_previews.py --wiki`; README's "High contrast" and the screens' texts; "grey" replaced by the role in README and the wiki, both languages; STATUS.md open item 25 closed. | Sonnet | `python3 test/check_docs.py`, `tools/check_wiki.py`. | **after D4**: the previews show MENU without DShot and the new texts |
-| D1 to D5 | `docs/design/dshot-lifetime.md`: D1 the pump's three modes; D2 the lifetime, boot parked; D3 the tester and ESC COMMANDS on a starting pump; D4 the texts; D5 the documents. | Opus, by that note | that note's | D1 any time; D2 after slices 2 and 3 and D1; D3 after D2; D4 after D2 and slices 4 and 5; D5 after D4, with slice 6 |
+| D1. The pump's three modes | [dshot-lifetime.md](dshot-lifetime.md#d1-the-pumps-three-modes-opus): Run, Park and Release on core1, the park with no high glitch, core1's bind stamp; no caller changes. | Opus | that note's | any time; before slice 1 or with it |
+| D2. The lifetime | [dshot-lifetime.md](dshot-lifetime.md#d2-the-lifetime-opus): boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart, with decision 9's labels; MENU's EDT chip goes ([decision 12](#decisions)). | Opus | that note's | after slices 2, 3 and 4 and D1 |
+| D3. A starting pump | [dshot-lifetime.md](dshot-lifetime.md#d3-esc-commands-and-the-run-cue-on-a-starting-pump-opus): ESC COMMANDS' start text, the start step while the run cue stands, the bridge's run cue, the log's eRPM. | Opus | that note's | after D2 |
+| D4. SETUP's texts | [dshot-lifetime.md](dshot-lifetime.md#d4-setups-texts-and-the-comments-opus): SETUP's pin note and LINK, the comments of the boot order. | Opus | that note's | after D2 and slice 5 |
+| D5. The lifetime's records | [dshot-lifetime.md](dshot-lifetime.md#d5-the-documents-sonnet): the design notes' descriptions, the bench plan. | Sonnet | its checks | after D4, with slice 6 |
 
-The order. Slices 1 to 6 are a chain. Slices 7 to 9 are a chain of their
-own and touch `src/theme.cpp`, `src/gfx.cpp` and `src/ui_widgets.cpp`, not
-the registry or the navigation, so they can run beside slices 1 to 4.
-Slices 10 to 12 join the two chains. 0.1.0 follows slice 14 and D5 (owner
+The order. Slices 1 to 6 are a chain. D1 joins it any time up to slice 1;
+D2 follows slice 4 and D1; D3 follows D2; D4 follows D2 and slice 5; D5
+goes with slice 6, after D4. Slices 7 to 9 are a chain of their own and
+touch `src/theme.cpp`, `src/gfx.cpp` and `src/ui_widgets.cpp`, not the
+registry or the navigation, so they can run beside slices 1 to 4; slices 7
+and 8 merge in one pull request. Slice 10 follows slices 3, 4, 7 and 9;
+slice 11 follows slice 10 and D3; slice 12 follows slice 11 and D3; slice
+13 follows D3 and D4; slice 14 follows D4. The graph has no cycle. One
+order that meets every dependency: D1, 1, 2, 3, 4, D2, D3, 5, D4, 6, D5,
+7 and 8, 9, 10, 11, 12, 13, 14. 0.1.0 follows slice 14 and D5 (owner
 decision 3).
 
 What each slice leaves on `main`:
 
 - **After slice 2** a chooser's tool returns to its chooser. The screens
   are those of cff09ae.
+- **From slice 3 to D2** MENU is the first screen, and DShot runs from boot
+  behind it, on every screen, as at cff09ae. The splash's `UNPLUG ANY
+  SERVO FROM GP0 NOW` and MENU's EDT chip read a running DShot and are true.
 - **After slice 3** MENU has nine rows and scrolls 120 px, until slice 4.
-- **After slice 7** the six `C_GRID` fills carry dark ink at 3.51, until
-  slice 8.
 - **Between slices 4 and 5** the six rows read ESC TESTER, ESC CONFIG,
-  SERVO, RX SIGNALS, SD LOG, SETTINGS.
+  SERVO, RX SIGNALS, SD LOG, SETTINGS, and D2's leave pages read `ESC
+  CONFIG` and `RX SIGNALS` as their hubs' titles.
+- **From D2 to D5** the states that
+  [dshot-lifetime.md](dshot-lifetime.md#what-each-slice-leaves-on-main)
+  lists. D2 changes every text that names a DShot restart, so no false
+  safety text reaches `main`.
+- **Slices 7 and 8** merge together, so no fill carries dark ink at 3.51.
 
 ## Open questions
 
@@ -880,15 +914,17 @@ by the developer's calls of 2026-11-16, pending the owner's review:
 4. **Unverified on hardware.** Nothing here is tested on the board. The
    press floor of a cut entry and the drag on an 80 px list are host-tested
    only.
-5. **The rename's reach.** `SETTINGS` is named on 80 lines of README.md and
-   213 lines of the wiki, and the word stays legal as the stored settings
+5. **The rename's reach.** `SETTINGS` is named on 78 lines of README.md and
+   203 lines of the wiki, and the word stays legal as the stored settings
    and in `ESC SETTINGS`. Rule 9 can refuse the old word only as a path or
    a title, so a sentence that names the screen without a path is found by
    reading, not by the check.
 6. **Two meanings of LOGS.** rcbench's LOGS browses and plots files.
    MiniRcBench's LOGS starts and stops the recorder and browses nothing.
-7. **The DShot note is read for its slice table only,** on its branch at
-   82ad438. Its leave page asks the owner what the last button reads; the
-   structure requires only where it returns. The two notes are not yet on
-   one branch, and its link to this note's slices keeps the anchor
-   `#slices`.
+7. **Developer's calls built before the owner's review.** This note's
+   decisions 17 and 18, [ui-theme.md](ui-theme.md#decisions) decisions 14
+   to 16 and [dshot-lifetime.md](dshot-lifetime.md#decisions) decisions 5
+   to 13 are built while they wait for the owner. Decision 6 of
+   dshot-lifetime.md interprets owner decision 2; if the owner reads it the
+   other way, DShot parks under SETUP and requirement 4's revision line
+   goes.
