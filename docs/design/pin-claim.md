@@ -767,6 +767,15 @@ numbers stay, so the references above keep pointing at them.
    SERVO is titled SERVO TESTER; HITEC SERVO's claim, taken on PROGRAMMER's
    tap, follows the same wait, and for a D series servo on its own supply
    the job then waits for READ.
+   Revised by the owner's decision 2 of 2026-11-15
+   ([menu-c.md](menu-c.md#decisions)): DShot runs only while ESC TESTER or
+   ESC COMMANDS is open, so on MENU and in the hubs no ESC answers and the
+   wait refuses only within 500 ms of the last answer
+   ([dshot-lifetime.md](dshot-lifetime.md#the-pin-claim)). Revised by
+   [dshot-lifetime.md](dshot-lifetime.md#decisions) decisions 7 and 11,
+   pending the owner's review: in place of the lost check the hubs SERVO and
+   RECEIVER draw `NO ESC CHECK: UNPLUG ANY ESC FIRST.` before any entry is
+   tapped. Not built.
 4. **Unplug page.** A tap dismisses it. The page guards against forgetting,
    not against a slip of the finger, and BACK beside it undoes nothing
    dangerous.
@@ -776,6 +785,12 @@ numbers stay, so the references above keep pointing at them.
    in LEAVE's rectangle, takes only a press that lands 1000 ms or more
    after the pin is let go. The rule holds: the page guards against
    forgetting, and no exit control undoes anything dangerous.
+   Revised by the owner's decisions 2 and 7 of 2026-11-15
+   ([menu-c.md](menu-c.md#decisions)): the page's last button returns to
+   the tool's hub, and DShot starts again only with ESC TESTER or ESC
+   COMMANDS. Revised by [dshot-lifetime.md](dshot-lifetime.md#decisions)
+   decisions 5 and 9, pending the owner's review: the button parks SIG,
+   driven low, and reads the hub's title. Not built.
 
 Revision of 2026-10-18, after the owner's menu decisions
 ([menu.md](menu.md#decisions)): decision 2 is superseded. The MENU list of

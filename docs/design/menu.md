@@ -928,6 +928,9 @@ is accepted.
    through `uiOpenTool()`, which disarms as opening MENU does.
    Revised again by menu-b.md's decisions of 2026-11-15: MENU has eight
    rows and scrolls 78 px.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decision 1 of 2026-11-15:
+   MENU is the root; the tester is MENU's first row and its MENU button returns
+   there. Not built.
 2. **BEEP.** An action row on MENU, with the sent or refused flash on the
    row.
 3. **Poles and ceiling.** Motor poles and throttle ceiling move to the top
@@ -958,9 +961,13 @@ is accepted.
     WRITE, KST RESTORE, KST FILES, HITEC WRITE, HITEC RESTORE, HITEC FILES;
     the chooser reads
     PROGRAMMER.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
+    SETTINGS reads SETUP. Not built.
 13. **One SETTINGS list.** One list in sections, ESC TESTER, WIRING, SERVO
     SUPPLY (from slice 3), DISPLAY and BOARD, and no hub of sections, until
     about 20 rows.
+    Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15
+    for the name only: SETUP stays one list in sections. Not built.
 
 Choices made in this design where the decisions above left the choice; the
 owner has not decided them:

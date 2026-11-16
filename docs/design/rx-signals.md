@@ -1183,6 +1183,8 @@ Decisions of the owner, 2026-11-14, answering the open questions of
    MONITOR and OUTPUT. This is not the note's recommendation of two rows;
    the [MENU](#menu) section describes it as built. Its place in menu
    structure B is [menu-b.md](menu-b.md) decision 32.
+   Revised by [menu-c.md](menu-c.md#decisions) owner decision 6 of 2026-11-15:
+   the row and its hub read RECEIVER. Not built.
 
 Further decisions of the owner, 2026-11-14, on the output:
 
