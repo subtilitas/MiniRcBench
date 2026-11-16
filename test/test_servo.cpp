@@ -5185,6 +5185,17 @@ static void testCutScreens() {
 	          notesAre(SERVO_UI_CUT_HARD, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
 	checkTrue("HOLD TO START live", ctlEnabled(UI_FIX(ServoCtl::Start)));
 	fakeDumpFrame("shot_servo_overcurrent.ppm");
+	// The guard's cut ended the run, not the touch: a touch lost after it
+	// shows HOLD TO START's wait, not THE SERVO IS STOPPED.
+	fakeTouchAnswers(false);
+	senseFrames(ina, 5);
+	checkTrue("lost after OVERCURRENT: the wait, not THE SERVO IS STOPPED.",
+	          uiTouchLost() && s_st.powerFault == ServoPowerFault::Overcurrent &&
+	          notesAre(UI_TOUCH_LOST_TEXT, C_AMBER, SERVO_UI_TOUCH_WAIT_2, C_DIM));
+	fakeTouchAnswers(true);
+	senseFrames(ina, 2);
+	checkTrue("answering again: the cause in magenta again",
+	          notesAre(SERVO_UI_CUT_HARD, C_MAGENTA, "HOLD TO START AGAIN.", C_DIM));
 	ina->currentA = 0;
 	holdStartFrames();
 	senseFrames(ina, 3);
