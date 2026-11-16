@@ -1203,8 +1203,8 @@ Slice 7, the palette, and slice 8, the neutral fills, of
 [the build plan](menu-c.md#build-plan), in one pull request, with host tests
 in `test/test_widgets.cpp`, `test/test_ui.cpp`, `test/test_ids.cpp`,
 `test/test_servo.cpp`, `test/test_kst_ui.cpp`, `test/test_hitec_ui.cpp`,
-`test/test_sbus_out_ui.cpp`, `test/test_angle_ui.cpp` and
-`test/test_bridge_ui.cpp`. Not seen on the panel: every colour of both
+`test/test_sbus_out_ui.cpp`, `test/test_angle_ui.cpp`,
+`test/test_bridge_ui.cpp` and `test/test_esc_cmd_ui.cpp`. Not seen on the panel: every colour of both
 slices is computed, and the suite reads RGB565 words, not light.
 
 | Block | Where | What it draws |
@@ -1231,8 +1231,8 @@ The tests the plan names, and where they are:
   4.5 or more with no exception.
 - **Slice 8.** Each edit button's fill and label by control id on ESC
   SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR;
-  the neutral chip in `testChipNeutral()` and through `chipIs()` and
-  `menuChipIs()` on its three screens; the rule in `testHeaderRule()` and
+  the neutral chip in `testChipNeutral()` and through `chipIs()`,
+  `menuChipIs()` and `neutralChipIs()` on its four screens; the rule in `testHeaderRule()` and
   in `checkControlTable()` of `test/ui_ids.h`, which 158 frames of screens
   with a header pass through; each hint by its text and `C_DIM`; SPEED's
   fill and a running channel's fill.
@@ -1285,7 +1285,7 @@ Mutations, each run against the suite and restored:
 | `TC_ONACCENT` white in Dark | 12: the value, the equal pair `TC_INK`, the six labels on fills |
 | High contrast's `TC_AMBER` green 88 to 92 | 4: the word, three ratios |
 | The edit buttons and REPAIR back on `C_GRID` with `C_ONACCENT` | 8, on all five screens and REPAIR |
-| `uiChip()` fills with `C_GRID` | 20: the widget in both themes, MENU, ANGLE METER, USB BRIDGE |
+| `uiChip()` fills with `C_GRID` | 21: the widget in both themes, MENU, ESC COMMANDS, ANGLE METER, USB BRIDGE |
 | The rule not drawn | 162: the widget's four and 158 control-table frames |
 | Every hint back to `C_GRID` | 18 |
 | Both sliders' fill back to `C_DIM` | 4: SPEED and a running channel |
