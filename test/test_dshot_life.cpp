@@ -1,10 +1,11 @@
 /**
  * @file test_dshot_life.cpp
- * @brief Slices D2 and D3 of docs/design/dshot-lifetime.md: boot parked, the
- *        rule, the claim's Busy and Parking, the arm gate, the hubs' line and
- *        the texts that state DShot's restart (D2); ESC COMMANDS while DShot
- *        starts, and the start step while MENU's run cue stands, with its way
- *        out (D3), through the real UI on the fake pump of fakes.cpp.
+ * @brief Slices D2, D3 and D4 of docs/design/dshot-lifetime.md: boot
+ *        parked, the rule, the claim's Busy and Parking, the arm gate, the
+ *        hubs' line and the texts that state DShot's restart (D2); ESC
+ *        COMMANDS while DShot starts, and the start step while MENU's run cue
+ *        stands, with its way out (D3); SETUP's pin note and LINK (D4),
+ *        through the real UI on the fake pump of fakes.cpp.
  *
  * Core1 is not a thread here: lifeFrame() runs the pump's pass and the job's
  * pass, then the UI frame, as the other UI suites do; framesNoPump() holds
@@ -1105,6 +1106,118 @@ static void testStartStepWayOut() {
 	lifeFrames(1);
 }
 
+/** @brief SETUP's LINK reads @p value, right-aligned at y 242, in @p col. */
+static bool linkReads(const char *value, uint16_t col) {
+	return fakeTextIs(UI_MARGIN, 242, "LINK", C_DIM, C_BG, 1) &&
+	       fakeTextIs(GFX_W - UI_MARGIN - gfxTextW(value, 1), 242, value, col, C_BG, 1);
+}
+
+/** @brief SETUP's pin note at y 230, amber, for GPIO @p gpio. */
+static bool pinNoteFor(unsigned gpio) {
+	char want[40];
+	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, gpio);
+	return fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1);
+}
+
+/**
+ * @brief No amber pixel on the pin note's line, y 230 to 237: the list's rows
+ *        run there while the note does not show, and none of them is amber.
+ */
+static bool pinLineEmpty() {
+	for (int y = 230; y < 238; y++)
+		for (int x = 0; x < GFX_W; x++)
+			if (gfxBuffer()[y * GFX_W + x] == C_AMBER) return false;
+	return true;
+}
+
+/**
+ * @brief Slice D4: SETUP's pin note shows only while DShot runs under SETUP
+ *        over the tester, naming the pin the pump runs on; from MENU, after
+ *        a SIG PIN change too, it does not. LINK reads `OFF` in `C_DIM`
+ *        while parked and its rate while running.
+ */
+static void testSetupTexts() {
+	section("DShot lifetime D4: SETUP's pin note and LINK");
+
+	freshLife();
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	t.packetRate = 998;
+	fakeSetTelemetry(&t);
+	tapId(menuRow(&UI_SETTINGS));
+	lifeFrames(2);
+	checkTrue("SETUP from MENU: parked", uiCurrentScreen() == UiScreenId::Settings &&
+	          escTaskParked() && !pinClaimDshotRunning());
+	checkTrue("LINK reads OFF in C_DIM, not the rate the telemetry holds",
+	          linkReads(UI_SETTINGS_LINK_OFF, C_DIM) && !linkReads("998/S  0% ERR", C_LIME));
+	checkTrue("OFF fits right of LINK: 17 px, from x 215",
+	          gfxTextW(UI_SETTINGS_LINK_OFF, 1) == 17 &&
+	          UI_MARGIN + gfxTextW("LINK", 1) + 6 <= GFX_W - UI_MARGIN - 17);
+	checkTrue("no pin note at the pin of the last load", pinLineEmpty() && !pinNoteFor(SIG_GPIO));
+	revealRow((int)SettingsRowId::Sig);
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
+	lifeFrames(2);
+	const unsigned moved = settings()->dshotPin;
+	checkTrue("a SIG PIN change from MENU: parked on the new pin",
+	          moved != SIG_GPIO && escTaskParked() && sigParked(moved));
+	checkTrue("from MENU after a SIG PIN change: no pin note", pinLineEmpty() && !pinNoteFor(moved));
+	checkTrue("and LINK still OFF", linkReads(UI_SETTINGS_LINK_OFF, C_DIM));
+	tapId(UI_ROW(SettingsRowId::Sig, Minus));
+	lifeFrames(2);
+	checkTrue("SIG back on GP0 from MENU: no pin note, LINK OFF",
+	          settings()->dshotPin == SIG_GPIO && pinLineEmpty() &&
+	          linkReads(UI_SETTINGS_LINK_OFF, C_DIM));
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(1);
+
+	// Over the tester: DShot runs, the note names the pin it runs on, at the
+	// pin of the last load too, and LINK reads the rate.
+	openTesterBound();
+	waitGate();
+	tapId(UI_FIX(TesterCtl::Max));
+	lifeFrames(2);
+	checkTrue("SETUP over the tester: DShot runs", uiCurrentScreen() == UiScreenId::Settings &&
+	          uiNavAt(1) == UiScreenId::Tester && pinClaimDshotRunning());
+	checkTrue("the pin note names GP0, the pin the pump runs on, the pin of the last load",
+	          escTaskDshotPin() == SIG_GPIO && settingsBootDshotPin() == SIG_GPIO &&
+	          pinNoteFor(SIG_GPIO));
+	checkTrue("LINK reads the rate, 998/S  0% ERR, lime",
+	          linkReads("998/S  0% ERR", C_LIME) && !linkReads(UI_SETTINGS_LINK_OFF, C_DIM));
+	revealRow((int)SettingsRowId::Sig);
+	tapId(UI_ROW(SettingsRowId::Sig, Plus));
+	lifeFrames(2);
+	checkTrue("a SIG PIN change over the tester: DShot bound on the new pin",
+	          settings()->dshotPin == moved && escTaskDshotPin() == moved &&
+	          fakeResumeWiring().dshotPin == moved && pinClaimDshotRunning());
+	checkTrue("the pin note names the new pin, not GP0", pinNoteFor(moved) && !pinNoteFor(SIG_GPIO));
+	checkTrue("LINK still reads the rate", linkReads("998/S  0% ERR", C_LIME));
+	t.packetRate = 0;
+	fakeSetTelemetry(&t);
+	lifeFrames(1);
+	checkTrue("no frame back: 0/S  0% ERR in C_DIM, not OFF",
+	          linkReads("0/S  0% ERR", C_DIM) && !linkReads(UI_SETTINGS_LINK_OFF, C_DIM));
+	t.packetRate = 998;
+	fakeSetTelemetry(&t);
+
+	// Back to the tester, then MENU: parked. SETUP from MENU, SIG still off
+	// the pin of the last load: no pin note, LINK OFF.
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(1);
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(20);
+	tapId(menuRow(&UI_SETTINGS));
+	lifeFrames(2);
+	checkTrue("SETUP from MENU after the change over the tester: parked, SIG on the new pin",
+	          escTaskParked() && settings()->dshotPin == moved && moved != settingsBootDshotPin());
+	checkTrue("no pin note", pinLineEmpty() && !pinNoteFor(moved));
+	checkTrue("LINK reads OFF", linkReads(UI_SETTINGS_LINK_OFF, C_DIM));
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(1);
+	memset(&t, 0, sizeof(t));
+	fakeSetTelemetry(&t);
+	freshLife();
+}
+
 void runDshotLifeTests() {
 	testBoot();
 	testRule();
@@ -1122,6 +1235,7 @@ void runDshotLifeTests() {
 	testEscCmdStarting();
 	testStartStep();
 	testStartStepWayOut();
+	testSetupTexts();
 	freshLife();
 	openTester();
 	lifeFrames(2);

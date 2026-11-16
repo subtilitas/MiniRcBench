@@ -32,7 +32,7 @@
  *
  * | | core0 | core1 |
  * |---|---|---|
- * | Job | touch, rendering, battery sense | DShot frame pump, telemetry decode; the servo job during a SERVO claim |
+ * | Job | touch, rendering, battery sense | DShot frame pump and telemetry decode while ESC TESTER or ESC COMMANDS is open, else SIG parked low; the job of a pin claim |
  * | Rate | ~40 Hz | 1 kHz (@ref DSHOT_PERIOD_US) |
  * | Allowed to block | yes, freely | never |
  *
@@ -254,7 +254,10 @@ void loop() {
 }
 
 /**
- * @brief Core1 setup: opt in to being parked, then start the frame pump.
+ * @brief Core1 setup: opt in to being parked, then start the frame pump's
+ *        loop. The pump binds no pin here: escTaskInit() asked for Park, and
+ *        the first bind waits for ESC TESTER or ESC COMMANDS
+ *        (pinClaimDshot()).
  *
  * `multicore_lockout_victim_init()` is what lets core0 write flash at all.
  * Erasing a sector turns XIP off, and core1 executes from XIP, so core0 has to
@@ -270,9 +273,9 @@ void setup1() {
 /**
  * @brief Core1 loop: the DShot frame pump, or the job on the claimed pins.
  *
- * escTaskPoll() returns at once while a pin claim holds the pins, and
- * core1JobPoll() returns at once while no job runs, so one of the two does
- * the work on any pass. Deliberately kept free of anything that can block, so
+ * escTaskPoll() returns at once while the pins are parked or a pin claim
+ * holds them, and core1JobPoll() returns at once while no job runs, so at
+ * most one of the two does the work on any pass. Deliberately kept free of anything that can block, so
  * frame spacing stays within tolerance regardless of what core0 is doing.
  */
 void loop1() {
