@@ -5699,8 +5699,13 @@ static void testMoveScreen() {
 	checkTrue("MAX again: timed", s_st.move.state == MoveState::Measuring);
 	uiSimFrames(ina, &sim, 45);
 	checkTrue("arrived, the hold in", s_st.move.state == MoveState::Arrived && s_st.move.holdOk);
-	checkTrue("16 ms to MOVE_LAG_MS after the model's 417 ms",
-	          s_st.move.ms >= 417 + 16 && s_st.move.ms <= 417 + MOVE_LAG_MS);
+	// Both stamps are frame times, so the result is a multiple of the 25 ms
+	// frame: the first frame at or after the model's 417 ms, and no later
+	// than MOVE_LAG_MS after it. Which of 425, 450 and 475 depends on the
+	// sensor's phase against the frames, which the frame count before START sets.
+	checkTrue("a frame multiple, 417 ms to MOVE_LAG_MS after the model's 417 ms",
+	          s_st.move.ms % 25 == 0 && s_st.move.ms >= (417 + 24) / 25 * 25 &&
+	          s_st.move.ms <= 417 + MOVE_LAG_MS);
 	char line[MOVE_TEXT_MAX + 1];
 	moveTimerText(&s_st.move, line, sizeof(line));
 	checkTrue("the line: MOVE, PEAK and HOLD", strncmp(line, "MOVE 0.4", 8) == 0 &&
@@ -5787,6 +5792,7 @@ static void testMoveScreenNone() {
 	settings()->currentSense = 0;
 	senseConfigure(0);
 	openServo();
+	// No sensor: nothing here depends on a phase, so the count is free.
 	uiFrames(42);
 	holdStartFrames();
 	uiFrames(3);
