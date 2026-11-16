@@ -35,6 +35,7 @@
 #include "theme.h"
 #include "sd_log.h"
 #include "usb_msc.h"
+#include "board_desc.h"
 #include "plat.h"
 
 #include <stdio.h>
@@ -62,8 +63,8 @@ static void framesNoPump(int n) {
 #include "ui_ids.h"
 
 /** @brief The board's default SIG and AUX, as the stored defaults put them. */
-#define SIG_GPIO 0
-#define AUX_GPIO 1
+#define SIG_GPIO ((unsigned)g_board->defaultDshotPin)
+#define AUX_GPIO ((unsigned)g_board->defaultKissPin)
 
 /** @brief SIG parked: an SIO output driving low. */
 static bool sigParked(unsigned gpio) {
@@ -555,9 +556,10 @@ static void testLeaveParks() {
 	lifeFrames(1);
 	checkTrue("the wide button reads SERVO, live; the left NEXT SERVO",
 	          leaveWideIs("SERVO", true) && leaveLeftIs("NEXT SERVO", true));
+	char dshot[48];
+	snprintf(dshot, sizeof(dshot), UI_LEAVE_DSHOT_FMT, SIG_GPIO);
 	checkTrue("step 1: ESC TESTER'S DSHOT ON SIG GP0 READS, 35 characters",
-	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "ESC TESTER'S DSHOT ON SIG GP0 READS", true) &&
-	          strlen("ESC TESTER'S DSHOT ON SIG GP0 READS") == UI_LEAVE_STEP_CHARS);
+	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, dshot, true) && strlen(dshot) == UI_LEAVE_STEP_CHARS);
 	checkTrue("the last step: BACK TO SERVO.",
 	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "BACK TO SERVO.", false));
 	pressId(UI_FIX(ServoCtl::Release));
@@ -616,7 +618,9 @@ static void testHubLines() {
 	pinClaimEnd(PinUser::Am32);
 	lifeFrames(2);
 
-	// MONITOR's line follows SIG: none on GP0.
+	// MONITOR's line follows SIG: none with SIG on GP0.
+	escTaskConfigure(0, settings()->dshotKbaud, false, 1);
+	lifeFrames(1);
 	tapId(menuRow(&UI_RX_SIGNALS));
 	lifeFrames(1);
 	const int noteY = UI_HUB_ENTRY_Y + UI_HUB_LINE_DY + UI_HUB_LINE_H;
@@ -624,7 +628,7 @@ static void testHubLines() {
 	          allOf(0, noteY, GFX_W, 7, C_BG));
 	tapId(UI_FIX(UI_BACK));
 	lifeFrames(1);
-	escTaskConfigure(AUX_GPIO, settings()->dshotKbaud, false, SIG_GPIO);
+	escTaskConfigure(1, settings()->dshotKbaud, false, 0);
 	lifeFrames(1);
 	tapId(menuRow(&UI_RX_SIGNALS));
 	lifeFrames(1);
