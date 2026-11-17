@@ -88,6 +88,15 @@
 #include "servo_supply.h"
 #include "diag.h"
 
+#if BOOT_DIAG
+#include "boot_diag.h"
+/** @brief Blink step @p n on GP16 before it runs. @see boot_diag.h */
+#define BOOT_STEP(n) bootDiagStep(n)
+#else
+/** @brief Nothing: the boot diagnostic is not built. @see boot_diag.h */
+#define BOOT_STEP(n) ((void)0)
+#endif
+
 /** @brief UI frame interval in milliseconds (~40 fps). */
 #define UI_PERIOD_MS 25
 static_assert(TOUCH_LOST_MS == 4 * UI_PERIOD_MS,
@@ -111,6 +120,7 @@ void setup() {
 
 	// The restart reason, read once: three register reads, before anything
 	// else touches the watchdog. SETUP shows it under DIAGNOSTICS. @see diag.h
+	BOOT_STEP(1);
 	diagCaptureRestart();
 
 	// USB, ours rather than the SDK's. stdio_init_all() would have brought up
@@ -118,6 +128,7 @@ void setup() {
 	// with a second interface -- and the card reader is a second interface.
 	// usbDevInit() puts the serial port back on our own descriptors.
 	// @see usb_dev.h
+	BOOT_STEP(2);
 	usbDevInit();
 
 	// Before escTaskInit(), which seeds core1's wiring from the settings, and
@@ -125,28 +136,38 @@ void setup() {
 	// board with blank flash gets the compiled defaults; a block written on
 	// other hardware arrives with every pin in it re-judged against this
 	// board. @see settingsValidate()
+	BOOT_STEP(3);
 	settingsLoad();
 	// Directly after the settings and before core1 starts: with a switch
 	// fitted, its enable pin becomes an undriven input, and the converter's external
 	// pull-down holds the servo's supply off. @see servo_supply.h
+	BOOT_STEP(4);
 	servoSupplyInit();
 
 	// Before anything can call escSnapshot(), and before core1 is launched.
 	// It parks SIG low and AUX on its pull-down on this core.
+	BOOT_STEP(5);
 	escTaskInit();
+	BOOT_STEP(6);
 	core1JobInit();
 
+	BOOT_STEP(7);
 	gfxInit();
+	BOOT_STEP(8);
 	st7789Init();
 	// Pulses the touch controller's own reset line. Its result starts the
 	// driver's record of answers, which the splash and the tester read:
 	// TOUCH CONTROLLER NOT FOUND on the splash, TOUCH NOT ANSWERING on the
 	// tester. @see touchAnswered(), uiTouchLost()
+	BOOT_STEP(9);
 	touchInit();
+	BOOT_STEP(10);
 	senseInit();        // the current sensor, on the bus touchInit() set up
 	// The real-time clock, read once on the same bus, after senseInit() has
 	// started the bus record its transfers are noted to. @see clock.h
+	BOOT_STEP(11);
 	clockInit();
+	BOOT_STEP(12);
 	uiInit();
 
 	// The splash. Core1 is not running yet: main() launches it after
@@ -181,6 +202,9 @@ void setup() {
 #endif
 
 	s_nextUiMs = millis();
+#if BOOT_DIAG
+	bootDiagDone();
+#endif
 }
 
 /**
