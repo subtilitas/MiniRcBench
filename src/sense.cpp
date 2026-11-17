@@ -4,6 +4,7 @@
  *        and the sample for core1. @see sense.h
  */
 
+#include "cs_shared.h"
 #include "sense.h"
 #include "board_desc.h"
 #include "settings.h"
@@ -373,7 +374,7 @@ void senseConfigure(uint8_t mode) {
 
 void senseInit() {
 	if (!s_csReady) {
-		critical_section_init(&s_cs);
+		csInitShared(&s_cs);
 		s_csReady = true;
 	}
 	sense_bus_init(&s_bus, &WIRE);

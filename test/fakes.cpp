@@ -404,7 +404,23 @@ void fakeClockSet(enum clock_index i, uint32_t hz) { g_clockHz[i == clk_peri] = 
 //     fails the run when the count is not 0 ---
 static const int CS_MAGIC = 0x43530001;
 static unsigned g_csMisuse = 0;
-extern "C" void critical_section_init(critical_section_t *cs) { cs->lock = CS_MAGIC; }
+/** @brief Spin locks claimed: critical_section_init() claims one on the chip. */
+static unsigned g_csClaims = 0;
+extern "C" void critical_section_init(critical_section_t *cs) {
+	cs->lock = CS_MAGIC;
+	g_csClaims++;
+}
+extern "C" void critical_section_init_with_lock_num(critical_section_t *cs, unsigned lockNum) {
+	cs->lock = lockNum >= 16 && lockNum <= 23 ? CS_MAGIC : 0;
+}
+/** @brief The SDK's striped range, 16 to 23, in turn. */
+extern "C" unsigned next_striped_spin_lock_num() {
+	static unsigned next = 16;
+	unsigned n = next;
+	next = next == 23 ? 16 : next + 1;
+	return n;
+}
+unsigned fakeCsClaims() { return g_csClaims; }
 extern "C" void critical_section_enter_blocking(critical_section_t *cs) {
 	if (cs->lock != CS_MAGIC) g_csMisuse++;
 }

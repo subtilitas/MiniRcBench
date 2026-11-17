@@ -3,6 +3,7 @@
  * @brief The ESC settings job on core1. @see escwire_job.h
  */
 
+#include "cs_shared.h"
 #include "escwire_job.h"
 #include "escwire_port.h"
 #include "ew_line.h"
@@ -150,7 +151,7 @@ static void run() {
 }
 
 static void escwireJobInit() {
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 }
 
 uint8_t escwireJobBindError(uint8_t lineErr) {

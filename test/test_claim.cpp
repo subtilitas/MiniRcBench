@@ -35,6 +35,7 @@
 
 #include "../src/core1_job.cpp"   // NOLINT -- see the note above
 
+#include <dirent.h>
 #include <string.h>
 #include <string>
 #include <initializer_list>
@@ -2147,7 +2148,49 @@ static void testPollSource() {
 	          inOrder(pads, {"escPadApply(&plan);", "__dmb();", "s_reached = to;"}));
 }
 
+/**
+ * @brief No source in src/ claims a spin lock (cs_shared.h): no
+ *        `critical_section_init(` and no `spin_lock_claim_unused(` outside
+ *        cs_shared.h's comment. The SDK hands out eight, TinyUSB takes one,
+ *        and the ninth claim panics at boot.
+ */
+static void testNoSpinLockClaims() {
+	section("Spin locks: no source in src/ claims one (cs_shared.h)");
+	std::string dir = srcPath("");
+	DIR *d = opendir(dir.c_str());
+	checkTrue("src/ is readable", d != nullptr);
+	int files = 0, claims = 0, shared = 0;
+	while (d) {
+		struct dirent *e = readdir(d);
+		if (!e) break;
+		std::string n = e->d_name;
+		size_t dot = n.rfind('.');
+		if (dot == std::string::npos) continue;
+		std::string ext = n.substr(dot);
+		if (ext != ".cpp" && ext != ".c" && ext != ".h") continue;
+		files++;
+		std::string text = sourceText((dir + n).c_str());
+		for (size_t i = 0; (i = text.find("csInitShared(&", i)) != std::string::npos; i++) shared++;
+		if (n == "cs_shared.h") continue;
+		for (const char *call : {"critical_section_init(", "spin_lock_claim_unused("}) {
+			for (size_t i = 0; (i = text.find(call, i)) != std::string::npos; i++) {
+				claims++;
+				char what[96];
+				snprintf(what, sizeof(what), "src/%s calls %s", n.c_str(), call);
+				checkTrue(what, false);
+			}
+		}
+	}
+	if (d) closedir(d);
+	checkTrue("the walk read the sources", files > 50);
+	checkInt("calls that claim a spin lock", claims, 0);
+	checkInt("critical sections on the shared locks: the pump, the job slot, six jobs, the current sensor",
+	         shared, 9);
+	checkInt("claims made by the suite's critical sections", (long)fakeCsClaims(), 0);
+}
+
 void runClaimTests() {
+	testNoSpinLockClaims();
 	section("Core1 jobs: the table as it ships");
 	checkTrue("the servo, KST, Hitec, S.BUS and ESC settings jobs are in the table",
 	          s_ops[(uint8_t)Core1Job::Servo] == &SERVO_JOB_OPS &&

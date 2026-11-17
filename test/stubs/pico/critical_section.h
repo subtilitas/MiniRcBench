@@ -4,6 +4,7 @@
 typedef struct { int lock; } critical_section_t;
 extern "C" {
 void critical_section_init(critical_section_t*);
+void critical_section_init_with_lock_num(critical_section_t*, unsigned);
 void critical_section_enter_blocking(critical_section_t*);
 void critical_section_exit(critical_section_t*);
 }

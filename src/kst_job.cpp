@@ -3,6 +3,7 @@
  * @brief The KST programmer's core1 job. @see kst_job.h
  */
 
+#include "cs_shared.h"
 #include "kst_job.h"
 #include "kst_line.h"
 #include "kst_line_port.h"
@@ -568,7 +569,7 @@ static void advance(uint32_t nowMs, bool uiAlive) {
 }
 
 static void kstJobInit() {
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 }
 
 /** @brief The `kst_line_err_t` of a refused open as the bind failure a screen names. */

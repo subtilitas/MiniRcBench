@@ -42,6 +42,17 @@ protocol.
 
 ## Unreleased
 
+### Fixed
+
+- The board stopped in `setup()` with the panel dark: the ninth spin lock
+  claim of the boot, in `core1JobInit()`, found none of the SDK's eight free
+  and panicked (boot diagnostic step 6, then the fault blink, on the owner's
+  board). TinyUSB's device queue claims one; the DShot pump, the core1 job
+  slot, six jobs and the current sensor claimed nine more. Their critical
+  sections take the SDK's shared striped spin locks through
+  `csInitShared()` (`src/cs_shared.h`), and the image claims one spin lock,
+  TinyUSB's. `testNoSpinLockClaims()` holds `src/` to it.
+
 ### Changed
 
 - A hard fault restarts the board instead of hanging it. `src/fault.cpp`

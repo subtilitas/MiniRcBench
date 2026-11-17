@@ -1,3 +1,4 @@
+#include "cs_shared.h"
 #include "esc_task.h"
 #include "config.h"
 #include "esc_merge.h"
@@ -352,7 +353,7 @@ void escTaskInit() {
 	// Core0 owns this, and must do it before core1 is launched. See the note in
 	// esc_task.h: core0's first uiTick() calls escSnapshot(), which enters this
 	// critical section, and it will get there long before core1 has booted.
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 	memset((void *)&s_tel, 0, sizeof(s_tel));
 
 	// Seed the wiring from the stored settings, so core1's very first build uses

@@ -3,6 +3,7 @@
  * @brief The S.BUS monitor's core1 job. @see sbus_job.h
  */
 
+#include "cs_shared.h"
 #include "sbus_job.h"
 #include "pin_claim.h"
 
@@ -139,7 +140,7 @@ static void drain() {
 }
 
 static void sbusJobInit() {
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 }
 
 static uint8_t sbusJobBind(uint8_t sigGpio, uint8_t auxGpio) {
