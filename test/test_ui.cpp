@@ -8798,6 +8798,41 @@ static void testAm32WholePage() {
 	fakeEscSet(0x50, (uint8_t)(0x40 + 0x50));
 	leaveAm32ToTester();
 
+	// A write that erased the page and programmed only its first 0x40 bytes:
+	// the RETRY is not refused, and writes the whole page.
+	enterAm32(6);
+	tapId(UI_ROW(vPoles, Row));
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	fakeAm32PartialWrite(0x40);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	checkTrue("erased, programmed to 0x3F, NAK: WRITE FAILED", !s_verified &&
+	          strncmp(s_status, "WRITE FAILED", 12) == 0 && fakeEscByte(0x50) == 0xFF);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	writes = fakeAm32Writes();
+	am32HoldWrite();
+	tail = true;
+	for (int i = AM32_SETTINGS_SIZE; i < AM32_EEPROM_SIZE; i++) tail = tail && fakeEscByte(i) == (uint8_t)(0x40 + i);
+	checkTrue("RETRY over the half-programmed page: written, verified, the melody back",
+	          fakeAm32Writes() == writes + 1 && s_verified && tail);
+	leaveAm32ToTester();
+
+	// No write sent since the read: a settings byte that differs is another ESC.
+	enterAm32(6);
+	tapId(UI_ROW(vPoles, Row));
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	fakeEscSet(0x20, (uint8_t)(fakeEscByte(0x20) ^ 0x01));
+	writes = fakeAm32Writes();
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	checkTrue("a settings byte differs before any write: refused, nothing written",
+	          fakeAm32Writes() == writes && strcmp(s_status, AM32_UI_ESC_CHANGED) == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeEscSet(0x20, (uint8_t)(fakeEscByte(0x20) ^ 0x01));
+	leaveAm32ToTester();
+
 	// The bootloader puts its version into byte 2.
 	enterAm32(6);
 	tapId(UI_ROW(vPoles, Row));

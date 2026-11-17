@@ -905,6 +905,8 @@ Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) {
 	return AM32_OK;
 }
 static int g_am32Writes = 0;  /**< am32BlWrite() calls. */
+static uint8_t g_am32PartialLen = 0;  /**< The next write programs this many bytes after the erase, then NAKs; 0: none. */
+void fakeAm32PartialWrite(uint8_t n) { g_am32PartialLen = n; }
 static uint8_t g_am32BlVersion = 0;  /**< Byte 2 a write leaves, as the bootloader; 0: the byte sent. */
 void fakeAm32BootloaderVersion(uint8_t v) { g_am32BlVersion = v; }
 int fakeAm32Writes() { return g_am32Writes; }
@@ -915,6 +917,12 @@ Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) {
 	// start erases the whole page first, then programs the bytes sent, and
 	// a write at the settings address puts the bootloader's version in byte 2.
 	memset(g_esc, 0xFF, sizeof(g_esc));
+	if (g_am32PartialLen) {
+		// Erased, then the program stopped after the first bytes: a NAK.
+		memcpy(g_esc, b, g_am32PartialLen < n ? g_am32PartialLen : n);
+		g_am32PartialLen = 0;
+		return AM32_ERR_NAK;
+	}
 	memcpy(g_esc, b, n);
 	if (g_am32BlVersion) g_esc[AM32_OFF_BOOTLOADER_REV] = g_am32BlVersion;
 	if (g_am32WriteSkews > 0) { g_am32WriteSkews--; g_esc[0x1B] ^= 0x40; }
