@@ -74,7 +74,7 @@ ohne sie zu stellen, und `--help` nennt die Optionen.
 Die Uhr übernimmt die Ortszeit des Computers: keine Zeitzone und keine
 Sommerzeit. Nach einer Umstellung auf oder von Sommerzeit neu stellen.
 
-SETUP → BOARD → `CLOCK` zeigt die Zeit auf die Minute, oder grau
+SETUP → BOARD → `CLOCK` zeigt die Zeit auf die Minute, oder gedämpft
 `NOT SET`; die Zeile darunter lautet `SET AT EACH POWER-UP` (bei jedem
 Einschalten stellen). Bis zum Stellen tragen Dateien das FAT-Datum 0, und
 eine Zusammenfassung lautet `Clock at start: not set`. Stellen während

@@ -212,7 +212,7 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
   `US` is µs: the screen font has no micro sign.
 - A stored value that no encoding takes reads `RAW` and the number in amber,
   for example `RAW 1234`. A value that does not decode reads `?`.
-- Read-only rows are drawn grey, but for a `RAW` value in amber, and a tap on
+- Read-only rows are drawn faint, but for a `RAW` value in amber, and a tap on
   them selects nothing: `SENSITIVITY`, and every INFO row but `ID`.
 - A changed value is dark on a cyan fill, with a 3 px cyan bar at its row's
   left edge; the name carries no mark. A value as read is in the text colour, selected or
@@ -366,7 +366,7 @@ servo, restarts the servo (1.0 s) and reads all 21 registers back. For one
 setting this takes about 1.7 s, computed from rcbench's timings and not
 measured. The page reads `WRITING: DO NOT UNPLUG.` and, under it,
 `WRITES SENT: 2 OF 4`, then `READING BACK`. While the write runs, and while
-it waits for the card, `BACK` is grey and does nothing: no `BACK` leaves a
+it waits for the card, `BACK` is drawn disabled and does nothing: no `BACK` leaves a
 servo half written. `BACK` before the hold, or under the result, returns to
 the field list. The screen never stops a write.
 
@@ -491,14 +491,14 @@ belongs to. See [KST Programming](KST-Programming#files) for the ring.
 ## Leaving
 
 `BACK` on the field list opens the leave page. `BACK` during a read opens it
-too. `BACK` on the leave page is grey and does nothing: each way on is a
+too. `BACK` on the leave page is drawn disabled and does nothing: each way on is a
 button.
 
 <img src="img/leave-hitec-failed.png" width="240" alt="The leave page with OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN and LEAVE"> <img src="img/leave-hitec.png" width="240" alt="The leave page with GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="After LEAVE, the 2 s off and 1 s more: NEXT SERVO and SERVO live">
 
 The strip names the model, the pin and, with `GP28` or `GP29`, `SUPPLY ON` or
 `SUPPLY OFF`. The page numbers three steps; the current step is amber, with
-a bar at the left edge, the others grey:
+a bar at the left edge, the others dim:
 
 1. `LEAVE SWITCHES THE SUPPLY OFF.` with `GP28` or `GP29`, or
    `LEAVE RESTARTS THE SERVO.` with `OWN`.
@@ -516,7 +516,7 @@ write that failed `A WRITE DID NOT END VERIFIED.`, in amber.
 | `LEAVE` | Ends the session: with `GP28` or `GP29` it switches the supply off, with `OWN` it restarts the servo from its saved values |
 
 After `LEAVE`, step 2 is current, and `NEXT SERVO` and `SERVO`, in
-`LEAVE`'s place, are grey while the pin is let go. With `GP28` or `GP29` the
+`LEAVE`'s place, are drawn disabled while the pin is let go. With `GP28` or `GP29` the
 page reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes; with
 `OWN`, `RELEASING THE PIN`.
 
@@ -526,7 +526,7 @@ pin and starts a session for the next servo. With `OWN` the page reads
 `READ`. With the switched supply the entry starts at once. **`SERVO`**, the
 hub's title, acts 1 s after that: the pin is held low, no DShot starts, and
 SERVO returns, where it was left. A double tap on `LEAVE` lands while `SERVO` is
-grey and ends nothing, and a press that landed while it was grey does nothing
+drawn disabled and ends nothing, and a press that landed while it was drawn disabled does nothing
 when it lifts.
 
 `BACK` during the entry, before the servo answered, stops it and opens the

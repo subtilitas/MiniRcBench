@@ -95,10 +95,10 @@ reads `RELEASING AUX GP1`, then `TAKING AUX GP1`, then the channels appear.
 | `FRAME LOST` | amber | a frame within the last 250 ms carried the receiver's frame-lost flag |
 | `OK` | green | frames arrive |
 
-<img src="img/sbus-failsafe.png" width="240" alt="S.BUS MONITOR in failsafe: the FAILSAFE chip, red bars and values"> <img src="img/sbus-lost.png" width="240" alt="S.BUS MONITOR after the receiver stopped: the NO SIGNAL chip, the last values in grey">
+<img src="img/sbus-failsafe.png" width="240" alt="S.BUS MONITOR in failsafe: the FAILSAFE chip, red bars and values"> <img src="img/sbus-lost.png" width="240" alt="S.BUS MONITOR after the receiver stopped: the NO SIGNAL chip, the last values dim">
 
 **The bars.** Lime while frames arrive; red while the receiver reports
-failsafe, so you read its failsafe values directly; grey once no frame has
+failsafe, so you read its failsafe values directly; dim once no frame has
 come for 100 ms, so the last values stay readable. Before the first frame
 the bars are empty and the values read `----`.
 
@@ -156,7 +156,7 @@ other.
 
 `BACK` on the page is an outline and does nothing.
 
-<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER still grey"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER still faint"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 
@@ -178,7 +178,7 @@ configurator without a receiver or a transmitter; see what the FC does with
 the failsafe and frame-lost flags and when the frames stop; send fixed,
 repeatable values.
 
-<img src="img/sbus-out-safe.png" width="240" alt="S.BUS OUTPUT SAFE: the SAFE chip, GP0 GOES TO A FLIGHT CONTROLLER. and NEVER TO AN ESC. PROPS OFF. in amber, eight grey sliders, CH3 THR with its ceiling mark, HOLD TO START"> <img src="img/sbus-out-running.png" width="240" alt="S.BUS OUTPUT running: the RUNNING chip, THROTTLE CH3: 1000 TO 1200 US (20%)., the flags line, sliders with lime values, STOP">
+<img src="img/sbus-out-safe.png" width="240" alt="S.BUS OUTPUT SAFE: the SAFE chip, GP0 GOES TO A FLIGHT CONTROLLER. and NEVER TO AN ESC. PROPS OFF. in amber, eight faint sliders, CH3 THR with its ceiling mark, HOLD TO START"> <img src="img/sbus-out-running.png" width="240" alt="S.BUS OUTPUT running: the RUNNING chip, THROTTLE CH3: 1000 TO 1200 US (20%)., the flags line, sliders with lime values, STOP">
 
 ### Wiring
 

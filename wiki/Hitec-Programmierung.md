@@ -238,7 +238,7 @@ oder unten, um zu verschieben.
 - Ein gespeicherter Wert, den keine Codierung annimmt, zeigt `RAW` und die
   Zahl in Bernstein, zum Beispiel `RAW 1234`. Ein Wert, der sich nicht
   decodieren lässt, zeigt `?`.
-- Nur lesbare Zeilen sind grau gezeichnet, ein `RAW`-Wert darin aber in
+- Nur lesbare Zeilen sind blass gezeichnet, ein `RAW`-Wert darin aber in
   Bernstein, und ein Tippen darauf wählt nichts aus: `SENSITIVITY` und jede
   INFO-Zeile außer `ID`.
 - Ein geänderter Wert steht dunkel auf einer cyanfarbenen Fläche, mit einem
@@ -410,7 +410,7 @@ Register zurück. Für eine Einstellung dauert das etwa 1,7 s, berechnet aus
 den Zeiten von rcbench und nicht gemessen. Die Seite zeigt
 `WRITING: DO NOT UNPLUG.` und darunter `WRITES SENT: 2 OF 4`, dann
 `READING BACK`. Während das Schreiben läuft, und während es auf die Karte
-wartet, ist `BACK` grau und tut nichts: Kein `BACK` lässt ein Servo halb
+wartet, ist `BACK` deaktiviert gezeichnet und tut nichts: Kein `BACK` lässt ein Servo halb
 geschrieben zurück. `BACK` vor dem Halten oder unter dem Ergebnis führt zur
 Feldliste zurück. Der Bildschirm bricht ein Schreiben nie ab.
 
@@ -542,7 +542,7 @@ Sicherung die älteste, gleich von welchem Gerät. Den Ring beschreibt die
 ## Verlassen
 
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` während eines
-Lesens öffnet sie ebenfalls. `BACK` auf der Verlassenseite ist grau und
+Lesens öffnet sie ebenfalls. `BACK` auf der Verlassenseite ist deaktiviert gezeichnet und
 bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
 <img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE, den 2 s aus und 1 s mehr: NEXT SERVO und SERVO aktiv">
@@ -550,7 +550,7 @@ bewirkt nichts: Jeder Weg weiter ist eine Taste.
 Die Leiste nennt das Modell, den Pin und, mit `GP28` oder `GP29`,
 `SUPPLY ON` oder `SUPPLY OFF`. Die Seite nummeriert drei Schritte; der
 aktuelle ist bernsteinfarben, mit einem Balken am linken Rand, die anderen
-grau:
+gedämpft:
 
 1. `LEAVE SWITCHES THE SUPPLY OFF.` mit `GP28` oder `GP29`, oder
    `LEAVE RESTARTS THE SERVO.` mit `OWN`.
@@ -569,7 +569,7 @@ Bernstein.
 | `LEAVE` | Beendet die Sitzung: Mit `GP28` oder `GP29` schaltet es die Versorgung aus, mit `OWN` startet es das Servo mit seinen gespeicherten Werten neu |
 
 Nach `LEAVE` ist Schritt 2 aktuell, und `NEXT SERVO` und `SERVO`,
-an der Stelle von `LEAVE`, sind grau, solange der Pin freigegeben wird. Mit
+an der Stelle von `LEAVE`, sind deaktiviert gezeichnet, solange der Pin freigegeben wird. Mit
 `GP28` oder `GP29` zeigt die Seite `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.`, bis
 die Leitung geschlossen ist; mit `OWN` `RELEASING THE PIN`.
 
@@ -579,8 +579,8 @@ zeigt die Seite `NEXT SERVO: POWER IT AFTER THE TAP.`: Der Bildschirm kehrt
 zum Warten auf `READ` zurück. Mit geschalteter Versorgung beginnt der
 Eintritt sofort. **`SERVO`**, der Titel der Auswahl, wirkt 1 s danach: Der
 Pin liegt auf Low, kein DShot startet, und SERVO erscheint, dort, wo es
-stand. Ein Doppeltippen auf `LEAVE` landet, während `SERVO` grau ist, und
-beendet nichts; ein Druck, der begann, während es grau war,
+stand. Ein Doppeltippen auf `LEAVE` landet, während `SERVO` deaktiviert gezeichnet ist, und
+beendet nichts; ein Druck, der begann, während es deaktiviert gezeichnet war,
 bewirkt beim Loslassen nichts.
 
 `BACK` während des Eintritts, bevor das Servo geantwortet hat, bricht ihn ab

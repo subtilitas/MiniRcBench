@@ -965,8 +965,8 @@ change.
       by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
       row that opens a hub, a selected tab's label, a settings value and a
       section caption. "Changed" is the cyan fill and the bar of decision 8.
-      SETUP's captions and values are `C_CYAN`. Not built: no screen has a
-      tab. The leave page's button to the hub is built by slice 11, the other
+      SETUP's captions and values are `C_CYAN`. Not built, and not planned
+      by any slice: no screen has a tab. The leave page's button to the hub is built by slice 11, the other
       uses by slice 10 of [menu-c.md](menu-c.md#build-plan)
       ([ui-theme.md](ui-theme.md#slice-10-as-built)).
     - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15

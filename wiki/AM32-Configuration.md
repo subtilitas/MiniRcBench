@@ -126,11 +126,11 @@ The names and values are those of rcbench's tables, in capitals;
 DIRECTION's bidirectional settings read `3D` and `3D REVERSED`. A value that
 is none of the setting's own reads, for example, `RAW 17` in amber. On
 Bluejay 0.21 and BLHeli_S 16.3 to 16.7 you edit the settings as on AM32,
-below: 15 on Bluejay, 12 on BLHeli_S. Grey rows are shown only: BLHeli_S'
+below: 15 on Bluejay, 12 on BLHeli_S. Faint rows are shown only: BLHeli_S'
 throttle limits, Bluejay's PWM INDICATOR and SAFETY ARM. Under the list:
 `TAP A SETTING TO EDIT` / `BACK SENDS LEAVE: THE ESC STARTS.`
 
-<img src="img/efm8-list.png" width="240" alt="A Bluejay 0.21 ESC's settings, the editable rows white, WRITE... and REVERT grey until a change">
+<img src="img/efm8-list.png" width="240" alt="A Bluejay 0.21 ESC's settings, the editable rows white, WRITE... and REVERT faint until a change">
 
 Tap a row to select it. Some rows have a note, two amber lines on the
 strip:
@@ -153,7 +153,7 @@ a line; drag to scroll the 255 bytes of a Bluejay page.
 <img src="img/efm8-hex.png" width="240" alt="ESC HEX: the Bluejay page's bytes, 8 to a line">
 
 An older version, and a page the firmware rewrote, open read-only: every
-row grey, `WRITE...` grey, `SHOWN ONLY: NOTHING IS WRITTEN.` under the
+row faint, `WRITE...` faint, `SHOWN ONLY: NOTHING IS WRITTEN.` under the
 list, and two amber lines on the strip. With a card in, the settings go to
 the card as the list opens, as `BACKUP/BJnnn.TXT` for Bluejay or
 `BACKUP/BHnnn.TXT` for BLHeli_S:
@@ -185,7 +185,7 @@ old values are lost when you leave the screen, as the page says in amber.
 
 <img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH changed from 40 to 88, cyan, in the editor bar"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 changes and BACKUP FIRST: BACKUP/BJ001.TXT">
 
-<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in amber, BACK and OK grey"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in green, LEAVING STARTS THE ESC WITH THEM.">
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in amber, BACK and OK faint"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in green, LEAVING STARTS THE ESC WITH THEM.">
 
 | Result | Meaning and next step |
 |---|---|
@@ -278,7 +278,7 @@ page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
 holds the signal pin low, starts no DShot and returns to ESC PROGRAM. Plug the
 battery back in once ESC PROGRAM shows: on a low line a Bluejay or BLHeli_S
 ESC starts its firmware rather than its bootloader (read from the firmwares'
-source, not measured). `BACK` is grey on this page. The last button clears
+source, not measured). `BACK` is drawn disabled on this page. The last button clears
 MENU's `POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the
 ESC. The tester cannot see the battery: an ESC left powered whose bootloader
 still waits meets DShot at the next ESC TESTER or ESC COMMANDS, and so does
@@ -297,7 +297,7 @@ A **tap without movement** selects the row under it. The editor bar at the
 bottom then shows the field's name and value.
 
 Rows are 40 px tall, so three show at a time. Rows are grouped, with the group
-name in grey above each group. The available
+name in faint above each group. The available
 fields depend on the ESC's settings layout revision. Only fields that apply to
 the revision read are shown.
 
@@ -457,12 +457,12 @@ returns to ESC PROGRAM at once.
 ## Writing
 
 Tap `WRITE...` under the list. It opens the page `ESC WRITE`; nothing is
-written yet. With no changes `WRITE...` is drawn grey and does nothing.
+written yet. With no changes `WRITE...` is drawn disabled and does nothing.
 
 <img src="img/am32-write.png" width="240" alt="ESC WRITE with five changes: four lines of name and old -> new, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT and HOLD TO WRITE">
 
 The page lists every setting that changes, its name and `old -> new`, the old
-value grey and the new one cyan: four lines, then `AND n MORE`. The strip
+value faint and the new one cyan: four lines, then `AND n MORE`. The strip
 counts them, `5 CHANGES`. The line above the button says where the backup
 goes: `BACKUP FIRST: BACKUP/AM001.TXT` before the first write with a card in,
 `BACKUP: BACKUP/AM001.TXT` once it is on the card. Without a card it reads
@@ -471,7 +471,7 @@ goes: `BACKUP FIRST: BACKUP/AM001.TXT` before the first write with a card in,
 
 Hold `HOLD TO WRITE` for 1 s. A progress bar fills while you hold. The tap
 that opened the page does not count towards the hold. While the write runs
-the page reads `WRITING: DO NOT UNPLUG.` in amber and `BACK` is grey and does
+the page reads `WRITING: DO NOT UNPLUG.` in amber and `BACK` is drawn disabled and does
 nothing. `BACK` before the hold, or under the result, returns to the list.
 
 <img src="img/am32-written.png" width="240" alt="Write verified">
