@@ -18,6 +18,13 @@
  * nothing that takes another critical section, so sharing costs a short
  * wait and cannot deadlock. Every critical section in `src/` is set up
  * through it: test_claim.cpp checks the sources for `critical_section_init(`.
+ *
+ * `next_striped_spin_lock_num()` is a counter with no lock. Every core0 call
+ * of it, these sections, the SD library's mutex in sd_init_driver() and
+ * TinyUSB's, runs in setup(), before core1 is launched; later calls are
+ * guarded by mutex_is_initialized(). Core1's one call, the lockout mutex of
+ * multicore_lockout_victim_init() in setup1(), therefore never runs beside
+ * another.
  */
 
 #pragma once

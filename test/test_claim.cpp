@@ -2095,6 +2095,30 @@ static void testPollSource() {
 	          before(init, "s_kissPin    = cfg->kissPin;", "padsTo(EscPinMode::Park);") &&
 	          before(init, "s_want = EscPinMode::Park;", "padsTo(EscPinMode::Park);") &&
 	          occurrences(init, "EscPinMode::Run") == 0);
+	{
+		// Core0 reads s_reached and s_pumpUp through one byte: each write of
+		// either is published, publishMode() within the next two lines.
+		int writes = 0, unpublished = 0;
+		size_t at = 0;
+		while ((at = src.find('\n', at)) != std::string::npos) {
+			size_t end = src.find('\n', at + 1);
+			std::string line = src.substr(at + 1, end == std::string::npos ? std::string::npos : end - at - 1);
+			at++;
+			bool decl = line.find("static") != std::string::npos;
+			bool w = !decl && (line.find("s_reached = ") != std::string::npos ||
+			                   line.find("s_pumpUp = ") != std::string::npos ||
+			                   line.find("s_pumpUp  = ") != std::string::npos);
+			if (!w) continue;
+			writes++;
+			size_t e2 = src.find('\n', end + 1);
+			std::string next2 = src.substr(end, e2 == std::string::npos ? std::string::npos : src.find('\n', e2 + 1) - end);
+			if (next2.find("publishMode();") == std::string::npos) unpublished++;
+		}
+		checkTrue("the mode's six writes are each published to core0 as one byte", writes == 6 && unpublished == 0);
+		std::string getters = bodyOf(src, "static bool modeReported(EscPinMode m) {");
+		checkTrue("the three getters read s_report once", occurrences(getters, "s_report") == 1 &&
+		          occurrences(src, "return modeReported(EscPinMode::") == 3);
+	}
 	checkTrue("a heartbeat lapse while armed disarms before the slot is decided, and latches",
 	          before(src, "if (escHeartbeatTrips(s_armed, uiAlive)) {", "escPumpSlot(&s_pump") &&
 	          before(src, "s_armed = false;\n\t\t__dmb();\n\t\ts_hbTripped = true;", "escPumpSlot(&s_pump"));
