@@ -48,7 +48,7 @@ und dem Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px.
 dahinter liegt nichts. Der Tester hat keinen Kopfbereich; seine Schaltfläche
 `MENU` ist sein Weg zurück. Auf der Verlassenseite von SERVO TESTER,
 KST SERVO, HITEC SERVO, S.BUS MONITOR und ESC SETTINGS ist `BACK` deaktiviert
-gezeichnet, als Umriss mit grauer Beschriftung, und ein Tippen darauf bewirkt
+gezeichnet, als Umriss mit blasser Beschriftung, und ein Tippen darauf bewirkt
 nichts: Jeder Weg weiter ist eine beschriftete Taste, `STAY`, `NEXT SERVO`,
 `BACK TO MONITOR` oder der Titel der Auswahl. Dasselbe gilt auf `ESC
 WRITE`, `KST WRITE` und `HITEC WRITE`, solange ein Schreiben läuft oder auf die
@@ -71,7 +71,7 @@ letzte Taste hält den Pin auf Low und startet kein DShot: Ein Servo, das an
 SIG bleibt, trifft beim nächsten `ESC TESTER` oder `ESC COMMANDS` auf DShot,
 und der Schritt zum Abziehen nennt das.
 
-<img src="img/leave-kst.png" width="240" alt="Die KST-Verlassenseite vor LEAVE: Schritt 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="Die KST-Verlassenseite nach LEAVE: Schritt 2 aktuell, NEXT SERVO aktiv, SERVO noch grau">
+<img src="img/leave-kst.png" width="240" alt="Die KST-Verlassenseite vor LEAVE: Schritt 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="Die KST-Verlassenseite nach LEAVE: Schritt 2 aktuell, NEXT SERVO aktiv, SERVO noch blass">
 
 **BACK nennt, was es verwerfen würde.** Auf der Liste von ESC SETTINGS mit
 ungeschriebenen Änderungen und auf SERVO SET mit einer Änderung, die auf
@@ -106,7 +106,7 @@ auf ANGLE SET. Und es ist ein geänderter Wert, der noch nicht
 geschrieben oder übernommen ist: dunkler Text auf einer cyanfarbenen Fläche,
 mit einem cyanfarbenen Balken am linken Rand seiner Zeile. Ein Wert, der aus
 einem ESC oder einem Servo gelesen wurde, steht in der Textfarbe. Beschriftungen, Überschriften und die Schaltflächen, die etwas öffnen
-oder auslösen, stehen in der Textfarbe oder in Grau. Eine Schaltfläche hat
+oder auslösen, stehen in der Textfarbe oder gedämpft. Eine Schaltfläche hat
 abgerundete Ecken. Ein Feld auf der Leiste unter einem Titel ist eckig, damit
 es nicht wie eine Schaltfläche aussieht; das Scharf-Feld des Testers und sein
 Feld `SDERR` sind ebenfalls eckig. Nicht jede Verwendung folgt der Tabelle:
@@ -124,8 +124,9 @@ Beschriftung und ein nur lesbarer Wert stehen in der blasseren Farbe der
 Rahmen. Ein Feld auf der Leiste, das keinen Zustand meldet, `NO ESC`,
 `PORT CLOSED` oder `MOVING`, ist ein Rahmen mit gedämpfter Beschriftung, ohne
 Füllung. `-` und `+` unter einer Liste und `REPAIR` bei Hitec sehen aus wie
-jede andere Schaltfläche, die etwas auslöst. Wo diese Seiten „grau“ sagen,
-ist einer der beiden blaugrauen Neutraltöne gemeint. Die Farben sind
+jede andere Schaltfläche, die etwas auslöst. Diese Seiten nennen die beiden
+Neutraltöne bei ihrer Rolle: gedämpft für Beschriftungen, Überschriften und
+Hinweise, blass für deaktivierte Beschriftungen, nur lesbare und alte Werte. Die Farben sind
 berechnet und nicht auf dem Display gesehen: Wie das Display sie zeigt, ist
 nicht gemessen. Hoher Kontrast behält seine eigenen Farben. Rahmen und
 Beschriftungen sind dort fast schwarz; deshalb hat eine Schaltfläche, die
@@ -378,14 +379,14 @@ Solange diese Zeile steht, öffnen ESC TESTER und ESC COMMANDS mit einem
 Startschritt und ohne DShot, denn ein wartender Bootloader kann DShot als
 Befehl lesen: `1 POWER-CYCLE THE ESC.` über `ITS BOOTLOADER MAY STILL WAIT`
 und `AND READ DSHOT AS A COMMAND.` Den ESC aus- und einschalten, dann
-`START DSHOT` tippen, das in der ersten Sekunde grau ist. Der Tipp nimmt die
+`START DSHOT` tippen, das in der ersten Sekunde deaktiviert gezeichnet ist. Der Tipp nimmt die
 Zeile auf MENU weg und startet DShot; auf dem Tester wartet `HOLD TO ARM`
 danach 1,5 s wie nach jedem Öffnen. `MENU` auf dem Tester und `BACK` auf ESC
 COMMANDS verlassen den Schritt sofort, DShot bleibt aus und die Zeile
 bleibt, sodass das nächste Öffnen den Schritt wieder zeigt. Sonst wirkt
 nichts auf dem Bildschirm im Startschritt. Nur auf dem Host getestet.
 
-<img src="img/tester-start-step.png" width="240" alt="ESC TESTER im Startschritt: POWER-CYCLE THE ESC., START DSHOT grau, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS im Startschritt: der Schritt, START DSHOT grau, BACK">
+<img src="img/tester-start-step.png" width="240" alt="ESC TESTER im Startschritt: POWER-CYCLE THE ESC., START DSHOT blass, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS im Startschritt: der Schritt, START DSHOT blass, BACK">
 
 Unter der Leiste steht eine Liste mit sechs Zeilen von 40 px Höhe und 42 px
 Abstand: zuerst `ESC TESTER`, dann eine Zeile je Geräteart am Signalpin, der
@@ -503,7 +504,7 @@ während das Board noch etwas anderes sendet, etwa die Pause von 260 ms bis
 1020 ms nach einem Beacon, wartet: Er geht hinaus, sobald die Leitung frei
 ist, oder verfällt nach 2 s, und die Zeilen zeigen dann
 `NOT SENT: THE ESC WAS NOT READY.`. Solange ein Befehl der Seite wartet oder
-gesendet wird, sind die Tasten und `BACK` grau, und ein Druck, der dann auf
+gesendet wird, sind die Tasten und `BACK` deaktiviert gezeichnet, und ein Druck, der dann auf
 ihnen beginnt, bewirkt beim Loslassen nichts.
 
 Die Zeilen unter den Tasten sagen, was gesendet wurde, zum Beispiel
@@ -525,7 +526,7 @@ ESC, war sie gespeichert. Nach `3D ON` zeigt der Tester seinen 3D-Hinweis
 neu startet oder ESC SETTINGS 3D MODE aus liest. Keiner dieser Befehle wurde
 bisher von diesem Board an einen ESC gesendet.
 
-<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS, während Beacon 3 gesendet wird: alle Tasten und BACK grau"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS ohne antwortenden ESC: NO ESC ANSWERS ON SIG GP0. in Bernstein, alle Tasten grau">
+<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS, während Beacon 3 gesendet wird: alle Tasten und BACK blass"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS ohne antwortenden ESC: NO ESC ANSWERS ON SIG GP0. in Bernstein, alle Tasten blass">
 
 ### SERVO
 
@@ -607,7 +608,7 @@ Liste in Abschnitten, die sich mit dem Finger verschieben lässt. Sie öffnet
 über `MENU` oder, entschärft, über ein Tippen auf die Polzahl oder die
 Obergrenze des Testers; `BACK` führt dorthin zurück, wo sie geöffnet wurde.
 Die Abschnittsnamen und die Werte neben `-` und `+` sind cyan, die Farbe
-einer Einstellung; nur lesbare Werte sind grau.
+einer Einstellung; nur lesbare Werte sind blass.
 
 | Abschnitt | Zeile | Bedeutung |
 |---|---|---|
@@ -623,7 +624,7 @@ einer Einstellung; nur lesbare Werte sind grau.
 | DISPLAY | **BACKLIGHT** | 16–255, in Schritten von 32 |
 | BOARD | **BUILT FOR** | Nur Anzeige. Die Platine, für die die Firmware gebaut ist, `RP2350-TOUCH-LCD-2.8` |
 | BOARD | **VERSION** | Nur Anzeige. Die Firmware-Version, zum Beispiel `0.1.0` |
-| BOARD | **CLOCK** | Nur Anzeige. Die Uhr der Platine auf die Minute, `2026-11-14 15:42`, oder grau `NOT SET`. Die Zeile darunter, `SET AT EACH POWER-UP` (bei jedem Einschalten stellen): Die Platine hat keine Zelle für ihre Uhr, also stellt ein Computer sie nach jedem Einschalten mit `tools/set_clock.py` neu ([SD-Aufzeichnung](SD-Aufzeichnung#die-uhr)). Wird einmal pro Minute neu gezeichnet, solange die Zeile sichtbar ist |
+| BOARD | **CLOCK** | Nur Anzeige. Die Uhr der Platine auf die Minute, `2026-11-14 15:42`, oder gedämpft `NOT SET`. Die Zeile darunter, `SET AT EACH POWER-UP` (bei jedem Einschalten stellen): Die Platine hat keine Zelle für ihre Uhr, also stellt ein Computer sie nach jedem Einschalten mit `tools/set_clock.py` neu ([SD-Aufzeichnung](SD-Aufzeichnung#die-uhr)). Wird einmal pro Minute neu gezeichnet, solange die Zeile sichtbar ist |
 | DIAGNOSTICS | **LAST RESTART** | Nur Anzeige. Warum die Platine zuletzt gestartet ist: `POWER-ON` (eingeschaltet), `BROWN-OUT` (die Versorgung ist zu weit abgesunken), `RUN PIN` (der Reset-Eingang), `WATCHDOG`, `UPDATE` (der Neustart, nachdem eine neue Firmware auf die Platine kopiert wurde), `REBOOT` (ein Neustart über den Watchdog, den ein anderes Programm angefordert hat, zum Beispiel picotool), `DEBUGGER`, `GLITCH` (ein kurzer Einbruch der Versorgung), `POWER-DOWN` oder `UNKNOWN`. Bernstein bei `BROWN-OUT`, `GLITCH` und `WATCHDOG` |
 | DIAGNOSTICS | **UPTIME** | Nur Anzeige. Zeit seit dem Start der Platine, Stunden, Minuten und Sekunden, zum Beispiel `1:02:03`. Wird einmal pro Sekunde neu gezeichnet, solange die Zeile sichtbar ist |
 
@@ -655,7 +656,7 @@ Unter der Liste bleiben diese Elemente an ihrem Platz:
   Tester wie von MENU aus geöffnet.
 - **LINK**: live, Pakete pro Sekunde und Fehlerrate. Grün heißt, es kommen
   Pakete an, der ESC-Pin stimmt also. Bernstein heißt, mehr als 5 % Fehler.
-  Von MENU aus geöffnet, wo DShot aus ist, zeigt es `OFF` in Grau.
+  Von MENU aus geöffnet, wo DShot aus ist, zeigt es `OFF` gedämpft.
 - Die Hinweiszeile: ein Text, der erste, der zutrifft, in dieser Reihenfolge:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (rot) oder
      `NOT WHILE ARMED - DISARM TO SAVE` (rot), bis zum nächsten Speichern

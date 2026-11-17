@@ -128,7 +128,7 @@ nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
   der Wandler aus, und das Zifferblatt zeigt
   `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
 - **Sensor nicht gefunden:** Mit CURRENT SENSE auf `INA219` und ohne Sensor
-  ist `HOLD TO START` grau, und das Zifferblatt zeigt
+  ist `HOLD TO START` deaktiviert gezeichnet, und das Zifferblatt zeigt
   `START WAITS FOR THE CURRENT SENSOR.` Mit CURRENT SENSE auf `NONE` startet
   der Test ohne ihn. Ein hängender I2C-Bus oder ein stummes Touchpanel hält
   den Start ebenfalls auf: `START WAITS: THE I2C BUS IS STUCK.` oder
@@ -137,7 +137,7 @@ nutzen, Teil C des Verdrahtungsplans. Nicht auf Hardware getestet.
   2,5 V, zeigt die Zeile `GP28 SUPPLY NOT OFF`. Der Wandler trennt seinen
   Ausgang nicht ab, oder EN wird hochgehalten: Prüfe die Verdrahtung.
 
-<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28 in SAFE: GP28 SUPPLY ON AT START unter dem Titel und die ESC-Warnung auf dem Zifferblatt"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. mit grauem HOLD TO START"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF unter dem Titel, 4.90 V in der Anzeige"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET mit SUPPLY UP IN 25 MS unter STOP TO CHANGE THE PROFILE">
+<img src="img/servo-supply.png" width="240" alt="Der Servobildschirm mit SERVO SUPPLY auf GP28 in SAFE: GP28 SUPPLY ON AT START unter dem Titel und die ESC-Warnung auf dem Zifferblatt"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. mit deaktiviertem HOLD TO START"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF unter dem Titel, 4.90 V in der Anzeige"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET mit SUPPLY UP IN 25 MS unter STOP TO CHANGE THE PROFILE">
 
 ---
 
@@ -271,12 +271,12 @@ Platine.
   `HOLD TO START AGAIN.`
 - Solange der Sensor nach einer Abschaltung nicht antwortet, zeigt die
   zweite Zeile des Zifferblatts `START WAITS FOR THE CURRENT SENSOR.`, und
-  `HOLD TO START` ist grau; antwortet er wieder, `HOLD TO START AGAIN.`
+  `HOLD TO START` ist deaktiviert gezeichnet; antwortet er wieder, `HOLD TO START AGAIN.`
 - Mit `OWN` gelten nur `OVERCURRENT` und `STALL`: Die Bank kennt weder die
   Spannung deiner Versorgung noch, ob ihr Strom durch den Sensor fließt.
   Was das Servo ohne Impulse tut, ist Sache des Servos. Antwortet der
   Sensor mit `OWN` im Lauf nicht mehr, wird nichts abgeschaltet, und das
-  Zifferblatt zeigt `NO SENSOR READING: NO CURRENT CUTS.` in Grau.
+  Zifferblatt zeigt `NO SENSOR READING: NO CURRENT CUTS.` gedämpft.
 - Die Stall-Abschaltung löst auch bei vielen Servos aus, die bei MIN oder
   MAX an ihrem eigenen Endanschlag stehen und dort Blockierstrom ziehen.
   Nicht gemessen; der Banktest B8 der Entwurfsnotiz prüft es.
@@ -294,7 +294,7 @@ Platine.
 Mit dem Stromsensor misst der Servotester, wie lange das Servo bis zur
 angetippten Position braucht, aus seinem Strom: Ein laufendes Servo zieht
 mehr als ein ruhendes. Der SET-Bildschirm zeigt die letzte Bewegung in der
-zweiten Zeile unter dem Titel, in Grau:
+zweiten Zeile unter dem Titel, gedämpft:
 
 `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`
 
@@ -374,7 +374,7 @@ Versorgung nicht schaltet.
   Braucht die Karte dafür länger als 2 s, gibt es keine Aufzeichnung: `NO LOG:
   CARD TOO SLOW`, und das Servo startet ohne.
 - Während das Servo läuft, zeigt die zweite Zeile über der Skala `LOGGING TO
-  SRV00012.CSV` in Grau. In Bernstein: `SRV00012.CSV: 12 ROWS DROPPED` (die
+  SRV00012.CSV` gedämpft. In Bernstein: `SRV00012.CSV: 12 ROWS DROPPED` (die
   Karte war langsamer als die Messungen), `LOG STOPPED AT 4 MIB` (die Grenze der
   Datei, etwa eine Stunde), `LOG STOPPED: NO ROOM IN ONE PIECE` (die Karte hatte
   keine 4 MiB am Stück frei, und die 64 KiB, die sie gab, sind belegt), `LOG
@@ -428,7 +428,7 @@ sind also drei auf einmal sichtbar.
 | MOVES | ENDLESS oder 1 bis 9999 Enden |
 
 - Die PULSE-Zeilen lassen sich nur in `SAFE` ändern. In `RUNNING` zeigt der
-  Bildschirm `STOP TO CHANGE THE PROFILE` und ihre Werte in Grau.
+  Bildschirm `STOP TO CHANGE THE PROFILE` und ihre Werte blass.
 
   <img src="img/servo-set-running.png" width="240" alt="SET im Betrieb: die PULSE-Zeilen gesperrt, STOP in der Fußzeile">
 
@@ -500,13 +500,13 @@ Leiste nennt die Pins, die der Bildschirm hält, `SIG GP0  AUX GP1`, oder
 <img src="img/leave-servo.png" width="240" alt="Die Verlassenseite: 1 UNPLUG THE SERVO., NEXT SERVO und SERVO">
 
 Bis der letzte Impuls ausgelaufen ist, zeigt die Seite `RELEASING THE PINS`, mit
-SIG allein `RELEASING THE PIN`, und beide Tasten sind grau. Dann wirkt
+SIG allein `RELEASING THE PIN`, und beide Tasten sind deaktiviert gezeichnet. Dann wirkt
 `NEXT SERVO`: Es führt zum Servobildschirm zurück, in SAFE, und behält die Pins.
 Zieh das Servo ab und tippe dann auf `SERVO`, den Titel der Auswahl: Es wirkt 1
 s, nachdem die Pins freigegeben sind, damit ein schnelles zweites Tippen nach
 `BACK` nichts beendet. SIG liegt dann auf Low, kein DShot startet, und SERVO,
 die Auswahl, erscheint. Ein Servo, das an SIG bleibt, trifft beim nächsten ESC
-TESTER oder ESC COMMANDS auf DShot. `BACK` auf der Seite ist grau und bewirkt
+TESTER oder ESC COMMANDS auf DShot. `BACK` auf der Seite ist deaktiviert gezeichnet und bewirkt
 nichts.
 
 ---

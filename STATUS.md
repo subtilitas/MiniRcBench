@@ -7,7 +7,7 @@ link here and in [CHANGELOG.md](CHANGELOG.md) is checked by
 integration) is written and checked by `tools/coverage.py`. Nothing else is
 checked: the architecture figures, pin numbers, suite and job lists and
 verification states are written by hand, against the code and the issue tracker
-as of 2026-11-15. The KST and Hitec card-phase tables in
+as of 2026-11-17. The KST and Hitec card-phase tables in
 [kst-programming.md](docs/design/kst-programming.md) and
 [hitec-programming.md](docs/design/hitec-programming.md) are written and
 checked by `make -C test kstcount`. Read the rest as a dated record, not as an
@@ -583,42 +583,73 @@ ports the first branch's frame slot and ring.
 
 ## Next steps
 
-Pull request #49, the touch-loss stop of item 23, is merged before its bench
-check by the owner's decision of 2026-11-15 and is in 0.1.0; its bench test,
-OI-23, stays in the bench plan. The open pull requests were read from the
-GitHub REST (Representational State Transfer) API (application programming
-interface) on 2026-11-15.
+State as of 2026-11-17. 0.1.0 is not tagged; CHANGELOG still dates it
+2026-11-15, and the date moves to the tag day.
+
+**The panel stays dark.** The owner's board, a Waveshare
+RP2350-Touch-LCD-2.8 with no INA219 (current sensor) on J3, shows no picture
+with images from `main` at 75b5ebb, 9eac294, 7b8691a and cff09ae; the
+backlight stays off. A DshotDisplay image runs on the same board. The
+backlight first turns on in `st7789Init()`, at level 200, and its state
+machine keeps running after a later fault, so the board stops before or
+inside `st7789Init()`, or never reaches `setup()`. A reading of the boot
+path finds no defect. The candidates, most likely first:
+
+1. the backlight on pio0 (`src/backlight.pio`, `st7789Init()`), new since
+   85bb5af6 of 2026-10-29 in place of DshotDisplay's PWM (pulse-width
+   modulation) backlight; not checked on hardware;
+2. a hard fault that hangs: the SD library's `crash.c` handler stops on
+   `__breakpoint()` before its reset, so with no debugger the board stays
+   dark;
+3. a step new since the fork: `diagCaptureRestart()`, `settingsLoad()`
+   carrying over a DshotDisplay block, the pad parking of `escTaskInit()`,
+   `servoSupplyInit()`, `core1JobInit()`.
+
+The boot diagnostic finds the step: `cmake -DBOOT_DIAG=ON` builds
+`MiniRcBench-touch-lcd-2.8-boot-diag.uf2`, which blinks GP16 a step's
+number of times before each of the 12 steps of `setup()` and blinks fast
+on a hard fault (README.md, "Boot diagnostic"). Two images on either side
+of 85bb5af6, built from 5e1666dd and 85bb5af6, separate candidate 1. This
+blocks the bench and the release.
+
+**Built since 2026-11-16,** host tests only: slices D3 and D4 of
+[dshot-lifetime.md](docs/design/dshot-lifetime.md), slices 6 and D5 of
+the records, slices 11 to 14 of the look
+([ui-theme.md](docs/design/ui-theme.md)), the boot diagnostic, and the
+model generators of `lib/rcbench/hardware/` copied again with their
+CC BY-NC-SA line. Every slice of [menu-c.md](docs/design/menu-c.md#build-plan)
+is built. The design calls taken without the owner are recorded in each
+note's "as built" sections, pending the owner's review; among them the three
+red texts on `C_PANEL` at 4.03 that slice 13 found.
+
+Pull request #49, the touch-loss stop of item 23, is merged before its
+bench check by the owner's decision of 2026-11-15; its bench test, OI-23,
+stays in the bench plan.
 
 The release: by the owner's decision of 2026-11-15, 0.1.0 is released before
-the bench checks, in place of a second pre-release; the decision of 2026-11-14,
-v0.1.0 after the bench checks, is revised by it. CHANGELOG dates 0.1.0
-2026-11-15. The owner pushes the tag `v0.1.0` on the commit that carries this
-record; its Release run publishes the image, `SHA256SUMS.txt` and
-`THIRD_PARTY_NOTICES.txt`, and its Docs run publishes `wiki/` (item 7). The
-0.1.0 image has not run on hardware; no MiniRcBench image, rc1 included, has.
-Every tool after rc1, the servo log, the S.BUS output, the USB bridge and the
-Bluejay and BLHeli_S writes among them, is tested on the host only. v0.1.0-rc1
-exists, the tag at a93e1c1, published as a pre-release with
+the bench checks, in place of a second pre-release, and waits for the menu,
+theme and DShot slices, which are built. The owner pushes the tag `v0.1.0`;
+its Release run publishes the image, `SHA256SUMS.txt` and
+`THIRD_PARTY_NOTICES.txt`, and its Docs run publishes `wiki/` (item 7).
+v0.1.0-rc1 exists, the tag at a93e1c1, published as a pre-release with
 `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes), `SHA256SUMS.txt`
-and `THIRD_PARTY_NOTICES.txt`, with no manual.
+and `THIRD_PARTY_NOTICES.txt`, with no manual. An image that shows no
+picture is not worth a release: the tag waits for the panel.
 
-The next work is the bench. [docs/bench-plan.md](docs/bench-plan.md) orders
-every bench test of the design notes and of the open items below into ten
-sessions that build on each other, from the board and the SD card to the
-destructive tests on spare parts, with the setups, pass criteria and the place
-each result goes. A defect found at the bench needs a fix and a new release.
-Menu structure B and the tools after it are built, host tests only; none has
-run on hardware (item 18).
+The bench follows a picture on the panel.
+[docs/bench-plan.md](docs/bench-plan.md) orders every bench test of the
+design notes and of the open items below into ten sessions that build on
+each other, with the setups, pass criteria and the place each result goes.
+Every tool is tested on the host only (item 18).
 
 Waiting on the owner:
 
-- the tag `v0.1.0` on the merge commit of this record;
+- the boot diagnostic and the two images around 85bb5af6 on the board;
+- the review of the design calls above;
+- the tag `v0.1.0`, once the panel shows a picture;
 - the bench, which needs the hardware and the instruments the plan lists;
 - the converter module's name (item 19) and item 21's open question on a
-  second contact;
-- rcbench pull request 860, the licence change: once it is merged, the
-  `lib/rcbench/hardware/` copies are copied again with the CC line. Its state
-  is not checked here.
+  second contact.
 
 ## Open items
 
@@ -1294,7 +1325,7 @@ criteria; none has run.
     the board a newly inserted card is uninitialised and most likely refuses
     the writes; not verified.
 
-33. **The look after rcbench's: seven of its eight slices built, host tests
+33. **The look after rcbench's, closed: its eight slices built, host tests
     only; no colour seen on the panel.** By the owner's decisions of 2026-11-15,
     MENU becomes the start screen, the look follows rcbench's and 0.1.0
     waits for that work; [menu-c.md](docs/design/menu-c.md#build-plan)
@@ -1341,8 +1372,11 @@ criteria; none has run.
     every text the host suite draws, in both themes, finds no pair under 4.5
     outside the named exceptions; it found three red texts on `C_PANEL` at
     4.03, `REC`, `RECORDING` and a low `BOARD` voltage, kept red pending the
-    owner's review. Slice 14, the records, is not built; README.md and the wiki still say "grey" for the
-    two blue-grey neutrals where slice 8 changed nothing, until slice 14.
+    owner's review. Slice 14 is built
+    ([ui-theme.md](docs/design/ui-theme.md#slice-14-as-built)): README.md and
+    the wiki name the two neutrals dim and faint in place of "grey", and rule
+    9 of `test/check_docs.py` refuses the word. The menu, theme and DShot
+    slices of [menu-c.md](docs/design/menu-c.md#build-plan) are all built.
 
 ## Known limitations
 

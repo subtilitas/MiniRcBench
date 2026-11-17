@@ -884,7 +884,7 @@ ESC TESTER, WIRING, SERVO SUPPLY, DISPLAY, BOARD and DIAGNOSTICS. On a row
 with a connector line, SIG PIN, AUX PIN and SERVO SUPPLY, the value sits at
 y+8 to y+21 of the row and the line, scale 1, at y+27 to y+33, both ending at
 x 132. Section captions and the values beside `-` and `+` are cyan, the
-colour of a setting; read-only values are grey, a toggle keeps a button's
+colour of a setting; read-only values are faint, a toggle keeps a button's
 label, and a toggle that is on fills blue.
 
 | Section | Row | What it does |
@@ -901,7 +901,7 @@ label, and a toggle that is on fills blue.
 | DISPLAY | **BACKLIGHT** | 16–255 in steps of 32. High contrast forces 255 while on |
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
 | BOARD | **VERSION** | The firmware version from `src/version.h`, for example `0.1.0`. Read-only |
-| BOARD | **CLOCK** | The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in grey, with the caption `SET AT EACH POWER-UP`: the board has no cell on J2, so `tools/set_clock.py` sets it again after each power-up ([Setting the clock](#setting-the-clock)). Redrawn once a minute and after a set while its row shows. Read-only |
+| BOARD | **CLOCK** | The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in dim, with the caption `SET AT EACH POWER-UP`: the board has no cell on J2, so `tools/set_clock.py` sets it again after each power-up ([Setting the clock](#setting-the-clock)). Redrawn once a minute and after a set while its row shows. Read-only |
 | DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG`. Read-only. See below |
 | DIAGNOSTICS | **UPTIME** | Time since boot as hours, minutes and seconds, `H:MM:SS`, for example `1:02:03`. Redrawn once a second while its row shows. Read-only |
 
@@ -1124,8 +1124,9 @@ read-only values use, is one; `ERROR` in the tester's ESC STATUS tile, 4.03,
 is the other. A changed value's rectangle stands 14.95 off its row and
 10.89 off a selected row, and its text 14.70 off the rectangle; through a
 simulation of protanopia, deuteranopia and tritanopia the least of the
-three is 10.23 (`testChangedCue()`). Where this document says "grey", the
-colour is one of the two blue-grey neutrals.
+three is 10.23 (`testChangedCue()`). This document names the two neutrals
+by their roles: dim, `C_DIM`, for labels, captions and hints, and faint,
+`C_GRID`, for disabled labels, read-only values and old values.
 
 **High contrast**
 
@@ -1144,8 +1145,13 @@ a hollow thumb. Cyan marks the same four things there, in a dark cyan: BACK
 has a white label, a setting's value is dark cyan text on white, and a
 changed value is white text on a dark cyan rectangle, 7.73 off its row and
 5.30 off a selected row, 4.91 at the least through the three simulations.
+A button that starts an output is dark green with a white label, 6.50, and
+safe or done is a dark green frame around a dark green word. Amber and lime
+text on the control face read 3.42 and 3.82 there; the host suite's
+contrast walk lists them as exceptions
+(`docs/design/ui-theme.md`, "Slice 13 as built").
 
-The palette has fewer distinct greys than the dark one. Label greys are
+The palette has fewer distinct neutrals than the dark one. Dim and faint are
 merged so that labels stay legible outdoors.
 
 The extra glyph weight is a 1 px vertical smear. The 5×7 font sits in a 6 px
@@ -1880,7 +1886,7 @@ The page decides what opens, by rcbench's `ew_id_efm8()`
 
 | Page | Screen | Strip |
 |---|---|---|
-| Bluejay layout 208, BLHeli_S layout 33, marker 0x55 0xAA | the list | `BLUEJAY 0.21  LAYOUT 208  E8B2` (30 characters, 179 px), grey |
+| Bluejay layout 208, BLHeli_S layout 33, marker 0x55 0xAA | the list | `BLUEJAY 0.21  LAYOUT 208  E8B2` (30 characters, 179 px), dim |
 | Bluejay layouts 33 to 207, BLHeli_S layout 32 | the list, read-only | `BLUEJAY 0.19, LAYOUT 206: READ-ONLY.` over `SHOWN ONLY. BACKUP BJ018`, amber |
 | Name tag 0xFF with BLHeli_S layout 33 or Bluejay layout 208: the ESC lost its tags | the list, read-only | `ESC LOST ITS TAGS: READ-ONLY.` over `REFLASH ON A COMPUTER. BACKUP BH018` |
 | Settings marker not 0x55 0xAA | the list, read-only | `SETTINGS MARKER WRONG: READ-ONLY.` over `SHOWN ONLY. BACKUP BJ018` |
@@ -1904,8 +1910,8 @@ none of the field's reads `RAW 17` in amber. The revision bytes 0x00 to
 0x02 are on the strip. On Bluejay 208 and BLHeli_S 33 the fields rcbench's
 map lets a write change are edited as on AM32, below: 15 on Bluejay, 12 on
 BLHeli_S. The rest, BLHeli_S' three throttle bytes, Bluejay's PWM INDICATOR
-and SAFETY ARM, are grey and shown only. On a read-only list every row is
-grey, a tap selects a row for its note, and `WRITE...` and `REVERT` are
+and SAFETY ARM, are faint and shown only. On a read-only list every row is
+faint, a tap selects a row for its note, and `WRITE...` and `REVERT` are
 drawn disabled. The bar under the list reads, in the dim label colour,
 `TAP A SETTING TO EDIT`, or on a read-only list
 `SHOWN ONLY: NOTHING IS WRITTEN.`, over
@@ -2109,7 +2115,7 @@ PROGRAM at once.
 
 **WRITE...** opens `ESC WRITE` on a tap; nothing on the list is held. The
 page lists each field that changes, from the ESC as read to the edit: the
-label, then `old -> new`, the old value grey and the new one cyan, at most 4
+label, then `old -> new`, the old value faint and the new one cyan, at most 4
 lines and then `AND n MORE`; the strip counts them, `2 CHANGES`. A line at
 the bottom names the backup: `BACKUP FIRST: BACKUP/AM001.TXT` before the
 session's first write with a card in, `BACKUP: BACKUP/AM001.TXT` once it is
@@ -2624,7 +2630,7 @@ to 2220 µs are past the travel; its one hold covers both warnings. A value of
 SET is cyan text, the colour of a setting. A value that waits for the hold is
 dark on a cyan rectangle, in its row and in the editor bar, with a 3 px cyan
 bar at its row's left edge, until HOLD TO APPLY; while RUNNING the PULSE rows
-are grey. BACK from SET with a
+are faint. BACK from SET with a
 change waiting arms a guard (decision 7 of `docs/design/menu-b.md`): the
 strip reads, in amber, `1 CHANGE NOT APPLIED.` over
 `BACK AGAIN DISCARDS IT.`, or `n CHANGES NOT APPLIED.` over
@@ -2643,7 +2649,7 @@ stored: every entry starts at STANDARD PWM 50 Hz.
 the note `docs/design/menu-b.md`, "The leave page"). It has no step before
 LEAVE, so it opens releasing: `1 UNPLUG THE SERVO.` in amber with a 3 px bar,
 `ESC TESTER'S DSHOT ON SIG GP0 READS` and `AS A 970 US PULSE AT 1000 HZ.`
-under it, and `2 BACK TO SERVO.` in grey; the strip names the pins the
+under it, and `2 BACK TO SERVO.` in dim; the strip names the pins the
 screen holds, `SIG GP0  AUX GP1`. Core1 lets the pins go only after the last
 pulse has completed: it writes level 0 and waits two frames plus 1 ms, 41 ms
 at 50 Hz, before the pins leave PWM, so no pulse is cut short. A profile
@@ -2769,7 +2775,7 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
 3. The field list shows 27 named fields in four groups: TUNE, PULSE,
    FAILSAFE and LOCKED. The strip's chip reads `PROG MODE` on blue while the
    servo is in programming mode, and `IN DOUBT` on red after a write whose
-   outcome is not known. LOCKED fields are read-only and grey. A tap
+   outcome is not known. LOCKED fields are read-only and faint. A tap
    selects a field; − and + step it, and a sideways swipe steps it by an
    eleventh of its range. The stepper skips values that break a hard limit,
    for example MAX. DUTY above 98 %. A value that differs from the servo as
@@ -3007,7 +3013,7 @@ not 0 answers ID 0 is not measured.
    PROTECT and INFO. Each value shows its unit and the stored value in brackets,
    `90 % (18)`; the counts of NEUTRAL, the ends and POSITION, ID, SENSITIVITY
    and the INFO numbers show no bracket. A stored value no encoding takes reads
-   `RAW 1234` in amber. Read-only rows are grey, a `RAW` value in them amber,
+   `RAW 1234` in amber. Read-only rows are faint, a `RAW` value in them amber,
    and cannot be selected. The strip's chip reads `PROG MODE` on blue. A tap
    selects a row; - and + step it to the next value the encoding takes, and a
    sideways swipe steps it by an eleventh of its range. LEFT END stays below
@@ -3408,7 +3414,7 @@ What the rows' area shows in place of the channels:
 
 **SET** (`OUTPUT SET`) holds the rows that are not dragged, changed with the
 editor's `-` and `+`, each at once; their values are cyan text, the colour
-of a setting, and grey while SET locks the row:
+of a setting, and faint while SET locks the row:
 
 | Row | Values | Changes |
 |---|---|---|

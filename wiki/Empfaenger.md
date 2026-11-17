@@ -98,10 +98,10 @@ Beim Öffnen nimmt der Bildschirm GP1. Währenddessen steht dort
 | `FRAME LOST` | Bernstein | ein Frame in den letzten 250 ms trug das Frame-Lost-Flag des Empfängers |
 | `OK` | Grün | Frames kommen |
 
-<img src="img/sbus-failsafe.png" width="240" alt="S.BUS MONITOR im Failsafe: der Chip FAILSAFE, rote Balken und Werte"> <img src="img/sbus-lost.png" width="240" alt="S.BUS MONITOR, nachdem der Empfänger aufgehört hat: der Chip NO SIGNAL, die letzten Werte in Grau">
+<img src="img/sbus-failsafe.png" width="240" alt="S.BUS MONITOR im Failsafe: der Chip FAILSAFE, rote Balken und Werte"> <img src="img/sbus-lost.png" width="240" alt="S.BUS MONITOR, nachdem der Empfänger aufgehört hat: der Chip NO SIGNAL, die letzten Werte gedämpft">
 
 **Die Balken.** Lindgrün, solange Frames kommen; rot, solange der Empfänger
-Failsafe meldet, damit du seine Failsafe-Werte direkt abliest; grau, sobald
+Failsafe meldet, damit du seine Failsafe-Werte direkt abliest; gedämpft, sobald
 100 ms lang kein Frame kam, damit die letzten Werte lesbar bleiben. Vor dem
 ersten Frame sind die Balken leer und die Werte zeigen `----`.
 
@@ -162,7 +162,7 @@ gegeneinander treiben.
 
 `BACK` auf der Seite ist ein Umriss und tut nichts.
 
-<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER noch grau"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER noch blass"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 
@@ -185,7 +185,7 @@ Konfigurator prüfen, ohne Empfänger und Sender; sehen, was der FC mit den
 Flags für Failsafe und verlorenen Frame macht und wenn die Frames ausbleiben;
 feste, wiederholbare Werte senden.
 
-<img src="img/sbus-out-safe.png" width="240" alt="S.BUS OUTPUT SAFE: der Chip SAFE, GP0 GOES TO A FLIGHT CONTROLLER. und NEVER TO AN ESC. PROPS OFF. in Bernstein, acht graue Schieberegler, CH3 THR mit der Marke seiner Obergrenze, HOLD TO START"> <img src="img/sbus-out-running.png" width="240" alt="S.BUS OUTPUT läuft: der Chip RUNNING, THROTTLE CH3: 1000 TO 1200 US (20%)., die Zeile der Flags, Schieberegler mit lindgrünen Werten, STOP">
+<img src="img/sbus-out-safe.png" width="240" alt="S.BUS OUTPUT SAFE: der Chip SAFE, GP0 GOES TO A FLIGHT CONTROLLER. und NEVER TO AN ESC. PROPS OFF. in Bernstein, acht blasse Schieberegler, CH3 THR mit der Marke seiner Obergrenze, HOLD TO START"> <img src="img/sbus-out-running.png" width="240" alt="S.BUS OUTPUT läuft: der Chip RUNNING, THROTTLE CH3: 1000 TO 1200 US (20%)., die Zeile der Flags, Schieberegler mit lindgrünen Werten, STOP">
 
 ### Verdrahtung
 

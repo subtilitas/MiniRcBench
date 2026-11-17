@@ -71,7 +71,7 @@ The clock takes the computer's local time: no time zone and no daylight
 saving. After a daylight-saving change, set it again.
 
 SETUP → BOARD → `CLOCK` shows the time to the minute, or `NOT SET` in
-grey; the line under it reads `SET AT EACH POWER-UP`. Until the set, files
+dim; the line under it reads `SET AT EACH POWER-UP`. Until the set, files
 carry FAT date 0 and a run summary reads `Clock at start: not set`. A set
 during a log is allowed: the log goes on, and its summary adds `(clock set
 during the log)` to the stop's time.

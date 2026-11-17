@@ -64,6 +64,13 @@ protocol.
 
 ### Changed
 
+- README.md and the wiki name the two neutrals by their roles, dim and
+  faint (gedämpft and blass), in place of "grey"; rule 9 of
+  `test/check_docs.py` refuses "grey" in the manual (slice 14 of
+  [menu-c.md](docs/design/menu-c.md#build-plan),
+  [ui-theme.md](docs/design/ui-theme.md#slice-14-as-built)). README's High
+  contrast section gives the start button's green and the walk's
+  exceptions.
 - The host suite reads the contrast of every text it draws, in both themes
   (slice 13 of [menu-c.md](docs/design/menu-c.md#build-plan),
   [ui-theme.md](docs/design/ui-theme.md#slice-13-as-built)): a pair under

@@ -47,7 +47,7 @@ MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
 nothing lies behind it. The tester has no header; its `MENU` button is its
 way back. On the leave page of SERVO TESTER, KST SERVO, HITEC
 SERVO, S.BUS MONITOR and ESC SETTINGS, `BACK` is drawn disabled, an outline with
-a grey label, and a tap on it does nothing: each way on is a labelled button,
+a faint label, and a tap on it does nothing: each way on is a labelled button,
 `STAY`, `NEXT SERVO`, `BACK TO MONITOR` or the hub's title. The
 same holds on `ESC WRITE`, `KST WRITE` and `HITEC WRITE` while a write runs or
 waits for the SD card: no `BACK` leaves a device half written.
@@ -66,7 +66,7 @@ landed during the wait does nothing when it lifts. The last button holds the
 pin low and starts no DShot: a servo left on SIG meets DShot at the next
 `ESC TESTER` or `ESC COMMANDS`, which the unplug step names.
 
-<img src="img/leave-kst.png" width="240" alt="The KST leave page before LEAVE: step 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="The KST leave page after LEAVE: step 2 current, NEXT SERVO live, SERVO still grey">
+<img src="img/leave-kst.png" width="240" alt="The KST leave page before LEAVE: step 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-released.png" width="240" alt="The KST leave page after LEAVE: step 2 current, NEXT SERVO live, SERVO still faint">
 
 **BACK names what it would drop.** On ESC SETTINGS' list with changes not
 written, and on SERVO SET with a change waiting for `HOLD TO APPLY`, the
@@ -96,7 +96,7 @@ SETUP. And it is a value changed and not yet written or applied: dark text
 on a cyan fill, with a cyan bar at its row's left edge. A value read from an
 ESC or a servo is in the text colour. A leave page's wide button to the
 hub, which reads the hub's title, is cyan with a dark label once it acts. Labels, captions and the buttons that
-open or command something are in the text colour or grey. A button has
+open or command something are in the text colour or dim. A button has
 rounded corners. A chip on the strip under a title is square, so it does not
 look like a button; the tester's arm badge and its `SDERR` chip are square
 too. Not every use follows the table: lime also marks states such as LOGS'
@@ -111,8 +111,9 @@ the dim colour of the labels; a disabled label and a read-only value are in
 the fainter colour of the frames. A chip with no state to report, `NO ESC`,
 `PORT CLOSED` or `MOVING`, is a frame with a dim label and no fill. The `-`
 and `+` under a list and Hitec's `REPAIR` look like every other button that
-commands something. Where these pages say "grey", the colour is one of the
-two blue-grey neutrals. The colours are computed and not seen on the panel:
+commands something. These pages name the two neutrals by their roles: dim
+for labels, captions and hints, faint for disabled labels, read-only values
+and old values. The colours are computed and not seen on the panel:
 how the panel shows them is not measured. High contrast keeps its own
 colours. Its frames and labels are near black, so a button that does not
 act has a dashed frame there, with its rounded corners whole, and a slider
@@ -341,14 +342,14 @@ While that line stands, ESC TESTER and ESC COMMANDS open on a start step
 with DShot off, because a waiting bootloader can read DShot as a command:
 `1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and
 `AND READ DSHOT AS A COMMAND.` Power-cycle the ESC, then tap `START DSHOT`,
-which is grey for the first second. The tap clears the line on MENU and
+which is drawn disabled for the first second. The tap clears the line on MENU and
 starts DShot; on the tester, `HOLD TO ARM` then waits 1.5 s as after any
 open. `MENU` on the tester and `BACK` on ESC COMMANDS leave the step at once
 with DShot still off and the line kept, so the next open shows the step
 again. Nothing else on the screen works on the step. This is tested on the
 host only.
 
-<img src="img/tester-start-step.png" width="240" alt="ESC TESTER on the start step: POWER-CYCLE THE ESC., START DSHOT grey, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS on the start step: the step, START DSHOT grey, BACK">
+<img src="img/tester-start-step.png" width="240" alt="ESC TESTER on the start step: POWER-CYCLE THE ESC., START DSHOT faint, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS on the start step: the step, START DSHOT faint, BACK">
 
 Below the strip is a list of six rows, 40 px tall at a 42 px pitch:
 `ESC TESTER` first, then one row for each kind of device on the signal pin,
@@ -453,7 +454,7 @@ board is still sending something else, such as the 260 ms to 1020 ms
 pause after a beacon, waits: it goes out once the wire is free, or is
 dropped after 2 s, and the lines then read
 `NOT SENT: THE ESC WAS NOT READY.`. While a command of the page waits or
-goes out, the buttons and `BACK` are grey, and a press that starts on them
+goes out, the buttons and `BACK` are drawn disabled, and a press that starts on them
 then does nothing when it lifts.
 
 The lines under the buttons say what was sent, for example
@@ -473,7 +474,7 @@ shows its 3D note ([The tester](#the-tester)); `3D OFF` leaves the note until
 the board restarts or ESC SETTINGS reads 3D MODE off. None of these commands
 has been sent to an ESC from this board yet.
 
-<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS while beacon 3 goes out: every button and BACK grey"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS with no ESC answering: NO ESC ANSWERS ON SIG GP0. in amber, every button grey">
+<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS while beacon 3 goes out: every button and BACK faint"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS with no ESC answering: NO ESC ANSWERS ON SIG GP0. in amber, every button faint">
 
 ### SERVO
 
@@ -549,7 +550,7 @@ button that writes all settings to flash. One list, in sections, scrolls under
 a finger. It opens from `MENU`, or from a tap on the tester's pole count or
 ceiling while disarmed; `BACK` returns to where it was opened from. The
 section names and the values beside `-` and `+` are cyan, the colour of a
-setting; read-only values are grey.
+setting; read-only values are faint.
 
 | Section | Row | What it does |
 |---|---|---|
@@ -565,7 +566,7 @@ setting; read-only values are grey.
 | DISPLAY | **BACKLIGHT** | 16–255, in steps of 32 |
 | BOARD | **BUILT FOR** | Read-only. The board the firmware is built for, `RP2350-TOUCH-LCD-2.8` |
 | BOARD | **VERSION** | Read-only. The firmware version, for example `0.1.0` |
-| BOARD | **CLOCK** | Read-only. The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in grey. The line under it, `SET AT EACH POWER-UP`: the board has no cell for its clock, so a computer sets it again after each power-up with `tools/set_clock.py` ([SD Logging](SD-Logging#the-clock)). Redrawn once a minute while the row shows |
+| BOARD | **CLOCK** | Read-only. The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in dim. The line under it, `SET AT EACH POWER-UP`: the board has no cell for its clock, so a computer sets it again after each power-up with `tools/set_clock.py` ([SD Logging](SD-Logging#the-clock)). Redrawn once a minute while the row shows |
 | DIAGNOSTICS | **LAST RESTART** | Read-only. Why the board last started: `POWER-ON`, `BROWN-OUT` (the supply dipped too low), `RUN PIN` (the reset input), `WATCHDOG`, `UPDATE` (the restart after copying a new firmware onto the board), `REBOOT` (a restart through the watchdog that another program asked for, for example picotool), `DEBUGGER`, `GLITCH` (a short supply glitch), `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG` |
 | DIAGNOSTICS | **UPTIME** | Read-only. Time since the board started, hours, minutes and seconds, for example `1:02:03`. Redrawn once a second while the row shows |
 
@@ -593,7 +594,7 @@ Under the list, these stay in place:
   opened over the tester or from MENU.
 - **LINK**: live packets per second and error rate. Green means packets are
   arriving, so the ESC pin is correct. Amber means more than 5 % errors.
-  Opened from MENU, where DShot is off, it reads `OFF` in grey.
+  Opened from MENU, where DShot is off, it reads `OFF` in dim.
 - The note line: one text, the first that applies, in this order:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (red) or
      `NOT WHILE ARMED - DISARM TO SAVE` (red), until the next save or

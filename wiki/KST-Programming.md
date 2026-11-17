@@ -181,7 +181,7 @@ Rows are 40 px tall at a 42 px pitch. Drag the list up or down to scroll.
 - Values carry their unit: `96 %`, `300.0 US`, `1.0 S`, `X1`, `ON`, `OFF`, or
   a count in the form `n OF m`. `US` is µs: the screen font has no micro
   sign. A raw value whose display is not established reads `RAW` and the number.
-- LOCKED fields are read-only. They are drawn grey and a tap on them selects
+- LOCKED fields are read-only. They are drawn faint and a tap on them selects
   nothing.
 - A changed value is dark on a cyan fill, with a 3 px cyan bar at its row's
   left edge. A value as read is in the text colour, selected or not: selecting a row
@@ -286,7 +286,7 @@ only when the write goes out, which then fails.
 
 While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
 `PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. While the write runs,
-and while it waits for the card, `BACK` is grey and does nothing: no `BACK`
+and while it waits for the card, `BACK` is drawn disabled and does nothing: no `BACK`
 leaves a servo half written. `BACK` before the hold, or under the result,
 returns to the field list.
 
@@ -436,13 +436,13 @@ and does nothing.
 ## Leaving
 
 `BACK` on the field list opens the leave page. `BACK` on the search opens it
-too, once a servo has answered. `BACK` on the leave page is grey and does
+too, once a servo has answered. `BACK` on the leave page is drawn disabled and does
 nothing: each way on is a button.
 
-<img src="img/leave-kst.png" width="240" alt="The leave page: 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="After LEAVE: 2 UNPLUG THE SERVO. current, NEXT SERVO, SERVO grey">
+<img src="img/leave-kst.png" width="240" alt="The leave page: 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="After LEAVE: 2 UNPLUG THE SERVO. current, NEXT SERVO, SERVO faint">
 
 The page numbers three steps. The current step is amber, with a bar at the
-left edge; the others are grey:
+left edge; the others are dim:
 
 1. `POWER THE SERVO OFF, THEN LEAVE.`, with
    `IT STAYS IN PROGRAMMING MODE UNTIL` and `ITS SUPPLY IS OFF.`
@@ -460,14 +460,14 @@ Under the steps, in amber, the page names what LEAVE loses:
 100 ms and lets the pin go. Step 2 is current from the tap on. `LEAVE` also
 leaves a session that is in doubt. While the pin goes the page reads
 `RELEASING THE PIN`, and the two buttons, `NEXT SERVO` and
-`SERVO` in `LEAVE`'s place, are grey.
+`SERVO` in `LEAVE`'s place, are drawn disabled.
 
 **Unplug the servo.** Once the pin is let go, `NEXT SERVO` acts: it keeps
 the pin and starts a new search, and the page reads
 `NEXT SERVO: POWER IT AFTER THE TAP.` **`SERVO`**, the hub's title, acts
 1 s after that: the pin is held low, no DShot starts, and SERVO returns. The
 second makes a double tap on `LEAVE` harmless: it lands while `SERVO` is
-grey. A press that landed while it was grey does nothing when it lifts.
+drawn disabled. A press that landed while it was drawn disabled does nothing when it lifts.
 
 `BACK` on the search before any servo answered lets the pin go and opens the
 page at step 2, numbered 1: `1 UNPLUG THE SERVO.`, `2 BACK TO SERVO.`

@@ -196,7 +196,7 @@ unten, um zu verschieben.
   oder eine Anzahl der Form `n OF m`. `US` steht für µs: Die Bildschirmschrift
   hat kein Mikro-Zeichen. Ein Rohwert, dessen Anzeige nicht feststeht, zeigt
   `RAW` und die Zahl.
-- LOCKED-Felder sind nur lesbar. Sie sind grau gezeichnet, und ein Tippen
+- LOCKED-Felder sind nur lesbar. Sie sind blass gezeichnet, und ein Tippen
   darauf wählt nichts aus.
 - Ein geänderter Wert steht dunkel auf einer cyanfarbenen Fläche, mit einem
   3 px breiten cyanfarbenen Balken am linken Rand seiner Zeile. Ein Wert, wie er gelesen wurde, steht in der
@@ -311,7 +311,7 @@ Schreiben hinausgeht, das dann scheitert.
 
 Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
 `PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. Während das
-Schreiben läuft, und während es auf die Karte wartet, ist `BACK` grau und tut
+Schreiben läuft, und während es auf die Karte wartet, ist `BACK` deaktiviert gezeichnet und tut
 nichts: Kein `BACK` lässt ein Servo halb geschrieben zurück. `BACK` vor dem
 Halten oder unter dem Ergebnis führt zur Feldliste zurück.
 
@@ -473,12 +473,12 @@ geschrieben. Ohne gewählte Zeile zeigt die Editorleiste
 
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` in der Suche öffnet
 sie ebenfalls, sobald ein Servo geantwortet hat. `BACK` auf der
-Verlassenseite ist grau und bewirkt nichts: Jeder Weg weiter ist eine Taste.
+Verlassenseite ist deaktiviert gezeichnet und bewirkt nichts: Jeder Weg weiter ist eine Taste.
 
-<img src="img/leave-kst.png" width="240" alt="Die Verlassenseite: 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="Nach LEAVE: 2 UNPLUG THE SERVO. aktuell, NEXT SERVO, SERVO grau">
+<img src="img/leave-kst.png" width="240" alt="Die Verlassenseite: 1 POWER THE SERVO OFF, THEN LEAVE., STAY und LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="Die Verlassenseite mit 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="Nach LEAVE: 2 UNPLUG THE SERVO. aktuell, NEXT SERVO, SERVO blass">
 
 Die Seite nummeriert drei Schritte. Der aktuelle Schritt ist
-bernsteinfarben, mit einem Balken am linken Rand; die anderen sind grau:
+bernsteinfarben, mit einem Balken am linken Rand; die anderen sind gedämpft:
 
 1. `POWER THE SERVO OFF, THEN LEAVE.`, mit
    `IT STAYS IN PROGRAMMING MODE UNTIL` und `ITS SUPPLY IS OFF.`
@@ -497,14 +497,14 @@ Leitung 100 ms lang auf Low und lässt den Pin los. Ab dem Tippen ist
 Schritt 2 aktuell. `LEAVE` verlässt auch eine Sitzung, die im Zweifel ist.
 Solange der Pin freigegeben wird, zeigt die Seite `RELEASING THE PIN`, und
 die beiden Tasten, `NEXT SERVO` und `SERVO` an der Stelle von
-`LEAVE`, sind grau.
+`LEAVE`, sind deaktiviert gezeichnet.
 
 **Zieh das Servo ab.** Sobald der Pin freigegeben ist, wirkt `NEXT SERVO`:
 Es behält den Pin und startet eine neue Suche, und die Seite zeigt
 `NEXT SERVO: POWER IT AFTER THE TAP.` **`SERVO`**, der Titel der Auswahl,
 wirkt 1 s danach: Der Pin liegt auf Low, kein DShot startet, und SERVO
 erscheint. Die Sekunde macht ein Doppeltippen auf `LEAVE` harmlos: Es
-landet, während `SERVO` grau ist. Ein Druck, der begann, während es grau war,
+landet, während `SERVO` deaktiviert gezeichnet ist. Ein Druck, der begann, während es deaktiviert gezeichnet war,
 bewirkt beim Loslassen nichts.
 
 `BACK` in der Suche, bevor ein Servo geantwortet hat, gibt den Pin frei und

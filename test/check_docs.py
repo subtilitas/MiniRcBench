@@ -161,6 +161,9 @@ REMOVED_TEXTS = [
      "the screens ESC CONFIG, RX SIGNALS, SD LOG and SETTINGS, now ESC PROGRAM, "
      "RECEIVER, LOGS and SETUP, and ANGLE METER's ANGLE SETUP, now ANGLE SET "
      "(menu-c.md owner decision 6 and decision 17, slice 5)"),
+    (r"(?<!blue-)\b[Gg]r[ae]y(ed|s)?\b|(?<!blau)\b[Gg]rau(e|en|em|er|es)?\b|ausgegraut",
+     "a grey that is one of the two blue-grey neutrals, now named by its role, "
+     "dim or faint, gedämpft or blass (ui-theme.md, slice 14)"),
 ]
 # Rule 9: DShot's restart after a claim, and DShot outside ESC TESTER and ESC
 # COMMANDS, checked in the manual and in the comments of src/*.h and

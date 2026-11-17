@@ -117,7 +117,7 @@ wiring sheet. Not tested on hardware.
 - **Did not come up:** with the sensor and no 4.5 V within 500 ms, the
   converter goes off and the dial reads `SUPPLY NOT UP: NO 4.5 V IN 500 MS.`
 - **Sensor not found:** with CURRENT SENSE at `INA219` and no sensor,
-  `HOLD TO START` is greyed and the dial reads
+  `HOLD TO START` is drawn disabled and the dial reads
   `START WAITS FOR THE CURRENT SENSOR.` Set CURRENT SENSE to `NONE` to start
   without it. A stuck I2C bus or a silent touch panel also holds the start:
   `START WAITS: THE I2C BUS IS STUCK.` or `START WAITS: TOUCH DOES NOT ANSWER.`
@@ -125,7 +125,7 @@ wiring sheet. Not tested on hardware.
   switch-off, the line reads `GP28 SUPPLY NOT OFF`. The converter does not
   disconnect its output, or EN is held high: check the wiring.
 
-<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28 while SAFE: GP28 SUPPLY ON AT START under the title and the ESC warning on the dial"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. with HOLD TO START greyed"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF under the title, 4.90 V in the readout"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET with SUPPLY UP IN 25 MS under STOP TO CHANGE THE PROFILE">
+<img src="img/servo-supply.png" width="240" alt="The servo screen with SERVO SUPPLY at GP28 while SAFE: GP28 SUPPLY ON AT START under the title and the ESC warning on the dial"> <img src="img/servo-no-sensor.png" width="240" alt="START WAITS FOR THE CURRENT SENSOR. with HOLD TO START disabled"> <img src="img/servo-not-off.png" width="240" alt="GP28 SUPPLY NOT OFF under the title, 4.90 V in the readout"> <img src="img/servo-set-up.png" width="240" alt="SERVO SET with SUPPLY UP IN 25 MS under STOP TO CHANGE THE PROFILE">
 
 ---
 
@@ -250,13 +250,13 @@ Not tested on hardware: no INA219 and no converter has been on the board.
   in the same step of the board's second core. The chip stays until the
   next `HOLD TO START`; the dial's second line reads `HOLD TO START AGAIN.`
 - While the sensor is not online after a cut, the dial's second line reads
-  `START WAITS FOR THE CURRENT SENSOR.` and `HOLD TO START` is greyed; once
+  `START WAITS FOR THE CURRENT SENSOR.` and `HOLD TO START` is drawn disabled; once
   it answers again, `HOLD TO START AGAIN.`
 - With `OWN` only `OVERCURRENT` and `STALL` apply: the bench knows neither
   the voltage of your supply nor whether its current runs through the
   sensor. What the servo does without pulses is the servo's own. If the
   sensor stops answering while RUNNING with `OWN`, nothing is cut, and the
-  dial reads `NO SENSOR READING: NO CURRENT CUTS.` in grey.
+  dial reads `NO SENSOR READING: NO CURRENT CUTS.` in dim.
 - The stall cut also trips on many servos held at MIN or MAX against their
   own end stop, where they draw stall current. Not measured; the design
   note's bench test B8 checks it.
@@ -273,7 +273,7 @@ Not tested on hardware: no INA219 and no converter has been on the board.
 With the current sensor the servo tester times how long the servo takes to
 reach the position you tap, from its current: a moving servo draws more than
 a resting one. The SET screen shows the last move on the second line under
-its title, in grey:
+its title, in dim:
 
 `MOVE 0.42 S  PEAK 1.21 A  HOLD 0.12 A`
 
@@ -350,7 +350,7 @@ switch the supply.
   takes longer than 2 s for that gets no log: `NO LOG: CARD TOO SLOW`, and the
   servo starts without one.
 - While the servo runs, the dial's second line reads `LOGGING TO SRV00012.CSV`
-  in grey. In amber: `SRV00012.CSV: 12 ROWS DROPPED` (the card was slower than
+  in dim. In amber: `SRV00012.CSV: 12 ROWS DROPPED` (the card was slower than
   the readings), `LOG STOPPED AT 4 MIB` (the file's limit, about an hour), `LOG
   STOPPED: NO ROOM IN ONE PIECE` (the card had less than 4 MiB free in one
   piece, and the 64 KiB it gave are used), `LOG STOPPED: CARD WRITE FAILED` (the
@@ -399,7 +399,7 @@ Swipe the row sideways for big steps. Drag up or down to scroll. Rows are
 | MOVES | ENDLESS, or 1 to 9999 ends |
 
 - The PULSE rows change only while `SAFE`. While `RUNNING` the screen says
-  `STOP TO CHANGE THE PROFILE` and draws their values grey.
+  `STOP TO CHANGE THE PROFILE` and draws their values faint.
 
   <img src="img/servo-set-running.png" width="240" alt="SET while running: the PULSE rows locked, STOP in the footer">
 
@@ -462,13 +462,13 @@ rests on its pull-down. The strip names the pins the screen holds,
 <img src="img/leave-servo.png" width="240" alt="The leave page: 1 UNPLUG THE SERVO., NEXT SERVO and SERVO">
 
 Until the last pulse has completed the page reads `RELEASING THE PINS`, or
-`RELEASING THE PIN` with SIG alone, and both buttons are grey. Then
+`RELEASING THE PIN` with SIG alone, and both buttons are drawn disabled. Then
 `NEXT SERVO` acts: it returns to the servo screen, SAFE, and keeps the
 pins. Unplug the servo, then tap `SERVO`, the hub's title: it acts 1 s after
 the pins are let go, so a quick second tap after `BACK` ends nothing. SIG is
 driven low, no DShot starts, and SERVO, the hub, returns. A servo left on
 SIG meets DShot at the next ESC TESTER or ESC COMMANDS. `BACK` on the page is
-grey and does nothing.
+drawn disabled and does nothing.
 
 ---
 

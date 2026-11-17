@@ -137,13 +137,13 @@ Tabellen, in Großbuchstaben; die bidirektionalen Einstellungen von
 DIRECTION heißen `3D` und `3D REVERSED`. Ein Wert, der keiner der
 Einstellung ist, steht zum Beispiel als `RAW 17` in Bernstein. Bei Bluejay
 0.21 und BLHeli_S 16.3 bis 16.7 änderst du die Einstellungen wie bei AM32,
-siehe unten: 15 bei Bluejay, 12 bei BLHeli_S. Graue Zeilen werden nur
+siehe unten: 15 bei Bluejay, 12 bei BLHeli_S. Blasse Zeilen werden nur
 angezeigt: die Gasgrenzen von BLHeli_S, PWM INDICATOR und SAFETY ARM von
 Bluejay. Unter der Liste steht `TAP A SETTING TO EDIT` (Einstellung zum
 Ändern antippen) / `BACK SENDS LEAVE: THE ESC STARTS.` (BACK sendet LEAVE,
 der ESC startet).
 
-<img src="img/efm8-list.png" width="240" alt="Die Einstellungen eines Bluejay-0.21-ESC, die änderbaren Zeilen weiß, WRITE... und REVERT grau bis zu einer Änderung">
+<img src="img/efm8-list.png" width="240" alt="Die Einstellungen eines Bluejay-0.21-ESC, die änderbaren Zeilen weiß, WRITE... und REVERT blass bis zu einer Änderung">
 
 Tipp eine Zeile an, um sie zu wählen. Manche Zeilen haben einen Hinweis,
 zwei Zeilen in Bernstein im Streifen:
@@ -166,7 +166,7 @@ gewählte Zeile im Streifen und setzt im Tester
 <img src="img/efm8-hex.png" width="240" alt="ESC HEX: die Bytes der Bluejay-Seite, 8 pro Zeile">
 
 Eine ältere Version und eine Seite, die die Firmware neu geschrieben hat,
-öffnen sich nur lesbar: jede Zeile grau, `WRITE...` grau, unter der Liste
+öffnen sich nur lesbar: jede Zeile blass, `WRITE...` blass, unter der Liste
 `SHOWN ONLY: NOTHING IS WRITTEN.` (nur angezeigt, nichts wird geschrieben)
 und zwei Zeilen in Bernstein im Streifen. Mit eingesteckter Karte gehen
 die Einstellungen beim Öffnen der Liste auf die Karte, als
@@ -201,7 +201,7 @@ Bildschirms verloren, wie die Seite in Bernstein sagt.
 
 <img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH von 40 auf 88 geändert, türkis, in der Bearbeitungsleiste"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 Änderungen und BACKUP FIRST: BACKUP/BJ001.TXT">
 
-<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in Bernstein, BACK und OK grau"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in Grün, LEAVING STARTS THE ESC WITH THEM.">
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in Bernstein, BACK und OK blass"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in Grün, LEAVING STARTS THE ESC WITH THEM.">
 
 | Ergebnis | Bedeutung und nächster Schritt |
 |---|---|
@@ -311,7 +311,7 @@ LEAVE und wirkt 1 s später; es legt den Signalpin auf Low, startet kein
 DShot und kehrt zu ESC PROGRAM zurück. Steck den Akku wieder an, sobald ESC
 PROGRAM zu sehen ist: An einer Leitung auf Low startet ein Bluejay- oder
 BLHeli_S-ESC seine Firmware statt seines Bootloaders (aus dem Quelltext der
-Firmwares gelesen, nicht gemessen). `BACK` ist auf dieser Seite grau. Die
+Firmwares gelesen, nicht gemessen). `BACK` ist auf dieser Seite deaktiviert gezeichnet. Die
 letzte Taste nimmt MENUs `POWER-CYCLE THE ESC TO RUN IT` weg, da die
 Schritte den ESC neu gestartet haben. Den Akku sieht der Tester nicht: Ein
 eingesteckt gebliebener ESC, dessen Bootloader noch wartet, trifft beim
@@ -331,7 +331,7 @@ Ein **Tippen ohne Bewegung** wählt die Zeile darunter aus. Die Editorleiste am
 unteren Rand zeigt dann Namen und Wert des Feldes.
 
 Die Zeilen sind 40 px hoch, es sind also drei auf einmal sichtbar. Sie sind
-gruppiert, mit dem Gruppennamen in Grau über jeder Gruppe.
+gruppiert, mit dem Gruppennamen in der blassen Farbe über jeder Gruppe.
 Welche Felder es gibt, hängt von der Layout-Version der ESC-Einstellungen ab.
 Angezeigt werden nur die Felder, die zur gelesenen Version passen.
 
@@ -505,13 +505,13 @@ behält die Änderungen. Es gibt keine Zeitgrenze. Ohne Änderungen kehrt
 ## Schreiben
 
 Tippe `WRITE...` unter der Liste an. Es öffnet die Seite `ESC WRITE`;
-geschrieben ist noch nichts. Ohne Änderungen ist `WRITE...` grau und tut
+geschrieben ist noch nichts. Ohne Änderungen ist `WRITE...` deaktiviert gezeichnet und tut
 nichts.
 
 <img src="img/am32-write.png" width="240" alt="ESC WRITE mit fünf Änderungen: vier Zeilen mit Name und alt -> neu, AND 1 MORE, BACKUP FIRST: BACKUP/AM001.TXT und HOLD TO WRITE">
 
 Die Seite listet jede Einstellung, die sich ändert, mit Namen und
-`alt -> neu`, den alten Wert grau und den neuen cyan: vier Zeilen, dann
+`alt -> neu`, den alten Wert blass und den neuen cyan: vier Zeilen, dann
 `AND n MORE`. Der Streifen zählt sie, `5 CHANGES`. Die Zeile über der
 Schaltfläche sagt, wohin die Sicherung geht: `BACKUP FIRST: BACKUP/AM001.TXT`
 vor dem ersten Schreiben mit eingesteckter Karte,
@@ -522,7 +522,7 @@ sie `NO CARD: OLD VALUES LOST ON LEAVING` in Bernstein, mit der Karte an USB
 `HOLD TO WRITE` 1 s lang halten. Währenddessen füllt sich ein
 Fortschrittsbalken. Das Tippen, das die Seite geöffnet hat, zählt nicht zum
 Halten. Während das Schreiben läuft, zeigt die Seite
-`WRITING: DO NOT UNPLUG.` in Bernstein, und `BACK` ist grau und tut nichts.
+`WRITING: DO NOT UNPLUG.` in Bernstein, und `BACK` ist deaktiviert gezeichnet und tut nichts.
 `BACK` vor dem Halten oder unter dem Ergebnis kehrt zur Liste zurück.
 
 <img src="img/am32-written.png" width="240" alt="Schreiben überprüft">

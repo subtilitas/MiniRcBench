@@ -1,14 +1,15 @@
 # UI theme after rcbench's
 
-Status: slices 7 to 13 of [the build plan](menu-c.md#build-plan), the
+Status: slices 7 to 14 of [the build plan](menu-c.md#build-plan), the
 palette, the neutral fills, the radius, cyan, green on the tools and on
-the tester, and the contrast walk over the screens, are built, host tests
-only
+the tester, the contrast walk over the screens and the records, are built,
+host tests only
 ([Slices 7 and 8 as built](#slices-7-and-8-as-built),
 [Slice 9 as built](#slice-9-as-built),
 [Slice 10 as built](#slice-10-as-built),
 [Slices 11 and 12 as built](#slices-11-and-12-as-built),
-[Slice 13 as built](#slice-13-as-built)). Slice 14 is proposed, not built. The owner decided its five questions on 2026-11-15.
+[Slice 13 as built](#slice-13-as-built),
+[Slice 14 as built](#slice-14-as-built)). The owner decided its five questions on 2026-11-15.
 The two questions the answers raised, and the colours of two buttons of the
 DShot lifetime, are settled by the developer's calls of 2026-11-16, pending the
 owner's review ([Decisions](#decisions)). Every colour is computed and not seen
@@ -1100,8 +1101,8 @@ with its number, here and in the note the line stands in. Slice 14 of
    > by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
    > row that opens a hub, a selected tab's label, a settings value and a
    > section caption. "Changed" is the cyan fill and the bar of decision 8.
-   > SETUP's captions and values are `C_CYAN`. Not built: no screen has a
-   > tab. The leave page's button to the hub is built by slice 11
+   > SETUP's captions and values are `C_CYAN`. Not built, and not planned
+   > by any slice: no screen has a tab. The leave page's button to the hub is built by slice 11
    > ([Slices 11 and 12 as built](#slices-11-and-12-as-built)), the other
    > uses by slice 10 ([Slice 10 as built](#slice-10-as-built)).
 
@@ -1180,7 +1181,7 @@ tests and its dependence on the DShot slices, D1 to D5. None needs hardware
 | 11 | Green on the tools. Built: [Slices 11 and 12 as built](#slices-11-and-12-as-built) |
 | 12 | Green on the tester. Built with slice 11 |
 | 13 | Screens. Built: [Slice 13 as built](#slice-13-as-built) |
-| 14 | The look's records and previews |
+| 14 | The look's records and previews. Built: [Slice 14 as built](#slice-14-as-built) |
 
 Notes on the slices:
 
@@ -1802,6 +1803,32 @@ Readings of the note where the code asked for a choice:
 - **Text only.** The walk reads what `gfxText()` draws. Frames, the
   seven-segment digits and the fills are not text and are not walked; the
   contrast table gives their ratios.
+
+## Slice 14 as built
+
+Slice 14, the look's records and previews, of
+[the build plan](menu-c.md#build-plan).
+
+- **Revision lines.** [Revisions](#revisions) 2, 3 and 4 and their copies
+  in [menu-b.md](menu-b.md#decisions) read "Built". The one line left is
+  revision 2's tab: no screen has a tab, and no slice plans one.
+- **"Grey".** README.md and the wiki pages in both languages name the two
+  neutrals by their roles: dim, `C_DIM`, for labels, captions and hints,
+  and faint, `C_GRID`, for disabled labels, read-only values and old
+  values; German gedämpft and blass. A disabled button "is drawn
+  disabled". About 120 lines change. "blue-grey" and "blaugrau" stay where they
+  describe the palette. Rule 9 of `test/check_docs.py` refuses "grey",
+  "greyed", "grau" and "ausgegraut" in the manual from here on.
+- **High contrast.** README's section gives the green of a start button,
+  its white label at 6.50, the green outline, and the two pairs on the
+  control face under 4.5 that the walk lists.
+- **Previews.** `tools/make_previews.py --wiki` writes the 183 screens of
+  `wiki/img/` from the suite's frames; `docs/*-preview.png` are written by
+  slices 11 and 12.
+- **STATUS.md.** Open item 33 is closed; item 25 was closed by slice 9.
+
+Checks: `python3 test/check_docs.py`, with a "grey" planted in README.md
+reported by rule 9; `python3 tools/check_wiki.py`; `make -C test`.
 
 ## Open questions
 
