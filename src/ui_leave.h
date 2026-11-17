@@ -313,6 +313,42 @@ int uiLeaveCurrent(const UiLeave *l);
 bool uiLeaveReleaseLive(const UiLeave *l, uint32_t nowMs);
 
 /**
+ * @brief The header of a leave page: @p title and the top-right button as
+ *        the page has it, uiLeaveBackLabel() and uiLeaveBackLive(). Screens
+ *        draw it in place of uiHeader() while their leave page shows, so the
+ *        header and uiLeaveDraw() draw the same button.
+ * @param title The screen's title.
+ * @param l     The page.
+ * @param t     This frame's touch; may be null.
+ * @param nowMs Current millis().
+ */
+void uiHeaderLeave(const char *title, const UiLeave *l, const TouchState *t, uint32_t nowMs);
+
+/** @brief The top-right button's label before the release: it ends the claim, as LEAVE. */
+#define UI_LEAVE_BACK_LEAVE "LEAVE"
+
+/**
+ * @brief The label of the header's top-right button on the page: `LEAVE`
+ *        before the release, `BACK` from then on. A tap on it acts as one on
+ *        the wide button (uiLeaveTouch()), and uiLeaveDraw() draws it with
+ *        uiHomeTag(), over the screen's header.
+ * @param l The page.
+ * @return Static text.
+ */
+const char *uiLeaveBackLabel(const UiLeave *l);
+
+/**
+ * @brief Whether the top-right button acts now: before the release while
+ *        LEAVE is enabled; after it, once the wide button is live
+ *        (uiLeaveReleaseLive()); not while the claim releases. Screens report
+ *        it for `UI_FIX(UI_BACK)` in the page's control table.
+ * @param l     The page.
+ * @param nowMs Current millis().
+ * @return true when a tap on it acts.
+ */
+bool uiLeaveBackLive(const UiLeave *l, uint32_t nowMs);
+
+/**
  * @brief Feed one frame of touch to the page.
  * @param[in,out] l The page.
  * @param t         This frame's touch; null is treated as no touch.

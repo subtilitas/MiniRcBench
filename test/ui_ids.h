@@ -575,23 +575,29 @@ static inline bool backToTester() {
 /** @brief How the header's BACK looks on the panel. */
 enum class BackLook : uint8_t {
 	Live,      /**< The home tag: a C_CYAN fill, the label in C_ONACCENT, at rest or pressed. */
-	Disabled,  /**< uiButton()'s disabled look: an outline, C_BG inside, the label in C_GRID. */
+	Disabled,  /**< uiHomeTag()'s look when it does not act: a C_DIM frame and label on C_BG. */
 	Other,     /**< Neither: not drawn, or drawn some other way. */
 };
 
-/** @brief How the header's BACK is drawn on the panel now. */
-static inline BackLook backLook() {
+/** @brief How the header's top-right button is drawn with @p label. */
+static inline BackLook homeTagLook(const char *label) {
 	const UiRect r = uiBackRect();
 	const uint16_t *fb = gfxBuffer();
 	const uint16_t fill = fb[(r.y + r.h / 2) * GFX_W + r.x + 4];
 	const uint16_t edge = fb[r.y * GFX_W + r.x + r.w / 2];
-	const int lx = r.x + (r.w - gfxTextW("BACK", 1)) / 2, ly = r.y + (r.h - 7) / 2;
-	if (fill == C_CYAN && (fakeTextIs(lx, ly, "BACK", C_ONACCENT, C_CYAN, 1) ||
-	                       fakeTextIs(lx + 1, ly + 1, "BACK", C_ONACCENT, C_CYAN, 1)))
+	const int lx = r.x + (r.w - gfxTextW(label, 1)) / 2, ly = r.y + (r.h - 7) / 2;
+	if (fill == C_CYAN && (fakeTextIs(lx, ly, label, C_ONACCENT, C_CYAN, 1) ||
+	                       fakeTextIs(lx + 1, ly + 1, label, C_ONACCENT, C_CYAN, 1)))
 		return BackLook::Live;
-	if (fill == C_BG && edge == C_GRID && fakeTextIs(lx, ly, "BACK", C_GRID, C_BG, 1))
+	if (fill == C_BG && edge == C_DIM && fakeTextIs(lx, ly, label, C_DIM, C_BG, 1))
 		return BackLook::Disabled;
 	return BackLook::Other;
+}
+
+/** @brief How the header's top-right button is drawn now: as BACK, or as a leave page's LEAVE. */
+static inline BackLook backLook() {
+	BackLook b = homeTagLook("BACK");
+	return b != BackLook::Other ? b : homeTagLook("LEAVE");
 }
 
 /**

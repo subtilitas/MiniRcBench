@@ -116,13 +116,25 @@ void uiHeaderRoot(const char *title) {
 	gfxText(UI_MARGIN, (UI_HDR_H - 14) / 2, title, C_TEXT, 2);
 }
 
+void uiHomeTag(const char *label, bool pressed, bool enabled) {
+	const UiRect r = uiBackRect();
+	if (enabled) {
+		// The way back is the accent on every screen with a header
+		// (docs/design/ui-theme.md, "Cyan").
+		uiButton(r, label, C_CYAN, C_ONACCENT, 1, pressed, true);
+		return;
+	}
+	// Not acting now, and plainly there: a C_DIM frame and label on C_BG,
+	// 8.74 in Dark, where uiButton()'s disabled C_GRID look nearly vanished
+	// on the panel. No cyan, so it never reads as live.
+	gfxRect(r.x, r.y, r.w, r.h, C_BG);
+	gfxRoundFrame(r.x, r.y, r.w, r.h, UI_RADIUS, C_DIM);
+	gfxText(r.x + (r.w - gfxTextW(label, 1)) / 2, r.y + (r.h - 7) / 2, label, C_DIM, 1);
+}
+
 void uiHeader(const char *title, const TouchState *t, bool backEnabled) {
 	uiHeaderRoot(title);
-	// The home tag: the way back is the accent on every screen with a header
-	// (docs/design/ui-theme.md, "Cyan"). A BACK that would do nothing is
-	// uiButton()'s disabled look, and then not cyan.
-	uiButton(uiBackRect(), "BACK", C_CYAN, C_ONACCENT, 1, uiPressing(uiBackRect(), t),
-	         backEnabled);
+	uiHomeTag("BACK", backEnabled && uiPressing(uiBackRect(), t), backEnabled);
 }
 
 void uiStripClear() {

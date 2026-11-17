@@ -339,6 +339,13 @@ static bool tapped(const UiRect &r) { return uiTapped(r, s_t); }
 static bool backActs() { return s_view != View::Leave; }
 
 /**
+ * @brief What the control table reports for `UI_FIX(UI_BACK)`: on the leave
+ *        page the top-right button as the page has it (uiLeaveBackLive()),
+ *        elsewhere backActs().
+ */
+static bool backTable() { return s_view == View::Leave ? uiLeaveBackLive(&s_leave, millis()) : backActs(); }
+
+/**
  * @brief The GPIO a role names, from the claim, or from the pump before it
  *        holds.
  */
@@ -1402,7 +1409,7 @@ static void drawLeave() {
 	k.sig = gpioOf(PIN_SIG);
 	k.aux = gpioOf(PIN_AUX);
 	if (!changed(0, &k, sizeof(k))) return;
-	uiHeader(SERVO_UI_TITLE, s_t, backActs());
+	uiHeaderLeave(SERVO_UI_TITLE, &s_leave, s_t, millis());
 	uiStripClear();
 	char strip[32];
 	if (k.two) snprintf(strip, sizeof(strip), "SIG GP%u  AUX GP%u", k.sig, k.aux);
@@ -1424,14 +1431,14 @@ static void drawLeave() {
 uint8_t uiServoControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	if (s_view == View::Leave) {
-		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::NextServo), UI_LEAVE_LEFT,
 		             s_leave.phase == UiLeavePhase::Released);
 		uiControlAdd(out, &n, max, UI_FIX(ServoCtl::Release), UI_LEAVE_WIDE,
 		             uiLeaveReleaseLive(&s_leave, millis()));
 		return n;
 	}
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 	if (s_view == View::Set) {
 		uiListAddRows(&s_list, out, &n, max, true);
 		if (s_sel >= 0) {

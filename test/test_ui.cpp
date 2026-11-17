@@ -7399,7 +7399,8 @@ static void testAm32Efm8() {
 		checkTrue("no DShot, the job keeps SIG", fakeParkCount() == resumes && fakeEwOpen() &&
 		          escTaskSuspended() && pinClaimHolder() == PinUser::Am32);
 		checkControlTable("ESC SETTINGS, the leave page before LEAVE");
-		checkTrue("BACK drawn disabled", !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+		checkTrue("the top-right button reads LEAVE, live", ctlEnabled(UI_FIX(UI_BACK)) &&
+		          homeTagLook("LEAVE") == BackLook::Live);
 		checkTrue("titled ESC SETTINGS", fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, AM32_UI_TITLE, C_TEXT,
 		                                            C_PANEL, 2));
 		char strip[32];
@@ -7450,12 +7451,17 @@ static void testAm32Efm8() {
 		checkTrue("no left button after LEAVE", !ctlPresent(UI_FIX(Am32Ctl::Stay)) && leftBlank());
 		checkTrue("RESTART DSHOT drawn disabled", leaveWideIs("ESC PROGRAM", false) &&
 		          !ctlEnabled(UI_FIX(Am32Ctl::Release)));
+		checkTrue("the top-right button reads BACK, not acting", !ctlEnabled(UI_FIX(UI_BACK)) &&
+		          homeTagLook("BACK") == BackLook::Disabled);
 		tapId(UI_FIX(Am32Ctl::Release), IdExpect::Disabled);
 		checkTrue("a tap before 1000 ms restarts nothing", fakeParkCount() == resumes &&
 		          s_state == S_LEAVE);
+		tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+		checkTrue("nor one on BACK", fakeParkCount() == resumes && s_state == S_LEAVE);
 		frames(37);
 		checkTrue("live 1000 ms after SIG was let go", ctlEnabled(UI_FIX(Am32Ctl::Release)) &&
 		          leaveWideIs("ESC PROGRAM", true));
+		checkTrue("BACK live with it", ctlEnabled(UI_FIX(UI_BACK)) && homeTagLook("BACK") == BackLook::Live);
 		checkTrue("the run cue still stands", uiAm32RunCue(0));
 		tapId(UI_FIX(Am32Ctl::Release));
 		checkTrue("RESTART DSHOT: ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
@@ -7484,10 +7490,13 @@ static void testAm32Efm8() {
 		fakeDumpFrame("shot_efm8_refused.ppm");
 		tapId(UI_FIX(UI_BACK));
 		checkTrue("BACK: the leave page", s_state == S_LEAVE);
-		tapId(UI_FIX(Am32Ctl::Leave));
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the top-right LEAVE: the page releasing, as the wide LEAVE",
+		          s_state == S_LEAVE && s_leave.phase != UiLeavePhase::Before);
 		frames(45);
-		tapId(UI_FIX(Am32Ctl::Release));
-		checkTrue("LEAVE, then the button ESC PROGRAM: the hub", uiCurrentScreen() == UiScreenId::EscConfig);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("then the top-right BACK: the hub, as the button ESC PROGRAM",
+		          uiCurrentScreen() == UiScreenId::EscConfig);
 		tapId(UI_FIX(UI_BACK));  // to MENU
 		frames(2);
 		openTester();

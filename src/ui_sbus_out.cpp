@@ -259,6 +259,13 @@ static const char *gp0Role() { return gpioOf(PIN_SIG) == SBUS_OUT_GPIO ? "SIG" :
  */
 static bool backActs() { return s_view != View::Leave; }
 
+/**
+ * @brief What the control table reports for `UI_FIX(UI_BACK)`: on the leave
+ *        page the top-right button as the page has it (uiLeaveBackLive()),
+ *        elsewhere backActs().
+ */
+static bool backTable() { return s_view == View::Leave ? uiLeaveBackLive(&s_leave, millis()) : backActs(); }
+
 /** @brief The top of the page's row @p i. */
 static int rowY(int i) { return SBOUT_UI_ROW_Y + i * SBOUT_UI_ROW_PITCH; }
 
@@ -736,7 +743,7 @@ static void drawLeave() {
 	k.sig = gpioOf(PIN_SIG);
 	k.aux = gpioOf(PIN_AUX);
 	if (!changed(K_TOP, &k, sizeof(k))) return;
-	uiHeader(SBOUT_UI_TITLE, s_t, backActs());
+	uiHeaderLeave(SBOUT_UI_TITLE, &s_leave, s_t, millis());
 	uiStripClear();
 	char strip[32];
 	snprintf(strip, sizeof(strip), "SIG GP%u  AUX GP%u", (unsigned)k.sig, (unsigned)k.aux);
@@ -818,7 +825,7 @@ static bool leaveTick() {
 
 uint8_t uiSbusOutControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 	if (s_view == View::Leave) {
 		bool before = s_leave.phase == UiLeavePhase::Before;
 		uiControlAdd(out, &n, max, UI_FIX(before ? SbusOutCtl::Stay : SbusOutCtl::BackToOutput),

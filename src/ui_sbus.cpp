@@ -136,6 +136,13 @@ static bool live() { return s_claimed && pinClaimState() == ClaimState::Running;
 static bool backActs() { return s_view != View::Leave; }
 
 /**
+ * @brief What the control table reports for `UI_FIX(UI_BACK)`: on the leave
+ *        page the top-right button as the page has it (uiLeaveBackLive()),
+ *        elsewhere backActs().
+ */
+static bool backTable() { return s_view == View::Leave ? uiLeaveBackLive(&s_leave, millis()) : backActs(); }
+
+/**
  * @brief Ask for GP1: the roles of the wiring, after the screen's own checks.
  *
  * No role on GP1 asks for nothing. With GP1 as SIG the receiver goes onto
@@ -353,7 +360,7 @@ static void drawLeave() {
 	k.sig = pinClaimGpio(PIN_SIG) != PIN_CLAIM_NO_GPIO ? pinClaimGpio(PIN_SIG) : escTaskDshotPin();
 	k.roles = s_roles;
 	if (!changed(K_TOP, &k, sizeof(k))) return;
-	uiHeader(SBUS_UI_TITLE, s_t, backActs());
+	uiHeaderLeave(SBUS_UI_TITLE, &s_leave, s_t, millis());
 	uiStripClear();
 	char strip[32];
 	if (s_roles == PIN_SIG) snprintf(strip, sizeof(strip), "SIG GP%u", (unsigned)k.sig);
@@ -382,7 +389,7 @@ static void drawLeave() {
 
 uint8_t uiSbusControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 	if (s_view == View::Leave) {
 		uiControlAdd(out, &n, max, UI_FIX(SbusCtl::BackToMonitor), UI_LEAVE_LEFT,
 		             s_leave.phase == UiLeavePhase::Released);

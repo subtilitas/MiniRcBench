@@ -353,11 +353,12 @@ static void testServo() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from SERVO opens the leave page", uiCurrentScreen() == UiScreenId::Servo &&
 	          !ctlPresent(UI_FIX(ServoCtl::Min)));
-	checkTrue("the leave page: BACK TO SERVO, RESTART DSHOT, BACK disabled",
+	checkTrue("the leave page: BACK TO SERVO, RESTART DSHOT, BACK not acting yet",
 	          ctlPresent(UI_FIX(ServoCtl::NextServo)) && ctlPresent(UI_FIX(ServoCtl::Release)) &&
 	          !ctlEnabled(UI_FIX(UI_BACK)));
 	checkControlTable("the leave page, releasing");
 	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Release)); i++) idFrames(1);
+	checkTrue("BACK reported live with RESTART DSHOT", ctlEnabled(UI_FIX(UI_BACK)));
 	checkControlTable("the leave page");
 	tapId(UI_FIX(ServoCtl::Release));
 	checkTrue("SERVO TESTER leaves to SERVO, the hub that opened it", uiCurrentScreen() == UiScreenId::ServoHub);

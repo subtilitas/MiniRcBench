@@ -138,6 +138,13 @@ static bool bridgeOpen() { return usbBridgeMode() != BridgeMode::Closed; }
 static bool backActs() { return s_view == View::Main && !usbBridgeWriteWaiting(); }
 
 /**
+ * @brief What the control table reports for `UI_FIX(UI_BACK)`: on the leave
+ *        page the top-right button as the page has it (uiLeaveBackLive()),
+ *        elsewhere backActs().
+ */
+static bool backTable() { return s_view == View::Leave ? uiLeaveBackLive(&s_leave, millis()) : backActs(); }
+
+/**
  * @brief Ask for SIG, unless USB DRIVE holds the card (decision 11). The
  *        claim checks for no ESC: the bridge needs it on the pin.
  */
@@ -352,7 +359,7 @@ static void drawLeave() {
 	k.write = usbBridgeWriteUnfinished();
 	k.sig = sigGpio();
 	if (!changed(K_TOP, &k, sizeof(k))) return;
-	uiHeader(BRIDGE_UI_TITLE, s_t, backActs());
+	uiHeaderLeave(BRIDGE_UI_TITLE, &s_leave, s_t, millis());
 	uiStripClear();
 	char cap[32];
 	snprintf(cap, sizeof(cap), BRIDGE_UI_CAPTION_FMT, k.sig);
@@ -375,7 +382,7 @@ static void drawLeave() {
 
 uint8_t uiBridgeControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 	if (s_view == View::Leave) {
 		uiControlAdd(out, &n, max, UI_FIX(BridgeCtl::Bridge), UI_LEAVE_LEFT,
 		             s_leave.phase == UiLeavePhase::Released);
