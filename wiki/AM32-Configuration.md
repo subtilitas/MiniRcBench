@@ -533,7 +533,7 @@ acknowledgement. Then the read-back runs, up to three times, each after a
 | Result | What the code saw |
 |---|---|
 | `NO BACKUP ON THE CARD: NOT WRITTEN` | The card refused the backup, or its flush failed. Nothing went to the ESC |
-| `ESC CHANGED: NOT WRITTEN`, with `LEAVE AND READ IT AGAIN.` under it | The page read again just before the backup and the write differs from the page read at entry in the boot byte, the layout revision, the firmware revision bytes 0, 1, 3 and 4, or the melody and CAN block (0x30 to 0xBF), or that read failed. Byte 2, the bootloader version, is not compared. Nothing went to the ESC |
+| `ESC CHANGED: NOT WRITTEN`, with `LEAVE AND READ IT AGAIN.` under it | The page read again just before the backup and the write differs from the page read at entry, or that read failed: another ESC on the wire. Byte 2, the bootloader version, is not compared. After a write that did not verify, a byte that holds what was sent, or 0xFF where the bootloader erased, is accepted, so RETRY goes. Nothing went to the ESC |
 | `WRITE FAILED: NO REPLY` | A step got no acknowledgement within 250 ms |
 | `WRITE FAILED: REFUSED` | A step got a reply byte that is not the acknowledgement |
 | `WRITE FAILED: CRC FAIL` | Not reached by the write: its replies carry no checksum (CRC, cyclic redundancy check) |

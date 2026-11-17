@@ -592,7 +592,7 @@ Ergebnisse:
 | Ergebnis | Was der Code gesehen hat |
 |---|---|
 | `NO BACKUP ON THE CARD: NOT WRITTEN` | Die Karte hat die Sicherung verweigert, oder das Zurückschreiben auf die Karte scheiterte. Nichts ging an den ESC |
-| `ESC CHANGED: NOT WRITTEN`, darunter `LEAVE AND READ IT AGAIN.` | Die Seite, kurz vor der Sicherung und dem Schreiben noch einmal gelesen, weicht von der beim Eintritt gelesenen ab: im Boot-Byte, in der Layout-Version, in den Firmware-Versionsbytes 0, 1, 3 und 4 oder in Melodie und CAN-Block (0x30 bis 0xBF), oder dieses Lesen scheiterte. Byte 2, die Bootloader-Version, wird nicht verglichen. Nichts ging an den ESC |
+| `ESC CHANGED: NOT WRITTEN`, darunter `LEAVE AND READ IT AGAIN.` | Die Seite, kurz vor der Sicherung und dem Schreiben noch einmal gelesen, weicht von der beim Eintritt gelesenen ab, oder dieses Lesen schlug fehl: ein anderer ESC an der Leitung. Byte 2, die Bootloader-Version, wird nicht verglichen. Nach einem Schreiben, das nicht bestätigt wurde, gilt ein Byte, das den gesendeten Wert oder 0xFF hält, wo der Bootloader gelöscht hat, als gleich, damit RETRY schreibt. Zum ESC ging nichts |
 | `WRITE FAILED: NO REPLY` | Ein Schritt bekam binnen 250 ms keine Bestätigung |
 | `WRITE FAILED: REFUSED` | Ein Schritt bekam ein Antwortbyte, das keine Bestätigung ist |
 | `WRITE FAILED: CRC FAIL` | Beim Schreiben nicht erreicht: Seine Antworten tragen keine Prüfsumme (CRC, Cyclic Redundancy Check) |

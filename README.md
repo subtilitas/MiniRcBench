@@ -183,7 +183,9 @@ The two cores share one struct guarded by a `critical_section`. Core0 calls
 `UI_HEARTBEAT_TIMEOUT_MS` (250 ms) while the tester is armed, core1 disarms,
 sets the throttle to zero and latches the trip (`escHeartbeatTripped()`). The
 throttle stays at zero when core0 resumes. The next `uiTick()` stops the
-tester, so arming again takes the 1 s hold.
+tester, so arming again takes the 1 s hold. The log an arm starts begins
+before core1 is armed, and the heartbeat is stamped after it, so a slow
+start on the card cannot trip the latch.
 
 Core1 runs on a 2 KB static array in main SRAM
 (`multicore_launch_core1_with_stack()` in `src/main.cpp`). Core0's stack is
@@ -2177,9 +2179,12 @@ held HOLD TO WRITE leaves the result up. The write sends the whole settings page
 page before it programs a page-aligned write. The startup melody (0x30 to
 0xAF) and the CAN (Controller Area Network) block (0xB0 to 0xBF) are sent as
 read, unchanged. Before the backup and the write the firmware reads the page
-again (`sameEscOnWire()`). If the boot byte, the layout revision, the
-firmware revision bytes 0, 1, 3 and 4, or the melody and CAN block (0x30 to
-0xBF) differ from the page read at entry, nothing is written: the result
+again (`sameEscOnWire()`). With no write sent since the page was read,
+every byte but byte 2 must equal the page read at entry. After a write that
+did not verify, the page may hold the bytes sent, or 0xFF where the
+bootloader erased and did not program: the settings bytes are then not
+compared, and every other byte must be the byte read, the byte sent or
+0xFF, so a RETRY goes. Otherwise nothing is written: the result
 reads `ESC CHANGED: NOT WRITTEN` over `LEAVE AND READ IT AGAIN.` A read that
 fails refuses too. Byte 2, the bootloader version, is left out of the
 compare, because the bootloader rewrites it. After the write the firmware
@@ -3103,8 +3108,8 @@ not 0 answers ID 0 is not measured.
    `BACKUP/HTnnn.TXT`; before every write, the servo as it is and the
    target go to `HITEC/HITEC.TXT` as the record of the write. A D series
    servo does not answer a write, so the job first reads all 21 registers
-   again. It writes only if the servo holds the image the plan starts from
-   and the screen's heartbeat is alive; otherwise no frame is written
+   again. It writes only if the servo holds the model and the writable
+   registers the plan starts from, and the screen's heartbeat is alive; otherwise no frame is written
    (below). A classic servo answers each cell and is not read first. The
    write sends the changed registers 20 ms apart, saves, reboots the servo
    (1.0 s) and reads all 21 registers back: about
@@ -3144,7 +3149,7 @@ not 0 answers ID 0 is not measured.
 |---|---|---|
 | `n VALUES WRITTEN AND VERIFIED.` | green | The servo holds the new values |
 | `NOTHING WAS WRITTEN ...` | amber | No frame reached the servo |
-| `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.` | amber | D series: the read before the write differs from the image the plan starts from |
+| `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.` | amber | D series: the read before the write differs from the image the plan starts from in the model or a writable register; the list is built again from the servo now on the line |
 | `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A WRITE.` | amber | D series: the read before the write did not end |
 | `THE SERVO DOES NOT HOLD THE VALUES: 0x54. READ AND CHECK.` | red | The read-back differs at the named registers |
 | `THE WRITE STOPPED AT STEP 2 OF 4. READ THE SERVO BEFORE A WRITE.` | red | Part of the plan ran; the servo state is not known |
@@ -4257,7 +4262,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,287 of 16,547 lines in 100 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,373 of 16,638 lines in 100 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

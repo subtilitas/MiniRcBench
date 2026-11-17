@@ -564,9 +564,13 @@ read:
 - The read failed: nothing is written, and the result is
   `HITEC_JOB_ERR_PREREAD`. A read cut by an abort or a lapse keeps
   `HITEC_SES_ERR_ABORTED`.
-- The registers differ from the image the plan starts from, or their
-  known flags do: nothing is written, and the result is
-  `HITEC_JOB_ERR_CHANGED`.
+- The model, register 0x00, or a writable register differs from the image
+  the plan starts from, in value or in being known (`samePlanBase()`):
+  nothing is written, and the result is `HITEC_JOB_ERR_CHANGED`. The read
+  becomes the session's image and backup, and the screen builds its list
+  again from it with no edit carried over. The position and the other
+  registers a servo changes by itself are not compared, as the session's
+  read-back leaves them out.
 - The heartbeat is not alive, or a lapse is latched: nothing is written,
   and the result is `HITEC_SES_ERR_ABORTED`.
 - Otherwise `hitec_session_write()` starts with the target, and the write

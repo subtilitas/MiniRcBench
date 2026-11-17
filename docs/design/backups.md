@@ -144,9 +144,11 @@ checksum 1A2B3C4D
 - The checksum line is a CRC-32 (cyclic redundancy check) of IEEE 802.3 over
   every line before it, as in rcbench's KST files.
 - `doWrite()` (`src/ui_am32.cpp`) first reads the page again
-  (`sameEscOnWire()`). If the boot byte, the layout revision, the firmware
-  revision bytes 0, 1, 3 and 4, or the melody and CAN block differ from the
-  page read at entry, nothing is saved and nothing is written:
+  (`sameEscOnWire()`). With no write sent since the read, a page that
+  differs from the page read at entry in any byte but byte 2 is refused;
+  after a write that did not verify, a byte that holds what was sent or
+  0xFF passes and the settings bytes are not compared, so a RETRY goes.
+  When refused, nothing is saved and nothing is written:
   `ESC CHANGED: NOT WRITTEN` over `LEAVE AND READ IT AGAIN.` Byte 2, the
   bootloader version, is not compared, because the bootloader rewrites it.
   It then writes only after the card took the backup, or with no card. A card that is mounted and refuses the backup stops

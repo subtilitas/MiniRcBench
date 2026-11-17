@@ -58,19 +58,24 @@ protocol.
   the whole 192-byte page (0x00 to 0xBF); the list, the hex view and the edits
   still cover the first 48 bytes. The backup file is format 2, with
   `bytes 192` and 12 hex lines. Before the backup and the write it reads the
-  page again. If the boot byte, the layout, the firmware revision bytes or
-  the melody and CAN block differ from the page read at entry, it writes
-  nothing and shows `ESC CHANGED: NOT WRITTEN` over
-  `LEAVE AND READ IT AGAIN.` Byte 2, which the bootloader rewrites, is left
-  out of the read-back compare.
+  page again. A page that differs from the page read at entry, byte 2 aside,
+  is another ESC: it writes nothing and shows `ESC CHANGED: NOT WRITTEN`
+  over `LEAVE AND READ IT AGAIN.` After a write that did not verify, bytes
+  that hold what was sent, or 0xFF where the bootloader erased, pass, so a
+  RETRY goes. Byte 2, which the bootloader rewrites, is left out of the
+  read-back compare.
 - With LATCH on, a stall of the screen of more than 250 ms while armed made
   the throttle go to zero and come back by itself when the screen resumed.
   Core1 now disarms, sets the throttle to zero and latches the stop; the
   next screen frame stops the tester, and arming again takes the 1 s hold.
+  The log an arm starts begins before core1 is armed, so a slow card start
+  cannot trip it.
 - A Hitec D series write is not answered, so a servo swapped or re-plugged
   after READ took the planned registers. The write reads the whole servo
-  first and writes only if it equals the image the plan starts from and the
-  screen is alive. Otherwise nothing is written and the screen reads
+  first and writes only if the model and the writable registers equal the
+  image the plan starts from and the screen is alive; the position, which
+  a servo changes by itself, is not compared. After a change the new read
+  is the session's servo, and the list is built again from it. Otherwise nothing is written and the screen reads
   `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.` or
   `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A
   WRITE.` Classic servos are unchanged.
