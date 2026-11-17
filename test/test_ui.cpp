@@ -4843,6 +4843,19 @@ static void testTesterBoardAndCard() {
 	          fakeTextIs(tx, ty, "ARM TO ENABLE", C_DIM, C_PANEL, 1));
 	holdToArm();
 	checkTrue("and it arms", uiArmed());
+	// A host that takes the card while armed (no path does today, by
+	// mscRequest()'s refusal): DISARM still acts, on the press.
+	fakeMscSet(MscState::Serving, 0);
+	frames(2);
+	checkTrue("armed, the card on USB: DISARM live in the table and drawn red",
+	          ctlEnabled(UI_FIX(TesterCtl::Arm)) && armFill() == C_RED);
+	fakePress(arm.x + arm.w / 2, arm.y + arm.h / 2); frames(1);
+	checkTrue("its press disarms", !uiArmed() && !fakeArmed());
+	fakeRelease(); frames(2);
+	fakeMscSet(MscState::Idle, 0);
+	frames(2);
+	holdToArm();
+	checkTrue("armed again", uiArmed());
 	pressId(UI_FIX(TesterCtl::Arm));
 	fakeRelease(); frames(2);
 }

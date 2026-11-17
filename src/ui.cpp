@@ -1054,8 +1054,7 @@ static void drawButtons() {
 	// Drawn disabled, too, while a touch that does not answer refuses arming,
 	// and while the arm gate holds (docs/design/dshot-lifetime.md, decision
 	// 12). DISARM is not gated: the gate refuses arming only.
-	int cardFree = mscHoldsCard(mscGetState()) || s_touchLost ||
-	               (!s_armed && armGatedNow()) ? 0 : 1;
+	int cardFree = s_armed || !(mscHoldsCard(mscGetState()) || s_touchLost || armGatedNow()) ? 1 : 0;
 	if (s_shown.latchOn == (int)s_latch && s_shown.btnArmed == (int)s_armed &&
 	    s_shown.config == 0 && s_shown.btnPress == pressKey && s_shown.btnCard == cardFree)
 		return;
@@ -1275,7 +1274,8 @@ static void handleMainTouch() {
 		s_armLive = false;
 		s_armPressing = false;
 	}
-	if (cardHeld) {
+	// The card refuses arming only: DISARM acts while a USB host holds it.
+	if (cardHeld && !s_armed) {
 		s_armPressing = false;
 		s_armLive = false;
 	} else if (pressing(BTN_ARM, s_touch)) {
@@ -1470,7 +1470,8 @@ static uint8_t testerControls(UiControl *out, uint8_t max) {
 		uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
 		return n;
 	}
-	bool armOk = !mscHoldsCard(mscGetState()) && !s_touchLost && (s_armed || !armGatedNow());
+	// DISARM always acts; the card, the touch loss and the gate refuse arming.
+	bool armOk = s_armed || (!mscHoldsCard(mscGetState()) && !s_touchLost && !armGatedNow());
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, armOk);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Latch), BTN_LATCH, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
