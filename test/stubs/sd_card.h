@@ -69,3 +69,4 @@ typedef enum {
 } card_type_t;
 
 const char *sd_get_drive_prefix(sd_card_t *sd_card_p);
+bool sd_init_driver();

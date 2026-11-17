@@ -80,6 +80,7 @@ Settings *settings() { return &g_settings; }
 static sd_card_t g_sdcard;
 sd_card_t *sd_get_by_num(size_t) { return &g_sdcard; }
 const char *sd_get_drive_prefix(sd_card_t *) { return ""; }
+bool sd_init_driver() { return true; }
 int sd_sdio_init_result(void) { return 0; }
 
 void clockNow(ClockReading *out) { *out = ClockReading{}; }

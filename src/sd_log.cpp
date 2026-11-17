@@ -150,6 +150,10 @@ static void ringSink(void *ctx, const uint8_t *data, size_t len) {
 	logRingWrite((LogRing *)ctx, data, (uint32_t)len);
 }
 
+/** @brief The mounted volume has no free contiguous run of
+ *         SD_LOG_PREALLOC_BYTES: f_expand() said FR_DENIED. Cleared by a mount. */
+static bool s_noRun = false;
+
 /**
  * @brief The FatFs drive prefix for our one card.
  *
@@ -164,6 +168,11 @@ static const char *drivePrefix() {
 }
 
 bool sdLogBegin() {
+	// Before drivePrefix(): sd_get_drive_prefix() asserts that the driver is
+	// initialised, and f_mount() initialises it only inside the call, after
+	// its arguments. A Debug build, with the assert live, reset at every
+	// boot. Repeated calls return at once.
+	sd_init_driver();
 	// Pins come from sd_hw_config.c, which the driver reads at link time.
 	// Mounting is the only way to find out whether a card is fitted: this board
 	// brings no card-detect line out.
@@ -179,6 +188,7 @@ bool sdLogBegin() {
 	// next start, so a remount the tool made does not hide it.
 	sdLogMountForget(&s_end);
 	sdLogNextForget(&s_next);
+	s_noRun = false;
 	s_fileNo = 0;
 	s_framesLogged = 0;
 	s_cardBytes = 0;
@@ -290,7 +300,10 @@ bool sdLogStart() {
 	// allocation landing in the middle of a run is the long unpredictable stall
 	// this whole design exists to avoid. FA_WRITE|f_expand with opt=1 allocates
 	// immediately rather than lazily. Failure is not fatal, just slower.
-	f_expand(&s_file, SD_LOG_PREALLOC_BYTES, 1);
+	// FAT32 searches the FAT one cluster at a time for the run: on a
+	// fragmented card with no such run, a whole-FAT read of seconds at every
+	// arm. After one FR_DENIED the search is left out until the next mount.
+	if (!s_noRun && f_expand(&s_file, SD_LOG_PREALLOC_BYTES, 1) == FR_DENIED) s_noRun = true;
 
 	logRingReset(&s_ring);
 	s_ring.dropped = s_ring.drops = s_ring.peakUsed = 0;
