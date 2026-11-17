@@ -21,6 +21,7 @@
 #include "ui_hub.h"
 #include "settings.h"
 #include "esc_task.h"
+#include "pin_claim.h"
 #include "ui.h"
 #include "ui_hold.h"
 #include "ui_input.h"
@@ -58,13 +59,23 @@
  */
 #define PIN_Y       230
 /**
- * @brief The line at @ref PIN_Y while SIG is off the boot pin with KISS on:
+ * @brief The line at @ref PIN_Y while SIG is off the pin of the last load
+ *        (settingsBootDshotPin()) with KISS on:
  *        SIG and AUX swapped, so the ESC's signal and KISS wires swap too.
  *        36 characters, 215 px.
  */
 #define SETTINGS_SWAP_NOTE "SWAP THE ESC'S SIGNAL AND KISS WIRES"
 static_assert(UI_MARGIN + 6 * (int)(sizeof(SETTINGS_SWAP_NOTE) - 1) - 1 <= 232,
               "the swap note runs past x 232");
+/**
+ * @brief The pin note at @ref PIN_Y, @ref UI_SPLASH_PIN_FMT with a GPIO of
+ *        two digits at most in place of `%u`: 30 characters, 179 px.
+ */
+static_assert(UI_MARGIN + 6 * (int)(sizeof(UI_SPLASH_PIN_FMT) - 1) - 1 <= 232,
+              "the pin note runs past x 232");
+static_assert(UI_MARGIN + 6 * 4 - 1 + 6 <=
+              GFX_W - UI_MARGIN - (6 * (int)(sizeof(UI_SETTINGS_LINK_OFF) - 1) - 1),
+              "LINK's OFF meets the label LINK");
 #define VIEW_H_PIN  188         /**< To y 227, while the ESC pin's warning shows. */
 #define CAP_H       20          /**< A section caption. */
 #define ROW_H       44          /**< A row's controls. */
@@ -171,6 +182,8 @@ static uint32_t s_captionKey = 0;
 
 /** @brief Cached LINK values, so the live row repaints only when it changes. */
 static int s_shownRate = -1, s_shownErr = -1;
+/** @brief LINK last read @ref UI_SETTINGS_LINK_OFF, the pump being parked. */
+static bool s_shownOff = false;
 /** @brief The uptime second last drawn, so UPTIME repaints once a second. */
 static uint32_t s_shownUptime = 0;
 /** @brief The CLOCK row's minute last drawn, so it repaints once a minute. */
@@ -708,27 +721,30 @@ static bool resetNoteShown() {
 }
 
 /**
- * @brief The splash's warning for the live ESC pin, while it is not the pin
- *        the splash named at boot (settingsBootDshotPin()), or null. Drawn
+ * @brief The ESC pin's warning while DShot runs under SETUP, or null. Drawn
  *        on its own line at @ref PIN_Y, not on the note line, so the note
  *        line still says UNSAVED or SAVED.
  *
- * The rule is the boot pin, not the saved pin or the pin at opening: the
- * splash warned about the boot pin only, and DShot runs on the live pin
- * from the step that changed it (applyLive()). Against the saved pin the
- * note would end at a save, against the pin at opening at a return to
- * SETUP, with DShot still on a pin nothing warned about.
+ * SETUP over ESC TESTER keeps DShot running (docs/design/dshot-lifetime.md,
+ * decision 6), and a SIG PIN change there binds it on the new pin at once
+ * (applyLive()). While it runs (pinClaimDshotRunning()) the line names the
+ * pin the pump runs on, escTaskDshotPin(), with @ref UI_SPLASH_PIN_FMT,
+ * `UNPLUG ANY SERVO FROM GP0 NOW`. Opened from MENU, DShot is parked, nothing
+ * is sent, and the line does not show, whatever the pin: no frame leaves the
+ * board at power-up, and ESC TESTER is the next screen to send.
  *
  * With KISS on, a step of SIG PIN or AUX PIN swaps the two, so DShot runs on
- * the wire the ESC's KISS pad was on until the wires are swapped too: the
- * line says that instead, @ref SETTINGS_SWAP_NOTE.
+ * the wire the ESC's KISS pad was on until the wires are swapped too: while
+ * SIG is off the pin of the last load (settingsBootDshotPin()), the line says
+ * that instead, @ref SETTINGS_SWAP_NOTE, parked or running. It describes the
+ * wiring the next ESC TESTER sends on, not a frame now.
  */
 static const char *pinNote() {
 	static char buf[40];
-	uint8_t pin = settings()->dshotPin;
-	if (pin == settingsBootDshotPin()) return nullptr;
-	if (settings()->kissEnable) return SETTINGS_SWAP_NOTE;
-	snprintf(buf, sizeof(buf), UI_SPLASH_PIN_FMT, (unsigned)pin);
+	if (settings()->kissEnable && settings()->dshotPin != settingsBootDshotPin())
+		return SETTINGS_SWAP_NOTE;
+	if (!pinClaimDshotRunning()) return nullptr;
+	snprintf(buf, sizeof(buf), UI_SPLASH_PIN_FMT, (unsigned)escTaskDshotPin());
 	return buf;
 }
 
@@ -798,17 +814,30 @@ static const char *noteText(uint16_t *col) {
 	                        : "NOTHING SAVED: DEFAULTS IN USE";
 }
 
-/** @brief Repaint the live LINK row if its numbers moved. */
+/**
+ * @brief Repaint the live LINK row if its numbers moved, or if the pump
+ *        parked or left Park. While DShot is parked (escTaskParked()) no
+ *        frame goes out and none can come back, so the value reads
+ *        @ref UI_SETTINGS_LINK_OFF in `C_DIM` in place of a rate.
+ */
 static void drawLink(bool force) {
 	EscTelemetry t;
 	escSnapshot(&t);
-	if (!force && s_shownRate == (int)t.packetRate && s_shownErr == (int)t.errPercent)
+	const bool off = escTaskParked();
+	if (!force && s_shownOff == off &&
+	    (off || (s_shownRate == (int)t.packetRate && s_shownErr == (int)t.errPercent)))
 		return;
+	s_shownOff  = off;
 	s_shownRate = t.packetRate;
 	s_shownErr  = t.errPercent;
 
 	gfxRect(0, LINK_Y, GFX_W, 8, C_BG);
 	gfxText(UI_MARGIN, LINK_Y, "LINK", C_DIM, 1);
+	if (off) {
+		gfxText(GFX_W - UI_MARGIN - gfxTextW(UI_SETTINGS_LINK_OFF, 1), LINK_Y,
+		        UI_SETTINGS_LINK_OFF, C_DIM, 1);
+		return;
+	}
 
 	char buf[32];
 	snprintf(buf, sizeof(buf), "%d/S  %d%% ERR", (int)t.packetRate, (int)t.errPercent);

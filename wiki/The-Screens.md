@@ -573,16 +573,20 @@ of it show.
 
 Under the list, these stay in place:
 
-- **The ESC pin's warning**, at y 230, only while the ESC pin is not the one in
-  use at start-up: in amber, for example `UNPLUG ANY SERVO FROM GP1 NOW`. Opened
-  over the tester, DShot runs on that pin from the step; opened from MENU, the
-  next ESC TESTER sends DShot there. A servo left there, for example after the
-  two-servo tester, moves. The list then ends 12 px higher, at y 227, and
-  scrolls 12 px further; its top rows stay where they are. With KISS TELEM on,
-  the step swapped SIG and AUX, so DShot now runs on the wire the ESC's KISS pad
-  was on: the line reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` instead.
+- **The ESC pin's warning**, at y 230, only while DShot runs under SETUP,
+  opened over the tester: in amber, the pin DShot runs on, for example
+  `UNPLUG ANY SERVO FROM GP0 NOW`, and after a SIG PIN step the new pin, from
+  the step on. A servo left there, for example after the two-servo tester,
+  moves. Opened from MENU, DShot is off and the line does not show, after a
+  SIG PIN step too: the next ESC TESTER sends DShot on the new pin. The list
+  then ends 12 px higher, at y 227, and scrolls 12 px further; its top rows
+  stay where they are. With KISS TELEM on, a step swaps SIG and AUX, so DShot
+  runs on the wire the ESC's KISS pad was on: while SIG is off the pin in use
+  at start-up, the line reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` instead,
+  opened over the tester or from MENU.
 - **LINK**: live packets per second and error rate. Green means packets are
   arriving, so the ESC pin is correct. Amber means more than 5 % errors.
+  Opened from MENU, where DShot is off, it reads `OFF` in grey.
 - The note line: one text, the first that applies, in this order:
   1. `SAVE FAILED - FLASH REFUSED THE WRITE` (red) or
      `NOT WHILE ARMED - DISARM TO SAVE` (red), until the next save or
@@ -602,7 +606,7 @@ Under the list, these stay in place:
 
 <img src="img/settings-carried.png" width="240" alt="SETUP after an update carried the saved settings over: CARRIED OVER BY UPDATE - CHECK, SAVE on the note line">
 
-<img src="img/settings-pin.png" width="240" alt="SETUP after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
+<img src="img/settings-pin.png" width="240" alt="SETUP over the tester after SIG PIN moved to GP1: UNPLUG ANY SERVO FROM GP1 NOW above LINK, UNSAVED on the note line">
 
 - `HOLD TO SAVE` (150 × 46 px) and `HOLD DEFAULTS` (72 × 46 px), its label
   on two lines, `HOLD` over `DEFAULTS`, in amber.

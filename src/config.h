@@ -725,10 +725,10 @@
 /**
  * @brief How long the splash screen stays up, in milliseconds.
  *
- * This also covers the ESC finishing its own boot before the first DShot
- * frame: main() launches core1, and with it the DShot pump, only after
- * setup() has shown the splash for this long. Shortening it much below a
- * second is not advisable.
+ * Long enough to read its notes: a reset or carry-over of the settings by
+ * an update, and TOUCH CONTROLLER NOT FOUND. It times no ESC's boot: SIG is
+ * parked low from escTaskInit() on, and no DShot frame goes out until ESC
+ * TESTER or ESC COMMANDS opens (docs/design/dshot-lifetime.md).
  */
 #define SPLASH_MS              3000
 

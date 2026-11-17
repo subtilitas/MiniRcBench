@@ -1,8 +1,8 @@
 # DShot lifetime
 
-Status: slices D1, D2 and D3 built, host tests only ([D1 as
+Status: slices D1, D2, D3 and D4 built, host tests only ([D1 as
 built](#d1-as-built), [D2 as built](#d2-as-built), [D3 as
-built](#d3-as-built)); D4 and D5 not built. The
+built](#d3-as-built), [D4 as built](#d4-as-built)); D5 not built. The
 developer settled its six questions on
 2026-11-16, and made four further calls the reviews of the note raised, each
 pending the owner's review ([Decisions](#decisions)). It builds on
@@ -599,7 +599,7 @@ lines (menu-b.md owner decision 27). The order against
 | D1 | anything; before or with menu-c.md slice 1. Built in pull request #119 (branch `ccr-pump-modes`), with the amendments [D1](#d1-the-pumps-three-modes-opus) lists ([D1 as built](#d1-as-built)) | the pump's three modes and core1's bind stamp, no caller changes | Opus |
 | D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 as amended; #49 is on `main` as 3b36588. Built on branch `ccr-dshot-d2` ([D2 as built](#d2-as-built)) | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
 | D3 | D2. Built on branch `ccr-dshot-d3`, on menu-c.md slice 5 ([D3 as built](#d3-as-built)) | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
-| D4 | D2 and menu-c.md slice 5 (the rename) | SETUP's pin note and LINK; the comments of the boot order | Opus |
+| D4 | D2 and menu-c.md slice 5 (the rename). Built on branch `ccr-dshot-d4`, on D3 ([D4 as built](#d4-as-built)) | SETUP's pin note and LINK; the comments of the boot order | Opus |
 | D5 | D4, with menu-c.md slice 6 (the records) | the design notes' descriptions, bench plan | Sonnet |
 
 D2 follows menu-c.md slice 4, so its tests open every tool from its hub,
@@ -1200,6 +1200,71 @@ while running.
 
 Mutations: the pin note against the pin of the last load (the over-tester
 case fails); LINK's value drawn while parked (the `OFF` case fails).
+
+#### D4 as built
+
+Branch `ccr-dshot-d4`, on branch `ccr-dshot-d3` (pull request #129); host
+tests only, not tested on hardware.
+
+Files: `src/ui_settings.cpp` (`pinNote()`, `drawLink()`, the fit
+`static_assert`s), `src/ui_settings.h` (`UI_SETTINGS_LINK_OFF`, the file's
+LINK paragraph), `src/ui.h` (`UI_SPLASH_PIN_FMT`'s comment), `src/settings.h`
+(`settingsBootDshotPin()`'s comment); the comments of the boot order in
+`src/config.h` (`SPLASH_MS`), `src/main.cpp` (the core table, `setup1()`,
+`loop1()`) and `src/esc_task.h` (the file comment, `escTaskBegin()`).
+
+The pin note: `pinNote()` returns `UI_SPLASH_PIN_FMT` with
+`escTaskDshotPin()` while `pinClaimDshotRunning()` holds: the claim Free,
+Run wanted and core1 reporting Run. Only SETUP over ESC TESTER wants Run
+while SETUP shows, so the note shows there alone, at the pin of the last
+load too. `UNPLUG ANY SERVO FROM GP29 NOW`, the widest, is 30 characters,
+179 px, from x 8 to 186; a `static_assert` in `src/ui_settings.cpp` checks
+the format's length against x 232.
+
+LINK: while `escTaskParked()` holds the value reads `OFF` in `C_DIM`,
+right-aligned at y 242, 17 px from x 215; the label `LINK`, 23 px from x 8,
+stays. A `static_assert` keeps 6 px between them. The repaint cache keeps
+whether the last draw read `OFF`, so the row repaints when the pump parks or
+leaves Park with no other change on the screen.
+
+Where the build chose, the note being silent:
+
+- **The swap note keeps its rule.** With KISS on and SIG off the pin of the
+  last load (`settingsBootDshotPin()`), the line reads
+  `SWAP THE ESC'S SIGNAL AND KISS WIRES` as before, parked or running, and
+  takes the line's place over the pin note: it describes the wiring the next
+  ESC TESTER sends on, which a step from MENU changes too. The table names the
+  pin note only.
+- **Running is core1's report.** The note reads `pinClaimDshotRunning()`,
+  not `uiDshotWanted()`: it shows while core1 reports Run, from SETUP's
+  first frame over a running tester, and not during the drain after one.
+  A refused bind reports Run too (`escTaskRunning()`), so the note shows
+  while `DSERR` stands; nothing is sent then, and the note errs the safe way.
+- **Parked is `escTaskParked()`.** During the drain after a throttled tester,
+  at most 255 ms, SETUP opened from MENU reads the rate while zero frames go
+  out, then `OFF` once core1 has parked.
+- **The comments.** `src/pin_claim.h`, `src/ui_menu.h`, `src/ui_leave.h`,
+  `src/ui.cpp` and `escTaskInit()` already stated the parked boot, from D2.
+  `SPLASH_MS` keeps 3000 ms, now for the splash's notes.
+
+Tests: `test/test_dshot_life.cpp` `testSetupTexts()`, with the telemetry
+holding 998 packets a second: from MENU no note and LINK `OFF`, after a SIG
+PIN change too; over the tester the note names GP0, then the new pin, and
+LINK the rate, `0/S  0% ERR` in `C_DIM` with no frame back; from MENU after
+that change no note and `OFF`; SETUP from MENU within the drain the rate,
+then `OFF` once parked. `test/test_menu.cpp` `testEscPinNote()` runs the
+note's line, the list's 188 px and its scroll over the tester, and the clamp
+when the line goes through the swap note from MENU; the shot
+`shot_settings_pin.ppm` is taken over the tester.
+
+Mutations, each run against the whole suite and restored:
+
+| Mutation | Result |
+|---|---|
+| The pin note against the pin of the last load: shown while SIG is off `settingsBootDshotPin()`, naming `settings()->dshotPin` | 13 checks fail, among them the over-tester case's "the pin note names GP0, the pin the pump runs on, the pin of the last load" and "from MENU after a SIG PIN change: no pin note" |
+| LINK's value drawn while parked (`off` always false) | 5 checks fail, among them "LINK reads OFF in C_DIM, not the rate the telemetry holds" |
+| The pin note whatever DShot does (the running check dropped) | 79 checks fail, among them "from MENU after a SIG PIN change: no pin note" |
+| LINK's repaint cache not keeping `OFF` | none at first: every case parked with a change on the note's line. A case added, SETUP within the drain; then 1 check fails, "parked: LINK reads OFF, no pin note" |
 
 ### D5: the documents (Sonnet)
 

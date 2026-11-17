@@ -169,3 +169,4 @@ A poor link usually comes from the signal wire: too long, unshielded, or routed
 near motor phase wires. Shorten it first. Otherwise set **DSHOT** to 300
 under SETUP. The `LINK` row on the SETUP screen updates live while
 SETUP is open over the tester, from a tap on `MAX`, where DShot runs.
+Opened from MENU, where DShot is off, it reads `OFF`.

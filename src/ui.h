@@ -287,10 +287,12 @@ enum class TesterCtl : uint8_t {
 #define UI_TESTER_REFUSED_TEXT "DSHOT COULD NOT START"
 
 /**
- * @brief SETUP's pin note, with the ESC pin's GPIO number for `%u`: a SIG PIN
- *        change moves the pin ESC TESTER's DShot runs on, and a servo there
- *        moves. The splash draws it no more: no DShot frame leaves the board
- *        at power-up (docs/design/dshot-lifetime.md, slice D2).
+ * @brief SETUP's pin note, with the GPIO the pump runs on for `%u`
+ *        (escTaskDshotPin()): shown only while DShot runs under SETUP over
+ *        ESC TESTER, where a servo on that pin moves
+ *        (docs/design/dshot-lifetime.md, decision 6 and slice D4). The splash
+ *        draws it no more: no DShot frame leaves the board at power-up
+ *        (slice D2).
  */
 #define UI_SPLASH_PIN_FMT "UNPLUG ANY SERVO FROM GP%u NOW"
 
