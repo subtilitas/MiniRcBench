@@ -898,15 +898,17 @@ scroll to 0 px.
 Below the list, fixed and not scrolled:
 
 - **LINK**: live packets per second and checksum error rate. Green when
-  packets arrive, amber above 5 % errors.
+  packets arrive, amber above 5 % errors. While DShot is parked, opened
+  from MENU, it reads `OFF` in `C_DIM` (`UI_SETTINGS_LINK_OFF`): no frame
+  goes out and none comes back.
 - The note line.
 - **HOLD TO SAVE** (150 × 46 px, from x 6) and **HOLD DEFAULTS**
   (72 × 46 px, to x 233), at y 268. HOLD DEFAULTS' label takes two lines,
   `HOLD` over `DEFAULTS`, in amber.
 
 A wrong ESC pin produces no error: the ESC receives no frames. **LINK** on this
-screen shows the result of each pin change. A non-zero packet rate means the
-pin is correct.
+screen shows the result of each pin change while DShot runs, opened over the
+tester. A non-zero packet rate means the pin is correct.
 
 The settings block is version 6 (`SETTINGS_VERSION`), 44 bytes of payload:
 version 5's 14 and the angle meter's ALONG AXIS, SIGN, LENGTH and
@@ -971,25 +973,26 @@ the SETUP row while the live settings differ from flash.
 
 SIG PIN moves DShot's pin at once (`escTaskConfigure()`): over the tester,
 where DShot runs, it binds on the new pin while SETUP shows; opened from
-MENU, the parked SIG moves and the next ESC TESTER binds there. While the
-live ESC pin is not the one `settingsLoad()` put live
-(`settingsBootDshotPin()`), a line of its own at y 230 (`PIN_Y`) reads, in
-amber, for example
-`UNPLUG ANY SERVO FROM GP1 NOW`, and the list ends at y 227 (`VIEW_H_PIN`), so
-it scrolls 12 px further; its top rows do not move. The rule is the boot pin
-rather than the saved pin, which a save would end, or the pin at opening, which
-a return to SETUP would end. Opened from MENU the line warns of what the
-next ESC TESTER sends; slice D4 of `docs/design/dshot-lifetime.md` shows it
-only while DShot runs under SETUP. With KISS on, a step of SIG PIN or AUX
-PIN swaps the two, so DShot runs on the wire the ESC's KISS pad was on until
-the wires are swapped as well: the line
-then reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` (`SETTINGS_SWAP_NOTE`, 36
-characters, 215 px). The note line keeps its own order: SAVE FAILED and NOT
-WHILE ARMED, until the next save or leaving; ADJUSTED and KISS OFF, until the
-next change (KISS OFF follows a KISS pin the board does not free, which no
-SETUP row sets: the steppers offer free pins only); DEFAULTS LOADED; UNSAVED;
-SAVED; the reset by an update; then the set in use. SAVED is green, SAVE
-FAILED and NOT WHILE ARMED red, and the other notes but the set in use amber.
+MENU, the parked SIG moves and the next ESC TESTER binds there. While DShot
+runs under SETUP, opened over the tester (`pinClaimDshotRunning()`), a line
+of its own at y 230 (`PIN_Y`) names the pin the pump runs on
+(`escTaskDshotPin()`), in amber: `UNPLUG ANY SERVO FROM GP0 NOW`, or the new
+pin from the step that changed it (`UI_SPLASH_PIN_FMT`, 30 characters,
+179 px, with a two-digit pin). The list then ends at y 227 (`VIEW_H_PIN`),
+so it scrolls 12 px further; its top rows do not move. Opened from MENU,
+DShot is parked and the line does not show, after a SIG PIN change too
+(slice D4 of `docs/design/dshot-lifetime.md`). With KISS on, a step of SIG
+PIN or AUX PIN swaps the two, so DShot runs on the wire the ESC's KISS pad
+was on until the wires are swapped as well: while SIG is off the pin
+`settingsLoad()` put live (`settingsBootDshotPin()`), parked or running, the
+line reads `SWAP THE ESC'S SIGNAL AND KISS WIRES` instead
+(`SETTINGS_SWAP_NOTE`, 36 characters, 215 px). The note line keeps its own
+order: SAVE FAILED and NOT WHILE ARMED, until the next save or leaving;
+ADJUSTED and KISS OFF, until the next change (KISS OFF follows a KISS pin the
+board does not free, which no SETUP row sets: the steppers offer free pins
+only); DEFAULTS LOADED; UNSAVED; SAVED; the reset by an update; then the set
+in use. SAVED is green, SAVE FAILED and NOT WHILE ARMED red, and the other
+notes but the set in use amber.
 
 **Buttons and chips**
 
@@ -4105,7 +4108,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,259 of 16,519 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,266 of 16,526 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

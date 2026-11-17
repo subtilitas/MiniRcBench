@@ -1782,23 +1782,39 @@ static void testCarriedOver() {
 	freshTester();
 }
 
+/** @brief The tester's MAX readout: SETUP over the tester, DShot running. */
+static void openSettingsOverTester() {
+	tapId(UI_FIX(TesterCtl::Max));
+	menuFrames(1);
+	checkTrue("MAX opens SETUP over the tester, DShot running",
+	          uiCurrentScreen() == UiScreenId::Settings && uiNavAt(1) == UiScreenId::Tester &&
+	          pinClaimDshotRunning());
+}
+
 /**
- * @brief SIG PIN moves DShot at once: SETUP repeats the splash's warning
- *        for the live pin while it is not the pin the splash named.
+ * @brief SETUP's pin note (docs/design/dshot-lifetime.md, slice D4): over
+ *        the tester DShot runs, and the line over LINK names the pin the
+ *        pump runs on, whatever the pin; a SIG PIN change moves DShot and the
+ *        line at once. From MENU DShot is parked and the line does not show.
  */
 static void testEscPinNote() {
-	section("SETUP: SIG PIN off the boot pin repeats the splash's warning");
-	openSettings();
-	menuFrames(1);
+	section("SETUP: the pin note while DShot runs under SETUP");
+	freshTester();
+	openSettingsOverTester();
 	const uint8_t boot = settings()->dshotPin;
-	checkTrue("at the boot pin: no warning", noteIs("NOTHING SAVED: DEFAULTS IN USE", C_DIM));
+	char want[40];
+	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)boot);
+	checkTrue("at the pin of the last load: the note names it at y 230, amber",
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
+	          noteIs("NOTHING SAVED: DEFAULTS IN USE", C_DIM));
 	revealRow((int)SettingsRowId::Sig);
 	tapId(UI_ROW(SettingsRowId::Sig, Plus));
+	menuFrames(2);
 	const uint8_t moved = settings()->dshotPin;
-	char want[40];
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)moved);
-	checkTrue("SIG PIN stepped: DShot on the other pin", moved != boot && fakeWiring().dshotPin == moved);
-	checkTrue("the splash's warning for it at y 230, amber",
+	checkTrue("SIG PIN stepped: DShot on the other pin", moved != boot &&
+	          fakeWiring().dshotPin == moved && escTaskDshotPin() == moved && pinClaimDshotRunning());
+	checkTrue("the note names it at y 230, amber",
 	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	checkTrue("and the note line still reads UNSAVED",
 	          settingsDirty() && noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
@@ -1806,63 +1822,92 @@ static void testEscPinNote() {
 	fakeDumpFrame("shot_settings_pin.ppm");
 	revealRow((int)SettingsRowId::Poles);
 	tapId(UI_ROW(SettingsRowId::Poles, Plus));
-	checkTrue("another change: the warning and UNSAVED",
+	checkTrue("another change: the note and UNSAVED",
 	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
 	          noteIs("UNSAVED - HOLD SAVE TO KEEP", C_AMBER));
 	holdSave();
-	checkTrue("saved: the warning and SAVED",
+	checkTrue("saved: the note and SAVED",
 	          !settingsDirty() && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
 	          noteIs("SAVED", C_GREEN));
-	// The list ends at y 227 while the warning shows: it scrolls 632 px.
+	// The list ends at y 227 while the note shows: it scrolls 632 px.
 	for (int k = 0; k < 5; k++) dragList(200, -180);
 	checkInt("dragged to the end: UPTIME at y 178, 12 px higher",
 	         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 178);
 	checkTrue("and whole", ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).h == 44);
-	checkTrue("the warning keeps its line",
+	checkTrue("the note keeps its line",
 	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	for (int k = 0; k < 5; k++) dragList(60, 180);
 	tapId(UI_FIX(UI_BACK));
-	tapId(menuRow(&UI_SETTINGS));
 	menuFrames(1);
-	checkTrue("SETUP again: the warning stays, the saved set named",
+	openSettingsOverTester();
+	checkTrue("SETUP again over the tester: the note stays, the saved set named",
 	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
 	          noteIs("SAVED SETTINGS IN USE", C_DIM));
 	fakeFlashSetWritable(false);
 	revealRow((int)SettingsRowId::Poles);
 	tapId(UI_ROW(SettingsRowId::Poles, Minus));
 	holdSave();
-	checkTrue("a failed save: SAVE FAILED, and the warning",
+	checkTrue("a failed save: SAVE FAILED, and the note",
 	          noteIs("SAVE FAILED - FLASH REFUSED THE WRITE", C_RED) &&
 	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	fakeFlashSetWritable(true);
+
+	// From MENU, after the change: DShot parked, no note, though SIG is off
+	// the pin of the last load. The list takes its 200 px back.
+	tapId(UI_FIX(UI_BACK));
+	menuFrames(1);
+	openMenu();
+	menuFrames(12);
+	tapId(menuRow(&UI_SETTINGS));
+	menuFrames(1);
+	checkTrue("from MENU: parked, SIG still on the other pin", escTaskParked() &&
+	          !pinClaimDshotRunning() && settings()->dshotPin == moved &&
+	          settings()->dshotPin != settingsBootDshotPin());
+	checkTrue("no note: the line at y 230 is the list's, not the note",
+	          !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+	checkInt("the list to y 239: DSHOT's row, y 230 to 239, shows 10 px",
+	         ctlRect(UI_ROW(SettingsRowId::Speed, Row)).h, 10);
 	revealRow((int)SettingsRowId::Sig);
 	tapId(UI_ROW(SettingsRowId::Sig, Minus));
-	checkTrue("back on the boot pin: no warning",
-	          settings()->dshotPin == boot && !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
-	checkInt("and the list to y 239 again: MOTOR POLES at y 60",
-	         ctlRect(UI_ROW(SettingsRowId::Poles, Row)).y, 60);
+	menuFrames(1);
+	char back[40];
+	snprintf(back, sizeof(back), UI_SPLASH_PIN_FMT, (unsigned)boot);
+	checkTrue("a SIG PIN change from MENU: still no note",
+	          settings()->dshotPin == boot && escTaskParked() &&
+	          !fakeTextIs(UI_MARGIN, 230, back, C_AMBER, C_BG, 1) &&
+	          !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	menuFrames(1);
 
-	// The warning gone while scrolled to the end: the list takes its 200 px
+	// The note gone while scrolled to the end: the list takes its 200 px
 	// back and the scroll is clamped to 620 px, with nothing blank under it.
-	// Once by DEFAULTS, once by the pin set back with SETUP open, as a tool's
-	// row writes the settings.
+	// From MENU the line over LINK shows only as the swap note, SIG off the
+	// pin of the last load with KISS on; it goes once by DEFAULTS, once by
+	// KISS set off with SETUP open, as a tool's row writes the settings.
 	for (int how = 0; how < 2; how++) {
-		openSettings();
+		freshTester();
+		openMenu();
+		tapId(menuRow(&UI_SETTINGS));
 		menuFrames(1);
+		revealRow((int)SettingsRowId::Kiss);
+		tapId(UI_ROW(SettingsRowId::Kiss, Toggle));
 		revealRow((int)SettingsRowId::Sig);
 		tapId(UI_ROW(SettingsRowId::Sig, Plus));
+		menuFrames(1);
+		checkTrue("KISS on, SIG swapped from MENU: the swap note",
+		          settings()->kissEnable && settings()->dshotPin != boot &&
+		          fakeTextIs(UI_MARGIN, 230, "SWAP THE ESC'S SIGNAL AND KISS WIRES", C_AMBER, C_BG, 1));
 		for (int k = 0; k < 5; k++) dragList(200, -180);
-		checkInt(how ? "pin moved, at the end: UPTIME at y 178"
-		             : "pin moved, at the end, before DEFAULTS: UPTIME at y 178",
+		checkInt(how ? "swapped, at the end: UPTIME at y 178"
+		             : "swapped, at the end, before DEFAULTS: UPTIME at y 178",
 		         ctlRect(UI_ROW(SettingsRowId::Uptime, Row)).y, 178);
 		if (how == 0) holdReset();
-		else          settings()->dshotPin = boot;
+		else          settings()->kissEnable = false;
 		menuFrames(1);
 		UiRect up = ctlRect(UI_ROW(SettingsRowId::Uptime, Row));
-		checkTrue(how ? "pin set back: no warning" : "DEFAULTS: no warning",
-		          settings()->dshotPin == boot && !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+		checkTrue(how ? "KISS set off: no line over LINK" : "DEFAULTS: no line over LINK",
+		          !fakeTextIs(UI_MARGIN, 230, "SWAP THE ESC'S SIGNAL AND KISS WIRES", C_AMBER,
+		                      C_BG, 1));
 		checkInt("the scroll clamped to 620 px: UPTIME at y 190", up.y, 190);
 		checkTrue("and whole, its bottom at y 234", up.h == 44);
 		checkInt("LAST RESTART at y 140", ctlRect(UI_ROW(SettingsRowId::LastRestart, Row)).y, 140);
@@ -1874,28 +1919,30 @@ static void testEscPinNote() {
 		openTester();
 	}
 
-	// Booted on the other pin: DEFAULTS puts DShot back on the default pin,
-	// which the splash did not name: the warning, and DEFAULTS's note under it.
+	// Booted on the other pin: over the tester the note names it, the pin of
+	// the last load; DEFAULTS there moves DShot to the default pin and the
+	// note with it, with DEFAULTS's note under it.
 	Settings other;
 	settingsDefaults(&other);
 	other.dshotPin = moved;
+	other.kissPin = boot;
 	storeValid(&other);
 	settingsLoad();
 	uiInitTester();
 	menuFrames(2);
-	openMenu();
-	tapId(menuRow(&UI_SETTINGS));
-	menuFrames(1);
-	checkTrue("booted on the other pin: no warning",
-	          noteIs("SAVED SETTINGS IN USE", C_DIM) &&
-	          !fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
+	openSettingsOverTester();
+	checkTrue("booted on the other pin: the note names it",
+	          settingsBootDshotPin() == moved && noteIs("SAVED SETTINGS IN USE", C_DIM) &&
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1));
 	holdReset();
+	menuFrames(2);
 	snprintf(want, sizeof(want), UI_SPLASH_PIN_FMT, (unsigned)boot);
-	checkTrue("DEFAULTS: the warning for the default pin, and DEFAULTS's note",
-	          settings()->dshotPin == boot && fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
+	checkTrue("DEFAULTS: DShot and the note on the default pin, and DEFAULTS's note",
+	          settings()->dshotPin == boot && escTaskDshotPin() == boot &&
+	          fakeTextIs(UI_MARGIN, 230, want, C_AMBER, C_BG, 1) &&
 	          noteIs("DEFAULTS LOADED - RESTART TO UNDO", C_AMBER));
 	tapId(UI_FIX(UI_BACK));
-	openTester();
+	menuFrames(1);
 	freshTester();
 }
 

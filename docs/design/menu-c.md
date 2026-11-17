@@ -640,7 +640,8 @@ lifetime and the pin claim. This note decides none of it.
    Revised by dshot-lifetime.md decision 6, pending the owner's review:
    DShot keeps running while SETUP is open over ESC TESTER, and a SIG PIN
    change there binds DShot on the new pin while SETUP is on screen. Built
-   (D2).
+   (D2); SETUP's pin note naming that pin while DShot runs there, Built
+   (D4).
 5. **SETUP's LINK line,** `LINK  998/S  0% ERR`, reads the running DShot's
    telemetry (`src/ui_settings.cpp`, `LINK_Y`). Without DShot it has no
    source.
