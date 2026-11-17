@@ -42,6 +42,18 @@ protocol.
 
 ## Unreleased
 
+### Added
+
+- The boot diagnostic, built with `-DBOOT_DIAG=ON` and off by default. Before
+  each of the 12 steps of `setup()` up to `uiInit()`, the backlight pin GP16
+  blinks the step's number as a plain SIO (single-cycle I/O) output: 150 ms
+  on, 150 ms off, then 1 s off. Once `setup()` returns, GP16 stays high. A hard
+  fault blinks it 50 ms on and 50 ms off without end; the SD library's own
+  hard fault handler in `crash.c` is renamed out of that build. The image is
+  `MiniRcBench-touch-lcd-2.8-boot-diag.uf2`. With the option off the image is
+  byte-identical to one built before it. README.md, "Boot diagnostic", has
+  the table of steps. `src/boot_diag.h`, `src/boot_diag.cpp`.
+
 ### Changed
 
 - Documentation only: the records of menu structure C and of the DShot
