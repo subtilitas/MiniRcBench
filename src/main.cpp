@@ -182,6 +182,9 @@ void setup() {
 		delay(UI_PERIOD_MS);
 		uiSplashTick();
 		st7789FlushDirty();
+		// A host enumerating the board is answered during the splash, not
+		// 3 s or more after tusb_init().
+		usbDevTask();
 	}
 	gfxFill(C_BG);
 	st7789FlushDirty();

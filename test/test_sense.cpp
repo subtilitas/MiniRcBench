@@ -990,6 +990,25 @@ static void testRecoveryAtNone() {
 	fakeI2cReset();
 }
 
+/** @brief A part holding SDA at senseInit(): freed there, before the RTC's read. */
+static void testHeldAtInit() {
+	section("Sense: SDA held at senseInit(), freed before clockInit()");
+	fakeI2cReset();
+	fakeI2cHoldSda(true);
+	fakeI2cSdaReleaseAfter(5);
+	FakeI2cStats s0 = fakeI2cStats();
+	senseInit();
+	FakeI2cStats s1 = fakeI2cStats();
+	checkTrue("9 clocks on SCL and the block initialised again, in senseInit()",
+	          s1.sclPulses - s0.sclPulses == 9 && s1.inits - s0.inits >= 1);
+	checkTrue("SDA free after it", gpio_get(PIN_I2C_SDA));
+	fakeI2cReset();
+	s0 = fakeI2cStats();
+	senseInit();
+	checkInt("a free bus at senseInit(): no clocks", (long)(fakeI2cStats().sclPulses - s0.sclPulses), 0);
+	fakeI2cReset();
+}
+
 void runSenseTests() {
 	testCodec();
 	testProbe();
@@ -1006,4 +1025,5 @@ void runSenseTests() {
 	testReadAbortStop();
 	testShortCount();
 	testRecoveryAtNone();
+	testHeldAtInit();
 }

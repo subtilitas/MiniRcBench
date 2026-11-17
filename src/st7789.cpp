@@ -151,6 +151,11 @@ void st7789Init() {
 	cmd(0x29);            // DISPON
 	delay(50);
 
+	// The panel's RAM holds noise after power-up and the last image after a
+	// reset: SWRESET does not clear it. The framebuffer gfxInit() cleared,
+	// all of it marked dirty, goes out before the backlight lights it.
+	st7789FlushDirty();
+
 	// --- backlight on GP16 (g_board->lcdBl) via an NPN ---
 	//
 	// 20 kHz, above the audio band, where the backlight boost inductor whines.
