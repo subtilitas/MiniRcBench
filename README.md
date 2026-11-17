@@ -1149,7 +1149,7 @@ A button that starts an output is dark green with a white label, 6.50, and
 safe or done is a dark green frame around a dark green word. Amber and lime
 text on the control face read 3.42 and 3.82 there; the host suite's
 contrast walk lists them as exceptions
-([ui-theme.md](docs/design/ui-theme.md#slice-13-as-built)).
+([ui-theme.md](docs/design/ui-theme.md), "Slice 13 as built").
 
 The palette has fewer distinct neutrals than the dark one. Dim and faint are
 merged so that labels stay legible outdoors.
