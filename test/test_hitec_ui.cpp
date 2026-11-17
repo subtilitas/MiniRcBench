@@ -1773,6 +1773,10 @@ static void testStallInWrite() {
 	tapUntilGone(UI_FIX(HitecCtl::Write));
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the write runs", job().job == HitecJobState::Busy);
+	// The read before the write, then the write's first register on the line.
+	const unsigned w0 = fakeHitecSim()->writes;
+	for (int i = 0; i < 4000 && fakeHitecSim()->writes == w0; i++) hitecFrames(1);
+	checkTrue("the read before the write passed: a register written", fakeHitecSim()->writes > w0);
 	// The UI stops for 2 s: the job finishes the write, then switches off.
 	for (int i = 0; i < 2000; i++) core1Pass();
 	hitecFrames(4);
@@ -1780,6 +1784,20 @@ static void testStallInWrite() {
 	checkTrue("GP28 off", !enHigh());
 	checkTrue("the job says it wrote", job().stallWrote);
 	checkTrue("the record stays on the card", fakeFatExists("HITEC/HITEC.TXT"));
+	leaveAll();
+
+	section("Hitec screen: a stall during the read before a D series write");
+	freshHitec(HITEC_D, true);
+	checkTrue("the field list on GP28", toList(HITEC_D));
+	speedDown();
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	const unsigned w1 = fakeHitecSim()->writes;
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	for (int i = 0; i < 2000; i++) core1Pass();
+	hitecFrames(4);
+	checkTrue("the stall: RETRY", untilCtl(UI_FIX(HitecCtl::Retry), 200));
+	checkTrue("no register written, the job says it did not write",
+	          fakeHitecSim()->writes == w1 && !job().stallWrote);
 	leaveAll();
 }
 
