@@ -291,6 +291,8 @@ bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
 	return true;
 }
 
+uint16_t sdLogMountId() { return s_mounted ? s_fs.id : 0; }
+
 bool sdLogStart() {
 	if (s_released) return false;
 	if (s_state == SdLogState::NoCard) return false;
@@ -577,6 +579,7 @@ void sdLogStop() {}
 void sdLogStopFor(SdLogEnd) {}
 bool sdLogRemount() { return false; }
 bool sdLogVolumeId(uint32_t *, uint32_t *) { return false; }
+uint16_t sdLogMountId() { return 0; }
 bool sdLogRelease() { return false; }
 bool sdLogReacquire() { return false; }
 bool sdLogActive() { return false; }

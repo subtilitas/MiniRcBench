@@ -328,9 +328,11 @@ static void core1Main() {
  *        under core0's 4 KB in SCRATCH_Y, and core0's deepest path, a Hitec
  *        card write under the frame, comes within about 300 bytes of it. Here
  *        core0's stack has all of SCRATCH_Y and SCRATCH_X, 8 KB, and an
- *        overflow of it no longer reaches core1's stack.
+ *        overflow of it no longer reaches core1's stack. Aligned to 8 bytes,
+ *        as AAPCS (the Arm procedure call standard) asks of the stack pointer
+ *        the launch sets to its end.
  */
-static uint32_t s_core1Stack[PICO_CORE1_STACK_SIZE / sizeof(uint32_t)];
+alignas(8) static uint32_t s_core1Stack[PICO_CORE1_STACK_SIZE / sizeof(uint32_t)];
 
 /**
  * @brief Core0 entry point.

@@ -1539,6 +1539,9 @@ void sdLogStopFor(SdLogEnd tool) {
 	if (g_log.state == SdLogState::Idle) g_log.end = tool;
 }
 
+static uint16_t g_mountId = 1;
+uint16_t sdLogMountId() { return g_mountId; }
+
 bool sdLogRemount() {
 	// Models a card that appears on retry: NO CARD becomes READY. That is the
 	// case the button exists for -- a card inserted after boot.
@@ -1547,6 +1550,7 @@ bool sdLogRemount() {
 	// From any other state the card in the slot mounts, as sdLogBegin() does
 	// with a card that answers: READY, a card fault forgotten.
 	if (g_log.state == SdLogState::Logging) return true;
+	g_mountId++;
 	fakeMountForget();
 	if (g_log.state == SdLogState::NoCard) {
 		g_log.mountResult = 0;

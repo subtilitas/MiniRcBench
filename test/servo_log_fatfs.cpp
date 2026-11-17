@@ -1879,6 +1879,21 @@ static void testCreateCloseFails() {
 	          f_stat("/TEST/F19.TXT", &fno) != FR_OK);
 	checkTrue("then a create on the working card: no lock entry left over",
 	          cardCreate("/TEST", "OK.TXT", text, sizeof(text) - 1) == CardIo::Ok);
+
+	// Inside a scope, as the backups and the KST and Hitec files run: the
+	// remount makes the root current, and the paths turn absolute.
+	{
+		CardDirScope in("TEST");
+		g_disk.failWrites = true;
+		checkTrue("scoped: a create whose close fails",
+		          cardCreate("TEST", "P.TXT", text, sizeof(text) - 1) != CardIo::Ok);
+		g_disk.failWrites = false;
+		checkTrue("scoped: the next create lands in the scope's directory",
+		          cardCreate("TEST", "G.TXT", text, sizeof(text) - 1) == CardIo::Ok);
+	}
+	checkTrue("in /TEST, not in the root; no partial P.TXT anywhere",
+	          f_stat("/TEST/G.TXT", &fno) == FR_OK && f_stat("/G.TXT", &fno) != FR_OK &&
+	          f_stat("/TEST/P.TXT", &fno) != FR_OK && f_stat("/P.TXT", &fno) != FR_OK);
 	f_mount(nullptr, "", 0);
 }
 
