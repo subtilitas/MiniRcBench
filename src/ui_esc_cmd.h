@@ -28,6 +28,11 @@
  * that stopped after the ESC may have taken it, sets the tester's 3D note
  * (esc_3d.h); 3D OFF leaves it (decision 4).
  *
+ * While MENU's run cue stands the page opens on the start step of
+ * docs/design/dshot-lifetime.md, decisions 8 and 14: the step, START DSHOT
+ * and BACK are all it draws and all that takes a touch, and DShot stays
+ * parked until START DSHOT. BACK returns to the hub with the cue kept.
+ *
  * @see docs/design/esc-commands.md, "The page" and "Screen"
  */
 
@@ -92,8 +97,18 @@ struct TouchState;
  *        in the ESC's RAM only.
  */
 #define UI_ESC_CMD_3D_OFF_LOST "AFTER A POWER CYCLE IT MAY RUN IN 3D."
-/** @brief EscCmdReady::NoAnswer, `C_AMBER`, with SIG's GPIO (decision 5). */
+/**
+ * @brief EscCmdReady::NoAnswer, `C_AMBER`, with SIG's GPIO (decision 5),
+ *        from @ref ESC_CMD_SETTLE_MS after DShot's bind on.
+ */
 #define UI_ESC_CMD_NO_ANSWER_FMT "NO ESC ANSWERS ON SIG GP%u."
+/**
+ * @brief EscCmdReady::NoAnswer while DShot's bind is pending or younger than
+ *        @ref ESC_CMD_SETTLE_MS, `C_AMBER`, with SIG's GPIO: the ESC needs
+ *        that time to see DShot (docs/design/dshot-lifetime.md, slice D3).
+ *        26 characters, 155 px.
+ */
+#define UI_ESC_CMD_STARTING_FMT "DSHOT STARTING ON SIG GP%u."
 /** @brief EscCmdReady::Turning, `C_AMBER`. */
 #define UI_ESC_CMD_TURNING "MOTOR TURNING: WAIT UNTIL IT STOPS."
 /** @brief EscCmdReady::Settling, `C_AMBER`: @ref ESC_CMD_SETTLE_MS. */
@@ -139,6 +154,12 @@ enum class EscCmdCtl : uint8_t {
 	Reversed,   /**< REVERSED, a hold: 8, then 12. */
 	Off3d,      /**< 3D OFF, a hold: 9, then 12. */
 	On3d,       /**< 3D ON, a hold: 10, then 12. */
+	/**
+	 * START DSHOT on the start step (docs/design/dshot-lifetime.md,
+	 * decisions 8 and 14): x 6 to 233, y 214 to 259, live 1000 ms after the
+	 * step opens. On the step the table holds it and BACK alone.
+	 */
+	Start,
 };
 
 /** @brief Open the page: idle, no hold running, no outcome of its own shown. */

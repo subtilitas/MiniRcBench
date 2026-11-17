@@ -16,6 +16,7 @@
  * | Frame slot to the wire | core0, bridgeWireSend() | core1, the job | @ref BRIDGE_FRAME_MAX bytes, one frame |
  * | Ring from the wire | core1, the job | core0, bridgeWireRecv() | @ref BRIDGE_RX_RING bytes |
  * | Counts (BridgeWireStats) | core1 | core0, bridgeWireStats() | |
+ * | Binds of the line | core1, after it zeroes the counts | core0, bridgeWireBinds() | one `uint32_t` |
  *
  * A frame goes to the wire whole: core1 takes it from the slot and keeps the
  * transmit FIFO filled until its last byte is in, so its bytes go out back to
@@ -185,6 +186,18 @@ void bridgeWireKeepEcho(bool keep);
  * @param out Where they go.
  */
 void bridgeWireStats(BridgeWireStats *out);
+
+/**
+ * @brief The line's binds since start-up, a failed one included. Core0.
+ *
+ * Core1 raises it in each bind after it zeroes the counts and before it
+ * opens the line, with a release store; this read is an acquire load. Read
+ * before bridgeWireStats(): once it has moved since a mark, the counts read
+ * after it are those of a bind after the mark, counted from 0
+ * (docs/design/dshot-lifetime.md, decision 13).
+ * @return The count; it wraps after 2^32 binds.
+ */
+uint32_t bridgeWireBinds();
 
 /** @brief Core1Job::Bridge: bind, step and release as the table above says. */
 extern const Core1JobOps BRIDGE_JOB_OPS;

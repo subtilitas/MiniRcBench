@@ -1476,6 +1476,27 @@ static void testLateMark() {
 	checkTrue("RESTART DSHOT on the plain page: RECEIVER, the mark and the cue kept",
 	          uiCurrentScreen() == UiScreenId::RxSignals && sbusOutProbeEfm8() && sbusOutRunCue(0));
 	tapId(UI_FIX(UI_BACK));  // to MENU
+	// The cue's third source on the start step (docs/design/dshot-lifetime.md,
+	// decision 8): ESC TESTER opens with DShot parked until START DSHOT, whose
+	// tap clears the cue and keeps the EFM8 mark, the leave page's.
+	for (int k = 0; k < 40 && (pinClaimState() != ClaimState::Free || !escTaskParked()); k++)
+		soFrames(1);
+	const int binds = fakeRebuildCount();
+	tapId(menuRow(&UI_TESTER));
+	soFrames(1);
+	checkTrue("S.BUS OUTPUT's cue: ESC TESTER on the start step, parked, no bind",
+	          uiCurrentScreen() == UiScreenId::Tester && uiStartStepShown() && !uiDshotWanted() &&
+	          escTaskParked() && fakeRebuildCount() == binds);
+	for (int k = 0; k < 60 && !ctlEnabled(UI_FIX(TesterCtl::Start)); k++) soFrames(1);
+	checkTrue("START DSHOT live after 1000 ms; still parked, no bind",
+	          ctlEnabled(UI_FIX(TesterCtl::Start)) && escTaskParked() && fakeRebuildCount() == binds);
+	tapId(UI_FIX(TesterCtl::Start));
+	soFrames(2);
+	checkTrue("START DSHOT: the cue gone, the EFM8 mark kept, DShot binds once",
+	          !sbusOutRunCue(0) && sbusOutProbeEfm8() && fakeRebuildCount() == binds + 1 &&
+	          escTaskRunning() && !uiStartStepShown());
+	testerToMenu();
+	soFrames(20);
 	sbusOutProbeRestart();
 	checkTrue("cleared for the next test", !sbusOutProbeEfm8() && !sbusOutRunCue(0));
 	openTester();

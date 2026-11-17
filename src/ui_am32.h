@@ -291,6 +291,12 @@ bool uiAm32Tick(const TouchState *t);
  */
 bool uiAm32RunCue(uint32_t lastRpmMs);
 
+/**
+ * @brief START DSHOT on the start step clears the cue: the step asked for
+ *        the ESC's power cycle (docs/design/dshot-lifetime.md, decision 8).
+ */
+void uiAm32RunCueClear();
+
 /** @brief The ESC SETTINGS controls; the list rows are `UI_ROW(n, Row)`. @see ui_screen.h */
 enum class Am32Ctl : uint8_t {
 	EditMinus = 1, EditPlus,  /**< The editor bar, while a field is selected. */

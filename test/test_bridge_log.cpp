@@ -74,6 +74,7 @@ uint16_t bridgeWireRecv(uint8_t *buf, uint16_t max) {
 }
 void bridgeWireKeepEcho(bool) {}
 void bridgeWireStats(BridgeWireStats *out) { memset(out, 0, sizeof(*out)); }
+uint32_t bridgeWireBinds() { return 0; }
 
 /** @brief Newlines among the bytes that reached the PC since the last call. */
 static int linesDelivered() {

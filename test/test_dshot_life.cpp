@@ -1,9 +1,10 @@
 /**
  * @file test_dshot_life.cpp
- * @brief Slice D2 of docs/design/dshot-lifetime.md: boot parked, the rule,
- *        the claim's Busy and Parking, the arm gate, the hubs' line and the
- *        texts that state DShot's restart, through the real UI on the fake
- *        pump of fakes.cpp.
+ * @brief Slices D2 and D3 of docs/design/dshot-lifetime.md: boot parked, the
+ *        rule, the claim's Busy and Parking, the arm gate, the hubs' line and
+ *        the texts that state DShot's restart (D2); ESC COMMANDS while DShot
+ *        starts, and the start step while MENU's run cue stands, with its way
+ *        out (D3), through the real UI on the fake pump of fakes.cpp.
  *
  * Core1 is not a thread here: lifeFrame() runs the pump's pass and the job's
  * pass, then the UI frame, as the other UI suites do; framesNoPump() holds
@@ -31,6 +32,7 @@
 #include "ui_settings.h"
 #include "ui_sdlog.h"
 #include "ui_widgets.h"
+#include "usb_bridge.h"
 #include "gfx.h"
 #include "theme.h"
 #include "sd_log.h"
@@ -785,6 +787,333 @@ static void testTexts() {
 	          strlen("BACK TO RECEIVER.") <= UI_LEAVE_STEP_CHARS);
 }
 
+// ---------------------------------------------------------------------------
+// Slice D3
+// ---------------------------------------------------------------------------
+
+/** @brief test_ui.cpp: ESC SETTINGS' run cue, as a bootloader's handshake sets it. */
+void testAm32CueSet();
+
+/** @brief ESC COMMANDS' first message line reads @p text in amber. */
+static bool ecLineIs(const char *text) {
+	return fakeTextIs(UI_MARGIN, UI_ESC_CMD_LINE_Y, text, C_AMBER, C_BG, 1);
+}
+
+/**
+ * @brief ESC COMMANDS with no answer: `DSHOT STARTING ON SIG GP0.` while the
+ *        bind is pending and for 1499 ms after it, then `NO ESC ANSWERS ON
+ *        SIG GP0.`; an answer gives `ESC STARTING: WAIT 1.5 S.` as before.
+ */
+static void testEscCmdStarting() {
+	section("DShot lifetime D3: ESC COMMANDS while DShot starts");
+
+	freshLife();
+	fakeSetCmdReady(EscCmdReady::NoAnswer);
+	char starting[48], none[48];
+	snprintf(starting, sizeof(starting), UI_ESC_CMD_STARTING_FMT, SIG_GPIO);
+	snprintf(none, sizeof(none), UI_ESC_CMD_NO_ANSWER_FMT, SIG_GPIO);
+	char gp0[48];
+	snprintf(gp0, sizeof(gp0), UI_ESC_CMD_STARTING_FMT, 0u);
+	checkTrue("the text: DSHOT STARTING ON SIG GP0., 26 characters, 155 px",
+	          strcmp(gp0, "DSHOT STARTING ON SIG GP0.") == 0 && strlen(starting) == 26 &&
+	          gfxTextW(starting, 1) == 155);
+	tapId(toolEntry(&UI_ESC_CMD));
+	framesNoPump(2);
+	checkTrue("the bind pending, the stamp 0: DSHOT STARTING ON SIG GP0.",
+	          uiCurrentScreen() == UiScreenId::EscCmd && escTaskBoundMs() == 0 && ecLineIs(starting));
+	lifeFrame(1);
+	const uint32_t bound = escTaskBoundMs();
+	checkTrue("core1 binds", bound != 0 && escTaskRunning());
+	frameAt(bound + 1499);
+	checkTrue("1499 ms after the bind, no answer: DSHOT STARTING ON SIG GP0.",
+	          ecLineIs(starting) && !ecLineIs(none));
+	frameAt(bound + 1500);
+	checkTrue("1500 ms: NO ESC ANSWERS ON SIG GP0.", ecLineIs(none) && !ecLineIs(starting));
+	fakeSetCmdReady(EscCmdReady::Settling);
+	lifeFrame(25);
+	checkTrue("an answer: ESC STARTING: WAIT 1.5 S., as before", ecLineIs(UI_ESC_CMD_SETTLING));
+	fakeSetCmdReady(EscCmdReady::NoAnswer);
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(2);
+	// A bind the driver refused leaves the stamp 0 for good: no ESC answers.
+	fakeSetBindRefused(true);
+	tapId(toolEntry(&UI_ESC_CMD));
+	lifeFrames(4);
+	checkTrue("a refused bind: NO ESC ANSWERS ON SIG GP0., not the start text",
+	          escTaskBoundMs() == 0 && escTaskBindRefused() && ecLineIs(none));
+	fakeSetBindRefused(false);
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(2);
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(20);
+	fakeSetCmdReady(EscCmdReady::Ready);
+}
+
+/** @brief The three sources of MENU's run cue, set as their tools set them. */
+static void cueAm32() { testAm32CueSet(); }
+static void cueBridge() { usbBridgeRunCueSet(); }
+
+/** @brief The step's text from y 66: its number, the step current, its two lines. */
+static bool stepShown() {
+	return leaveStepIs(UI_LEAVE_STEP_Y, '1', UI_LEAVE_START_STEP, true) &&
+	       leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, UI_LEAVE_START_WHY_1, true) &&
+	       leaveStepIs(UI_LEAVE_STEP_Y + 24, 0, UI_LEAVE_START_WHY_2, true);
+}
+
+/**
+ * @brief Decision 8 for one cue source and one screen: the screen opens on
+ *        the start step with DShot parked, START DSHOT disabled for 999 ms
+ *        and acting at 1000 ms; its tap binds, clears the cue and starts the
+ *        arm gate.
+ */
+static void startStepCase(void (*cue)(), const char *src, bool tester) {
+	freshLife();
+	cue();
+	char what[128];
+	const char *scr = tester ? "ESC TESTER" : "ESC COMMANDS";
+	const UiControlId start = tester ? UI_FIX(TesterCtl::Start) : UI_FIX(EscCmdCtl::Start);
+	snprintf(what, sizeof(what), "%s's cue stands before %s opens", src, scr);
+	checkTrue(what, uiRunCue(0));
+	const int binds = fakeRebuildCount(), frames = fakeFrameCount(), starts = fakeResumeCount();
+	tapId(tester ? menuRow(&UI_TESTER) : toolEntry(&UI_ESC_CMD));
+	const uint32_t opened = millis();
+	lifeFrame(1);   // the screen's first frame
+	snprintf(what, sizeof(what), "%s, %s's cue: the start step, uiDshotWanted() false", scr, src);
+	checkTrue(what, uiCurrentScreen() == (tester ? UiScreenId::Tester : UiScreenId::EscCmd) &&
+	          uiStartStepShown() && !uiDshotWanted() && stepShown());
+	frameAt(opened + 999);
+	snprintf(what, sizeof(what), "%s: 999 ms on, START DSHOT disabled and drawn so, parked, no bind, "
+	         "no frame", scr);
+	checkTrue(what, !ctlEnabled(start) && disabledButtonIs(start, UI_LEAVE_START_LABEL, 2) &&
+	          escTaskParked() && fakeRebuildCount() == binds && fakeFrameCount() == frames &&
+	          fakeResumeCount() == starts);
+	// A press that lands at 999 ms and lifts after 1000 ms does nothing.
+	int sx, sy;
+	ctlCentre(start, &sx, &sy);
+	fakePress(sx, sy);
+	lifeFrame(0);
+	fakeHold(sx, sy);
+	lifeFrame(25);
+	fakeRelease();
+	lifeFrame(1);
+	snprintf(what, sizeof(what), "%s: a press landed at 999 ms, lifted at 1025 ms: the step stays",
+	         scr);
+	checkTrue(what, uiStartStepShown() && escTaskParked() && fakeRebuildCount() == binds);
+	snprintf(what, sizeof(what), "%s: 1000 ms on, START DSHOT live", scr);
+	checkTrue(what, ctlEnabled(start) && neutralButtonIs(start, UI_LEAVE_START_LABEL, 2));
+	tapId(start);
+	snprintf(what, sizeof(what), "%s: START DSHOT ends the step and clears every cue", scr);
+	checkTrue(what, !uiStartStepShown() && !uiRunCue(0) && uiDshotWanted());
+	lifeFrames(2);
+	const uint32_t bound = escTaskBoundMs();
+	snprintf(what, sizeof(what), "%s: core1 binds once, the EDT enable first; the gate from the bind",
+	         scr);
+	checkTrue(what, fakeRebuildCount() == binds + 1 && escTaskRunning() && bound != 0 &&
+	          uiArmGated(bound, bound + 1499) && !uiArmGated(bound, bound + 1500) &&
+	          fakeLastFrame().throttle == 0);
+	if (tester) {
+		lifeFrames(1);
+		checkTrue("the tester draws whole: HOLD TO ARM disabled, the gate's text",
+		          armDrawnDisabled() && gateTextShown() && ctlPresent(UI_FIX(TesterCtl::Latch)));
+		tapId(UI_FIX(TesterCtl::Menu));
+	} else {
+		tapId(UI_FIX(UI_BACK));
+		lifeFrames(1);
+		tapId(UI_FIX(UI_BACK));
+	}
+	lifeFrames(20);
+	checkTrue("MENU: parked again", escTaskParked());
+}
+
+/** @brief Decision 8 from two sources; the third, S.BUS OUTPUT's, is in test_sbus_out_ui.cpp. */
+static void testStartStep() {
+	section("DShot lifetime D3: the start step while MENU's run cue stands");
+
+	{
+		UiLeaveStart st;
+		uiLeaveStartOpen(&st, true, 5000);
+		checkTrue("START DSHOT: not live at 999 ms, live at exactly 1000 ms",
+		          !uiLeaveStartLive(&st, 5999) && uiLeaveStartLive(&st, 6000));
+		uiLeaveStartOpen(&st, false, 5000);
+		checkTrue("no step: never live", !uiLeaveStartLive(&st, 6000));
+	}
+
+	startStepCase(cueAm32, "ESC SETTINGS", true);
+	startStepCase(cueAm32, "ESC SETTINGS", false);
+	startStepCase(cueBridge, "USB BRIDGE", true);
+	startStepCase(cueBridge, "USB BRIDGE", false);
+
+	// No cue: both open running.
+	freshLife();
+	checkTrue("no cue", !uiRunCue(0));
+	openTesterBound();
+	checkTrue("no cue: ESC TESTER opens running, no step",
+	          !uiStartStepShown() && escTaskRunning() && ctlPresent(UI_FIX(TesterCtl::Arm)));
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(20);
+	tapId(toolEntry(&UI_ESC_CMD));
+	lifeFrames(2);
+	checkTrue("no cue: ESC COMMANDS opens running, no step",
+	          !uiStartStepShown() && escTaskRunning() && ctlPresent(UI_FIX(EscCmdCtl::Beep1)));
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(1);
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(20);
+}
+
+/**
+ * @brief Decision 14: the step's way out, live from its first frame, keeps
+ *        the cue and sends nothing; the step's controls and nothing else.
+ */
+static void testStartStepWayOut() {
+	section("DShot lifetime D3: the start step's way out and its controls");
+
+	freshLife();
+	cueBridge();
+	const int binds = fakeRebuildCount(), frames = fakeFrameCount();
+	tapId(menuRow(&UI_TESTER));
+	lifeFrame(1);   // the tester's first frame
+	checkTrue("ESC TESTER on the step: MENU live from the first frame, drawn cyan",
+	          uiStartStepShown() && ctlEnabled(UI_FIX(TesterCtl::Menu)) &&
+	          buttonLookIs(UI_FIX(TesterCtl::Menu), "MENU", C_CYAN, C_ONACCENT, 1));
+	{
+		UiControl t[UI_CONTROLS_MAX];
+		uint8_t n = uiControls(t, UI_CONTROLS_MAX);
+		const UiRect st = ctlRect(UI_FIX(TesterCtl::Start)), mn = ctlRect(UI_FIX(TesterCtl::Menu));
+		checkTrue("the table: START DSHOT and MENU, nothing else", n == 2 &&
+		          ctlPresent(UI_FIX(TesterCtl::Start)) && ctlPresent(UI_FIX(TesterCtl::Menu)));
+		checkTrue("START DSHOT: x 6 to 233, y 214 to 259, clear of MENU",
+		          st.x == 6 && st.y == 214 && st.w == 228 && st.h == 46 &&
+		          !(st.x < mn.x + mn.w && mn.x < st.x + st.w && st.y < mn.y + mn.h && mn.y < st.y + st.h));
+		checkControlTable("ESC TESTER, the start step");
+		fakeDumpFrame("shot_tester_start_step.ppm");
+	}
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(4);
+	checkTrue("MENU: MENU, parked, no bind, no frame, the cue kept",
+	          uiCurrentScreen() == UiScreenId::Menu && escTaskParked() && fakeRebuildCount() == binds &&
+	          fakeFrameCount() == frames && uiRunCue(0));
+	tapId(menuRow(&UI_TESTER));
+	lifeFrame(1);
+	checkTrue("the next open shows the step again", uiStartStepShown() && stepShown());
+
+	// TGT_MAX's centre, x 111, y 240, inside START DSHOT, in the first 999 ms.
+	fakePress(111, 240);
+	lifeFrame(25);
+	fakeRelease();
+	lifeFrame(25);
+	checkTrue("a tap on MAX's place while START DSHOT waits: the step, no SETUP, parked, no bind",
+	          uiCurrentScreen() == UiScreenId::Tester && uiStartStepShown() && uiNavDepth() == 2 &&
+	          escTaskParked() && fakeRebuildCount() == binds);
+
+	// HOLD TO ARM's rectangle held 1000 ms, then a swipe along the track.
+	fakePress(58, 299);
+	for (int k = 0; k < 44; k++) { fakeHold(58, 299); lifeFrame(25); }
+	fakeRelease();
+	lifeFrame(25);
+	fakePress(30, 270);
+	lifeFrame(25);
+	for (int x = 40; x <= 200; x += 10) { fakeHold(x, 270); lifeFrame(25); }
+	checkTrue("HOLD TO ARM's place held, a swipe on the track: nothing arms, throttle 0",
+	          !uiArmed() && !fakeArmed() && uiThrottle() == 0 && fakeThrottle() == 0);
+	fakeRelease();
+	lifeFrame(25);
+	checkTrue("no frame, no bind; the track's rows, y 260 to 281, hold only the background",
+	          fakeFrameCount() == frames && fakeRebuildCount() == binds &&
+	          allOf(0, 260, GFX_W, 22, C_BG));
+	// Later the same tap is START DSHOT's: its lift opens no SETUP.
+	fakePress(111, 240);
+	lifeFrame(25);
+	fakeRelease();
+	lifeFrame(25);
+	checkTrue("past 1000 ms the same tap is START DSHOT's: the tester, no SETUP",
+	          !uiStartStepShown() && uiCurrentScreen() == UiScreenId::Tester && uiNavDepth() == 2);
+	lifeFrames(2);
+	checkTrue("then DShot binds", fakeRebuildCount() == binds + 1 && escTaskRunning());
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(20);
+
+	// ESC COMMANDS: BACK live; the holds neither drawn nor read.
+	cueBridge();
+	const int b2 = fakeRebuildCount(), f2 = fakeFrameCount(), req = fakeBeepRequests();
+	tapId(toolEntry(&UI_ESC_CMD));
+	lifeFrame(1);   // the page's first frame
+	checkTrue("ESC COMMANDS on the step: BACK live from the first frame, drawn so",
+	          uiStartStepShown() && ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
+	{
+		UiControl t[UI_CONTROLS_MAX];
+		uint8_t n = uiControls(t, UI_CONTROLS_MAX);
+		checkTrue("the table: BACK and START DSHOT, nothing else",
+		          n == 2 && ctlPresent(UI_FIX(UI_BACK)) && ctlPresent(UI_FIX(EscCmdCtl::Start)));
+		checkControlTable("ESC COMMANDS, the start step");
+		fakeDumpFrame("shot_esccmd_start_step.ppm");
+	}
+	fakePress(178, 200);
+	for (int k = 0; k < 60; k++) { fakeHold(178, 200); lifeFrame(25); }
+	fakeRelease();
+	lifeFrame(25);
+	checkTrue("a 1500 ms hold on 3D ON's place: no command, no bind, the step stays",
+	          fakeBeepRequests() == req && fakeRebuildCount() == b2 && fakeFrameCount() == f2 &&
+	          uiStartStepShown());
+	checkTrue("3D ON's rows, y 192 to 213, hold no pixel of its fill or label",
+	          allOf(UI_ESC_CMD_HOLD_X2, UI_ESC_CMD_3D_Y, UI_ESC_CMD_HOLD_W, 22, C_BG));
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(4);
+	checkTrue("BACK: ESC PROGRAM, parked, no bind, no frame, the cue kept",
+	          uiCurrentScreen() == UiScreenId::EscConfig && escTaskParked() &&
+	          fakeRebuildCount() == b2 && fakeFrameCount() == f2 && uiRunCue(0));
+	tapId(toolEntry(&UI_ESC_CMD));
+	lifeFrame(1);
+	checkTrue("the next open shows the step again", uiStartStepShown() && stepShown());
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(1);
+	tapId(UI_FIX(UI_BACK));
+	lifeFrames(4);
+
+	// A cue that clears under the step, by an eRPM frame newer than the
+	// answer: the step stays latched, DShot stays parked until START DSHOT.
+	cueAm32();
+	const int b3 = fakeRebuildCount(), f3 = fakeFrameCount();
+	tapId(menuRow(&UI_TESTER));
+	lifeFrame(1);
+	{
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.lastRpmMs = millis();
+		fakeSetTelemetry(&tel);
+	}
+	lifeFrames(8);
+	checkTrue("the cue cleared under the step: the step stays, parked, no bind, no frame",
+	          !uiRunCue(millis()) && uiStartStepShown() && !uiDshotWanted() && escTaskParked() &&
+	          fakeRebuildCount() == b3 && fakeFrameCount() == f3);
+	{
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		fakeSetTelemetry(&tel);
+	}
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(4);
+
+	// A cue that rises under a running tester, which no tool can set while
+	// the tester shows: the rule reads the cue too, and DShot parks.
+	openTesterBound();
+	checkTrue("no cue: the tester runs", escTaskRunning() && !uiStartStepShown());
+	cueBridge();
+	lifeFrames(4);
+	checkTrue("a cue that rises under the tester: not wanted, parked",
+	          !uiDshotWanted() && escTaskParked());
+	usbBridgeRunCueClear();
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(4);
+
+	// SETUP over a tester whose step was not done: parked.
+	const UiScreenId stack[3] = { UiScreenId::Menu, UiScreenId::Tester, UiScreenId::Settings };
+	checkTrue("uiDshotRule(): SETUP over the tester, the cue standing, START not tapped: false",
+	          !uiDshotRule(stack, 3, true));
+	usbBridgeRunCueClear();
+	lifeFrames(1);
+}
+
 void runDshotLifeTests() {
 	testBoot();
 	testRule();
@@ -799,6 +1128,9 @@ void runDshotLifeTests() {
 	testLeaveParks();
 	testHubLines();
 	testTexts();
+	testEscCmdStarting();
+	testStartStep();
+	testStartStepWayOut();
 	freshLife();
 	openTester();
 	lifeFrames(2);

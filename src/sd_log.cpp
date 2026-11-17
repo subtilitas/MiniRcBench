@@ -391,6 +391,12 @@ void sdLogStopFor(SdLogEnd tool) {
 
 bool sdLogActive() { return s_state == SdLogState::Logging; }
 
+int32_t sdLogErpmField(const EscTelemetry *t, uint32_t nowMs) {
+	// Raw, as the EDT columns: a stale eRPM would log a motor turning at its
+	// last speed through every frame after the answers stopped.
+	return escFieldFresh(t->lastRpmMs, nowMs, ESC_LINK_STALE_MS) ? (int32_t)t->erpm : 0;
+}
+
 void sdLogTick(uint32_t nowUs, uint16_t throttle) {
 	if (s_state != SdLogState::Logging) return;
 	if ((int32_t)(nowUs - s_nextFrameUs) < 0) return;
@@ -418,7 +424,7 @@ void sdLogTick(uint32_t nowUs, uint16_t throttle) {
 	// negative there wraps to ~4.29e9 rather than failing. Clamping is cheaper
 	// than a log that decodes to nonsense. @see bbWriteFrame()
 	v[BB_F_THROTTLE]     = throttle > 2000 ? 2000 : throttle;
-	v[BB_F_ERPM]         = (int32_t)t.erpm;
+	v[BB_F_ERPM]         = sdLogErpmField(&t, nowMs);
 	v[BB_F_ERPM_KISS]    = (int32_t)r.kissErpm;
 	v[BB_F_VBAT]         = (int32_t)(r.voltsFrom == EscSource::Kiss ? t.kissVolts * 100.0f + 0.5f : 0.0f);
 	v[BB_F_AMPERAGE]     = (int32_t)(r.ampsFrom == EscSource::Kiss ? t.kissAmps * 100.0f + 0.5f : 0.0f);

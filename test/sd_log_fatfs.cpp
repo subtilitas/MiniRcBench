@@ -25,6 +25,7 @@
 #include "check.h"
 #include "ram_disk.h"
 
+#include "blackbox_encode.h"
 #include "clock.h"
 #include "config.h"
 #include "diag.h"
@@ -43,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <vector>
 
 int g_failures = 0;
 
@@ -679,6 +681,8 @@ static void testClock() {
 	f_mount(nullptr, "", 0);
 }
 
+static void testErpmLogged(const char *vol);
+
 static void runVolume(const char *vol, BYTE fmt, LBA_t sectors, DWORD au) {
 	format(fmt, sectors, au);
 	testStop(vol);
@@ -688,11 +692,120 @@ static void runVolume(const char *vol, BYTE fmt, LBA_t sectors, DWORD au) {
 	testStray(vol);
 	format(fmt, sectors, au);
 	testFailedStart(vol);
+	format(fmt, sectors, au);
+	testErpmLogged(vol);
 	f_mount(nullptr, "", 0);
+}
+
+/**
+ * @brief The eRPM column only while fresh: a hand log across a parked pump
+ *        logs 0, not the last eRPM frozen (docs/design/dshot-lifetime.md,
+ *        slice D3), as the run summary takes it.
+ */
+static void testErpmFresh() {
+	section("Logger: the eRPM column only while its frame is fresh");
+	EscTelemetry t;
+	memset(&t, 0, sizeof(t));
+	t.erpm = 7000;
+	t.lastRpmMs = 10000;
+	checkInt("a frame 0 ms old: its value", sdLogErpmField(&t, 10000), 7000);
+	checkInt("499 ms old: its value", sdLogErpmField(&t, 10499), 7000);
+	checkInt("500 ms old: 0", sdLogErpmField(&t, 10500), 0);
+	checkInt("older than 500 ms, a parked pump: 0", sdLogErpmField(&t, 60000), 0);
+	t.lastRpmMs = 0;
+	checkInt("no eRPM frame ever: 0", sdLogErpmField(&t, 100), 0);
+}
+
+/** @brief One variable-byte number of a .BFL at @p *pos; false at the end. */
+static bool readVB(const std::string &b, size_t *pos, uint32_t *out) {
+	uint32_t v = 0;
+	for (int shift = 0; shift < 35; shift += 7) {
+		if (*pos >= b.size()) return false;
+		uint8_t c = (uint8_t)b[(*pos)++];
+		v |= (uint32_t)(c & 0x7Fu) << shift;
+		if (!(c & 0x80u)) {
+			*out = v;
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * @brief The eRPM column of a .BFL, decoded: its header skipped, each I
+ *        frame read absolute, each P frame against the field's previous
+ *        value (the column's P predictor 1), up to the end event. The
+ *        encodings are blackbox_encode.cpp's: the iteration null in P
+ *        frames, the temperature signed in I frames, P residuals signed.
+ * @return False on a byte that is not a frame.
+ */
+static bool decodeErpm(const std::string &b, std::vector<int32_t> *out) {
+	size_t pos = 0;
+	while (pos < b.size() && b[pos] == 'H') {
+		size_t nl = b.find('\n', pos);
+		if (nl == std::string::npos) return false;
+		pos = nl + 1;
+	}
+	int32_t prev[BB_FIELD_COUNT] = {0};
+	out->clear();
+	while (pos < b.size()) {
+		char kind = b[pos++];
+		if (kind == 'E') return true;
+		if (kind != 'I' && kind != 'P') return false;
+		for (int i = 0; i < BB_FIELD_COUNT; i++) {
+			uint32_t u = 0;
+			if (kind == 'P' && i == BB_F_ITERATION) {
+				prev[i]++;
+				continue;
+			}
+			if (!readVB(b, &pos, &u)) return false;
+			int32_t zz = (int32_t)(u >> 1) ^ -(int32_t)(u & 1u);
+			if (kind == 'I') prev[i] = (i == BB_F_TEMP) ? zz : (int32_t)u;
+			else prev[i] += zz;   // the time's straight line is not needed here
+		}
+		out->push_back(prev[BB_F_ERPM]);
+	}
+	return true;
+}
+
+/**
+ * @brief The eRPM column as written to the card: a log across a parked
+ *        pump writes the last eRPM while its frame is under 500 ms old,
+ *        then 0 (docs/design/dshot-lifetime.md, slice D3).
+ */
+static void testErpmLogged(const char *vol) {
+	char t[96];
+	snprintf(t, sizeof(t), "Logger over FatFs, %s: the logged eRPM column", vol);
+	section(t);
+	checkTrue("START by hand", sdLogStart());
+	frames(50);                   // eRPM 7000, each frame fresh
+	for (int i = 0; i < 300; i++) {
+		g_us += 2000;             // no eRPM frame: the pump parked
+		sdLogTick(time_us_32(), 0);
+		sdLogFlush();
+	}
+	char path[32];
+	snprintf(path, sizeof(path), "/LOGS/LOG%05u.BFL", (unsigned)status().fileNumber);
+	sdLogStop();
+	std::string bfl;
+	std::vector<int32_t> erpm;
+	checkTrue("the .BFL decodes", readFile(path, &bfl) && decodeErpm(bfl, &erpm));
+	checkInt("350 frames", (long)erpm.size(), 350);
+	if (erpm.size() != 350) return;
+	int fresh = 0, zero = 0;
+	for (size_t i = 0; i < erpm.size(); i++) {
+		if (i < 50 + 249 && erpm[i] == 7000) fresh++;
+		if (i >= 50 + 249 && erpm[i] == 0) zero++;
+	}
+	// The parked frames 2 to 498 ms after the last eRPM frame log it; from
+	// 500 ms on, 0.
+	checkInt("7000 while under 500 ms old", fresh, 50 + 249);
+	checkInt("0 from 500 ms on", zero, 51);
 }
 
 int main() {
 	testPure();
+	testErpmFresh();
 	runVolume("FAT32", FM_FAT32, 2u * 1024u * 1024u, 4096);      // 1 GiB, 4 KiB clusters
 	runVolume("exFAT", FM_EXFAT, 2u * 1024u * 1024u, 32768);     // 1 GiB, 32 KiB clusters
 	testTxtNotSaved();

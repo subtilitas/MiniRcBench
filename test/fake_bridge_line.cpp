@@ -190,6 +190,14 @@ int fakeBridgeLineWireCount() { advance(now()); return (int)g_wire.size(); }
 int fakeBridgeLineReleases() { advance(now()); return g_releases; }
 uint64_t fakeBridgeLineCycle() { return now(); }
 
+void fakeBridgeLineInject(uint8_t b) {
+	if (!g_open) return;
+	const uint64_t s = now();
+	advance(s);
+	pushRx({s, s + BYTE_PUSH, b, false});
+	g_escBusy.push_back({s, s + ESC_BYTE});
+}
+
 void fakeBridgeLineWire(int i, uint8_t *b, uint64_t *startCy, bool *keep) {
 	advance(now());
 	if (i < 0 || (size_t)i >= g_wire.size()) {

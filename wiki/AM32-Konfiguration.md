@@ -276,8 +276,11 @@ das die ESC-Firmware startet: Die Seite zeigt `LEAVING` und in Bernstein
 später liegt der Signalpin auf Low, und der Bildschirm kehrt zu ESC PROGRAM
 zurück; DShot läuft erst, wenn ESC TESTER oder ESC COMMANDS öffnet.
 LEAVE hat keine Antwort: Ob der ESC gestartet ist, sieht der Tester nicht;
-an keinem ESC geprüft. MENUs `POWER-CYCLE THE ESC TO RUN IT` bleibt, bis der
-ESC auf ESC TESTER oder ESC COMMANDS eRPM sendet.
+an keinem ESC geprüft. MENUs `POWER-CYCLE THE ESC TO RUN IT` bleibt bis
+`START DSHOT` im Startschritt von ESC TESTER oder ESC COMMANDS
+([Die Bildschirme](Die-Bildschirme)), bis zum letzten Knopf der Verlassenseite
+nach ihren Schritten zum Aus- und Einschalten oder bis zu einem Neustart der
+Platine.
 
 <img src="img/efm8-leaving.png" width="240" alt="LEAVING: THE ESC STARTS ITS FIRMWARE ON LEAVE. ESC TESTER THEN RUNS IT. KEEP THE PROPELLER OFF.">
 
@@ -643,9 +646,10 @@ BLHeli_S sendet `BACK` aus deren Liste LEAVE, und `BACK` von überall sonst
 
 Nach einer Sitzung, in der der Bootloader geantwortet hat, zeigt MENU
 `POWER-CYCLE THE ESC TO RUN IT` in Bernstein unter der Zeile des Streifens.
-Der Hinweis verschwindet, sobald ein eRPM-Frame eintrifft, den nur die
-ESC-Firmware sendet, auf ESC TESTER oder ESC COMMANDS, mit der letzten Taste
-der Verlassenseite, oder wenn die Platine neu startet. LEAVE aus einer
+Solange er steht, öffnen ESC TESTER und ESC COMMANDS mit einem Startschritt
+und ohne DShot. Er verschwindet mit `START DSHOT` dort, mit der letzten Taste
+der Verlassenseite, sobald ein eRPM-Frame eintrifft, den nur die
+ESC-Firmware sendet, oder wenn die Platine neu startet. LEAVE aus einer
 Bluejay- oder BLHeli_S-Liste lässt ihn stehen, da LEAVE keine Antwort hat.
 
 <img src="img/menu-run-cue.png" width="240" alt="MENU mit POWER-CYCLE THE ESC TO RUN IT in Bernstein unter der Zeile des Streifens">

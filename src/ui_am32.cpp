@@ -2500,3 +2500,5 @@ bool uiAm32RunCue(uint32_t lastRpmMs) {
 	return s_blReached;
 }
 
+void uiAm32RunCueClear() { s_blReached = false; }
+

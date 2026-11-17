@@ -153,6 +153,83 @@ static_assert(sizeof(UI_LEAVE_DSHOT_FMT) - 1 - 2 + 1 <= UI_LEAVE_STEP_CHARS &&
 static_assert(sizeof(UI_LEAVE_SUPPLY_FMT) - 1 - 4 * 2 + 4 <= UI_LEAVE_NOTE_CHARS,
               "the supply note runs past x 232");
 
+/**
+ * @defgroup ui_leave_start The start step
+ * @brief Decision 8 of docs/design/dshot-lifetime.md: while MENU's run cue
+ *        stands, ESC TESTER and ESC COMMANDS open on one step of this page's
+ *        style, with DShot parked, until START DSHOT. START DSHOT takes the
+ *        row of the left and right buttons, x 6 to 233 and y 214 to 259, not
+ *        the wide button's, which would cover the tester's button row
+ *        (decision 14). It acts @ref UI_HOLD_MS after the step opens and is
+ *        drawn disabled until then.
+ * @{
+ */
+/** @brief The step's numbered line. */
+#define UI_LEAVE_START_STEP  "POWER-CYCLE THE ESC."
+/** @brief Its first detail line. */
+#define UI_LEAVE_START_WHY_1 "ITS BOOTLOADER MAY STILL WAIT"
+/** @brief Its second detail line. */
+#define UI_LEAVE_START_WHY_2 "AND READ DSHOT AS A COMMAND."
+/** @brief The button's label, scale 2: 11 characters, 130 px. */
+#define UI_LEAVE_START_LABEL "START DSHOT"
+/** @} */
+
+/** @brief START DSHOT: 228 px wide in the row of the left and right buttons. */
+constexpr UiRect UI_LEAVE_START = { UI_EDGE, UI_LEAVE_BTN_Y, 240 - 2 * UI_EDGE, UI_LEAVE_BTN_H };
+
+static_assert(sizeof(UI_LEAVE_START_STEP) - 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(UI_LEAVE_START_WHY_1) - 1 <= UI_LEAVE_STEP_CHARS &&
+              sizeof(UI_LEAVE_START_WHY_2) - 1 <= UI_LEAVE_STEP_CHARS,
+              "a line of the start step runs past x 232");
+static_assert(2 * (6 * (int)(sizeof(UI_LEAVE_START_LABEL) - 1) - 1) + 16 <= UI_LEAVE_START.w,
+              "START DSHOT does not fit its button");
+static_assert(UI_LEAVE_START.y + UI_LEAVE_START.h < UI_FOOT_Y,
+              "START DSHOT runs into the footer's row");
+
+/** @brief The start step's state. Set it up with uiLeaveStartOpen(). */
+struct UiLeaveStart {
+	bool     shown;     /**< The step is on: the run cue stood at the open. */
+	bool     press;     /**< The press under way landed while START DSHOT was live. */
+	uint32_t openedMs;  /**< millis() when the step opened. */
+};
+
+/**
+ * @brief Open the step, or none.
+ * @param[out] s  The step.
+ * @param cue     MENU's run cue stands: the step shows.
+ * @param nowMs   Current millis().
+ */
+void uiLeaveStartOpen(UiLeaveStart *s, bool cue, uint32_t nowMs);
+
+/**
+ * @brief Whether START DSHOT is live: the step shows, opened
+ *        @ref UI_HOLD_MS or more ago.
+ * @param s     The step.
+ * @param nowMs Current millis().
+ */
+bool uiLeaveStartLive(const UiLeaveStart *s, uint32_t nowMs);
+
+/**
+ * @brief Feed one frame of touch to the step. START DSHOT takes only a press
+ *        that lands while it is live, and acts on its lift inside it. The
+ *        tap ends the step (@ref UiLeaveStart::shown false).
+ * @param[in,out] s The step.
+ * @param t         This frame's touch; null is treated as no touch.
+ * @param nowMs     Current millis().
+ * @return true on the frame START DSHOT is tapped.
+ */
+bool uiLeaveStartTouch(UiLeaveStart *s, const TouchState *t, uint32_t nowMs);
+
+/**
+ * @brief Draw the step from @ref UI_BODY_Y down: the body cleared, the step
+ *        current in @ref UI_COL_WARN with its bar, and START DSHOT, drawn
+ *        disabled until it is live. The screen draws its way out after it.
+ * @param s     The step.
+ * @param t     This frame's touch, for the pressed look; may be null.
+ * @param nowMs Current millis().
+ */
+void uiLeaveStartDraw(const UiLeaveStart *s, const TouchState *t, uint32_t nowMs);
+
 /** @brief The page's phase. */
 enum class UiLeavePhase : uint8_t {
 	Before,     /**< Before the tap on LEAVE. */

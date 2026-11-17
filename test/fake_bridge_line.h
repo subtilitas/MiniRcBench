@@ -96,5 +96,12 @@ int fakeBridgeLineReleases();
  */
 uint32_t fakeBridgeLineGapUs();
 
+/**
+ * @brief The model ESC puts @p b on the wire unasked, its start bit now: it
+ *        reaches the receive FIFO 78 cycles later, as an answer's byte.
+ *        Only while the line is open.
+ */
+void fakeBridgeLineInject(uint8_t b);
+
 /** @brief The cycle count now, as the fake counts it. */
 uint64_t fakeBridgeLineCycle();

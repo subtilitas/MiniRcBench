@@ -408,9 +408,17 @@ extern "C" void critical_section_init(critical_section_t *cs) { cs->lock = CS_MA
 extern "C" void critical_section_enter_blocking(critical_section_t *cs) {
 	if (cs->lock != CS_MAGIC) g_csMisuse++;
 }
+static void (*g_csExitHook)() = nullptr;
 extern "C" void critical_section_exit(critical_section_t *cs) {
 	if (cs->lock != CS_MAGIC) g_csMisuse++;
+	// One shot: taken off before it runs, so the critical sections it
+	// enters run plain.
+	if (void (*hook)() = g_csExitHook) {
+		g_csExitHook = nullptr;
+		hook();
+	}
 }
+void fakeCsExitOnce(void (*hook)()) { g_csExitHook = hook; }
 unsigned fakeCriticalSectionMisuse() { return g_csMisuse; }
 
 // --- I2C: fake_i2c.cpp is the bus. The scripted touchPoll() below drives

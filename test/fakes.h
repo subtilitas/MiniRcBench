@@ -75,6 +75,13 @@ __attribute__((warn_unused_result)) bool fakeClockSetMs(uint64_t ms);
  * suite. A section is unmarked until its init call, as a zeroed static is.
  */
 unsigned fakeCriticalSectionMisuse();
+/**
+ * @brief Run @p hook once, right after the next critical_section_exit():
+ *        core1's work put between two of core0's reads that no frame loop
+ *        can separate (docs/design/dshot-lifetime.md, decision 13, case b).
+ *        Null takes a pending hook off.
+ */
+void fakeCsExitOnce(void (*hook)());
 
 struct SdLogStatus;
 
