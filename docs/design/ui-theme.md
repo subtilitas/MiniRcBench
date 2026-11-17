@@ -486,7 +486,7 @@ tall. So text needs 4.5.
 | `RED` | `PANEL` | 4.89 | 4.03 | 4.53 | ESC STATUS `ERROR` in its tile |
 | `MAGENTA` | `PANEL` | 5.50 | 4.78 | 5.46 | ESC STATUS `ALERT` in its tile |
 | `ONACCENT` | `GREEN` | 2.10 | 15.15 | 6.50 | HOLD TO ARM, HOLD TO WRITE, HOLD TO START, HOLD TO APPLY at rest |
-| `ONACCENT` | `CYAN` | 1.25 | 14.70 | 7.73 | BACK, the tester's MENU, a changed value |
+| `ONACCENT` | `CYAN` | 1.25 | 14.70 | 7.73 | BACK, a changed value |
 | `ONACCENT` | `LIME` | 1.37 | 15.74 | 5.57 | servo A's selector, the PORT OPEN chip |
 | `ONACCENT` | `RED` | 3.53 | 5.45 | 6.61 | ARMED, DISARM, STOP, a held hold |
 | `ONACCENT` | `BLUE` | 2.44 | 6.14 | 9.68 | LATCH on, a toggle on, PROG MODE |
@@ -603,7 +603,7 @@ Two fills or marks that must not be taken for each other, by ΔE:
 | Pair | Where they meet | Normal | Protan | Deutan | Tritan | Told apart by |
 |---|---|---|---|---|---|---|
 | `GREEN` `RED` | HOLD TO ARM and DISARM, in one rectangle | 88.6 | 39.9 | 19.1 | 78.2 | no collision; the label and its scale |
-| `GREEN` `CYAN` | a start button and BACK; HOLD TO ARM and `MENU` in the tester's button row | 28.9 | 34.9 | 37.4 | 4.8 | the place: BACK is in the header at x 170 on every screen, `MENU` at the row's right end; the label |
+| `GREEN` `CYAN` | a start button and BACK; HOLD TO ARM and the tester's header BACK | 28.9 | 34.9 | 37.4 | 4.8 | the place: BACK is in the header at x 170 on every screen, HOLD TO ARM at the button row's left end; the label |
 | `GREEN` `LIME` | a start button and its hold bar | 13.0 | 10.5 | 11.7 | 5.4 | time: the bar runs only while the button is held, and a held button is red |
 | `CYAN` `TEXT` | a settings value and a device value | 21.9 | 8.2 | 14.8 | 20.7 | nothing needed: the two never share a list |
 | `CYAN` `DIM` | a settings value and its label | 22.4 | 15.0 | 12.1 | 17.8 | no collision; the scale, 2 against 1 |
@@ -727,8 +727,8 @@ What each widget draws in the proposal. Rectangles are today's.
 | Widget | Proposed | rcbench's |
 |---|---|---|
 | Header | `C_PANEL` band; a 1 px `C_GRID` rule at y 35; the title `C_TEXT`, scale 2 | the band: `PANEL` over an `EDGE` rule |
-| BACK | the home tag: a `C_CYAN` button, `C_ONACCENT` label, 64 x 32 px at x 170; disabled: `C_BG`, frame, `C_GRID` label; not drawn on MENU, the root | the home tag, on `ACCENT`; none on the menu |
-| The tester's `MENU` | the tester's home tag: `C_CYAN`, `C_ONACCENT` label | the home tag |
+| BACK | the home tag: a `C_CYAN` button, `C_ONACCENT` label, 64 x 32 px at x 170; not acting (`uiHomeTag()`): `C_BG`, a `C_DIM` frame and a `C_DIM` label, 8.74 in Dark, no cyan ([decision 17](#decisions)); on a leave page it reads `LEAVE` before the release, `BACK` after it ([decision 17](#decisions)); not drawn on MENU, the root | the home tag, on `ACCENT`; none on the menu |
+| The tester's BACK | the header's home tag, as on every screen with a header, always acting ([decision 18](#decisions)) | the home tag |
 | Neutral button | `C_PANEL`, a 1 px `C_GRID` frame, `C_TEXT` label; `C_DIM` for LATCH, as today | `PANEL_HI`, no frame |
 | Button radius | 5 px (`UI_RADIUS`), drawn ([decision 4](#decisions)) | 8 px of 48 |
 | Pressed | `C_INK` frame, inner frame, label + 1 px | fill toward white |
@@ -791,7 +791,7 @@ Two uses of a colour change:
 
 | Use | Drawn as | rcbench's |
 |---|---|---|
-| The way back | BACK in the header, `MENU` on the tester and the leave page's wide button to the hub: a `C_CYAN` button with a `C_ONACCENT` label | the home tag |
+| The way back | BACK in the header, the tester's included, and the leave page's wide button to the hub: a `C_CYAN` button with a `C_ONACCENT` label | the home tag |
 | A row that opens a level | `>` at the right of a hub row of MENU, `C_CYAN`, scale 2 | the chevron; the icons |
 | A selected tab | its label in `C_CYAN`; no screen has a tab yet | a selected tab |
 | A settings value | `C_CYAN` text: SETUP, SERVO SET, OUTPUT SET, ANGLE METER's settings view | a settings value |
@@ -931,8 +931,8 @@ own: the hubs are ESC PROGRAM, SERVO and RECEIVER.
 - **The header.** On every screen but two: the band, its rule, the title
   in `C_TEXT` and BACK as the cyan home tag. MENU, the root, draws nothing
   in BACK's rectangle. No wordmark: rcbench's root shows one, and the
-  splash already carries the name. ESC TESTER has no header; its `MENU`
-  button is its home tag and is cyan.
+  splash already carries the name. ESC TESTER has the header too, with its
+  BACK as the home tag, cyan ([decision 18](#decisions)).
 - **`>` on a row that opens a hub.** `C_CYAN` at scale 2, 10 px wide,
   ending at x 222: at scale 1 the mark is 5 x 7 px, the smallest thing on a
   row whose label is 14 px tall. It starts at x 213, 67 px after the
@@ -1026,7 +1026,7 @@ Choices of this note where the decisions above leave the choice. The owner
 has not decided them:
 
 6. **The home tag is BACK,** and on the tester `MENU`
-   ([decision 15](#decisions)); the title stays `C_TEXT`
+   ([decision 15](#decisions), revised by [decision 18](#decisions)); the title stays `C_TEXT`
    ([Cyan](#cyan)).
 7. **Changed is the cyan fill** with dark ink, and the bar; no `*`
    ([Cyan](#cyan)).
@@ -1062,6 +1062,7 @@ review:
     `MENU`, 66 px apart with LATCH between, and a tritanope sees them as
     one colour, 4.8. A tap on `MENU` disarms and leaves; arming needs the
     1000 ms hold; a slip between the two starts nothing.
+    Revised by the owner's decision of 2026-11-17 (decision 18): the button row holds HOLD TO ARM and LATCH only, and the cyan home tag is the header's BACK, away from the green button; the two no longer share a row.
 16. Developer's call of 2026-11-16, pending the owner's review: **The
     colours of the lifetime's two new buttons.** The leave page's wide
     button that reads the hub's title
@@ -1072,6 +1073,30 @@ review:
     button: `C_GREEN` at rest, by decision 2. Both are disabled, `C_BG`,
     during their 1000 ms waits. Slice 11 draws them on the tools and ESC
     COMMANDS, slice 12 START DSHOT on the tester.
+17. Owner's decision of 2026-11-17, host tests only, not seen on the
+    panel: **The top-right button on a leave page, and when it does not
+    act.** On the leave page of SERVO TESTER, S.BUS MONITOR, S.BUS OUTPUT,
+    KST SERVO, HITEC SERVO, USB BRIDGE and ESC SETTINGS the header's
+    top-right button reads `LEAVE` before the release and acts as the wide
+    LEAVE button, live while LEAVE is enabled. While the claim releases it
+    does not act. After the release it reads `BACK` and, after the same
+    1000 ms wait as the wide hub button, returns to the hub as that button
+    does. The wide button stays. A top-right button that does not act, on a
+    leave page, on a write page during a write, ESC COMMANDS while it sends,
+    USB BRIDGE while a write waits and FLIP CAL while a pose is held, is
+    drawn by `uiHomeTag()` as a `C_DIM` frame and a `C_DIM` label on
+    `C_BG`, 8.74 in Dark, in place of the `C_GRID` outline that nearly
+    vanished on the panel. It is never cyan. This revises
+    [menu-b.md](menu-b.md#decisions) decisions 5 and 25.
+18. Owner's decision of 2026-11-17, host tests only, not seen on the
+    panel: **The tester has the header.** ESC TESTER draws the 36 px
+    header, `ESC TESTER` and BACK, cyan and always live. Its `MENU` button
+    is gone, and HOLD TO ARM {6, 283, 150, 33} and LATCH {162, 283, 72, 33}
+    share the button row. This revises decisions 6 and 15 above and
+    [menu-c.md](menu-c.md#decisions) decision 11. REC, RECORDING and a
+    critical BOARD voltage are red badges with dark ink, 5.45, by the
+    owner's decision of the same day (the contrast walk in
+    [Slice 10 as built](#slice-10-as-built) drops their exceptions).
 
 ## Revisions
 
@@ -1800,8 +1825,8 @@ Readings of the note where the code asked for a choice:
   critical `BOARD` voltage were red text on `C_PANEL` at 4.03. By the
   owner's decision of 2026-11-17 each is a square red badge with
   `C_ONACCENT` ink, 5.45, as `SDERR` is an amber chip: `REC` in the `SDERR`
-  chip's place, from x 101, y 12, 11 px tall; the voltage's badge from y 5,
-  18 px tall, 3 px either side of the scale-2 digits; on MENU any status in
+  chip's place, from x 101, 12 px into the status band (y 48), 11 px tall;
+  the voltage's badge from 5 px into the band (y 41), 18 px tall, 3 px either side of the scale-2 digits; on MENU any status in
   `C_RED` is drawn so, from 3 px left of the text, y + 14, 11 px tall. The
   walk holds no exception for them.
 - **Text only.** The walk reads what `gfxText()` draws. Frames, the

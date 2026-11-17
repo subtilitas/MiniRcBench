@@ -154,9 +154,9 @@ other.
 - `RECEIVER`, the hub's title, returns to RECEIVER and holds the pins
   low; no DShot starts. It waits 1 s after the pin is let go.
 
-`BACK` on the page is an outline and does nothing.
+The header's top-right button reads `LEAVE` before the release and acts as `LEAVE`; while the claim releases it does not act; after the release it reads `BACK` and, 1 s later, returns to the hub as the wide button does. A button that does not act is a dim frame with a dim label.
 
-<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER still faint"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="The S.BUS leave page: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER still faint, LEAVE at the top right"> <img src="img/sbus-leave-sig.png" width="240" alt="The S.BUS leave page with SIG on GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 

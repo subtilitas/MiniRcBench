@@ -375,7 +375,7 @@ servo, restarts the servo (1.0 s) and reads all 21 registers back. For one
 setting this takes about 1.7 s, computed from rcbench's timings and not
 measured. The page reads `WRITING: DO NOT UNPLUG.` and, under it,
 `WRITES SENT: 2 OF 4`, then `READING BACK`. While the write runs, and while
-it waits for the card, `BACK` is drawn disabled and does nothing: no `BACK` leaves a
+it waits for the card, `BACK` does not act and is a dim frame with a dim label: no `BACK` leaves a
 servo half written. `BACK` before the hold, or under the result, returns to
 the field list. The screen never stops a write.
 
@@ -505,8 +505,7 @@ belongs to. See [KST Programming](KST-Programming#files) for the ring.
 ## Leaving
 
 `BACK` on the field list opens the leave page. `BACK` during a read opens it
-too. `BACK` on the leave page is drawn disabled and does nothing: each way on is a
-button.
+too. The header's top-right button reads `LEAVE` before the release and acts as `LEAVE`; while the claim releases it does not act; after the release it reads `BACK` and, 1 s later, returns to the hub as the wide button does. A button that does not act is a dim frame with a dim label.
 
 <img src="img/leave-hitec-failed.png" width="240" alt="The leave page with OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN and LEAVE"> <img src="img/leave-hitec.png" width="240" alt="The leave page with GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="After LEAVE, the 2 s off and 1 s more: NEXT SERVO and SERVO live">
 

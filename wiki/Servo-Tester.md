@@ -467,8 +467,7 @@ Until the last pulse has completed the page reads `RELEASING THE PINS`, or
 pins. Unplug the servo, then tap `SERVO`, the hub's title: it acts 1 s after
 the pins are let go, so a quick second tap after `BACK` ends nothing. SIG is
 driven low, no DShot starts, and SERVO, the hub, returns. A servo left on
-SIG meets DShot at the next ESC TESTER or ESC COMMANDS. `BACK` on the page is
-drawn disabled and does nothing.
+SIG meets DShot at the next ESC TESTER or ESC COMMANDS. The header's top-right button reads `LEAVE` before the release and acts as `LEAVE`; while the claim releases it does not act; after the release it reads `BACK` and, 1 s later, returns to the hub as the wide button does. A button that does not act is a dim frame with a dim label.
 
 ---
 

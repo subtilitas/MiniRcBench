@@ -185,7 +185,7 @@ old values are lost when you leave the screen, as the page says in amber.
 
 <img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH changed from 40 to 88, cyan, in the editor bar"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 changes and BACKUP FIRST: BACKUP/BJ001.TXT">
 
-<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in amber, BACK and OK faint"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in green, LEAVING STARTS THE ESC WITH THEM.">
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in amber, BACK a dim frame, OK faint"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in green, LEAVING STARTS THE ESC WITH THEM.">
 
 | Result | Meaning and next step |
 |---|---|
@@ -278,7 +278,7 @@ page waits for `STAY`. Unplug the ESC battery, then tap `LEAVE`.
 holds the signal pin low, starts no DShot and returns to ESC PROGRAM. Plug the
 battery back in once ESC PROGRAM shows: on a low line a Bluejay or BLHeli_S
 ESC starts its firmware rather than its bootloader (read from the firmwares'
-source, not measured). `BACK` is drawn disabled on this page. The last button clears
+source, not measured). On this page the header's top-right button reads `LEAVE` before the release and acts as `LEAVE`; while the claim releases it does not act; after the release it reads `BACK` and, 1 s later, returns to the hub as the wide button does. A button that does not act is a dim frame with a dim label. The last button clears
 MENU's `POWER-CYCLE THE ESC TO RUN IT`, since the steps power-cycled the
 ESC. The tester cannot see the battery: an ESC left powered whose bootloader
 still waits meets DShot at the next ESC TESTER or ESC COMMANDS, and so does
@@ -471,8 +471,7 @@ goes: `BACKUP FIRST: BACKUP/AM001.TXT` before the first write with a card in,
 
 Hold `HOLD TO WRITE` for 1 s. A progress bar fills while you hold. The tap
 that opened the page does not count towards the hold. While the write runs
-the page reads `WRITING: DO NOT UNPLUG.` in amber and `BACK` is drawn disabled and does
-nothing. `BACK` before the hold, or under the result, returns to the list.
+the page reads `WRITING: DO NOT UNPLUG.` in amber and `BACK` does not act and is a dim frame with a dim label. `BACK` before the hold, or under the result, returns to the list.
 
 <img src="img/am32-written.png" width="240" alt="Write verified">
 

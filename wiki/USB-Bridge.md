@@ -99,10 +99,10 @@ writing 3D mode on, off after reading it off.
 
 ## Writing and leaving
 
-<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK faint"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC PROGRAM and BACK faint">
+<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE during a write: WRITING: DO NOT UNPLUG ESC OR USB. in amber, BACK a dim frame"> <img src="img/bridge-leave.png" width="240" alt="The leave page: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., FLASH THE ESC AGAIN BEFORE USE., BRIDGE and ESC PROGRAM faint, LEAVE at the top right">
 
 While the ESC writes or erases its flash, the first line reads
-`WRITING: DO NOT UNPLUG ESC OR USB.` and `BACK` is drawn disabled, until the ESC
+`WRITING: DO NOT UNPLUG ESC OR USB.` and `BACK` does not act, a dim frame with a dim label, until the ESC
 answers or 3 s pass. This holds in both ways of working.
 
 `BACK` sends nothing to the ESC. What happens next depends on the session:
@@ -121,7 +121,7 @@ start, not its disconnect. The note stays after `BRIDGE`: every later
 `BACK` brings it back until the tool starts the firmware. `ESC PROGRAM`
 ends the session, and the next `USB BRIDGE` starts without the note.
 
-<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., no FLASH note, BRIDGE, ESC PROGRAM and BACK faint">
+<img src="img/bridge-leave-read.png" width="240" alt="The leave page after a session that only read: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., no FLASH note, BRIDGE and ESC PROGRAM faint, LEAVE at the top right">
 
 Without such a write, as after a session that only read or a write followed
 by a start, the page shows the two steps and no note.

@@ -148,9 +148,9 @@ Four interlocks stop the motor, and each one shows on screen:
 - **Idle interlock.** 30 s without a contact reported by the touch
   controller while armed disarms the tester. A wet screen or something
   lying on the glass counts as a contact.
-  `IDLE ns` counts down in the top right during the last 5 s. The backlight
+  `IDLE ns` counts down at the right of the status band during the last 5 s. The backlight
   dims briefly when it disarms.
-- **The tester's `MENU` button.** Leaving the tester for `MENU` always
+- **The tester's `BACK`.** Leaving the tester for `MENU` always
   disarms.
 - **Touch not answering.** Four failed reads of the touch controller in
   a row, over 100 ms or more, disarm an armed tester.

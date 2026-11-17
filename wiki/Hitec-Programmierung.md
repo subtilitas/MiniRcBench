@@ -421,7 +421,7 @@ Register zurück. Für eine Einstellung dauert das etwa 1,7 s, berechnet aus
 den Zeiten von rcbench und nicht gemessen. Die Seite zeigt
 `WRITING: DO NOT UNPLUG.` und darunter `WRITES SENT: 2 OF 4`, dann
 `READING BACK`. Während das Schreiben läuft, und während es auf die Karte
-wartet, ist `BACK` deaktiviert gezeichnet und tut nichts: Kein `BACK` lässt ein Servo halb
+wartet, wirkt `BACK` nicht und ist ein gedämpfter Rahmen mit gedämpfter Beschriftung: Kein `BACK` lässt ein Servo halb
 geschrieben zurück. `BACK` vor dem Halten oder unter dem Ergebnis führt zur
 Feldliste zurück. Der Bildschirm bricht ein Schreiben nie ab.
 
@@ -558,8 +558,7 @@ Sicherung die älteste, gleich von welchem Gerät. Den Ring beschreibt die
 ## Verlassen
 
 `BACK` in der Feldliste öffnet die Verlassenseite. `BACK` während eines
-Lesens öffnet sie ebenfalls. `BACK` auf der Verlassenseite ist deaktiviert gezeichnet und
-bewirkt nichts: Jeder Weg weiter ist eine Taste.
+Lesens öffnet sie ebenfalls. Die Schaltfläche oben rechts im Kopfbereich zeigt vor der Freigabe `LEAVE` und wirkt wie `LEAVE`; solange der Claim freigibt, wirkt sie nicht; nach der Freigabe zeigt sie `BACK` und führt, 1 s später, wie die breite Taste zur Auswahl zurück. Eine Schaltfläche, die nicht wirkt, ist ein gedämpfter Rahmen mit gedämpfter Beschriftung.
 
 <img src="img/leave-hitec-failed.png" width="240" alt="Die Verlassenseite mit OWN: 1 LEAVE RESTARTS THE SERVO., 1 CHANGE NOT WRITTEN., A WRITE DID NOT END VERIFIED., STAY, READ AGAIN und LEAVE"> <img src="img/leave-hitec.png" width="240" alt="Die Verlassenseite mit GP28: 1 LEAVE SWITCHES THE SUPPLY OFF."> <img src="img/leave-hitec-released.png" width="240" alt="Nach LEAVE, den 2 s aus und 1 s mehr: NEXT SERVO und SERVO aktiv">
 

@@ -201,7 +201,7 @@ Bildschirms verloren, wie die Seite in Bernstein sagt.
 
 <img src="img/efm8-edit.png" width="240" alt="BEEP STRENGTH von 40 auf 88 geändert, türkis, in der Bearbeitungsleiste"> <img src="img/efm8-write.png" width="240" alt="ESC WRITE: 3 Änderungen und BACKUP FIRST: BACKUP/BJ001.TXT">
 
-<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in Bernstein, BACK und OK blass"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in Grün, LEAVING STARTS THE ESC WITH THEM.">
+<img src="img/efm8-writing.png" width="240" alt="WRITING: DO NOT UNPLUG. in Bernstein, BACK ein gedämpfter Rahmen, OK blass"> <img src="img/efm8-verified.png" width="240" alt="WRITE VERIFIED. BACKUP BJ001 in Grün, LEAVING STARTS THE ESC WITH THEM.">
 
 | Ergebnis | Bedeutung und nächster Schritt |
 |---|---|
@@ -311,7 +311,7 @@ LEAVE und wirkt 1 s später; es legt den Signalpin auf Low, startet kein
 DShot und kehrt zu ESC PROGRAM zurück. Steck den Akku wieder an, sobald ESC
 PROGRAM zu sehen ist: An einer Leitung auf Low startet ein Bluejay- oder
 BLHeli_S-ESC seine Firmware statt seines Bootloaders (aus dem Quelltext der
-Firmwares gelesen, nicht gemessen). `BACK` ist auf dieser Seite deaktiviert gezeichnet. Die
+Firmwares gelesen, nicht gemessen). Auf dieser Seite gilt: Die Schaltfläche oben rechts im Kopfbereich zeigt vor der Freigabe `LEAVE` und wirkt wie `LEAVE`; solange der Claim freigibt, wirkt sie nicht; nach der Freigabe zeigt sie `BACK` und führt, 1 s später, wie die breite Taste zur Auswahl zurück. Eine Schaltfläche, die nicht wirkt, ist ein gedämpfter Rahmen mit gedämpfter Beschriftung. Die
 letzte Taste nimmt MENUs `POWER-CYCLE THE ESC TO RUN IT` weg, da die
 Schritte den ESC neu gestartet haben. Den Akku sieht der Tester nicht: Ein
 eingesteckt gebliebener ESC, dessen Bootloader noch wartet, trifft beim
@@ -522,7 +522,7 @@ sie `NO CARD: OLD VALUES LOST ON LEAVING` in Bernstein, mit der Karte an USB
 `HOLD TO WRITE` 1 s lang halten. Währenddessen füllt sich ein
 Fortschrittsbalken. Das Tippen, das die Seite geöffnet hat, zählt nicht zum
 Halten. Während das Schreiben läuft, zeigt die Seite
-`WRITING: DO NOT UNPLUG.` in Bernstein, und `BACK` ist deaktiviert gezeichnet und tut nichts.
+`WRITING: DO NOT UNPLUG.` in Bernstein, und `BACK` wirkt nicht und ist ein gedämpfter Rahmen mit gedämpfter Beschriftung.
 `BACK` vor dem Halten oder unter dem Ergebnis kehrt zur Liste zurück.
 
 <img src="img/am32-written.png" width="240" alt="Schreiben überprüft">

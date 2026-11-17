@@ -4,7 +4,7 @@
 
 Die Firmware hat sechzehn Bildschirme. `MENU` ist die Wurzel und der erste
 Bildschirm nach dem Startbildschirm: sechs Zeilen, ohne `BACK`. Ihre erste
-Zeile, `ESC TESTER`, öffnet den Tester, dessen Schaltfläche `MENU` zu
+Zeile, `ESC TESTER`, öffnet den Tester, dessen `BACK` zu
 `MENU` zurückführt. Die nächsten drei Zeilen öffnen je eine Auswahl, eine
 Liste der Werkzeuge für eine Geräteart: ESC PROGRAM die ESC-Werkzeuge, SERVO
 die Servo-Werkzeuge, RECEIVER die Werkzeuge für Empfängersignale. Jedes
@@ -42,15 +42,19 @@ MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
        └── SETUP     ──BACK──> MENU
 ```
 
-**BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer `MENU`
-und dem Tester. Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px.
+**BACK sitzt oben rechts** im Kopfbereich, auf jedem Bildschirm außer `MENU`.
+Der Kopfbereich ist 36 px hoch, `BACK` misst 64 × 32 px. Auch der Tester hat
+diesen Kopfbereich, mit `ESC TESTER` links; sein `BACK` wirkt immer.
 `MENU` ist die Wurzel: Sein Kopfbereich zeigt `MENU` und kein `BACK`, denn
-dahinter liegt nichts. Der Tester hat keinen Kopfbereich; seine Schaltfläche
-`MENU` ist sein Weg zurück. Auf der Verlassenseite von SERVO TESTER,
-KST SERVO, HITEC SERVO, S.BUS MONITOR und ESC SETTINGS ist `BACK` deaktiviert
-gezeichnet, als Umriss mit blasser Beschriftung, und ein Tippen darauf bewirkt
-nichts: Jeder Weg weiter ist eine beschriftete Taste, `STAY`, `NEXT SERVO`,
-`BACK TO MONITOR` oder der Titel der Auswahl. Dasselbe gilt auf `ESC
+dahinter liegt nichts. Auf der Verlassenseite von SERVO TESTER,
+S.BUS MONITOR, S.BUS OUTPUT, KST SERVO, HITEC SERVO, USB BRIDGE und
+ESC SETTINGS ist die Schaltfläche oben rechts der Zwilling der breiten Taste.
+Vor der Freigabe zeigt sie `LEAVE` und wirkt wie `LEAVE`, solange `LEAVE`
+bedienbar ist. Solange der Claim freigibt, wirkt sie nicht. Nach der
+Freigabe zeigt sie `BACK` und führt, 1 s später, wie die breite Taste zur
+Auswahl zurück. Eine Schaltfläche oben rechts, die nicht wirkt, ist ein
+gedämpfter Rahmen mit gedämpfter Beschriftung auf dem Hintergrund, lesbar
+und nicht cyan. Dasselbe gilt auf `ESC
 WRITE`, `KST WRITE` und `HITEC WRITE`, solange ein Schreiben läuft oder auf die
 SD-Karte wartet: Kein `BACK` lässt ein Gerät halb geschrieben zurück.
 
@@ -96,9 +100,10 @@ wird, `REC`, ein Schreiben mit unklarem Ausgang. Bernstein ist eine Warnung oder
 der Schritt, der jetzt dran ist. Magenta ist ein Alarm, etwa `STALLED`. Blau
 ist eine Einstellung, die an bleibt: `LATCH`, ein eingeschalteter Schalter,
 `PROG MODE`, Servo B. Cyan ist die Akzentfarbe, wie bei rcbench, und hat vier
-Verwendungen. Es ist der Weg zurück: `BACK` in einem Kopfbereich und die
-Schaltfläche `MENU` des Testers sind cyan mit dunkler Beschriftung, und ein
-`BACK`, das nichts auslöst, ist deaktiviert gezeichnet, nicht cyan. Es ist
+Verwendungen. Es ist der Weg zurück: `BACK` in einem Kopfbereich, auch dem
+des Testers, ist cyan mit dunkler Beschriftung, und eine Schaltfläche oben
+rechts, die nicht wirkt, ist ein gedämpfter Rahmen mit gedämpfter
+Beschriftung, nicht cyan. Es ist
 das Zeichen `>` an einer Zeile von `MENU`, die eine Auswahl öffnet. Es ist
 eine Einstellung der Werkbank, als cyanfarbener Text: die Werte und die
 Abschnittsnamen von SETUP, die Werte von SERVO SET und OUTPUT SET, LENGTH
@@ -142,9 +147,12 @@ geänderter Wert ist weißer Text auf einer dunkelcyanfarbenen Fläche.
 <img src="img/tester-armed.png" width="240" alt="Tester-Bildschirm">
 
 Die erste Zeile von `MENU`, `ESC TESTER`, öffnet den Tester. Er öffnet
-**entschärft**, mit Gas 0 und `LATCH` aus, jedes Mal. Er hat keinen
-Kopfbereich: Seine Schaltfläche `MENU` unten rechts führt zu `MENU` zurück
-und entschärft vorher, setzt das Gas auf 0 und schaltet `LATCH` aus.
+**entschärft**, mit Gas 0 und `LATCH` aus, jedes Mal. Er hat den 36 px hohen
+Kopfbereich jedes Bildschirms: `ESC TESTER` links und `BACK`, 64 × 32 px, oben
+rechts, cyan und immer bedienbar. `BACK` führt zu `MENU` zurück und
+entschärft vorher, setzt das Gas auf 0 und schaltet `LATCH` aus. Darunter
+liegt die Statusleiste, y 36 bis 62, darunter der Drehzahlbereich, y 63 bis
+127.
 Solange die Signalpins belegt sind, ist die Zeile `ESC TESTER` als Umriss
 gezeichnet, und ein Tippen darauf öffnet nichts.
 
@@ -158,10 +166,10 @@ drücken, sobald die Schaltfläche bedienbar ist. Frühestens 2,5 s nach dem
 zu senden (zwei freie State Machines eines PIO-Blocks, der programmierbaren
 Ein-/Ausgabe des Chips; `DSERR` in der Statusleiste), zeigt der Balken
 `DSHOT COULD NOT START` in Bernstein, und `HOLD TO ARM` bleibt ein Umriss.
-`MENU` beendet DShot: Der ESC hört mindestens 250 ms nach dem letzten Gas
+`BACK` beendet DShot: Der ESC hört mindestens 250 ms nach dem letzten Gas
 noch Gas 0, dann nichts, und der Pin liegt auf Low.
 
-**Obere Zeile.** Von links nach rechts:
+**Statusleiste.** Unter dem Kopfbereich, von links nach rechts:
 
 - das Scharf-Feld: `SAFE` (ein grüner Rahmen) oder `ARMED` (rot);
 - `DSHOT` und die DShot-Bitrate in kbit/s, zum Beispiel `DSHOT600`, wie unter
@@ -175,7 +183,7 @@ noch Gas 0, dann nichts, und der Pin liegt auf Low.
   die von selbst endete, steht auf einem bernsteinfarbenen Feld und lässt
   Scharf-Feld, Drehzahl und Gas frei;
 
-  <img src="img/tester-sderr.png" width="240" alt="Der Tester scharf, SDERR auf einem bernsteinfarbenen Feld in der oberen Zeile">
+  <img src="img/tester-sderr.png" width="240" alt="Der Tester scharf, SDERR auf einem bernsteinfarbenen Feld in der Statusleiste">
 
 - `BOARD` und die Spannung des platineneigenen Akkus, gemessen über den
   Teiler aus 200 kΩ und 100 kΩ; höchstens 9,90 V. Es ist nicht der Akku des
@@ -297,7 +305,7 @@ dort `LATCHED`. Im entschärften Zustand zeigt der Balken `ARM TO ENABLE`.
 
 **Polzahl und Obergrenze öffnen SETUP.** Solange der Tester entschärft ist,
 sind `14 POLES` und `MAX 20%` unterstrichen, und ein Tippen auf eines davon
-öffnet SETUP. Das Tippen entschärft wie die Schaltfläche `MENU`, und `BACK`
+öffnet SETUP. Das Tippen entschärft wie `BACK` des Testers, und `BACK`
 in SETUP führt zum Tester zurück. Scharf verschwindet die Unterstreichung,
 `KV EST` nimmt den Platz der Polzahl ein, und ein Tippen darauf tut nichts: Die
 Polzahl liegt in der Gasfläche und `MAX` reicht in den Greifbereich des Balkens,
@@ -312,7 +320,11 @@ er in der Textfarbe.
 <img src="img/tester-disarmed.png" width="240" alt="Der Tester entschärft mit Telemetrie: SAFE in Grün, 14 POLES und MAX 20% unterstrichen, SWIPE = THROTTLE gedämpft, ARM TO ENABLE im Balken">
 
 **Schaltflächen.** `HOLD TO ARM` / `DISARM`, `LATCH` (das Gas bleibt, wo der
-Finger es loslässt; blau, solange an), `MENU`.
+Finger es loslässt; blau, solange an). Sie teilen sich die Tastenzeile
+unten: `HOLD TO ARM` ist 150 px breit, `LATCH` 72 px. Eine dritte Taste gibt
+es nicht; der Weg zurück ist `BACK` im Kopfbereich. Die Wischfläche für das
+Gas reicht von y 63 bis y 239, 177 px; Kopfbereich und Statusleiste gehören
+nicht dazu.
 
 Solange ein Computer die SD-Karte über USB hält, ist Scharfschalten gesperrt:
 `HOLD TO ARM` ist nur als Umriss gezeichnet, und der Balken zeigt
@@ -356,7 +368,7 @@ Punkt 23.
 <img src="img/menu.png" width="240" alt="Der MENU-Bildschirm">
 
 Der erste Bildschirm nach dem Startbildschirm und die Wurzel: Der
-Kopfbereich zeigt `MENU` und kein `BACK`. Die Schaltfläche `MENU` des
+Kopfbereich zeigt `MENU` und kein `BACK`. Das `BACK` des
 Testers führt hierher zurück und **entschärft** vorher, setzt das Gas auf 0
 und schaltet `LATCH` aus. Auf `MENU` ist DShot aus: Der ESC-Signalpin liegt
 auf Low, und `MENU` zeigt kein EDT-Feld. Das Feld steht auf
@@ -382,12 +394,12 @@ Befehl lesen: `1 POWER-CYCLE THE ESC.` über `ITS BOOTLOADER MAY STILL WAIT`
 und `AND READ DSHOT AS A COMMAND.` Den ESC aus- und einschalten, dann
 `START DSHOT` tippen, das in der ersten Sekunde deaktiviert gezeichnet ist. Der Tipp nimmt die
 Zeile auf MENU weg und startet DShot; auf dem Tester wartet `HOLD TO ARM`
-danach 1,5 s wie nach jedem Öffnen. `MENU` auf dem Tester und `BACK` auf ESC
-COMMANDS verlassen den Schritt sofort, DShot bleibt aus und die Zeile
+danach 1,5 s wie nach jedem Öffnen. `BACK` auf dem Tester und auf ESC
+COMMANDS verlässt den Schritt sofort, DShot bleibt aus und die Zeile
 bleibt, sodass das nächste Öffnen den Schritt wieder zeigt. Sonst wirkt
 nichts auf dem Bildschirm im Startschritt. Nur auf dem Host getestet.
 
-<img src="img/tester-start-step.png" width="240" alt="ESC TESTER im Startschritt: POWER-CYCLE THE ESC., START DSHOT blass, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS im Startschritt: der Schritt, START DSHOT blass, BACK">
+<img src="img/tester-start-step.png" width="240" alt="ESC TESTER im Startschritt: POWER-CYCLE THE ESC., START DSHOT blass, BACK oben rechts"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS im Startschritt: der Schritt, START DSHOT blass, BACK">
 
 Unter der Leiste steht eine Liste mit sechs Zeilen von 40 px Höhe und 42 px
 Abstand: zuerst `ESC TESTER`, dann eine Zeile je Geräteart am Signalpin, der
@@ -505,7 +517,7 @@ während das Board noch etwas anderes sendet, etwa die Pause von 260 ms bis
 1020 ms nach einem Beacon, wartet: Er geht hinaus, sobald die Leitung frei
 ist, oder verfällt nach 2 s, und die Zeilen zeigen dann
 `NOT SENT: THE ESC WAS NOT READY.`. Solange ein Befehl der Seite wartet oder
-gesendet wird, sind die Tasten und `BACK` deaktiviert gezeichnet, und ein Druck, der dann auf
+gesendet wird, sind die Tasten deaktiviert gezeichnet und `BACK` ein gedämpfter Rahmen mit gedämpfter Beschriftung, und ein Druck, der dann auf
 ihnen beginnt, bewirkt beim Loslassen nichts.
 
 Die Zeilen unter den Tasten sagen, was gesendet wurde, zum Beispiel
@@ -527,7 +539,7 @@ ESC, war sie gespeichert. Nach `3D ON` zeigt der Tester seinen 3D-Hinweis
 neu startet oder ESC SETTINGS 3D MODE aus liest. Keiner dieser Befehle wurde
 bisher von diesem Board an einen ESC gesendet.
 
-<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS, während Beacon 3 gesendet wird: alle Tasten und BACK blass"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS ohne antwortenden ESC: NO ESC ANSWERS ON SIG GP0. in Bernstein, alle Tasten blass">
+<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS, während Beacon 3 gesendet wird: alle Tasten blass und BACK ein gedämpfter Rahmen"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS ohne antwortenden ESC: NO ESC ANSWERS ON SIG GP0. in Bernstein, alle Tasten blass">
 
 ### SERVO
 

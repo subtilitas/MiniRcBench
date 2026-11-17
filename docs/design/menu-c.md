@@ -196,7 +196,7 @@ most two taps from power-up.
 ```
 SPLASH                      as today
  └─ MENU (root, no BACK)    six rows, no scroll                  depth 0
-     ├─ ESC TESTER          no header; MENU button ──> MENU      1
+     ├─ ESC TESTER          header; BACK ──> MENU                1
      │   └─ 14 POLES or MAX 20% (tap, disarmed) ──> SETUP        2
      ├─ ESC PROGRAM         hub, 3 entries                       1
      │   ├─ ESC COMMANDS    claims nothing                       2
@@ -407,7 +407,7 @@ BACK climbs one level, and a screen returns to the one that opened it
 | View | BACK, or the way back |
 |---|---|
 | MENU | none: the header draws no BACK |
-| ESC TESTER | no header; the `MENU` button disarms, zeroes the throttle, turns LATCH off and returns to MENU, as today |
+| ESC TESTER | the header's BACK disarms, zeroes the throttle, turns LATCH off and returns to MENU, as the former `MENU` button did |
 | SETUP | where it was opened from: MENU, or ESC TESTER after a readout tap |
 | LOGS | MENU |
 | ESC PROGRAM, SERVO, RECEIVER | MENU |
@@ -457,7 +457,7 @@ tool keeps its count, and LOGS and SETUP lose their drag.
 | Screen (`UiScreenId`) | Title | Old place | New place |
 |---|---|---|---|
 | `Tester` | none | the root | MENU row 1, ESC TESTER |
-| `Menu` | `MENU` | behind the tester's MENU button | the root |
+| `Menu` | `MENU` | behind the tester's BACK | the root |
 | `EscCmd` | `ESC COMMANDS` | MENU row 1 | ESC PROGRAM, entry 1 |
 | `EscConfig` | `ESC CONFIG`, becomes `ESC PROGRAM` | MENU row 2, a chooser of two | MENU row 2, a hub of three |
 | `Am32` | `ESC SETTINGS`, `ESC HEX`, `ESC WRITE` | ESC CONFIG, entry 1 | ESC PROGRAM, entry 2 |
@@ -664,6 +664,7 @@ lifetime and the pin claim. This note decides none of it.
     (`sdLogSetArmed()` in `src/ui.cpp`). LOGS, the screen, needs no DShot.
 11. **Leaving ESC TESTER disarms first,** by the `MENU` button and by a
     readout tap, as `uiOpenMenu()` and `uiOpenTool()` do today.
+    Revised by the owner's decision of 2026-11-17 (below): by the header's BACK and by a readout tap.
 12. **ESC COMMANDS shares a hub with two claiming tools.** BACK from ESC
     COMMANDS returns to ESC PROGRAM, where ESC SETTINGS and USB BRIDGE are
     one tap away and claim SIG. DShot's stop is complete, or the two
@@ -719,6 +720,7 @@ has not decided them:
     no home tag. A BACK drawn disabled for good would be a control that
     never acts.
 11. **The tester keeps its `MENU` button** and gains no header.
+    Revised by the owner's decision of 2026-11-17 (below): the tester has the header and its top-right BACK; the `MENU` button is gone.
 12. **MENU's strip loses the EDT chip.** The caption stays.
 13. **`>` marks a hub row.**
 14. **SETUP stays one list** ([SETUP stays one list](#setup-stays-one-list)).
@@ -726,6 +728,19 @@ has not decided them:
     ([What keeps its word](#what-keeps-its-word)).
 16. **One wiki page pair is renamed,** RX-Signals and RX-Signale
     ([The rename slice's work](#the-rename-slices-work)).
+
+Decisions of the owner, 2026-11-17, host tests only, not seen on the panel:
+
+- **The tester has the header.** ESC TESTER has the 36 px header of every
+  screen, `ESC TESTER` on the left and BACK, 64 x 32 px, at the top right,
+  cyan and always live: it disarms and returns to MENU, as the `MENU`
+  button did. The status band lies below it, y 36 to 62; the RPM area is
+  y 63 to 127 and its digits are 21 x 32 px; the throttle pad is y 63 to
+  239. HOLD TO ARM {6, 283, 150, 33} and LATCH {162, 283, 72, 33} share the
+  button row. This revises decision 11 above, the tester's `MENU` button, and decision 11 of the DShot lifetime above, leaving by the `MENU` button. MENU, the root, still
+  draws no BACK (decision 10).
+- **The top-right button on a leave page** is the wide button's twin
+  ([ui-theme.md](ui-theme.md#decisions) decision 17).
 
 Calls of the developer, 2026-11-16, in the owner's absence. Each took the
 note's own recommendation and waits for the owner's review:

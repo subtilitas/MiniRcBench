@@ -738,6 +738,7 @@ change.
    control undoes anything dangerous, and the page still guards against
    forgetting. Reason: a control whose effect depends on the view gets
    guessed; a disabled BACK says there is nothing behind it.
+   Revised by the owner's decision of 2026-11-17 ([ui-theme.md](ui-theme.md#decisions) decision 17): on the leave page the top-right button is LEAVE, then BACK, and acts; a button that does not act is a dim frame with a dim label, readable, not the `C_GRID` outline.
    - Code: `ui_widgets.{h,cpp}` `uiHeader()` takes BACK's flag, `backEnabled`,
      default true, on `main`, and each screen gates its `uiBackTapped()` on the
      same value (`backActs()` on SERVO TESTER, KST SERVO and HITEC SERVO);
@@ -1158,6 +1159,7 @@ Decisions of the owner, 2026-11-14, answering the open questions of
     TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS, SETUP. Built (slices 4 and 5).
 24. **The readouts while armed** (question 2). Inert, as decision 20.
 25. **BACK on the leave page** (question 3). Drawn disabled, as decision 5.
+    Revised by the owner's decision of 2026-11-17 ([ui-theme.md](ui-theme.md#decisions) decision 17): the top-right button on the leave page reads `LEAVE` before the release and acts as the wide LEAVE button, does not act while the claim releases, and after the release reads `BACK` and, after the same 1000 ms wait as the wide button, returns to the hub. A top-right button that does not act is a dim frame with a dim label, not an outline. Host tests only.
 26. **The "changed" colour** (question 4). `C_CYAN` on every screen, as
     decision 8.
     Revised by [ui-theme.md](ui-theme.md#decisions) decision 1 of 2026-11-15 and
@@ -1382,6 +1384,7 @@ slices:
   `uiListDrawField()` draws; built in slice 2.
 - The leave page draws no header: BACK on it is the screen's, drawn
   disabled by decision 25.
+  Revised by the owner's decision of 2026-11-17 (decision 25): BACK on it reads LEAVE, then BACK, and acts as the wide button does.
 - The last button's wait is a parameter of `uiLeaveOpen()`: 1000 ms by
   decision 30. The widget puts the button in LEAVE's rectangle, as that
   answer keeps it.

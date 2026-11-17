@@ -110,11 +110,11 @@ Lesen von ausgeschaltetem.
 
 ## Schreiben und Verlassen
 
-<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE beim Schreiben: WRITING: DO NOT UNPLUG ESC OR USB. in Bernstein, BACK blass"> <img src="img/bridge-leave.png" width="240" alt="Die Verlassenseite: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC PROGRAM und BACK blass">
+<img src="img/bridge-writing.png" width="240" alt="USB BRIDGE beim Schreiben: WRITING: DO NOT UNPLUG ESC OR USB. in Bernstein, BACK ein gedämpfter Rahmen"> <img src="img/bridge-leave.png" width="240" alt="Die Verlassenseite: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., FLASH THE ESC AGAIN BEFORE USE., BRIDGE, ESC PROGRAM blass, LEAVE oben rechts">
 
 Während der ESC seinen Flash schreibt oder löscht, zeigt die erste Zeile
 `WRITING: DO NOT UNPLUG ESC OR USB.` (schreibt: ESC und USB nicht
-abziehen), und `BACK` ist deaktiviert gezeichnet, bis der ESC antwortet oder 3 s vergehen.
+abziehen), und `BACK` wirkt nicht, ein gedämpfter Rahmen mit gedämpfter Beschriftung, bis der ESC antwortet oder 3 s vergehen.
 Das gilt für beide Arten.
 
 `BACK` sendet nichts an den ESC. Was danach geschieht, hängt von der
@@ -136,7 +136,7 @@ Programm als dieser Start, nicht sein Trennen. Der Hinweis bleibt nach
 Firmware startet. `ESC PROGRAM` beendet die Sitzung, und das nächste
 `USB BRIDGE` beginnt ohne den Hinweis.
 
-<img src="img/bridge-leave-read.png" width="240" alt="Die Verlassenseite nach einer Sitzung, die nur las: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., ohne FLASH-Hinweis, BRIDGE, ESC PROGRAM und BACK blass">
+<img src="img/bridge-leave-read.png" width="240" alt="Die Verlassenseite nach einer Sitzung, die nur las: 1 POWER THE ESC OFF., 2 BACK TO ESC PROGRAM., ohne FLASH-Hinweis, BRIDGE und ESC PROGRAM blass, LEAVE oben rechts">
 
 Ohne ein solches Schreiben, etwa nach einer Sitzung, die nur las, oder nach
 einem Schreiben mit anschließendem Start, zeigt die Seite die zwei Schritte

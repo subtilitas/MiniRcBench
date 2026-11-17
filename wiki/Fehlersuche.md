@@ -164,7 +164,7 @@ Vier Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
   etwas auf dem Glas zählt als Berührung. `IDLE ns` zählt in den letzten
   5 s oben rechts herunter. Beim
   Entschärfen dunkelt die Hintergrundbeleuchtung kurz ab.
-- **Die Schaltfläche `MENU` des Testers.** Der Weg vom Tester zu `MENU`
+- **`BACK` des Testers.** Der Weg vom Tester zu `MENU`
   entschärft immer.
 - **Touch antwortet nicht.** Vier fehlgeschlagene Lesungen des
   Touch-Controllers in Folge, über 100 ms oder länger, entschärfen den

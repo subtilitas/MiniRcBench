@@ -160,9 +160,9 @@ gegeneinander treiben.
   Pins auf Low; kein DShot startet. Es wartet 1 s, nachdem der Pin
   freigegeben ist.
 
-`BACK` auf der Seite ist ein Umriss und tut nichts.
+Die Schaltfläche oben rechts im Kopfbereich zeigt vor der Freigabe `LEAVE` und wirkt wie `LEAVE`; solange der Claim freigibt, wirkt sie nicht; nach der Freigabe zeigt sie `BACK` und führt, 1 s später, wie die breite Taste zur Auswahl zurück. Eine Schaltfläche, die nicht wirkt, ist ein gedämpfter Rahmen mit gedämpfter Beschriftung.
 
-<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER noch blass"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
+<img src="img/sbus-leave.png" width="240" alt="Die S.BUS-Verlassenseite: 1 UNPLUG THE RECEIVER., ESC TESTER SENDS DSHOT ON SIG GP0., BACK TO MONITOR, RECEIVER noch blass, LEAVE oben rechts"> <img src="img/sbus-leave-sig.png" width="240" alt="Die S.BUS-Verlassenseite mit SIG auf GP1: SIG GP1 IS HELD LOW, WHERE THE RECEIVER DRIVES THE LINE.">
 
 ---
 
