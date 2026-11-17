@@ -1721,6 +1721,13 @@ void uiInit() {
 
 void uiTick() {
 	escHeartbeat();
+	// Core1 disarmed on a heartbeat lapse: core0 was stalled for more than
+	// UI_HEARTBEAT_TIMEOUT_MS while armed. Its own armed state and throttle
+	// go too, before anything this frame could send them again.
+	if (escHeartbeatTripped()) {
+		escHeartbeatTripClear();
+		if (s_armed) testerStop();
+	}
 	escSnapshot(&s_tel);
 	touchPoll(&s_touch);
 	s_touchLost = touchLostNow();

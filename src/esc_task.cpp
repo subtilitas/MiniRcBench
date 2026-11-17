@@ -254,6 +254,13 @@ void escHeartbeat() {
 	s_heartbeatMs = millis();
 }
 
+/** @brief Set by core1 on a heartbeat lapse while armed; cleared by core0. */
+static volatile bool s_hbTripped = false;
+
+bool escHeartbeatTripped() { return s_hbTripped; }
+
+void escHeartbeatTripClear() { s_hbTripped = false; }
+
 uint32_t escHeartbeatMs() { return s_heartbeatMs; }
 
 bool escRequestCommand(uint8_t cmd, bool save) {
@@ -638,6 +645,14 @@ void escTaskPoll() {
 	uint32_t hb = s_heartbeatMs;
 	uint32_t ms = millis();
 	bool uiAlive = escUiAlive(ms, hb);
+	// A lapse while armed disarms and latches: the throttle stays 0 when
+	// core0 resumes, until it has stopped the tester and a new hold arms.
+	if (escHeartbeatTrips(s_armed, uiAlive)) {
+		s_throttle = 0;
+		s_armed = false;
+		__dmb();
+		s_hbTripped = true;
+	}
 #if KISS_TELEM_ENABLE
 	bool kissRx = s_kissRx;
 #else

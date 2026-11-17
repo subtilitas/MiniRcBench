@@ -954,6 +954,14 @@ uint8_t fakePoles() { return g_poles; }
 void escSetPoles(uint8_t p) { g_poles = p < 2 ? 2 : p; }
 static uint32_t g_heartbeatMs = 0;
 void escHeartbeat() { g_heartbeatMs = millis(); }
+static bool g_hbTripped = false;
+bool escHeartbeatTripped() { return g_hbTripped; }
+void escHeartbeatTripClear() { g_hbTripped = false; }
+void fakeEscHeartbeatTrip() {
+	g_armed = false;
+	g_throttle = 0;
+	g_hbTripped = true;
+}
 uint32_t escHeartbeatMs() { return g_heartbeatMs; }
 // Core0's side of the command slot. esc_task.cpp cannot be linked here (PIO,
 // UART), so the request side is a copy -- but its rule is the shipped

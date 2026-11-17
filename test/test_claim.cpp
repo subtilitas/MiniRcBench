@@ -2095,6 +2095,9 @@ static void testPollSource() {
 	          before(init, "s_kissPin    = cfg->kissPin;", "padsTo(EscPinMode::Park);") &&
 	          before(init, "s_want = EscPinMode::Park;", "padsTo(EscPinMode::Park);") &&
 	          occurrences(init, "EscPinMode::Run") == 0);
+	checkTrue("a heartbeat lapse while armed disarms before the slot is decided, and latches",
+	          before(src, "if (escHeartbeatTrips(s_armed, uiAlive)) {", "escPumpSlot(&s_pump") &&
+	          before(src, "s_armed = false;\n\t\t__dmb();\n\t\ts_hbTripped = true;", "escPumpSlot(&s_pump"));
 	checkTrue("Park asked from the start, before escTaskInit()",
 	          before(src, "static volatile EscPinMode s_want = EscPinMode::Park;", nullptr));
 	checkTrue("the four functions found",

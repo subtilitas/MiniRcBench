@@ -302,6 +302,8 @@ void fakeAm32FailReads(int n);
 void fakeAm32FailReadsAfter(int ok, int n);
 /** @brief The byte 2 a write leaves in the ESC, as the bootloader writes its version there; 0: the byte sent. */
 void fakeAm32BootloaderVersion(uint8_t v);
+/** @brief As core1 on a heartbeat lapse while armed: disarm, throttle 0, escHeartbeatTripped() true. */
+void fakeEscHeartbeatTrip();
 /** @brief The next @p n am32BlWrite() calls store byte 0x1B with bit 6 flipped. */
 void fakeAm32SkewWrites(int n);
 /** @brief am32BlWrite() calls since the start, failed ones among them. */

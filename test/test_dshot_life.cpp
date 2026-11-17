@@ -433,6 +433,41 @@ static void testArmGate() {
  *        gate or the touch loss refuses arming; SAFE an outlined chip; ARMED
  *        the one filled badge, with no green pixel on the frame while armed.
  */
+/**
+ * @brief A heartbeat lapse while armed latches (review of 2026-11-17): core1
+ *        disarms and raises the trip; the next uiTick() stops the tester, so
+ *        the throttle LATCH held does not come back on its own.
+ */
+static void testHeartbeatTripLatches() {
+	section("DShot lifetime: a heartbeat lapse while armed latches the disarm");
+	checkTrue("the rule: armed and the UI not alive trips", escHeartbeatTrips(true, false) &&
+	          !escHeartbeatTrips(true, true) && !escHeartbeatTrips(false, false));
+	freshLife();
+	openTesterBound();
+	waitGate();
+	pressId(UI_FIX(TesterCtl::Arm));
+	holdId(UI_FIX(TesterCtl::Arm), 44);
+	fakeRelease();
+	lifeFrames(1);
+	tapId(UI_FIX(TesterCtl::Latch));
+	{
+		const UiRect t = ctlRect(UI_FIX(TesterCtl::Throttle));
+		const int y = t.y + t.h / 2;
+		fakePress(t.x + 10, y); lifeFrames(1);
+		for (int k = 1; k <= 6; k++) { fakeHold(t.x + 10 + 8 * k, y); lifeFrames(1); }
+		fakeRelease(); lifeFrames(1);
+	}
+	checkTrue("armed, LATCH holds a throttle", uiArmed() && fakeArmed() && fakeThrottle() > 0);
+	fakeEscHeartbeatTrip();
+	lifeFrames(1);
+	checkTrue("the next frame: the tester disarmed, the trip cleared",
+	          !uiArmed() && !fakeArmed() && !escHeartbeatTripped());
+	lifeFrames(20);
+	checkTrue("500 ms on: still disarmed, throttle 0", !uiArmed() && !fakeArmed() && fakeThrottle() == 0);
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(2);
+}
+
 static void testArmLook() {
 	section("ui-theme.md slice 12: green on the tester");
 
@@ -1345,6 +1380,7 @@ void runDshotLifeTests() {
 	testSetupOverTester();
 	testArmGate();
 	testArmLook();
+	testHeartbeatTripLatches();
 	testTapToBind();
 	testRebindCancels();
 	testDrainRace();
