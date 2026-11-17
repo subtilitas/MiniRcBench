@@ -412,7 +412,7 @@ unplug messages, y 108, and no chip:
 | The claim drains DShot (Stopping) | `RELEASING AUX GP1` | `C_DIM` | 101 px |
 | Held, the job not bound yet | `TAKING AUX GP1` | `C_DIM` | 83 px |
 | The bind refused the clock | `AUX GP1 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46, scale 2 | `C_AMBER` | 203 px |
-| Armed, or another claim holds | `DISARM FIRST`, `WAIT: DSHOT RESTARTING` | `C_AMBER` | backstops, unreachable through the UI |
+| Armed, or another claim holds | `DISARM FIRST`, `WAIT: THE PINS ARE BUSY` | `C_AMBER` | backstops, unreachable through the UI |
 
 `AUX` reads `SIG` when SIG is GP1. No role on GP1 is unreachable through
 SETTINGS on this board, whose steppers swap GP0 and GP1 (menu-b.md, decision
@@ -428,26 +428,27 @@ at once, so the page is released on the frame after BACK.
 y   0 | S.BUS MONITOR                   [  BACK  ]|  BACK drawn disabled
    40 | SIG GP0  AUX GP1                          |  strip, C_DIM
    66 |#1 UNPLUG THE RECEIVER.                    |  step 1, current
-   78 |#  DSHOT RESTARTS ON SIG GP0.              |
-   92 | 2 RESTART DSHOT.                          |  step 2, C_DIM
+   78 |#  ESC TESTER SENDS DSHOT ON SIG GP0.      |
+   92 | 2 BACK TO RECEIVER.                       |  step 2, C_DIM
   214 | [BACK TO MONITOR]                         |  6, 214, 110 x 46
-  268 | [          RESTART DSHOT           ]      |  live 1000 ms after the release
+  268 | [             RECEIVER             ]      |  live 1000 ms after the release
 ```
 
 | Text | Characters | Width at scale 1 | Room |
 |---|---|---|---|
 | `UNPLUG THE RECEIVER.` | 20 | 119 px | 35 characters from x 20 |
-| `DSHOT RESTARTS ON SIG GP0.`, GP1 is AUX | 26 | 155 px | 35 |
-| `DSHOT RESTARTS ON SIG GP1, WHERE`, GP1 is SIG | 32 | 191 px | 35 |
+| `ESC TESTER SENDS DSHOT ON SIG GP0.`, GP1 is AUX | 34 | 203 px | 35 |
+| `SIG GP1 IS HELD LOW, WHERE`, GP1 is SIG | 26 | 155 px | 35 |
 | `THE RECEIVER DRIVES THE LINE.`, its second line | 29 | 173 px | 35 |
 | `BACK TO MONITOR` | 15 | 89 px | 110 px button |
 | `RELEASING THE PIN`, the note until released | 17 | 101 px | 37 characters from x 8 |
 
 With GP1 as SIG the strip reads `SIG GP1` and step 2 starts at y 104. BACK TO
 MONITOR calls `pinClaimKeep()`: the claim returns to Held, the job binds
-again and every count starts at 0. RESTART DSHOT calls `pinClaimRestart()`
-and returns to MENU. BACK before a claim held, or while it is Stopping,
-returns to MENU with DShot resumed at once and no page.
+again and every count starts at 0. The last button, which reads RECEIVER, the
+hub's title, calls `pinClaimRelease()` and returns to the hub with the pins
+parked. BACK before a claim held, or while it is Stopping, returns to the hub
+with the pins parked at once and no page. Built (D2).
 
 ### Scope
 
@@ -711,7 +712,8 @@ puts the chooser behind it.
 its widest status in `UI_MENU` is 0. It opens the chooser, which claims
 nothing but opens tools that claim, so it is refused while the pin claim is
 not Free, as PROGRAMMER's row is (`freePins`): drawn disabled under the
-strip's `DSHOT RESTARTING ON SIG GP0`, a tap opens nothing.
+strip's busy caption (`RELEASING SIG GP0` or `SETTING SIG GP0 LOW`), a tap
+opens nothing.
 
 **The chooser**, `src/ui_rx_signals.*`, follows PROGRAMMER's pattern
 ([menu-b.md](menu-b.md#programmer-the-chooser)): one 228 × 46 px button per
@@ -742,7 +744,7 @@ y   0 | RX SIGNALS                      [  BACK  ]|  header 36 px
 A tap on MONITOR opens S.BUS MONITOR through `uiChooseTool()`, as
 PROGRAMMER's entries open their tools: the monitor's entry point asks for
 the claim on that frame, and its origin is MENU, so its BACK before a claim
-held and its RESTART DSHOT return to MENU. A tap on OUTPUT opens S.BUS
+held and its last button return to the hub. A tap on OUTPUT opens S.BUS
 OUTPUT the same way ([sbus-output.md](sbus-output.md#the-rx-signals-entry)),
 and its two lines are the output's warning. An entry with no screen would be
 drawn disabled (`uiButton()`'s outline, the label `C_GRID`), reported
@@ -787,8 +789,8 @@ names the screen that the later protocols join. The screen's own title is
 
 In structure B MENU's tool rows show no pin status and `PINS BUSY` is gone
 ([menu-b.md](menu-b.md#decisions) decisions 15 f and 18): a row refused
-while the claim is not Free is drawn disabled under the strip's
-`DSHOT RESTARTING ON SIG GP0`. The one row, RX SIGNALS, opens the chooser
+while the claim is not Free is drawn disabled under the strip's busy
+caption. The one row, RX SIGNALS, opens the chooser
 above.
 
 ## Interlocks
@@ -830,16 +832,17 @@ S.BUS output's row, `SbusOut`, is designed in
 - **No output outside the screen.** PPM frames exist only between HOLD TO
   START and STOP, BACK or a trip. The claim ends only through BACK, and no
   other screen is reachable while it holds. The monitor drives no pin.
-- **What the claim must guarantee before DShot returns.** The monitor is an
-  input, but the receiver on GP1 is an output. Before `escTaskStart()`:
+- **What the claim must guarantee before the pins are parked.** The monitor
+  is an input, but the receiver on GP1 is an output. Before the park:
   the job is idle, UART0 is off, GP1 has no input inversion and is a plain
-  input. In the default wiring DShot restarts on GP0 and the receiver's
-  line meets at most the KISS receiver's pull-up on GP1. When GP1 is SIG,
-  DShot's transmitter drives the line the receiver drives: two outputs
+  input. In the default wiring ESC TESTER's DShot runs on GP0 and the
+  receiver's line meets at most the KISS receiver's pull-up on GP1. When GP1
+  is SIG, the park drives it low, and the next ESC TESTER's transmitter drives
+  the line the receiver drives: two outputs
   against each other once a millisecond. The leave page covers both
   wirings with one rule, UNPLUG THE RECEIVER.; its detail lines name the
   case.
-- **DShot restart.** As for every claim: `out_dshot_bind()` and
+- **The next DShot run.** As for every claim: `out_dshot_bind()` and
   `pioUartRxBegin()` set their own pulls and overrides. The tests check
   that neither tool leaves an override behind.
 - **Flash.** No settings save during either claim, as for every claim.
@@ -1112,11 +1115,13 @@ tester tests where they named the row. Choices the note left open:
 - **The leave page,** not the unplug page of the note: by owner decision 3
   of menu-b.md every unplug page is the leave page. It opens releasing, as
   SERVO TESTER's, with `UNPLUG THE RECEIVER.` and its detail lines as step
-  1, `RESTART DSHOT.` as step 2, and BACK TO MONITOR in the left button, in
+  1, `BACK TO RECEIVER.` as step 2, and BACK TO MONITOR in the left button, in
   place of the note's `UNPLUG RECEIVER.` headline at scale 2.
 - **When to plug the receiver in** is on the screen. With GP1 as SIG,
-  bidirectional DShot keeps driving GP1 until the claim holds: 500 ms after
-  the ESC goes quiet, then the drain of at least 250 ms. The link chip
+  GP1 is driven low while ESC TESTER and ESC COMMANDS are closed, and
+  bidirectional DShot drives it while one is open; the claim holds 500 ms
+  after the ESC goes quiet, then the drain of at least 250 ms. The hub's
+  MONITOR entry reads `GP1 IS SIG: PLUG IN AFTER THE TAP.` meanwhile. The link chip
   appears only once the job runs, so it is the safe moment. The owner
   decided on 2026-11-15 that the screen says so: `UNPLUG IT. PLUG THE
   RECEIVER IN` `ONCE THE LINK CHIP SHOWS.`, the second line at y 94 and a
@@ -1134,7 +1139,7 @@ tester tests where they named the row. Choices the note left open:
 The suite runs the monitor through MENU and the chooser on the UART0 fake,
 with core1's job passes every 500 µs: frames at 14 ms and 7 ms, the flags,
 failsafe values, a receiver that stops, footers the decoder refuses, a
-parity, framing and break error, BACK, BACK TO MONITOR and RESTART DSHOT;
+parity, framing and break error, BACK, BACK TO MONITOR and the last button;
 GP1 as SIG with an ESC answering and its end 500 ms on; KISS on GP1; no
 role on GP1; a refused clock and RETRY. Not run on hardware: the frames a
 receiver sends, the screen's reading of them on the panel and the pass
@@ -1149,7 +1154,7 @@ a count put in another's place. All 33 fail the suite. 48 mutations of
 `uiChip()`: the ESC check dropped, applied to AUX, at 400 ms and before the
 Armed and Busy rules; no role on GP1 claiming; the roles fixed; each
 message, its colour and RETRY; the job's NO GP1; BACK skipping the leave
-page or live on it; RESTART DSHOT's wait; BACK TO MONITOR keeping nothing,
+page or live on it; the last button's wait; BACK TO MONITOR keeping nothing,
 live while releasing, or keeping the hold; each ink colour; the repaint
 keys and the body's clear; the chip before the job runs; the role and the
 leave page's lines and strip; the claim not asked again; the chooser's
@@ -1163,7 +1168,7 @@ the claim Held; the guard on an empty bar's fill, whose width is 0; and
 the chooser's guard on a disabled button's press, which `uiButton()`
 ignores. One passes and is equivalent through the screen: the frame-lost
 memory kept at a new visit, which comes at least 1000 ms after the last,
-RESTART DSHOT's wait, past the 250 ms hold.
+the last button's wait, past the 250 ms hold.
 
 ## Decisions
 

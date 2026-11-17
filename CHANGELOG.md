@@ -42,6 +42,22 @@ protocol.
 
 ## Unreleased
 
+### Changed
+
+- Documentation only: the records of menu structure C and of the DShot
+  lifetime, slice 6 of [menu-c.md](docs/design/menu-c.md#slice-6-as-built) and
+  slice D5 of [dshot-lifetime.md](docs/design/dshot-lifetime.md#d5-as-built).
+  The design notes describe the leave page's last button, which reads the
+  hub's title and parks the pins, the claim's Parking in place of Restoring,
+  `pinClaimRelease()` in place of `pinClaimRestart()`, DShot only on ESC
+  TESTER and ESC COMMANDS, ESC COMMANDS' start text and the start step, the
+  busy captions `RELEASING SIG GP0` and `SETTING SIG GP0 LOW`, and the run
+  cue's three ways out, as the code builds them; `docs/design/README.md` maps
+  the older notes' screen names to the current ones; README.md's layout lists
+  eleven source files it lacked. `docs/bench-plan.md` starts DShot from ESC
+  TESTER in PC-1, PC-4, BJ-B1, UB-B7 and UB-B9 and adds `DL-10`, decision 7's
+  passive line check. No firmware change.
+
 ## 0.1.0 - 2026-11-15
 
 ### Added

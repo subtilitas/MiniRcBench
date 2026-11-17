@@ -691,7 +691,8 @@ chooser's second entry: it sits in the `ESC CONFIG` chooser of
 
 - **No pin claim.** The meter is a screen with `PinUser::None`, as SD LOG
   is. It drives no pin. The ESC stays disarmed at zero throttle, as for
-  every tool opened from MENU, and DShot keeps running.
+  every tool opened from MENU. DShot is parked: it runs only while ESC TESTER or
+  ESC COMMANDS is open.
 - **I2C1 on core0 only,** after touch and the current sensor, one burst and
   one time stamp read a frame, only while the meter is open. Its failures
   go to the shared bus record; a stuck bus gets the sensor's recovery.
@@ -1096,7 +1097,7 @@ settings block is version 6 by decision 4 (`src/settings.*`). Host tests in
 `test/test_menu.cpp` and `test/test_ui.cpp`; the preview
 `docs/angle-preview.png`. Choices the note left open:
 
-- **TOOLS' strip** reads `DSHOT RUNS ON SIG GP0`, 21 characters: neither the
+- **TOOLS' strip** read `DSHOT RUNS ON SIG GP0`, 21 characters, and went with TOOLS in slice 4 of menu-c.md: neither the
   chooser nor the meter claims a pin. TOOLS opens only while the claim is
   Free (`freePins`), as the other choosers, and so does the meter, since its
   save writes flash, which `settingsSave()` refuses during a claim; MENU

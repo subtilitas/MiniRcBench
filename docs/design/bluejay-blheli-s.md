@@ -509,7 +509,7 @@ by a core1 job, as KST and Hitec run theirs:
   most (rcbench README lines 200 to 230).
 - LEAVE: `ew_session_leave()`: the frame `00 01`, which starts the firmware
   (`BLHeliBootLoad.inc` 184 to 197), 500 µs idle, 300 ms low, then the line
-  parked, and the claim gives SIG back to DShot (decision 3).
+  parked, and the claim parks SIG low (decision 3).
 - The heartbeat: when core0's heartbeat lapses for 250 ms the job calls
   `ew_session_stop()`, never `ew_session_abort()`: a stop lets a write that
   has sent its erase run to its read-back, then parks the line (rcbench
@@ -617,8 +617,8 @@ live, where AM32 WRITE draws the hold disabled for a page with no change.
 | BACK guarded while half written | the list after `TORN` or `LOST` | leaving an erased page behind: the first BACK shows `HALF WRITTEN. BACK AGAIN LEAVES IT;` (35, 209 px) over `A POWER CYCLE THEN LOSES ITS TAGS.` (34, 203 px); the second aborts the session, sends no LEAVE, and goes to the leave page of decision 8 |
 | Stop, not abort | the job on a heartbeat lapse | a core0 stall cutting a write between erase and program |
 | BOARD voltage red | the write page, as AM32 | a bench brown-out during the write |
-| Run cue | MENU's `POWER-CYCLE THE ESC TO RUN IT`, set at the EFM8's answer, cleared by a LEAVE sent, by RESTART DSHOT on the leave page, whose steps power-cycle the ESC, or by an eRPM frame after it (decision 3) | an ESC left in its bootloader, unseen |
-| No DShot into a waiting bootloader | after an EFM8 answered and no LEAVE went, SIG returns to DShot only from a leave page after the user unplugs the ESC's supply (decision 8) | DShot frames read as commands: the EFM8 bootloader checks only the CRC's low byte (`BLHeliBootLoad.inc` 401 to 406, 177; BLHeli_S's copy 369 to 375, 164), so a garbled 4-byte frame passes about 1 time in 256 for arbitrary bytes, and can be a run, a set address, an erase or a program; only the bootloader's own area is refused (lines 233 to 238). What DShot frames read as is B12. Not verified on an ESC |
+| Run cue | MENU's `POWER-CYCLE THE ESC TO RUN IT`, set at the EFM8's answer, cleared by a LEAVE sent, by the leave page's last button, whose steps power-cycle the ESC, by START DSHOT, or by an eRPM frame after it (decision 3) | an ESC left in its bootloader, unseen |
+| No DShot into a waiting bootloader | after an EFM8 answered and no LEAVE went, SIG is parked low from a leave page after the user unplugs the ESC's supply, and DShot runs only from ESC TESTER or ESC COMMANDS (decision 8) | DShot frames read as commands: the EFM8 bootloader checks only the CRC's low byte (`BLHeliBootLoad.inc` 401 to 406, 177; BLHeli_S's copy 369 to 375, 164), so a garbled 4-byte frame passes about 1 time in 256 for arbitrary bytes, and can be a run, a set address, an erase or a program; only the bootloader's own area is refused (lines 233 to 238). What DShot frames read as is B12. Not verified on an ESC |
 
 What an interrupted write leaves, and the way back:
 
@@ -644,14 +644,17 @@ escwire job; Bluejay 208 and BLHeli_S 33 are edited and written, the other
 pages shown read-only ([slice 4 as built](#slice-4-as-built)). The answer
 sets MENU's run cue and
 gives the claim the leave page (`pinClaimWantLeavePage()`). BACK from the
-list sends LEAVE, `00 01`, and DShot returns once it went out; every other
-BACK after the answer opens the leave page of decision 8, and DShot returns
-to SIG only from its RESTART DSHOT, after its steps have told the user to
-unplug the ESC's battery. The bench cannot see the battery: RESTART DSHOT
-with the ESC still powered, or a bench restart while it waits, sends DShot
-into the bootloader. LEAVE has no answer, so a LEAVE the ESC did not take
-leaves it waiting when DShot returns (B11); MENU's run cue stays until an
-eRPM frame after LEAVE. STATUS.md records both as known limitations.
+list sends LEAVE, `00 01`, and the claim parks SIG low once it went out;
+every other BACK after the answer opens the leave page of decision 8, and the
+pins are parked only from its last button, which reads the hub's title, after
+its steps have told the user to unplug the ESC's battery. No DShot follows
+the park: DShot reaches SIG only when ESC TESTER or ESC COMMANDS opens
+([dshot-lifetime.md](dshot-lifetime.md#d3-as-built)). The bench cannot see
+the battery: the start step's START DSHOT with the ESC still powered, or a
+bench restart while it waits, sends DShot into the bootloader. LEAVE has no
+answer, so a LEAVE the ESC did not take leaves it waiting when DShot runs
+(B11); MENU's run cue stays until an eRPM frame after LEAVE, and while it
+stands ESC TESTER and ESC COMMANDS open on the start step. Built (D2, D3). STATUS.md records both as known limitations.
 
 ## What is copied
 
@@ -717,9 +720,9 @@ at most `EW_FILE_MAX`, 5280 bytes.
   `00 00` restart. Bench item B4 settles it, or the restart is added to
   rcbench's sim first.
 - **Today's limitation closed (slice 2):** an AM32 claim with no EFM8
-  answer resumes DShot within `pinClaimEnd()` as today; after one it waits
-  for RESTART DSHOT on the leave page. An EFM8 answer sets the run cue, and
-  RESTART DSHOT clears it.
+  answer parks the pins within `pinClaimEnd()`; after one it waits
+  for the leave page's last button. An EFM8 answer sets the run cue, and
+  that button clears it.
 - **Views:** each identification row: the strip lines, rows drawn
   `ReadOnly`, WRITE... disabled, the backup saved on opening a read-only
   view and not on the connect page.
@@ -776,7 +779,7 @@ own README and wiki lines (the owner's decision 27 of
 | Slice | Content | Code | Tests | Docs | Depends on |
 |---|---|---|---|---|---|
 | 1. Copies, built | the files of [what is copied](#what-is-copied), `src/escwire.cmake`, `test/escwire.mk`, the fixture check in CI, `lib/rcbench/README.md` | about 40 new | the 210 copied cases | `lib/rcbench/README.md`, STATUS, CHANGELOG | |
-| 2. Detection | the classification; an EFM8 answer named on the connect page, `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters, 197 px), nothing read; the run cue set by that answer, cleared by RESTART DSHOT or eRPM; a leave page per claim in `pin_claim`, set for `PinUser::Am32` at an EFM8's answer (today `unplug` is fixed per user, `pin_claim.h` line 88), the leave page of decision 8, which closes [today's limitation](#the-firmware-as-it-is-today); the connect loop stays as today, so no ESC is drawn into its bootloader more often than now; the chooser `ESC CONFIG` and the title `ESC SETTINGS` by decision 1 | about 200 | about 250 | README "AM32 ESC configuration", wiki in both languages, previews, STATUS | |
+| 2. Detection | the classification; an EFM8 answer named on the connect page, `EFM8 E8B2 ANSWERED: NOT READ YET.` (33 characters, 197 px), nothing read; the run cue set by that answer, cleared by the leave page's last button, START DSHOT or eRPM; a leave page per claim in `pin_claim`, set for `PinUser::Am32` at an EFM8's answer (today `unplug` is fixed per user, `pin_claim.h` line 88), the leave page of decision 8, which closes [today's limitation](#the-firmware-as-it-is-today); the connect loop stays as today, so no ESC is drawn into its bootloader more often than now; the chooser `ESC CONFIG` and the title `ESC SETTINGS` by decision 1 | about 200 | about 250 | README "AM32 ESC configuration", wiki in both languages, previews, STATUS | |
 | 3. Read | the connect cycle, `escwire_job`, the claim's job, the read, the list read-only for every page, the views, HEX, the strip notes, the 3D note, LEAVE's `00 01` frame | about 650 | about 650 | README section, wiki, previews | 1, 2 |
 | 4. Write | WRITE..., ESC WRITE, the backups and their prefixes, the results, the guarded BACK, the heartbeat stop | about 400 | about 500 | as above | 3 |
 | 5. Bring-up | B1 to B13 | none | none | the record in STATUS | 1 to 4 |
@@ -855,7 +858,7 @@ Texts, at scale 1 unless named, (6n − 1) px for n characters:
 | Connect page, y 176, amber, and the strip | `EFM8 E8B2 ANSWERED: NOT READ YET.` | 33, 197 px |
 | Leave page strip, `C_DIM` | `EFM8 E8B2  SIG GP0` | 18, 107 px |
 | Leave step 1, from x 20 | `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.` | 35, 209 px, to x 228; 33, 197 px; 26, 155 px |
-| Leave step 2 | `PLUG IT IN AFTER RESTART DSHOT.` | 31, 185 px |
+| Leave step 2 | `PLUG IT IN ONCE ESC PROGRAM SHOWS.` | 34, 203 px |
 | SD LOG, a stop by the claim | `RECORDING STOPPED BY ESC SETTINGS` | 33, 197 px |
 
 Choices the note left open, the developer's:
@@ -902,11 +905,11 @@ Choices the note left open, the developer's:
   copied into the claim at `pinClaimBegin()`. `pinClaimWantLeavePage()` acts
   only for the holder and only while Stopping, Held or Running, so it cannot
   hold back a claim already leaving; `pinClaimLeavePage()` reads false while
-  Free. A claim still Stopping has driven nothing on SIG and resumes at once.
+  Free. A claim still Stopping has driven nothing on SIG and parks at once.
 - **The run cue** is set at each EFM8 answer and stamped then, so an eRPM
   frame after the last answer clears it as after an AM32 handshake. In this
   slice the only way from ESC SETTINGS to MENU after an EFM8 answer is
-  RESTART DSHOT, which clears it, so MENU does not show it for an EFM8
+  the leave page's last button, which clears it, so MENU does not show it for an EFM8
   answer; it matters once slice 3's LEAVE exists.
 - **Call A here.** The sub-view titles follow the title `ESC SETTINGS`,
   which this slice builds: `ESC WRITE` and `ESC HEX`, not `AM32 WRITE` and
@@ -936,12 +939,12 @@ Mutations, each applied to the tree, the suite built and run, then restored: 39,
 `471` check, its `7`, the 0xE8 check, the 0x30 check, the 9-byte floor, the
 signature's low byte; the claim's leave page per user again, set by any screen,
 set in any state, not taken from the user's row at `pinClaimBegin()`, reported
-while Free; no leave page on an EFM8 answer, no run cue on it, RESTART DSHOT
+while Free; no leave page on an EFM8 answer, no run cue on it, the last button
 keeping the cue, BACK leaving at once after an EFM8 answer, the leave page
 opened from the connect page only, not from the read-only view, not from the
 list, the EFM8 line dropped on silence,
 BACK live on the leave page, LEAVE keeping the transport, STAY going to the
-list, STAY going to the connect page, the page opened releasing, RESTART DSHOT
+list, STAY going to the connect page, the page opened releasing, the last button
 without its wait, the steps swapped, an EFM8 answer taken as silence, the hex
 title `AM32 HEX`, the strip's `FW`; every chooser entry acting, the chooser not
 `freePins`, USB BRIDGE without `NOT BUILT`, the entries' controls swapped,
@@ -955,8 +958,8 @@ Not verified: everything on an ESC. No Bluejay or BLHeli_S ESC has
 answered this board's greeting; the answer's bytes are the bootloader
 source's ([the greeting already fits](#the-greeting-already-fits)); what a
 waiting bootloader does with the greetings that follow is the source's;
-whether the user's unplugging reaches the ESC before RESTART DSHOT is the
-user's.
+whether the user's unplugging reaches the ESC before the leave page's last
+button is the user's.
 
 ### Slice 3 as built
 
@@ -1002,7 +1005,7 @@ Texts, at scale 1 unless named, (6n − 1) px for n characters:
 | The list's bar, `C_GRID` | `SHOWN ONLY: WRITING IS NOT BUILT.` / `BACK SENDS LEAVE: THE ESC STARTS.` | 33, 197 px each |
 | A read-only list's second strip line | `SHOWN ONLY. NO BACKUP SAVED.`; lost tags `REFLASH ON A COMPUTER. NO BACKUP.` | 28, 167 px; 33, 197 px |
 | The page while LEAVE goes out, y 84, scale 2 | `LEAVING` | 7, 82 px |
-| Under it | `THE ESC STARTS ITS FIRMWARE ON` / `LEAVE, THEN DSHOT RETURNS.` / `KEEP THE PROPELLER OFF.`, the last amber | 30, 26, 23 |
+| Under it | `THE ESC STARTS ITS FIRMWARE ON` / `LEAVE. ESC TESTER THEN RUNS IT.` / `KEEP THE PROPELLER OFF.`, the last amber | 30, 31, 23 |
 | Its status | `SENDING LEAVE: 00 01`, then `LEAVE SENT.` | 20, 11 |
 | A part not known | `EFM8 E8B3: PART NOT KNOWN` | 25, 149 px |
 | Chooser, ESC SETTINGS' second line | `BLUEJAY, BLHELI_S: READ, NOT WRITTEN.` | 37, 221 px |
@@ -1058,7 +1061,7 @@ Choices the note left open, the developer's:
   Leaving until the job is idle, and the screen then calls
   `pinClaimRestart()` itself, without the leave page's 1000 ms or steps.
   The run cue stays: LEAVE has no answer (B11), so an ESC that missed
-  `00 01` still waits when DShot returns, and only an eRPM frame after
+  `00 01` still waits when DShot runs, and only an eRPM frame after
   LEAVE clears the cue. Decision 3 (a1) reads "the run cue is cleared when
   LEAVE went out"; this build keeps it, and the owner may restore (a1).
   `src/pin_claim.*` gains no function. A LEAVE refused for the heartbeat is

@@ -68,7 +68,7 @@ letters b and c are not used.
 | `BJ-` | [bluejay-blheli-s.md](design/bluejay-blheli-s.md#bench) | Bench, B1 to B13 |
 | `BK-` | [STATUS.md](../STATUS.md#open-items) open item 13, for [backups.md](design/backups.md#work-breakdown) | numbered here |
 | `CS-` | [current-sense.md](design/current-sense.md#bench-tests) | Bench tests, B1 to B13 |
-| `DL-` | [dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built) | slice D2 as built, numbered here |
+| `DL-` | [dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built) | slices D2 and D3 as built and decision 7's option (c), numbered here |
 | `DG-` | [diagnostics.md](design/diagnostics.md#not-tested-on-hardware) | Not tested on hardware, numbered here |
 | `EC-` | [esc-commands.md](design/esc-commands.md#bench) | Bench, B1 to B9 |
 | `HT-` | [hitec-programming.md](design/hitec-programming.md#work-breakdown) | Work breakdown step 6, numbered here 6a to 6f |
@@ -625,12 +625,13 @@ Prerequisite: Session 1. Setup E with the AM32 ESC first; MAX THROTTLE at
 its default, 20 %, unless a test says. The scope or the logic analyser on
 SIG (GP0) and AUX (GP1).
 
-#### DL-1 to DL-9. The DShot lifetime
+#### DL-1 to DL-10. The DShot lifetime
 
 [dshot-lifetime.md](design/dshot-lifetime.md#d2-as-built), slices D2
 ([D2 as built](design/dshot-lifetime.md#d2-as-built), DL-1 to DL-6) and D3
-([D3 as built](design/dshot-lifetime.md#d3-as-built), DL-7 to DL-9),
-numbered here. None of it has run on hardware.
+([D3 as built](design/dshot-lifetime.md#d3-as-built), DL-7 to DL-9), and
+[decision 7](design/dshot-lifetime.md#decisions)'s option (c), a passive
+line check (DL-10), numbered here. None of it has run on hardware.
 
 | Test | Steps | Pass | Record |
 |---|---|---|---|
@@ -643,6 +644,7 @@ numbered here. None of it has run on hardware.
 | DL-7 | the AM32 ESC on SIG, powered: ESC SETTINGS reads it; BACK to MENU (the AM32 handshake raises the cue; AM32 has no leave page); open ESC TESTER; tap MENU; open ESC COMMANDS; tap BACK; open ESC TESTER again; power-cycle the ESC; tap START DSHOT after 1 s | MENU reads `POWER-CYCLE THE ESC TO RUN IT`; each open shows the start step, SIG stays low, no frame until START DSHOT; START DSHOT is grey for 1 s; after its tap the EDT enable first, then zero throttle, the cue gone from MENU, `DSHOT STARTING: WAIT 1.5 S` on the track | the capture from the first open to START DSHOT; whether the ESC answers eRPM after it (on the parked low line its bootloader starts the firmware 20 ms after the power-cycle) |
 | DL-8 | the AM32 ESC on SIG; open ESC COMMANDS | `DSHOT STARTING ON SIG GP0.` until the first answer or 1.5 s; then `ESC STARTING: WAIT 1.5 S.` with an answer; with the ESC unplugged, `NO ESC ANSWERS ON SIG GP0.` from 1.5 s on | the time from the tap to the first eRPM answer |
 | DL-9 | USB BRIDGE with the AM32 ESC unplugged, the line bound; BACK; the leave page's last button; then ESC TESTER | MENU's cue from the claim; the leave page at BACK; its last button clears the cue; ESC TESTER opens running, with no start step. The ends with no leave page (a failed bind, BACK before the bind) are not provoked by hand and are tested on the host only | whether ESC TESTER showed the start step |
+| DL-10 | the board unpowered, an AM32 ESC and a Bluejay ESC each powered from its pack in turn on SIG, then an unpowered ESC, then none; a meter or the analyser on the SIG wire at J5 pin 2 | criterion not set: record whether a powered ESC holds SIG at a level a passive read could tell from an unpowered ESC and from no ESC | the DC level for each of the four cases; the ESC's own pull on SIG, if any |
 
 #### OI-15a. An ESC on SIG at each DShot rate
 
@@ -754,10 +756,10 @@ order; [pin-claim.md](design/pin-claim.md#hardware).
 
   | ID | Step | Pass (open item 8) |
   |---|---|---|
-  | PC-1 | run at 10 %, disarm, open ESC SETTINGS (MENU → ESC PROGRAM) within 250 ms of the last throttle frame | zero frames for at least 250 ms after the last throttle frame, then no edges |
+  | PC-1 | run at 10 %, disarm, tap MENU, open ESC PROGRAM, then ESC SETTINGS | zero frames for at least 250 ms after the last throttle frame (the park of MENU, not the claim, drains), then no edges |
   | PC-2 | the line after the teardown | idle high: the teardown stops, releases and puts the pull-up back |
   | PC-3 | a SETUP pin change in the same window | criterion not set apart from PC-1's; record whether the drain holds |
-  | PC-4 | leave the AM32 session with BACK | DShot back, the EDT enable as its first frames |
+  | PC-4 | leave the AM32 session with BACK, then open ESC TESTER | SIG low from BACK until ESC TESTER opens; then the EDT enable as the first frames |
 
 - **Record:** the captures; the time from the last throttle frame to the
   claim, since above 250 ms no drain is needed and PC-1 does not exercise
@@ -1034,7 +1036,7 @@ open item 30. "Only an ESC settles these." `BJ-B8`, `BJ-B9`, `BJ-B10` and
 - **Verifies:** the connect cycle's entry: quiet, then greetings. **Why:** no
   Bluejay or BLHeli_S ESC has answered the greeting on this board.
 - **Setup:** E, a Bluejay 0.21 ESC; the analyser on SIG.
-- **Steps:** run DShot; open ESC SETTINGS.
+- **Steps:** open ESC TESTER, tap MENU, open ESC PROGRAM, then ESC SETTINGS.
 - **Pass:** it answers in the first quiet second, `471d E8 B2 06 01 30`.
 - **Record:** the time from the pump's stop to the answer.
 - **Result to:** verification table, row "Bluejay and BLHeli_S, slice 2";
@@ -1902,8 +1904,8 @@ open item 29. "Only an ESC and a PC settle these."
 | UB-B3 | AM32 configurator, default: MSP, 4-way, the same three | each completes | as UB-B2 |
 | UB-B4 | ESC-Configurator in Chrome: connect, read and write a Bluejay or BLHeli_S ESC and an AM32 ESC; flash | each completes | as UB-B2 |
 | UB-B5 | BLHeliSuite with each interface that reaches a COM port | criterion not set | which interfaces work |
-| UB-B7 | AM32 2.22 reaching its bootloader without a power cycle, after a power-on and after DShot stops | criterion not set | both cases |
-| UB-B9 | BACK after a session | criterion not set | whether the ESC starts its firmware once DShot resumes, after how long; the tester's eRPM |
+| UB-B7 | AM32 2.22 reaching its bootloader without a power cycle, after a power-on and after the pump parks | criterion not set | both cases |
+| UB-B9 | BACK after a session | criterion not set | whether the ESC starts its firmware once ESC TESTER or ESC COMMANDS runs DShot on SIG, after how long; the tester's eRPM |
 | UB-B11 | the receiver's rate limit: `pio_uart_rx` loses bytes from a sender 3 % fast in the model | criterion not set | the bootloader's bit time on the analyser; a read of 256 bytes through the bridge at room temperature and warm |
 | UB-B8 | a spare ESC: the USB cable pulled during a page write | criterion not set | the ESC's state after a power cycle; a second flash through the bridge |
 | UB-B10 | the USB cable pulled during a page write, the board on its cell and on USB power alone | criterion not set | the screen, SIG's level on the analyser, the ESC's state |
@@ -2001,7 +2003,7 @@ and the note's section the result went into.
 | blackbox-logging.md | 1: `BB-1`; its unmeasured BUF PEAK and WORST FLUSH are `SD-2` |
 | bluejay-blheli-s.md | 13: `BJ-B1` to `BJ-B13` |
 | current-sense.md | 13: `CS-B1` to `CS-B13`, B9 in two steps, `CS-B9a` and `CS-B9b` |
-| dshot-lifetime.md, slice D2 | 6: `DL-1` to `DL-6` |
+| dshot-lifetime.md, slices D2 and D3, and decision 7's option (c) | 10: `DL-1` to `DL-10` |
 | diagnostics.md | 8: `DG-1` to `DG-8` |
 | esc-commands.md | 9: `EC-B1` to `EC-B9` |
 | hitec-programming.md | 6: `HT-6a` to `HT-6f` |
@@ -2019,5 +2021,5 @@ and the note's section the result went into.
 | STATUS.md open items alone | 18: `OI-1`, `OI-4`, `OI-11`, `OI-15a`, `OI-15d`, `OI-15e`, `OI-16`, `OI-18`, `OI-19`, `OI-20a`, `OI-20b`, `OI-21`, `OI-22a`, `OI-22b`, `OI-23`, `OI-24a`, `OI-24b`, `OI-24c` |
 | STATUS.md verification table alone | 4: `VT-2`, `VT-3`, `VT-5`, `VT-6`; `VT-1` and `VT-4` are part of `OI-15a` |
 
-147 tests in all. menu.md and menu-b.md have no bench list; the panel check
+152 tests in all. menu.md and menu-b.md have no bench list; the panel check
 of open item 18 is `OI-18`.

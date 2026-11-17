@@ -282,8 +282,9 @@ verified.
 - **The card reader** keeps its state; the bridge does not touch the card
   and `usbDevTask()` serves both interfaces.
 - **Outside the bridge** the port stays as today: what a PC sends is not
-  read. A tool that sends MSP while the bench runs DShot gets no answer,
-  and DShot keeps running: only a tap on the board opens the bridge.
+  read. A tool that sends MSP while the bench is on any other screen gets no
+  answer, and the pump stays as the screen wants it: only a tap on the board
+  opens the bridge.
 
 ### The pin
 
@@ -300,8 +301,8 @@ enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec, Sbus, Bridge, Coun
   answering until the claim stops DShot (the EscAnswering rule of
   `pinClaimCheck()`).
 - **unplug false**, as AM32: BACK (`pinClaimEnd()`) asks the job to let the
-  pin go, and DShot resumes through Leaving and Restoring once the job is
-  idle, on the next call into the claim after that (`leaveStep()` and
+  pin go, and the claim parks the pins through Leaving and Parking once the
+  job is idle, on the next call into the claim after that (`leaveStep()` and
   `settle()` in `pin_claim.cpp`). The exception, decision 10's leave page
   at every BACK of a running bridge, needs a leave page per claim rather
   than per user, which `PIN_USERS`' fixed `PinUserInfo::unplug` flag cannot
@@ -514,13 +515,13 @@ copied it, and not its guard or session.
 
 | Rule | Where | What it guards |
 |---|---|---|
-| No DShot while bridged | the claim: DShot is drained, stopped and released before the line binds | a throttle frame between bootloader bytes |
+| No DShot while bridged | the claim: DShot, if it runs, is drained, stopped and released before the line binds | a throttle frame between bootloader bytes |
 | Disarmed to enter | `uiOpenTool()` disarms; `pinClaimCheck()` refuses while armed (its Armed rule) | a running motor when DShot stops |
 | No MSP motor command | `MSP_SET_MOTOR` answers `$M!`; the 4-way interface has no motor command | ESC-Configurator's motor tab |
 | Write-class frame: BACK disabled | the bridge, until the frame's answer or 3000 ms | leaving in the middle of an erase or a page write (decision 7) |
 | No RUN on leaving | the bridge sends nothing at BACK | starting a firmware half written (decision 6) |
-| A leave page at every BACK of a running bridge | BACK once the line is bound, whatever the tool sent; the note `FLASH THE ESC AGAIN BEFORE USE.` after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot resuming unannounced on an ESC waiting in its bootloader, where a garbled frame can pass as a command, or whose flash may be cut; the ESC still starts what it holds at its next power-up with DShot on SIG (decision 10) |
-| MENU's run cue | from the claim's begin until RESTART DSHOT or an eRPM frame | an ESC left in its bootloader taken for a dead one |
+| A leave page at every BACK of a running bridge | BACK once the line is bound, whatever the tool sent; the note `FLASH THE ESC AGAIN BEFORE USE.` after a write-class frame with no later RUN or `cmd_DeviceReset` | DShot running unannounced on an ESC waiting in its bootloader, where a garbled frame can pass as a command, or whose flash may be cut; the ESC still starts what it holds at its next power-up with SIG held low (decision 10) |
+| MENU's run cue | from the claim's begin until the leave page's last button, START DSHOT or an eRPM frame | an ESC left in its bootloader taken for a dead one |
 | No bridge while USB DRIVE holds the card | the entry, by decision 11 | the card served to a host and a desktop tool on one cable at once (decision 11) |
 | `PROPELLER OFF.` on the screen | the screen | below |
 
@@ -554,7 +555,8 @@ lines 132 to 135, `usbd.h` lines 97 to 99). The screen shows
 `THE PC CLOSED THE PORT.` On its own cell the board keeps the claim,
 holds SIG at the pad's pull-up and sends nothing; the ESC's bootloader
 waits. On USB power alone the board stops with the cable, and plugging the
-cable in again restarts it with DShot on SIG, into the cut ESC: the ESC is
+cable in again restarts it with SIG parked low, and DShot runs on it from
+the next ESC TESTER or ESC COMMANDS, into the cut ESC: the ESC is
 to be powered off before the cable goes back in. What an unpowered pad
 does to SIG is not verified; the AM32 bootloader starts the firmware,
 a half-written one included, after about 20 ms of low line
@@ -574,22 +576,22 @@ firmware if it reads low (`main.c` 1097 to 1123); whether the bench's
 pull-up, 50 to 80 kΩ by rcbench's `ew_line.h`, holds the line high against
 that pull-down is not measured.
 
-**After BACK.** DShot starts again on SIG. An AM32 still in its bootloader reads
+**After BACK.** SIG is parked low, and DShot starts on it only when ESC TESTER or
+ESC COMMANDS opens. An AM32 still in its bootloader reads
 DShot frames as bad 19200 baud frames; each bad command or CRC adds one to a
 count (`main.c` 546 to 565, 815 to 816), and above 100 the bootloader calls
 `jump()` (`main.c` 1276 to 1281). In builds without DroneCAN, `jump()` checks
 only the settings page's first byte and the firmware's first two words (`main.c`
 423 to 466); controller area network (CAN) builds also check the application's
 signature (`DroneCAN_boot_ok()`, `main.c` 466 to 473). So about 100 ms after
-DShot resumes AM32 starts the firmware in flash, a half-written one included
-when a flash was cut after its first page. This is inferred, not measured. A
+DShot runs on SIG AM32 starts the firmware in flash, a half-written one
+included when a flash was cut after its first page. This is inferred, not measured. A
 power-up does the same: the AM32 bootloader runs `checkForSignal()` at every
 reset (`main.c` line 1263) and calls `jump()` once it has seen SIG low (`main.c`
 1097 to 1157, "floating & low at least once", line 1156), and DShot drives SIG
 low. No page on the bench keeps a cut flash from starting at the next power-up
-with DShot on SIG; only a complete flash does. After a write-class frame with no
-later RUN or `cmd_DeviceReset`, BACK therefore shows a leave page before DShot
-resumes, with the note `FLASH THE ESC AGAIN BEFORE USE.`, by decision 10.
+with SIG held low; only a complete flash does. After a write-class frame with no
+later RUN or `cmd_DeviceReset`, BACK therefore shows a leave page before the pins are parked, with the note `FLASH THE ESC AGAIN BEFORE USE.`, by decision 10.
 `cmd_InterfaceExit` does not count as a finished write: the AM32 configurator's
 disconnect sends only Exit (`SerialDevice.vue` 813 to 817), and its flash sends
 `cmd_DeviceReset` only after `writeHex()` returns (1076 to 1083), so a failed
@@ -657,12 +659,13 @@ but BACK, and RETRY after a failed bind, takes a tap.
 
 The leave page of decision 10 (a) is menu structure B's one leave page
 (`src/ui_leave.h`), with two steps: `POWER THE ESC OFF.` (107 px from
-x 20) and `RESTART DSHOT.` (83 px), and the note `FLASH THE ESC AGAIN
+x 20) and `BACK TO ESC PROGRAM.` (20 characters, 119 px), and the note `FLASH THE ESC AGAIN
 BEFORE USE.` (31 characters, 185 px) at y 158. It opens in Releasing, as
 BACK has already asked the line to be let go: the left button reads
 `BRIDGE`, which keeps the claim and returns to the bridge
-(`pinClaimKeep()`), and RESTART DSHOT is live 1000 ms after the line is let
-go, as for the servo tools (`ui_leave.h` lines 19 to 28).
+(`pinClaimKeep()`), and the wide button, which reads ESC PROGRAM, the hub's
+title, is live 1000 ms after the line is let go and parks the pins, as for the
+servo tools (`ui_leave.h` lines 19 to 28).
 
 ## Entry
 
@@ -813,8 +816,8 @@ Only an ESC and a PC settle these:
 - B8. A cut flash on each firmware at hand: the USB cable pulled during a
   page write; the ESC's state after a power cycle; a second flash through
   the bridge.
-- B9. BACK after a session: does the ESC start its firmware once DShot
-  resumes, and after how long; the tester's eRPM.
+- B9. BACK after a session: does the ESC start its firmware once ESC TESTER or
+  ESC COMMANDS runs DShot on SIG, and after how long; the tester's eRPM.
 - B10. The USB cable pulled during a page write, the board on its battery
   and on USB power alone: the screen, SIG's level on the analyser, the
   ESC's state.
@@ -1032,16 +1035,16 @@ stays on; MENU's run cue stands from the claim's begin
    write ends once `bridgeWireStats()`'s count of frames taken reaches it. The
    release drops a frame core1 has not started, so a RUN handed over just
    before BACK is never sent and ends nothing; a write after a pending RUN, or
-   the next open, drops it. RESTART DSHOT clears the unfinished write with
-   MENU's run cue (`usbBridgeWriteUnfinishedClear()`, called by
+   the next open, drops it. The leave page's last button clears the unfinished
+   write with MENU's run cue (`usbBridgeWriteUnfinishedClear()`, called by
    `src/ui_bridge.cpp`) and ends the claim, and the next entry starts with
    none: the page that ended the claim gave the note, and the board cannot
    tell whether the ESC on SIG is the same one, nor whether it was flashed
    since. While the board runs nothing else clears it; a claim with a write in
-   it ends through the screen only at RESTART DSHOT, as a claim that has had
+   it ends through the screen only at the last button, as a claim that has had
    the page keeps it until it is Free, a failed rebind after BRIDGE included.
    The flag lives in RAM: a board reset or a power loss in the middle of a
-   flash restarts the board with DShot on SIG and no note.
+   flash restarts the board with SIG parked low and no note.
 6. **The closed line**, `THE PC CLOSED THE PORT.`, shows after DTR falls
    with a byte forwarded either way since the open, and goes with the PC's
    next byte.
@@ -1070,16 +1073,17 @@ stays on; MENU's run cue stands from the claim's begin
     `CFG_TUD_CDC_RX_BUFSIZE` stays 64.
 13. **MENU's run cue**, `POWER-CYCLE THE ESC TO RUN IT`, is set when the
     screen's claim begins (`usbBridgeRunCueSet()`, called by `claimPin()`) and
-    at every open of the bridge. It is cleared only by RESTART DSHOT on the
-    leave page, whose steps power the ESC off, and by an eRPM frame stamped
+    at every open of the bridge. It is cleared only by the last button of the
+    leave page, whose steps power the ESC off, by START DSHOT on the start
+    step, and by an eRPM frame stamped
     after the begin or the open (`usbBridgeRunCue()`, ORed with ESC SETTINGS'
     cue in `ui_menu.cpp`). A RUN does not clear it, since a garbled frame
     could read as one. DShot is off SIG from the claim's begin: BACK while
-    Stopping or after a failed bind returns DShot at once, and while the
+    Stopping or after a failed bind parks the pins at once, and while the
     line binds once the job is idle (`src/ui_bridge.h`), with no leave page,
     and an AM32 ESC can enter its bootloader on its own after about 2 s
     without a signal, so MENU shows the cue there too. A BACK of a running
-    bridge brings the leave page, whose RESTART DSHOT clears the cue.
+    bridge brings the leave page, whose last button clears the cue.
 14. **Console text at the open.** The open calls `tud_cdc_write_clear()`,
     so what the console left in TinyUSB's transmit buffer never reaches the
     tool ahead of the first echo.
@@ -1104,15 +1108,15 @@ first, 1999 ms and 2000 ms idle, an ESC answer and a frame waiting for the slot
 keeping the session, a later `$`, DTR falling only after it was set, a tool that
 never sets it; a port close while gathering; the write rules, 2999 ms and
 3000 ms, the answer, ERASE, the payload, RUN, the greeting, a port close after a
-write, a claim's end with no RESTART DSHOT keeping the unfinished write; BACK
+write, a claim's end with no the last button keeping the unfinished write; BACK
 with the PC still connected, nothing read and nothing new sent; the console
 through the leave page and BRIDGE, the unfinished write kept through BRIDGE and
-cleared at RESTART DSHOT; a RUN handed over with BACK before core1 takes it,
+cleared at the last button; a RUN handed over with BACK before core1 takes it,
 dropped, the note kept through BRIDGE and through two frames after it, and a
 RUN core1 takes ending it; a refused bind and another screen's
 claim; a collision; LOST; a payload split by a USB gap, a RUN with a wrong CRC;
 the run cue from the claim's begin and the open, kept through a RUN and the
-close, cleared by an eRPM frame at the millisecond and by RESTART DSHOT, and
+close, cleared by an eRPM frame at the millisecond and by the last button, and
 standing on MENU after BACK from a failed bind (`runBridgeUiTests`); console
 text held at the open; a `CLOCK` line through the real `usbDevTask()`, setting
 the clock with the console on the port and going to the wire as data, setting
@@ -1121,9 +1125,9 @@ is not Running for the bridge, and DShot is never up with the line open, checked
 on every pass of every section. `runBridgeUiTests`, 150 checks in 6 sections:
 the entry, the screen's every line and width at rest, Stopping, PORT OPEN and
 CLOSED, the counts and their 250 ms, the closed line, a write with BACK
-disabled, the leave page and its steps, BRIDGE and RESTART DSHOT, the FLASH
+disabled, the leave page and its steps, BRIDGE and the hub's button, the FLASH
 note again at the BACK after BRIDGE, gone at the BACK after BRIDGE and a RUN,
-and absent after RESTART DSHOT and a fresh entry, the page with the note at
+and absent after the last button and a fresh entry, the page with the note at
 the BACK after a failed rebind from BRIDGE, BACK while
 Stopping, after a failed bind and with no claim, RETRY, USB DRIVE, another
 claim, LOST, SIG on GP1, the leave page at BACK with no traffic at all, between
@@ -1147,12 +1151,12 @@ repeats, is removed. Four survive:
   the state test is the one a pass between BACK and core1's release
   needs, and fails without it.
 - the counters without their clamp at 9999999: no test sends 10 MB.
-- RESTART DSHOT without the screen's own `pinClaimUnplugDue()` test:
+- The last button without the screen's own `pinClaimUnplugDue()` test:
   `uiLeaveTouch()` returns Restart only once the page is released and
   live, which needs the same state; `pinClaimRestart()` checks it too.
 
 Nine more of the unfinished write's span, each applied alone, all fail the
-suite: the open clearing it; RESTART DSHOT not clearing it;
+suite: the open clearing it; the last button not clearing it;
 `usbBridgeWriteUnfinishedClear()` doing nothing; every claim's end clearing
 it; the close clearing it; BRIDGE on the page clearing it; a passthrough RUN
 not ending it; the 4-way interface's RUN not ending it; the leave page drawn
@@ -1241,7 +1245,7 @@ reaches the wire.
    command's answer, at most 3000 ms after the last; Verify's data are not
    a write. Of the 4-way commands only DeviceReset's RUN ends the unfinished
    write, once core1 has taken it from the slot; the write lasts through
-   BRIDGE's reopen until RESTART DSHOT, as in passthrough (slice 2, call 5).
+   BRIDGE's reopen until the last button, as in passthrough (slice 2, call 5).
 7. **Answers.** InitFlash: signature low byte, high byte, the answer's
    fourth byte, the interface mode; 4 bytes of 0 when it fails. PageErase
    answers with the page's address as Betaflight computes it, page × 1024
@@ -1381,7 +1385,7 @@ Decisions of the owner, 2026-11-15, answering the open questions of
 9. **`SERIAL_TELEMETRY`.** Option (a): stays 1. This is the
    recommendation.
 10. **BACK after an unfinished write.** Option (a): the leave page with
-    `POWER THE ESC OFF.`, `RESTART DSHOT.` and `FLASH THE ESC AGAIN BEFORE
+    `POWER THE ESC OFF.`, `BACK TO ESC PROGRAM.` and `FLASH THE ESC AGAIN BEFORE
     USE.`. This is the recommendation. The developer extends it, on
     2026-11-15: a running bridge claim gives the leave page at every BACK,
     as the servo tools do, and the note `FLASH THE ESC AGAIN BEFORE USE.`
@@ -1430,7 +1434,7 @@ None open. Questions 1 to 12 are answered by decisions 1 to 12.
   reaches its bootloader at power-up; BLHeli_32's bootloader.
 - What AM32's, BLHeli_S's and Bluejay's bootloaders do with DShot frames
   after BACK, and whether AM32 starts its firmware about 100 ms after DShot
-  resumes.
+  runs on SIG.
 - Whether any ESC firmware arms on 19200 baud traffic on its signal wire.
 - What an unpowered RP2350 pad does to SIG when the cable of a board on
   USB power alone is pulled; how a pulled cable shows on the board's
