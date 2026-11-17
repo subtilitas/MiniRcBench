@@ -11,11 +11,9 @@ copies carry the licence of this repository, [LICENSE](../../LICENSE). Each
 file keeps its `SPDX-License-Identifier: MIT` line, except the files in
 `hardware/`. Those are model generators, and they are under CC BY-NC-SA 4.0
 ([hardware/LICENSE-CAD.txt](../../hardware/LICENSE-CAD.txt)). At the commits
-listed here they have no `SPDX-License-Identifier` line, so no line in them
-reads MIT. rcbench's licence change (pull request 860) puts
-`SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the end of each module
-docstring, generated `_font.py` excepted, and the copies take it when they
-are copied again. The directory layout is rcbench's, so a file here and its
+listed here each carries `SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the
+end of its module docstring, from rcbench's licence change (pull request
+860), the generated `_font.py` excepted, which has none. The directory layout is rcbench's, so a file here and its
 original compare with one `diff`.
 
 | File here | rcbench path |
@@ -250,7 +248,7 @@ module `README.md` and `CMakeLists.txt` are not copied, nor are
 `test_ew_line.c` and its `fake_pico/`, as for the KST and Hitec line
 drivers.
 
-The STEP writer and the specs of two modules, at commit `1b6029b8`:
+The STEP writer and the specs of two modules, at commit `33270eab`:
 
 | File here | rcbench path |
 | --- | --- |

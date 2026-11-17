@@ -42,6 +42,14 @@ protocol.
 
 ## Unreleased
 
+### Changed
+
+- The nine model generator files in `lib/rcbench/hardware/` are copied again
+  from rcbench at commit 33270eab. Each carries
+  `SPDX-License-Identifier: CC-BY-NC-SA-4.0` from rcbench's licence change,
+  pull request 860, `_font.py` excepted; no other line changes, and
+  `gen_models.py --check` finds no drift in the models.
+
 ### Added
 
 - The boot diagnostic, built with `-DBOOT_DIAG=ON` and off by default. Before
