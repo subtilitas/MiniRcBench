@@ -861,6 +861,7 @@ uint32_t am32BlBaud() { return 19200; }
 // Failures the tests ask for: each counts down, one per call.
 static int     g_am32WriteFails = 0;   /**< am32BlWrite() calls that fail, storing nothing. */
 static int     g_am32ReadFails = 0;    /**< am32BlRead() calls that fail. */
+static int     g_am32ReadsOk = 0;      /**< am32BlRead() calls that pass before the failures start. */
 static int     g_am32WriteSkews = 0;   /**< am32BlWrite() calls that store byte 0x1B wrong. */
 static uint8_t g_am32Garble[16];       /**< A handshake reply other than an AM32 bootloader's. */
 static uint8_t g_am32GarbleLen = 0;    /**< Its length; 0: the handshake succeeds. */
@@ -869,7 +870,8 @@ static BlAnswer g_am32Answer = { BlAnswerKind::Silent, 0, 0, false };
 static bool    g_am32Blank = false;    /**< Reads return an erased page. */
 static bool    g_am32Silent = false;   /**< Handshakes time out with no reply. */
 void fakeAm32FailWrites(int n) { g_am32WriteFails = n; }
-void fakeAm32FailReads(int n) { g_am32ReadFails = n; }
+void fakeAm32FailReads(int n) { g_am32ReadFails = n; g_am32ReadsOk = 0; }
+void fakeAm32FailReadsAfter(int ok, int n) { g_am32ReadsOk = ok; g_am32ReadFails = n; }
 void fakeAm32SkewWrites(int n) { g_am32WriteSkews = n; }
 void fakeAm32Garble(const uint8_t *b, uint8_t n) {
 	g_am32GarbleLen = n > sizeof(g_am32Garble) ? (uint8_t)sizeof(g_am32Garble) : n;
@@ -896,17 +898,25 @@ Am32Result am32BlHandshake(uint8_t *) {
 }
 BlAnswer am32BlAnswer() { return g_am32Answer; }
 Am32Result am32BlRead(uint16_t, uint8_t *b, uint8_t n) {
-	if (g_am32ReadFails > 0) { g_am32ReadFails--; return AM32_ERR_TIMEOUT; }
+	if (g_am32ReadsOk > 0) g_am32ReadsOk--;
+	else if (g_am32ReadFails > 0) { g_am32ReadFails--; return AM32_ERR_TIMEOUT; }
 	if (g_am32Blank) memset(b, 0xFF, n);
 	else memcpy(b, g_esc, n);
 	return AM32_OK;
 }
 static int g_am32Writes = 0;  /**< am32BlWrite() calls. */
+static uint8_t g_am32BlVersion = 0;  /**< Byte 2 a write leaves, as the bootloader; 0: the byte sent. */
+void fakeAm32BootloaderVersion(uint8_t v) { g_am32BlVersion = v; }
 int fakeAm32Writes() { return g_am32Writes; }
 Am32Result am32BlWrite(uint16_t, const uint8_t *b, uint8_t n) {
 	g_am32Writes++;
 	if (g_am32WriteFails > 0) { g_am32WriteFails--; return AM32_ERR_NAK; }
+	// As the AM32 bootloader's save_flash_nolib(): a write at the page's
+	// start erases the whole page first, then programs the bytes sent, and
+	// a write at the settings address puts the bootloader's version in byte 2.
+	memset(g_esc, 0xFF, sizeof(g_esc));
 	memcpy(g_esc, b, n);
+	if (g_am32BlVersion) g_esc[AM32_OFF_BOOTLOADER_REV] = g_am32BlVersion;
 	if (g_am32WriteSkews > 0) { g_am32WriteSkews--; g_esc[0x1B] ^= 0x40; }
 	return AM32_OK;
 }

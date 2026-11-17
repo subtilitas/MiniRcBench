@@ -27,7 +27,8 @@
  * the table is not checked against, outside 2 to 4, has no field line and
  * one line after `Firmware:`, `Layout not known: fields not read, not
  * verified` (am32FieldShown()). The byte lines hold all 48 bytes
- * (`AM32_SETTINGS_SIZE`), so a byte no field covers is kept too. The
+ * (`AM32_EEPROM_SIZE`, the whole settings page with the startup melody and
+ * the CAN block), so a byte no field covers is kept too. The
  * melody and the CAN (Controller Area Network) block, which the editor
  * neither shows nor writes, are not saved. Nothing reads the file back yet.
  */
@@ -40,7 +41,7 @@
 #include "backup_ring.h"
 
 /** @brief The file's format number. */
-#define AM32_BACKUP_FORMAT 1
+#define AM32_BACKUP_FORMAT 2
 
 /** @brief Room for a backup's text: 39 fields of up to 48 characters, the header and the bytes. */
 #define AM32_BACKUP_MAX 2560
@@ -53,7 +54,7 @@ uint32_t am32BackupCrc32(const char *p, size_t n);
 
 /**
  * @brief The backup's text of @p settings. Pure.
- * @param settings The first `AM32_SETTINGS_SIZE` bytes of the settings region, as read.
+ * @param settings The `AM32_EEPROM_SIZE` bytes of the settings page, as read.
  * @param escType  The ESC's MCU (microcontroller) family, as am32BlEscTypeName() names it.
  * @param address  The settings address, am32BlEepromAddr().
  * @param out      Destination.

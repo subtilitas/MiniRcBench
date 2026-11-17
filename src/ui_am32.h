@@ -128,6 +128,15 @@ bool uiAm32Tick(const TouchState *t);
 #define AM32_UI_PAGE_STALE "CHANGED SINCE THE PAGE: NOT WRITTEN"
 /** @brief The line under @ref AM32_UI_PAGE_STALE. 20 characters. */
 #define AM32_UI_PAGE_STALE_2 "TAP OK, WRITE AGAIN."
+/**
+ * @brief The write's refusal when the settings page read again just before
+ *        the write differs from the page read when the list opened, or does
+ *        not read: another ESC on the wire, or the same one changed.
+ *        Nothing goes to the card or the ESC. 24 characters.
+ */
+#define AM32_UI_ESC_CHANGED "ESC CHANGED: NOT WRITTEN"
+/** @brief The line under @ref AM32_UI_ESC_CHANGED. */
+#define AM32_UI_ESC_CHANGED_2 "LEAVE AND READ IT AGAIN."
 /** @} */
 
 /**
