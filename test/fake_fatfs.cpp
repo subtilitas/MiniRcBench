@@ -206,7 +206,9 @@ FRESULT f_open(FIL *fp, const char *path, uint8_t mode) {
 	} else if (mode & FA_CREATE_ALWAYS) {
 		g_entries[(size_t)i].data.clear();
 	}
+	static FATFS volume;
 	fp->handle = i;
+	fp->obj.fs = &volume;
 	fp->pos = 0;
 	fp->writing = writing;
 	g_entries[(size_t)i].opens++;
@@ -224,6 +226,7 @@ FRESULT f_close(FIL *fp) {
 	g_entries[(size_t)fp->handle].opens--;
 	g_entries[(size_t)fp->handle].writers -= fp->writing;
 	fp->handle = -1;
+	fp->obj.fs = nullptr;
 	g_open--;
 	return FR_OK;
 }

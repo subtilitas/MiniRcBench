@@ -861,12 +861,40 @@ static void testNoRun() {
 	f_mount(nullptr, "", 0);
 }
 
+/**
+ * @brief A stop whose close fails leaves FatFs's lock entry on the log; the
+ *        next start mounts the card again first, which drops it (review of
+ *        2026-11-17).
+ */
+static void testCloseLeak() {
+	section("Logger over FatFs, FAT32: a stop whose close fails, then the next start");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	checkTrue("START", sdLogStart());
+	frames(200);
+	const uint32_t n = status().fileNumber;
+	char path[40];
+	snprintf(path, sizeof(path), "%s/LOG%05u.BFL", SD_LOG_DIR_PATH, (unsigned)n);
+	g_disk.failWrites = true;
+	sdLogStop();
+	g_disk.failWrites = false;
+	checkTrue("the stop failed: error", status().state == SdLogState::Error);
+	FILINFO fno;
+	checkTrue("the log's entry is on the card", f_stat(path, &fno) == FR_OK);
+	checkTrue("START again", sdLogStart());
+	frames(50);
+	sdLogStop();
+	checkTrue("the first log is no longer locked: it removes",
+	          f_unlink(path) == FR_OK && f_stat(path, &fno) != FR_OK);
+	f_mount(nullptr, "", 0);
+}
+
 int main() {
 	testPure();
 	testErpmFresh();
 	runVolume("FAT32", FM_FAT32, 2u * 1024u * 1024u, 4096);      // 1 GiB, 4 KiB clusters
 	runVolume("exFAT", FM_EXFAT, 2u * 1024u * 1024u, 32768);     // 1 GiB, 32 KiB clusters
 	testNoRun();
+	testCloseLeak();
 	testTxtNotSaved();
 	testLogFails();
 	testClock();

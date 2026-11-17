@@ -130,9 +130,12 @@ CardIo cardCreate(const char *dir, const char *name, const char *data, size_t le
 	} else {
 		r = writeOpen(path, data, len);
 		// A failed create leaves no file behind. A file whose close failed
-		// stays open in FatFs, which then refuses the remove with FR_LOCKED:
-		// it stays on the card, and holds one of FatFs's 16 lock entries
-		// until the card is mounted again.
+		// stays open in FatFs (f_close() clears obj.fs only on success),
+		// holding one of FatFs's 16 lock entries, and the remove would be
+		// refused with FR_LOCKED: the card is mounted again first, which
+		// drops the lock entries and the cached sectors. While a log runs
+		// or USB DRIVE holds the card, no mount happens and the file stays.
+		if (r != CardIo::Ok && s_fil.obj.fs) sdLogRemount();
 		if (r != CardIo::Ok) f_unlink(path);
 	}
 	// Nor the directory this call made; one that holds a file stays.
