@@ -1310,7 +1310,7 @@ static void testProbeAm32() {
 	settingsLoad();
 	uiInitTester();
 	outFrames(2);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	outFrames(2);
 	checkTrue("MENU: the strip's second line reads POWER-CYCLE THE ESC TO RUN IT",
 	          uiCurrentScreen() == UiScreenId::Menu &&

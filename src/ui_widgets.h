@@ -151,7 +151,7 @@ struct TouchState;
  * frame, a rule, a disabled label, a group caption or a read-only value. The
  * uses decision 11's tables name take their role's colour. `C_CYAN` is the
  * accent and has more than one use (docs/design/ui-theme.md, decision 1):
- * as a button's fill the way back, BACK and the tester's `MENU`; as text
+ * as a button's fill the way back, BACK, the tester's too; as text
  * the mark `>` of a row that opens a hub, a setting's value, a section
  * caption and the new value after `old ->`; as a fill behind a value in a
  * row, and as the row's bar, a change (@ref UI_COL_CHANGED). The splash's

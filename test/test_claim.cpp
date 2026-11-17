@@ -301,7 +301,7 @@ static void testBeginRefusals() {
 	checkTrue("DShot runs on", fakePinReturned() && escTaskRunning() && fakeParkCount() == parks);
 
 	// MENU: Run is no longer wanted, and the pump parks.
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("MENU: parked", uiCurrentScreen() == UiScreenId::Menu && escTaskParked() &&
 	          fakeParkCount() == parks + 1);
@@ -1338,7 +1338,7 @@ static void testAm32Screen() {
 	frames(2);
 	int resumes = fakeParkCount();
 
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	frames(1);  // MENU's first paint: the table check compares BACK's look.
 	checkControlTable("MENU");
@@ -1370,7 +1370,7 @@ static void testAm32Screen() {
 	checkTrue("BACK from ESC PROGRAM returns to MENU", uiCurrentScreen() == UiScreenId::Menu);
 	openTester();
 	checkTrue("MENU's row ESC TESTER returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	openEscSettings();
 	checkTrue("AM32 opens a second time", uiCurrentScreen() == UiScreenId::Am32);
@@ -1401,7 +1401,7 @@ static void testAm32Screen() {
 	for (int x = 120; x <= 180; x += 10) { fakeHold(x, thrY); frames(1); }
 	fakeRelease(); frames(1);
 	checkTrue("armed with a throttle", uiArmed() && fakeThrottle() > 0);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	checkTrue("MENU opens from a running motor", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("MENU disarms", !uiArmed() && !fakeArmed());
 	openEscSettings();

@@ -328,7 +328,7 @@ static void freshUi() {
 
 /** @brief From the tester through MENU to RECEIVER, the chooser. */
 static void openRx() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	sbFrames(1);
 	tapId(menuRow(&UI_RX_SIGNALS));
 	sbFrames(1);

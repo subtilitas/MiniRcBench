@@ -7,7 +7,7 @@
  * nothing lies behind the root. Its six rows are ESC TESTER, ESC PROGRAM,
  * SERVO, RECEIVER, LOGS and SETUP, at a 42 px pitch from y 62: they
  * take 252 px of the 258 px under the strip, so MENU does not scroll and
- * every row is whole. ESC TESTER opens the tester, whose MENU button
+ * every row is whole. ESC TESTER opens the tester, whose header's BACK
  * disarms and returns here. ESC PROGRAM, SERVO and RECEIVER each open a
  * hub (ui_hub.h) and carry the mark `>` at the row's right, where LOGS
  * and SETUP carry a status.

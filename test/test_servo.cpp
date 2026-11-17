@@ -2822,7 +2822,7 @@ static void freshUi() {
 
 /** @brief Main screen to SERVO TESTER, through MENU and SERVO, the hub. */
 static void openServo() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(toolEntry(&UI_SERVO));
@@ -3007,7 +3007,7 @@ static void testScreenOpens() {
 	section("Servo screen: MENU opens it, and it starts SAFE");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(2);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("MENU: SERVO, the hub's row, is drawn live",
@@ -3153,7 +3153,7 @@ static void testStartNeedsLivePress() {
 	section("Servo screen: a press on a disabled HOLD TO START never starts it");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(toolEntry(&UI_SERVO));
@@ -4598,7 +4598,7 @@ static void testClaimCorners() {
 	// act, and a tap opens nothing. Once the claim is Free, the entry opens
 	// SERVO TESTER, which claims at once.
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("another screen holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
@@ -4990,7 +4990,7 @@ static void testSupplyLineAndHint() {
 	section("Servo screen: the switched supply's line; two servos are possible");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	tapId(toolEntry(&UI_SERVO));
 	uiTick();   // SERVO's first frame, at once: the pump is still draining
@@ -6051,7 +6051,7 @@ static void testPinNames() {
 
 	// The first frame of a claim: the pump still drains.
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	tapId(toolEntry(&UI_SERVO));
 	uiTick();

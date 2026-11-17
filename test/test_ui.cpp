@@ -183,8 +183,8 @@ static void holdToArm(IdExpect want = IdExpect::Enabled) {
  * Assumes the main screen is showing and the ESC is disarmed.
  */
 static void enterLogScreen() {
-	tapId(UI_FIX(TesterCtl::Menu));
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(menuRow(&UI_SDLOG));
 	checkTrue("LOGS opens from MENU", uiCurrentScreen() == UiScreenId::SdLog);
 }
@@ -732,14 +732,14 @@ static void testTesterNoRun() {
 	st.summary = &sum;
 	st.summaryPoles = 14;
 	fakeSdLogSet(&st);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	openTester();
 	frames(4);
 	uint32_t with = fakeRegionHash(0, 0, GFX_W, GFX_H);
 	st.summary = nullptr;
 	fakeSdLogSet(&st);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	openTester();
 	frames(4);
@@ -1080,7 +1080,7 @@ static void testLogEndNotes() {
 	frames(2);
 	openTester();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	openEscSettings();
 	frames(20);
@@ -1196,13 +1196,13 @@ static void testTesterSdErr() {
 	st.state = SdLogState::Idle;
 	fakeSdLogSet(&st);
 	frames(2);
-	checkTrue("a card idle: SD, dim text", fakeTextIs(104, 14, "SD", C_DIM, C_PANEL, 1));
+	checkTrue("a card idle: SD, dim text", fakeTextIs(104, BAND(14), "SD", C_DIM, C_PANEL, 1));
 	const uint16_t *fb = gfxBuffer();
-	// The badge is a chip, 92 x 20 px from (4, 3): square, its corner pixels
+	// The badge is a chip, 92 x 20 px from (4, 39): square, its corner pixels
 	// lit (slice 9 of menu-c.md's build plan).
 	checkTrue("the SAFE badge is square: its four corner pixels are its fill",
-	          fb[3 * GFX_W + 4] == C_GREEN && fb[3 * GFX_W + 95] == C_GREEN &&
-	          fb[22 * GFX_W + 4] == C_GREEN && fb[22 * GFX_W + 95] == C_GREEN);
+	          fb[BAND(3) * GFX_W + 4] == C_GREEN && fb[BAND(3) * GFX_W + 95] == C_GREEN &&
+	          fb[BAND(22) * GFX_W + 4] == C_GREEN && fb[BAND(22) * GFX_W + 95] == C_GREEN);
 	holdToArm();
 	checkTrue("armed", uiArmed());
 	st.state = SdLogState::Error;
@@ -1210,30 +1210,30 @@ static void testTesterSdErr() {
 	fakeSdLogSet(&st);
 	frames(2);
 	checkTrue("the log failed while armed: SDERR on an amber chip",
-	          fakeTextIs(104, 14, "SDERR", C_PAPER, C_AMBER, 1));
+	          fakeTextIs(104, BAND(14), "SDERR", C_PAPER, C_AMBER, 1));
 	checkTrue("the chip is square: its four corner pixels are amber",
-	          fb[12 * GFX_W + 101] == C_AMBER && fb[12 * GFX_W + 134] == C_AMBER &&
-	          fb[22 * GFX_W + 101] == C_AMBER && fb[22 * GFX_W + 134] == C_AMBER);
+	          fb[BAND(12) * GFX_W + 101] == C_AMBER && fb[BAND(12) * GFX_W + 134] == C_AMBER &&
+	          fb[BAND(22) * GFX_W + 101] == C_AMBER && fb[BAND(22) * GFX_W + 134] == C_AMBER);
 	checkTrue("the ARMED badge is square: its four corner pixels are red",
-	          fb[3 * GFX_W + 4] == C_RED && fb[3 * GFX_W + 95] == C_RED &&
-	          fb[22 * GFX_W + 4] == C_RED && fb[22 * GFX_W + 95] == C_RED);
-	checkTrue("the chip's fill from x 101 to 134, y 12 to 22",
-	          fb[12 * GFX_W + 102] == C_AMBER && fb[22 * GFX_W + 133] == C_AMBER &&
-	          fb[17 * GFX_W + 100] == C_PANEL && fb[17 * GFX_W + 135] == C_PANEL &&
-	          fb[11 * GFX_W + 110] == C_PANEL && fb[23 * GFX_W + 110] == C_PANEL);
+	          fb[BAND(3) * GFX_W + 4] == C_RED && fb[BAND(3) * GFX_W + 95] == C_RED &&
+	          fb[BAND(22) * GFX_W + 4] == C_RED && fb[BAND(22) * GFX_W + 95] == C_RED);
+	checkTrue("the chip's fill from x 101 to 134, y 48 to 58",
+	          fb[BAND(12) * GFX_W + 102] == C_AMBER && fb[BAND(22) * GFX_W + 133] == C_AMBER &&
+	          fb[BAND(17) * GFX_W + 100] == C_PANEL && fb[BAND(17) * GFX_W + 135] == C_PANEL &&
+	          fb[BAND(11) * GFX_W + 110] == C_PANEL && fb[BAND(23) * GFX_W + 110] == C_PANEL);
 	checkTrue("the arm badge still reads ARMED",
-	          fakeTextIs(4 + (92 - gfxTextW("ARMED", 2)) / 2, 7, "ARMED", C_ONACCENT, C_RED, 2));
+	          fakeTextIs(4 + (92 - gfxTextW("ARMED", 2)) / 2, BAND(7), "ARMED", C_ONACCENT, C_RED, 2));
 	fakeDumpFrame("shot_tester_sderr.ppm");
 	tapId(UI_FIX(TesterCtl::Arm));                         // DISARM
 	frames(2);
 	checkTrue("disarmed", !uiArmed());
-	checkTrue("disarmed: the chip stays", fakeTextIs(104, 14, "SDERR", C_PAPER, C_AMBER, 1));
+	checkTrue("disarmed: the chip stays", fakeTextIs(104, BAND(14), "SDERR", C_PAPER, C_AMBER, 1));
 	st.state = SdLogState::Idle;
 	st.end = SdLogEnd::None;
 	fakeSdLogSet(&st);
 	frames(2);
 	checkTrue("mounted again: SD, the chip gone",
-	          fakeTextIs(104, 14, "SD", C_DIM, C_PANEL, 1) && fb[12 * GFX_W + 102] == C_PANEL);
+	          fakeTextIs(104, BAND(14), "SD", C_DIM, C_PANEL, 1) && fb[BAND(12) * GFX_W + 102] == C_PANEL);
 }
 
 /**
@@ -1701,9 +1701,9 @@ static void testMenuChip() {
 	section("MENU: no EDT chip, and a row's release");
 
 	feedLiveTelemetry();
-	tapId(UI_FIX(TesterCtl::Menu));          // into MENU (this force-disarms)
+	tapId(UI_FIX(UI_BACK));          // into MENU (this force-disarms)
 	frames(2);
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	const UiRect cmds = ctlRect(menuRow(&UI_ESC_CONFIG));
 	const UiRect logs = ctlRect(menuRow(&UI_SDLOG));
 	checkTrue("ESC PROGRAM is the second row, its label at scale 2 from x 16, 130 px, its mark at x 213",
@@ -1774,8 +1774,8 @@ static void testMenuChip() {
 
 /** @brief Walk from the main screen into MENU, then into SETUP. */
 static void enterSettings() {
-	tapId(UI_FIX(TesterCtl::Menu));
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(menuRow(&UI_SETTINGS));
 	frames(2);
 	checkTrue("SETUP opens from MENU", uiCurrentScreen() == UiScreenId::Settings);
@@ -1990,7 +1990,7 @@ static void testSettingsWiring() {
  * UI meant to draw. The rectangle is the widest label, `DSHOT1200`, at scale 1.
  */
 static bool statusLabelIs(const char *text, uint16_t colour) {
-	const int x = 104, y = 3, w = 53, h = 7;
+	const int x = 104, y = BAND(3), w = 53, h = 7;
 	uint32_t shown = fakeRegionHash(x, y, w, h);
 	gfxRect(x, y, w, h, C_PANEL);
 	gfxText(x, y, text, colour, 1);
@@ -2469,8 +2469,8 @@ static void testTapCancels() {
 	frames(2);
 	checkTrue("released in place, LATCH latched the throttle", fakeThrottle() > 0);
 	tapId(UI_FIX(TesterCtl::Latch));       // back off, which zeroes it
-	tapId(UI_FIX(TesterCtl::Menu));       // into MENU for the rest
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));       // into MENU for the rest
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	// MENU: press ESC PROGRAM's row, slide off it, release. Neither row
 	// fires.
@@ -2633,7 +2633,7 @@ static void testArmInterlocks() {
 	// The press begins 40 px left of MENU's centre and 60 px above ARM's,
 	// which is no button.
 	int cx, cy, ax, ay;
-	ctlCentre(UI_FIX(TesterCtl::Menu), &cx, &cy);
+	ctlCentre(UI_FIX(UI_BACK), &cx, &cy);
 	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
 	fakePress(cx - 40, ay - 60); frames(1);
 	holdId(UI_FIX(TesterCtl::Arm), 80);
@@ -2862,8 +2862,8 @@ static void testCeilingBindsInRelativeMode() {
 
 	// Lowering the ceiling while a latched throttle is above it must not leave
 	// the motor above the new limit.
-	tapId(UI_FIX(TesterCtl::Menu));
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("opening MENU disarmed", !uiArmed());
 	checkInt("which zeroed the throttle", fakeThrottle(), 0);
 }
@@ -3574,7 +3574,7 @@ static void testIdleAutoDisarm() {
 
 	// The countdown appears before it acts. A motor stopping unannounced is
 	// indistinguishable from a fault.
-	auto statusBar = []() { return fakeRegionHash(120, 0, 120, 26); };
+	auto statusBar = []() { return fakeRegionHash(120, BAND(0), 120, 27); };
 	uint32_t quiet = statusBar();
 	fakeAdvance(IDLE_DISARM_MS / 2 - 3000);
 	frames(2);
@@ -3796,9 +3796,9 @@ static void testRecBadges() {
 	checkTrue("a log runs", sdLogStart() && sdLogActive());
 	frames(2);
 	const uint16_t *fb = gfxBuffer();
-	checkTrue("REC on a red chip from x 101, y 12, 23 px wide",
-	          fakeTextIs(104, 14, "REC", C_ONACCENT, C_RED, 1) && fb[12 * GFX_W + 101] == C_RED &&
-	          fb[22 * GFX_W + 123] == C_RED && fb[12 * GFX_W + 124] == C_PANEL);
+	checkTrue("REC on a red chip from x 101, y 48, 23 px wide",
+	          fakeTextIs(104, BAND(14), "REC", C_ONACCENT, C_RED, 1) && fb[BAND(12) * GFX_W + 101] == C_RED &&
+	          fb[BAND(22) * GFX_W + 123] == C_RED && fb[BAND(12) * GFX_W + 124] == C_PANEL);
 	testerToMenu();
 	frames(1);
 	const UiRect row = ctlRect(menuRow(&UI_SDLOG));
@@ -3867,14 +3867,14 @@ static void testBoardCellColour() {
 	// Drawn, through the ADC: raw * 3.3 / 4095 * 3 V. The first frame takes
 	// the reading unsmoothed; later ones move a tenth of the way a frame.
 	// C_RED stands for the critical badge: dark digits on a red rectangle from
-	// 3 px left of them, y 5 to y 22.
+	// 3 px left of them, y 41 to y 58.
 	auto shows = [](const char *text, uint16_t col) {
 		const int x = GFX_W - 4 - gfxTextW(text, 2);
 		if (col == C_RED)
-			return fakeTextIs(x, 7, text, C_ONACCENT, C_RED, 2) &&
-			       gfxBuffer()[5 * GFX_W + x - 3] == C_RED && gfxBuffer()[22 * GFX_W + x - 3] == C_RED &&
-			       gfxBuffer()[4 * GFX_W + x - 3] == C_PANEL && gfxBuffer()[5 * GFX_W + x - 4] == C_PANEL;
-		return fakeTextIs(x, 7, text, col, C_PANEL, 2);
+			return fakeTextIs(x, BAND(7), text, C_ONACCENT, C_RED, 2) &&
+			       gfxBuffer()[BAND(5) * GFX_W + x - 3] == C_RED && gfxBuffer()[BAND(22) * GFX_W + x - 3] == C_RED &&
+			       gfxBuffer()[BAND(4) * GFX_W + x - 3] == C_PANEL && gfxBuffer()[BAND(5) * GFX_W + x - 4] == C_PANEL;
+		return fakeTextIs(x, BAND(7), text, col, C_PANEL, 2);
 	};
 	struct { uint16_t raw; const char *text; uint16_t col; const char *what; } cases[] = {
 		{ 1427, "3.45V", C_AMBER, "3.45 V: amber" },
@@ -3917,8 +3917,8 @@ static void testBoardCellColour() {
 			frames(2);
 			char what[64];
 			snprintf(what, sizeof(what), "SDERR chip and %s together", c.text);
-			checkTrue(what, fakeTextIs(104, 14, "SDERR", C_PAPER, C_AMBER, 1) &&
-			                fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1) &&
+			checkTrue(what, fakeTextIs(104, BAND(14), "SDERR", C_PAPER, C_AMBER, 1) &&
+			                fakeTextIs(140, BAND(14), "BOARD", C_DIM, C_PANEL, 1) &&
 			                shows(c.text, c.col));
 		}
 		fakeSdLogSet(&was);
@@ -3934,8 +3934,8 @@ static void testBoardCellColour() {
 	checkTrue("armed at 3.20 V: the voltage in red", uiArmed() && shows("3.20V", C_RED));
 	fakeAdvance(IDLE_DISARM_MS - 3000);
 	frames(1);
-	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place, from y 11",
-	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), 11, "IDLE 3s", C_AMBER, C_PANEL, 2));
+	checkTrue("the last 5 s: IDLE 3s, amber, in the voltage's place, from y 47",
+	          fakeTextIs(GFX_W - 4 - gfxTextW("IDLE 3s", 2), BAND(11), "IDLE 3s", C_AMBER, C_PANEL, 2));
 	checkTrue("and no voltage", !shows("3.20V", C_RED) && !shows("3.20V", C_TEXT));
 	// At 1200 kbit/s the rate, DSHOT1200, ends at x 156, right of where
 	// IDLE 5s starts, x 154: the two share no pixel. Each reads alone in its
@@ -3947,12 +3947,12 @@ static void testBoardCellColour() {
 		frames(1);
 		const char *idle = "IDLE 2s";
 		uint16_t rateCol = escEdtRequested() ? C_TEXT : C_DIM;
-		bool alone = fakeTextIs(104, 3, "DSHOT1200", rateCol, C_PANEL, 1) &&
-		             fakeTextIs(GFX_W - 4 - gfxTextW(idle, 2), 11, idle, C_AMBER, C_PANEL, 2);
+		bool alone = fakeTextIs(104, BAND(3), "DSHOT1200", rateCol, C_PANEL, 1) &&
+		             fakeTextIs(GFX_W - 4 - gfxTextW(idle, 2), BAND(11), idle, C_AMBER, C_PANEL, 2);
 		bool gap = true;
 		for (int x = 104; x < GFX_W - 4; x++)
-			if (gfxBuffer()[10 * GFX_W + x] != C_PANEL) gap = false;
-		checkTrue("DSHOT1200 and IDLE 2s share no pixel, y 10 blank between", alone && gap);
+			if (gfxBuffer()[BAND(10) * GFX_W + x] != C_PANEL) gap = false;
+		checkTrue("DSHOT1200 and IDLE 2s share no pixel, y 46 blank between", alone && gap);
 		escTaskConfigure(pin, DSHOT_SPEED_KBAUD, false, 0);
 	}
 	fakeAdvance(4000);
@@ -4149,8 +4149,8 @@ static void testHitBoundaries() {
 	settingsLoad();
 	uiInitTester();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Menu));
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	// MENU's rows are 40 px tall at a 42 px pitch: LOGS ends where the
 	// gap above SETUP starts, and SETUP where the 8 px under the list
@@ -4212,9 +4212,9 @@ static void testMenuDestinations() {
 	memset(&quiet, 0, sizeof(quiet));
 	fakeSetTelemetry(&quiet);
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	frames(2);
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 	checkControlTable("MENU");
 
 	// The registry, in MENU order.
@@ -4668,9 +4668,9 @@ static void testPressedLookClears() {
 	settingsLoad();
 	uiInitTester();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Menu));           // to MENU
+	tapId(UI_FIX(UI_BACK));           // to MENU
 	frames(2);
-	checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+	checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 
 	// A MENU row opens its tool on release, so the release frame is not
 	// MENU's. The row is at rest when MENU comes back.
@@ -4783,15 +4783,15 @@ static void testTesterBoardAndCard() {
 	uiInitTester();
 	feedLiveTelemetry();
 	frames(4);
-	checkTrue("BOARD at x 140, y 14, dim on the status bar",
-	          fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1));
-	// The voltage, scale 2 from y 7, is right-aligned to x 236. Between
+	checkTrue("BOARD at x 140, y 50, dim on the status bar",
+	          fakeTextIs(140, BAND(14), "BOARD", C_DIM, C_PANEL, 1));
+	// The voltage, scale 2 from y 43, is right-aligned to x 236. Between
 	// BOARD's last column, x 168, and the voltage's first, at least 4 px of
 	// panel: no glyph of either runs into the other.
 	int vx = 169;
 	while (vx < GFX_W) {
 		bool ink = false;
-		for (int y = 7; y < 21; y++) ink |= gfxBuffer()[y * GFX_W + vx] != C_PANEL;
+		for (int y = BAND(7); y < BAND(21); y++) ink |= gfxBuffer()[y * GFX_W + vx] != C_PANEL;
 		if (ink) break;
 		vx++;
 	}
@@ -4824,13 +4824,13 @@ static void testTesterBoardAndCard() {
 		frames(2);
 		const int w = gfxTextW(vc.want, 2), x = GFX_W - 4 - w;
 		char what[64];
-		snprintf(what, sizeof(what), "ADC %u: %s, right-aligned at y 7", vc.raw, vc.want);
-		checkTrue(what, fakeTextIs(x, 7, vc.want, C_TEXT, C_PANEL, 2));
+		snprintf(what, sizeof(what), "ADC %u: %s, right-aligned at y 43", vc.raw, vc.want);
+		checkTrue(what, fakeTextIs(x, BAND(7), vc.want, C_TEXT, C_PANEL, 2));
 		bool clear = true;
-		for (int y = 3; y < 22; y++)
+		for (int y = BAND(3); y < BAND(22); y++)
 			for (int xx = 169; xx < x; xx++) clear = clear && gfxBuffer()[y * GFX_W + xx] == C_PANEL;
 		snprintf(what, sizeof(what), "ADC %u: no ink between BOARD and the value", vc.raw);
-		checkTrue(what, clear && fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1));
+		checkTrue(what, clear && fakeTextIs(140, BAND(14), "BOARD", C_DIM, C_PANEL, 1));
 	}
 	fakeAdcSet(fakeAdcDefault());
 	uiInitTester();
@@ -4946,18 +4946,22 @@ static void testTesterReadouts() {
 	checkTrue("underlined at y 244, x 88 to 128", underlined(88, 244, "MAX 20%"));
 	checkTrue("the widest texts fit their targets: 28 POLES, MAX 100%",
 	          10 + gfxTextW("28 POLES", 1) <= 4 + 72 && 88 + gfxTextW("MAX 100%", 1) <= 82 + 60);
-	checkTrue("LATCH on the middle button, THROTTLE on the track's caption",
-	          fakeTextIs(116 + (54 - gfxTextW("LATCH", 1)) / 2, 283 + (33 - 7) / 2, "LATCH",
+	const UiRect latch = ctlRect(UI_FIX(TesterCtl::Latch));
+	checkTrue("LATCH on the right button, x 162 to 233, THROTTLE on the track's caption",
+	          latch.x == 162 && latch.w == 72 && latch.y == 283 && latch.h == 33 &&
+	          fakeTextIs(latch.x + (latch.w - gfxTextW("LATCH", 1)) / 2, 283 + (33 - 7) / 2, "LATCH",
 	                     C_DIM, C_PANEL, 1) &&
 	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
 	{
-		// The tester has no header: MENU is its home tag, cyan as BACK is
-		// (ui-theme.md, decision 15), at the right end of the button row.
-		const UiRect mb = ctlRect(UI_FIX(TesterCtl::Menu));
-		checkTrue("MENU is the home tag: C_CYAN, a C_GRID frame, its label C_ONACCENT; 58 px from x 176",
-		          mb.x == 176 && mb.w == 58 && fb[(mb.y + mb.h / 2) * GFX_W + mb.x + 4] == C_CYAN &&
+		// The tester has the header every screen has: BACK is its home tag,
+		// cyan (ui-theme.md, decision 15), top right at uiBackRect().
+		const UiRect mb = ctlRect(UI_FIX(UI_BACK));
+		const UiRect br = uiBackRect();
+		checkTrue("BACK is the home tag: C_CYAN, a C_GRID frame, its label C_ONACCENT, at uiBackRect()",
+		          mb.x == br.x && mb.y == br.y && mb.w == br.w && mb.h == br.h &&
+		          fb[(mb.y + mb.h / 2) * GFX_W + mb.x + 4] == C_CYAN &&
 		          fb[mb.y * GFX_W + mb.x + mb.w / 2] == C_GRID &&
-		          fakeTextIs(mb.x + (mb.w - gfxTextW("MENU", 1)) / 2, mb.y + (mb.h - 7) / 2, "MENU",
+		          fakeTextIs(mb.x + (mb.w - gfxTextW("BACK", 1)) / 2, mb.y + (mb.h - 7) / 2, "BACK",
 		                     C_ONACCENT, C_CYAN, 1));
 		int cyan = 0, inside = 0;
 		for (int y = 0; y < GFX_H; y++)
@@ -4988,7 +4992,7 @@ static void testTesterReadouts() {
 	tapId(UI_FIX(UI_BACK));
 	frames(2);
 	checkTrue("BACK from SETUP returns to the tester", uiCurrentScreen() == UiScreenId::Tester);
-	checkTrue("which is drawn whole again", fakeTextIs(140, 14, "BOARD", C_DIM, C_PANEL, 1) &&
+	checkTrue("which is drawn whole again", fakeTextIs(140, BAND(14), "BOARD", C_DIM, C_PANEL, 1) &&
 	          underlined(10, 122, "14 POLES") && underlined(88, 244, "MAX 20%"));
 	tapId(UI_FIX(TesterCtl::Max));
 	checkTrue("a tap on MAX opens SETUP", uiCurrentScreen() == UiScreenId::Settings);
@@ -5016,7 +5020,7 @@ static void testTesterReadouts() {
 	tapId(UI_FIX(TesterCtl::Latch));
 	frames(1);
 	checkTrue("LATCH on: the button fills blue, the caption reads " UI_TESTER_LATCHED_TEXT,
-	          fb[(283 + 4) * GFX_W + 116 + 4] == C_BLUE &&
+	          fb[(283 + 4) * GFX_W + latch.x + 4] == C_BLUE &&
 	          fakeTextIs(8, 236, UI_TESTER_LATCHED_TEXT, C_DIM, C_BG, 1));
 	checkInt("LATCHED is 41 px", gfxTextW(UI_TESTER_LATCHED_TEXT, 1), 41);
 	{
@@ -5042,7 +5046,7 @@ static void testTesterReadouts() {
 	          uiCurrentScreen() == UiScreenId::Tester && uiNavDepth() == 2 &&
 	          uiNavAt(0) == UiScreenId::Menu);
 	checkTrue("back on the tester: LATCH is off",
-	          fb[(283 + 4) * GFX_W + 116 + 4] == C_PANEL &&
+	          fb[(283 + 4) * GFX_W + latch.x + 4] == C_PANEL &&
 	          fakeTextIs(8, 236, "THROTTLE", C_DIM, C_BG, 1));
 
 	// --- armed: inert, no underline ---
@@ -5085,7 +5089,7 @@ static void testTesterReadouts() {
 	// LATCH on, its disarm changes the throttle band and the buttons, and
 	// the frame of the tap paints neither back.
 	tapId(UI_FIX(TesterCtl::Latch));
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	{
 		bool clear = true;
 		for (int y = 234; y < GFX_H; y++) clear = clear && rowIs(y, 0, GFX_W - 1, C_BG);
@@ -5130,6 +5134,148 @@ static void testTesterReadouts() {
 	frames(2);
 	esc3dSetNote(false);
 	uiInitTester();
+	frames(2);
+}
+
+/**
+ * @brief The non-background pixels of the RPM digits' columns, x 90 to 239,
+ *        y 63 to 98: their bounding box, x0 > x1 when there are none.
+ */
+static void rpmInkBox(int *x0, int *y0, int *x1, int *y1) {
+	const uint16_t *fb = gfxBuffer();
+	*x0 = GFX_W; *y0 = GFX_H; *x1 = -1; *y1 = -1;
+	for (int y = 63; y <= 98; y++)
+		for (int x = 90; x < GFX_W; x++) {
+			if (fb[y * GFX_W + x] == C_BG) continue;
+			if (x < *x0) *x0 = x;
+			if (x > *x1) *x1 = x;
+			if (y < *y0) *y0 = y;
+			if (y > *y1) *y1 = y;
+		}
+}
+
+/**
+ * @brief The tester's header (owner decision of 2026-11-17): ESC TESTER and
+ *        BACK at uiBackRect(), the rule at y 35; the status band under it,
+ *        y 36 to 62, its badge, hold progress, rate and BOARD there; the
+ *        RPM area from y 63, the digits at 99999 inside it, x 101 to 225 and
+ *        y 66 to 97, clear of the RPM label and the ERPM line, in both themes.
+ */
+static void testTesterHeader() {
+	section("Tester: the header with BACK; the status band and the RPM digits under it");
+
+	fakeFlashClear();
+	settingsLoad();
+	uiInitTester();
+	feedLiveTelemetry();
+	frames(4);
+	const uint16_t *fb = gfxBuffer();
+
+	// --- the header ---
+	checkTrue("ESC TESTER in the header, scale 2, C_TEXT on C_PANEL",
+	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "ESC TESTER", C_TEXT, C_PANEL, 2));
+	checkTrue("BACK drawn live: C_CYAN, its label C_ONACCENT", backLook() == BackLook::Live);
+	{
+		const UiRect b = ctlRect(UI_FIX(UI_BACK)), br = uiBackRect();
+		checkTrue("BACK in the table at uiBackRect(), x 170 to 233, y 2 to 33, acting",
+		          b.x == br.x && b.y == br.y && b.w == br.w && b.h == br.h && br.x == 170 &&
+		          br.y == 2 && br.w == 64 && br.h == 32 && ctlEnabled(UI_FIX(UI_BACK)));
+	}
+	checkTrue("the header's rule at y 35", headerRuleDrawn());
+	checkTrue("the header band between the title and BACK is C_PANEL", allOf(130, 0, 36, 35, C_PANEL));
+
+	// --- the status band, y 36 to 62 ---
+	checkTrue("x 98 from y 36 to 62 is the band's C_PANEL; y 63 the RPM area's C_BG",
+	          allOf(98, 36, 1, 27, C_PANEL) && fb[63 * GFX_W + 98] == C_BG);
+	checkTrue("the SAFE badge from y 39: its top row C_GREEN, the row above C_PANEL",
+	          fb[39 * GFX_W + 4] == C_GREEN && fb[39 * GFX_W + 95] == C_GREEN &&
+	          fb[58 * GFX_W + 4] == C_GREEN && fb[38 * GFX_W + 4] == C_PANEL &&
+	          fb[59 * GFX_W + 4] == C_PANEL);
+	checkTrue("SAFE at y 43", fakeTextIs(4 + (92 - gfxTextW("SAFE", 2)) / 2, 43, "SAFE", C_GREEN, C_BG, 2));
+	checkTrue("BOARD at x 140, y 50", fakeTextIs(140, 50, "BOARD", C_DIM, C_PANEL, 1));
+	checkTrue("the DShot rate at x 104, y 39",
+	          fakeTextIs(104, 39, "DSHOT600", escEdtRequested() ? C_TEXT : C_DIM, C_PANEL, 1));
+	{
+		// The voltage, scale 2 from y 43: its ink on rows 43 to 56 only.
+		bool in = false, out = false;
+		for (int y = 36; y <= 62; y++)
+			for (int x = 180; x < 236; x++) {
+				const bool ink = fb[y * GFX_W + x] != C_PANEL;
+				if (y >= 43 && y <= 56) in = in || ink;
+				else out = out || ink;
+			}
+		checkTrue("the voltage at y 43 to 56, right of BOARD", in && !out);
+	}
+	// The hold's progress, lime, on the badge's last two rows, y 57 and 58.
+	pressId(UI_FIX(TesterCtl::Arm));
+	holdId(UI_FIX(TesterCtl::Arm), 16);
+	{
+		int lime = 0, elsewhere = 0;
+		for (int y = 0; y < GFX_H; y++)
+			for (int x = 0; x < GFX_W; x++) {
+				if (fb[y * GFX_W + x] != C_LIME) continue;
+				if (y == 57 || y == 58) lime++;
+				else if (y < 63) elsewhere++;
+			}
+		checkTrue("a hold's progress: lime on y 57 and 58, the badge's last rows, none elsewhere above the RPM area",
+		          lime > 0 && elsewhere == 0 && fb[57 * GFX_W + 4] == C_LIME && fb[58 * GFX_W + 4] == C_LIME);
+	}
+	fakeRelease();
+	frames(2);
+	checkTrue("released short of the hold: not armed", !uiArmed());
+	checkControlTable("tester, the header");
+
+	// --- the RPM digits at 99999 ---
+	for (int k = 0; k < 120; k++) {
+		EscTelemetry tel;
+		memset(&tel, 0, sizeof(tel));
+		tel.erpm = 900000; tel.lastRpmMs = millis();
+		tel.packetRate = 998;
+		fakeSetTelemetry(&tel);
+		frames(1);
+	}
+	for (int pass = 0; pass < 2; pass++) {
+		const char *th = pass ? "high contrast" : "dark";
+		char what[128];
+		int x0, y0, x1, y1;
+		rpmInkBox(&x0, &y0, &x1, &y1);
+		snprintf(what, sizeof(what), "%s: 99999 lit, its ink x 101 to 225, y 66 to 97 (%d..%d, %d..%d)",
+		         th, x0, x1, y0, y1);
+		checkTrue(what, fb[(66 + 1) * GFX_W + 226 - 21 + 6] == C_LIME &&
+		          x0 == 101 && x1 == 225 && y0 == 66 && y1 == 97);
+		snprintf(what, sizeof(what), "%s: the RPM label at y 99, below the digits", th);
+		checkTrue(what, fakeTextIs(226 - gfxTextW("RPM", 2), 99, "RPM", C_DIM, C_BG, 2));
+		snprintf(what, sizeof(what), "%s: rows 63 to 65 and 98 hold no ink across the panel", th);
+		checkTrue(what, allOf(0, 63, GFX_W, 3, C_BG) && allOf(0, 98, GFX_W, 1, C_BG));
+		snprintf(what, sizeof(what), "%s: the ERPM line at y 102 and the hint at y 114 keep their rows", th);
+		bool erpmInk = false;
+		for (int x = 10; x < 60; x++) erpmInk = erpmInk || fb[102 * GFX_W + x] != C_BG;
+		checkTrue(what, erpmInk && fakeTextIs(226 - gfxTextW("SWIPE = THROTTLE", 1), 114,
+		                                       "SWIPE = THROTTLE", C_DIM, C_BG, 1));
+		if (!pass) {
+			fakeDumpFrame("shot_tester_99999.ppm");
+			themeSet(Theme::HighContrast);
+			uiInitTester();
+			for (int k = 0; k < 120; k++) {
+				EscTelemetry tel;
+				memset(&tel, 0, sizeof(tel));
+				tel.erpm = 900000; tel.lastRpmMs = millis();
+				tel.packetRate = 998;
+				fakeSetTelemetry(&tel);
+				frames(1);
+			}
+			checkTrue("high contrast: ESC TESTER, BACK live, the rule",
+			          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "ESC TESTER", C_TEXT, C_PANEL, 2) &&
+			          backLook() == BackLook::Live && headerRuleDrawn());
+			checkTrue("high contrast: SAFE at y 43, BOARD at y 50",
+			          fakeTextIs(4 + (92 - gfxTextW("SAFE", 2)) / 2, 43, "SAFE", UI_COL_SAFE, C_BG, 2) &&
+			          fakeTextIs(140, 50, "BOARD", C_DIM, C_PANEL, 1));
+			checkControlTable("tester, high contrast");
+		}
+	}
+	themeSet(Theme::Dark);
+	uiInitTester();
+	feedLiveTelemetry();
 	frames(2);
 }
 
@@ -7142,7 +7288,7 @@ static void testAm32Efm8() {
 	{
 		fakeAm32Silent(true);
 		fakeClockAlign(FAKE_SPINNER_TURN_MS);
-		tapId(UI_FIX(TesterCtl::Menu));
+		tapId(UI_FIX(UI_BACK));
 		frames(2);
 		openEscSettings();
 		checkTrue("the claim", untilState(S_CONNECT, 10));
@@ -9016,10 +9162,13 @@ void runUiTests() {
 		fakeHold(px, pb - 63); frames(1);
 		checkInt("sub-deadzone wiggle ignored", fakeThrottle(), 0);
 		fakeRelease(); frames(2);
-		// 106 px of travel less the 6 px deadzone, at 60 % over a 213 px pad.
+		// 102 px of travel less the first 6 px step, which engages the
+		// deadzone, at 60 % over the pad: 177 px, y 63 to 239, under the
+		// header and the status band.
+		checkInt("the pad is 177 px, from y 63", pad.h * 1000 + pad.y, 177 * 1000 + 63);
 		fakePress(px, pb - 40); frames(1);
 		for (int y = pb - 40; y >= pb - 146; y -= 6) { fakeHold(px, y); frames(1); }
-		checkInt("swipe up raises", fakeThrottle(), 400 * 100 / 213 * 60 / 100, 4);
+		checkInt("swipe up raises", fakeThrottle(), 400 * 96 * 60 / 100 / pad.h, 4);
 		fakeRelease(); frames(2);
 		tapId(UI_FIX(TesterCtl::Latch));                       // LATCH off
 	}
@@ -9029,8 +9178,8 @@ void runUiTests() {
 		// The published list shows the common case: 3D MODE off, the ESC's
 		// name on the strip. testAm32Guidance() turns it on for the note.
 		fakeEscSet(AM32_OFF_BI_DIRECTION, 0);
-		tapId(UI_FIX(TesterCtl::Menu));
-		checkTrue("the tester's MENU opens MENU", uiCurrentScreen() == UiScreenId::Menu);
+		tapId(UI_FIX(UI_BACK));
+		checkTrue("the tester's BACK opens MENU", uiCurrentScreen() == UiScreenId::Menu);
 		checkTrue("opening MENU force-disarms", !fakeArmed());
 		// One more frame before the dump. The tap that navigates is handled by
 		// the *outgoing* screen's handler, so the incoming one is not painted
@@ -9725,6 +9874,7 @@ void runUiTests() {
 	testScreenChangeResidue();
 	testTesterBoardAndCard();
 	testTesterReadouts();
+	testTesterHeader();
 	testBoardCellColour();
 	testRecBadges();
 	testSplash();

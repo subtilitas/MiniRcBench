@@ -218,6 +218,14 @@ static inline UiControlId menuRow(const UiScreen *s) {
 }
 
 /**
+ * @brief The top of the tester's status band, y 36: the band follows the
+ *        header (y 0 to 35) and ends at y 62.
+ */
+#define TESTER_BAND_Y 36
+/** @brief Row @p y of the tester's status band, counted from its top. */
+#define BAND(y) (TESTER_BAND_Y + (y))
+
+/**
  * @brief From MENU, the root, through its first row, ESC TESTER, to the
  *        tester (docs/design/menu-c.md, slice 3).
  */
@@ -236,7 +244,7 @@ static inline void openTester() {
  *        the tester is open (docs/design/dshot-lifetime.md).
  */
 static inline void testerToMenu() {
-	if (uiCurrentScreen() == UiScreenId::Tester) tapId(UI_FIX(TesterCtl::Menu));
+	if (uiCurrentScreen() == UiScreenId::Tester) tapId(UI_FIX(UI_BACK));
 	UI_IDS_FRAMES(1);
 }
 
@@ -376,11 +384,11 @@ static inline int progEntryOf(void (*enter)()) {
 }
 
 /**
- * @brief From the tester, through its MENU button back to MENU and MENU's
+ * @brief From the tester, through its BACK to MENU and MENU's
  *        SERVO row, to SERVO, the hub.
  */
 static inline void openChooser() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	UI_IDS_FRAMES(1);
 	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
 	UI_IDS_FRAMES(1);
@@ -748,7 +756,7 @@ static inline bool readoutOverPad(UiControlId a, UiControlId b) {
 /**
  * @brief The open screen's table on the current frame: ids unique, every
  *        rectangle inside the panel and not empty, no two controls
- *        overlapping, no BACK on the tester and on MENU, the root, and
+ *        overlapping, no BACK on MENU, the root, and
  *        BACK at uiBackRect() on every other screen, drawn live where the
  *        table says it acts and disabled where it says it does not, over
  *        the header's rule at y 35, every button with its rounded
@@ -801,15 +809,13 @@ static inline void checkControlTable(const char *where) {
 	if (greens > 0) fakeGreenWalked() |= 1u << (unsigned)uiCurrentScreen();
 	snprintf(what, sizeof(what), "%s: every green fill larger than a chip is a start control", where);
 	checkTrue(what, greens >= 0);
-	if (uiCurrentScreen() == UiScreenId::Tester || uiCurrentScreen() == UiScreenId::Menu) {
+	if (uiCurrentScreen() == UiScreenId::Menu) {
 		snprintf(what, sizeof(what), "%s: no BACK in the table", where);
 		checkTrue(what, !ctlPresent(UI_FIX(UI_BACK)));
-		if (uiCurrentScreen() == UiScreenId::Menu) {
-			snprintf(what, sizeof(what), "%s: no BACK drawn", where);
-			checkTrue(what, backLook() == BackLook::Other);
-			snprintf(what, sizeof(what), "%s: the header's rule at y 35", where);
-			checkTrue(what, headerRuleDrawn());
-		}
+		snprintf(what, sizeof(what), "%s: no BACK drawn", where);
+		checkTrue(what, backLook() == BackLook::Other);
+		snprintf(what, sizeof(what), "%s: the header's rule at y 35", where);
+		checkTrue(what, headerRuleDrawn());
 	} else {
 		UiControl b;
 		UiRect br = uiBackRect();

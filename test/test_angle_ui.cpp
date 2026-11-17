@@ -147,7 +147,7 @@ static void freshBench(bool part = true) {
 
 /** @brief From the tester to MENU, then SERVO, the hub. */
 static void openTools() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(menuRow(&UI_SERVO_HUB_SCREEN));
 }
 
@@ -199,7 +199,7 @@ static AngleReading reading() {
 static void testTools() {
 	section("ANGLE METER: the second entry of the hub SERVO");
 	freshBench();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	frames(1);
 	checkTrue("the meter claims nothing, and opens only while the claim is Free",
 	          UI_ANGLE.pinUser == PinUser::None && UI_ANGLE.freePins && !UI_ANGLE.status);
@@ -660,7 +660,7 @@ static void testSetup() {
 	settingsLoad();
 	checkTrue("a restart: what flash holds, SHORT, the failed save's LONG lost",
 	          settings()->angleAlong == 1 && settings()->angleLengthMm == 40);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("the visit after it opens on SHORT, LENGTH 40, INVERT",
@@ -739,7 +739,7 @@ static void testDefaultsKeepMeter() {
 	settingsLoad();
 	uiInitTester();
 	frames(2);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(menuRow(&UI_SETTINGS));
 	pressId(UI_FIX(SettingsCtl::Defaults));
 	holdId(UI_FIX(SettingsCtl::Defaults), 41);
@@ -994,7 +994,7 @@ static void testFlip() {
 	tapId(UI_FIX(UI_BACK));
 	backToTester();
 	settingsLoad();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(toolEntry(&UI_ANGLE));
 	frames(1);
 	checkTrue("after a restart: the calibration saved, X's offset 60 mg",

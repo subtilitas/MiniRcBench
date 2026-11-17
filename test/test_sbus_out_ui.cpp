@@ -372,7 +372,7 @@ static void freshUi() {
 
 /** @brief From the tester through MENU and RECEIVER to S.BUS OUTPUT. */
 static void openOutput() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	soFrames(1);
 	tapId(menuRow(&UI_RX_SIGNALS));
 	soFrames(1);

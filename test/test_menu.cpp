@@ -114,7 +114,7 @@ static void freshTester() {
 
 /** @brief Tester → MENU, and the frame that draws it. */
 static void openMenu() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	menuFrames(1);
 }
 
@@ -195,8 +195,8 @@ static void testEveryEntry() {
 		checkTrue(what, uiCurrentScreen() == s->id);
 		menuFrames(10);
 		checkControlTable(e[i].label);
-		// The tester has no header: its MENU button is its way back.
-		tapId(s == &UI_TESTER ? UI_FIX(TesterCtl::Menu) : UI_FIX(UI_BACK));
+		// Every screen's way back is its header's BACK, the tester's too.
+		tapId(UI_FIX(UI_BACK));
 		// SERVO TESTER passes the leave page once its job has held the
 		// pins: RESTART DSHOT acts 1000 ms after the release.
 		for (int k = 0; k < 200 && ctlEnabled(UI_FIX(ServoCtl::Release)) == false &&
@@ -211,12 +211,12 @@ static void testEveryEntry() {
 }
 
 /**
- * @brief The tester's MENU button disarms on the way back to MENU; ESC
+ * @brief The tester's BACK disarms on the way back to MENU; ESC
  *        TESTER is MENU's first row, ESC PROGRAM the second and SERVO the
  *        third.
  */
 static void testMenuDisarm() {
-	section("MENU: the tester's MENU button disarms; ESC TESTER is the first row");
+	section("MENU: the tester's BACK disarms; ESC TESTER is the first row");
 	freshTester();
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
@@ -253,12 +253,12 @@ static bool latchOffShown() {
  * @brief Slice 3 of docs/design/menu-c.md: MENU is the root. After
  *        uiInit() the screen is MENU, alone on the stack, with no BACK in
  *        its table or on the panel; a tap on row 0 opens the tester over
- *        it; the tester's MENU button disarms and returns; the tester opens
+ *        it; the tester's BACK disarms and returns; the tester opens
  *        disarmed, at throttle 0, with LATCH off, every time, and the log
  *        hears the disarm while MENU shows.
  */
 static void testMenuRoot() {
-	section("MENU: the root, no BACK; ESC TESTER opens the tester, whose MENU returns");
+	section("MENU: the root, no BACK; ESC TESTER opens the tester, whose BACK returns");
 	fakeFlashClear(); settingsLoad();
 	for (int k = 0; k < 200 && pinClaimState() != ClaimState::Free; k++) menuFrames(1);
 	uiInit();
@@ -293,7 +293,7 @@ static void testMenuRoot() {
 	// The arm gate: 1500 ms after core1's bind (docs/design/dshot-lifetime.md).
 	for (int k = 0; k < 100 && uiArmGated(escTaskBoundMs(), millis()); k++) menuFrames(1);
 
-	// Armed, LATCH on, a throttle standing: the MENU button clears all three.
+	// Armed, LATCH on, a throttle standing: BACK clears all three.
 	pressId(UI_FIX(TesterCtl::Arm));
 	holdId(UI_FIX(TesterCtl::Arm), 60);
 	fakeRelease(); menuFrames(2);
@@ -308,8 +308,8 @@ static void testMenuRoot() {
 		fakeRelease(); menuFrames(1);
 	}
 	checkTrue("LATCH holds a throttle after the lift", uiThrottle() > 0 && fakeThrottle() > 0);
-	tapId(UI_FIX(TesterCtl::Menu));
-	checkTrue("the MENU button returns to MENU, alone on the stack",
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the tester's BACK returns to MENU, alone on the stack",
 	          uiCurrentScreen() == UiScreenId::Menu && uiNavDepth() == 1);
 	checkTrue("disarmed, the throttle 0 and sent as 0",
 	          !uiArmed() && !fakeArmed() && uiThrottle() == 0 && fakeThrottle() == 0);
@@ -601,7 +601,7 @@ static void testSettingsRowVisible() {
 		snprintf(what, sizeof(what), "%s: one tap at scroll 0 opens its screen, over MENU", ORDER[i]);
 		checkTrue(what, uiCurrentScreen() == OPENS[i] && uiNavDepth() == 2);
 		menuFrames(1);
-		tapId(i == 0 ? UI_FIX(TesterCtl::Menu) : UI_FIX(UI_BACK));
+		tapId(i == 0 ? UI_FIX(UI_BACK) : UI_FIX(UI_BACK));
 		menuFrames(1);
 		snprintf(what, sizeof(what), "%s: and returns to MENU", ORDER[i]);
 		checkTrue(what, uiCurrentScreen() == UiScreenId::Menu);

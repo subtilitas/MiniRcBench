@@ -75,7 +75,7 @@ static void freshEc() {
 
 /** @brief MENU, ESC PROGRAM, the hub, then its entry ESC COMMANDS. */
 static void openEc() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(toolEntry(&UI_ESC_CMD));
 	ecFrames(1);
 }
