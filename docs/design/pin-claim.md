@@ -49,8 +49,10 @@ three is at the end.
 ## Why
 
 MiniRcBench runs on the Waveshare RP2350-Touch-LCD-2.8, which brings out two
-signal pins, its only free GPIOs. Outside a claim both belong to the ESC: the
-DShot pump on one, the KISS receiver on the other. The servo tester
+signal pins, its only free GPIOs. While ESC TESTER or ESC COMMANDS is open
+both belong to the ESC: the DShot pump on one, the KISS receiver on the
+other. Otherwise SIG is driven low and AUX rests on its pull-down
+([dshot-lifetime.md](dshot-lifetime.md)). The servo tester
 and the KST programmer need the same two wires. A second set of pins does not
 exist, so the pins change owner by screen.
 
@@ -58,7 +60,7 @@ exist, so the pins change owner by screen.
 
 The claim names pins by role, not by number, because the number is a setting.
 
-| Role | Outside a claim | Claimed by |
+| Role | While ESC TESTER or ESC COMMANDS is open | Claimed by |
 |---|---|---|
 | SIG | the ESC signal wire, `settings()->dshotPin` | AM32 config, servo A, KST programming, Hitec programming, the S.BUS monitor, the USB bridge |
 | AUX | the KISS telemetry wire, `settings()->kissPin` | servo B (two-servo mode), the S.BUS monitor when AUX is GP1 |
@@ -117,15 +119,18 @@ pins, because the core that claims a PIO state machine is the core that frees
 it, as `esc_task.h` requires; the AM32 transport, which binds SIG on core0, is
 the exception.
 
-1. **Check.** Core0 refuses the claim while armed, and, for SERVO, KST and
-   HITEC,
-   while an ESC answers on SIG. See [interlocks](#interlocks). DShot keeps
-   running during the check.
+1. **Check.** Core0 refuses the claim while armed, as Busy while the UI wants
+   Run (ESC TESTER or ESC COMMANDS is on top), and, for SERVO, KST, HITEC and
+   the S.BUS output, while an ESC answers on SIG. See
+   [interlocks](#interlocks). The tools open from their hubs, so the pump is
+   parked when a claim begins, or within 250 ms of leaving a running tester
+   still draining.
 2. **Stopping.** Core0 calls `escTaskSuspend()`, which forces a disarm and
    sets the request. Once core1 sees the request, it sends throttle-zero
    frames until more than `ARM_ZERO_THROTTLE_MS`, 250 ms, have passed since
    the last frame that carried a throttle, so the ESC sees at least 250 ms of
-   them (`escHandoverStep()`, `escDrainDone()`). Then, in this order:
+   them (`escHandoverStep()`, `escDrainDone()`); a parked pump owes no
+   drain. Then, in this order:
    `out_dshot_stop(sig)` cuts any frame in flight and leaves no edges,
    `out_dshot_release(sig)` puts the pad back as a plain input with the pulls
    off, `esc_task.cpp` puts the pull-up back on SIG, so the line holds the
@@ -133,11 +138,11 @@ the exception.
    `kissUartEnd()` ends the PIO receiver on AUX. Core1 then sets
    `escTaskSuspended()`. The drain frames carry no command and no KISS
    request. A pump that sent no throttle frame since its bind needs no drain.
-   Coming from MENU, the 250 ms have usually passed: opening MENU disarms. A
-   user who taps MENU, ESC CONFIG and ESC SETTINGS in quick succession can
-   open AM32 about
-   100 ms after the last throttle frame, and its handover then waits out the
-   rest. A rebuild after a SETTINGS pin change drains the same way.
+   Leaving the tester for MENU asks the pump to park, which drains the same
+   way ([dshot-lifetime.md](dshot-lifetime.md#the-rule)), so the pump is
+   parked by the time a tool's entry is tapped; a claim that begins within the
+   drain waits out the rest. A rebuild after a SETUP pin change drains the
+   same way.
 3. **Held.** Core0 reads the GPIO numbers once: SIG from `escTaskDshotPin()`,
    AUX from `escTaskKissPin()`. `pinClaimGpio()` returns them from here on, for
    the roles the claim asked for. For SERVO and KST it starts the core1 job
@@ -173,37 +178,40 @@ the exception.
    pull-down for classic, the pull-up for the D series; the S.BUS job turns
    UART0 off and leaves GP1 an input with no inversion and the pull-down on.
    Then the job reports `Idle`. The claim stays Leaving until then. Before
-   DShot restarts, SERVO, KST and HITEC show the leave page
-   ([restore](#restoring-dshot)), and so does S.BUS MONITOR
+   the pins are parked, SERVO, KST and HITEC show the leave page
+   ([parking](#parking-the-pins)), and so does S.BUS MONITOR
    ([rx-signals.md](rx-signals.md#screen)): `pinClaimUnplugDue()`
-   is true once the job is idle, RESTART DSHOT calls `pinClaimRestart()`
-   1000 ms after that at the earliest, and NEXT SERVO, BACK TO SERVO or BACK
+   is true once the job is idle, the page's last button, which reads the
+   title of the hub the tool returns to, calls `pinClaimRelease()` 1000 ms
+   after that at the earliest, and NEXT SERVO, BACK TO SERVO or BACK
    TO MONITOR calls `pinClaimKeep()`, which returns the claim to Held and
    starts the job again for SERVO, KST and the S.BUS monitor; HITEC asks for
    it again. AM32 has neither a job nor the
-   page, so its BACK restores DShot within the
+   page, so its BACK parks the pins within the
    `pinClaimEnd()` call.
-   The USB bridge has a job and no page of its own: its claim restores
-   DShot on the first call into the claim that finds the job idle,
-   `pinClaimPoll()`, `pinClaimState()` or any other, never before, so DShot
-   is not rebuilt on a pin the job's state machines still hold, and comes
-   back after a screen that ended the claim and closed. Its job finishes
+   The USB bridge has a job and no page of its own: its claim parks the
+   pins on the first call into the claim that finds the job idle,
+   `pinClaimPoll()`, `pinClaimState()` or any other, never before, so the
+   park does not touch a pin the job's state machines still hold, and
+   happens after a screen that ended the claim and closed. Its job finishes
    the frame under way, for at most 250 ms (`BRIDGE_RELEASE_MAX_MS`), then
    leaves SIG an input with the pull-up on.
    At every BACK of a running bridge the bridge calls
    `pinClaimWantLeavePage()` (usb-bridge.md, decision 10 as revised), and
-   then waits for RESTART DSHOT as the others do; a claim that has had the
+   then waits for the page's last button as the others do; a claim that has had the
    page keeps it until it is Free, through BRIDGE's rebind on the page.
    After an EFM8 answer ESC SETTINGS has both: its escwire job, and the
    leave page it sets before the job starts.
-6. **Restoring.** Core0 calls `escTaskStart()`. Core1 rebuilds the driver from
-   the wiring latched in `esc_task.cpp`, and the claim is `Free` from the
-   first look after `escTaskSuspended()` turns false. Nothing is left for
-   core0 to do in this step, so it ends without a poll once the screen has
-   closed.
+6. **Parking.** The claim is Parking from `pinClaimRelease()`, or from the
+   first call that finds a claim without the page idle. Core1 parks SIG low
+   and AUX on its pull-down from the wiring latched in `esc_task.cpp`, and
+   the claim is `Free` from the first look after `escTaskParked()` turns
+   true. Nothing is left for core0 to do in this step, so it ends without a
+   poll once the screen has closed. No DShot starts: the next ESC TESTER or
+   ESC COMMANDS asks for Run through `pinClaimDshot()`.
 
-BACK during Stopping resumes DShot at once. No job has run and nothing has
-been driven, so no leave page is shown.
+BACK during Stopping parks the pins at once, after the rest of a drain. No job
+has run and nothing has been driven, so no leave page is shown.
 
 ### API
 
@@ -211,11 +219,11 @@ Core0, in `src/pin_claim.h`:
 
 ```c
 enum class PinUser : uint8_t { None, Am32, Servo, Kst, Hitec, Sbus, Bridge };
-enum class ClaimState : uint8_t { Free, Stopping, Held, Running, Leaving, Restoring };
+enum class ClaimState : uint8_t { Free, Stopping, Held, Running, Leaving, Parking };
 enum class ClaimRefusal : uint8_t {
     None,
     Armed,         // the tester is armed
-    Busy,          // another screen holds the pins
+    Busy,          // a claim holds or is parking, or the UI wants Run
     EscAnswering,  // eRPM within ESC_LINK_STALE_MS (500 ms); SERVO, KST, HITEC only
     KissLive,      // a KISS frame within KISS_STALE_MS (500 ms), AUX asked for
     SamePin,       // AUX asked for, and SIG and AUX are the same GPIO
@@ -231,13 +239,15 @@ void         pinClaimEnd(PinUser who);     // BACK; the poll finishes it
 void         pinClaimStartJob(PinUser who); // HITEC's entry or READ: the deferred job
 void         pinClaimRetry(PinUser who);   // RETRY after a failed bind
 bool         pinClaimUnplugDue();          // SERVO, KST, HITEC: Leaving, job idle
-void         pinClaimRestart(PinUser who); // RESTART DSHOT on the leave page
+void         pinClaimRelease(PinUser who); // the leave page's last button: park the pins
 void         pinClaimKeep(PinUser who);    // NEXT SERVO, BACK TO SERVO on the leave page
+void         pinClaimDshot(bool on);       // once a frame: Run for ESC TESTER or ESC COMMANDS, else Park
+bool         pinClaimDshotRunning();       // Free, Run wanted, the pump reporting Run
 ```
 
 What differs per user is a table, `PIN_USERS` in `pin_claim.h`, one row per
 `PinUser`: the core1 job (None: no job), whether the leave page comes
-before DShot restarts, whether the
+before the pins are parked, whether the
 claim is refused while an ESC answers on SIG (not for AM32, the S.BUS
 monitor and the USB bridge), and whether Held waits for
 `pinClaimStartJob()` before the job starts (HITEC, and ESC SETTINGS for its
@@ -321,16 +331,22 @@ from the disarm, at least 250 ms of zero frames, then silence. On silence the
 ESC disarms after its own signal-loss timeout, which is ESC firmware specific
 and not recorded here.
 
-**An ESC answers on SIG: SERVO, KST and HITEC wait.** Servo pulses of 1000 to
+**An ESC answers on SIG: SERVO, KST, HITEC and S.BUS OUTPUT wait.** Servo pulses of 1000 to
 2000 µs are a valid PWM throttle signal, and AM32 and BLHeli_32 accept PWM
 input. A KST entry sequence holds the line low for 100 ms and sends frames
 into whatever is there, and a Hitec entry sends its first command. So while an eRPM frame has arrived within
-`ESC_LINK_STALE_MS`, 500 ms, the screen does not claim. It shows the reason
-and keeps checking every frame with DShot still running; 500 ms after the ESC
-goes quiet it claims by itself. The pulses still need HOLD TO START
+`ESC_LINK_STALE_MS`, 500 ms, the screen does not claim. The frame's age is
+the check's only source, and the pump runs only for ESC TESTER and ESC
+COMMANDS: with the pump parked nothing answers, so the check refuses only
+within 500 ms of the last answer after one of them closed. The hubs SERVO and
+RECEIVER warn `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in its place while the
+claim is Free
+([dshot-lifetime.md](dshot-lifetime.md#decisions), decisions 7 and 11).
+A refused screen shows the reason and keeps asking every frame; 500 ms after
+the ESC goes quiet it claims by itself. The pulses still need HOLD TO START
 ([servo-tester.md](servo-tester.md)). The check misses an ESC that does not
-speak bidirectional DShot, and an ESC plugged in after the claim. The screen
-text says so.
+speak bidirectional DShot, an ESC that was never opened on ESC TESTER or ESC
+COMMANDS, and an ESC plugged in after the claim. The screen text says so.
 
 AM32 is exempt: it needs the ESC on the pin.
 
@@ -401,25 +417,27 @@ works.
 |---|---|---|
 | An ESC answers on SIG | `AN ESC ANSWERS ON SIG GP0.` `UNPLUG IT: SERVO PULSES READ AS THROTTLE.` | unplug the ESC; the claim follows 500 ms later |
 | KISS frames on AUX, two servos asked | `KISS WIRE ON AUX GP1 IS LIVE.` `TWO SERVOS NEED IT UNPLUGGED.` | unplug it, or choose one servo |
-| SIG and AUX on one GPIO, two servos asked | `SIG AND AUX ARE THE SAME GPIO.` `SET SIG PIN OR AUX PIN IN SETTINGS.` | choose one servo; unreachable through SETTINGS, whose steppers swap the two |
-| The job could not bind | `SIG GP0 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the leave page before DShot restarts |
-| Armed, or another screen holds the pins | `DISARM FIRST` or `WAIT: DSHOT RESTARTING` | BACK; unreachable through the UI: MENU draws the tool's row disabled while the claim is not Free, and its strip reads `DSHOT RESTARTING ON SIG GP0` |
+| SIG and AUX on one GPIO, two servos asked | `SIG AND AUX ARE THE SAME GPIO.` `SET SIG PIN OR AUX PIN IN SETUP.` | choose one servo; unreachable through SETUP, whose steppers swap the two |
+| The job could not bind | `SIG GP0 COULD NOT BE TAKEN (PWM)` or `(PIO)`, `(DMA)`, `(CLOCK)` | RETRY keeps the claim; BACK shows the leave page before the pins are parked |
+| Armed, or another screen holds the pins | `DISARM FIRST` or `WAIT: THE PINS ARE BUSY` | BACK; unreachable through the UI: MENU draws the tool's row disabled while the claim is not Free, and its strip reads `RELEASING SIG GP0` or `SETTING SIG GP0 LOW` |
 
 The GPIO numbers in the text are the live ones from SETTINGS. Screens name a
 pin by its role and number together, `SIG GP0`, and by its role alone where
 a strip has no room ([menu-b.md](menu-b.md) decision 10).
 
-### Restoring DShot
+### Parking the pins
 
-`escTaskStart()` rebuilds the driver from the wiring `esc_task.cpp` latched:
-the same SIG pin, bitrate, bidirectional mode, KISS enable and KISS pin. Pole
-count and throttle ceiling live in the settings block and are untouched. The
-pump starts disarmed with LATCH off, as after a SETTINGS change. Its first
-frames are the EDT enable, and it decodes every reply with EDT on
-(`escEdtBind()`, `ESC_EDT_DECODE`), so an ESC that kept EDT on through the
-session reads correctly from its first reply. The repeated enable starts again
-for the ESC it finds, because a rebuild clears its state. Telemetry counters in
-`EscTelemetry` carry on.
+Nothing restarts DShot after a claim. The claim ends with SIG driven low and
+AUX on its pull-down (`escTaskPark()` of `esc_task.cpp`, from the wiring it
+latched: the same SIG pin, bitrate, bidirectional mode, KISS enable and KISS
+pin). DShot starts when ESC TESTER or ESC COMMANDS opens: `pinClaimDshot()`
+asks for Run and core1 rebuilds the driver from the latched wiring. Pole count
+and throttle ceiling live in the settings block and are untouched. The pump
+starts disarmed with LATCH off. Its first frames are the EDT enable, and it
+decodes every reply with EDT on (`escEdtBind()`, `ESC_EDT_DECODE`), so an ESC
+that kept EDT on through the session reads correctly from its first reply.
+The repeated enable starts again for the ESC it finds, because a rebuild
+clears its state. Telemetry counters in `EscTelemetry` carry on.
 
 `out_dshot_bind()` sets the pull-up and the output inversion on SIG.
 `kissUartBegin()` sets the pull-up on AUX. Both override what the job left:
@@ -429,31 +447,33 @@ servo PWM and `kst_line_close()` each leave an input with the pull-down on.
 for about 27 µs per frame at 600 kbit/s, once per `DSHOT_PERIOD_US`, 1000 µs.
 A PWM servo left on SIG measures that as a pulse of about 973 µs at 1 kHz: it
 drives towards one end of its travel, at a frame rate that overheats an
-analogue servo. So before `escTaskStart()` the SERVO TESTER, KST SERVO and
-HITEC SERVO screens show the leave page of
-[menu-b.md](menu-b.md#the-leave-page),
-`src/ui_leave.*`, whose unplug step reads, once the pin is let go:
+analogue servo. DShot runs only on ESC TESTER and ESC COMMANDS, so a servo on
+SIG meets it when one of those opens, not after a claim. The SERVO TESTER, KST
+SERVO and HITEC SERVO screens still show the leave page of
+[menu-b.md](menu-b.md#the-leave-page), `src/ui_leave.*`, before the pins are
+parked, whose unplug step reads, once the pin is let go:
 
 ```
   2 UNPLUG THE SERVO.
-    DSHOT RESTARTS ON SIG GP0 AND READS
+    ESC TESTER'S DSHOT ON SIG GP0 READS
     AS A 970 US PULSE AT 1000 HZ.
-  3 RESTART DSHOT.
+  3 BACK TO SERVO.
   [ NEXT SERVO ]
-  [          RESTART DSHOT           ]
+  [              SERVO               ]
 ```
 
-RESTART DSHOT is a tap in the rectangle LEAVE had, and calls
-`pinClaimRestart()`. It takes only a press that lands 1000 ms or more after
-`pinClaimUnplugDue()` turned true, so a double tap on LEAVE never reaches it.
-NEXT SERVO, BACK TO SERVO on SERVO TESTER, calls `pinClaimKeep()` and returns
-to the screen with the claim kept. BACK on the page is drawn disabled. The
-same hazard exists at boot for a servo left on SIG; the README section
-"Servo tester" and the wiki page Servo-Tester carry that warning.
+The last button, in the rectangle LEAVE had, reads the title of the hub the
+tool returns to and calls `pinClaimRelease()`. It starts no DShot. It takes
+only a press that lands 1000 ms or more after `pinClaimUnplugDue()` turned
+true, so a double tap on LEAVE never reaches it. NEXT SERVO, BACK TO SERVO on
+SERVO TESTER, calls `pinClaimKeep()` and returns to the screen with the claim
+kept. BACK on the page is drawn disabled. The same hazard exists whenever ESC
+TESTER opens with a servo left on SIG; the README section "Servo tester" and
+the wiki page Servo-Tester carry that warning.
 
 The page itself is drawn by the SERVO, KST and HITEC screens. The rule is in
-the claim: for those three users DShot does not restart until
-`pinClaimRestart()`, so the screens of slices 2 to 4 cannot skip the page.
+the claim: for those three users the pins are not parked until
+`pinClaimRelease()`, so the screens of slices 2 to 4 cannot skip the page.
 
 ### Reuse of the AM32 handover
 
@@ -462,10 +482,11 @@ given a state, a refusal and a user. `ui_am32.cpp` calls
 `pinClaimBegin(PinUser::Am32, PIN_SIG)` on entry and keeps its own `S_HANDOVER`
 state, which reads `pinClaimPoll()` until Held and then calls
 `am32BlBegin(pinClaimGpio(PIN_SIG))`. On exit it calls `am32BlEnd()` and then
-`pinClaimEnd(PinUser::Am32)`, which resumes DShot within the call. The one step
-the handover has beyond release and rebuild is the zero-frame drain of at least
-250 ms. A refused claim, which the UI cannot reach, shows `DISARM FIRST` or
-`WAIT: DSHOT RESTARTING` and is asked again every frame.
+`pinClaimEnd(PinUser::Am32)`, which parks the pins within the call. The one
+step the handover has beyond release and park is the zero-frame drain of at
+least 250 ms, owed only after a running tester. A refused claim, which the UI
+cannot reach, shows `DISARM FIRST` or `WAIT: THE PINS ARE BUSY` and is asked
+again every frame.
 
 ## Hardware
 
@@ -623,13 +644,14 @@ of the two cores' steps:
   zero frames with no command and no KISS request, for a suspend and for a
   rebuild; none needed after a long disarm or with no throttle since the
   bind; the bind starts disarmed at throttle zero;
-- order: DShot released before any job bind; job idle before
-  `escTaskStart()`; `pinClaimUnplugDue()`, the flag the leave page waits
-  for, before restore for SERVO and KST and not for AM32;
-- BACK in every state, including `Stopping`, `Restoring` and a failed bind;
-  RETRY after a failed bind; Busy while `Restoring`;
-- restore: the pins, bitrate and KISS settings handed to the rebuild equal
-  those before the claim; the pump starts disarmed;
+- order: the pump released before any job bind; job idle before the park;
+  `pinClaimUnplugDue()`, the flag the leave page waits for, before
+  `pinClaimRelease()` for SERVO and KST and not for AM32;
+- BACK in every state, including `Stopping`, `Parking` and a failed bind;
+  RETRY after a failed bind; Busy while `Parking`;
+- the park: SIG low and AUX on its pull-down from the latched wiring, no
+  DShot until `pinClaimDshot()` asks for Run; the run that follows starts
+  disarmed on the pins, bitrate and KISS settings the claim latched;
 - the heartbeat rule per job, with the clock across a `millis()` rollover;
 - the pump's three modes, below.
 
@@ -659,16 +681,17 @@ and `testPollSource()` checks the shipped source for the steps the copy
 relies on.
 
 `test/test_bridge.cpp` runs the USB bridge's claim with the job as it ships,
-on a line fake (`test/fake_bridge_line.h`): DShot asked back only once the
-job is idle, never bound while the bridge's line is open, after the frame
+on a line fake (`test/fake_bridge_line.h`): the pins parked only once the
+job is idle, never while the bridge's line is open, after the frame
 under way is out; BACK while Stopping; the leave page given by
 `pinClaimWantLeavePage()`, kept through `pinClaimKeep()`; RETRY after a
 refused bind; SIG on GP1.
 
 The AM32 tests in `test/test_ui.cpp` pass with the AM32 screen on the
 claim, and `test_claim.cpp` drives that screen through the UI as well: the
-latched GPIO reaches the transport, BACK restores DShot with no leave page,
-and opening AM32 100 ms after a throttle frame waits out the drain. The
+latched GPIO reaches the transport, BACK parks the pins with no leave page,
+and a claim that begins within the drain after a running tester waits out the
+rest. The
 leave page's wait is tested as the claim's rule; the SERVO, KST and HITEC
 screens' leave pages are tested in `test/test_servo.cpp`,
 `test/test_kst_ui.cpp` and `test/test_hitec_ui.cpp`, with the jobs as they
@@ -703,10 +726,10 @@ replaces whole; one source list per feature, `src/servo.cmake` and
 `test/kst.mk`, which `test/Makefile` includes; and one stub suite per feature,
 `test/test_servo.cpp` with `runServoTests()` and `test/test_kst.cpp` with
 `runKstTests()`, which `test/test_main.cpp` runs. `ui.cpp` opens a tool from
-its MENU row, or from PROGRAMMER's entry for KST SERVO and HITEC SERVO, and
-MENU draws a row whose claim would be refused disabled, under the strip's
-`DSHOT RESTARTING ON SIG GP0` ([menu-b.md](menu-b.md#decisions) decision
-15 f). Each slice adds one line to the job table of
+its hub's entry, and MENU draws a row whose claim would be refused
+disabled, under the strip's `RELEASING SIG GP0` or `SETTING SIG GP0 LOW`
+([menu-b.md](menu-b.md#decisions) decision 15 f; the texts are those of
+[dshot-lifetime.md](dshot-lifetime.md#screen-texts)). Each slice adds one line to the job table of
 `core1_job.cpp`. Slice 3 otherwise edits its own files, except for these
 shared files ([work breakdown](kst-programming.md#work-breakdown)): for the
 screen, step 4, `src/ui_registry.cpp`, one line; for the switched supply,

@@ -261,20 +261,21 @@ In `src/sd_log.cpp` and `src/log_ring.cpp`:
   wrote to the root stay there. Betaflight uses `.BFL` for single logs and
   `.BBL` for concatenated ones.
 - Logging starts on arming and stops on disarming (`SD_LOG_AUTO_ON_ARM`).
-  START and STOP on MENU → SD LOG work by hand, and a log started by hand
+  START and STOP on MENU → LOGS work by hand, and a log started by hand
   survives the disarm that opening MENU performs.
   Revised by [menu-c.md](menu-c.md#decisions) owner decision 2 of
   2026-11-15: DShot runs only while ESC TESTER or ESC COMMANDS is open, so
   an auto log still ends at the disarm of leaving the tester. The design of
   [dshot-lifetime.md](dshot-lifetime.md#each-case), proposed and pending
   the owner's review and under no numbered decision of that note: a hand
-  log runs on with no DShot telemetry, and its slice D3 logs eRPM only
-  while fresh. Built (D3).
+  log runs on with no DShot telemetry across a parked pump, and `eRPM[0]`
+  holds the last value only while it is fresh (`sdLogErpmField()`).
+  Built (D3).
 - On stop: an `E` frame with `LOG_END` (255), the ring drained, the unused
   pre-allocation released with `f_truncate()`, then sync and close.
 - The directory entry is synced every `SD_LOG_SYNC_MS`, 2000 ms, right after a
   chunk goes out, so a log cut by a power loss is readable up to its last sync.
-- USB DRIVE on MENU → SD LOG hands the card to a USB host as a read-only drive.
+- USB DRIVE on MENU → LOGS hands the card to a USB host as a read-only drive.
   The logger flushes, closes and unmounts first, and every logging entry point
   is inert until the host ejects. The handover is refused while armed or
   recording, and arming is refused while a host holds the card.

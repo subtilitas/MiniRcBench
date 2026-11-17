@@ -250,12 +250,12 @@ the servo supply. The converter, its pull-down and its ground are those of
 [kst-programming.md](kst-programming.md#hardware).
 
 **After the claim.** The claim's leave page applies as for every servo
-screen: DShot restarts only on RESTART DSHOT, 1000 ms after the pin is let
-go. A D series line closes with
+screen: the pins are parked only on the last button, which reads the title of
+the hub, SERVO, 1000 ms after the pin is let go, and no DShot follows. A D
+series line closes with
 the pad's pull-up on, not the pull-down the other jobs leave
-([pin-claim.md](pin-claim.md#restoring-dshot)). The DShot pump puts its own
-pull-up on SIG when it binds again, so the difference lasts only until
-RESTART DSHOT.
+([pin-claim.md](pin-claim.md#parking-the-pins)). The park puts SIG low, so the
+difference lasts only until the button.
 
 ## Resources
 
@@ -479,7 +479,7 @@ drops KST's.
 | OPEN: the port out of PWM, 50 ms with no pulse, the line released | the claim's drain: DShot stops, then silence; `hitec_line_open()`, a released input with the family's pull. With `GP28` or `GP29`, `servoSupplyBind()` drives the enable pin low at the bind |
 | The page holds the SUPPLY page from OPEN to CLOSE | the job owns the enable pin from the bind to the release; SETTINGS is unreachable during the claim |
 | POWER: off, wait for off up to 3,000 ms, off 0 ms to 10,000 ms, on at 4.8 V to 6.0 V, the LISTEN | off, `off_ms` from the switch-off command (no read-back), on at the converter's 5 V, the LISTEN in the same pass |
-| CLOSE | the leave and the claim end below; `hitec_line_close()`, `servoSupplyRelease()`, the leave page's RESTART DSHOT |
+| CLOSE | the leave and the claim end below; `hitec_line_close()`, `servoSupplyRelease()`, the leave page's last button |
 
 ## Switched servo supply
 
@@ -707,8 +707,8 @@ PROGRAMMER's HITEC CLASSIC is drawn disabled with
 
 | View | What it shows | Controls |
 |---|---|---|
-| Claim refused | while an ESC answers: the strip `CHECKING SIG GP0 FOR AN ESC`, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `DSHOT STAYS ON THE PIN UNTIL THEN.` in amber; asked again every frame | BACK: MENU |
-| Claim | `RELEASING SIG GP0 FROM DSHOT` while DShot drains and stops | BACK: MENU, DShot resumed |
+| Claim refused | while an ESC answers: the strip `CHECKING SIG GP0 FOR AN ESC`, `AN ESC ANSWERS ON SIG GP0: UNPLUG IT.` over `NOTHING IS SENT UNTIL THEN.` in amber; asked again every frame | BACK: MENU |
+| Claim | `RELEASING SIG GP0 FROM DSHOT` while DShot drains and stops | BACK: the hub, the pins parked |
 | READ wait, D series with `OWN` | Held with no job: `SIG GP0 IS THE SERVO'S: DSHOT IS OFF.` in green over `POWER THE SERVO UP, THEN TAP READ.` in amber; no frame goes to SIG until READ | READ, BACK: the leave page at `1 UNPLUG THE SERVO.` |
 | Bind | after the claim, or READ, `TAKING SIG GP0` while the job binds; a bind error, `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` | RETRY, BACK |
 | Entry, classic | `SUPPLY OFF 0.5 S`, then `LISTENING FOR THE SERVO` with the window's progress, then `ENTERING`; the amber ESC line below | STOP, BACK |
@@ -984,9 +984,9 @@ y   0 | HITEC SERVO                     [  BACK  ]|  BACK drawn disabled
    40 | D485HW  SIG GP0  SUPPLY ON                |  strip, C_DIM
    66 |#1 LEAVE SWITCHES THE SUPPLY OFF.          |  step 1, current, C_AMBER
    80 | 2 UNPLUG THE SERVO.                       |  step 2, C_DIM
-   92 |   DSHOT RESTARTS ON SIG GP0 AND READS     |
+   92 |   ESC TESTER'S DSHOT ON SIG GP0 READS     |
   104 |   AS A 970 US PULSE AT 1000 HZ.           |
-  118 | 3 RESTART DSHOT.                          |  step 3, C_DIM
+  118 | 3 BACK TO SERVO.                          |  step 3, C_DIM
   158 | 2 CHANGES NOT WRITTEN.                    |  only with pending edits, C_AMBER
   170 | A WRITE DID NOT END VERIFIED.             |  C_AMBER, only then
   214 | [   STAY   ] [  READ AGAIN  ]             |  6,214,110x46; 122,214,112x46
@@ -999,18 +999,19 @@ y   0 | HITEC SERVO                     [  BACK  ]|  BACK drawn disabled
 - READ AGAIN runs ReadAll and returns to the field list.
 - LEAVE is a tap and runs the leave of
   [leave and claim end](#leave-and-claim-end). From the tap on, step 2 is
-  current, READ AGAIN is hidden, and NEXT SERVO and RESTART DSHOT are drawn
+  current, READ AGAIN is hidden, and NEXT SERVO and the hub's button are drawn
   disabled; the note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` with a switch
   and `RELEASING THE PIN` without.
 - Released, NEXT SERVO keeps the claim and starts the next session in the
   family chosen, its job asked for as the first's: at once with a switch or
   for CLASSIC, else on READ, so a D series servo on `OWN` returns to the
   READ wait ([menu-b.md](menu-b.md), decision 34); with `OWN` the note
-  reads `NEXT SERVO: POWER IT AFTER THE TAP.` RESTART DSHOT
-  takes a press that lands 1000 ms or more after the release.
+  reads `NEXT SERVO: POWER IT AFTER THE TAP.` The hub's button
+  takes a press that lands 1000 ms or more after the release and parks the
+  pins.
 - BACK on the READ wait, BACK during the entry and BACK after a failed
   entry open the page releasing, at
-  `1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
+  `1 UNPLUG THE SERVO.` and `2 BACK TO SERVO.`; it turns released once
   `pinClaimUnplugDue()` is true.
 - BACK on the page is drawn disabled in every phase.
 
@@ -1263,7 +1264,7 @@ and Chaservo and states the origin ([decision 7](#decisions-of-the-owner)).
   and READ AGAIN; FILES with SAVE AS, LOAD, a refused file, FACTORY VALUES,
   `RESTORE...` and HOLD TO RESTORE; REPAIR on a bad classic checksum; a model
   not measured written with the amber layout line; BACK in every view and during
-  a write; LEAVE and RESTART DSHOT; a stall and RETRY; no card, a card held by
+  a write; LEAVE and the hub's button; a stall and RETRY; no card, a card held by
   USB, a card that takes no file; a record found at entry; `checkControlTable()`
   in each view; a preview, `docs/hitec-preview.png`.
 - The changed MENU tests: the row count in `test_menu.cpp` and

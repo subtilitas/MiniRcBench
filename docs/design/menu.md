@@ -111,8 +111,16 @@ TESTER (root)   HOLD TO ARM | LATCH | MENU        MENU disarms, LATCH off
      └─ SETTINGS          tool: one list in sections
  Every tool: BACK ──> MENU; SETTINGS opened on the tester: BACK ──> TESTER.
  SERVO TESTER, KST SERVO, HITEC SERVO and S.BUS MONITOR pass the leave
- page once they hold the pins, and its RESTART DSHOT returns to MENU.
+ page once they hold the pins, and its last button, which reads the
+ hub's title, returns to the hub.
 ```
+
+Revised by [menu-c.md](menu-c.md#decisions) owner decisions 1, 4 and 6 and
+[dshot-lifetime.md](dshot-lifetime.md#decisions) decision 9: MENU is the root
+with six rows, ESC TESTER, ESC PROGRAM, SERVO, RECEIVER, LOGS and SETUP, and
+the tree above is that of [The Screens](../../wiki/The-Screens.md). The
+names of the older notes map to the current ones in
+[Names](README.md#names-of-the-screens). Built (slices 3 to 6, D2).
 
 Opening MENU disarms, zeroes the throttle and turns LATCH off
 (`testerDisarm()` in `src/ui.cpp`). `uiOpenTool()` runs the same disarm
@@ -153,7 +161,7 @@ y   0 | MENU                            [  BACK  ]|  header 36 px; BACK 64 x 32
 | Label | scale 2 at x 16, 13 px below the row's top |
 | Status | scale 1, right-aligned to x 222, 16 px below the row's top, in the fact's colour |
 | Scroll bar | 3 px wide at x 235, drawn only while the list scrolls |
-| Strip | caption: `SIG GP0  AUX GP1  DSHOT600`, the two pins and the DShot rate; `DSHOT RESTARTING ON SIG GP0` in amber while the claim is not Free; after an AM32 session that reached the bootloader, a second line, `POWER-CYCLE THE ESC TO RUN IT` in amber. Chip: `EDT ON` on `C_GREEN` while EDT arrives, `EDT OFF` on `C_RED` while eRPM arrives without EDT, `NO ESC` on `C_GRID` while no eRPM arrives |
+| Strip | caption: `SIG GP0  AUX GP1  DSHOT600`, the two pins and the DShot rate; `RELEASING SIG GP0` or `SETTING SIG GP0 LOW` in amber while the claim is not Free; while the run cue stands, a second line, `POWER-CYCLE THE ESC TO RUN IT` in amber. No chip: DShot is parked on MENU, so the chip `EDT ON`, `EDT OFF` or `NO ESC` of slice C has nothing to read |
 
 | Row | Kind | Status | A tap |
 |---|---|---|---|
@@ -174,10 +182,10 @@ While the claim is not Free, each row whose screen claims pins or sets
 `freePins`, ESC COMMANDS, ESC CONFIG, SERVO TESTER, SERVO PROGRAMMER, RX
 SIGNALS, TOOLS and SETTINGS, is drawn disabled under its own status and a tap on
 it opens nothing (`uiPinsRefuse()` in `src/ui_screen.h`); the strip's caption
-reads `DSHOT RESTARTING ON SIG GP0` in amber and says why. The state is
-reachable: RESTART DSHOT on the leave page returns to MENU at once, and the
-claim stays Restoring until `escTaskSuspended()` turns false. SD LOG acts in
-every claim state.
+reads `RELEASING SIG GP0` in amber, or `SETTING SIG GP0 LOW` while the claim
+is Parking, and says why. The state is reachable: the leave page's last
+button returns to the hub at once, and the claim stays Parking until
+`escTaskParked()` turns true. SD LOG acts in every claim state.
 
 Revised by slice 2 of [esc-commands.md](esc-commands.md#slice-2-as-built):
 ESC COMMANDS takes BEEP THE ESC's place, and BEEP THE ESC, its flash and
@@ -637,7 +645,7 @@ decision 2).
 struct PinUserInfo {
     PinUser  who;
     Core1Job job;        // None: the screen drives the pin from core0 (AM32)
-    bool     unplug;     // the unplug page before DShot restarts
+    bool     unplug;     // the leave page before the pins are parked
     bool     escCheck;   // refused while an ESC answers on SIG
 };
 static const PinUserInfo PIN_USERS[] = {
@@ -653,7 +661,7 @@ and one line here. Slice C adds no user.
 
 Revised by [menu-b.md](menu-b.md#decisions) owner decision 3 and decision
 34: `unplug`
-marks the users whose screen shows the leave page before DShot restarts;
+marks the users whose screen shows the leave page before the pins are parked;
 `PIN_USERS` in `pin_claim.h` has rows for `None` and `Hitec` too, and a
 fifth member, `deferJob`, with which HITEC SERVO's claim starts no job until
 READ (`pinClaimStartJob()`).
@@ -729,8 +737,8 @@ SETTINGS still shows no tool section (decision 9).
 | A tool returns to MENU | the navigation in `ui.cpp` | a test walks the registry and checks it |
 
 Revised by [menu-b.md](menu-b.md#decisions) decisions 15 f, 19 and 20:
-MENU draws a refused row disabled under the strip's
-`DSHOT RESTARTING ON SIG GP0`, in place of `PINS BUSY`; `uiOpenTool()` runs
+MENU draws a refused row disabled under the strip's busy caption
+(`RELEASING SIG GP0` or `SETTING SIG GP0 LOW`), in place of `PINS BUSY`; `uiOpenTool()` runs
 the disarm for MENU's rows, PROGRAMMER's entries and the tester's readouts,
 which open SETTINGS only while disarmed and while the claim is Free.
 

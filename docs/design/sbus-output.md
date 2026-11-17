@@ -417,7 +417,7 @@ OUTPUT on the leave page, which asked for the lead to be unplugged.
 - **An ESC left in its bootloader**, by
   [bluejay-blheli-s.md](bluejay-blheli-s.md#decisions) decision 8 and its
   slice 2: a powered EFM8 that answered waits in its bootloader, and DShot
-  must not reach it. So an answer of either kind sets MENU's run cue,
+  must not reach it: ESC TESTER and ESC COMMANDS open on the start step while the cue stands. So an answer of either kind sets MENU's run cue,
   `POWER-CYCLE THE ESC TO RUN IT` (29 characters, 173 px), as an answer on
   ESC SETTINGS does; and an EFM8 answer in the claim calls
   `pinClaimWantLeavePage()` and gives the leave page decision 8's first
@@ -720,7 +720,7 @@ the monitor's ([rx-signals.md](rx-signals.md#screen)), and no chip:
 | The bind refused the clock | `SIG GP0 COULD NOT BE TAKEN (CLOCK)`, and RETRY, the wide button at 6, 268, 228 × 46 | `UI_COL_WARN` | 203 px |
 | The probe's line refused at the bind | `SIG GP0 COULD NOT BE TAKEN (PIO)`, `(DMA)` or `(CLOCK)` by `escwireJobBindError()`, `(REFUSED)` for `CORE1_JOB_PIN`, and RETRY | `UI_COL_WARN` | at most 215 px |
 | No role on GP0 | `S.BUS NEEDS GP0.` `SET A PIN TO GP0 IN SETTINGS.` | `UI_COL_WARN` | 95 and 173 px |
-| Armed, or another claim holds | `DISARM FIRST`, `WAIT: DSHOT RESTARTING` | `UI_COL_WARN` | backstops, unreachable through the UI |
+| Armed, or another claim holds | `DISARM FIRST`, `WAIT: THE PINS ARE BUSY` | `UI_COL_WARN` | backstops, unreachable through the UI |
 
 `SIG GP0` reads `AUX GP0` when GP0 is AUX; the ESC line names the GPIO of
 SIG, `GP1` in that wiring. In the default wiring the FC lead goes where the
@@ -739,26 +739,27 @@ go within 3,000 µs, so the page is released within a UI frame or two.
 y   0 | S.BUS OUTPUT                    [  BACK  ]|  BACK drawn disabled
    40 | SIG GP0  AUX GP1                          |  strip, C_DIM
    66 |#1 UNPLUG THE FLIGHT CONTROLLER.           |  step 1, current
-   78 |#  DSHOT RESTARTS ON SIG GP0.              |
-   92 | 2 RESTART DSHOT.                          |  step 2, C_DIM
+   78 |#  ESC TESTER SENDS DSHOT ON SIG GP0.      |
+   92 | 2 BACK TO RECEIVER.                       |  step 2, C_DIM
   214 | [BACK TO OUTPUT]                          |  6, 214, 110 x 46
-  268 | [          RESTART DSHOT           ]      |  live 1000 ms after the release
+  268 | [             RECEIVER             ]      |  live 1000 ms after the release
 ```
 
 | Text | Characters | Width at scale 1 | Room |
 |---|---|---|---|
 | `1 UNPLUG THE FLIGHT CONTROLLER.` | 31 | 185 px | 37 characters |
-| `  DSHOT RESTARTS ON SIG GP0.` | 28 | 167 px | 37 |
-| `2 RESTART DSHOT.` | 16 | 95 px | 37 |
+| `  ESC TESTER SENDS DSHOT ON SIG GP0.` | 36 | 215 px | 37 |
+| `2 BACK TO RECEIVER.` | 19 | 113 px | 37 |
 | `BACK TO OUTPUT` | 14 | 83 px | 110 px button |
 | `RELEASING THE PIN`, until released | 17 | 101 px | 37 |
 
 With GP0 as AUX the strip reads `SIG GP1  AUX GP0` and the detail line
-`  DSHOT RESTARTS ON SIG GP1.`, the ESC's pin, the same width. BACK TO
+`  ESC TESTER SENDS DSHOT ON SIG GP1.`, the ESC's pin, the same width. BACK TO
 OUTPUT calls `pinClaimKeep()`: the claim returns to Held, the job binds
-again, SAFE. RESTART DSHOT calls `pinClaimRestart()` and returns to MENU.
-BACK before a claim held, or while it is Stopping, returns to MENU with
-DShot resumed at once and no page. DShot on an FC's S.BUS input is a
+again, SAFE. The last button, which reads RECEIVER, the hub's title, calls
+`pinClaimRelease()` and returns to the hub with the pins parked. BACK before a
+claim held, or while it is Stopping, returns to the hub with the pins parked
+and no page. DShot on an FC's S.BUS input is a
 signal into an input; the FC reads no frame from it, so unplugging is for
 the ESC that goes back on SIG, not for the FC.
 
@@ -775,16 +776,16 @@ screen and the probe, and LEAVE (scale 2, 58 px, in the wide button at 6,
 | `  ITS BOOTLOADER WAITS FOR COMMANDS` | 35 | 209 px |
 | `  AND MAY READ DSHOT AS ONE.` | 28 | 167 px |
 | `2 UNPLUG THE FLIGHT CONTROLLER.` | 31 | 185 px |
-| `  DSHOT RESTARTS ON SIG GP0.` | 28 | 167 px |
-| `3 RESTART DSHOT.` | 16 | 95 px |
+| `  ESC TESTER SENDS DSHOT ON SIG GP0.` | 36 | 215 px |
+| `3 BACK TO RECEIVER.` | 19 | 113 px |
 | `  THEN PLUG THE ESC BACK IN.` | 28 | 167 px |
 
 Step 1's lines are ESC SETTINGS' own texts. The steps run from y 66 at a
 12 px pitch, 14 px between steps, and end at y 148, above the notes at
-y 158. After LEAVE the page is the one above, BACK TO OUTPUT and RESTART
-DSHOT; BACK TO OUTPUT runs the probe again. The page holds in either
-wiring: with GP0 as AUX DShot restarts on GP1, but the ESC still waits in
-its bootloader until its supply goes off.
+y 158. After LEAVE the page is the one above, BACK TO OUTPUT and RECEIVER;
+BACK TO OUTPUT runs the probe again. The page holds in either wiring: with
+GP0 as AUX the ESC's pin is GP1, where ESC TESTER sends DShot, and the ESC
+still waits in its bootloader until its supply goes off.
 
 ### The RX SIGNALS entry
 
@@ -898,7 +899,7 @@ Checked:
   either kind setting MENU's run cue; an EFM8 answer calling
   `pinClaimWantLeavePage()`, BACK then opening decision 8's page before
   LEAVE, STAY returning to the probe, and DShot back on SIG only after
-  LEAVE and RESTART DSHOT; each wiring, GP0 as SIG and as AUX, and the NO GP0
+  LEAVE and the last button; each wiring, GP0 as SIG and as AUX, and the NO GP0
   backstop; the ESC check in both wirings and its end 500 ms after the last eRPM
   frame; KISS on AUX GP0; a new visit starting in the probe with no trip;
 - the screen through MENU and RX SIGNALS by control id: OUTPUT live and
@@ -911,7 +912,7 @@ Checked:
   and never with the START frame; every note in each state; SET's footer
   warning while SAFE;
   every message of the unavailable pin; the leave page, BACK TO OUTPUT and
-  RESTART DSHOT; every string within its rectangle; the control tables;
+  the last button; every string within its rectangle; the control tables;
   the preview `docs/sbus-out-preview.png`.
 
 Every behaviour change gets a mutation check, as the monitor's slices did
@@ -1162,9 +1163,9 @@ developer's:
   stands from an answer of either kind until an eRPM frame stamped after the
   last answer, as ESC SETTINGS' does. `sbusOutProbeEfm8()`, the mark for
   decision 8's first step on the leave page, stands from an EFM8 answer or a
-  piece of one until `sbusOutProbeRestart()`, which RESTART DSHOT calls; it
+  piece of one until `sbusOutProbeRestart()`, which the page's last button calls; it
   clears the cue too, since that page took the ESC's battery off. After an AM32
-  answer alone RESTART DSHOT leaves the cue: the page asks for no power-off, and
+  answer alone the button leaves the cue: the page asks for no power-off, and
   the cue waits for an eRPM frame.
 - **`pinClaimWantLeavePage()`** is called by `sbusOutProbePoll()` while the EFM8
   mark stands, as the owner's decision asks. The claim's row already gives
@@ -1284,8 +1285,8 @@ between, the gate shut once the job is off; an EFM8 bootloader: Answered,
 signature 0xE8B2, the cue, the EFM8 mark, the leave page, three cycles and nine
 answers with START refused and GP0 never on the UART, unplugged and SAFE after
 the next whole cycle, the mark and the cue kept after the claim and gone at
-RESTART DSHOT; an AM32 bootloader: Answered, the cue and no mark, the cue kept
-by RESTART DSHOT and by eRPM frames stamped at the answer, before it and before
+the last button; an AM32 bootloader: Answered, the cue and no mark, the cue kept
+by the last button and by eRPM frames stamped at the answer, before it and before
 the probe, MENU's strip line `POWER-CYCLE THE ESC TO RUN IT`, gone after an
 eRPM frame after the answer; a piece of an EFM8 answer taken as one; bytes that
 are no answer holding START through three cycles with no cue and no mark; the
@@ -1324,7 +1325,7 @@ commands taken in the probe and the status not published; the release
 mid-probe as the UART's, without the close, without `uart_deinit()`, without
 the phase or the publish, and the phase left after the UART's release; the
 gate, each state of the poll, the EFM8 mark, each condition of the run cue
-and of RESTART DSHOT's clear; either answer count 16 bits wide; the pad's IE
+and of the last button's clear; either answer count 16 bits wide; the pad's IE
 and OD write and its ISO clear at the switch; MENU's cue; two of the escwire
 job's bind failures; and each alternative of the matcher, and the matcher
 dropped. One of them, `pinClaimWantLeavePage()`'s call removed, fails only
@@ -1422,8 +1423,8 @@ exact, the developer's:
 - **BACK after an EFM8 answer** sends STOP before it opens decision 8's page
   before LEAVE, so no frame goes out while the page waits; STAY returns to
   the screen, SAFE. BACK opens that page again while the EFM8 mark stands,
-  until RESTART DSHOT on that page calls `sbusOutProbeRestart()`. RESTART
-  DSHOT on the plain page does not: on the chip core1 can count an EFM8
+  until the last button on that page calls `sbusOutProbeRestart()`. The last
+  button on the plain page does not: on the chip core1 can count an EFM8
   answer between the screen's read at BACK and the release, and that late
   mark keeps MENU's cue, `POWER-CYCLE THE ESC TO RUN IT`.
 - **SET's title** is `OUTPUT SET`, 10 characters, 118 px, after `SERVO SET`;
@@ -1475,7 +1476,7 @@ ceiling on the slider and in the frame, the flags in the frame, the idle
 rule's call, its touch clock, its STOP and its note, the Frame sent once a
 change, each message and its colour, the role in the probe's lines, the
 claim with no role, RETRY, the tap under RETRY, the EFM8 page, its STOP,
-STAY, LEAVE, RESTART DSHOT's `sbusOutProbeRestart()`, BACK TO OUTPUT's new
+STAY, LEAVE, the last button's `sbusOutProbeRestart()`, BACK TO OUTPUT's new
 visit, the leave page's lines and note, SET's locks, ends, flags, notes,
 footer and STOP, the drawing of the chip, labels, knobs, mark, line,
 values, page label and hold bar, the body's clear between views, each rule
@@ -1490,7 +1491,7 @@ left the main view's early return after STOP alive, which is gone too.
 After review, 16 more, all failing the suite: the three bypasses of the
 source test (a cast to `SbusOutCmdKind`, a pointer to `startFrames`, a
 ternary in the gate), the warning dropped or dimmed after a stop and the
-reason dropped, RESTART DSHOT clearing a late EFM8 mark and never clearing
+reason dropped, the last button clearing a late EFM8 mark and never clearing
 one, the idle clock with no touch or with SET's touches left out, `(PIN)`
 read as `(CLOCK)`, and five of the source test's own checks (the cast to a
 command kind, `?`, `|`, a third `startFrames`, a second return); the `|`

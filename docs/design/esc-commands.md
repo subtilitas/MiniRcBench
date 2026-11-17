@@ -281,11 +281,16 @@ from the answer rule (decision 5).
 ### The page
 
 ESC COMMANDS is a screen with `PinUser::None` and `freePins` true
-(`src/ui_screen.h` line 157): it claims no pin and needs DShot running, so
-it opens only while the claim is Free. It opens through `uiOpenTool()`
-(`src/ui.cpp` line 969), which runs the tester's disarm first
-(`testerDisarm()`, line 938). It has no arm control. Core0 sends its
-heartbeat on every frame of every screen (`uiTick()`, line 1315), so the
+(`src/ui_screen.h`): it claims no pin and needs DShot running, so it opens
+only while the claim is Free, from the hub ESC PROGRAM. DShot starts when
+the page opens: `uiDshotRule()` wants Run while ESC TESTER or ESC COMMANDS is
+on top, and before that the pump is parked, SIG low. The first 1500 ms after
+the bind (`ESC_CMD_SETTLE_MS`) the page reads `DSHOT STARTING ON SIG GP0.`;
+with no eRPM answering after that, and at once after a refused bind, it reads
+`NO ESC ANSWERS ON SIG GP0.` While MENU's run cue stands, the page opens on a start step with DShot
+parked until START DSHOT
+([dshot-lifetime.md](dshot-lifetime.md#d3-as-built)). It has no arm control.
+Core0 sends its heartbeat on every frame of every screen (`uiTick()`), so the
 250 ms heartbeat rule holds here for the throttle, as on the tester.
 
 - **BEEP 1 to 5:** a tap each; the screen shows `SENT 3 (BEEP 3).`. A tap
@@ -751,7 +756,7 @@ Choices the note left open:
   reply alone does not make it sent. A stop after frame 6 of the first
   block, and before that tenth frame, is SaveLost.
 - **An arm, a bind, a teardown,** and a drain frame inside a block, which
-  only a resume during the drain can send there, stop the sequence at once,
+  only a Run asked for during the drain can send there, stop the sequence at once,
   without a gap: the frames that follow are the throttle or the pin's next
   user. The outcome follows the same rule, NotSent before frame 6 of the
   first block, SaveLost after it; an outcome already set stays. An arm also
