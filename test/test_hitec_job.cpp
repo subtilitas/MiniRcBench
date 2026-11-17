@@ -373,6 +373,16 @@ static void testWrite() {
 	finish();
 }
 
+/**
+ * @brief Run passes until a D series write's first register write is on the
+ *        line: the read before the write has passed (hitec_job.cpp,
+ *        preWriteRead()).
+ */
+static void untilWriting() {
+	const unsigned w0 = fakeHitecSim()->writes;
+	for (int i = 0; i < 200000 && fakeHitecSim()->writes == w0; i++) passes(1);
+}
+
 static void testAbort() {
 	section("Hitec job: Abort");
 	start(HITEC_CLASSIC, true);
@@ -434,6 +444,7 @@ static void testAbort() {
 	hitec_image_t t = draftOf(&st.image, HITEC_D);
 	send(HitecOp::Write, &t);
 	passes(1);
+	untilWriting();
 	send(HitecOp::Abort);
 	passes(1);
 	checkTrue("Abort refused during a write", status().refused == HitecRefusal::State &&
@@ -476,6 +487,7 @@ static void testHeartbeat() {
 	t = draftOf(&st.image, HITEC_D);
 	send(HitecOp::Write, &t);
 	passes(1);
+	untilWriting();
 	g_alive = false;
 	passes(300);
 	checkTrue("a lapse during a write: it runs on, the supply on",
@@ -610,6 +622,7 @@ static void testLeave() {
 	hitec_image_t t = draftOf(&st.image, HITEC_D);
 	send(HitecOp::Write, &t);
 	passes(1);
+	untilWriting();
 	send(HitecOp::Leave);
 	passes(1);
 	checkTrue("LEAVE during a write: Leaving, the supply still on",
@@ -630,6 +643,7 @@ static void testLeave() {
 	t = draftOf(&st.image, HITEC_D);
 	send(HitecOp::Write, &t);
 	passes(1);
+	untilWriting();
 	core1JobStop();
 	for (int i = 0; i < 25000 && core1JobPhase() != Core1JobPhase::Idle; i++) passes(1);
 	holds = true;
@@ -945,10 +959,57 @@ static void testCuts() {
 	sensorOff();
 }
 
+/**
+ * @brief A D series write reads the servo first (review of 2026-11-17): a
+ *        servo that changed since the read takes nothing; a read before it
+ *        that fails writes nothing.
+ */
+static void testWriteReadsFirst() {
+	section("Hitec job: a D series write reads the servo first");
+	startInMode(HITEC_D, true);
+	HitecStatus st = status();
+	hitec_image_t t = draftOf(&st.image, HITEC_D);
+	// The horn moved: the position register, 0x0C, differs; not the plan's.
+	fakeHitecSim()->mem[0x0C] ^= 0x01;
+	unsigned w0 = fakeHitecSim()->writes;
+	send(HitecOp::Write, &t);
+	passes(1);
+	until(HitecJobState::InMode, 20000);
+	checkTrue("the position moved since the read: the write goes",
+	          fakeHitecSim()->writes > w0 && status().result == HITEC_SES_OK);
+	st = status();
+	t = draftOf(&st.image, HITEC_D);
+	// Another servo on the line: a writable register differs from the image read.
+	int a = 2;
+	while (a < 256 && !(hitec_writable(HITEC_D, (uint8_t)a) && hitec_image_known(&st.image, (uint8_t)a))) a += 2;
+	fakeHitecSim()->mem[a] ^= 0x01;
+	w0 = fakeHitecSim()->writes;
+	send(HitecOp::Write, &t);
+	passes(1);
+	until(HitecJobState::InMode, 20000);
+	checkTrue("a changed servo: no register written, HITEC_JOB_ERR_CHANGED",
+	          fakeHitecSim()->writes == w0 && status().result == HITEC_JOB_ERR_CHANGED);
+	st = status();
+	checkTrue("its read is the session's image and backup, nothing written to it",
+	          memcmp(st.backup.mem, st.image.mem, sizeof(st.image.mem)) == 0 && st.hasBackup &&
+	          hitec_image_reg(&st.image, (uint8_t)a) == (uint16_t)(fakeHitecSim()->mem[a] | (fakeHitecSim()->mem[a + 1] << 8)));
+	// The read now matches what the servo holds: the next write goes.
+	st = status();
+	t = st.image;
+	hitec_image_put_reg(&t, (uint8_t)a, (uint16_t)(hitec_image_reg(&st.image, (uint8_t)a) ^ 0x01u));
+	send(HitecOp::Write, &t);
+	passes(1);
+	until(HitecJobState::InMode, 20000);
+	checkTrue("read again, the write goes and verifies",
+	          fakeHitecSim()->writes > w0 && status().result == HITEC_SES_OK);
+	finish();
+}
+
 void runHitecJobTests() {
 	testBind();
 	testEntryAndRead();
 	testWrite();
+	testWriteReadsFirst();
 	testAbort();
 	testHeartbeat();
 	testLeave();

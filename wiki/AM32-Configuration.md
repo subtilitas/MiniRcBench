@@ -89,7 +89,7 @@ to a line, and no field. The strip reads, in amber,
 <img src="img/am32-readonly.png" width="240" alt="The read-only view of a layout 5 block: LAYOUT 5 NOT KNOWN: READ-ONLY. and NOT VERIFIED. BACKUP AM001 in amber, the 48 bytes in hex">
 
 The backup goes to the card as the view opens, since nothing is written later.
-It holds the 48 bytes, no field line, and the line
+It holds the whole 192-byte page, no field line, and the line
 `Layout not known: fields not read, not verified`. The view has one control,
 `BACK`, which goes to ESC PROGRAM: no row, no `WRITE...`, `REVERT` or `HEX`, and
 the screen has no way from this view to the write. The title stays
@@ -508,7 +508,9 @@ stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`, with
 `CHECK THE CARD, THEN WRITE AGAIN.` under it. Without a card the
 write runs, and the backup stays in memory until a write with a card saves it
 or the editor closes. The file holds one line per field the firmware reads,
-the 48 bytes in hex and a checksum line; nothing reads it back yet. The ESC
+the 192 bytes of the settings page in hex (the file's format is 2: the
+line `bytes 192` and 12 hex lines) and a checksum line; nothing reads it back
+yet. The startup melody and the CAN (Controller Area Network) block are in it. The ESC
 is written only once the backup is on the card. A blackbox log that runs
 when the editor opens stops.
 
@@ -519,14 +521,19 @@ under the result. This is AM32 behaviour; the tester does not check it.
 
 ### If the write fails
 
-The write sends the settings in three steps: the address, the 48 bytes and
-the command to program them. Each step waits up to 250 ms for the ESC's
+The write sends the whole settings page, 192 bytes (0x00 to 0xBF), because the
+AM32 bootloader erases the page before it programs a write that starts at the
+page's start. The first 48 bytes are the settings the list, the `HEX` view
+and the edits cover. The startup melody (0x30 to 0xAF) and the CAN block (0xB0
+to 0xBF) go back as they were read. The write sends three steps: the address,
+the 192 bytes and the command to program them. Each step waits up to 250 ms for the ESC's
 acknowledgement. Then the read-back runs, up to three times, each after a
 300 ms wait. The screen shows one of these results:
 
 | Result | What the code saw |
 |---|---|
 | `NO BACKUP ON THE CARD: NOT WRITTEN` | The card refused the backup, or its flush failed. Nothing went to the ESC |
+| `ESC CHANGED: NOT WRITTEN`, with `LEAVE AND READ IT AGAIN.` under it | The page read again just before the backup and the write differs from the page read at entry, or that read failed: another ESC on the wire. Byte 2, the bootloader version, is not compared. After a write that did not verify, a byte that holds what was sent, or 0xFF where the bootloader erased, is accepted, so RETRY goes. Nothing went to the ESC |
 | `WRITE FAILED: NO REPLY` | A step got no acknowledgement within 250 ms |
 | `WRITE FAILED: REFUSED` | A step got a reply byte that is not the acknowledgement |
 | `WRITE FAILED: CRC FAIL` | Not reached by the write: its replies carry no checksum (CRC, cyclic redundancy check) |

@@ -44,7 +44,10 @@ typedef uint64_t LBA_t;
 typedef struct { BYTE fs_type; WORD id; LBA_t volbase; WORD csize; } FATFS;
 /** The fields of FatFs's file object that servo_log.cpp sets or reads: the
  *  fast-seek table and the file pointer (f_tell()). */
-typedef struct { int handle; FSIZE_t pos; bool writing; DWORD *cltbl; FSIZE_t fptr; } FIL;
+/** The object header FatFs keeps in FIL: @c fs is the volume while the file
+ *  is open, null after a close that succeeded. */
+typedef struct { FATFS *fs; } FFOBJID;
+typedef struct { int handle; FSIZE_t pos; bool writing; DWORD *cltbl; FSIZE_t fptr; FFOBJID obj; } FIL;
 #define f_tell(fp) ((fp)->fptr)
 #define CREATE_LINKMAP ((FSIZE_t)0 - 1)
 typedef struct { int handle; UINT next; } DIR;

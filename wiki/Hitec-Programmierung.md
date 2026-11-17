@@ -404,6 +404,17 @@ sich mit einem Tippen und wartet auf sein eigenes Halten. Ein Servo, das
 während des Wartens abgezogen wird, bemerkt der Bildschirm erst, wenn das
 Schreiben hinausgeht, das dann scheitert.
 
+Ein Servo der D-Serie beantwortet kein Schreiben. Darum liest der Job
+zuerst alle 21 Register noch einmal. Er schreibt nur, wenn das Servo das
+Abbild hält, von dem der Plan ausgeht, und der Herzschlag des Bildschirms
+lebt. Weicht das Servo ab, wird nichts geschrieben, und die Seite zeigt
+`NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.`
+Scheitert dieses Lesen, wird nichts geschrieben, und die Seite zeigt
+`NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A
+WRITE.` Auch ein Hänger des Bildschirms während dieses Lesens schreibt
+nichts. Ein klassisches Servo antwortet auf jede Zelle und wird nicht
+vorher gelesen.
+
 Das Schreiben sendet dann die geänderten Register im Abstand von 20 ms,
 speichert sie im Servo, startet das Servo neu (1,0 s) und liest alle 21
 Register zurück. Für eine Einstellung dauert das etwa 1,7 s, berechnet aus
@@ -460,6 +471,11 @@ Feldliste zurück.
 Zu den bernsteinfarbenen Ergebnissen gehören:
 
 - `NOTHING WAS WRITTEN: READ THE SERVO FIRST.`
+- `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.`
+  Ein Servo der D-Serie, vor dem Schreiben gelesen, weicht vom Abbild ab,
+  von dem der Plan ausgeht.
+- `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A WRITE.`
+  Ein Servo der D-Serie: Das Lesen vor dem Schreiben endete nicht.
 - `NOTHING WAS WRITTEN: NO PLAN (CODE n).`, mit dem Code des Planers.
 - `NOTHING WAS WRITTEN (CODE n).`, mit dem Code der Sitzung.
 - `THE SCREEN STALLED. NOTHING WAS WRITTEN.`

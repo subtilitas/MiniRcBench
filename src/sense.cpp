@@ -378,6 +378,14 @@ void senseInit() {
 		s_csReady = true;
 	}
 	sense_bus_init(&s_bus, &WIRE);
+	// sense_bus_init() forgets what the touch probe noted, so a part still
+	// holding SDA after a warm reset (the RTC or the IMU in a read) would be
+	// freed only at the first frame, after clockInit()'s one read. A line
+	// that reads low is freed here, before it.
+	if (!gpio_get(g_board->sda) || !gpio_get(g_board->scl)) {
+		recoverBus();
+		sense_bus_recovered(&s_bus, millis());
+	}
 	s_mode = 0xFFu;
 	senseConfigure(settings()->currentSense);
 	senseTick(millis());

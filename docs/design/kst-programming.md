@@ -516,37 +516,37 @@ Each total is the reads times one read plus the writes times one write:
 | FAT32, 32 GiB, 32 KiB clusters | none | KST first write, an old record kept | 39 | 18 | 0.6 s | 8.8 s | 13.3 s |
 | FAT32, 32 GiB, 32 KiB clusters | none | KST SAVE AS, the 50th file of KST/ | 23 | 7 | 0.3 s | 4.2 s | 6.0 s |
 | FAT32, 32 GiB, 32 KiB clusters | none | KST FILES page | 21 | 0 | 0.2 s | 2.2 s | 2.2 s |
-| FAT32, 32 GiB, 32 KiB clusters | none | AM32 backup | 9 | 6 | 0.1 s | 2.5 s | 4.0 s |
+| FAT32, 32 GiB, 32 KiB clusters | none | AM32 backup | 9 | 7 | 0.2 s | 2.8 s | 4.5 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST first write, no old record | 26 | 12 | 0.4 s | 5.9 s | 8.9 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST record removed after the verify | 16 | 4 | 0.2 s | 2.7 s | 3.7 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST first write, an old record kept | 39 | 18 | 0.6 s | 8.8 s | 13.3 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST SAVE AS, the 50th file of KST/ | 23 | 7 | 0.3 s | 4.2 s | 6.0 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | KST FILES page | 21 | 0 | 0.2 s | 2.2 s | 2.2 s |
-| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | AM32 backup | 9 | 6 | 0.1 s | 2.5 s | 4.0 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in LOGS/ | AM32 backup | 9 | 7 | 0.2 s | 2.8 s | 4.5 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, no old record | 338 | 12 | 3.5 s | 38.6 s | 41.6 s, over the cap |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST record removed after the verify | 78 | 4 | 0.8 s | 9.2 s | 10.2 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, an old record kept | 413 | 18 | 4.3 s | 48.1 s | 52.6 s, over the cap |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST SAVE AS, the 50th file of KST/ | 85 | 7 | 0.9 s | 10.8 s | 12.5 s |
 | FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | KST FILES page | 207 | 0 | 2.1 s | 21.7 s | 21.7 s, over the cap |
-| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | AM32 backup | 71 | 6 | 0.8 s | 9.0 s | 10.5 s |
+| FAT32, 32 GiB, 32 KiB clusters | 1000 in the root, an earlier firmware's | AM32 backup | 71 | 7 | 0.8 s | 9.3 s | 11.0 s |
 | exFAT, 64 GiB, 128 KiB clusters | none | KST first write, no old record | 58 | 10 | 0.7 s | 8.7 s | 11.2 s |
 | exFAT, 64 GiB, 128 KiB clusters | none | KST record removed after the verify | 36 | 2 | 0.4 s | 4.3 s | 4.8 s |
 | exFAT, 64 GiB, 128 KiB clusters | none | KST first write, an old record kept | 89 | 14 | 1.0 s | 13.0 s | 16.5 s, over the cap |
 | exFAT, 64 GiB, 128 KiB clusters | none | KST SAVE AS, the 50th file of KST/ | 56 | 5 | 0.6 s | 7.2 s | 8.4 s |
 | exFAT, 64 GiB, 128 KiB clusters | none | KST FILES page | 47 | 0 | 0.5 s | 4.9 s | 4.9 s |
-| exFAT, 64 GiB, 128 KiB clusters | none | AM32 backup | 23 | 6 | 0.3 s | 4.0 s | 5.5 s |
+| exFAT, 64 GiB, 128 KiB clusters | none | AM32 backup | 23 | 7 | 0.3 s | 4.2 s | 6.0 s |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST first write, no old record | 58 | 10 | 0.7 s | 8.7 s | 11.2 s |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST record removed after the verify | 36 | 2 | 0.4 s | 4.3 s | 4.8 s |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST first write, an old record kept | 89 | 14 | 1.0 s | 13.0 s | 16.5 s, over the cap |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST SAVE AS, the 50th file of KST/ | 56 | 5 | 0.6 s | 7.2 s | 8.4 s |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | KST FILES page | 47 | 0 | 0.5 s | 4.9 s | 4.9 s |
-| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | AM32 backup | 23 | 6 | 0.3 s | 4.0 s | 5.5 s |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in LOGS/ | AM32 backup | 23 | 7 | 0.3 s | 4.2 s | 6.0 s |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, no old record | 999 | 10 | 10.1 s | 107.5 s | 110.0 s, over the cap |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST record removed after the verify | 228 | 2 | 2.3 s | 24.5 s | 25.0 s, over the cap |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST first write, an old record kept | 1218 | 14 | 12.3 s | 131.5 s | 135.0 s, over the cap |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST SAVE AS, the 50th file of KST/ | 249 | 5 | 2.5 s | 27.4 s | 28.7 s, over the cap |
 | exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | KST FILES page | 613 | 0 | 6.1 s | 64.4 s | 64.4 s, over the cap |
-| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | AM32 backup | 210 | 6 | 2.2 s | 23.6 s | 25.1 s, over the cap |
+| exFAT, 64 GiB, 128 KiB clusters | 1000 in the root, an earlier firmware's | AM32 backup | 210 | 7 | 2.2 s | 23.9 s | 25.6 s, over the cap |
 
 Generated by `make -C test kstcount-write`. CI runs `make -C test kstcount` and fails on drift.
 <!-- kst-card-count:end -->
@@ -1343,9 +1343,12 @@ a host:
   computer frees the other's data, and later sessions keep the second name
   as one more KSTnnn.TXT.
 - A create whose close fails with a clean window, a data sector that does
-  not take its write: FatFs keeps the file open, refuses to remove it or to
-  open it for reading (`FR_LOCKED`), and holds one of its 16 lock entries
-  (`FF_FS_LOCK`) until the card is mounted again.
+  not take its write: FatFs keeps the file open and holds one of its 16 lock
+  entries (`FF_FS_LOCK`), and would refuse to remove it or to open it for
+  reading (`FR_LOCKED`). `cardCreate()` (`src/card_dir.cpp`) mounts the card
+  again, which drops the lock entries and the cached sectors, and then
+  removes the partial file. While a log runs or USB DRIVE holds the card, no
+  mount happens and the file stays.
 
 | Situation | Effect |
 |---|---|
@@ -1462,7 +1465,8 @@ so these run against the same simulated servo:
   board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
   directory, a file or a directory in a file's way, a read-only record, a
   one-time write or sync error with no file or new directory left behind, a
-  close error that leaves its file locked, one of the two files taken, the
+  close error, after which the card is mounted again and the partial file
+  removed, one of the two files taken, the
   record found and loaded at entry, the store's save, list and load over
   FatFs. With the screen, in `test_kst_ui.cpp`: the record written before
   the first write frame and removed after a verify. With `GP28` or `GP29`,

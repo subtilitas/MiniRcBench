@@ -47,6 +47,10 @@ static uint8_t         s_result;       /**< `hitec_ses_t` of the last entry or o
 static bool            s_lastWrite;    /**< The last operation was a write. */
 static bool            s_opWrite;      /**< The running operation is a write. */
 static bool            s_firstRead;    /**< The running read follows the entry: its image is the backup. */
+/** @brief The running read is a D series write's read before it: the write waits for its result. */
+static bool            s_preWrite;
+static hitec_image_t   s_preImage;     /**< The image the write's plan starts from, before its read. */
+static hitec_image_t   s_preTarget;    /**< The write's target, until its read before it has passed. */
 static bool            s_hasImage;     /**< A full read has completed since the entry. */
 static bool            s_hasBackup;    /**< @c s_backup is valid. */
 static hitec_image_t   s_backup;       /**< The first full read after the entry. */
@@ -299,6 +303,7 @@ static void freshSession() {
 	s_out = false;
 	s_aborting = false;
 	s_power = HitecPower::None;
+	s_preWrite = false;
 }
 
 /** @brief A lapse: the supply off, the session gone, the stalled view. */
@@ -424,6 +429,66 @@ static bool leaveStep(uint32_t nowMs) {
 	return true;
 }
 
+/**
+ * @brief Whether two D series images agree on what a write's plan starts
+ *        from: the model, register 0x00, and every writable register, known
+ *        in both with the same value or unknown in both. The position and
+ *        the other registers a servo changes by itself are left out, as the
+ *        session's read-back leaves them out (hitec_session.c, compare()).
+ * @param a,b The images.
+ * @return true when they agree.
+ */
+static bool samePlanBase(const hitec_image_t *a, const hitec_image_t *b) {
+	for (unsigned r = 0; r < HITEC_MEM_SIZE; r += 2) {
+		const uint8_t addr = (uint8_t)r;
+		if (addr != 0 && !hitec_writable(HITEC_D, addr)) continue;
+		const bool ka = hitec_image_known(a, addr);
+		if (ka != hitec_image_known(b, addr)) return false;
+		if (ka && hitec_image_reg(a, addr) != hitec_image_reg(b, addr)) return false;
+	}
+	return true;
+}
+
+/**
+ * @brief The end of a D series write's read before it, with s_result its
+ *        result. The same image as the plan started from, and the UI
+ *        alive: the write starts and stays Busy. Otherwise nothing is
+ *        written: HITEC_JOB_ERR_CHANGED for another image (samePlanBase()),
+ *        whose read becomes the session's image and backup,
+ *        HITEC_JOB_ERR_PREREAD for a read that failed, or
+ *        HITEC_SES_ERR_ABORTED after a lapse.
+ * @return true when the write started.
+ */
+static bool preWriteRead(bool uiAlive) {
+	s_preWrite = false;
+	if (s_result != HITEC_SES_OK) {
+		if (s_result != HITEC_SES_ERR_ABORTED) s_result = HITEC_JOB_ERR_PREREAD;
+		return false;
+	}
+	if (!samePlanBase(&s_ses.image, &s_preImage)) {
+		// Another servo, or this one changed: nothing is written, and the
+		// image now read is the session's servo, its backup the read itself.
+		s_result = HITEC_JOB_ERR_CHANGED;
+		s_backup = s_ses.image;
+		s_hasBackup = true;
+		s_wrote = false;
+		return false;
+	}
+	if (!uiAlive || s_lapsed) {
+		s_result = HITEC_SES_ERR_ABORTED;
+		return false;
+	}
+	s_opWrite = true;
+	hitec_ses_t r = hitec_session_write(&s_ses, &s_preTarget);
+	if (r != HITEC_SES_BUSY) {
+		s_opWrite = false;
+		s_result = (uint8_t)r;
+		return false;
+	}
+	s_wrote = true;
+	return true;
+}
+
 static void take(const HitecCmd *cmd, uint32_t nowMs, bool uiAlive) {
 	s_ackSeq = cmd->seq;
 	s_refused = HitecRefusal::None;
@@ -492,6 +557,24 @@ static void take(const HitecCmd *cmd, uint32_t nowMs, bool uiAlive) {
 			break;
 		case HitecOp::Write: {
 			s_lastWrite = true;
+			// A D series write is not answered, so a servo swapped since the
+			// read would take it: the servo is read again first, and the
+			// write starts only on the image its plan starts from
+			// (advance(), preWriteRead()). Classic answers each cell.
+			if (s_bound == HITEC_D) {
+				s_preImage = s_ses.image;
+				s_preTarget = cmd->target;
+				s_opWrite = false;
+				s_firstRead = false;
+				hitec_ses_t pr = hitec_session_read_all(&s_ses);
+				if (pr == HITEC_SES_BUSY) {
+					s_preWrite = true;
+					s_state = HitecJobState::Busy;
+				} else {
+					s_result = HITEC_JOB_ERR_PREREAD;
+				}
+				break;
+			}
 			s_opWrite = true;
 			hitec_ses_t r = hitec_session_write(&s_ses, &cmd->target);
 			if (r == HITEC_SES_BUSY) {
@@ -504,6 +587,7 @@ static void take(const HitecCmd *cmd, uint32_t nowMs, bool uiAlive) {
 			break;
 		}
 		case HitecOp::Abort:
+			s_preWrite = false;
 			abortOp(nowMs);
 			break;
 		case HitecOp::Leave:
@@ -544,6 +628,7 @@ static void advance(uint32_t nowMs, bool uiAlive) {
 			if (!runSession(nowMs, uiAlive)) break;
 			s_aborting = false;
 			s_result = (uint8_t)hitec_session_result(&s_ses);
+			if (s_preWrite && preWriteRead(uiAlive)) break;
 			if (!s_opWrite && s_result == HITEC_SES_OK) {
 				s_hasImage = true;
 				if (s_firstRead) {
@@ -598,6 +683,7 @@ static uint8_t hitecJobBind(uint8_t sigGpio, uint8_t auxGpio) {
 	s_lastWrite = false;
 	s_opWrite = false;
 	s_firstRead = false;
+	s_preWrite = false;
 	s_stalled = false;
 	s_stallWrote = false;
 	s_drain = false;

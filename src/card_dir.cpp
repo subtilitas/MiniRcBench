@@ -26,6 +26,8 @@ static char     s_current[12];
 static unsigned s_depth;
 /** @brief Whether the outermost scope changed directory. */
 static bool     s_changed;
+/** @brief sdLogMountId() when the scope changed directory: a mount since then made the root current. */
+static uint16_t s_mountId;
 
 bool cardMounted() {
 	SdLogStatus st;
@@ -44,6 +46,7 @@ CardDirScope::CardDirScope(const char *dir, bool on) : m_on(on) {
 		absDir(dir, p);
 		s_changed = f_chdir(p) == FR_OK;
 		if (s_changed) snprintf(s_current, sizeof(s_current), "%s", dir);
+		s_mountId = sdLogMountId();
 	}
 }
 
@@ -56,7 +59,12 @@ CardDirScope::~CardDirScope() {
 	}
 }
 
-bool cardDirCurrent(const char *dir) { return s_current[0] && strcmp(s_current, dir) == 0; }
+bool cardDirCurrent(const char *dir) {
+	// A mount since the scope's f_chdir(), the remount after a failed close
+	// or FatFs's own after a card fault, made the root current again: the
+	// paths are absolute from then on.
+	return s_current[0] && s_mountId == sdLogMountId() && strcmp(s_current, dir) == 0;
+}
 
 void cardPath(const char *dir, const char *name, char *out) {
 	if (cardDirCurrent(dir)) snprintf(out, CARD_PATH_MAX, "%s", name);
@@ -130,9 +138,15 @@ CardIo cardCreate(const char *dir, const char *name, const char *data, size_t le
 	} else {
 		r = writeOpen(path, data, len);
 		// A failed create leaves no file behind. A file whose close failed
-		// stays open in FatFs, which then refuses the remove with FR_LOCKED:
-		// it stays on the card, and holds one of FatFs's 16 lock entries
-		// until the card is mounted again.
+		// stays open in FatFs (f_close() clears obj.fs only on success),
+		// holding one of FatFs's 16 lock entries, and the remove would be
+		// refused with FR_LOCKED: the card is mounted again first, which
+		// drops the lock entries and the cached sectors. While a log runs
+		// or USB DRIVE holds the card, no mount happens and the file stays.
+		if (r != CardIo::Ok && s_fil.obj.fs) {
+			sdLogRemount();
+			cardPath(dir, name, path);  // absolute now: the mount made the root current
+		}
 		if (r != CardIo::Ok) f_unlink(path);
 	}
 	// Nor the directory this call made; one that holds a file stays.
@@ -149,7 +163,11 @@ CardIo cardOverwrite(const char *dir, const char *name, const char *data, size_t
 	cardPath(dir, name, path);
 	FRESULT fr = f_open(&s_fil, path, FA_WRITE | FA_OPEN_EXISTING);
 	if (fr != FR_OK) return createError(fr, path);
-	return writeOpen(path, data, len);
+	CardIo r = writeOpen(path, data, len);
+	// A close that failed holds the file's lock entry until a mount, as in
+	// cardCreate().
+	if (r != CardIo::Ok && s_fil.obj.fs) sdLogRemount();
+	return r;
 }
 
 int32_t cardSize(const char *dir, const char *name) {

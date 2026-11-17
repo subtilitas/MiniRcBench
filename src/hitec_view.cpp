@@ -7,6 +7,7 @@
  */
 
 #include "hitec_view.h"
+#include "hitec_job.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -321,6 +322,16 @@ HitecResultText hitecResultText(uint8_t result, int values, uint8_t stepIndex, u
 			shown++;
 		}
 		snprintf(t.text, sizeof(t.text), "THE SERVO DOES NOT HOLD THE VALUES:%s. READ AND CHECK.", addrs);
+		return t;
+	}
+	if (result == HITEC_JOB_ERR_CHANGED) {
+		t.tone = HitecTone::Nothing;
+		snprintf(t.text, sizeof(t.text), "NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.");
+		return t;
+	}
+	if (result == HITEC_JOB_ERR_PREREAD) {
+		t.tone = HitecTone::Nothing;
+		snprintf(t.text, sizeof(t.text), "NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. %s", read);
 		return t;
 	}
 	bool sent = planSteps > 0 && stepIndex >= planSteps;

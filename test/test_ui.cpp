@@ -4843,6 +4843,19 @@ static void testTesterBoardAndCard() {
 	          fakeTextIs(tx, ty, "ARM TO ENABLE", C_DIM, C_PANEL, 1));
 	holdToArm();
 	checkTrue("and it arms", uiArmed());
+	// A host that takes the card while armed (no path does today, by
+	// mscRequest()'s refusal): DISARM still acts, on the press.
+	fakeMscSet(MscState::Serving, 0);
+	frames(2);
+	checkTrue("armed, the card on USB: DISARM live in the table and drawn red",
+	          ctlEnabled(UI_FIX(TesterCtl::Arm)) && armFill() == C_RED);
+	fakePress(arm.x + arm.w / 2, arm.y + arm.h / 2); frames(1);
+	checkTrue("its press disarms", !uiArmed() && !fakeArmed());
+	fakeRelease(); frames(2);
+	fakeMscSet(MscState::Idle, 0);
+	frames(2);
+	holdToArm();
+	checkTrue("armed again", uiArmed());
 	pressId(UI_FIX(TesterCtl::Arm));
 	fakeRelease(); frames(2);
 }
@@ -5285,7 +5298,7 @@ static void testAm32TesterNote() {
 		am32HoldWrite();
 		checkTrue("a write of 3D MODE on that the ESC refuses: no note",
 		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 0 && !esc3dNote());
-		fakeAm32FailReads(3);
+		fakeAm32FailReadsAfter(1, 3);
 		am32HoldWrite();
 		checkTrue("accepted, its read-back failed: the note is set, fail-safe",
 		          !s_verified && fakeEscByte(AM32_OFF_BI_DIRECTION) == 1 && esc3dNote());
@@ -5504,7 +5517,7 @@ static void testAm32ReadOnly() {
 		          gotLen == (int32_t)wantLen && wantLen > 0 && memcmp(got, want, wantLen) == 0);
 		checkTrue("it says the fields are not read, and holds no field line",
 		          strstr(want, "Layout not known: fields not read, not verified\n") != nullptr &&
-		          strstr(want, " = ") == nullptr && strstr(want, "bytes 48\n") != nullptr);
+		          strstr(want, " = ") == nullptr && strstr(want, "bytes 192\n") != nullptr);
 		UiControl tbl[UI_CONTROLS_MAX];
 		checkInt("BACK is the one control", uiControls(tbl, UI_CONTROLS_MAX), 1);
 		checkTrue("and it is BACK", ctlPresent(UI_FIX(UI_BACK)) && !ctlPresent(UI_FIX(Am32Ctl::Write)) &&
@@ -8220,7 +8233,7 @@ static void testAm32Guidance() {
 		struct Case { const char *what; void (*arm)(); const char *prefix; };
 		static const Case cases[] = {
 			{ "WRITE FAILED", [] { fakeAm32FailWrites(1); }, "WRITE FAILED: " },
-			{ "VERIFY READ",  [] { fakeAm32FailReads(3); },  "VERIFY READ: " },
+			{ "VERIFY READ",  [] { fakeAm32FailReadsAfter(1, 3); },  "VERIFY READ: " },
 			{ "DIFF",         [] { fakeAm32SkewWrites(1); }, "DIFF @1B: " },
 		};
 		for (const Case &c : cases) {
@@ -8736,6 +8749,102 @@ static void testTesterKvEst() {
  *        the chooser that opened it, by BACK from the list and by RESTART
  *        DSHOT, the leave page's last button after an EFM8 answer.
  */
+/**
+ * @brief The AM32 write covers the whole settings page (review of
+ *        2026-11-17): the melody and the CAN block survive the bootloader's
+ *        page erase; the backup holds all 192 bytes; an ESC whose melody or
+ *        firmware differs from the page read is refused before the backup
+ *        and the write; a byte 2 the bootloader rewrites does not fail the
+ *        read-back.
+ */
+static void testAm32WholePage() {
+	section("AM32 write: the whole settings page, the ESC on the wire, byte 2");
+	uint8_t keep[AM32_EEPROM_SIZE];
+	for (int i = 0; i < AM32_EEPROM_SIZE; i++) keep[i] = fakeEscByte(i);
+	for (int i = AM32_SETTINGS_SIZE; i < AM32_EEPROM_SIZE; i++) fakeEscSet(i, (uint8_t)(0x40 + i));
+	enterAm32(6);
+	checkTrue("the list opens", s_state == S_LIST);
+	const int vPoles = uiRowOf("POLES");
+	uiRowY("POLES"); frames(1);
+	tapId(UI_ROW(vPoles, Row));
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	uint8_t want = uiByte(0x1B);
+	int writes = fakeAm32Writes();
+	am32HoldWrite();
+	bool tail = true;
+	for (int i = AM32_SETTINGS_SIZE; i < AM32_EEPROM_SIZE; i++) tail = tail && fakeEscByte(i) == (uint8_t)(0x40 + i);
+	checkTrue("verified, POLES written", s_verified && fakeEscByte(0x1B) == want && fakeAm32Writes() == writes + 1);
+	checkTrue("the melody and the CAN block, 0x30 to 0xBF, survive the page erase", tail);
+	char got[AM32_BACKUP_MAX];
+	int32_t n = fakeFatGet("BACKUP/AM001.TXT", got, sizeof(got) - 1);
+	if (n > 0) got[n] = 0;
+	checkTrue("the backup holds 192 bytes, the last line B0", n > 0 && strstr(got, "bytes 192\n") && strstr(got, "\nB0: "));
+
+	// Another ESC on the wire: a melody byte differs from the page read.
+	tapId(UI_ROW(vPoles, Row));
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	fakeEscSet(0x50, 0x00);
+	writes = fakeAm32Writes();
+	int wx, wy;
+	ctlCentre(UI_FIX(Am32Ctl::Write), &wx, &wy);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	checkTrue("another ESC: refused, nothing written", fakeAm32Writes() == writes && !s_verified &&
+	          strcmp(s_status, AM32_UI_ESC_CHANGED) == 0);
+	checkTrue("  the next step: " AM32_UI_ESC_CHANGED_2,
+	          fakeTextIs(UI_MARGIN, 208, AM32_UI_ESC_CHANGED_2, UI_COL_WARN, C_BG, 1));
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeEscSet(0x50, (uint8_t)(0x40 + 0x50));
+	leaveAm32ToTester();
+
+	// A write that erased the page and programmed only its first 0x40 bytes:
+	// the RETRY is not refused, and writes the whole page.
+	enterAm32(6);
+	tapId(UI_ROW(vPoles, Row));
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	fakeAm32PartialWrite(0x40);
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	checkTrue("erased, programmed to 0x3F, NAK: WRITE FAILED", !s_verified &&
+	          strncmp(s_status, "WRITE FAILED", 12) == 0 && fakeEscByte(0x50) == 0xFF);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	writes = fakeAm32Writes();
+	am32HoldWrite();
+	tail = true;
+	for (int i = AM32_SETTINGS_SIZE; i < AM32_EEPROM_SIZE; i++) tail = tail && fakeEscByte(i) == (uint8_t)(0x40 + i);
+	checkTrue("RETRY over the half-programmed page: written, verified, the melody back",
+	          fakeAm32Writes() == writes + 1 && s_verified && tail);
+	leaveAm32ToTester();
+
+	// No write sent since the read: a settings byte that differs is another ESC.
+	enterAm32(6);
+	tapId(UI_ROW(vPoles, Row));
+	tapId(UI_FIX(Am32Ctl::EditPlus));
+	fakeEscSet(0x20, (uint8_t)(fakeEscByte(0x20) ^ 0x01));
+	writes = fakeAm32Writes();
+	am32OpenPage(); pressId(UI_FIX(Am32Ctl::WriteHold));
+	for (int i = 0; i < 50; i++) { fakeHold(wx, wy); frames(1); }
+	fakeRelease(); frames(3);
+	checkTrue("a settings byte differs before any write: refused, nothing written",
+	          fakeAm32Writes() == writes && strcmp(s_status, AM32_UI_ESC_CHANGED) == 0);
+	tapId(UI_FIX(Am32Ctl::Ok));
+	fakeEscSet(0x20, (uint8_t)(fakeEscByte(0x20) ^ 0x01));
+	leaveAm32ToTester();
+
+	// The bootloader puts its version into byte 2.
+	enterAm32(6);
+	tapId(UI_ROW(vPoles, Row));
+	tapId(UI_FIX(Am32Ctl::EditMinus));
+	fakeAm32BootloaderVersion((uint8_t)(fakeEscByte(AM32_OFF_BOOTLOADER_REV) + 1));
+	am32HoldWrite();
+	checkTrue("byte 2 rewritten by the bootloader: still verified", s_verified);
+	fakeAm32BootloaderVersion(0);
+	leaveAm32ToTester();
+	for (int i = 0; i < AM32_EEPROM_SIZE; i++) fakeEscSet(i, keep[i]);
+}
+
 static void testAm32NavOpener() {
 	section("Navigation: ESC SETTINGS returns to ESC PROGRAM, its opener");
 	enterAm32(6);
@@ -9590,6 +9699,7 @@ void runUiTests() {
 	testAm32PageWritesWhatItShows();
 	testAm32Guard();
 	testAm32NavOpener();
+	testAm32WholePage();
 	testTesterKvEst();
 
 	// Back to a known state for anything that runs after this: the last

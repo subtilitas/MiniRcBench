@@ -32,6 +32,7 @@
 #include "ram_disk.h"
 
 #include "card_cache.h"
+#include "card_dir.h"
 #include "clock.h"
 #include "config.h"
 #include "esc_task.h"
@@ -80,6 +81,7 @@ Settings *settings() { return &g_settings; }
 static sd_card_t g_sdcard;
 sd_card_t *sd_get_by_num(size_t) { return &g_sdcard; }
 const char *sd_get_drive_prefix(sd_card_t *) { return ""; }
+bool sd_init_driver() { return true; }
 int sd_sdio_init_result(void) { return 0; }
 
 void clockNow(ClockReading *out) { *out = ClockReading{}; }
@@ -1850,6 +1852,51 @@ static void testOpenTime() {
 	}
 }
 
+/**
+ * @brief cardCreate() whose close fails (review of 2026-11-17): the card is
+ *        mounted again, so the partial file is removed and no lock entry of
+ *        FatFs's 16 is held; twenty such failures leave a create that works.
+ */
+static void testCreateCloseFails() {
+	section("Card files over FatFs, FAT32: a create whose close fails");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	g_disk.viaRead = nullptr;
+	g_disk.viaWrite = nullptr;
+	static const char text[] = "a file of a few bytes\n";
+	checkTrue("the directory, by a create on the working card",
+	          cardCreate("/TEST", "FIRST.TXT", text, sizeof(text) - 1) == CardIo::Ok);
+	int failed = 0;
+	for (int i = 0; i < 20; i++) {
+		g_disk.failWrites = true;
+		char name[16];
+		snprintf(name, sizeof(name), "F%02d.TXT", i);
+		if (cardCreate("/TEST", name, text, sizeof(text) - 1) != CardIo::Ok) failed++;
+		g_disk.failWrites = false;
+	}
+	checkInt("twenty creates on a card that refuses writes: each failed", failed, 20);
+	FILINFO fno;
+	checkTrue("no partial file left", f_stat("/TEST/F00.TXT", &fno) != FR_OK &&
+	          f_stat("/TEST/F19.TXT", &fno) != FR_OK);
+	checkTrue("then a create on the working card: no lock entry left over",
+	          cardCreate("/TEST", "OK.TXT", text, sizeof(text) - 1) == CardIo::Ok);
+
+	// Inside a scope, as the backups and the KST and Hitec files run: the
+	// remount makes the root current, and the paths turn absolute.
+	{
+		CardDirScope in("TEST");
+		g_disk.failWrites = true;
+		checkTrue("scoped: a create whose close fails",
+		          cardCreate("TEST", "P.TXT", text, sizeof(text) - 1) != CardIo::Ok);
+		g_disk.failWrites = false;
+		checkTrue("scoped: the next create lands in the scope's directory",
+		          cardCreate("TEST", "G.TXT", text, sizeof(text) - 1) == CardIo::Ok);
+	}
+	checkTrue("in /TEST, not in the root; no partial P.TXT anywhere",
+	          f_stat("/TEST/G.TXT", &fno) == FR_OK && f_stat("/G.TXT", &fno) != FR_OK &&
+	          f_stat("/TEST/P.TXT", &fno) != FR_OK && f_stat("/P.TXT", &fno) != FR_OK);
+	f_mount(nullptr, "", 0);
+}
+
 int main() {
 	testPure();
 	testNames("FAT32", FM_FAT32, 4096);
@@ -1860,6 +1907,7 @@ int main() {
 	testLimit();
 	testRemoved();
 	testWriteError();
+	testCreateCloseFails();
 	testReadFails();
 	testOpenTime();
 	testOpenFaults();

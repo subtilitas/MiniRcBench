@@ -111,14 +111,16 @@ Automatic backups only: one per session, before the session's first write.
 
 ## AM32 backup
 
-Before the first WRITE of an ESC SETTINGS session on an AM32 ESC, the 48 bytes
-of the settings block as read at entry (`AM32_SETTINGS_SIZE`,
-`src/am32_eeprom.h`) go to the ring as `AMnnn.TXT`. The melody and the CAN
-(Controller Area Network) block, 0x30 to 0xBF, are not written by the editor and
-not saved.
+Before the first WRITE of an ESC SETTINGS session on an AM32 ESC, the whole
+settings page as read at entry, 192 bytes (`AM32_EEPROM_SIZE`,
+`src/am32_eeprom.h`), goes to the ring as `AMnnn.TXT`. The first 48 bytes
+(`AM32_SETTINGS_SIZE`) are the settings; the startup melody, 0x30 to 0xAF, and
+the CAN (Controller Area Network) block, 0xB0 to 0xBF, are the rest. The editor
+sends all 192 bytes back, because the AM32 bootloader erases the page before a
+page-aligned write, so the backup holds them too.
 
 ```text
-AM32 ESC settings, format 1
+AM32 ESC settings, format 2
 ESC: F051
 Settings address: 7C00
 Layout revision: 3
@@ -127,8 +129,8 @@ MOTOR POLES = 14
 MOTOR KV = 2000 KV
 TIMING ADVANCE = 15.0 DEG
 ...                                  one line per field the ESC reads
-bytes 48
-00: 01 03 01 02 15 ...               16 bytes a line, 3 lines
+bytes 192
+00: 01 03 01 02 15 ...               16 bytes a line, 12 lines
 checksum 1A2B3C4D
 ```
 
@@ -136,13 +138,20 @@ checksum 1A2B3C4D
   (`am32FieldShown()`: its layout revision has the field and its firmware
   reads the byte): group, name, and value with its unit, as the screen shows
   them.
-- The byte lines hold all 48 bytes, so a byte no field covers (the device
+- The byte lines hold all 192 bytes, so a byte no field covers (the device
   name before layout revision 3, reserved bytes, a byte the firmware does not
-  read) is kept too.
+  read, the melody, the CAN block) is kept too.
 - The checksum line is a CRC-32 (cyclic redundancy check) of IEEE 802.3 over
   every line before it, as in rcbench's KST files.
-- `doWrite()` (`src/ui_am32.cpp`) writes only after the card took the
-  backup, or with no card. A card that is mounted and refuses the backup stops
+- `doWrite()` (`src/ui_am32.cpp`) first reads the page again
+  (`sameEscOnWire()`). With no write sent since the read, a page that
+  differs from the page read at entry in any byte but byte 2 is refused;
+  after a write that did not verify, a byte that holds what was sent or
+  0xFF passes and the settings bytes are not compared, so a RETRY goes.
+  When refused, nothing is saved and nothing is written:
+  `ESC CHANGED: NOT WRITTEN` over `LEAVE AND READ IT AGAIN.` Byte 2, the
+  bootloader version, is not compared, because the bootloader rewrites it.
+  It then writes only after the card took the backup, or with no card. A card that is mounted and refuses the backup stops
   the write: `NO BACKUP ON THE CARD: NOT WRITTEN`. With no card the write
   runs, and the backup stays in memory until a write with a card saves it, or
   the editor closes. A verified write with a backup reads

@@ -52,6 +52,55 @@ protocol.
   sections take the SDK's shared striped spin locks through
   `csInitShared()` (`src/cs_shared.h`), and the image claims one spin lock,
   TinyUSB's. `testNoSpinLockClaims()` holds `src/` to it.
+- AM32 ESC SETTINGS wrote the 48 settings bytes only, so the AM32 bootloader,
+  which erases the whole page before a page-aligned write, also erased the
+  startup melody and the CAN block. It reads, writes, verifies and backs up
+  the whole 192-byte page (0x00 to 0xBF); the list, the hex view and the edits
+  still cover the first 48 bytes. The backup file is format 2, with
+  `bytes 192` and 12 hex lines. Before the backup and the write it reads the
+  page again. A page that differs from the page read at entry, byte 2 aside,
+  is another ESC: it writes nothing and shows `ESC CHANGED: NOT WRITTEN`
+  over `LEAVE AND READ IT AGAIN.` After a write that did not verify, bytes
+  that hold what was sent, or 0xFF where the bootloader erased, pass, so a
+  RETRY goes. Byte 2, which the bootloader rewrites, is left out of the
+  read-back compare.
+- With LATCH on, a stall of the screen of more than 250 ms while armed made
+  the throttle go to zero and come back by itself when the screen resumed.
+  Core1 now disarms, sets the throttle to zero and latches the stop; the
+  next screen frame stops the tester, and arming again takes the 1 s hold.
+  The log an arm starts begins before core1 is armed, so a slow card start
+  cannot trip it.
+- A Hitec D series write is not answered, so a servo swapped or re-plugged
+  after READ took the planned registers. The write reads the whole servo
+  first and writes only if the model and the writable registers equal the
+  image the plan starts from and the screen is alive; the position, which
+  a servo changes by itself, is not compared. After a change the new read
+  is the session's servo, and the list is built again from it. Otherwise nothing is written and the screen reads
+  `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.` or
+  `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A
+  WRITE.` Classic servos are unchanged.
+- Core0's stack, 4 KB, ended directly above core1's, and a Hitec card write
+  came within about 300 bytes of it. Core1 runs on a 2 KB static array, so
+  core0's stack has all 8 KB of SCRATCH_X and SCRATCH_Y.
+- DISARM did nothing while a USB host held the card. It acts; only arming is
+  refused.
+- On a FAT32 card with no free 16 MiB run, the logger searched the FAT for
+  one at every arm. After one refusal it skips the search until the next
+  mount. A Debug build reset at every boot, since `sdLogBegin()` asked for
+  the drive prefix before the SD driver was initialised; it initialises the
+  driver first. A close that failed kept FatFs's lock entry for the file, and
+  the removal of a partial file was refused; the logger mounts the card again
+  at its next start, and a card file whose close failed is removed after a
+  new mount.
+- USB DRIVE served a card that the driver marked uninitialised after a card
+  fault, and every read from the computer failed. It hands the card back to
+  the logger.
+- The panel showed its leftover RAM for about 150 ms before the first
+  picture, a part holding the I2C bus after a warm reset left the clock unset
+  for the session, and a host that enumerated the board waited 3 s or more
+  during the splash. The cleared framebuffer goes to the panel before the
+  backlight lights, the bus is freed before the clock read when SDA or SCL
+  reads low, and the splash loop serves USB.
 
 ### Changed
 

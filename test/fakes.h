@@ -298,6 +298,16 @@ void fakeAm32Reset();
 void fakeAm32FailWrites(int n);
 /** @brief The next @p n am32BlRead() calls time out. */
 void fakeAm32FailReads(int n);
+/** @brief Let @p ok am32BlRead() calls pass, then fail the next @p n. */
+void fakeAm32FailReadsAfter(int ok, int n);
+/** @brief The byte 2 a write leaves in the ESC, as the bootloader writes its version there; 0: the byte sent. */
+void fakeAm32BootloaderVersion(uint8_t v);
+/** @brief The next am32BlWrite() erases the page, programs its first @p n bytes and answers NAK. */
+void fakeAm32PartialWrite(uint8_t n);
+/** @brief sdLogStart() calls made while core1 was armed (fakeArmed()). */
+int fakeLogStartsArmed();
+/** @brief As core1 on a heartbeat lapse while armed: disarm, throttle 0, escHeartbeatTripped() true. */
+void fakeEscHeartbeatTrip();
 /** @brief The next @p n am32BlWrite() calls store byte 0x1B with bit 6 flipped. */
 void fakeAm32SkewWrites(int n);
 /** @brief am32BlWrite() calls since the start, failed ones among them. */

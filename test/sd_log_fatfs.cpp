@@ -68,6 +68,8 @@ Settings *settings() { return &g_settings; }
 static sd_card_t g_card;
 sd_card_t *sd_get_by_num(size_t) { return &g_card; }
 const char *sd_get_drive_prefix(sd_card_t *) { return ""; }
+static int g_driverInits = 0;  /**< sd_init_driver() calls. */
+bool sd_init_driver() { g_driverInits++; return true; }
 int sd_sdio_init_result(void) { return 0; }
 
 /**
@@ -803,11 +805,96 @@ static void testErpmLogged(const char *vol) {
 	checkInt("0 from 500 ms on", zero, 51);
 }
 
+/** @brief Sectors FatFs read since the counter was zeroed. */
+static unsigned long g_readSectors = 0;
+static DRESULT countRead(BYTE *buf, LBA_t sector, UINT count) {
+	g_readSectors += count;
+	return ramDiskRead(buf, sector, count);
+}
+
+/**
+ * @brief A fragmented FAT32 card with no free run of SD_LOG_PREALLOC_BYTES:
+ *        the first start searches the FAT for one, the next start of the
+ *        same mount does not (review of 2026-11-17).
+ */
+static void testNoRun() {
+	section("Logger over FatFs, FAT32: no 16 MiB run, the search once per mount");
+	format(FM_FAT32, 131072, 512);   // 64 MiB, 512-byte clusters
+	// Full of 1 MiB files, every other one deleted: half free, in 1 MiB holes.
+	static char block[512];
+	memset(block, 0xA5, sizeof(block));
+	int made = 0;
+	for (; made < 200; made++) {
+		char path[24];
+		snprintf(path, sizeof(path), "/F%03d.BIN", made);
+		FIL f;
+		if (f_open(&f, path, FA_WRITE | FA_CREATE_NEW) != FR_OK) break;
+		bool full = f_expand(&f, 1024u * 1024u, 1) != FR_OK;
+		f_close(&f);
+		if (full) { f_unlink(path); break; }
+	}
+	for (int i = 0; i < made; i += 2) {
+		char path[24];
+		snprintf(path, sizeof(path), "/F%03d.BIN", i);
+		f_unlink(path);
+	}
+	checkTrue("more than 16 MiB free in 1 MiB holes",
+	          (unsigned long long)freeClusters() * 512u > SD_LOG_PREALLOC_BYTES);
+	g_disk.viaRead = countRead;
+	g_readSectors = 0;
+	checkTrue("the first start", sdLogStart());
+	const unsigned long first = g_readSectors;
+	sdLogStop();
+	g_readSectors = 0;
+	checkTrue("the second start", sdLogStart());
+	const unsigned long second = g_readSectors;
+	sdLogStop();
+	printf("  sectors read: first start %lu, second start %lu\n", first, second);
+	checkTrue("the first start searched the FAT: 64 sectors or more", first >= 64);
+	checkTrue("the second did not: under a quarter of the first", second * 4 < first);
+	sdLogRemount();
+	g_readSectors = 0;
+	checkTrue("after a mount: the start", sdLogStart());
+	checkTrue("searches again", g_readSectors >= first / 2);
+	sdLogStop();
+	g_disk.viaRead = nullptr;
+	f_mount(nullptr, "", 0);
+}
+
+/**
+ * @brief A stop whose close fails leaves FatFs's lock entry on the log; the
+ *        next start mounts the card again first, which drops it (review of
+ *        2026-11-17).
+ */
+static void testCloseLeak() {
+	section("Logger over FatFs, FAT32: a stop whose close fails, then the next start");
+	format(FM_FAT32, 2u * 1024u * 1024u, 4096);
+	checkTrue("START", sdLogStart());
+	frames(200);
+	const uint32_t n = status().fileNumber;
+	char path[40];
+	snprintf(path, sizeof(path), "%s/LOG%05u.BFL", SD_LOG_DIR_PATH, (unsigned)n);
+	g_disk.failWrites = true;
+	sdLogStop();
+	g_disk.failWrites = false;
+	checkTrue("the stop failed: error", status().state == SdLogState::Error);
+	FILINFO fno;
+	checkTrue("the log's entry is on the card", f_stat(path, &fno) == FR_OK);
+	checkTrue("START again", sdLogStart());
+	frames(50);
+	sdLogStop();
+	checkTrue("the first log is no longer locked: it removes",
+	          f_unlink(path) == FR_OK && f_stat(path, &fno) != FR_OK);
+	f_mount(nullptr, "", 0);
+}
+
 int main() {
 	testPure();
 	testErpmFresh();
 	runVolume("FAT32", FM_FAT32, 2u * 1024u * 1024u, 4096);      // 1 GiB, 4 KiB clusters
 	runVolume("exFAT", FM_EXFAT, 2u * 1024u * 1024u, 32768);     // 1 GiB, 32 KiB clusters
+	testNoRun();
+	testCloseLeak();
 	testTxtNotSaved();
 	testLogFails();
 	testClock();

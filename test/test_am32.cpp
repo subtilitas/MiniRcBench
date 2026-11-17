@@ -219,7 +219,7 @@ static void testAdvanceEncodings() {
 static void testBackupText() {
 	section("AM32 backup: the text of the settings block");
 	checkTrue("CRC-32 of \"123456789\" is CBF43926", am32BackupCrc32("123456789", 9) == 0xCBF43926u);
-	uint8_t blk[AM32_SETTINGS_SIZE];
+	uint8_t blk[AM32_EEPROM_SIZE];
 	for (unsigned i = 0; i < sizeof(blk); i++) blk[i] = (uint8_t)(i * 7u);
 	blk[AM32_OFF_BOOT_BYTE] = 1;
 	blk[AM32_OFF_LAYOUT_REVISION] = 3;
@@ -230,17 +230,19 @@ static void testBackupText() {
 	size_t n = am32BackupFormat(blk, "F051", 0x7C00, out, sizeof(out));
 	out[n] = '\0';
 	checkTrue("it has text", n > 0 && n < sizeof(out));
-	static const char HEAD[] = "AM32 ESC settings, format 1\nESC: F051\nSettings address: 7C00\n"
+	static const char HEAD[] = "AM32 ESC settings, format 2\nESC: F051\nSettings address: 7C00\n"
 	                           "Layout revision: 3\nFirmware: 2.21\n";
-	checkTrue("the header names format 1", strncmp(out, HEAD, sizeof(HEAD) - 1) == 0);
+	checkTrue("the header names format 2", strncmp(out, HEAD, sizeof(HEAD) - 1) == 0);
 	checkTrue("a field line with its group", strstr(out, "\nMOTOR POLES = 14\n") != nullptr);
 	int fields = 0;
 	for (uint16_t i = 0; i < AM32_FIELD_COUNT; i++) fields += am32FieldApplies(&AM32_FIELDS[i], 3);
 	int lines = 0;
 	for (size_t i = 0; i < n; i++) lines += out[i] == '\n';
-	checkInt("5 header lines, the fields, bytes, 3 byte lines, the checksum", lines, 5 + fields + 1 + 3 + 1);
-	checkTrue("the last byte line", strstr(out, "\n20: ") != nullptr &&
-	                                 strstr(out, "\n30: ") == nullptr);
+	checkInt("5 header lines, the fields, bytes, 12 byte lines, the checksum", lines, 5 + fields + 1 + 12 + 1);
+	checkTrue("bytes 192: the whole page, the melody and the CAN block with it",
+	          strstr(out, "\nbytes 192\n") != nullptr);
+	checkTrue("the last byte line", strstr(out, "\nB0: ") != nullptr &&
+	                                 strstr(out, "\nC0: ") == nullptr);
 	const char *sum = strstr(out, "\nchecksum ");
 	char want[24];
 	snprintf(want, sizeof(want), "\nchecksum %08lX\n",

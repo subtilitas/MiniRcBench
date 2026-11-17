@@ -151,6 +151,17 @@ static void ringSink(void *ctx, const uint8_t *data, size_t len) {
 }
 
 /**
+ * @brief A close failed since the last mount. FatFs then keeps the file's
+ *        lock entry, one of FF_FS_LOCK's 16, until the volume is mounted
+ *        again; the next sdLogStart() mounts again first. Cleared by a mount.
+ */
+static bool s_closeLeaked = false;
+
+/** @brief The mounted volume has no free contiguous run of
+ *         SD_LOG_PREALLOC_BYTES: f_expand() said FR_DENIED. Cleared by a mount. */
+static bool s_noRun = false;
+
+/**
  * @brief The FatFs drive prefix for our one card.
  *
  * Asked of the library rather than hardcoded as "0:". The prefix depends on how
@@ -164,6 +175,11 @@ static const char *drivePrefix() {
 }
 
 bool sdLogBegin() {
+	// Before drivePrefix(): sd_get_drive_prefix() asserts that the driver is
+	// initialised, and f_mount() initialises it only inside the call, after
+	// its arguments. A Debug build, with the assert live, reset at every
+	// boot. Repeated calls return at once.
+	sd_init_driver();
 	// Pins come from sd_hw_config.c, which the driver reads at link time.
 	// Mounting is the only way to find out whether a card is fitted: this board
 	// brings no card-detect line out.
@@ -179,6 +195,8 @@ bool sdLogBegin() {
 	// next start, so a remount the tool made does not hide it.
 	sdLogMountForget(&s_end);
 	sdLogNextForget(&s_next);
+	s_noRun = false;
+	s_closeLeaked = false;
 	s_fileNo = 0;
 	s_framesLogged = 0;
 	s_cardBytes = 0;
@@ -273,10 +291,17 @@ bool sdLogVolumeId(uint32_t *lba, uint32_t *offset) {
 	return true;
 }
 
+uint16_t sdLogMountId() { return s_mounted ? s_fs.id : 0; }
+
 bool sdLogStart() {
 	if (s_released) return false;
 	if (s_state == SdLogState::NoCard) return false;
 	if (s_state == SdLogState::Logging) return true;
+	if (s_closeLeaked) {
+		if (s_mounted) f_unmount(drivePrefix());
+		s_mounted = false;
+		if (!sdLogBegin()) return false;
+	}
 	s_end = SdLogEnd::None;
 
 	uint32_t n = 0;
@@ -290,7 +315,10 @@ bool sdLogStart() {
 	// allocation landing in the middle of a run is the long unpredictable stall
 	// this whole design exists to avoid. FA_WRITE|f_expand with opt=1 allocates
 	// immediately rather than lazily. Failure is not fatal, just slower.
-	f_expand(&s_file, SD_LOG_PREALLOC_BYTES, 1);
+	// FAT32 searches the FAT one cluster at a time for the run: on a
+	// fragmented card with no such run, a whole-FAT read of seconds at every
+	// arm. After one FR_DENIED the search is left out until the next mount.
+	if (!s_noRun && f_expand(&s_file, SD_LOG_PREALLOC_BYTES, 1) == FR_DENIED) s_noRun = true;
 
 	logRingReset(&s_ring);
 	s_ring.dropped = s_ring.drops = s_ring.peakUsed = 0;
@@ -330,8 +358,12 @@ static void writeSummary() {
 		// runSumText() returns the length the whole text needs. The ring's
 		// size or more means a cut text, and f_write() would read past the
 		// ring: WRITE FAILED, nothing written.
-		if (len < sizeof(s_ringBuf))
+		if (len < sizeof(s_ringBuf)) {
 			f = sdLogWriteSummary(&s_file, SD_LOG_DIR_PATH, s_fileNo, text, (uint32_t)len);
+			// A close that failed leaves the object valid (f_close() clears
+			// obj.fs only on success) and its lock entry held.
+			if (s_file.obj.fs) s_closeLeaked = true;
+		}
 	}
 	runSumFileResult(&s_sum, f);
 }
@@ -363,6 +395,7 @@ static void stopLog(RunSumEnd how) {
 	FRESULT sync = f_sync(&s_file);
 	FRESULT close = f_close(&s_file);
 	(void)trunc;
+	if (close != FR_OK) s_closeLeaked = true;
 	if (sync != FR_OK || close != FR_OK) {
 		enterError(SdLogEnd::WriteFailed);
 	} else {
@@ -498,7 +531,7 @@ void sdLogFlush() {
 
 	if (fr != FR_OK || wrote != n) {
 		enterError(sdLogWriteEnd((int)fr, (uint32_t)wrote, n));
-		f_close(&s_file);
+		if (f_close(&s_file) != FR_OK) s_closeLeaked = true;
 		return;
 	}
 
@@ -546,6 +579,7 @@ void sdLogStop() {}
 void sdLogStopFor(SdLogEnd) {}
 bool sdLogRemount() { return false; }
 bool sdLogVolumeId(uint32_t *, uint32_t *) { return false; }
+uint16_t sdLogMountId() { return 0; }
 bool sdLogRelease() { return false; }
 bool sdLogReacquire() { return false; }
 bool sdLogActive() { return false; }

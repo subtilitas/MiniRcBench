@@ -14,6 +14,7 @@
 
 #include "check.h"
 #include "hitec_view.h"
+#include "hitec_job.h"
 
 // rcbench's fixture brings its test harness, whose reporting is not used here.
 #pragma GCC diagnostic push
@@ -290,6 +291,13 @@ static void testResults() {
 	checkTrue("in the done tone", r.tone == HitecTone::Done);
 	r = hitecResultText(HITEC_SES_OK, 3, 2, 2, diff, 0, 0, HITEC_D);
 	checkStr("OK, three", r.text, "3 VALUES WRITTEN AND VERIFIED.");
+	r = hitecResultText(HITEC_JOB_ERR_CHANGED, 1, 0, 2, diff, 0, 0, HITEC_D);
+	checkStr("a changed servo", r.text, "NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.");
+	checkTrue("  nothing written", r.tone == HitecTone::Nothing);
+	r = hitecResultText(HITEC_JOB_ERR_PREREAD, 1, 0, 2, diff, 0, 0, HITEC_D);
+	checkStr("a read before the write that failed", r.text,
+	         "NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A WRITE.");
+	checkTrue("  nothing written", r.tone == HitecTone::Nothing);
 	diff[0x54 / 8] |= 1u << (0x54 % 8);
 	r = hitecResultText(HITEC_SES_ERR_VERIFY, 1, 2, 2, diff, 0, 0, HITEC_D);
 	checkStr("VERIFY names the address", r.text, "THE SERVO DOES NOT HOLD THE VALUES: 0x54. READ AND CHECK.");

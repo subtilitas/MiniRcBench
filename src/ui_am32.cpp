@@ -250,6 +250,10 @@ enum Am32Screen : uint8_t {
 static Am32Screen s_state = S_HANDOVER;
 static uint8_t    s_eeprom[AM32_EEPROM_SIZE];
 static uint8_t    s_original[AM32_EEPROM_SIZE];
+/** @brief A write of this session reached the ESC since the page was last
+ *        read or verified (am32BlWrite() called): the bootloader may have
+ *        erased the page and programmed part of it. @see sameEscOnWire() */
+static bool       s_writeSent = false;
 static bool       s_hexView = false;
 /**
  * @brief The field list, or the hex dump while `s_hexView` is set: one
@@ -268,7 +272,7 @@ static uint32_t   s_backupVolume = 0;     /**< The serial number of the volume t
 static bool       s_backupOnCard = false; /**< The backup went to a card: the swap check is armed. */
 static bool       s_backupVolumeRead = false; /**< s_backupVolume was read; false fails the check. */
 /** @brief The settings as read at entry: the session's backup. */
-static uint8_t    s_entry[AM32_SETTINGS_SIZE];
+static uint8_t    s_entry[AM32_EEPROM_SIZE];
 static char       s_backupName[BACKUP_NAME_MAX] = "";
 /** @brief The write page's HOLD TO WRITE. */
 static UiHold     s_writeHold;
@@ -1438,7 +1442,10 @@ static void tryConnect() {
 	s_blReachedMs = millis();
 	s_connectNote = CN_NONE;
 
-	r = am32BlRead(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
+	// The whole settings page, AM32_EEPROM_SIZE bytes: the bootloader erases
+	// the page before it programs a page-aligned write, so a write of fewer
+	// bytes would leave the startup melody and the CAN block erased.
+	r = am32BlRead(am32BlEepromAddr(), s_eeprom, AM32_EEPROM_SIZE);
 	if (r != AM32_OK) {
 		snprintf(s_status, sizeof(s_status), "READ FAILED (%s)", am32ResultText(r));
 		return;
@@ -1452,6 +1459,7 @@ static void tryConnect() {
 		return;
 	}
 	memcpy(s_original, s_eeprom, sizeof(s_eeprom));
+	s_writeSent = false;
 	memcpy(s_entry, s_eeprom, sizeof(s_entry));
 	// An EFM8 session before this answer kept its own backup.
 	resetBackup();
@@ -1995,6 +2003,40 @@ static void resetBackup() {
 	s_backupNext[0] = '\0';
 }
 
+/**
+ * @brief Whether the ESC on the wire is still the one whose page the list
+ *        holds: the settings address read again just before the write, all
+ *        AM32_EEPROM_SIZE bytes, byte 2 aside (the bootloader writes its own
+ *        version there).
+ *
+ * With no write sent since the read, every byte must equal s_original: an
+ * ESC swapped since, of the same family or another, is refused. After a write
+ * that did not verify, the page may hold what was sent, or 0xFF where the
+ * bootloader erased and did not program; the settings bytes are then not
+ * compared, and each other byte must be s_original's, the byte sent, or
+ * 0xFF, so a RETRY is not refused. A refusal shows AM32_UI_ESC_CHANGED; a
+ * read that fails refuses too.
+ * @return true when the write may go.
+ */
+static bool sameEscOnWire() {
+	uint8_t now[AM32_EEPROM_SIZE];
+	Am32Result r = am32BlRead(am32BlEepromAddr(), now, AM32_EEPROM_SIZE);
+	bool same = r == AM32_OK;
+	for (int i = 0; same && i < AM32_EEPROM_SIZE; i++) {
+		if (i == AM32_OFF_BOOTLOADER_REV) continue;
+		if (now[i] == s_original[i]) continue;
+		if (!s_writeSent) { same = false; break; }
+		bool setting = i > AM32_OFF_SUB_REVISION && i < AM32_SETTINGS_SIZE;
+		same = setting || now[i] == 0xFF || now[i] == s_eeprom[i];
+	}
+	if (!same) {
+		snprintf(s_status, sizeof(s_status), AM32_UI_ESC_CHANGED);
+		s_nextStep = AM32_UI_ESC_CHANGED_2;
+		return false;
+	}
+	return true;
+}
+
 /** @brief Commit the settings block. */
 static void doWrite() {
 	// Set again only by a write that reads back equal: the result's colour
@@ -2003,8 +2045,11 @@ static void doWrite() {
 	// other way into S_WRITING.
 	s_verified = false;
 	if (writeRefused()) return;
+	if (!sameEscOnWire()) return;
 	if (!backupFirst(am32Save)) return;
-	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_SETTINGS_SIZE);
+	// The whole page: the bootloader erases it before a page-aligned write.
+	s_writeSent = true;
+	Am32Result r = am32BlWrite(am32BlEepromAddr(), s_eeprom, AM32_EEPROM_SIZE);
 	if (r != AM32_OK) {
 		snprintf(s_status, sizeof(s_status), ST_WRITE_FAILED "%s", am32ResultText(r));
 		s_nextStep = AM32_UI_RETRY;
@@ -2021,28 +2066,32 @@ static void doWrite() {
 	// Give the ESC time first. It is erasing and reprogramming a flash page and
 	// will not answer sensibly until that finishes -- reading too soon is what
 	// makes a perfectly good write look like a failure.
-	uint8_t check[AM32_SETTINGS_SIZE];
+	uint8_t check[AM32_EEPROM_SIZE];
 	r = AM32_ERR_TIMEOUT;
 	for (int attempt = 0; attempt < 3 && r != AM32_OK; attempt++) {
 		delay(AM32_WRITE_SETTLE_MS);
-		r = am32BlRead(am32BlEepromAddr(), check, AM32_SETTINGS_SIZE);
+		r = am32BlRead(am32BlEepromAddr(), check, AM32_EEPROM_SIZE);
 	}
 	if (r != AM32_OK) {
 		snprintf(s_status, sizeof(s_status), ST_VERIFY_READ "%s", am32ResultText(r));
 		s_nextStep = AM32_UI_RETRY;
 		return;
 	}
-	if (memcmp(check, s_eeprom, AM32_SETTINGS_SIZE) != 0) {
+	// The bootloader writes its own version into byte 2 of a write at the
+	// settings address; the byte read back is the ESC's, not a failed write.
+	s_eeprom[AM32_OFF_BOOTLOADER_REV] = check[AM32_OFF_BOOTLOADER_REV];
+	if (memcmp(check, s_eeprom, AM32_EEPROM_SIZE) != 0) {
 		// Name the first offending byte. "Mismatch" alone cannot distinguish a
 		// write that did not take from a read that came back skewed.
 		int i = 0;
-		while (i < AM32_SETTINGS_SIZE && check[i] == s_eeprom[i]) i++;
+		while (i < AM32_EEPROM_SIZE && check[i] == s_eeprom[i]) i++;
 		snprintf(s_status, sizeof(s_status), "DIFF @%02X: GOT %02X WANT %02X",
 		         i, check[i], s_eeprom[i]);
 		s_nextStep = AM32_UI_RETRY;
 		return;
 	}
-	memcpy(s_original, s_eeprom, AM32_SETTINGS_SIZE);
+	memcpy(s_original, s_eeprom, AM32_EEPROM_SIZE);
+	s_writeSent = false;
 	s_verified = true;
 	esc3dSetNote(am32Is3d(s_eeprom));
 	if (s_backupDone) snprintf(s_status, sizeof(s_status), ST_VERIFIED ST_BACKUP "%.5s", s_backupName);

@@ -180,7 +180,17 @@ timing cannot share a core with that, so the work is split:
 
 The two cores share one struct guarded by a `critical_section`. Core0 calls
 `escHeartbeat()` every frame. If no heartbeat arrives for
-`UI_HEARTBEAT_TIMEOUT_MS` (250 ms), core1 forces the throttle to zero.
+`UI_HEARTBEAT_TIMEOUT_MS` (250 ms) while the tester is armed, core1 disarms,
+sets the throttle to zero and latches the trip (`escHeartbeatTripped()`). The
+throttle stays at zero when core0 resumes. The next `uiTick()` stops the
+tester, so arming again takes the 1 s hold. The log an arm starts begins
+before core1 is armed, and the heartbeat is stamped after it, so a slow
+start on the card cannot trip the latch.
+
+Core1 runs on a 2 KB static array in main SRAM
+(`multicore_launch_core1_with_stack()` in `src/main.cpp`). Core0's stack is
+the two scratch banks, SCRATCH_X and SCRATCH_Y, 8 KB, so an overflow of it
+does not reach core1's stack.
 
 The pump has three modes (`docs/design/dshot-lifetime.md`): Run, Park and
 Release. `escTaskInit()` asks for Park and parks the pins on core0 before
@@ -538,6 +548,12 @@ Two constraints on these dependencies:
 
 **Splash**
 
+`st7789Init()` sends the cleared framebuffer to the panel before it lights
+the backlight, so the panel's leftover RAM, noise after power-up or the last
+image after a reset, is not shown. During the splash the loop serves USB
+(`usbDevTask()`), so a host that enumerates the board is answered within the
+splash.
+
 For 3 s (`SPLASH_MS`) after power-up the board shows its name, the board the
 image is built for, `RP2350-TOUCH-LCD-2.8`, and the firmware version, for
 example `VERSION 0.1.0`. No DShot frame leaves the board at power-up: SIG is
@@ -569,10 +585,11 @@ claim is not free.
   and while no USB host holds the card. A host that takes the card during
   the hold cancels that press. The press that disarms, kept down, does not
   arm again.
-  While a USB host holds the card the button is drawn as an outline, the
-  disabled look, and the throttle bar reads `EJECT THE USB DRIVE TO ARM` in
-  amber.
-  Once armed the button reads **DISARM** and acts on touch-down.
+  While a USB host holds the card and the tester is disarmed, the button is
+  drawn as an outline, the disabled look, and the throttle bar reads `EJECT
+  THE USB DRIVE TO ARM` in amber.
+  Once armed the button reads **DISARM** and acts on touch-down; a USB host
+  holding the card does not refuse it. Only arming is refused.
 - **Throttle bar**: the gesture depends on LATCH.
 
   | | LATCH off (default) | LATCH on |
@@ -1479,13 +1496,18 @@ any `.TXT` of that number, the text built in the drained write buffer. A
 number. A summary that cannot be saved (card full, a failed write) leaves
 the `.BFL` as it is and the logger `READY`: a short or failed file is
 removed when the card still allows it; after a close that fails, an empty
-`.TXT` can stay. A log a card error ended gets no
+`.TXT` can stay. A close that fails, of the log or of the summary, leaves
+FatFs's lock entry for the file held until the next mount; the logger mounts
+the card again at its next start (`s_closeLeaked`), which frees it. A log a card error ended gets no
 `.TXT`. The `.TXT`, the `.BFL` beside it and every failure path are tested
 over FatFs R0.15 on a RAM disk by `make -C test lognum`
 (`test/sd_log_fatfs.cpp`).
 
 The clock is the board's PCF85063A at 0x51 on I2C1 (`src/clock.*`). `setup()`
-reads its registers 00h to 0Ah once, after `senseInit()`: 14 bytes on the wire,
+reads its registers 00h to 0Ah once, after `senseInit()`. `senseInit()` frees the
+I2C (Inter-Integrated Circuit) bus first when SDA or SCL reads low, as a part
+still holding it after a warm reset would otherwise leave the clock unset
+for the session. The read is 14 bytes on the wire,
 129 clocks, with a 1000 µs timeout, noted to the current sensor's bus record. A
 running clock, with the oscillator-stop flag OS and the bits STOP, EXT_TEST and
 12_24 clear and every time register in range, is the time from then on, kept by
@@ -1531,8 +1553,10 @@ While the host holds the card, LOGS counts what it has read, for example
 `3.0 MB READ`, in lime, a live reading.
 Without a card the button is drawn unavailable and does nothing. With a card,
 the request is refused while armed (`DISARM FIRST`) or while recording (`STOP
-RECORDING FIRST`). Arming is blocked while the host holds the card. See
-`src/usb_msc.h`. A host that unconfigures the device (`tud_umount_cb()`)
+RECORDING FIRST`). A card the driver marks uninitialised (`STA_NOINIT`), as
+after a card fault, counts as no card: the handover gives it back to the
+logger and no drive appears. Arming is blocked while the host holds the card;
+DISARM is not. See `src/usb_msc.h`. A host that unconfigures the device (`tud_umount_cb()`)
 gives the card back as an eject does. TinyUSB 0.18.0's RP2040 port, which the
 RP2350 uses, forces VBUS detection on and never reports an unplug: a cable
 pulled with the board on its battery arrives as a bus suspend, as a sleeping
@@ -1637,7 +1661,7 @@ nothing for those six. The SETUP note line says which set is in use.
 | `SD_LOG_I_INTERVAL` | `32` | Frames between keyframes (I frames). Lower values resynchronise sooner after damage and cost size |
 | `SD_LOG_BUFFER_BYTES` | `8192` | Ring buffer. Size it from BUF PEAK and WORST FLUSH |
 | `SD_LOG_CHUNK_BYTES` | `512` | Flush size. Keep it a multiple of 512 to avoid read-modify-write in the card |
-| `SD_LOG_PREALLOC_BYTES` | `16 MiB` | Contiguous space reserved per file, so the FAT is not rewritten mid-log. About 38 min at 7.3 kB/s. Unused space is released at close |
+| `SD_LOG_PREALLOC_BYTES` | `16 MiB` | Contiguous space reserved per file, so the FAT is not rewritten mid-log. About 38 min at 7.3 kB/s. Unused space is released at close. After one `FR_DENIED` from `f_expand()`, that is, no free contiguous run on the card, the logger skips the search until the next mount, since FAT32 walks the FAT one cluster at a time. `sdLogBegin()` calls `sd_init_driver()` first, so a Debug build does not reset at boot |
 | `SD_LOG_SYNC_MS` | `2000` | Interval for committing the file's directory entry, the first 2000 ms after the start. A log cut before the first commit reads 0 bytes. After it, with the 16 MiB reservation, the entry says 16 MiB and data written since the last commit is readable; without it, or past 16 MiB, the size is the one at the last commit |
 | `SD_LOG_AUTO_ON_ARM` | `1` | Start and stop logging with ARM, in addition to the manual button |
 
@@ -2119,8 +2143,10 @@ is cyan text, and the bar's top line names the value as read:
 and the value do not fit the 140 px between `-` and `+`. Selecting a row fills it and lights its label, and leaves the
 value's look as it is: a value as read is in the text colour. **REVERT**,
 labelled in amber, restores the values that were read. **HEX** shows the raw
-48 bytes for checking a field's decoding, titled `ESC HEX`; its BACK
-returns to the list.
+first 48 bytes (`AM32_SETTINGS_SIZE`) for checking a field's decoding,
+titled `ESC HEX`; its BACK returns to the list. The list, the hex view and
+the edits cover those 48 bytes only; the read, the write and the backup
+cover the whole 192-byte page.
 
 BACK on the list with edits not written arms a guard (decision 7 of
 `docs/design/menu-b.md`): the strip reads, in amber,
@@ -2148,9 +2174,22 @@ reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE CELL. TAP OK,
 WRITE AGAIN.` under it, both amber, and OK returns to the list with the edits
 kept ([Using it](#using-it), the BOARD voltage). OK takes HOLD TO WRITE's
 place in the wide button; it takes a fresh tap, and lifting the finger that
-held HOLD TO WRITE leaves the result up. After the write the firmware waits
-`AM32_WRITE_SETTLE_MS` (300 ms), reads the block back, and compares it byte
-for byte. It shows `WRITE VERIFIED`, in green, only on a full match, with
+held HOLD TO WRITE leaves the result up. The write sends the whole settings page, 192 bytes
+(`AM32_EEPROM_SIZE`, 0x00 to 0xBF), because the AM32 bootloader erases the
+page before it programs a page-aligned write. The startup melody (0x30 to
+0xAF) and the CAN (Controller Area Network) block (0xB0 to 0xBF) are sent as
+read, unchanged. Before the backup and the write the firmware reads the page
+again (`sameEscOnWire()`). With no write sent since the page was read,
+every byte but byte 2 must equal the page read at entry. After a write that
+did not verify, the page may hold the bytes sent, or 0xFF where the
+bootloader erased and did not program: the settings bytes are then not
+compared, and every other byte must be the byte read, the byte sent or
+0xFF, so a RETRY goes. Otherwise nothing is written: the result
+reads `ESC CHANGED: NOT WRITTEN` over `LEAVE AND READ IT AGAIN.` A read that
+fails refuses too. Byte 2, the bootloader version, is left out of the
+compare, because the bootloader rewrites it. After the write the firmware
+waits `AM32_WRITE_SETTLE_MS` (300 ms), reads the page back, and compares all
+192 bytes, except byte 2, byte for byte. It shows `WRITE VERIFIED`, in green, only on a full match, with
 `POWER-CYCLE THE ESC TO APPLY.` under it: the bench sends no command that
 starts the ESC's firmware, and whether the ESC runs the new settings without
 a power cycle is not tested. On a mismatch it shows the first differing
@@ -2194,14 +2233,16 @@ Arming is not refused on it.
 
 ### Backup
 
-Before the first write of a session, the settings block as read at entry goes
-to the card as `BACKUP/AMnnn.TXT` ([Device backups](#device-backups)). The
+Before the first write of a session, the settings page as read at entry,
+192 bytes, goes to the card as `BACKUP/AMnnn.TXT` ([Device backups](#device-backups)). The
 read-only view saves it as it opens. A block in a layout outside 2 to 4 is
 saved with no field line and the line
 `Layout not known: fields not read, not verified`. The
 result line then reads `WRITE VERIFIED. BACKUP AM018`, for example. A card
 that refuses the backup stops the write: `NO BACKUP ON THE CARD: NOT WRITTEN`.
-The melody and the CAN block are not saved; nothing reads the file back yet.
+The file is format 2: the line `bytes 192` and 12 hex lines of 16 bytes, so
+the melody and the CAN block are saved with the settings. Nothing reads the
+file back yet.
 
 ### Protocol
 
@@ -2212,7 +2253,7 @@ The melody and the CAN block are not saved; nothing reads the file back yet.
 | Commands | `SET_ADDRESS 0xFF 00 hi lo`, `SET_BUFFER 0xFE 00 00 len`, `PROG_FLASH 0x01 0x01`, `READ_FLASH 0x03 len`, `ERASE 0x02`, `RUN 0x00` |
 | Checksum | CRC-16/ARC (cyclic redundancy check): polynomial `0xA001`, init 0, appended low byte first |
 | ACK (acknowledge) | `0x30`, always the last byte received |
-| Settings | 48 bytes, at an address that depends on the MCU (microcontroller) |
+| Settings | the 192-byte page, of which the first 48 bytes are settings, at an address that depends on the MCU (microcontroller) |
 
 The settings address depends on the MCU family. The handshake reply gives the
 family in its fifth-from-last byte:
@@ -3065,8 +3106,12 @@ not 0 answers ID 0 is not measured.
    result returns to the list. Before the first frame of the session's first
    write with a card mounted, the backup goes to the card as
    `BACKUP/HTnnn.TXT`; before every write, the servo as it is and the
-   target go to `HITEC/HITEC.TXT` as the record of the write. The write
-   sends the changed registers 20 ms apart, saves, reboots the servo
+   target go to `HITEC/HITEC.TXT` as the record of the write. A D series
+   servo does not answer a write, so the job first reads all 21 registers
+   again. It writes only if the servo holds the model and the writable
+   registers the plan starts from, and the screen's heartbeat is alive; otherwise no frame is written
+   (below). A classic servo answers each cell and is not read first. The
+   write sends the changed registers 20 ms apart, saves, reboots the servo
    (1.0 s) and reads all 21 registers back: about
    1.7 s for one setting, computed from rcbench's timings and not measured.
    The page reads `WRITES SENT: 2 OF 4`, then `READING BACK`. A verified
@@ -3104,6 +3149,8 @@ not 0 answers ID 0 is not measured.
 |---|---|---|
 | `n VALUES WRITTEN AND VERIFIED.` | green | The servo holds the new values |
 | `NOTHING WAS WRITTEN ...` | amber | No frame reached the servo |
+| `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.` | amber | D series: the read before the write differs from the image the plan starts from in the model or a writable register; the list is built again from the servo now on the line |
+| `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A WRITE.` | amber | D series: the read before the write did not end |
 | `THE SERVO DOES NOT HOLD THE VALUES: 0x54. READ AND CHECK.` | red | The read-back differs at the named registers |
 | `THE WRITE STOPPED AT STEP 2 OF 4. READ THE SERVO BEFORE A WRITE.` | red | Part of the plan ran; the servo state is not known |
 | `ALL WRITES SENT; READ-BACK FAILED. ...` | red | Every write went out and the read-back did not end |
@@ -3819,7 +3866,7 @@ CONFIG and HITEC SERVO do. All backups share one directory and one ring of
 |---|---|
 | `BACKUP/KSTnnn.TXT` | a KST or Chaservo servo's image, rcbench's KST text format |
 | `BACKUP/HTnnn.TXT` | a Hitec servo's first full read as rcbench's servo file text, or a record of an interrupted write moved into the ring |
-| `BACKUP/AMnnn.TXT` | an AM32 ESC's 48-byte settings block as text: one line per field its firmware reads, the bytes in hex, a checksum line |
+| `BACKUP/AMnnn.TXT` | an AM32 ESC's 192-byte settings page as text: one line per field its firmware reads, the bytes in hex, a checksum line |
 | `BACKUP/LAST` | the latest number, 3 digits and a line feed |
 
 - The numbers 001 to 050 are one sequence for every device. The next backup
@@ -3867,7 +3914,9 @@ In the firmware:
   caption in the top row. The time counts from the last contact the touch
   controller reports, so a wet screen or something lying on the glass keeps
   the tester armed.
-- Core1 sets the throttle to zero if core0 sends no heartbeat for 250 ms.
+- If core0 sends no heartbeat for 250 ms while armed, core1 disarms, sets the
+  throttle to zero and latches the trip. The next `uiTick()` stops the
+  tester, and arming again takes the 1 s hold.
 - The tester opens from MENU disarmed, at throttle 0, with LATCH off, and its
   MENU button disarms, zeroes the throttle and turns LATCH off before it returns
   to MENU. Every tool but SETUP opens only from MENU or from a hub that
@@ -4213,7 +4262,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,287 of 16,547 lines in 100 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,373 of 16,638 lines in 100 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

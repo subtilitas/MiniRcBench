@@ -57,6 +57,17 @@ static uint8_t s_pumpPin = 0;     /**< GPIO the driver was bound to. */
  */
 static volatile EscPinMode s_reached = EscPinMode::Run;
 /**
+ * s_reached and s_pumpUp as one byte, the mode in bits 0 to 6 and the pump up
+ * in bit 7, written by core1 after each change of either (publishMode()).
+ * Core0 reads this byte alone, so the two never come from different moments.
+ */
+static volatile uint8_t s_report = (uint8_t)EscPinMode::Run;
+
+/** @brief Publish s_reached and s_pumpUp to core0 as one byte. Core1. */
+static inline void publishMode() {
+	s_report = (uint8_t)((uint8_t)s_reached | (s_pumpUp ? 0x80u : 0u));
+}
+/**
  * millis() at the end of the last bind that succeeded, 0 made 1; 0 while the
  * pump is down. Core0 reads it. @see escTaskBoundMs()
  */
@@ -254,6 +265,13 @@ void escHeartbeat() {
 	s_heartbeatMs = millis();
 }
 
+/** @brief Set by core1 on a heartbeat lapse while armed; cleared by core0. */
+static volatile bool s_hbTripped = false;
+
+bool escHeartbeatTripped() { return s_hbTripped; }
+
+void escHeartbeatTripClear() { s_hbTripped = false; }
+
 uint32_t escHeartbeatMs() { return s_heartbeatMs; }
 
 bool escRequestCommand(uint8_t cmd, bool save) {
@@ -332,11 +350,15 @@ void escTaskStart() {
 	s_want = EscPinMode::Run;
 }
 
-bool escTaskSuspended() {
-	return escModeReported(s_reached, s_pumpUp, EscPinMode::Release);
+/** @brief Whether core1 reports mode @p m, from one read of s_report. */
+static bool modeReported(EscPinMode m) {
+	uint8_t r = s_report;
+	return escModeReported((EscPinMode)(r & 0x7Fu), (r & 0x80u) != 0, m);
 }
-bool escTaskParked() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Park); }
-bool escTaskRunning() { return escModeReported(s_reached, s_pumpUp, EscPinMode::Run); }
+
+bool escTaskSuspended() { return modeReported(EscPinMode::Release); }
+bool escTaskParked() { return modeReported(EscPinMode::Park); }
+bool escTaskRunning() { return modeReported(EscPinMode::Run); }
 uint32_t escTaskBoundMs() { return s_boundMs; }
 bool escTaskBindRefused() { return s_bindRefused; }
 /** @} */
@@ -448,6 +470,7 @@ static void pumpTeardown() {
 		out_dshot_release(s_pumpPin);
 		gpio_pull_up(s_pumpPin);
 		s_pumpUp = false;  // reported as no mode until the next one is reached
+		publishMode();
 		// A sequence going out stops here, and core0 reads NoAnswer
 		// until the next bind has an ESC answering, rather than the
 		// last readiness for as long as the pin is away. A request
@@ -491,6 +514,7 @@ static void pumpBind() {
 	EscPinMode from = s_reached;
 	if (from == EscPinMode::Park) {
 		s_reached = EscPinMode::Run;
+		publishMode();
 		__dmb();
 		EscPadPlan plan = escParkPlan(from, EscPinMode::Run, s_heldSig, s_heldAux,
 		                              pin, aux);
@@ -505,6 +529,7 @@ static void pumpBind() {
 	// Run before the pump is up, so core0 never reads Park with the pump up.
 	s_reached = EscPinMode::Run;
 	s_pumpUp  = true;
+	publishMode();
 	s_heldSig = pin;
 	s_heldAux = aux;
 	// A rebuild is a new ESC as far as this pump is concerned: it starts
@@ -550,6 +575,7 @@ static void padsTo(EscPinMode to) {
 		// that lands during the park parks again on the next pass.
 		s_rebuildReq = false;
 		s_reached = EscPinMode::Run;
+		publishMode();
 		__dmb();
 		uint8_t sig = s_dshotPin;
 		uint8_t aux = s_kissPin;
@@ -561,6 +587,7 @@ static void padsTo(EscPinMode to) {
 		__dmb();
 	}
 	s_reached = to;
+	publishMode();
 }
 
 void escTaskPoll() {
@@ -638,6 +665,14 @@ void escTaskPoll() {
 	uint32_t hb = s_heartbeatMs;
 	uint32_t ms = millis();
 	bool uiAlive = escUiAlive(ms, hb);
+	// A lapse while armed disarms and latches: the throttle stays 0 when
+	// core0 resumes, until it has stopped the tester and a new hold arms.
+	if (escHeartbeatTrips(s_armed, uiAlive)) {
+		s_throttle = 0;
+		s_armed = false;
+		__dmb();
+		s_hbTripped = true;
+	}
 #if KISS_TELEM_ENABLE
 	bool kissRx = s_kissRx;
 #else

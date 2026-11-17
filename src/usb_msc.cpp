@@ -38,11 +38,15 @@ static sd_card_t *card() { return sd_get_by_num(0); }
  * Both drivers fill `state.sectors` after a successful init, and the SDIO one
  * needs the accessor when it has not. Same two-step sd_log.cpp does, and for
  * the same reason: reading one field alone reports zero for a card that is
- * demonstrably working.
+ * demonstrably working. A card the driver marks uninitialised (STA_NOINIT,
+ * as the SDIO glue does after a fault) has none.
  */
 static uint32_t cardSectors() {
 	sd_card_t *c = card();
 	if (!c) return 0;
+	// A card fault marks the card uninitialised and leaves its sector count:
+	// such a card reads ready to a host and fails every READ10. It is no card.
+	if (c->state.m_Status & STA_NOINIT) return 0;
 	uint32_t n = c->state.sectors;
 	if (!n && c->get_num_sectors) n = c->get_num_sectors(c);
 	return n;

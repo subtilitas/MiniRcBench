@@ -114,6 +114,11 @@ void sdLogStatus(SdLogStatus *out) {
 
 MscState mscGetState() { return MscState::Idle; }
 
+// No failed close in these scenarios: card_dir.cpp's remount never runs, and
+// the mount id stays that of the one mount.
+bool sdLogRemount() { return true; }
+uint16_t sdLogMountId() { return 1; }
+
 // ---------------------------------------------------------------------------
 // scenarios
 // ---------------------------------------------------------------------------

@@ -67,10 +67,10 @@ size_t am32BackupFormat(const uint8_t *settings, const char *escType, uint16_t a
 		am32FormatValue(f, settings, value, (int)sizeof(value));
 		put(&b, "%s %s = %s\n", f->group, f->name, value);
 	}
-	put(&b, "bytes %u\n", (unsigned)AM32_SETTINGS_SIZE);
-	for (unsigned row = 0; row < AM32_SETTINGS_SIZE; row += BYTES_PER_LINE) {
+	put(&b, "bytes %u\n", (unsigned)AM32_EEPROM_SIZE);
+	for (unsigned row = 0; row < AM32_EEPROM_SIZE; row += BYTES_PER_LINE) {
 		put(&b, "%02X:", row);
-		for (unsigned i = row; i < row + BYTES_PER_LINE && i < AM32_SETTINGS_SIZE; i++)
+		for (unsigned i = row; i < row + BYTES_PER_LINE && i < AM32_EEPROM_SIZE; i++)
 			put(&b, " %02X", (unsigned)settings[i]);
 		put(&b, "\n");
 	}

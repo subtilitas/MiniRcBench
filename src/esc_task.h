@@ -20,8 +20,11 @@
  * escCancelCommand() and escCommandState() take that section too.
  *
  * @warning Core0 must call escHeartbeat() regularly. If it stops for longer
- *          than @ref UI_HEARTBEAT_TIMEOUT_MS, core1 assumes the UI has died and
- *          forces the throttle to zero on its own.
+ *          than @ref UI_HEARTBEAT_TIMEOUT_MS while armed, core1 assumes the
+ *          UI has died: it disarms, zeroes the throttle and raises
+ *          escHeartbeatTripped(). The trip latches, so the throttle does not
+ *          come back when core0 resumes; uiTick() reads the flag first thing
+ *          and stops the tester, and arming again takes the full hold.
  */
 
 #pragma once
@@ -200,6 +203,26 @@ void escHeartbeat();
  * @return The stamp escUiAlive() is judged against.
  */
 uint32_t escHeartbeatMs();
+
+/**
+ * @brief Whether core1 disarmed on a heartbeat lapse since the last
+ *        escHeartbeatTripClear(). Read by core0.
+ * @return true after a lapse of more than @ref UI_HEARTBEAT_TIMEOUT_MS
+ *         while armed.
+ */
+bool escHeartbeatTripped();
+
+/** @brief Clear escHeartbeatTripped(), once core0 has disarmed its own state. */
+void escHeartbeatTripClear();
+
+/**
+ * @brief Whether a pump slot trips on the heartbeat: armed, and the UI not
+ *        alive (escUiAlive()). Pure.
+ * @param armed   The pump is armed.
+ * @param uiAlive escUiAlive() for this slot.
+ * @return true when core1 disarms and raises escHeartbeatTripped().
+ */
+static inline bool escHeartbeatTrips(bool armed, bool uiAlive) { return armed && !uiAlive; }
 
 /**
  * @brief Whether core1 would start a command now, as it last published.

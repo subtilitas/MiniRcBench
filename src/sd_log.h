@@ -396,6 +396,15 @@ void sdLogStatus(SdLogStatus *out);
  */
 bool sdLogVolumeId(uint32_t *lba, uint32_t *offset);
 
+/**
+ * @brief FatFs's mount id of the volume, `FATFS::id`. It changes at every
+ *        mount, FatFs's own after a card fault among them, and every mount
+ *        makes the root the current directory. card_dir.cpp compares it to
+ *        tell that a scope's directory is no longer current.
+ * @return The id; 0 without a mounted card.
+ */
+uint16_t sdLogMountId();
+
 /** @brief What a change in arm state should do to the log. */
 enum class SdLogArmAction : uint8_t {
 	None,   /**< Leave the log alone. */

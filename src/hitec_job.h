@@ -95,6 +95,16 @@ enum class HitecJobState : uint8_t {
 };
 
 /** @brief Why the last command taken did nothing. */
+/**
+ * @defgroup hitec_job_results The job's own results
+ * @brief Beside `hitec_ses_t` in HitecStatus::result, for a D series write
+ *        refused by the read before it. Nothing was written.
+ * @{
+ */
+#define HITEC_JOB_ERR_CHANGED 0xF0  /**< The servo read before the write differs from the image the plan starts from. */
+#define HITEC_JOB_ERR_PREREAD 0xF1  /**< The read before the write failed. */
+/** @} */
+
 enum class HitecRefusal : uint8_t {
 	None,     /**< Taken. */
 	State,    /**< Not in a state that takes it, or classic without the switched supply. */
