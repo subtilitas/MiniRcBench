@@ -73,7 +73,7 @@ TESTER (root, no header)
  └─ MENU: BEEP THE ESC, AM32 CONFIG, SERVO TESTER, KST SERVO,
     HITEC SERVO, SETTINGS, SD LOG: seven rows, scrolls 36 px
      ├─ KST SERVO: search ─> list; BACK ─> leave page; BACK ─> list;
-     │   LEAVE ─> unplug page; BACK ─> a new search; RESTART DSHOT ─> MENU
+     │   LEAVE ─> unplug page; BACK ─> a new search; the hub's button ─> the hub
      └─ HITEC SERVO: family view (CLASSIC, D SERIES) ─> entry ─> list;
          the same leave and unplug pages
 ```
@@ -171,7 +171,7 @@ What header BACK does on every view:
 | SERVO SET, a TYPE or RATE change pending | first BACK arms the guard; the second returns and drops it |
 | leave page, every phase | drawn disabled; each way on is a labelled button |
 | PROGRAMMER (chooser) | MENU |
-| KST SERVO, claim refused or Stopping | MENU; DShot resumes at once, as today |
+| KST SERVO, claim refused or Stopping | the hub; the pins are parked at once |
 | KST SERVO, search or read, no servo in the mode | the leave page, in its release phase |
 | KST SERVO, search or read, a servo in the mode | the leave page; a read under way is aborted, as today |
 | KST field list | the leave page |
@@ -285,8 +285,8 @@ status (`GP0`, `GP0+1`) and statuses report state only
 |---|---|---|
 | Caption | `SIG GP0  AUX GP1  DSHOT600`, 26 characters | 155 px, x 8..162 |
 | Caption, widest | `SIG GP1  AUX GP0  DSHOT1200`, 27 | 161 px, x 8..168 |
-| Caption while the claim is Restoring | `DSHOT RESTARTING ON SIG GP0`, 27 | 161 px |
-| Chip | `EDT ON` on `C_GREEN`; `EDT OFF` on `C_RED` while eRPM arrives without EDT; `NO ESC` on `C_GRID` while no eRPM arrives: text 35, 41 or 35 px plus 12 px | x 185, 179 or 185 to 232 |
+| Caption while the claim is not Free | `RELEASING SIG GP0`, 17 characters, 101 px; `SETTING SIG GP0 LOW` while Parking, 19, 113 px |
+| Chip | none: MENU shows no EDT chip, since DShot is parked there (menu-c.md decision 12). Built (D2) |
 
 While the claim is not Free, every row that claims or changes the wiring is
 drawn disabled under its normal status, and the strip says why. The words
@@ -374,15 +374,17 @@ Three entries fill the page at an 80 px pitch. A fourth entry turns the
 chooser into a list on `ui_list` with 80 px rows; that change is not part of
 structure B. A tap opens the entry's screen through `uiOpenTool()` in
 `ui.cpp`, the one place a screen opens another
-([decision 19](#decisions)). RESTART DSHOT on the leave page returns to MENU,
-as today.
+([decision 19](#decisions)). The leave page's last button returns to the hub
+the tool opened from.
 
 ## The leave page
 
 One page replaces the leave page and the unplug page of KST SERVO and HITEC
 SERVO, and the unplug page of SERVO TESTER. It is a widget, `ui_leave`, that
 the three screens fill. Slice 1 builds the widget ([slice 1 as
-built](#slice-1-as-built)); no screen draws it before slice 6. It has three
+built](#slice-1-as-built)); slice 6 gives it to the three screens, and
+slices D2 and D3 of [dshot-lifetime.md](dshot-lifetime.md#d2-as-built) change
+its last button and its texts, as the sections below read. It has three
 phases: before LEAVE, releasing, and released. Its instructions are numbered
 steps in one style: scale 1 from x 8, the current step in `C_AMBER` with a
 3 px `C_AMBER` bar at x 0 (drawn `#` below), the other steps in `C_DIM`.
@@ -396,9 +398,9 @@ y   0 | KST SERVO                       [  BACK  ]|  BACK drawn disabled
    78 |#  IT STAYS IN PROGRAMMING MODE UNTIL      |
    90 |#  ITS SUPPLY IS OFF.                      |
   104 | 2 UNPLUG THE SERVO.                       |  step 2, C_DIM
-  116 |   DSHOT RESTARTS ON SIG GP0 AND READS     |
+  116 |   ESC TESTER'S DSHOT ON SIG GP0 READS     |
   128 |   AS A 970 US PULSE AT 1000 HZ.           |
-  142 | 3 RESTART DSHOT.                          |  step 3, C_DIM
+  142 | 3 BACK TO SERVO.                          |  step 3, C_DIM
   158 | 2 CHANGES NOT WRITTEN.                    |  notes, C_AMBER, 12 px pitch,
   170 | THE SERVO IS IN DOUBT: RESTORE FIRST.     |  at most 4 lines, end y 201
   210 |                                           |  hold bar, 3 px
@@ -414,7 +416,7 @@ Releasing, after the tap on LEAVE:
   104 |#2 UNPLUG THE SERVO.                       |  current from here on
   158 | SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.         |  or RELEASING THE PIN, C_DIM
   214 | [NEXT SERVO]                              |  drawn disabled; right hidden
-  268 | [          RESTART DSHOT           ]      |  drawn disabled
+  268 | [              SERVO               ]      |  drawn disabled
 ```
 
 Released, once `pinClaimUnplugDue()`:
@@ -423,7 +425,7 @@ Released, once `pinClaimUnplugDue()`:
   104 |#2 UNPLUG THE SERVO.                       |
   158 | NEXT SERVO: POWER IT AFTER THE TAP.       |  C_DIM
   214 | [NEXT SERVO]                              |  live
-  268 | [          RESTART DSHOT           ]      |  live 1000 ms after this phase
+  268 | [              SERVO               ]      |  live 1000 ms after this phase
 ```
 
 The variants:
@@ -441,7 +443,7 @@ The variants:
 |---|---|---|---|
 | `1 POWER THE SERVO OFF, THEN LEAVE.` | 34 | 203 px | 37 characters |
 | `  IT STAYS IN PROGRAMMING MODE UNTIL` | 36 | 215 px | 37 |
-| `  DSHOT RESTARTS ON SIG GP0 AND READS` | 37 | 221 px | 37: ends at x 229 |
+| `  ESC TESTER'S DSHOT ON SIG GP0 READS` | 37 | 221 px | 37: ends at x 229 |
 | `  AS A 970 US PULSE AT 1000 HZ.` | 31 | 185 px | 37 |
 | `1 LEAVE SWITCHES THE SUPPLY OFF.` | 32 | 191 px | 37 |
 | `1 LEAVE RESTARTS THE SERVO.` | 27 | 161 px | 37 |
@@ -460,7 +462,8 @@ The buttons:
 - **LEAVE** is a tap and runs today's leave: KST removes the session's record
   when the servo is in the mode and not in doubt, then `endClaim()`. The
   release order of [pin-claim.md](pin-claim.md#sequence) step 5 is
-  unchanged. The button then reads RESTART DSHOT, drawn disabled. LEAVE is
+  unchanged. The button then reads the title of the hub the tool returns to,
+  drawn disabled. LEAVE is
   drawn disabled while the screen writes to the device: the screen clears
   `leaveEnabled` then, as today's KST and Hitec leave pages draw LEAVE
   disabled while `s_writing` is set (`ui_kst.cpp` and `ui_hitec.cpp`
@@ -471,9 +474,10 @@ The buttons:
   `pinClaimUnplugDue()` is true: today's BACK on the unplug page. KST and
   Hitec start a new session; Hitec keeps the family chosen on the chooser
   and asks for the job as for the first servo (decision 34).
-- **RESTART DSHOT** calls `pinClaimRestart()` and returns to MENU. It takes a
-  press that lands at least 1000 ms (`UI_HOLD_MS`) after the released phase
-  began ([decision 21](#decisions)).
+- **The last button**, which reads the hub's title, calls `pinClaimRelease()`
+  and returns to the hub. It starts no DShot. It takes a press that lands at
+  least 1000 ms (`UI_HOLD_MS`) after the released phase began
+  ([decision 21](#decisions)).
 - **HOLD TO REBOOT** and **READ AGAIN** keep today's behaviour and are hidden
   from the tap on LEAVE on.
 
@@ -1252,7 +1256,7 @@ deliberate actions than at 9f965a3.
 | HOLD TO ARM's own timer | [menu.md](menu.md#decisions) decision 17 |
 | `UI_HOLD_MS`, 1000 ms; every hold stays a hold | the write, save, start, apply, reboot and arm holds are the deliberate actions the interlocks count |
 | The pin claim, its release order and the core1 jobs | the leave page draws the claim's states; it changes none |
-| The unplug hazard text, 970 µs at 1000 Hz | measured from DShot's frame, [pin-claim.md](pin-claim.md#restoring-dshot) |
+| The unplug hazard text, 970 µs at 1000 Hz | measured from DShot's frame, [pin-claim.md](pin-claim.md#parking-the-pins) |
 | The stored settings block, `SETTINGS_VERSION` | SIG and AUX are labels of `dshotPin` and `kissPin`; OWN is value 0 |
 | SETTINGS applies edits live | decision 7 names them; changing that is a different design |
 | The 36 px header and BACK 64 x 32 px | [menu.md](menu.md#decisions) decision 5 |
@@ -1374,8 +1378,8 @@ slices:
   `uiListDrawField()` draws; built in slice 2.
 - The leave page draws no header: BACK on it is the screen's, drawn
   disabled by decision 25.
-- RESTART DSHOT's wait is a parameter of `uiLeaveOpen()`: 1000 ms by
-  decision 30. The widget puts RESTART DSHOT in LEAVE's rectangle, as that
+- The last button's wait is a parameter of `uiLeaveOpen()`: 1000 ms by
+  decision 30. The widget puts the button in LEAVE's rectangle, as that
   answer keeps it.
 - The step texts, including the no-switch value's name, are the screen's:
   OWN by decision 29.
@@ -1742,9 +1746,9 @@ as for the first servo (decision 34).
 | Removed | `ui_hitec.{h,cpp}`, `ui_kst.cpp`, `ui_am32.cpp`, `ui_servo.cpp` | the family view (`HitecView::Family`, `HitecCtl::Classic`, `DSeries`, `BTN_CLASSIC`, `BTN_DSERIES`, `drawFamily()`, `familyTouch()`, `drawFamilyStrip()`, `familyOpen()`, `classicAllowed()`, `s_familyChosen`, `HITEC_UI_CHOOSE`, `HITEC_UI_D_POWER`, `HITEC_UI_CLASSIC_WHY_*`), `uiHitecEnter()`, and `am32MenuStatus()`, `servoMenuStatus()`, `kstMenuStatus()`, `hitecMenuStatus()` |
 
 The BACK table holds as drawn: PROGRAMMER to MENU; KST SERVO and HITEC
-SERVO to MENU while the claim is refused or Stopping, DShot resumed at once
+SERVO to MENU while the claim is refused or Stopping, the pins parked at once
 from Stopping; HITEC SERVO's READ wait to the leave page releasing, as any
-view with no servo in the mode; RESTART DSHOT to MENU.
+view with no servo in the mode; the leave page's last button to the hub.
 
 Where the build reads the note's lines, it reads them as follows:
 

@@ -186,7 +186,7 @@ the enable pin:
 - Outside a claim that uses the supply: the enable pin is an input with both
   pulls off and its input disabled, so the external pull-down alone holds EN low. A
   missing or too-weak pull-down leaves the converter on outside the claim,
-  while DShot runs, with its output on the lead's middle wire. Bring-up
+  outside the claim, with its output on the lead's middle wire. Bring-up
   step 7 checks EN and VOUT on the main screen.
 
 **Ground.** The servo's minus goes to the supply's minus, and one tap joins the
@@ -200,8 +200,7 @@ an ESC that wire is the BEC output, the ESC's own regulated supply, and the
 converter drives against it. The claim's ESC check
 ([interlocks](pin-claim.md#interlocks)) does not see an ESC that does not
 speak bidirectional DShot, nor an ESC plugged in after the claim. The enable
-pin is not driven during that check, so the converter is off while DShot
-runs. The README's wiring section and the search screen warn of it.
+pin is not driven during that check, so the converter is off outside a claim. The README's wiring section and the search screen warn of it.
 
 ```
   user supply +  ------- VIN    DC-DC    VOUT  ---------  servo +  (red)
@@ -358,7 +357,7 @@ which all 10 enter are the window, and the constant takes a value inside it.
   tap the page's step 1 reads `LEAVE SWITCHES THE SUPPLY OFF.`; during the
   wait its note reads `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` A locked session
   leaves the same way. BACK on the leave page is drawn disabled and does
-  nothing, and NEXT SERVO and RESTART DSHOT are drawn disabled until the
+  nothing, and NEXT SERVO and the hub's button are drawn disabled until the
   wait ends. HOLD TO REBOOT is hidden from the tap on LEAVE on, and the job
   refuses `Reboot` while Leaving.
 - **REBOOT.** A 1000 ms hold on the leave page ([leave](#leave)), offered with
@@ -1040,15 +1039,16 @@ and the card is only ever touched from core0, as `sd_log.cpp` already does.
 | STOPPING, 50 ms with no pulse | the claim's drain: DShot stops, then silence |
 | LOW, 100 ms at least, and the supply set | `kst_line_open()`, which drives low. With a switched supply, `servoSupplyBind()` drives the enable pin low at the job's bind, and the search switches the supply off for 2000 ms and on before each attempt |
 | PROGRAMMING, the entry holds low 100 ms more | the search |
-| LEAVE: low for 100 ms by default, then PWM | without a switched supply: low for 100 ms, `kst_line_close()` (input, pull-down on), then the leave page's RESTART DSHOT and DShot. With one: supply off and the line low for 2000 ms, `kst_line_close()`, `servoSupplyRelease()`, then the leave page's RESTART DSHOT and DShot |
+| LEAVE: low for 100 ms by default, then PWM | without a switched supply: low for 100 ms, `kst_line_close()` (input, pull-down on), then the leave page's last button, which parks the pins; no DShot follows. With one: supply off and the line low for 2000 ms, `kst_line_close()`, `servoSupplyRelease()`, then the leave page's last button |
 | POWER_CYCLED, REBOOT | the loss rule above. REBOOT with a switched supply only, on the leave page; not rcbench's REBOOT, which counts from its PD mini's read-back and ends in PWM: here the times count from the switch commands, and an entry and a read follow |
 
 The servo stays in programming mode until its supply is off
 (`kst_session.h`: "The mode lasts until the servo's supply is removed").
 Whether it follows PWM before that is not measured. So, without a switched
 supply, leaving tells the user to power it off; with one, the bench switches
-the supply off itself. The shared leave page's RESTART DSHOT comes before
-DShot restarts on the pin.
+the supply off itself. The shared leave page's last button, which reads the title of the hub, SERVO,
+comes before the pins are parked; DShot runs on the pin only when ESC TESTER
+or ESC COMMANDS opens.
 
 ## Screens
 
@@ -1219,9 +1219,9 @@ y   0 | KST SERVO                       [  BACK  ]|  BACK drawn disabled
    78 |#  IT STAYS IN PROGRAMMING MODE UNTIL      |
    90 |#  ITS SUPPLY IS OFF.                      |
   104 | 2 UNPLUG THE SERVO.                       |  step 2, C_DIM
-  116 |   DSHOT RESTARTS ON SIG GP0 AND READS     |
+  116 |   ESC TESTER'S DSHOT ON SIG GP0 READS     |
   128 |   AS A 970 US PULSE AT 1000 HZ.           |
-  142 | 3 RESTART DSHOT.                          |  step 3, C_DIM
+  142 | 3 BACK TO SERVO.                          |  step 3, C_DIM
   158 | 2 CHANGES NOT WRITTEN.                    |  only with pending edits, C_AMBER
   170 | THE SERVO IS IN DOUBT: RESTORE FIRST.     |  only while locked, C_AMBER
   214 | [   STAY   ]                              |  6, 214, 110 x 46
@@ -1234,15 +1234,16 @@ a tap. Without a switched supply it leaves even a locked session: there is
 nothing else the screen can do, and the record file below keeps what the
 servo was. From the tap on, step 2 is current, the note reads
 `RELEASING THE PIN` in `C_DIM`, and the left button reads NEXT SERVO and the
-wide one RESTART DSHOT, both drawn disabled until `pinClaimUnplugDue()`.
-Then NEXT SERVO keeps the claim and starts a new search, with
-`NEXT SERVO: POWER IT AFTER THE TAP.`, and RESTART DSHOT takes a press that
-lands 1000 ms or more later ([pin-claim.md](pin-claim.md#restoring-dshot)).
+wide one SERVO, the hub's title, both drawn disabled until
+`pinClaimUnplugDue()`. Then NEXT SERVO keeps the claim and starts a new search,
+with `NEXT SERVO: POWER IT AFTER THE TAP.`, and the wide button takes a press
+that lands 1000 ms or more later and parks the pins
+([pin-claim.md](pin-claim.md#parking-the-pins)).
 BACK during a write is drawn disabled on the write page and does nothing: no
 leave is queued, and the result stays on the page ([menu-b.md](menu-b.md),
 decision 5, built in its slice 5). BACK during a search or a read aborts it.
 BACK on a search that found no servo opens the page releasing, at
-`1 UNPLUG THE SERVO.` and `2 RESTART DSHOT.`; it turns released once
+`1 UNPLUG THE SERVO.` and `2 BACK TO SERVO.`; it turns released once
 `pinClaimUnplugDue()` is true.
 
 With a switched supply step 1 is one line, and HOLD TO REBOOT, scale 1,
@@ -1251,7 +1252,7 @@ sits right of STAY:
 ```
    66 |#1 LEAVE SWITCHES THE SUPPLY OFF.          |  step 1, current
    80 | 2 UNPLUG THE SERVO.                       |  steps 2 and 3, C_DIM
-  118 | 3 RESTART DSHOT.                          |
+  118 | 3 BACK TO SERVO.                          |
   158 | NO CARD: REBOOT LOSES THE BACKUP          |  C_AMBER, no card only, after
   170 | IN RAM.                                   |  the notes on edits and doubt
   214 | [   STAY   ] [ HOLD TO REBOOT ]           |  6,214,110x46; 122,214,112x46
@@ -1483,7 +1484,7 @@ so these run against the same simulated servo:
   the first write frame, the verify, a hard-limit value written as its limit,
   FILES with SAVE AS, LOAD and a refused file, a write left in doubt and
   `RESTORE...` with the restore page's hold, BACK in every view, disabled during
-  a write and during its flush, LEAVE and RESTART DSHOT, a lost servo, no card,
+  a write and during its flush, LEAVE and the hub's button, a lost servo, no card,
   a card held by USB, a card that takes no file, an image that fails the
   fingerprint, a record found at entry; `checkControlTable()` in each view.
   `python3 tools/make_previews.py` adds `docs/kst-preview.png`.

@@ -110,7 +110,7 @@ one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
 readouts that open SETUP with LATCH, SERVO TESTER's title, the MENU row's
 label, MENU's rows by device with one entry point for the servo
 programmers, and the design notes and checks no single slice owned.
-Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 5,
+Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 6,
 tested on the host only: the hub widget, the navigation stack, MENU as the
 root, and six rows over three hubs. MENU is the first screen after the
 splash and has no BACK. It has six rows and does not scroll: ESC TESTER,
@@ -121,7 +121,9 @@ TESTER, ANGLE METER, KST / CHASERVO, HITEC D SERIES and HITEC CLASSIC and
 scrolls 146 px; RECEIVER holds MONITOR and OUTPUT. Every tool is two taps
 from MENU and returns to its hub. The four names are rcbench's, ESC PROGRAM,
 RECEIVER, LOGS and SETUP (slice 5), and ANGLE METER's view reads ANGLE SET.
-Slices D2 and D3 of
+The design notes name the screens as they stood when each slice was built;
+slice 6 records the structure in them, and `docs/design/README.md` maps the
+older names to these. Slices D2 to D5 of
 `docs/design/dshot-lifetime.md` are built, tested on the host only: no DShot
 frame leaves the board at power-up, and DShot runs only while ESC TESTER or
 ESC COMMANDS is open, or SETUP over the tester. Everywhere else SIG is
@@ -3925,7 +3927,7 @@ src/
   board_pins.h          includes the board's pin map
   board_rp2350_touch_lcd_2_8.h  the pin map itself, from the schematic
   board_desc.{h,cpp}    the pins and defaults the drivers and settings read, as data
-  esc_task.{h,cpp}      core1 DShot pump, command slot, EDT decode, cross-core state
+  esc_task.{h,cpp}      core1 DShot pump, command slot, EDT decode, cross-core state; parked unless ESC TESTER or ESC COMMANDS is open
   pin_claim.{h,cpp}     one screen at a time takes the two signal pins from DShot; the PIN_USERS table
   core1_job.{h,cpp}     the core1 job on the claimed pins: start, bind, step, stop
   dshot/                bidirectional DShot, from rcbench
@@ -3982,6 +3984,17 @@ src/
   bridge_log.{h,cpp}    the bridge's traffic log, a build option off by default
   ui_bridge.{h,cpp}     USB BRIDGE: the claim, the counts, BACK's rules, the leave page
   backup_ring.{h,cpp}   the ring of device backups in BACKUP/
+  efm8_backup.{h,cpp}   the backup of a Bluejay or BLHeli_S ESC's settings page
+  efm8_view.{h,cpp}     what ESC SETTINGS shows of a Bluejay or BLHeli_S page
+  escwire_job.{h,cpp}   ESC SETTINGS' core1 job: rcbench's escwire session on SIG
+  escwire_port.{h,cpp}  the escwire line it drives
+  greet_cycle.{h,cpp}   ESC SETTINGS' connect cycle: a quiet phase, then bursts of greetings
+  card_cache.{h,cpp}    the SD write cache for the pin claims
+  sd_log_next.{h,cpp}   the next log's file name in LOGS/
+  servo_supply.{h,cpp}  the servo's switched supply for the servo, KST and Hitec jobs
+  supply_guard.{h,cpp}  the supply's protection: the cuts on the current sensor's readings
+  kst_card_wait.cpp     the firmware's wait for the KST job's card acknowledge
+  backlight.pio         the panel backlight's 20 kHz PWM on one state machine
   card_dir.{h,cpp}      the card's mount rule, directory scope and file calls
   sense.{h,cpp}         the INA219 current sensor on the shared I2C bus: codec, probe, readings, recovery
   qmi8658.{h,cpp}       the board's QMI8658 IMU on the shared I2C bus: probe, reset, set-up, burst, stop
@@ -4487,8 +4500,9 @@ The Host tests job in `ci.yml` runs the same render and check on every push to
 `shot_servo_hub.ppm` → `img/servo-hub.png`, and show the screens as
 the suite draws them, so the manual's pictures follow the menu as built.
 `test/check_docs.py` fails when README.md or a wiki page names a screen
-text, a view or an image that menu structure B or C removed; the script
-holds the list.
+text, a view, a MENU path or an image that menu structure B or C removed, and
+for a text that states DShot restarting after a claim or running on every
+screen; the script holds the list.
 
 ---
 

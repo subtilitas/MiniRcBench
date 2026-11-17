@@ -1,8 +1,9 @@
 # DShot lifetime
 
-Status: slices D1, D2, D3 and D4 built, host tests only ([D1 as
+Status: slices D1 to D5 built, host tests only ([D1 as
 built](#d1-as-built), [D2 as built](#d2-as-built), [D3 as
-built](#d3-as-built), [D4 as built](#d4-as-built)); D5 not built. The
+built](#d3-as-built), [D4 as built](#d4-as-built), [D5 as
+built](#d5-as-built)). The
 developer settled its six questions on
 2026-11-16, and made four further calls the reviews of the note raised, each
 pending the owner's review ([Decisions](#decisions)). It builds on
@@ -573,9 +574,9 @@ by [menu-b.md](menu-b.md#decisions) owner decision 27.
 | `docs/bench-plan.md` | its checks of RESTART DSHOT and of DShot after a claim | the parked line and the next ESC TESTER |
 | STATUS.md, CHANGELOG.md | | per slice |
 
-The decisions and passages this revises carry a "Revised by" line now,
-marked "Not built", with "pending the owner's review" for each part that
-comes from a developer's call: [pin-claim.md](pin-claim.md#decisions)
+The decisions and passages this revises carry a "Revised by" line, marked
+"Built" with the slice that built it, with "pending the owner's review" for
+each part that comes from a developer's call: [pin-claim.md](pin-claim.md#decisions)
 decisions 3 and 4, [menu-b.md](menu-b.md#not-changed) "The tester is the
 root", [esc-commands.md](esc-commands.md#decisions) decision 5,
 [kiss-telemetry.md](kiss-telemetry.md#receiving),
@@ -583,7 +584,7 @@ root", [esc-commands.md](esc-commands.md#decisions) decision 5,
 decisions 3 and 30 and decision 21, which name RESTART DSHOT, by the line of
 [decision 9](#decisions), and menu-c.md's
 [requirement 4](menu-c.md#what-the-structure-requires-of-dshot), by the line
-of decision 6. The build marks each line built when its slice merges.
+of decision 6. Each line reads "Built" once its slice is built.
 
 ## Slices
 
@@ -600,7 +601,7 @@ lines (menu-b.md owner decision 27). The order against
 | D2 | menu-c.md slices 2, 3 and 4 (the stack, MENU as root, the hubs) and D1 as amended; #49 is on `main` as 3b36588. Built on branch `ccr-dshot-d2` ([D2 as built](#d2-as-built)) | the lifetime: boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart; MENU's chip goes | Opus |
 | D3 | D2. Built on branch `ccr-dshot-d3`, on menu-c.md slice 5 ([D3 as built](#d3-as-built)) | ESC COMMANDS on a starting pump; the start step while the run cue stands; the bridge's run cue; the log's eRPM | Opus |
 | D4 | D2 and menu-c.md slice 5 (the rename). Built on branch `ccr-dshot-d4`, on D3 ([D4 as built](#d4-as-built)) | SETUP's pin note and LINK; the comments of the boot order | Opus |
-| D5 | D4, with menu-c.md slice 6 (the records) | the design notes' descriptions, bench plan | Sonnet |
+| D5 | D4, with menu-c.md slice 6 (the records). Built on branch `ccr-records-6-d5` ([D5 as built](#d5-as-built)) | the design notes' descriptions, bench plan | Sonnet |
 
 D2 follows menu-c.md slice 4, so its tests open every tool from its hub,
 and it needs no rename: the texts it adds take the hub's title as the hub
@@ -624,7 +625,8 @@ off D2 and slice 5, D5 off D4 and slice 6.
   PIN change, though DShot is parked: it warns of what the next ESC TESTER
   sends. LINK does not read `OFF` while parked.
 - **From D4 to D5** the design notes' descriptions, not their decision
-  lines, still describe RESTART DSHOT as built at cff09ae.
+  lines, still describe RESTART DSHOT as built at cff09ae. After D5 they
+  describe the leave page and the pins as D2 and D3 build them.
 
 0.1.0 follows slice 14 of menu-c.md and D5 (owner decision 4 at the top),
 as [the build plan](menu-c.md#build-plan) says.
@@ -1272,6 +1274,43 @@ The design notes' descriptions of the table above, as built; the bench
 plan's checks, with the measurement of decision 7's option (c); previews;
 `python3 test/check_docs.py` and `tools/check_wiki.py`. No host test; the
 checks above are its tests.
+
+#### D5 as built
+
+Branch `ccr-records-6-d5`, on `ccr-dshot-d4` with slice 6 of
+[menu-c.md](menu-c.md#slice-6-as-built); documentation only, so no host test
+and no mutation; not tested on hardware.
+
+Re-derived, not taken from the table above: each description was searched
+for the phrases rule 9 of `test/check_docs.py` refuses for the manual
+(`RESTART DSHOT`, `DSHOT RESTARTING`, `DSHOT RESTARTS ON`, `DShot restarts`,
+`DShot resumes`, `DShot returns`, `with DShot on SIG` and the rest of its
+list), for the words `from boot`, `every screen` and `UNPLUG ANY SERVO`, and
+for each DShot sentence near them, and compared with `src/` and the "as
+built" sections above.
+
+Changed, by file:
+
+| File | What reads as built now |
+|---|---|
+| `docs/design/pin-claim.md` | "Why", "The two pins" and "Sequence": the pump is parked unless ESC TESTER or ESC COMMANDS is open, a claim is refused as Busy while Run is wanted, a drain is owed only within 250 ms of a running tester; step 6 is Parking and `ClaimState::Parking`; the API lists `pinClaimRelease()`, `pinClaimDshot()` and `pinClaimDshotRunning()` in place of `pinClaimRestart()`; "Restoring DShot" is "Parking the pins", with the leave page of D2 (`ESC TESTER'S DSHOT ON SIG GP0 READS`, `BACK TO SERVO.`, the hub's title as the last button); the ESC check's source; the refusal text `WAIT: THE PINS ARE BUSY`; the tests' list |
+| `docs/design/kiss-telemetry.md`, `blackbox-logging.md`, `esc-commands.md` | the receiver runs only with the pump; a hand log across a parked pump holds `eRPM[0]` only while fresh; ESC COMMANDS starts DShot when its page opens, reads `DSHOT STARTING ON SIG GP0.` for 1500 ms and opens on the start step while the run cue stands |
+| `docs/design/menu.md`, `menu-b.md` | MENU's strip and its busy captions (`RELEASING SIG GP0`, `SETTING SIG GP0 LOW`), no EDT chip, the leave page's last button, the frames of the leave page |
+| `docs/design/servo-tester.md`, `kst-programming.md`, `hitec-programming.md`, `sbus-output.md`, `rx-signals.md`, `bluejay-blheli-s.md`, `usb-bridge.md`, `angle-meter.md` | the leave pages' frames, texts and last button; the parked pins in place of DShot returning; the run cue's three ways out (eRPM, the leave page's last button, START DSHOT); `WAIT: THE PINS ARE BUSY` |
+| `docs/bench-plan.md` | PC-1, PC-4, BJ-B1, UB-B7 and UB-B9 start DShot from ESC TESTER, not from a claim; DL-10 is decision 7's option (c); the index of tests reads DL-1 to DL-10 and 152 tests |
+| `docs/design/README.md` | the table of Names of the screens, and the rows of this note and menu-c.md |
+
+Left as the record of their time: the decision lines and the slice-by-slice
+sections of menu-b.md, kst-programming.md and the other notes, which name
+RESTART DSHOT and the old screens inside "Revised by" lines and slice
+histories; `docs/design/pin-claim.md`'s decision 3 and 4; the PPM sections of
+rx-signals.md, which are not built.
+
+Not measured: decision 7's option (c), a passive line check. `docs/bench-plan.md`
+holds it as `DL-10`: the level a powered ESC holds on SIG, against an unpowered
+ESC and none. The levels are unknown.
+
+Checks: `python3 test/check_docs.py` and `python3 tools/check_wiki.py` pass.
 
 ## Decisions
 

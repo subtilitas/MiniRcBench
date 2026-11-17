@@ -1,9 +1,9 @@
 # Menu structure C
 
-Status: proposed; slices 1 to 5 of [the build plan](#build-plan) are built
+Status: proposed; slices 1 to 6 of [the build plan](#build-plan) are built
 ([slice 2 as built](#slice-2-as-built), [slice 3 as
 built](#slice-3-as-built), [slice 4 as built](#slice-4-as-built), [slice 5 as
-built](#slice-5-as-built)), and so
+built](#slice-5-as-built), [slice 6 as built](#slice-6-as-built)), and so
 are slices 7, 8, 9 and 10, the look's palette, neutral fills, radius and
 cyan ([ui-theme.md](ui-theme.md#slices-7-and-8-as-built),
 [slice 9](ui-theme.md#slice-9-as-built),
@@ -14,9 +14,8 @@ owner decided its questions on 2026-11-15.
 The two questions the answers raised are settled by the developer's calls of
 2026-11-16, pending the owner's review ([Decisions](#decisions)). The
 revision lines of [the tables below](#decisions-of-menu-bmd-this-revises)
-stand in the notes they revise, marked "Not built", or "Built (slice 3)",
-"Built (slice 4)" or "Built (slice 5)" where that slice made the whole line
-true.
+stand in the notes they revise, marked "Built" with the slices that made
+the whole line true; slice 6 checked each against the code.
 
 The owner's request of 2026-11-15: "Optimize the Menu structure and make it
 similar to the Rcbench structure but adapted to the small display."
@@ -563,8 +562,8 @@ one pointer line to the screen SETUP.
 - **CHANGELOG.md and the design notes.** They are records;
   `test/check_docs.py` rule 9 does not check them. The revision lines of
   [the tables below](#decisions-of-menu-bmd-this-revises) stand in them
-  now, marked "Not built"; the build marks them built and makes no other
-  edit to a decision.
+  with the slices that built each; the build makes no other edit to a
+  decision.
 
 ### The rename slice's work
 
@@ -863,7 +862,7 @@ pairs, and the previews. D1 to D4 are Opus, D5 Sonnet.
 | 3. MENU as the root | The frame function starts on MENU; the header draws no BACK (`uiHeader()` gains the variant); the row ESC TESTER, first, with `freePins`; the tester opens disarmed and its MENU button returns to MENU. The EDT chip stays until D2. Nine rows meanwhile, scrolling 9 × 42 − 258 = 120 px. | Opus | New: after `uiInit()` the screen is `Menu`; MENU's control table has no `UI_BACK`; a tap on row 0 opens `Tester`; `TesterCtl::Menu` disarms and returns; armed state, throttle and LATCH are clear on each open; the row is disabled while the claim is not Free. The suites that start on the tester (`test_ui.cpp` and the helpers `openMenu()`, `openSettings()`, `openServo()` and the others) open it through the row. Mutation: draw BACK at the root, the control-table case fails. | **D2 needs it**, with slice 4 and D1. From this slice until D2 merges, DShot runs from boot behind MENU, on every screen as at cff09ae, so `main` is no less safe than cff09ae |
 | 4. Six rows, three hubs | SERVO holds SERVO TESTER, ANGLE METER and the three programmers, scrolling 146 px; ESC COMMANDS joins ESC CONFIG; PROGRAMMER and TOOLS go; `>` on the hub rows. The names are still those of cff09ae: ESC CONFIG, RX SIGNALS, SD LOG, SETTINGS. `buildItems()` of `src/ui_settings.cpp`, which walks `uiMenuEntries()` for a tool's section, walks the hubs' entries too. Built: [Slice 4 as built](#slice-4-as-built). | Fable | New: `UI_MENU_COUNT` is 6 and `uiListMaxScroll()` of MENU is 0; every row is whole and acts at scroll 0; SERVO's range is 146 px; at scroll 0 entry 3 is listed and does not act; at 146 px HITEC CLASSIC's third line ends at y 316; each hub's entries open the screens of [the table](#every-screen-old-place-and-new-place). `menuRowsFit()` and `hubEntriesFit()` hold at build time. Mutation: a sixth entry line too long fails the build; a content of 400 px fails the y 316 case. | **D2 needs it:** D2's tests open each tool from its hub, D2 draws the line of dshot-lifetime.md decision 11 on SERVO and RECEIVER, and decision 9's labels read the hub's title. ESC COMMANDS keeps `freePins` as a hub entry; requirement 12 of [the list above](#what-the-structure-requires-of-dshot) is D2's and D3's |
 | 5. The rename | Built: [Slice 5 as built](#slice-5-as-built). Owner decision 6, as [The rename slice's work](#the-rename-slices-work) lists it: the four labels and titles, the seven screen texts, the tests' expectations, README, the wiki in both languages with the page pair Receiver and Empfaenger, the wiring drawing, the release text, rule 9, the previews. It applies [decisions 17 and 18](#decisions). | Sonnet | The suite passes with the expectations changed and no case removed; `menuRowsFit()` and the title `static_assert`s hold. `python3 test/check_docs.py` with the four old words in rule 9; `tools/check_wiki.py` with the renamed pair; `tools/make_wiring.py --check`. Mutation: `SETTINGS` back in one screen text, its expectation fails; an old word in a wiki page, rule 9 fails. | **D4 follows it** (requirement 14). D2's texts take the hub's title as the hub draws it, so D2 does not wait for it |
-| 6. The structure's records | The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises), which stand in menu-b.md, menu.md, esc-commands.md, bluejay-blheli-s.md, usb-bridge.md, angle-meter.md and rx-signals.md, marked built; the names table in `docs/design/README.md`; README "Layout" and "The user manual"; the tree of The-Screens and Die-Bildschirme. | Sonnet | `python3 test/check_docs.py` with the removed names `SERVO PROGRAMMER`, `PROGRAMMER` and `TOOLS` as MENU paths; `tools/check_wiki.py`. | **D5 goes with it:** the design notes' descriptions and the bench plan |
+| 6. The structure's records | The revision lines of [the tables above](#decisions-of-menu-bmd-this-revises), which stand in menu-b.md, menu.md, esc-commands.md, bluejay-blheli-s.md, usb-bridge.md, angle-meter.md and rx-signals.md, marked built; the names table in `docs/design/README.md`; README "Layout" and "The user manual"; the tree of The-Screens and Die-Bildschirme. Built: [slice 6 as built](#slice-6-as-built). | Sonnet | `python3 test/check_docs.py` with the removed names `SERVO PROGRAMMER`, `PROGRAMMER` and `TOOLS` as MENU paths; `tools/check_wiki.py`. | **D5 goes with it:** the design notes' descriptions and the bench plan |
 | 7. Palette | `THEME_DARK` in `src/theme.cpp` as `rgb()` triples; the comments of `theme.h`: the table's `C_ONACCENT` row and the entries' meanings. Dark ink on every fill (ui-theme.md decision 3). Built: [ui-theme.md](ui-theme.md#slices-7-and-8-as-built). | Fable | New, `test_widgets.cpp`: each word equals its triple; every entry but `TC_PAPER` differs from every other in both themes, so the colour probes stay valid; [the contrast table](ui-theme.md#contrast) as a check, each text pair 4.5 or more but the named exceptions, each label on a fill 4.5 or more. Mutation: one value changed. | independent; merges to `main` in one pull request with slice 8 |
 | 8. Neutral fills | The editor `-` and `+` of ESC SETTINGS, KST SERVO, HITEC SERVO, SERVO SET and OUTPUT SET, and REPAIR, as neutral buttons; the neutral chip, `uiChip()` with `C_GRID`; the header's rule; the hints in `C_DIM`; a slider's fill in `C_GRID`. Built with slice 7: [ui-theme.md](ui-theme.md#slices-7-and-8-as-built). | Fable | Each button's fill and label by control id, 5 screens. `test_ui.cpp` 1650 and 1670, `test_angle_ui.cpp` 329, `test_bridge_ui.cpp` 264 and 333 rewritten: frame, `C_BG` inside, `C_DIM` label; `chipIs()` gains the case. The rule's row on every screen with a header; `test_servo.cpp` 3394; the hints by text and colour. No fit check changes: no text moves. | independent; merges with slice 7: slice 7 alone would leave these fills' dark ink at 3.51 |
 | 9. Radius | ui-theme.md decision 4: the corner solver of `gfxRoundRect()` and `roundFrame1px()` draws `UI_RADIUS`, 5 px. Chips stay square, and the tester's badge and its `SDERR` chip are drawn square. Built: [ui-theme.md](ui-theme.md#slice-9-as-built). | Fable | `test_gfx.cpp`: the corner pixels of a 5 px fill and frame, insets 2, 1, 0. `test_widgets.cpp`: a chip's corner pixel lit, a button's not; the badge's corner pixel lit. Mutation: the solver put back. | independent |
@@ -876,7 +875,7 @@ pairs, and the previews. D1 to D4 are Opus, D5 Sonnet.
 | D2. The lifetime | [dshot-lifetime.md](dshot-lifetime.md#d2-the-lifetime-opus): boot parked, the rule, the claim's Parking; the arm gate; the hubs' line in place of the ESC check; the texts that state DShot's restart, with decision 9's labels; MENU's EDT chip goes ([decision 12](#decisions)). | Opus | that note's | after slices 2, 3 and 4, D1 as amended (#119); the arm gate reads `escTaskBoundMs()` and `uiTouchLost()`, which #49 added to `main` as 3b36588 |
 | D3. A starting pump | [dshot-lifetime.md](dshot-lifetime.md#d3-esc-commands-and-the-run-cue-on-a-starting-pump-opus): ESC COMMANDS' start text, the start step while the run cue stands, the bridge's run cue, the log's eRPM. | Opus | that note's | after D2 |
 | D4. SETUP's texts | [dshot-lifetime.md](dshot-lifetime.md#d4-setups-texts-and-the-comments-opus): SETUP's pin note and LINK, the comments of the boot order. | Opus | that note's | after D2 and slice 5 |
-| D5. The lifetime's records | [dshot-lifetime.md](dshot-lifetime.md#d5-the-documents-sonnet): the design notes' descriptions, the bench plan. | Sonnet | its checks | after D4, with slice 6 |
+| D5. The lifetime's records | [dshot-lifetime.md](dshot-lifetime.md#d5-the-documents-sonnet): the design notes' descriptions, the bench plan. Built: [D5 as built](dshot-lifetime.md#d5-as-built). | Sonnet | its checks | after D4, with slice 6 |
 
 The order. Slices 1 to 6 are a chain. D1 joins it any time up to slice 1; D2
 follows slice 4 and D1 as amended; D3 follows D2; D4 follows D2 and slice
@@ -904,6 +903,9 @@ What each slice leaves on `main`:
   [dshot-lifetime.md](dshot-lifetime.md#what-each-slice-leaves-on-main)
   lists. D2 changes every text that names a DShot restart, so no false
   safety text reaches `main`.
+- **After slice 6 and D5** the design notes describe the screens and the
+  DShot lifetime as built; the older notes' names map to them in
+  `docs/design/README.md`.
 - **Slices 7 and 8** merge together, so no fill carries dark ink at 3.51.
 
 ## Slice 2 as built
@@ -1375,7 +1377,38 @@ Mutations, each run against the whole suite and restored:
 
 Not done here: the records of slice 6, the table of [Names](#names) in
 `docs/design/README.md` and the other design notes' own text, and the
-strips and statuses of D3 and D4.
+strips and statuses of D3 and D4. [Slice 6](#slice-6-as-built) does them.
+
+## Slice 6 as built
+
+Branch `ccr-records-6-d5`, on `ccr-dshot-d4`, with slice D5 of
+[dshot-lifetime.md](dshot-lifetime.md#d5-as-built); documentation only, so no
+host test and no mutation of the firmware; not tested on hardware.
+
+Each revision line of [the tables above](#decisions-of-menu-bmd-this-revises)
+was read in its note and compared with `src/` and the as-built sections
+(slices 2 to 5, D2 to D4). Those in menu-b.md, menu.md, esc-commands.md,
+bluejay-blheli-s.md, usb-bridge.md, angle-meter.md and rx-signals.md read
+"Built" with their slices; slices 3 to 5 and D2 to D4 marked them. The lines
+that name more than the structure builds stay as they stand: the colour
+lines of menu-b.md decisions 11 and 14, which are ui-theme.md's (slices 11
+and 12 are not built).
+
+| Where | What reads as built |
+|---|---|
+| `docs/design/README.md` | the table "Names of the screens": the older notes' names, SERVO PROGRAMMER, PROGRAMMER, TOOLS, ESC CONFIG, RX SIGNALS, SD LOG, SETTINGS and ANGLE SETUP, against the screens of the code, the slice that renamed each, and the leave page's RESTART DSHOT; the rows of dshot-lifetime.md and this note |
+| `docs/design/menu.md` | a revision paragraph under the tree: MENU is the root with six rows, and the link to the names table |
+| README.md | "Layout": the files the list lacked, `efm8_backup`, `efm8_view`, `escwire_job`, `escwire_port`, `greet_cycle`, `card_cache`, `sd_log_next`, `servo_supply`, `supply_guard`, `kst_card_wait` and `backlight.pio`; `esc_task` named as parked unless ESC TESTER or ESC COMMANDS is open. "The user manual": rule 9 names MENU paths and DShot restart texts. The paragraph on menu structure C: slices 1 to 6, D2 to D5 |
+| `wiki/The-Screens.md`, `wiki/Die-Bildschirme.md` | the screen tree was checked against `src/ui_registry.cpp`: six rows, the three hubs with their entries, BACK to the hub, SETUP over the tester; no change needed |
+
+Rule 9 of `test/check_docs.py` already refuses `SERVO PROGRAMMER` and, as MENU
+paths, a `PROGRAMMER` or `TOOLS` after `MENU >` or `MENU →`, and as a table
+cell, a heading or a code span. A check run with three such lines added to
+`wiki/The-Screens.md`: `MENU → SERVO PROGRAMMER`, `| **TOOLS** |` and `MENU →
+TOOLS → ANGLE METER` each reported; the lines were removed.
+
+Checks: `python3 test/check_docs.py` and `python3 tools/check_wiki.py` pass
+(results below), and `make -C test -j8` passes.
 
 ## Open questions
 
