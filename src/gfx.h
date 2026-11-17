@@ -233,6 +233,18 @@ void gfxArcDots(int cx, int cy, int r, int deg0, int deg1, int stepDeg, int d,
  */
 void gfxText(int x, int y, const char *s, uint16_t fg, int scale);
 
+#ifdef GFX_TEXT_PROBE
+/**
+ * @brief Host tests only: called by gfxText() before it draws, with the
+ *        colour under the text. The background is the pixel at the first
+ *        cell's gap column, x + 5 * scale, y + 3 * scale, which no glyph
+ *        lights; 0 when that pixel lies off the panel or outside the clip
+ *        box. Null draws nothing extra. The firmware does not build it.
+ */
+extern void (*g_gfxTextProbe)(int x, int y, const char *s, uint16_t fg, uint16_t bg,
+                              bool bgKnown, int scale);
+#endif
+
 /**
  * @brief Rendered width of @p s in pixels.
  * @return `(len * 6 - 1) * scale`, or 0 for an empty string.

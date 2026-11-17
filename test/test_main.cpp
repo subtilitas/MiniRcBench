@@ -63,6 +63,9 @@ void runBridgeUiTests();
 void runBridgeProtoTests();
 void core1JobInit();
 
+void contrastWalkStart();
+void contrastWalkReport();
+
 int main() {
 	printf("MiniRcBench host tests\n");
 	printf("=======================\n");
@@ -70,6 +73,7 @@ int main() {
 	// As main.cpp does before core1 starts: the core1 jobs' critical sections
 	// are initialised before any suite enters one.
 	core1JobInit();
+	contrastWalkStart();
 
 	runAm32Tests();
 	// Before the UI suite, whose SETUP tests configure the supply.
@@ -137,6 +141,8 @@ int main() {
 		checkTrue("ESC WRITE, KST, HITEC, SERVO TESTER, S.BUS OUTPUT, ESC COMMANDS and ESC TESTER each showed one",
 		          (fakeGreenWalked() & mask) == mask);
 	}
+
+	contrastWalkReport();
 
 	section("Critical sections");
 	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);

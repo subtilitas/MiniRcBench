@@ -56,6 +56,11 @@ protocol.
 
 ### Changed
 
+- The host suite reads the contrast of every text it draws, in both themes
+  (slice 13 of [menu-c.md](docs/design/menu-c.md#build-plan),
+  [ui-theme.md](docs/design/ui-theme.md#slice-13-as-built)): a pair under
+  4.5 outside the named exceptions fails it. `gfxText()` calls a probe built
+  for the host tests only (`GFX_TEXT_PROBE`); the firmware is unchanged.
 - Green as a button's fill starts an output, as on rcbench (slices 11 and 12
   of [menu-c.md](docs/design/menu-c.md#build-plan),
   [ui-theme.md](docs/design/ui-theme.md#slices-11-and-12-as-built)). HOLD TO
