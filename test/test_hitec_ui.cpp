@@ -1765,6 +1765,29 @@ static void testCardSwap() {
 	fakeCacheReset();
 }
 
+/** @brief A D series servo swapped between READ and WRITE: nothing written, the list rebuilt from it. */
+static void testSwappedBeforeWrite() {
+	section("Hitec screen: a D series servo swapped before the write");
+	freshHitec(HITEC_D, true);
+	checkTrue("the field list on GP28", toList(HITEC_D));
+	speedDown();
+	HitecStatus st = job();
+	int a = 2;
+	while (a < 256 && !(hitec_writable(HITEC_D, (uint8_t)a) && hitec_image_known(&st.image, (uint8_t)a))) a += 2;
+	fakeHitecSim()->mem[a] ^= 0x01;
+	const unsigned w0 = fakeHitecSim()->writes;
+	tapUntilGone(UI_FIX(HitecCtl::Write));
+	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
+	checkTrue("the result", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
+	checkTrue("nothing written: HITEC_JOB_ERR_CHANGED",
+	          fakeHitecSim()->writes == w0 && job().result == HITEC_JOB_ERR_CHANGED);
+	tapId(UI_FIX(HitecCtl::WriteOk));
+	hitecFrames(4);
+	checkTrue("the list again, from the new servo: no edit pending",
+	          uiHitecView() == HitecView::List && !ctlEnabled(UI_FIX(HitecCtl::Write)));
+	leaveAll();
+}
+
 static void testStallInWrite() {
 	section("Hitec screen: a stall during a write");
 	freshHitec(HITEC_D, true);
@@ -2264,6 +2287,7 @@ void runHitecUiTests() {
 	testIdAndBack();
 	testWritePageHornLine();
 	testCardSwap();
+	testSwappedBeforeWrite();
 	testStallInWrite();
 	testBoardLow();
 	testColourRoles();

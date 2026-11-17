@@ -430,11 +430,33 @@ static bool leaveStep(uint32_t nowMs) {
 }
 
 /**
+ * @brief Whether two D series images agree on what a write's plan starts
+ *        from: the model, register 0x00, and every writable register, known
+ *        in both with the same value or unknown in both. The position and
+ *        the other registers a servo changes by itself are left out, as the
+ *        session's read-back leaves them out (hitec_session.c, compare()).
+ * @param a,b The images.
+ * @return true when they agree.
+ */
+static bool samePlanBase(const hitec_image_t *a, const hitec_image_t *b) {
+	for (unsigned r = 0; r < HITEC_MEM_SIZE; r += 2) {
+		const uint8_t addr = (uint8_t)r;
+		if (addr != 0 && !hitec_writable(HITEC_D, addr)) continue;
+		const bool ka = hitec_image_known(a, addr);
+		if (ka != hitec_image_known(b, addr)) return false;
+		if (ka && hitec_image_reg(a, addr) != hitec_image_reg(b, addr)) return false;
+	}
+	return true;
+}
+
+/**
  * @brief The end of a D series write's read before it, with s_result its
  *        result. The same image as the plan started from, and the UI
  *        alive: the write starts and stays Busy. Otherwise nothing is
- *        written: HITEC_JOB_ERR_CHANGED for another image, the read's own
- *        error, or HITEC_SES_ERR_ABORTED after a lapse.
+ *        written: HITEC_JOB_ERR_CHANGED for another image (samePlanBase()),
+ *        whose read becomes the session's image and backup,
+ *        HITEC_JOB_ERR_PREREAD for a read that failed, or
+ *        HITEC_SES_ERR_ABORTED after a lapse.
  * @return true when the write started.
  */
 static bool preWriteRead(bool uiAlive) {
@@ -443,9 +465,13 @@ static bool preWriteRead(bool uiAlive) {
 		if (s_result != HITEC_SES_ERR_ABORTED) s_result = HITEC_JOB_ERR_PREREAD;
 		return false;
 	}
-	if (memcmp(s_ses.image.mem, s_preImage.mem, sizeof(s_preImage.mem)) != 0 ||
-	    memcmp(s_ses.image.known, s_preImage.known, sizeof(s_preImage.known)) != 0) {
+	if (!samePlanBase(&s_ses.image, &s_preImage)) {
+		// Another servo, or this one changed: nothing is written, and the
+		// image now read is the session's servo, its backup the read itself.
 		s_result = HITEC_JOB_ERR_CHANGED;
+		s_backup = s_ses.image;
+		s_hasBackup = true;
+		s_wrote = false;
 		return false;
 	}
 	if (!uiAlive || s_lapsed) {

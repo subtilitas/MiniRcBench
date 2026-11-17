@@ -479,6 +479,13 @@ static void opEnd() {
 	s_resultRefused = refused;
 	s_resultSes = refused == HitecRefusal::None ? s_st.result : (uint8_t)HITEC_SES_ERR_BUSY;
 	s_lastFailed = s_resultSes != HITEC_SES_OK;
+	if (s_resultSes == HITEC_JOB_ERR_CHANGED) {
+		// Another servo on the line: its image is the job's now. The draft
+		// and the first write's files go; follow() builds the list again
+		// from the new image, with no edit carried over. The result stays.
+		s_haveDraft = false;
+		forgetFirst();
+	}
 	if (s_resultSes == HITEC_SES_OK) {
 		HitecCardPhase phase;
 		hitecFilesRecordRemove(&s_write);
