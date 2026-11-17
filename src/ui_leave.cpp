@@ -49,13 +49,13 @@ UiLeaveEv uiLeaveTouch(UiLeave *l, const TouchState *t, uint32_t nowMs) {
 	if (l->phase == UiLeavePhase::Before) {
 		if (uiTapped(UI_LEAVE_LEFT, t)) return UiLeaveEv::Stay;
 		bool counts = l->leavePress && l->leaveEnabled;
-		if (!counts || !uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::None;
+		if (!counts || !(uiTapped(UI_LEAVE_WIDE, t) || uiTapped(uiBackRect(), t))) return UiLeaveEv::None;
 		l->phase = UiLeavePhase::Releasing;
 		return UiLeaveEv::Leave;
 	}
 	if (l->phase != UiLeavePhase::Released) return UiLeaveEv::None;
 	if (uiTapped(UI_LEAVE_LEFT, t)) return UiLeaveEv::Next;
-	if (l->releasePress && uiTapped(UI_LEAVE_WIDE, t)) return UiLeaveEv::Release;
+	if (l->releasePress && (uiTapped(UI_LEAVE_WIDE, t) || uiTapped(uiBackRect(), t))) return UiLeaveEv::Release;
 	return UiLeaveEv::None;
 }
 
@@ -131,6 +131,24 @@ void uiLeaveDraw(const UiLeave *l, const UiLeaveText &text, const TouchState *t,
 	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : (text.hub ? text.hub : ""), before ? C_PANEL : C_CYAN,
 	         before ? C_TEXT : C_ONACCENT, 2, wideLive && counts && uiPressing(UI_LEAVE_WIDE, t),
 	         wideLive);
+	// The top-right button is the wide button's twin: LEAVE before the
+	// release, BACK to the hub after it, live when the wide button is.
+	uiHomeTag(uiLeaveBackLabel(l), wideLive && counts && uiPressing(uiBackRect(), t), wideLive);
+}
+
+void uiHeaderLeave(const char *title, const UiLeave *l, const TouchState *t, uint32_t nowMs) {
+	uiHeaderRoot(title);
+	bool live = uiLeaveBackLive(l, nowMs);
+	bool counts = l->phase == UiLeavePhase::Before ? l->leavePress : l->releasePress;
+	uiHomeTag(uiLeaveBackLabel(l), live && counts && uiPressing(uiBackRect(), t), live);
+}
+
+const char *uiLeaveBackLabel(const UiLeave *l) {
+	return l->phase == UiLeavePhase::Before ? UI_LEAVE_BACK_LEAVE : "BACK";
+}
+
+bool uiLeaveBackLive(const UiLeave *l, uint32_t nowMs) {
+	return l->phase == UiLeavePhase::Before ? l->leaveEnabled : uiLeaveReleaseLive(l, nowMs);
 }
 
 void uiLeaveStartOpen(UiLeaveStart *s, bool cue, uint32_t nowMs) {

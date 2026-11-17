@@ -3,7 +3,7 @@
 # Telemetrie
 
 Alles auf dem Tester-Bildschirm kommt vom ESC (Electronic Speed Controller,
-Motorregler), außer der Akkuspannung in der oberen Zeile, die die Platine
+Motorregler), außer der Akkuspannung in der Statusleiste, die die Platine
 selbst misst. Diese Seite erklärt, woher jeder Wert stammt und wie genau er
 ist.
 

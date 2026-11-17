@@ -3,7 +3,7 @@
 # Telemetry
 
 Everything on the tester screen comes from the ESC (electronic speed
-controller), except the battery voltage in the top row, which the board
+controller), except the battery voltage in the status band, which the board
 measures itself. This page explains where each value comes from and how
 precise it is.
 

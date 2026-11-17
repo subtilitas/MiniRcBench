@@ -638,11 +638,11 @@ line check (DL-10), numbered here. None of it has run on hardware.
 |---|---|---|---|
 | DL-1 | the analyser on SIG and AUX from before power-up; power the board; wait 10 s on MENU; open SERVO, RECEIVER, LOGS and SETUP | no DShot frame; SIG low from shortly after reset, through the splash and every screen; AUX low on its pull-down | the time from power-up to SIG driven low; any edge |
 | DL-2 | the AM32 ESC on SIG; tap ESC TESTER; hold HOLD TO ARM from 0.5 s on, then again from 1.6 s on | the 10 EDT enable frames first, then zero throttle; `DSHOT STARTING: WAIT 1.5 S` for 1.5 s; no arm from the first press, an arm 1 s into the second | the capture; the time from the tap to the first frame |
-| DL-3 | armed, LATCH on at 10 %; tap MENU | zero-throttle frames from the tap until more than 250 ms after the last throttle frame, then SIG driven low, no frame | the capture; what the ESC does (signal-loss behaviour, not recorded) |
+| DL-3 | armed, LATCH on at 10 %; tap BACK | zero-throttle frames from the tap until more than 250 ms after the last throttle frame, then SIG driven low, no frame | the capture; what the ESC does (signal-loss behaviour, not recorded) |
 | DL-4 | from ESC PROGRAM, ESC COMMANDS, then BACK; then USB BRIDGE and its leave page | ESC COMMANDS binds with the enable first; BACK parks at once (no drain, no throttle was sent); USB BRIDGE puts SIG on its pull-up with no frame; the leave page's ESC PROGRAM drives SIG low again, no frame | the captures |
 | DL-5 | a Bluejay ESC, powered, on the parked SIG for 60 s; then ESC TESTER | the ESC does not enter its bootloader on the low line (from source, not measured); it answers eRPM once the tester opens | whether the ESC answers, and after how long |
-| DL-6 | a: armed, LATCH on at 10 %; tap MENU, then the ESC TESTER row within 250 ms; hold HOLD TO ARM at once. b: on ESC TESTER, tap MAX, change SIG PIN to GP1 and back to GP0 in SETUP, then BACK within 1.5 s of the last change; hold HOLD TO ARM at once, then again 1.5 s after the last change | a: zero-throttle frames from the MENU tap on, no gap and no new EDT enable on the reopen; an arm 1 s into the hold. b: the frames stop on GP0 and start on GP1 with the EDT enable first, then again on GP0; `DSHOT STARTING: WAIT 1.5 S` on the track after BACK; no arm from the first press, an arm 1 s into the second | the captures of SIG and AUX; the time from the reopen tap to the arm |
-| DL-7 | the AM32 ESC on SIG, powered: ESC SETTINGS reads it; BACK to MENU (the AM32 handshake raises the cue; AM32 has no leave page); open ESC TESTER; tap MENU; open ESC COMMANDS; tap BACK; open ESC TESTER again; power-cycle the ESC; tap START DSHOT after 1 s | MENU reads `POWER-CYCLE THE ESC TO RUN IT`; each open shows the start step, SIG stays low, no frame until START DSHOT; START DSHOT is grey for 1 s; after its tap the EDT enable first, then zero throttle, the cue gone from MENU, `DSHOT STARTING: WAIT 1.5 S` on the track | the capture from the first open to START DSHOT; whether the ESC answers eRPM after it (on the parked low line its bootloader starts the firmware 20 ms after the power-cycle) |
+| DL-6 | a: armed, LATCH on at 10 %; tap BACK, then MENU's ESC TESTER row within 250 ms; hold HOLD TO ARM at once. b: on ESC TESTER, tap MAX, change SIG PIN to GP1 and back to GP0 in SETUP, then BACK within 1.5 s of the last change; hold HOLD TO ARM at once, then again 1.5 s after the last change | a: zero-throttle frames from the BACK tap on, no gap and no new EDT enable on the reopen; an arm 1 s into the hold. b: the frames stop on GP0 and start on GP1 with the EDT enable first, then again on GP0; `DSHOT STARTING: WAIT 1.5 S` on the track after BACK; no arm from the first press, an arm 1 s into the second | the captures of SIG and AUX; the time from the reopen tap to the arm |
+| DL-7 | the AM32 ESC on SIG, powered: ESC SETTINGS reads it; BACK to MENU (the AM32 handshake raises the cue; AM32 has no leave page); open ESC TESTER; tap BACK; open ESC COMMANDS; tap BACK; open ESC TESTER again; power-cycle the ESC; tap START DSHOT after 1 s | MENU reads `POWER-CYCLE THE ESC TO RUN IT`; each open shows the start step, SIG stays low, no frame until START DSHOT; START DSHOT is grey for 1 s; after its tap the EDT enable first, then zero throttle, the cue gone from MENU, `DSHOT STARTING: WAIT 1.5 S` on the track | the capture from the first open to START DSHOT; whether the ESC answers eRPM after it (on the parked low line its bootloader starts the firmware 20 ms after the power-cycle) |
 | DL-8 | the AM32 ESC on SIG; open ESC COMMANDS | `DSHOT STARTING ON SIG GP0.` until the first answer or 1.5 s; then `ESC STARTING: WAIT 1.5 S.` with an answer; with the ESC unplugged, `NO ESC ANSWERS ON SIG GP0.` from 1.5 s on | the time from the tap to the first eRPM answer |
 | DL-9 | USB BRIDGE with the AM32 ESC unplugged, the line bound; BACK; the leave page's last button; then ESC TESTER | MENU's cue from the claim; the leave page at BACK; its last button clears the cue; ESC TESTER opens running, with no start step. The ends with no leave page (a failed bind, BACK before the bind) are not provoked by hand and are tested on the host only | whether ESC TESTER showed the start step |
 | DL-10 | the board unpowered, an AM32 ESC and a Bluejay ESC each powered from its pack in turn on SIG, then an unpowered ESC, then none; a meter or the analyser on the SIG wire at J5 pin 2 | criterion not set: record whether a powered ESC holds SIG at a level a passive read could tell from an unpowered ESC and from no ESC | the DC level for each of the four cases; the ESC's own pull on SIG, if any |
@@ -698,7 +698,7 @@ telemetry, automatic enable, expiry"; open item 1's facts.
 - **Setup:** E; then the card on USB DRIVE, as in SD-3's steps.
 - **Steps:** arm; tap DISARM and keep the finger down for 3 s; with the host
   holding the card, hold HOLD TO ARM for 3 s; eject; hold it for 1 s. Then
-  MENU, the ESC TESTER row, and HOLD TO ARM pressed at once and held 4 s.
+  BACK, MENU's ESC TESTER row, and HOLD TO ARM pressed at once and held 4 s.
 - **Pass:** no arm in the first two cases; an arm in the third; in the
   fourth no arm (the press landed while the arm gate held,
   `DSHOT STARTING: WAIT 1.5 S` in the track), and a new press after 1.5 s
@@ -757,7 +757,7 @@ order; [pin-claim.md](design/pin-claim.md#hardware).
 
   | ID | Step | Pass (open item 8) |
   |---|---|---|
-  | PC-1 | run at 10 %, disarm, tap MENU, open ESC PROGRAM, then ESC SETTINGS | zero frames for at least 250 ms after the last throttle frame (the park of MENU, not the claim, drains), then no edges |
+  | PC-1 | run at 10 %, disarm, tap BACK, open ESC PROGRAM, then ESC SETTINGS | zero frames for at least 250 ms after the last throttle frame (the park of MENU, not the claim, drains), then no edges |
   | PC-2 | the line after the teardown | idle high: the teardown stops, releases and puts the pull-up back |
   | PC-3 | a SETUP pin change in the same window | criterion not set apart from PC-1's; record whether the drain holds |
   | PC-4 | leave the AM32 session with BACK, then open ESC TESTER | SIG low from BACK until ESC TESTER opens; then the EDT enable as the first frames |
@@ -1037,7 +1037,7 @@ open item 30. "Only an ESC settles these." `BJ-B8`, `BJ-B9`, `BJ-B10` and
 - **Verifies:** the connect cycle's entry: quiet, then greetings. **Why:** no
   Bluejay or BLHeli_S ESC has answered the greeting on this board.
 - **Setup:** E, a Bluejay 0.21 ESC; the analyser on SIG.
-- **Steps:** open ESC TESTER, tap MENU, open ESC PROGRAM, then ESC SETTINGS.
+- **Steps:** open ESC TESTER, tap BACK, open ESC PROGRAM, then ESC SETTINGS.
 - **Pass:** it answers in the first quiet second, `471d E8 B2 06 01 30`.
 - **Record:** the time from the pump's stop to the answer.
 - **Result to:** verification table, row "Bluejay and BLHeli_S, slice 2";

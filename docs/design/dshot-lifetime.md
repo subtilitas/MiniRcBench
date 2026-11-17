@@ -250,6 +250,7 @@ BACK return with DShot parked and the cue kept. The step's text, START
 DSHOT and that way out are all the step draws and takes touches on; the
 screen's other controls and readouts are hidden and inert
 ([decision 14](#decisions)).
+Revised by the owner's decision of 2026-11-17 ([ui-theme.md](ui-theme.md#decisions) decision 18): the tester's way out is the header's BACK, top right, live from the first frame; the `MENU` button is gone.
 
 The UI decides it once a frame: `uiDshotWanted()` is a pure function of the
 stack of menu-c.md's [navigation](menu-c.md#navigation), of the run cue
@@ -390,6 +391,7 @@ that.
 `BACK TO ESC PROGRAM` at scale 2 would be 226 px in the 228 px button
 (`UI_LEAVE_WIDE`, `src/ui_leave.h`), which is why the label is the title
 alone, as the tester's `MENU` button names where it leads.
+Revised by the owner's decision of 2026-11-17: the tester has no `MENU` button; its BACK names the way back as every header's BACK does.
 
 ### The core1 jobs
 
@@ -469,6 +471,7 @@ greetings, see the line they see today
   `src/ui.cpp` 173, 177) and MENU's first row, ESC TESTER (y 62 to 101,
   menu-c.md), do not overlap; a second tap at the same place does not
   reopen the tester.
+  Revised by the owner's decision of 2026-11-17 ([ui-theme.md](ui-theme.md#decisions) decision 18): the tester's way out is the header's BACK, top right, live from the first frame; the `MENU` button is gone. BACK lies at the top right, y 2 to 33 and x 170 to 233, and MENU's row ESC TESTER (y 62 to 101) is another screen's: a second tap does not reopen the tester.
 - A quick MENU then ESC TESTER starts DShot again shortly after its stop;
   an ESC that had not yet lost the signal hears zero frames again, and the
   tester opens disarmed. HOLD TO ARM's press must land on ARM after
@@ -769,6 +772,7 @@ Host tests, by control id, each tool opened from its hub:
   MENU's strip holds no chip.
 - The ESC TESTER row binds once; the tester's MENU button parks: with the
   tester armed and throttled, zero frames for more than 250 ms first.
+  Revised by the owner's decision of 2026-11-17: the tester's BACK parks, as the button did.
 - ESC COMMANDS from its hub: open binds, BACK parks with no drain.
 - For every screen of menu-c.md's table but ESC TESTER, ESC COMMANDS and
   SETUP over the tester: `uiDshotWanted()` is false, and the pump parked
@@ -979,6 +983,7 @@ Host tests:
     y 200).
   - `uiDshotWanted()` for the stack ESC TESTER under SETUP, with the cue
     standing and START DSHOT not tapped: false.
+  Revised by the owner's decision of 2026-11-17: the tester's BACK returns to MENU.
 - Decision 13, on the host fakes (`test/fake_bridge_line.h`, core1's side
   run by `core1JobPoll()` as in `test/test_bridge_ui.cpp`). Each case
   reads `usbBridgeRunCue()` first. Then it taps BACK through `uiTick()`
@@ -1372,7 +1377,8 @@ review.
    `RECEIVER` or `ESC PROGRAM`, with the last step `BACK TO SERVO.` and so
    on. SERVO TESTER's left button reads `NEXT SERVO` in place of `BACK TO
    SERVO`, which would name the hub. A label names where the tap leads, as
-   the tester's `MENU` button does. The wide button is a way back, so it
+   the tester's `MENU` button did (the tester's way back is its header's
+   BACK since 2026-11-17). The wide button is a way back, so it
    is `C_CYAN` from ui-theme.md slice 11 ([ui-theme.md](ui-theme.md#cyan)).
    Slice D2 builds the labels. This revises owner decision 3 of
    [menu-b.md](menu-b.md#decisions), whose button reads RESTART DSHOT. The
@@ -1558,6 +1564,12 @@ review.
     from the step's first frame. Slice D3 builds the step; slices 11 and 12
     of [menu-c.md](menu-c.md#build-plan) give START DSHOT its colours on
     ESC COMMANDS and on the tester.
+
+    Revised by the owner's decision of 2026-11-17
+    ([ui-theme.md](ui-theme.md#decisions) decision 18): the tester has no
+    `MENU` button. Its way out is the header's BACK, live from the first
+    frame, the same `C_CYAN` button as ESC COMMANDS' BACK. The controls on
+    the step are BACK and START DSHOT.
 
 ## Open questions
 

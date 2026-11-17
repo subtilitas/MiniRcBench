@@ -311,8 +311,7 @@ Schreiben hinausgeht, das dann scheitert.
 
 Während des Schreibens zeigt die Seite `WRITING: DO NOT UNPLUG.` und darunter
 `PLANNING THE ORDER OF THE WRITES` oder `FRAMES SENT: 94`. Während das
-Schreiben läuft, und während es auf die Karte wartet, ist `BACK` deaktiviert gezeichnet und tut
-nichts: Kein `BACK` lässt ein Servo halb geschrieben zurück. `BACK` vor dem
+Schreiben läuft, und während es auf die Karte wartet, wirkt `BACK` nicht und ist ein gedämpfter Rahmen mit gedämpfter Beschriftung: Kein `BACK` lässt ein Servo halb geschrieben zurück. `BACK` vor dem
 Halten oder unter dem Ergebnis führt zur Feldliste zurück.
 
 ### Die BOARD-Spannung rot

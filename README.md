@@ -107,7 +107,7 @@ Menu structure B is described in `docs/design/menu-b.md`; its 10 slices are
 in the tree, tested on the host only: its building blocks, its colour roles,
 its names and SETUP, its layout table, its write rule and BACK guard, the
 one leave page of KST SERVO, HITEC SERVO and SERVO TESTER, the tester's
-readouts that open SETUP with LATCH, SERVO TESTER's title, the MENU row's
+readouts that open SETUP with LATCH, the tester's header, SERVO TESTER's title, the MENU row's
 label, MENU's rows by device with one entry point for the servo
 programmers, and the design notes and checks no single slice owned.
 Menu structure C (`docs/design/menu-c.md`) is built in its slices 1 to 6,
@@ -132,8 +132,7 @@ TESTER and ESC COMMANDS open on a start step with DShot parked until START
 DSHOT.
 The uses that the design note's decision 11 names take their role's colour.
 Cyan is the accent, as on rcbench (slice 10 of the build plan in
-`docs/design/menu-c.md`, `docs/design/ui-theme.md`): BACK and the tester's
-MENU button are cyan, a setting's value and a section caption are cyan
+`docs/design/menu-c.md`, `docs/design/ui-theme.md`): BACK, the tester's included, is cyan, a setting's value and a section caption are cyan
 text, and a value changed and not yet written is dark on a cyan fill; "The
 Dark theme" under [Using it](#using-it) lists the uses. Tested on the host
 only: no colour has been seen on the panel.
@@ -575,9 +574,13 @@ from a press that began on it, so lifting that finger opens nothing.
 **Main screen**
 
 The main screen is the ESC tester. MENU's first row, **ESC TESTER**,
-opens it, disarmed, at throttle 0, with LATCH off. It has no header; its
-**MENU** button returns to MENU. The row is drawn disabled while the pin
-claim is not free.
+opens it, disarmed, at throttle 0, with LATCH off. It has the 36 px header
+every screen has, `ESC TESTER` on the left and **BACK**, 64 x 32 px, at the
+top right. The status band (the SAFE or ARMED badge, the DSHOT rate, the log
+state, the BOARD voltage, IDLE) lies below it, y 36 to 62; the RPM area is
+y 63 to 127. BACK is cyan and always acts: it disarms, sets the throttle to
+zero, turns LATCH off and returns to MENU. The row is drawn disabled while
+the pin claim is not free.
 
 - **HOLD TO ARM**: press and hold for 1 s (`ARM_HOLD_MS`). Arming is refused
   unless the throttle has been at zero for 250 ms (`ARM_ZERO_THROTTLE_MS`).
@@ -607,9 +610,10 @@ claim is not free.
 
   The percentage shown is of the full 0–2000 DShot range. The bar's full width
   is the configured ceiling.
-- **Throttle pad**: the area above the gauge (RPM readout and telemetry tiles)
-  is a relative throttle surface in both modes. Swipe **up** for more,
-  **down** for less. Swipes accumulate.
+- **Throttle pad**: the area above the gauge (RPM readout and telemetry tiles),
+  y 63 to 239, 177 px, is a relative throttle surface in both modes. The
+  header and the status band above it are not part of it. Swipe **up** for
+  more, **down** for less. Swipes accumulate.
 
   A tap on the pad never changes the throttle. A drag engages after 6 px of
   travel (`PAD_DEADZONE_PX`). One full-height swipe covers 60 % of the ceiling
@@ -624,15 +628,19 @@ claim is not free.
   replaces the note, and the note returns on release. The pad works the same.
 - **LATCH**: off by default, blue while on. Turning it off sets the
   throttle to zero.
-- **MENU**: back to MENU, the list of tools and settings. The tap
-  disarms, sets the throttle to zero and turns LATCH off first. The tester
-  has no header, so this button is its way back: cyan with a dark label, as
-  BACK is on every screen with a header.
+- **BACK**: back to MENU, the list of tools and settings, in the header at
+  the top right: cyan with a dark label, as on every screen with a header.
+  The tap disarms, sets the throttle to zero and turns LATCH off first.
+  BACK is live in every state of the tester, including the start step.
+- **Button row**: HOLD TO ARM at {6, 283, 150, 33} and LATCH at
+  {162, 283, 72, 33} share the row, 6 px apart. There is no third button.
+- **RPM digits**: five seven-segment digits, 21 x 32 px with a stroke of
+  4 px (6 px in high contrast), 5 px apart, at x 101 to 225, y 66 to 97.
 - **Pole count and ceiling**: `14 POLES` at x 10, y 114, and `MAX 20%` at
   x 88, y 236, both in the text colour. While disarmed and while the pin
   claim is free, each is underlined in the text colour (y 122 and y 244) and
   a tap on it opens SETUP (`TesterCtl::Poles` at {4, 106, 72, 22},
-  `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs the MENU button's
+  `TesterCtl::Max` at {82, 230, 60, 22}). The tap runs BACK's
   disarm first, through `uiOpenTool()` in `src/ui.cpp`, and `BACK` on
   SETUP opened this way returns to the tester. While armed they show no
   underline, `KV EST` stands in the pole count's place ([Telemetry and
@@ -719,14 +727,14 @@ at its end, and RECEIVER, each hub with its NO ESC CHECK line.*
 MENU is the first screen after the splash and the root of the navigation
 (slice 3 of `docs/design/menu-c.md`): its header reads `MENU` and draws no
 **BACK**, since nothing lies behind it. On every other screen with a header
-BACK is cyan with a dark label; a BACK that does nothing is drawn disabled
-and is not cyan. MENU is a list of rows. Each row is
+BACK is cyan with a dark label; a BACK that does not act is a dim frame with a dim
+label on the background and is not cyan. MENU is a list of rows. Each row is
 40 px tall at a 42 px pitch, with the name at scale 2 on the left and its
 state right-aligned. **BACK** returns to the screen that opened the one on
 show: a hub, LOGS or SETUP opened from a MENU row returns to MENU, a
 tool opened from a hub to that hub, and SETUP opened from the tester's
 pole count or ceiling to the tester. The tester returns to MENU by its
-**MENU** button. The screens form a stack of at most three, MENU at the
+header's **BACK**. The screens form a stack of at most three, MENU at the
 bottom: MENU; the tester, a hub, LOGS or SETUP; a hub's tool, or
 SETUP over the tester. **BACK** pops one (slice 2 of
 `docs/design/menu-c.md`). The leave page's last button returns where BACK
@@ -747,7 +755,7 @@ would.
   it. DShot stays parked and no frame goes out. START DSHOT is drawn
   disabled for 1000 ms after the step opens; its tap clears the cue of all
   three tools, DShot binds on the next frame, and the tester's arm gate
-  counts from that bind. The tester's **MENU** and ESC COMMANDS' **BACK**
+  counts from that bind. The tester's **BACK** and ESC COMMANDS' **BACK**
   are live from the step's first frame and leave with DShot parked and the
   cue kept, so the next open shows the step again. Nothing else on either
   screen is drawn or takes a touch on the step: the readouts, the pad, the
@@ -1128,10 +1136,10 @@ slider's fill is the frames' colour.
 
 Cyan is the accent, as on rcbench, and marks four things:
 
-- **The way back.** BACK in the header and the tester's `MENU` button are
-  cyan with a near-black label. A BACK that would do nothing is drawn
-  disabled, with a frame and a faint label, and is not cyan. MENU, the
-  root, draws no BACK.
+- **The way back.** BACK in the header, the tester's included, is cyan
+  with a near-black label. A top-right button that does not act is drawn
+  as a dim frame with a dim label on the background (`uiHomeTag()`, `C_DIM`,
+  contrast 8.74), and is not cyan. MENU, the root, draws no BACK.
 - **A row that opens a hub.** The mark `>` on MENU's rows ESC PROGRAM, SERVO
   and RECEIVER.
 - **A setting.** A value of the bench's own settings is cyan text with no
@@ -1207,7 +1215,7 @@ A tag that drops from KISS to EDT means the telemetry wire has stopped, and the
 reading is 25 times coarser. Consumption in mAh appears on the temperature
 tile with KISS only. EDT does not carry it.
 
-The tester's top row shows `DSHOT` plus the bitrate the DShot driver runs
+The tester's status band shows `DSHOT` plus the bitrate the DShot driver runs
 at, for example `DSHOT600`, as set under SETUP → DSHOT, dim, and in the
 text colour once an EDT enable has been sent; `DSHOT1200`, the widest, ends
 at x 156. `DSERR` in amber replaces it when the driver could not claim its
@@ -1216,8 +1224,8 @@ two PIO state machines; nothing is sent to the ESC then.
 The large voltage at the top right, captioned `BOARD`, is the board's own
 battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
 9.90 V. The ESC's pack voltage is the **VOLTAGE** tile. It is drawn amber
-below 3.50 V (`BOARD_CELL_LOW_MV`) and red below 3.30 V
-(`BOARD_CELL_CRIT_MV`), a lithium-polymer cell's usual low range, not
+below 3.50 V (`BOARD_CELL_LOW_MV`) and, below 3.30 V
+(`BOARD_CELL_CRIT_MV`), as dark digits on a red badge, a lithium-polymer cell's usual low range, not
 measured on this board, and goes back only 50 mV (`BOARD_CELL_HYST_MV`)
 above each threshold (`uiBoardCell()`). The band is taken from the value as
 drawn, rounded to centivolts, so `3.50V` is never amber and `3.30V` never
@@ -1997,7 +2005,7 @@ read again and compared with the first read, then erased, sent, programmed
 and read back; a failed step or a read-back that differs runs it again from
 the erase, 3 times at most. The guard refuses an erase or program anywhere
 but the settings page, the bootloader's area and the firmware among it.
-`WRITING: DO NOT UNPLUG.` stands meanwhile, BACK drawn disabled. The result,
+`WRITING: DO NOT UNPLUG.` stands meanwhile, BACK a dim frame with a dim label. The result,
 at y 196 and 208:
 
 | Result | First line | Second line |
@@ -2051,7 +2059,7 @@ Keep the ESC powered after a cut write. None of this is verified on an ESC.
 `00 01`, which starts the ESC's firmware, 500 µs of idle line, 300 ms of low
 line, then the line parked. The page reads `LEAVING` over `THE ESC STARTS
 ITS FIRMWARE ON` / `LEAVE. ESC TESTER THEN RUNS IT.` and, in amber,
-`KEEP THE PROPELLER OFF.`; BACK is drawn disabled. Once LEAVE went out the
+`KEEP THE PROPELLER OFF.`; BACK is a dim frame with a dim label and does not act. Once LEAVE went out the
 job lets SIG go and the pins park, SIG driven low, with no leave page, and
 the screen returns to ESC PROGRAM. No DShot runs until ESC TESTER or ESC
 COMMANDS opens. LEAVE has no answer: whether the firmware started is not
@@ -2073,7 +2081,11 @@ of SERVO TESTER, KST SERVO and HITEC SERVO, before LEAVE:
 | 1, current until LEAVE | `UNPLUG THE ESC BATTERY, THEN LEAVE.` / `ITS BOOTLOADER WAITS FOR COMMANDS` / `AND MAY READ DSHOT AS ONE.` | 35, 33 and 26 characters: 209, 197 and 155 px from x 20 |
 | 2, current after LEAVE | `PLUG IT IN ONCE ESC PROGRAM SHOWS.` | 33, 197 px |
 
-The strip reads `EFM8 E8B2  SIG GP0`, and BACK is drawn disabled.
+The strip reads `EFM8 E8B2  SIG GP0`. The header's top-right button reads
+`LEAVE` before the release and acts as the wide LEAVE button; while the claim
+releases it does not act and is a dim frame with a dim label; after the
+release it reads `BACK` and, 1000 ms later, returns to ESC PROGRAM as the
+wide button does.
 **STAY** returns to the page BACK left, the claim and the job kept: a read
 under way goes on. **LEAVE** cuts the job's entry or read, sends nothing and
 lets SIG go, or lets the AM32 transport go of it, and **ESC PROGRAM**, the
@@ -2168,7 +2180,7 @@ card the settings as read stay in RAM until a write with a card saves them,
 and leaving ESC SETTINGS loses them. Writing needs a 1 s hold on the page's
 `HOLD TO WRITE`, the wide button; the tap that opened the page is not timed.
 While the write runs the page reads `WRITING: DO NOT UNPLUG.` in amber and
-BACK is drawn disabled. BACK before the hold, or under the result, returns to
+BACK does not act and is a dim frame with a dim label. BACK before the hold, or under the result, returns to
 the list. While the BOARD voltage is red the hold writes nothing: the result
 reads `BOARD VOLTAGE IS RED: NOT WRITTEN.` with `CHARGE THE CELL. TAP OK,
 WRITE AGAIN.` under it, both amber, and OK returns to the list with the edits
@@ -2719,8 +2731,11 @@ and `SERVO`, the hub's title, are drawn disabled. Then NEXT SERVO keeps the
 claim and returns to the servo screen, SAFE. `SERVO` acts on a press that
 lands 1000 ms or more after the pins are let go (`UI_HOLD_MS`), so a second
 tap right after BACK ends nothing; it parks the pins, starts no DShot and
-returns to SERVO, the hub. BACK on the page is drawn disabled in
-every phase and does nothing.
+returns to SERVO, the hub. The header's top-right button is the wide button's twin: `LEAVE`
+before the release, live while LEAVE is, and it acts as LEAVE; it does not act
+while the claim releases; after the release it reads `BACK` and, 1000 ms
+later, returns to SERVO as the wide button does. A button that does not act
+is a dim frame with a dim label.
 
 ## KST servo programming
 
@@ -2848,7 +2863,7 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    value dim and each new value cyan, their soft rules, and where the backup
    goes. Only the page holds: its HOLD TO WRITE, 1 s, writes, and the tap
    that opened it is not timed. While the write runs, or waits for the card,
-   BACK is drawn disabled and does nothing, so no BACK leaves a servo half
+   BACK does not act and is a dim frame with a dim label, so no BACK leaves a servo half
    written; BACK before the hold or under the result returns to the list.
    Before the first frame of the session's first
    write with a card mounted, the image read at entry goes to the card as the
@@ -2883,8 +2898,11 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
    SERVO keeps the claim and starts a new search
    (`NEXT SERVO: POWER IT AFTER THE TAP.`), and `SERVO` acts on a press that
    lands 1000 ms or more later, so a double tap on LEAVE ends nothing; it parks
-   the pins and returns to SERVO, the hub. BACK on the page is drawn disabled in
-   every phase. With the switched supply step 1 reads
+   the pins and returns to SERVO, the hub. The header's top-right button reads
+   `LEAVE` before the release and acts as the wide LEAVE button; while the
+   claim releases it does not act and is a dim frame with a dim label; after
+   the release it reads `BACK` and, 1000 ms later, returns to SERVO as the
+   wide button does. With the switched supply step 1 reads
    `LEAVE SWITCHES THE SUPPLY OFF.`: LEAVE switches it off, and the page reads
    `SUPPLY OFF FOR 2.0 S: 1.4 S LEFT.` until the line closes 2 s after the
    switch-off. Every claim end does the same once the supply was on. **HOLD TO
@@ -3102,7 +3120,7 @@ not 0 answers ID 0 is not measured.
    value cyan.
    Only the page holds: its HOLD TO WRITE, 1 s, writes, and the tap that
    opened it is not timed. While the write runs, or waits for the card, BACK
-   is drawn disabled and does nothing; BACK before the hold or under the
+   does not act and is a dim frame with a dim label; BACK before the hold or under the
    result returns to the list. Before the first frame of the session's first
    write with a card mounted, the backup goes to the card as
    `BACKUP/HTnnn.TXT`; before every write, the servo as it is and the
@@ -3134,8 +3152,11 @@ not 0 answers ID 0 is not measured.
    (`NEXT SERVO: POWER IT AFTER THE TAP.`); with the switch the entry starts
    at once. `SERVO` acts 1000 ms later, parks the pins and returns to SERVO,
    the hub.
-   BACK on the page is drawn disabled in every phase; BACK during the entry
-   opens it at `1 UNPLUG THE SERVO.`
+   The header's top-right button reads `LEAVE` before the release and acts
+   as the wide LEAVE button; while the claim releases it does not act and is
+   a dim frame with a dim label; after the release it reads `BACK` and,
+   1000 ms later, returns to SERVO as the wide button does. BACK during the
+   entry opens the page at `1 UNPLUG THE SERVO.`
 7. With `GP28` or `GP29` the supply is on only while the screen runs. A screen that
    stalls for 250 ms switches it off: at once during the entry, else once
    a running read or write has ended. The page then reads
@@ -3835,7 +3856,7 @@ still for 2 s: screen up; turned end for end on the same spot, lifted off and
 put back; screen down, then screen up again. The strip names the step,
 `STEP 1 OF 3`, beside the main view's chip, two lines say what to do, and the
 angle shows under them. While the board lies screen down, touches are
-ignored and BACK and AGAIN are drawn disabled, so the glass on the table taps
+ignored and BACK and AGAIN do not act, BACK as a dim frame with a dim label, so the glass on the table taps
 nothing. The result is the offset of each chip axis in mg and the gain of
 the axis along the normal, `OFFSET X 30  Y -20  Z 40 MG` and `GAIN Z 1.020`;
 an offset past ±0.2 g or a gain outside 0.88 to 1.12 gives no result. The
@@ -3911,14 +3932,14 @@ In the firmware:
 - Throttle ceiling, default 20 %.
 - Auto-disarm after 30 s with no touch input (`IDLE_DISARM_MS`). For the last
   5 s, `IDLE ns` replaces the board's battery voltage and its `BOARD`
-  caption in the top row. The time counts from the last contact the touch
+  caption in the status band. The time counts from the last contact the touch
   controller reports, so a wet screen or something lying on the glass keeps
   the tester armed.
 - If core0 sends no heartbeat for 250 ms while armed, core1 disarms, sets the
   throttle to zero and latches the trip. The next `uiTick()` stops the
   tester, and arming again takes the 1 s hold.
 - The tester opens from MENU disarmed, at throttle 0, with LATCH off, and its
-  MENU button disarms, zeroes the throttle and turns LATCH off before it returns
+  header's BACK disarms, zeroes the throttle and turns LATCH off before it returns
   to MENU. Every tool but SETUP opens only from MENU or from a hub that
   MENU opens; SETUP also opens from a tap on the tester's pole count or
   ceiling, only while disarmed, and that tap runs the same disarm first.
@@ -3956,12 +3977,12 @@ In the firmware:
 - ESC COMMANDS sends a command only disarmed, with the motor stopped and
   an ESC that has answered for 1500 ms; a direction or 3D change
   needs a 1 s hold and is saved in the ESC with command 12 in the same
-  sequence. BACK is drawn disabled while a request waits or a sequence goes
+  sequence. BACK does not act, a dim frame with a dim label, while a request waits or a sequence goes
   out.
 - ESC SETTINGS, KST SERVO and HITEC SERVO write a device only from their
   write page: a tap on `WRITE...` or `RESTORE...` opens it, it names every
   change, and its 1 s hold writes. While a write runs, or waits for the
-  card to hold the backup, BACK is drawn disabled and does nothing. While
+  card to hold the backup, BACK does not act and is a dim frame with a dim label. While
   the BOARD voltage is red the hold writes nothing.
 - BACK on ESC SETTINGS' list with edits not written, and on SERVO TESTER →
   SET with a change waiting, names the changes in amber first; a second
@@ -4262,7 +4283,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,373 of 16,638 lines in 100 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,412 of 16,677 lines in 100 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

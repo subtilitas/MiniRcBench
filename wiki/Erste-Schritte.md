@@ -121,9 +121,9 @@ Zeile verschwindet, sobald der Controller antwortet. Steht sie noch, wenn
 `MENU` ist der Ausgangspunkt jedes Werkzeugs. Sein Kopfbereich hat kein
 `BACK`: Dahinter liegt nichts. Tippe auf seine erste Zeile, `ESC TESTER`,
 um den Tester zu öffnen. Der Tester öffnet entschärft, mit Gas 0 und
-`LATCH` aus; seine Schaltfläche `MENU` unten rechts führt zu `MENU` zurück.
+`LATCH` aus; sein `BACK` oben rechts führt zu `MENU` zurück.
 DShot startet, wenn der Tester öffnet: Der ESC hört zuerst die Freigabe der
-Telemetrie, dann Frames mit Gas 0. `MENU` beendet DShot wieder, nach
+Telemetrie, dann Frames mit Gas 0. `BACK` beendet DShot wieder, nach
 mindestens 250 ms Frames mit Gas 0, und legt den ESC-Pin auf Low. Was ein
 ESC tut, wenn die Frames ausbleiben, bestimmt seine Firmware; auf dieser
 Platine ist das nicht gemessen.
@@ -202,7 +202,8 @@ Zwei Flächen stellen denselben Gaswert ein.
 Gas, und beim Loslassen geht das Gas auf null. Die volle Breite der Bahn ist
 die *Obergrenze*: Bei den voreingestellten 20 % gibt das rechte Ende 20 %.
 
-**Die Zahlenfläche** über dem Balken ist ein relatives Gas-Pad. Nach **oben**
+**Die Zahlenfläche** über dem Balken, y 63 bis 239 unter Kopfbereich und
+Statusleiste, ist ein relatives Gas-Pad. Nach **oben**
 wischen für mehr, nach **unten** für weniger. Ein Tippen bewirkt nichts, und
 Wischer summieren sich. So lässt sich das Gas über mehrere kurze Wischer
 erhöhen, ohne hinzusehen. Nach 6 px Bewegung wechselt der Hinweis unter der
@@ -219,7 +220,7 @@ loslässt. Der Balken zeigt einen Griff, und seine Beschriftung lautet
 
 ## Die Obergrenze anheben
 
-`MENU` auf dem Tester führt zur Liste der Werkzeuge zurück und entschärft
+`BACK` auf dem Tester führt zur Liste der Werkzeuge zurück und entschärft
 dabei immer. `SETUP` ist die letzte Zeile, ohne Ziehen sichtbar: Tippe
 darauf. Oder tippe entschärft auf `MAX 20%`
 oder `14 POLES` im Tester, unterstrichen, solange ein Tippen darauf wirkt:

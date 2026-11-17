@@ -111,9 +111,9 @@ touch does not work; see
 
 `MENU` is where every tool starts. Its header has no `BACK`: nothing lies
 behind it. Tap its first row, `ESC TESTER`, to open the tester. The tester
-opens disarmed, at throttle 0, with `LATCH` off; its `MENU` button at the
-bottom right returns to `MENU`. DShot starts when the tester opens: the ESC
-first hears the telemetry enable, then zero-throttle frames. `MENU` stops
+opens disarmed, at throttle 0, with `LATCH` off; its `BACK` at the
+top right returns to `MENU`. DShot starts when the tester opens: the ESC
+first hears the telemetry enable, then zero-throttle frames. `BACK` stops
 DShot again, after zero-throttle frames for at least 250 ms, and holds the
 ESC pin low. An ESC that loses the frames does what its firmware does on
 signal loss; that is not measured on this board.
@@ -188,7 +188,8 @@ track is the throttle, and the throttle returns to zero on release. The full
 track width is the *ceiling*: at the default 20 % ceiling, the right end
 commands 20 %.
 
-**The number area** above the bar is a relative throttle pad. Swipe **up** for
+**The number area** above the bar, y 63 to 239 under the header and the
+status band, is a relative throttle pad. Swipe **up** for
 more, **down** for less. A tap does nothing, and swipes add up, so the
 throttle can be raised over several short swipes without looking. After 6 px
 of travel the hint under the RPM readout changes to `SWIPE ACTIVE` and the
@@ -204,7 +205,7 @@ it. The bar shows a grab handle and its caption reads `LATCHED`. Turning
 
 ## Raising the ceiling
 
-`MENU` on the tester returns to the list of tools, and always disarms on
+`BACK` on the tester returns to the list of tools, and always disarms on
 the way. `SETUP` is the last row, on the screen with no drag: tap it. Or,
 while
 disarmed, tap `MAX 20%` or `14 POLES` on the

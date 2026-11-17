@@ -343,7 +343,7 @@ static void testEntry() {
 	          leaveNoteIs(0, HITEC_UI_NEXT_POWER, C_DIM));
 	checkTrue("DShot is still down", fakeParkCount() == resumes && escTaskSuspended());
 	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
-	checkTrue("BACK there does nothing", uiHitecView() == HitecView::Leave);
+	checkTrue("BACK there does nothing during RESTART DSHOT's wait", uiHitecView() == HitecView::Leave);
 	tapId(UI_FIX(HitecCtl::NextServo));
 	checkTrue("NEXT SERVO before READ: the wait again, held, no job",
 	          uiHitecView() == HitecView::Main && pinClaimState() == ClaimState::Held &&
@@ -1303,8 +1303,8 @@ static void testStallAndBack() {
 	checkTrue("BACK from the list: the leave page", uiHitecView() == HitecView::Leave &&
 	          ctlEnabled(UI_FIX(HitecCtl::Stay)) && ctlEnabled(UI_FIX(HitecCtl::Leave)) &&
 	          ctlEnabled(UI_FIX(HitecCtl::LeaveRead)));
-	checkTrue("BACK there disabled, and drawn so",
-	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkTrue("the top-right button there reads LEAVE, live, and drawn so",
+	          ctlEnabled(UI_FIX(UI_BACK)) && homeTagLook("LEAVE") == BackLook::Live);
 	checkTrue("with GP28: LEAVE SWITCHES THE SUPPLY OFF. is step 1, current",
 	          leaveStepIs(66, '1', "LEAVE SWITCHES THE SUPPLY OFF.", true) &&
 	          leaveStepIs(80, '2', "UNPLUG THE SERVO.", false) &&
@@ -1313,13 +1313,11 @@ static void testStallAndBack() {
 	checkTrue("STAY and LEAVE drawn live", leaveLeftIs("STAY", true) && leaveWideIs("LEAVE", true));
 	checkControlTable("Hitec leave, switched");
 	fakeDumpFrame("shot_leave_hitec.ppm");
-	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
-	checkTrue("BACK on the leave page does nothing", uiHitecView() == HitecView::Leave);
 	tapId(UI_FIX(HitecCtl::Stay));
 	checkTrue("STAY: the field list", uiHitecView() == HitecView::List);
 	tapId(UI_FIX(UI_BACK));
-	tapId(UI_FIX(HitecCtl::Leave));
-	checkTrue("LEAVE: the page releasing, RESTART DSHOT in LEAVE's place, disabled",
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the top-right LEAVE, as the wide one: the page releasing, RESTART DSHOT in LEAVE's place, disabled",
 	          uiHitecView() == HitecView::Leave && ctlPresent(UI_FIX(HitecCtl::Release)) &&
 	          ctlRect(UI_FIX(HitecCtl::Release)).y == UI_LEAVE_WIDE.y &&
 	          !ctlEnabled(UI_FIX(HitecCtl::Release)) && !ctlEnabled(UI_FIX(HitecCtl::NextServo)) &&
@@ -1347,8 +1345,8 @@ static void testStallAndBack() {
 	checkTrue("RESTART DSHOT live 1000 ms later, SERVO dark on cyan",
 	          untilEnabled(UI_FIX(HitecCtl::Release), 60) && millis() - t0 >= 1000 && millis() - t0 < 1025 &&
 	          leaveWideIs("SERVO", true));
-	checkTrue("BACK still disabled, and drawn so",
-	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkTrue("BACK live with it, and drawn so",
+	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
 	checkControlTable("Hitec leave, released");
 	fakeDumpFrame("shot_leave_hitec_released.ppm");
 	tapId(UI_FIX(HitecCtl::Release));

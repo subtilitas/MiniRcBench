@@ -185,7 +185,7 @@ static void freshUi(FakeEscReply r = escAck) {
 
 /** @brief Tester → MENU → ESC PROGRAM → USB BRIDGE, by id. */
 static void openBridgeScreen() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
@@ -247,7 +247,7 @@ static void leaveBridge() {
 static void testLayout() {
 	section("USB BRIDGE: the entry, the claim, the screen at rest");
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
@@ -403,8 +403,8 @@ static void testWriteAndLeave() {
 	checkTrue("the note at y 158, 185 px", fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y, BRIDGE_UI_LEAVE_NOTE, C_DIM,
 	                                                   C_BG, 1) &&
 	          gfxTextW(BRIDGE_UI_LEAVE_NOTE, 1) == 185);
-	checkTrue("BACK drawn disabled on the page", backLook() == BackLook::Disabled &&
-	          !ctlEnabled(UI_FIX(UI_BACK)));
+	checkTrue("the top-right BACK drawn not acting while the line goes",
+	          homeTagLook("BACK") == BackLook::Disabled && !ctlEnabled(UI_FIX(UI_BACK)));
 	checkTrue("BRIDGE drawn disabled while the job lets the line go",
 	          !ctlEnabled(UI_FIX(BridgeCtl::Bridge)) && fakeTextIs(UI_MARGIN, UI_LEAVE_NOTE_Y + 12,
 	                                                                UI_LEAVE_RELEASING, C_DIM, C_BG, 1));
@@ -418,6 +418,9 @@ static void testWriteAndLeave() {
 	fakeDumpFrame("shot_bridge_leave.ppm");
 	tapId(UI_FIX(BridgeCtl::Release), IdExpect::Disabled);
 	checkTrue("RESTART DSHOT early: nothing", uiCurrentScreen() == UiScreenId::Bridge && escTaskSuspended());
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("the top-right BACK early: nothing", uiCurrentScreen() == UiScreenId::Bridge &&
+	          escTaskSuspended() && homeTagLook("BACK") == BackLook::Disabled);
 
 	tapId(UI_FIX(BridgeCtl::Bridge));
 	checkTrue("BRIDGE: back on the bridge", uiCurrentScreen() == UiScreenId::Bridge &&
@@ -437,6 +440,8 @@ static void testWriteAndLeave() {
 	brFrames(43);
 	checkTrue("1000 ms after the line was let go: RESTART DSHOT live, ESC PROGRAM dark on cyan",
 	          ctlEnabled(UI_FIX(BridgeCtl::Release)) && leaveWideIs("ESC PROGRAM", true));
+	checkTrue("the top-right BACK live with it", ctlEnabled(UI_FIX(UI_BACK)) &&
+	          homeTagLook("BACK") == BackLook::Live);
 	tapId(UI_FIX(BridgeCtl::Release));
 	checkTrue("RESTART DSHOT: ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU
@@ -515,7 +520,7 @@ static void testWriteAndLeave() {
 static void testBackStates() {
 	section("USB BRIDGE: BACK while Stopping, after a failed bind, refusals");
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
@@ -599,7 +604,7 @@ static void testBackStates() {
 
 	// USB DRIVE holds the card.
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
@@ -634,7 +639,7 @@ static void testBackStates() {
 
 	// A claim another holds: the refusal, as ESC SETTINGS shows it.
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	tapId(menuRow(&UI_ESC_CONFIG));
 	brFrames(1);
@@ -753,7 +758,7 @@ static void testReadOnly() {
 	// MENU shows the bridge's cue: a claim of the bridge ended with no leave
 	// page, as no screen of today ends it, and the cue left set.
 	freshUi(escGreets);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	brFrames(1);
 	pinClaimBegin(PinUser::Bridge, PIN_SIG);
 	for (int k = 0; k < 20 && usbBridgeMode() == BridgeMode::Closed; k++) {
@@ -1037,7 +1042,7 @@ static void cueEnd(const char *name, bool cue) {
 	checkTrue(what, uiCurrentScreen() == UiScreenId::Tester &&
 	          (cue ? uiStartStepShown() && escTaskParked() && fakeRebuildCount() == binds
 	               : !uiStartStepShown() && escTaskRunning() && fakeRebuildCount() == binds + 1));
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	brFrames(20);
 	usbBridgeRunCueClear();
 }

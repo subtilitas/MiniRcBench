@@ -142,7 +142,7 @@ static void testHubTables() {
 	for (const HubCase &c : HUB_CASES) {
 		freshTester();
 		setSupply(0);
-		tapId(UI_FIX(TesterCtl::Menu));
+		tapId(UI_FIX(UI_BACK));
 		hubFrames(1);
 		tapId(menuRow(c.screen));
 		hubFrames(1);
@@ -562,7 +562,7 @@ static void testHubClaimGate() {
 		char what[128];
 		freshTester();
 		setSupply(1);
-		tapId(UI_FIX(TesterCtl::Menu));
+		tapId(UI_FIX(UI_BACK));
 		hubFrames(1);
 		checkTrue("another claim taken under MENU",
 		          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
@@ -902,7 +902,7 @@ static void testServoScroll() {
 		{ &UI_RX_SIGNALS, UiScreenId::RxSignals, 164 },
 	};
 	for (const auto &f : FLAT) {
-		tapId(UI_FIX(TesterCtl::Menu));
+		tapId(UI_FIX(UI_BACK));
 		hubFrames(1);
 		tapId(menuRow(f.screen));
 		hubFrames(1);
@@ -938,7 +938,7 @@ static void testServoScroll() {
 	{
 		// The same move on SERVO, which scrolls, is a drag: it scrolls 10 px
 		// and opens nothing.
-		tapId(UI_FIX(TesterCtl::Menu));
+		tapId(UI_FIX(UI_BACK));
 		hubFrames(1);
 		tapId(menuRow(&UI_SERVO_HUB_SCREEN));
 		hubFrames(1);
@@ -997,7 +997,7 @@ static void testHubOpens() {
 		freshTester();
 		// HITEC CLASSIC acts with the switched supply only.
 		setSupply(1);
-		tapId(UI_FIX(TesterCtl::Menu));
+		tapId(UI_FIX(UI_BACK));
 		hubFrames(1);
 		const UiHub *hub = uiHubOf(w.hub);
 		const UiHubEntry &e = hub->entries[w.entry];

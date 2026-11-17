@@ -506,8 +506,7 @@ Zieh das Servo ab und tippe dann auf `SERVO`, den Titel der Auswahl: Es wirkt 1
 s, nachdem die Pins freigegeben sind, damit ein schnelles zweites Tippen nach
 `BACK` nichts beendet. SIG liegt dann auf Low, kein DShot startet, und SERVO,
 die Auswahl, erscheint. Ein Servo, das an SIG bleibt, trifft beim nächsten ESC
-TESTER oder ESC COMMANDS auf DShot. `BACK` auf der Seite ist deaktiviert gezeichnet und bewirkt
-nichts.
+TESTER oder ESC COMMANDS auf DShot. Die Schaltfläche oben rechts im Kopfbereich zeigt vor der Freigabe `LEAVE` und wirkt wie `LEAVE`; solange der Claim freigibt, wirkt sie nicht; nach der Freigabe zeigt sie `BACK` und führt, 1 s später, wie die breite Taste zur Auswahl zurück. Eine Schaltfläche, die nicht wirkt, ist ein gedämpfter Rahmen mit gedämpfter Beschriftung.
 
 ---
 

@@ -214,6 +214,13 @@ static bool backActs() {
 	return s_view != KstView::Leave;
 }
 
+/**
+ * @brief What the control table reports for `UI_FIX(UI_BACK)`: on the leave
+ *        page the top-right button as the page has it (uiLeaveBackLive()),
+ *        elsewhere backActs().
+ */
+static bool backTable() { return s_view == KstView::Leave ? uiLeaveBackLive(&s_leave, millis()) : backActs(); }
+
 /** @brief The leave page's claim has ended: LEAVE was tapped, or it opened releasing. */
 static bool claimEnded() {
 	return s_view == KstView::Leave && s_leave.phase != UiLeavePhase::Before;
@@ -1654,7 +1661,7 @@ static void leaveText(UiLeaveText *tx) {
 }
 
 static void drawLeave() {
-	uiHeader("KST SERVO", s_t, backActs());
+	uiHeaderLeave("KST SERVO", &s_leave, s_t, millis());
 	uiStripClear();
 	char strip[32];
 	// The type is the servo's that was read; after a loss there is none.
@@ -1742,14 +1749,14 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	switch (s_view) {
 		case KstView::Main: {
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 			static MainText m;
 			mainText(&m);
 			if (m.button) uiControlAdd(out, &n, max, UI_FIX(m.ctl), BTN_WIDE, m.enabled);
 			return n;
 		}
 		case KstView::List:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 			uiListAddRows(&s_list, out, &n, max, true);
 			for (uint8_t i = 1; i < n; i++)
 				if (!kstRowEditable(out[i].id.row)) out[i].enabled = false;
@@ -1762,13 +1769,13 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 			uiControlAdd(out, &n, max, UI_FIX(KstCtl::Files), BTN_FILES, true);
 			return n;
 		case KstView::Write:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 			if (s_writing || s_flushing) return n;
 			if (s_result || s_cardNote) uiControlAdd(out, &n, max, UI_FIX(KstCtl::WriteOk), BTN_WIDE, true);
 			else uiControlAdd(out, &n, max, UI_FIX(KstCtl::WriteHold), BTN_WIDE, holdOk());
 			return n;
 		case KstView::Files: {
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 			uiListAddRows(&s_fileList, out, &n, max, true);
 			if (!kstFilesMounted())
 				uiControlAdd(out, &n, max, UI_FIX(KstCtl::RetryMount), BTN_SAVE, !cardHeldByUsb());
@@ -1779,7 +1786,7 @@ uint8_t uiKstControls(UiControl *out, uint8_t max) {
 			return n;
 		}
 		case KstView::Leave:
-			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backActs());
+			uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backTable());
 			if (s_leave.phase == UiLeavePhase::Before) {
 				uiControlAdd(out, &n, max, UI_FIX(KstCtl::Stay), UI_LEAVE_LEFT, true);
 				if (rebootShown())

@@ -939,6 +939,9 @@ is accepted.
    Revised by [menu-c.md](menu-c.md#decisions) owner decision 1 of 2026-11-15:
    MENU is the root; the tester is MENU's first row and its MENU button returns
    there. Built (slice 3).
+   Revised by the owner's decision of 2026-11-17
+   ([ui-theme.md](ui-theme.md#decisions) decision 18): the tester's header BACK
+   returns there; the tester has no `MENU` button.
 2. **BEEP.** An action row on MENU, with the sent or refused flash on the
    row.
 3. **Poles and ceiling.** Motor poles and throttle ceiling move to the top

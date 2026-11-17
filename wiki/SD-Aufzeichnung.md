@@ -103,7 +103,7 @@ sie.
 Aufzeichnung. Eine von Hand gestartete Aufzeichnung wird durch Entschärfen
 nicht beendet. `STOP` beendet sie.
 
-Der Tester-Bildschirm zeigt den Zustand in der oberen Zeile: `REC` (rot)
+Der Tester-Bildschirm zeigt den Zustand in der Statusleiste: `REC` (rot)
 während der Aufzeichnung, `SD` im Leerlauf, `SDERR` nach einem Kartenfehler,
 `NOSD` ohne Karte. `SDERR` steht auf einem bernsteinfarbenen Feld zwischen der
 Scharf-Anzeige und `BOARD`, damit eine Aufzeichnung, die von selbst endete,

@@ -151,7 +151,7 @@ struct TouchState;
  * frame, a rule, a disabled label, a group caption or a read-only value. The
  * uses decision 11's tables name take their role's colour. `C_CYAN` is the
  * accent and has more than one use (docs/design/ui-theme.md, decision 1):
- * as a button's fill the way back, BACK and the tester's `MENU`; as text
+ * as a button's fill the way back, BACK, the tester's too; as text
  * the mark `>` of a row that opens a hub, a setting's value, a section
  * caption and the new value after `old ->`; as a fill behind a value in a
  * row, and as the row's bar, a change (@ref UI_COL_CHANGED). The splash's
@@ -287,15 +287,26 @@ void uiStartHold(const UiRect &r, const char *label, int scale, bool holding, bo
  * @param title       Screen name, drawn at scale 2.
  * @param t           This frame's touch snapshot, for BACK's pressed state.
  *                    May be null.
- * @param backEnabled False draws BACK unavailable, as uiButton() draws a
- *                    disabled control: an outline, a `C_GRID` label and no pressed
- *                    look. Pass the expression the screen's control table
+ * @param backEnabled False draws BACK not acting, as uiHomeTag() draws it:
+ *                    a `C_DIM` frame and label on `C_BG`, no pressed look. Pass the expression the screen's control table
  *                    reports for `UI_FIX(UI_BACK)` and gates the tap on, and
  *                    key the repaint on it: the write pages of ESC SETTINGS,
  *                    KST SERVO and HITEC SERVO while a write runs, and the
  *                    leave page in every phase.
  */
 void uiHeader(const char *title, const TouchState *t, bool backEnabled = true);
+
+/**
+ * @brief Draw the home tag, the header's top-right button, at uiBackRect()
+ *        with @p label: `BACK`, or `LEAVE` on a leave page before the release
+ *        (ui_leave.h). Acting, it is `C_CYAN` with a `C_ONACCENT` label;
+ *        pressed, it takes the pressed frames. Not acting, it is a `C_DIM`
+ *        frame and a `C_DIM` label on `C_BG`, readable and with no cyan.
+ * @param label   The label, 10 characters at most.
+ * @param pressed A press that counts is down on it.
+ * @param enabled It acts now.
+ */
+void uiHomeTag(const char *label, bool pressed, bool enabled);
 
 /**
  * @brief Draw the header band of the root, MENU: the title on the left and

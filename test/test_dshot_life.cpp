@@ -92,7 +92,7 @@ static bool allOf(int x, int y, int w, int h, uint16_t c) {
 /** @brief Columns of the arm badge's progress bar drawn, at y 21. */
 static int badgeProgress() {
 	int n = 0;
-	for (int x = 4; x < 96; x++) n += gfxBuffer()[21 * GFX_W + x] == C_LIME;
+	for (int x = 4; x < 96; x++) n += gfxBuffer()[BAND(21) * GFX_W + x] == C_LIME;
 	return n;
 }
 
@@ -237,7 +237,7 @@ static void testRule() {
 }
 
 /**
- * @brief ESC TESTER binds once; its MENU button parks after the drain. ESC
+ * @brief ESC TESTER binds once; its BACK parks after the drain. ESC
  *        COMMANDS binds; its BACK parks with no drain.
  */
 static void testOpenClose() {
@@ -268,9 +268,9 @@ static void testOpenClose() {
 		fakeRelease(); lifeFrames(1);
 	}
 	checkTrue("a throttle stands", fakeThrottle() > 0);
-	tapId(UI_FIX(TesterCtl::Menu));
-	checkTrue("MENU: disarmed", uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && !fakeArmed());
-	// LATCH kept the throttle going out until the MENU tap's frame.
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK: MENU, disarmed", uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && !fakeArmed());
+	// LATCH kept the throttle going out until the BACK tap's frame.
 	uint32_t last = fakeLastThrottleMs();
 	checkTrue("a throttle frame went out within the last frame", millis() - last <= 25);
 	bool zeros = true;
@@ -332,7 +332,7 @@ static void testSetupOverTester() {
 	checkTrue("back on the tester: the gate holds from the new bind",
 	          uiCurrentScreen() == UiScreenId::Tester && uiArmGated(escTaskBoundMs(), millis()) &&
 	          !ctlEnabled(UI_FIX(TesterCtl::Arm)));
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(2);
 	checkTrue("MENU: parked on the new pin", escTaskParked() && sigParked(moved));
 
@@ -388,7 +388,7 @@ static void testArmGate() {
 	          ctlEnabled(UI_FIX(TesterCtl::Arm)) && !gateTextShown());
 
 	// A new bind: MENU and the row again.
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 	openTesterBound();
 	bound = escTaskBoundMs();
@@ -422,7 +422,7 @@ static void testArmGate() {
 	fakeTouchAnswers(true);
 	lifeFrames(2);
 	checkTrue("answering again: live", ctlEnabled(UI_FIX(TesterCtl::Arm)));
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(2);
 }
 
@@ -465,7 +465,7 @@ static void testHeartbeatTripLatches() {
 	          !uiArmed() && !fakeArmed() && !escHeartbeatTripped());
 	lifeFrames(20);
 	checkTrue("500 ms on: still disarmed, throttle 0", !uiArmed() && !fakeArmed() && fakeThrottle() == 0);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(2);
 }
 
@@ -488,9 +488,9 @@ static void testArmLook() {
 	checkTrue("1500 ms, the touch answering: dark on green",
 	          armFill() == C_GREEN && fakeTextIs(lx, ly, "HOLD TO ARM", C_ONACCENT, C_GREEN, 1));
 	checkTrue("SAFE: a 2 px C_GREEN frame, C_BG inside",
-	          px(4, 3) == C_GREEN && px(5, 4) == C_GREEN && px(95, 22) == C_GREEN &&
-	          px(6, 5) == C_BG && px(93, 20) == C_BG);
-	checkTrue("SAFE: the word in C_GREEN at scale 2", fakeTextIs(sx, 7, "SAFE", C_GREEN, C_BG, 2));
+	          px(4, BAND(3)) == C_GREEN && px(5, BAND(4)) == C_GREEN && px(95, BAND(22)) == C_GREEN &&
+	          px(6, BAND(5)) == C_BG && px(93, BAND(20)) == C_BG);
+	checkTrue("SAFE: the word in C_GREEN at scale 2", fakeTextIs(sx, BAND(7), "SAFE", C_GREEN, C_BG, 2));
 
 	int ax, ay;
 	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
@@ -504,13 +504,13 @@ static void testArmLook() {
 	fakeRelease();
 	lifeFrames(2);
 	checkTrue("armed: DISARM on C_RED, ARMED filled C_RED",
-	          uiArmed() && armFill() == C_RED && px(6, 5) == C_RED && px(4, 3) == C_RED);
+	          uiArmed() && armFill() == C_RED && px(6, BAND(5)) == C_RED && px(4, BAND(3)) == C_RED);
 	bool green = false;
 	for (int i = 0; i < GFX_W * GFX_H; i++) green = green || gfxBuffer()[i] == C_GREEN;
 	checkTrue("while armed: no C_GREEN pixel on the tester", !green);
 	tapId(UI_FIX(TesterCtl::Arm));
 	lifeFrames(2);
-	checkTrue("disarmed: green again", !uiArmed() && armFill() == C_GREEN && px(6, 5) == C_BG);
+	checkTrue("disarmed: green again", !uiArmed() && armFill() == C_GREEN && px(6, BAND(5)) == C_BG);
 
 	fakeTouchAnswers(false);
 	lifeFrames(6);
@@ -519,7 +519,7 @@ static void testArmLook() {
 	fakeTouchAnswers(true);
 	lifeFrames(2);
 	checkTrue("answering: green", armFill() == C_GREEN);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(2);
 }
 
@@ -566,7 +566,7 @@ static void testTapToBind() {
 	checkTrue("the gate counts from the stamp: gated at 1499 ms, not at 1500 ms",
 	          uiArmGated(bound, bound + 1499) && !uiArmGated(bound, bound + 1500) &&
 	          uiArmGated(0, bound + 100000));
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(2);
 }
 
@@ -607,12 +607,12 @@ static void testRebindCancels() {
 	checkTrue("the gate counts 1500 ms from the new stamp",
 	          uiArmGated(now, now + 1499) && !uiArmGated(now, now + 1500));
 	escTaskConfigure(SIG_GPIO, settings()->dshotKbaud, settings()->kissEnable, AUX_GPIO);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 }
 
 /**
- * @brief The drain race: armed with a latched throttle, MENU, then ESC
+ * @brief The drain race: armed with a latched throttle, BACK, then ESC
  *        TESTER again within the 250 ms drain. Run is asked again before the
  *        teardown: no new bind, the stamp unchanged, zero frames throughout,
  *        and arming needs the 1000 ms hold only.
@@ -639,7 +639,7 @@ static void testDrainRace() {
 	checkTrue("a latched throttle stands", fakeThrottle() > 0);
 	const uint32_t stamp = escTaskBoundMs();
 	const int binds = fakeRebuildCount();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	const uint32_t last = fakeLastThrottleMs();
 	checkTrue("MENU: disarmed, a throttle frame within the last frame",
 	          uiCurrentScreen() == UiScreenId::Menu && !uiArmed() && millis() - last <= 25);
@@ -681,7 +681,7 @@ static void testDrainRace() {
 	lifeFrame(25);
 	tapId(UI_FIX(TesterCtl::Arm));
 	lifeFrames(1);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 	checkTrue("MENU: parked", escTaskParked());
 }
@@ -711,7 +711,7 @@ static void testRefusedBind() {
 	          strlen(UI_TESTER_REFUSED_TEXT) == 21 && gfxTextW(UI_TESTER_REFUSED_TEXT, 1) == 125 &&
 	          8 + gfxTextW(UI_TESTER_REFUSED_TEXT, 1) + 8 <= t.w);
 	fakeSetBindRefused(false);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 	checkTrue("MENU: parked, the teardown cleared the flag", escTaskParked() && !escTaskBindRefused());
 	tapId(menuRow(&UI_TESTER));
@@ -723,7 +723,7 @@ static void testRefusedBind() {
 	          escTaskBoundMs() != 0 && gateTextShown());
 	waitGate();
 	checkTrue("live once the gate opens", ctlEnabled(UI_FIX(TesterCtl::Arm)));
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 }
 
@@ -736,7 +736,7 @@ static void testClaimRules() {
 	checkTrue("on the tester: a claim is busy",
 	          pinClaimBegin(PinUser::Servo, PIN_SIG) == ClaimRefusal::Busy &&
 	          pinClaimState() == ClaimState::Free);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(1);
 	checkTrue("MENU: a claim is not busy",
 	          pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
@@ -1015,7 +1015,7 @@ static void startStepCase(void (*cue)(), const char *src, bool tester) {
 		lifeFrames(1);
 		checkTrue("the tester draws whole: HOLD TO ARM disabled, the gate's text",
 		          armDrawnDisabled() && gateTextShown() && ctlPresent(UI_FIX(TesterCtl::Latch)));
-		tapId(UI_FIX(TesterCtl::Menu));
+		tapId(UI_FIX(UI_BACK));
 	} else {
 		tapId(UI_FIX(UI_BACK));
 		lifeFrames(1);
@@ -1049,7 +1049,7 @@ static void testStartStep() {
 	openTesterBound();
 	checkTrue("no cue: ESC TESTER opens running, no step",
 	          !uiStartStepShown() && escTaskRunning() && ctlPresent(UI_FIX(TesterCtl::Arm)));
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 	tapId(toolEntry(&UI_ESC_CMD));
 	lifeFrames(2);
@@ -1073,24 +1073,36 @@ static void testStartStepWayOut() {
 	const int binds = fakeRebuildCount(), frames = fakeFrameCount();
 	tapId(menuRow(&UI_TESTER));
 	lifeFrame(1);   // the tester's first frame
-	checkTrue("ESC TESTER on the step: MENU live from the first frame, drawn cyan",
-	          uiStartStepShown() && ctlEnabled(UI_FIX(TesterCtl::Menu)) &&
-	          buttonLookIs(UI_FIX(TesterCtl::Menu), "MENU", C_CYAN, C_ONACCENT, 1));
+	checkTrue("ESC TESTER on the step: BACK live from the first frame, drawn cyan",
+	          uiStartStepShown() && ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
+	{
+		const UiRect b = ctlRect(UI_FIX(UI_BACK)), br = uiBackRect();
+		checkTrue("the step: BACK at uiBackRect(), ESC TESTER in the header, its rule at y 35",
+		          b.x == br.x && b.y == br.y && b.w == br.w && b.h == br.h &&
+		          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, UI_TESTER_LABEL, C_TEXT, C_PANEL, 2) &&
+		          headerRuleDrawn());
+		const int sx = 4 + (92 - gfxTextW("SAFE", 2)) / 2;
+		checkTrue("the step: the status band from y 36, SAFE at y 43, under the header",
+		          fakeTextIs(sx, BAND(7), "SAFE", UI_COL_SAFE, C_BG, 2) &&
+		          gfxBuffer()[BAND(0) * GFX_W + 120] == C_PANEL &&
+		          gfxBuffer()[BAND(26) * GFX_W + 120] == C_PANEL &&
+		          gfxBuffer()[BAND(27) * GFX_W + 120] == C_BG);
+	}
 	{
 		UiControl t[UI_CONTROLS_MAX];
 		uint8_t n = uiControls(t, UI_CONTROLS_MAX);
-		const UiRect st = ctlRect(UI_FIX(TesterCtl::Start)), mn = ctlRect(UI_FIX(TesterCtl::Menu));
-		checkTrue("the table: START DSHOT and MENU, nothing else", n == 2 &&
-		          ctlPresent(UI_FIX(TesterCtl::Start)) && ctlPresent(UI_FIX(TesterCtl::Menu)));
-		checkTrue("START DSHOT: x 6 to 233, y 214 to 259, clear of MENU",
+		const UiRect st = ctlRect(UI_FIX(TesterCtl::Start)), mn = ctlRect(UI_FIX(UI_BACK));
+		checkTrue("the table: START DSHOT and BACK, nothing else", n == 2 &&
+		          ctlPresent(UI_FIX(TesterCtl::Start)) && ctlPresent(UI_FIX(UI_BACK)));
+		checkTrue("START DSHOT: x 6 to 233, y 214 to 259, clear of BACK",
 		          st.x == 6 && st.y == 214 && st.w == 228 && st.h == 46 &&
 		          !(st.x < mn.x + mn.w && mn.x < st.x + st.w && st.y < mn.y + mn.h && mn.y < st.y + st.h));
 		checkControlTable("ESC TESTER, the start step");
 		fakeDumpFrame("shot_tester_start_step.ppm");
 	}
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(4);
-	checkTrue("MENU: MENU, parked, no bind, no frame, the cue kept",
+	checkTrue("BACK: MENU, parked, no bind, no frame, the cue kept",
 	          uiCurrentScreen() == UiScreenId::Menu && escTaskParked() && fakeRebuildCount() == binds &&
 	          fakeFrameCount() == frames && uiRunCue(0));
 	tapId(menuRow(&UI_TESTER));
@@ -1130,7 +1142,7 @@ static void testStartStepWayOut() {
 	          !uiStartStepShown() && uiCurrentScreen() == UiScreenId::Tester && uiNavDepth() == 2);
 	lifeFrames(2);
 	checkTrue("then DShot binds", fakeRebuildCount() == binds + 1 && escTaskRunning());
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 
 	// ESC COMMANDS: BACK live; the holds neither drawn nor read.
@@ -1191,7 +1203,7 @@ static void testStartStepWayOut() {
 		memset(&tel, 0, sizeof(tel));
 		fakeSetTelemetry(&tel);
 	}
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(4);
 
 	// A cue that rises under a running tester, which no tool can set while
@@ -1203,7 +1215,7 @@ static void testStartStepWayOut() {
 	checkTrue("a cue that rises under the tester: not wanted, parked",
 	          !uiDshotWanted() && escTaskParked());
 	usbBridgeRunCueClear();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(4);
 
 	// SETUP over a tester whose step was not done: parked.
@@ -1324,7 +1336,7 @@ static void testSetupTexts() {
 	// the pin of the last load: no pin note, LINK OFF.
 	tapId(UI_FIX(UI_BACK));
 	lifeFrames(1);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	lifeFrames(20);
 	tapId(menuRow(&UI_SETTINGS));
 	lifeFrames(2);
@@ -1355,7 +1367,7 @@ static void testSetupTexts() {
 		fakeRelease(); lifeFrames(1);
 	}
 	checkTrue("armed, a throttle stands", uiArmed() && fakeThrottle() > 0);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(menuRow(&UI_SETTINGS));
 	lifeFrames(1);
 	checkTrue("SETUP from MENU within the drain: not parked yet, no pin note",

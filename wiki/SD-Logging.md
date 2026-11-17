@@ -95,7 +95,7 @@ dates on a card are not verified.
 **Manual:** `START` on the LOGS screen starts a log at any time. A log
 started by hand is not stopped by a disarm. `STOP` ends it.
 
-The tester screen shows the state in its top row: `REC` (red) while recording,
+The tester screen shows the state in its status band: `REC` (red) while recording,
 `SD` while idle, `SDERR` after a card error, `NOSD` with no card. `SDERR` is
 drawn on an amber chip, between the arm badge and `BOARD`, so a recording that
 stopped on its own shows while armed. The LOGS screen says what happened.
@@ -109,7 +109,7 @@ needs the card for its backup. The LOGS screen then reads
 The LOGS screen then reads `RECORDING STOPPED BY SERVO TESTER`.
 
 **Stop the recording before cutting the board's power or pulling the card:**
-disarm, or press `STOP` on the LOGS screen, and wait until the top row reads
+disarm, or press `STOP` on the LOGS screen, and wait until the status band reads
 `SD`. A stop writes the end of the log, gives back the unused space, closes the
 file and writes its run summary beside it. A log cut by a power loss or a pulled
 card is not closed. What it holds depends on when it was cut:

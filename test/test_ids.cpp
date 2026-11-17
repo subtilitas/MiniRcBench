@@ -64,7 +64,7 @@ static void testHelpersFail() {
 	g_idFailHook = countFail;
 
 	s_idFails = 0;
-	tapId(UI_FIX(UI_BACK));
+	tapId(UI_FIX(TesterCtl::Start));   // the start step's: absent once DShot runs
 	int absent = s_idFails;
 	s_idFails = 0;
 	tapId(UI_FIX(TesterCtl::Throttle));
@@ -73,7 +73,7 @@ static void testHelpersFail() {
 	tapId(UI_FIX(TesterCtl::Throttle), IdExpect::Disabled);
 	int right = s_idFails;
 	s_idFails = 0;
-	tapId(UI_FIX(TesterCtl::Menu), IdExpect::Disabled);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
 	int wrongWay = s_idFails;
 	bool menuOpen = uiCurrentScreen() == UiScreenId::Menu;
 
@@ -94,7 +94,7 @@ static void testHelpersReport() {
 	checkTrue("ARM acts with the card free", ctlEnabled(UI_FIX(TesterCtl::Arm)));
 	checkTrue("the throttle does not act while disarmed", !ctlEnabled(UI_FIX(TesterCtl::Throttle)));
 	checkTrue("nor the pad", !ctlEnabled(UI_FIX(TesterCtl::Pad)));
-	checkTrue("the tester has no BACK", !ctlPresent(UI_FIX(UI_BACK)));
+	checkTrue("the tester has BACK, live while disarmed", ctlEnabled(UI_FIX(UI_BACK)));
 	fakeMscSet(MscState::Serving, 0); idFrames(1);
 	checkTrue("ARM does not act while a host holds the card", !ctlEnabled(UI_FIX(TesterCtl::Arm)));
 	fakeMscSet(MscState::Idle, 0); idFrames(1);
@@ -106,6 +106,7 @@ static void testHelpersReport() {
 	checkTrue("the throttle acts while armed", ctlEnabled(UI_FIX(TesterCtl::Throttle)));
 	checkTrue("and the pad", ctlEnabled(UI_FIX(TesterCtl::Pad)));
 	checkControlTable("tester, armed");
+	checkTrue("BACK acts while armed: it disarms first", ctlEnabled(UI_FIX(UI_BACK)));
 	tapId(UI_FIX(TesterCtl::Arm));
 	checkTrue("a tap on DISARM by id disarms", !uiArmed());
 }
@@ -114,7 +115,7 @@ static void testHelpersReport() {
 static void testMenuSettingsLog() {
 	section("Control ids: MENU, SETUP and LOGS");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	// One frame for each screen's first paint: the table check compares the
 	// header's BACK with the table.
@@ -322,7 +323,7 @@ static void testMenuSettingsLog() {
 static void testServo() {
 	section("Control ids: SERVO, SET and the leave page");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(toolEntry(&UI_SERVO));
 	checkTrue("SERVO opens", uiCurrentScreen() == UiScreenId::Servo);
 	idFrames(20);
@@ -353,11 +354,12 @@ static void testServo() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK from SERVO opens the leave page", uiCurrentScreen() == UiScreenId::Servo &&
 	          !ctlPresent(UI_FIX(ServoCtl::Min)));
-	checkTrue("the leave page: BACK TO SERVO, RESTART DSHOT, BACK disabled",
+	checkTrue("the leave page: BACK TO SERVO, RESTART DSHOT, BACK not acting yet",
 	          ctlPresent(UI_FIX(ServoCtl::NextServo)) && ctlPresent(UI_FIX(ServoCtl::Release)) &&
 	          !ctlEnabled(UI_FIX(UI_BACK)));
 	checkControlTable("the leave page, releasing");
 	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Release)); i++) idFrames(1);
+	checkTrue("BACK reported live with RESTART DSHOT", ctlEnabled(UI_FIX(UI_BACK)));
 	checkControlTable("the leave page");
 	tapId(UI_FIX(ServoCtl::Release));
 	checkTrue("SERVO TESTER leaves to SERVO, the hub that opened it", uiCurrentScreen() == UiScreenId::ServoHub);
@@ -372,7 +374,7 @@ static void testServo() {
 static void testAm32() {
 	section("Control ids: ESC SETTINGS, the handover and the list");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	openEscSettings();
 	checkTrue("AM32 opens", uiCurrentScreen() == UiScreenId::Am32);
 	idFrames(1);  // its first paint, for the table check's BACK
@@ -444,7 +446,7 @@ static bool labelCentred(UiControlId id, const char *label, uint16_t col, uint16
 static void testLayoutTable() {
 	section("Control ids: the layout table on SETUP, LOGS and SERVO SET");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(menuRow(&UI_SETTINGS));
 	idFrames(1);
 	checkTrue("SETUP: HOLD TO SAVE at 6/150, y 268, 46 px",
@@ -617,7 +619,7 @@ static void testChangedWalk() {
 static void testGreenWalk() {
 	section("Control ids: the walk over a frame's green fills");
 	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	tapId(toolEntry(&UI_SERVO));
 	idFrames(20);
 	checkTrue("SERVO TESTER is open", uiCurrentScreen() == UiScreenId::Servo);

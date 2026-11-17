@@ -154,8 +154,8 @@ oder nicht.
    dem Bildschirm nach oben auf dieselbe Stelle zurück. Halte sie 2 s still.
 3. `STEP 3 OF 3`: Dreh sie für 3 s mit dem Bildschirm nach unten, dann
    wieder nach oben. Solange sie mit dem Bildschirm nach unten liegt, wird
-   jede Berührung übergangen, und `BACK` und `AGAIN` sind als Umriss
-   gezeichnet, damit das Glas auf dem Tisch nichts antippt.
+   jede Berührung übergangen, und `AGAIN` ist als Umriss und `BACK` als
+   gedämpfter Rahmen mit gedämpfter Beschriftung gezeichnet, damit das Glas auf dem Tisch nichts antippt.
 
 Die Seite zeigt dann den Nullpunktfehler jeder der drei Achsen des Sensors
 in mg und die Verstärkung der Achse durch den Bildschirm. Halte

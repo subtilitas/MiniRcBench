@@ -679,7 +679,8 @@ static const char *title() {
 }
 
 static void drawHeader() {
-	uiHeader(title(), s_frameTouch, backLive());
+	if (s_state == S_LEAVE) uiHeaderLeave(title(), &s_leave, s_frameTouch, millis());
+	else uiHeader(title(), s_frameTouch, backLive());
 
 	// The device name qualifies the title rather than being part of it, so it
 	// goes on the shared strip -- the same row MENU puts its EDT chip on.
@@ -2254,7 +2255,8 @@ static void drawKept() {
 uint8_t uiAm32Controls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	// BACK is drawn disabled while the write runs and on the leave page (backLive()).
-	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), backLive());
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(),
+	             s_state == S_LEAVE ? uiLeaveBackLive(&s_leave, millis()) : backLive());
 	if (s_state == S_LEAVE) {
 		if (s_leave.phase == UiLeavePhase::Before) {
 			uiControlAdd(out, &n, max, UI_FIX(Am32Ctl::Stay), UI_LEAVE_LEFT, true);

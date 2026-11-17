@@ -2822,7 +2822,7 @@ static void freshUi() {
 
 /** @brief Main screen to SERVO TESTER, through MENU and SERVO, the hub. */
 static void openServo() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(toolEntry(&UI_SERVO));
@@ -3007,7 +3007,7 @@ static void testScreenOpens() {
 	section("Servo screen: MENU opens it, and it starts SAFE");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(2);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("MENU: SERVO, the hub's row, is drawn live",
@@ -3153,7 +3153,7 @@ static void testStartNeedsLivePress() {
 	section("Servo screen: a press on a disabled HOLD TO START never starts it");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	tapId(toolEntry(&UI_SERVO));
@@ -3847,7 +3847,8 @@ static void testEscAnswering() {
 
 /**
  * @brief The leave page (docs/design/menu-b.md, decision 5): it opens
- *        releasing, BACK is drawn disabled in every phase, BACK TO SERVO
+ *        releasing, BACK does not act while the pins go nor in RESTART
+ *        DSHOT's wait (testLeaveTopRight() follows it past), BACK TO SERVO
  *        keeps the claim once the job has let go, and RESTART DSHOT takes a
  *        press that lands 1000 ms or more after that.
  */
@@ -3885,7 +3886,7 @@ static void testLeavePage() {
 	checkTrue("level 0 written, SIG still on PWM",
 	          fakePin(0).level == 0 && fakePin(0).function == GPIO_FUNC_PWM);
 	checkInt("and no DShot", fakeParkCount(), resumes);
-	// BACK on the page does nothing in any phase. The frames are 5 ms apart
+	// BACK on the page does nothing while the pins go. The frames are 5 ms apart
 	// here, so the press is by hand, at BACK's centre.
 	int bx, by;
 	ctlCentre(UI_FIX(UI_BACK), &bx, &by);
@@ -3948,6 +3949,54 @@ static void testLeavePage() {
 	checkTrue("free, and SERVO, the hub, up, its entry live",
 	          pinClaimState() == ClaimState::Free && navIsHub(UiScreenId::ServoHub) &&
 	          fillOf(ctlRect(HUB_ENTRY(0))) == C_PANEL);
+	tapId(UI_FIX(UI_BACK));
+	uiFrames(1);
+	backFromMenu();
+}
+
+/**
+ * @brief The header's top-right button on SERVO TESTER's leave page: BACK
+ *        not acting while the pins go and for the wide button's 1000 ms
+ *        wait, a press that lands in the wait doing nothing on its lift,
+ *        then live, the cyan home tag, and a tap on it returns to the hub as
+ *        RESTART DSHOT does. The page opens releasing, so it never reads LEAVE.
+ */
+static void testLeaveTopRight() {
+	section("Servo screen: the leave page's top-right BACK waits 1000 ms, then acts as RESTART DSHOT");
+
+	freshUi();
+	openServo();
+	int resumes = fakeParkCount();
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("BACK while SAFE: the leave page", s_view == View::Leave);
+	for (int i = 0; i < 8 && s_leave.phase != UiLeavePhase::Released; i++) frameAt(5);
+	checkTrue("released", s_leave.phase == UiLeavePhase::Released && pinClaimUnplugDue());
+	checkStr("the top-right button reads BACK", uiLeaveBackLabel(&s_leave), "BACK");
+	const uint32_t t0 = s_leave.releasedMs;
+	frameAt(t0 + 999 - millis());
+	checkTrue("999 ms after the release: BACK not acting, as RESTART DSHOT",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && !ctlEnabled(UI_FIX(ServoCtl::Release)));
+	checkTrue("and drawn so: a C_DIM frame and label on C_BG", homeTagLook("BACK") == BackLook::Disabled);
+	checkControlTable("the leave page, in the wait");
+	int bx, by;
+	ctlCentre(UI_FIX(UI_BACK), &bx, &by);
+	fakePress(bx, by);
+	frameAt(0);
+	frameAt(1);
+	const UiRect br = uiBackRect();
+	checkTrue("a press that landed at 999 ms, held to 1000 ms: live, no pressed look",
+	          homeTagLook("BACK") == BackLook::Live && gfxBuffer()[br.y * GFX_W + br.x + br.w / 2] != C_INK);
+	fakeRelease();
+	frameAt(5);
+	checkTrue("its lift does nothing", s_view == View::Leave && fakeParkCount() == resumes &&
+	          pinClaimState() == ClaimState::Leaving);
+	checkTrue("1000 ms on: BACK live with RESTART DSHOT", ctlEnabled(UI_FIX(UI_BACK)) &&
+	          ctlEnabled(UI_FIX(ServoCtl::Release)) && homeTagLook("BACK") == BackLook::Live);
+	tapId(UI_FIX(UI_BACK));
+	checkInt("BACK: the pins parked, as RESTART DSHOT", fakeParkCount(), resumes + 1);
+	uiFrames(2);
+	checkTrue("free, and SERVO, the hub, up", pinClaimState() == ClaimState::Free &&
+	          navIsHub(UiScreenId::ServoHub));
 	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	backFromMenu();
@@ -4549,7 +4598,7 @@ static void testClaimCorners() {
 	// act, and a tap opens nothing. Once the claim is Free, the entry opens
 	// SERVO TESTER, which claims at once.
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	checkTrue("MENU opens", uiCurrentScreen() == UiScreenId::Menu);
 	checkTrue("another screen holds the pins", pinClaimBegin(PinUser::Am32, PIN_SIG) == ClaimRefusal::None);
@@ -4941,7 +4990,7 @@ static void testSupplyLineAndHint() {
 	section("Servo screen: the switched supply's line; two servos are possible");
 
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	tapId(toolEntry(&UI_SERVO));
 	uiTick();   // SERVO's first frame, at once: the pump is still draining
@@ -6002,7 +6051,7 @@ static void testPinNames() {
 
 	// The first frame of a claim: the pump still drains.
 	freshUi();
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	uiFrames(1);
 	tapId(toolEntry(&UI_SERVO));
 	uiTick();
@@ -6067,6 +6116,7 @@ void runServoTests() {
 	testAuxRefused();
 	testEscAnswering();
 	testLeavePage();
+	testLeaveTopRight();
 	testSetScreen();
 	testSetGuard();
 	testTravelNote();

@@ -119,7 +119,14 @@ static void drawRow(int i, int y, void *) {
 	uiButton(rowRect(y), "", fill, C_TEXT, 2, rowPressed(i), acts);
 	gfxText(MENU_LABEL_X, y + 13, s_entries[i].label,
 	        lit ? C_PAPER : (acts ? C_TEXT : C_DIM), 2);
-	gfxText(MENU_STATUS_R - gfxTextW(st, 1), y + 16, st, col, 1);
+	if (col == C_RED && !lit && st[0]) {
+		// A red status, RECORDING: a red badge with dark ink, 5.45, where red
+		// text on the row's C_PANEL read 4.03. Square, as every chip.
+		gfxRect(MENU_STATUS_R - gfxTextW(st, 1) - 3, y + 14, gfxTextW(st, 1) + 6, 11, C_RED);
+		gfxText(MENU_STATUS_R - gfxTextW(st, 1), y + 16, st, C_ONACCENT, 1);
+	} else {
+		gfxText(MENU_STATUS_R - gfxTextW(st, 1), y + 16, st, col, 1);
+	}
 	// A row that opens a hub: one level down (menu-c.md decision 13).
 	if (uiHubOf(s_entries[i].screen)) gfxText(UI_MENU_MARK_X, y + 13, UI_MENU_MARK, acts ? C_CYAN : C_GRID, 2);
 }

@@ -286,7 +286,7 @@ only when the write goes out, which then fails.
 
 While the write runs, the page reads `WRITING: DO NOT UNPLUG.` and, under it,
 `PLANNING THE ORDER OF THE WRITES` or `FRAMES SENT: 94`. While the write runs,
-and while it waits for the card, `BACK` is drawn disabled and does nothing: no `BACK`
+and while it waits for the card, `BACK` does not act and is a dim frame with a dim label: no `BACK`
 leaves a servo half written. `BACK` before the hold, or under the result,
 returns to the field list.
 
@@ -436,8 +436,7 @@ and does nothing.
 ## Leaving
 
 `BACK` on the field list opens the leave page. `BACK` on the search opens it
-too, once a servo has answered. `BACK` on the leave page is drawn disabled and does
-nothing: each way on is a button.
+too, once a servo has answered. The header's top-right button reads `LEAVE` before the release and acts as `LEAVE`; while the claim releases it does not act; after the release it reads `BACK` and, 1 s later, returns to the hub as the wide button does. A button that does not act is a dim frame with a dim label.
 
 <img src="img/leave-kst.png" width="240" alt="The leave page: 1 POWER THE SERVO OFF, THEN LEAVE., STAY and LEAVE"> <img src="img/leave-kst-pending.png" width="240" alt="The leave page with 5 CHANGES NOT WRITTEN."> <img src="img/leave-kst-released.png" width="240" alt="After LEAVE: 2 UNPLUG THE SERVO. current, NEXT SERVO, SERVO faint">
 

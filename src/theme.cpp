@@ -103,7 +103,7 @@ bool themeBold() { return s_theme == Theme::HighContrast; }
 int themeStroke() { return s_theme == Theme::HighContrast ? 2 : 1; }
 
 int themeSegStroke(int base) {
-	// +2 rather than a multiplier: the digit cell is a fixed 36x62 and the
+	// +2 rather than a multiplier: the tester's digit cell is a fixed 21x32 and the
 	// segment geometry stops meeting cleanly once the stroke approaches a
 	// quarter of the height.
 	return s_theme == Theme::HighContrast ? base + 2 : base;

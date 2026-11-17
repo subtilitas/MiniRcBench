@@ -328,7 +328,7 @@ static void freshUi() {
 
 /** @brief From the tester through MENU to RECEIVER, the chooser. */
 static void openRx() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	sbFrames(1);
 	tapId(menuRow(&UI_RX_SIGNALS));
 	sbFrames(1);
@@ -632,8 +632,8 @@ static void testMonitor() {
 	tapId(UI_FIX(UI_BACK));
 	checkTrue("BACK opens the leave page: the claim Leaving or the pin let go",
 	          uiCurrentScreen() == UiScreenId::Sbus && pinClaimState() == ClaimState::Leaving);
-	checkTrue("BACK on the page is drawn disabled", !ctlEnabled(UI_FIX(UI_BACK)) &&
-	          backLook() == BackLook::Disabled);
+	checkTrue("the top-right BACK does not act while the pin goes, and is drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && homeTagLook("BACK") == BackLook::Disabled);
 	checkTrue("releasing: BACK TO MONITOR and RESTART DSHOT do not act yet",
 	          ctlPresent(UI_FIX(SbusCtl::BackToMonitor)) && !ctlEnabled(UI_FIX(SbusCtl::BackToMonitor)) &&
 	          !ctlEnabled(UI_FIX(SbusCtl::Release)) && leftIs(UI_LEAVE_NOTE_Y, UI_LEAVE_RELEASING, C_DIM));
@@ -668,12 +668,16 @@ static void testMonitor() {
 	while (millis() - released < 975) sbFrames(1);
 	checkTrue("975 ms after the pin went: RESTART DSHOT still waits, RECEIVER drawn disabled",
 	          !ctlEnabled(UI_FIX(SbusCtl::Release)) && leaveWideIs("RECEIVER", false));
+	checkTrue("and the top-right BACK with it", !ctlEnabled(UI_FIX(UI_BACK)) &&
+	          homeTagLook("BACK") == BackLook::Disabled);
 	sbFrames(1);
 	checkTrue("1000 ms: it acts, RECEIVER dark on cyan",
 	          ctlEnabled(UI_FIX(SbusCtl::Release)) && leaveWideIs("RECEIVER", true));
+	checkTrue("and BACK, the cyan home tag", ctlEnabled(UI_FIX(UI_BACK)) &&
+	          homeTagLook("BACK") == BackLook::Live);
 	int resumes = fakeParkCount();
-	tapId(UI_FIX(SbusCtl::Release));
-	checkTrue("RESTART DSHOT: RECEIVER, the pins parked with the job idle",
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("the top-right BACK, as RESTART DSHOT: RECEIVER, the pins parked with the job idle",
 	          uiCurrentScreen() == UiScreenId::RxSignals && fakeParkCount() == resumes + 1 && fakeParkJobIdle());
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	sbFrames(4);

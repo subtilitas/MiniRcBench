@@ -71,9 +71,15 @@ static_assert(GFX_W == 240 && GFX_H == 320,
 // in them survives. The screen-change clears already keep those rows blank in
 // practice; the asserts make the property structural rather than coincidental,
 // so the next layout edit cannot quietly reopen a one-row leak.
-#define Z_STATUS_Y0   0
-#define Z_STATUS_Y1   26
-#define Z_RPM_Y0      27
+//
+// The tester has the header every screen has (uiHeader(), owner decision of
+// 2026-11-17): y 0 to 35, ESC TESTER and BACK. The status band follows at
+// y 36 to 62, the RPM area at y 63 to 127.
+#define Z_HDR_Y0      0
+#define Z_HDR_Y1      (UI_HDR_H - 1)
+#define Z_STATUS_Y0   36
+#define Z_STATUS_Y1   62
+#define Z_RPM_Y0      63
 #define Z_RPM_Y1      127
 #define Z_TELE_Y0     128
 #define Z_TELE_Y1     233
@@ -82,7 +88,9 @@ static_assert(GFX_W == 240 && GFX_H == 320,
 #define Z_BTN_Y0      282
 #define Z_BTN_Y1      319
 
-static_assert(Z_STATUS_Y0 == 0, "regions must start at the top of the panel");
+static_assert(Z_HDR_Y0 == 0, "regions must start at the top of the panel");
+static_assert(Z_STATUS_Y0 == Z_HDR_Y1 + 1, "gap between the header and status");
+static_assert(Z_STATUS_Y1 - Z_STATUS_Y0 + 1 == 27, "the status band is 27 px tall");
 static_assert(Z_RPM_Y0  == Z_STATUS_Y1 + 1, "gap between status and RPM");
 static_assert(Z_TELE_Y0 == Z_RPM_Y1 + 1,    "gap between RPM and telemetry");
 static_assert(Z_THR_Y0  == Z_TELE_Y1 + 1,   "gap between telemetry and throttle");
@@ -164,21 +172,26 @@ static_assert(THR_EDGE_SAT * 2 < THR_TRACK_W / 2,
 // The number-display area doubles as a large relative throttle pad. It runs
 // from the top of the RPM readout down to where the gauge's grab area starts,
 // so the two regions abut exactly: no overlap, no dead strip between them.
+// The header and the status band above it are not the pad: BACK lies there.
 #define PAD_Y0        Z_RPM_Y0
 #define PAD_Y1        (THR_TRACK_Y - THR_TOUCH_PAD_TOP - 1)
 #define PAD_H         (PAD_Y1 - PAD_Y0 + 1)
+static_assert(PAD_Y0 > Z_HDR_Y1 && PAD_Y0 > Z_STATUS_Y1,
+              "the throttle pad reaches into the header or the status band");
 
 /** @} */
 
-// The tester has no header and no BACK (docs/design/menu-c.md decision 11):
-// its button row holds its way out, MENU, beside the other two actions, and
-// the label names where the tap leads. MENU is the root and opens the tester
-// from its first row (slice 3).
-#define BTN_ROW_Y     283   /**< Top of the three main-screen buttons. */
+// The tester's way out is the header's BACK, top right, as on every screen
+// (owner decision of 2026-11-17): it disarms and returns to MENU, the root,
+// which opens the tester from its first row (docs/design/menu-c.md, slice 3).
+// HOLD TO ARM/DISARM and LATCH share the button row, x 6 to 233.
+#define BTN_ROW_Y     283   /**< Top of the two main-screen buttons. */
 #define BTN_ROW_H      33   /**< ...and their height. */
-static const UiRect BTN_ARM  = { 6, BTN_ROW_Y, 104, BTN_ROW_H };
-static const UiRect BTN_LATCH = { 116, BTN_ROW_Y, 54, BTN_ROW_H };
-static const UiRect BTN_MENU = { 176, BTN_ROW_Y, 58, BTN_ROW_H };
+static constexpr UiRect BTN_ARM   = { UI_EDGE, BTN_ROW_Y, 150, BTN_ROW_H };
+static constexpr UiRect BTN_LATCH = { 162, BTN_ROW_Y, 240 - UI_EDGE - 162, BTN_ROW_H };
+static_assert(BTN_LATCH.x - (BTN_ARM.x + BTN_ARM.w) == 6, "the button row's gap is 6 px");
+static_assert(BTN_LATCH.w >= 44, "LATCH is narrower than a fingertip's 44 px");
+static_assert(BTN_ARM.w >= BTN_LATCH.w, "DISARM, the stop, is the wider button");
 
 /**
  * @defgroup ui_readouts The readouts that open SETUP
@@ -244,7 +257,7 @@ static bool     s_latch = false;
  */
 static const UiScreen *s_nav[UI_NAV_MAX] = {};
 static uint8_t         s_navDepth = 0;
-/** @brief The tester's MENU button was tapped on this frame: testerTick() leaves. */
+/** @brief The tester's BACK was tapped on this frame: testerTick() leaves. */
 static bool            s_testerLeave = false;
 /**
  * @brief A tool the open screen chose on this frame (uiChooseTool()),
@@ -383,7 +396,7 @@ static struct {
 	int  rpmReadout, thrReadout;
 	int  cmdFlash, edtActive, dirty, btnPress, idleLeft, padLive;
 	int  thrCard, btnCard;
-	int  stepKey;
+	int  stepKey, hdrKey;
 	int  logState, logFile, logDrops;
 	uint32_t logBytes, logFrames, logPeak, logWorstMs;
 	int  mscState, mscNote;
@@ -508,7 +521,7 @@ static void underline(int x, int y, const char *text) {
  */
 #define STATUS_BOARD_TEXT "BOARD"
 #define STATUS_BOARD_X    140
-#define STATUS_BOARD_Y    14
+#define STATUS_BOARD_Y    (Z_STATUS_Y0 + 14)
 /**
  * @brief The voltage's widest text: five characters, `9.99V`.
  *
@@ -563,33 +576,57 @@ void uiBoardVoltText(float volts, char *buf, size_t n) {
 	snprintf(buf, n, "%u.%02uV", (unsigned)(cv / 100) % 10u, (unsigned)(cv % 100));
 }
 
-/** @brief The DShot rate's widest text, scale 1 at x 104, y 3. */
+/** @brief The DShot rate's widest text, scale 1 at x 104, 3 px into the band. */
 #define STATUS_RATE_WIDEST "DSHOT1200"
-#define STATUS_RATE_Y      3
+#define STATUS_RATE_Y      (Z_STATUS_Y0 + 3)
 static_assert(104 + (6 * (int)(sizeof(STATUS_RATE_WIDEST) - 1) - 1) + 4 <=
                   240 - 4 - (6 * (int)(sizeof(STATUS_VOLT_WIDEST) - 1) - 1) * 2,
               "the DShot rate runs into the voltage");
 /**
  * @brief The top of `IDLE ns`, scale 2, right-aligned to x 236. `IDLE 5s`
  *        starts at x 154, left of where `DSHOT1200` ends, x 156, so it sits
- *        below the rate. The rate's rows are y 3 to 9, and y 10 in high
- *        contrast, whose glyphs are one row taller: IDLE starts at y 11, the
- *        first row below the rate in either theme, so the two share no
- *        pixel, and ends inside the status bar, at y 25 in high contrast.
+ *        below the rate. The rate's rows are 3 to 9 into the band, and 10 in
+ *        high contrast, whose glyphs are one row taller: IDLE starts 11 in,
+ *        the first row below the rate in either theme, so the two share no
+ *        pixel, and ends inside the status bar, 25 in in high contrast.
  */
-#define STATUS_IDLE_Y      11
+#define STATUS_IDLE_Y      (Z_STATUS_Y0 + 11)
 static_assert(STATUS_IDLE_Y >= STATUS_RATE_Y + 7 + 1,
               "IDLE starts on a row of the DShot rate");
 static_assert(STATUS_IDLE_Y + 7 * 2 + 1 <= Z_STATUS_Y1 + 1,
               "IDLE leaves the status bar");
 
 /**
- * @brief The amber chip behind `SDERR`: the text at x 104, y 14 like the
- *        other log states, 3 px of fill left of it, 2 px right, 2 px above
- *        and below, between the arm badge (to x 95) and BOARD.
+ * @brief The voltage's scale-2 digits, and `SAFE`/`ARMED` in the arm badge:
+ *        7 px into the band.
  */
+#define STATUS_TEXT2_Y (Z_STATUS_Y0 + 7)
+/** @brief The log state's text, scale 1, x 104: 14 px into the band. */
+#define STATUS_LOG_Y   (Z_STATUS_Y0 + 14)
+/**
+ * @brief The arm badge: x 4 to 95, 3 to 22 px into the band. Its hold
+ *        progress, the lime bar, is its last two rows.
+ */
+#define STATUS_BADGE_Y (Z_STATUS_Y0 + 3)
+#define STATUS_BADGE_H 20
+static_assert(STATUS_BADGE_Y + STATUS_BADGE_H <= Z_STATUS_Y1 + 1,
+              "the arm badge leaves the status bar");
+/**
+ * @brief The amber chip behind `SDERR`: the text at x 104 and
+ *        @ref STATUS_LOG_Y like the other log states, 3 px of fill left of
+ *        it, 2 px right, 2 px above and below, between the arm badge (to
+ *        x 95) and BOARD.
+ */
+/** @brief A critical BOARD voltage's red badge: 5 px into the band, 18 px, around the scale-2 digits. */
+#define STATUS_VOLT_BADGE_Y (Z_STATUS_Y0 + 5)
+#define STATUS_VOLT_BADGE_H 18
+static_assert(STATUS_VOLT_BADGE_Y + STATUS_VOLT_BADGE_H <= Z_STATUS_Y1 + 1,
+              "the voltage badge leaves the status bar");
+static_assert(STATUS_BOARD_X + (6 * (int)(sizeof(STATUS_BOARD_TEXT) - 1) - 1) + 3 <
+                  GFX_W - 4 - (12 * 5 - 2) - 3,
+              "the voltage badge, 5 characters at scale 2, runs into BOARD");
 #define STATUS_SDERR_X 101
-#define STATUS_SDERR_Y 12
+#define STATUS_SDERR_Y (Z_STATUS_Y0 + 12)
 #define STATUS_SDERR_W 34
 #define STATUS_SDERR_H 11
 static_assert(STATUS_SDERR_X > 4 + 92, "the SDERR chip runs into the arm badge");
@@ -656,16 +693,16 @@ static void drawStatusBar() {
 	// button that starts an output (docs/design/ui-theme.md, "Green").
 	const char *txt = s_armed ? "ARMED" : "SAFE";
 	if (s_armed) {
-		gfxRect(4, 3, 92, 20, C_RED);
-		gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, C_ONACCENT, 2);
+		gfxRect(4, STATUS_BADGE_Y, 92, STATUS_BADGE_H, C_RED);
+		gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, STATUS_TEXT2_Y, txt, C_ONACCENT, 2);
 	} else {
-		gfxRect(4, 3, 92, 20, UI_COL_SAFE);
-		gfxRect(6, 5, 88, 16, C_BG);
-		gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, UI_COL_SAFE, 2);
+		gfxRect(4, STATUS_BADGE_Y, 92, STATUS_BADGE_H, UI_COL_SAFE);
+		gfxRect(6, STATUS_BADGE_Y + 2, 88, STATUS_BADGE_H - 4, C_BG);
+		gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, STATUS_TEXT2_Y, txt, UI_COL_SAFE, 2);
 	}
 
 	if (!s_armed && progress > 0) {
-		gfxRect(4, 21, 92 * progress / 100, 2, C_LIME);
+		gfxRect(4, STATUS_BADGE_Y + STATUS_BADGE_H - 2, 92 * progress / 100, 2, C_LIME);
 	}
 
 	// DSERR when the driver refused the pin: no PIO block could take it, so
@@ -697,8 +734,13 @@ static void drawStatusBar() {
 		// the arm badge and BOARD, clear of both. Square, as every chip.
 		gfxRect(STATUS_SDERR_X, STATUS_SDERR_Y, STATUS_SDERR_W, STATUS_SDERR_H, C_AMBER);
 		gfxText(STATUS_SDERR_X + 3, STATUS_SDERR_Y + 2, lg, C_PAPER, 1);
+	} else if (log.state == SdLogState::Logging) {
+		// Recording: a red chip with dark ink, 5.45, where red text on the
+		// band's C_PANEL read 4.03. In the SDERR chip's place, as wide as REC.
+		gfxRect(STATUS_SDERR_X, STATUS_SDERR_Y, gfxTextW(lg, 1) + 6, STATUS_SDERR_H, C_RED);
+		gfxText(STATUS_SDERR_X + 3, STATUS_SDERR_Y + 2, lg, C_ONACCENT, 1);
 	} else {
-		gfxText(104, 14, lg, lgCol, 1);
+		gfxText(104, STATUS_LOG_Y, lg, lgCol, 1);
 	}
 
 	if (idleLeft >= 0) {
@@ -708,9 +750,15 @@ static void drawStatusBar() {
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
 		gfxText(GFX_W - 4 - gfxTextW(buf, 2), STATUS_IDLE_Y, buf, C_AMBER, 2);
 	} else {
-		uint16_t vcol = s_boardCell == BoardCell::Critical ? C_RED
-		              : s_boardCell == BoardCell::Low      ? C_AMBER : C_TEXT;
-		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, vcol, 2);
+		const int vx = GFX_W - 4 - gfxTextW(volts, 2);
+		if (s_boardCell == BoardCell::Critical) {
+			// A critical cell: a red badge with dark ink, 5.45, where red
+			// digits on the band's C_PANEL read 4.03. Square, as every chip.
+			gfxRect(vx - 3, STATUS_VOLT_BADGE_Y, gfxTextW(volts, 2) + 6, STATUS_VOLT_BADGE_H, C_RED);
+			gfxText(vx, STATUS_TEXT2_Y, volts, C_ONACCENT, 2);
+		} else {
+			gfxText(vx, STATUS_TEXT2_Y, volts, s_boardCell == BoardCell::Low ? C_AMBER : C_TEXT, 2);
+		}
 		// Names whose voltage it is. IDLE displaces it with the voltage.
 		gfxText(STATUS_BOARD_X, STATUS_BOARD_Y, STATUS_BOARD_TEXT, C_DIM, 1);
 	}
@@ -743,6 +791,51 @@ static_assert(POLES_TEXT_X + 6 * KV_EST_TEXT_WIDEST - 1 + 4 <= 226 - (6 * 16 - 1
               "KV EST 99999 runs into SWIPE = THROTTLE");
 static_assert(sizeof(KV_EST_TEXT_UNKNOWN) - 1 <= KV_EST_TEXT_WIDEST,
               "KV EST -- is wider than the widest estimate");
+/** @} */
+
+/**
+ * @defgroup ui_rpm_digits The big RPM readout
+ * @brief Five seven-segment digits, right-aligned to x 226, above the `RPM`
+ *        label and the ERPM line. Under the header the RPM area is 65 px,
+ *        y 63 to 127, so the digits are 21 x 32 with a 4 px stroke (6 px in
+ *        high contrast) and 5 px between them: x 101 to 225, y 66 to 97.
+ * @{
+ */
+/** @brief One past the last digit's right column, as gfxSegNumber() takes it. */
+#define RPM_SEG_RIGHT 226
+#define RPM_SEG_Y     66
+#define RPM_SEG_W     21
+#define RPM_SEG_H     32
+#define RPM_SEG_T     4
+#define RPM_SEG_GAP   5
+#define RPM_SEG_DIGITS 5
+/** @brief The digits' first column, x 101. */
+#define RPM_SEG_X0    (RPM_SEG_RIGHT - RPM_SEG_DIGITS * RPM_SEG_W - (RPM_SEG_DIGITS - 1) * RPM_SEG_GAP)
+/**
+ * @brief The `RPM` label, scale 2, right-aligned to x 226: y 99 to 112, and
+ *        113 in high contrast, a row above the bottom row's y 114.
+ */
+#define RPM_LABEL_Y   99
+static_assert(RPM_SEG_Y > Z_RPM_Y0 && RPM_SEG_Y + RPM_SEG_H - 1 <= Z_RPM_Y1 &&
+              RPM_SEG_X0 >= 0 && RPM_SEG_RIGHT <= GFX_W,
+              "the RPM digits leave the RPM area");
+static_assert(RPM_SEG_Y + RPM_SEG_H - 1 < RPM_LABEL_Y - 1,
+              "the RPM digits touch the RPM label");
+static_assert(RPM_SEG_Y + RPM_SEG_H - 1 < ERPM_LINE_Y - 1,
+              "the RPM digits touch the ERPM line");
+static_assert(RPM_LABEL_Y + 14 + 1 <= TESTER_NOTE_Y,
+              "the RPM label, a row taller in high contrast, runs into the bottom row");
+static_assert(ERPM_LINE_Y + 7 + 1 < TESTER_NOTE_Y,
+              "the ERPM line, a row taller in high contrast, runs into the bottom row");
+static_assert(TESTER_NOTE_Y + 7 + 1 <= POLES_LINE_Y,
+              "the bottom row, a row taller in high contrast, runs into the pole count's underline");
+static_assert(RPM_LABEL_X >= RPM_SEG_X0, "the RPM label sticks out left of the digits");
+// The high-contrast stroke is 2 px heavier (themeSegStroke()): the segments
+// still meet cleanly while a vertical segment keeps some length and a
+// horizontal one some width.
+static_assert((RPM_SEG_H - (RPM_SEG_T + 2)) / 2 - (RPM_SEG_T + 2) >= 4 &&
+              RPM_SEG_W - 2 * (RPM_SEG_T + 2) >= 4,
+              "the high-contrast stroke leaves the RPM segments no length");
 /** @} */
 
 /** @brief Big seven-segment RPM readout, eRPM line and the pad affordance. */
@@ -802,9 +895,10 @@ static void drawRpm() {
 	gfxRect(0, Z_RPM_Y0, GFX_W, Z_RPM_Y1 - Z_RPM_Y0 + 1, C_BG);
 
 	uint16_t on = alive ? C_LIME : C_REDDARK;
-	gfxSegNumber(226, 32, 36, 62, themeSegStroke(8), 6, rpm, 5, on, C_GHOST);
+	gfxSegNumber(RPM_SEG_RIGHT, RPM_SEG_Y, RPM_SEG_W, RPM_SEG_H, themeSegStroke(RPM_SEG_T),
+	             RPM_SEG_GAP, rpm, RPM_SEG_DIGITS, on, C_GHOST);
 
-	gfxText(226 - gfxTextW("RPM", 2), 100, "RPM", C_DIM, 2);
+	gfxText(226 - gfxTextW("RPM", 2), RPM_LABEL_Y, "RPM", C_DIM, 2);
 
 	// The ERPM line, with RPM/V on it while armed (decision 6).
 	char buf[32];
@@ -1041,13 +1135,23 @@ static_assert(sizeof(UI_TESTER_GATE_TEXT) == sizeof(UI_TESTER_CARD_TEXT),
 static_assert(8 + (6 * (int)(sizeof(UI_TESTER_REFUSED_TEXT) - 1) - 1) + 8 <= THR_TRACK_W,
               "the refused bind's text runs off the throttle track");
 
-/** @brief ARM/DISARM, LATCH and MENU buttons. */
+/**
+ * @brief The header, y 0 to 35: ESC TESTER and BACK, which always acts
+ *        (it disarms first), keyed on BACK's pressed look.
+ */
+static void drawHeader() {
+	int key = pressing(uiBackRect(), s_touch) ? 1 : 0;
+	if (s_shown.hdrKey == key) return;
+	s_shown.hdrKey = key;
+	uiHeader(UI_TESTER_LABEL, &s_touch, true);
+}
+
+/** @brief ARM/DISARM and LATCH buttons. */
 static void drawButtons() {
 	// The pressed state is part of the key, or a button would light up under a
 	// finger and stay lit until something else happened to invalidate the row.
 	int pressKey = (pressing(BTN_ARM, s_touch) ? 1 : 0) |
 	               (pressing(BTN_LATCH, s_touch) ? 2 : 0) |
-	               (pressing(BTN_MENU, s_touch) ? 4 : 0) |
 	               (s_armPressing ? 8 : 0);
 	// ARM is gated on the card in handleMainTouch() and in the control table;
 	// it is drawn on the same expression. @see ui_widgets.h
@@ -1078,9 +1182,6 @@ static void drawButtons() {
 		uiStartHold(BTN_ARM, "HOLD TO ARM", 1, cardFree && s_armPressing, cardFree != 0);
 	uiButton(BTN_LATCH, "LATCH", s_latch ? C_BLUE : C_PANEL,
 	        s_latch ? C_ONACCENT : C_DIM, 1, pressing(BTN_LATCH, s_touch));
-	// The tester has no header: MENU is its home tag, the way back, and
-	// cyan as BACK is (docs/design/ui-theme.md, decision 15).
-	uiButton(BTN_MENU, "MENU", C_CYAN, C_ONACCENT, 1, pressing(BTN_MENU, s_touch));
 }
 
 /** @} */
@@ -1127,7 +1228,7 @@ static const UiScreen *navTop() {
 }
 
 /**
- * @brief BACK, or the tester's MENU button: pop the open screen and show the
+ * @brief BACK, the tester's among them: pop the open screen and show the
  *        one under it, the screen that opened it (menu-c.md owner decision
  *        7). MENU, the root, stays at the bottom. MENU opens again at
  *        scroll 0, as it did before the stack; the tester redraws every
@@ -1332,9 +1433,9 @@ static void handleMainTouch() {
 	if (tapped(BTN_LATCH, s_touch)) {
 		s_latch = !s_latch;
 		if (!s_latch) s_throttle = 0;
-	} else if (tapped(BTN_MENU, s_touch)) {
-		// Back to MENU, the root: disarmed, the throttle zero, LATCH off,
-		// on this frame; testerTick() then pops the tester.
+	} else if (tapped(uiBackRect(), s_touch)) {
+		// The header's BACK: back to MENU, the root, disarmed, the throttle
+		// zero, LATCH off, on this frame; testerTick() then pops the tester.
 		testerDisarm();
 		s_testerLeave = true;
 	} else if (readoutsAct() &&
@@ -1372,19 +1473,20 @@ static void testerEnter() {
 
 /**
  * @brief One tester frame on the start step (docs/design/dshot-lifetime.md,
- *        decisions 8 and 14): the status bar, the step, START DSHOT and
- *        MENU are all it draws and all that takes a touch. The readouts, the
- *        pad, the track, HOLD TO ARM and LATCH are neither drawn nor read.
- *        DShot stays parked (uiDshotWanted()); MENU returns to MENU with the
- *        cue kept, as without the step.
- * @return false once MENU has left for MENU.
+ *        decisions 8 and 14): the header with BACK, the status bar, the
+ *        step and START DSHOT are all it draws and all that takes a touch.
+ *        The readouts, the pad, the track, HOLD TO ARM and LATCH are neither
+ *        drawn nor read. DShot stays parked (uiDshotWanted()); BACK, live
+ *        from the first frame, returns to MENU with the cue kept, as without
+ *        the step.
+ * @return false once BACK has left for MENU.
  */
 static bool testerStepTick() {
 	// Disarmed since testerEnter(), and nothing here arms: the log hears it
 	// disarmed and the throttle stays 0.
 	sdLogSetArmed(false);
 	escSetThrottle(0);
-	if (tapped(BTN_MENU, s_touch)) {
+	if (tapped(uiBackRect(), s_touch)) {
 		testerDisarm();
 		return false;
 	}
@@ -1395,18 +1497,21 @@ static bool testerStepTick() {
 		invalidateAll();
 		return true;
 	}
-	drawStatusBar();
-	int key = (uiStartStepLive() ? 1 : 0) | (pressing(UI_LEAVE_START, s_touch) ? 2 : 0) |
-	          (pressing(BTN_MENU, s_touch) ? 4 : 0);
+	drawHeader();
+	int key = (uiStartStepLive() ? 1 : 0) | (pressing(UI_LEAVE_START, s_touch) ? 2 : 0);
 	if (s_shown.stepKey != key) {
 		s_shown.stepKey = key;
-		// The RPM area's rows above the body, then the step from the body on.
-		gfxRect(0, Z_RPM_Y0, GFX_W, UI_BODY_Y - Z_RPM_Y0, C_BG);
+		// The step from the body on. The body starts on the status band's
+		// last row, y 62, which the step clears: the band repaints after it.
 		uiStartStepDraw(&s_touch);
-		uiButton(BTN_MENU, "MENU", C_CYAN, C_ONACCENT, 1, pressing(BTN_MENU, s_touch));
+		s_shown.armed = -1;
 	}
+	drawStatusBar();
 	return true;
 }
+
+static_assert(UI_BODY_Y >= Z_STATUS_Y1 && UI_LEAVE_STEP_Y > Z_STATUS_Y1,
+              "the start step's text runs into the status band");
 
 static_assert(UI_LEAVE_START.y + UI_LEAVE_START.h < BTN_ROW_Y,
               "START DSHOT reaches the tester's button row");
@@ -1414,7 +1519,7 @@ static_assert(UI_LEAVE_START.y + UI_LEAVE_START.h < BTN_ROW_Y,
 /**
  * @brief One tester frame: the touch, the idle and touch-loss interlocks,
  *        the throttle sent, the draw.
- * @return false once the MENU button has disarmed and left for MENU.
+ * @return false once BACK has disarmed and left for MENU.
  */
 static bool testerTick(const TouchState *) {
 	s_testerLeave = false;
@@ -1444,12 +1549,13 @@ static bool testerTick(const TouchState *) {
 	// idle disarm changed it: the kV estimate's settle counts from here.
 	kvSettleStep(&s_kvSettle, s_throttle, millis());
 
-	// MENU and a readout leave the tester from handleMainTouch(): the tester
+	// BACK and a readout leave the tester from handleMainTouch(): the tester
 	// is not painted over the frame the next screen clears. Painting it
 	// anyway is not merely wasted work: whatever it leaves on a row the
 	// incoming screen's regions do not cover stays there.
 	if (s_testerLeave) return false;
 	if (navTop() == &UI_TESTER) {
+		drawHeader();
 		drawStatusBar();
 		drawRpm();
 		drawTelemetry();
@@ -1471,16 +1577,18 @@ static bool testerTick(const TouchState *) {
 static uint8_t testerControls(UiControl *out, uint8_t max) {
 	uint8_t n = 0;
 	if (uiStartStepShown()) {
-		// The start step: START DSHOT and the way out, nothing else.
+		// The start step: BACK, live from the first frame, and START DSHOT,
+		// nothing else.
+		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
 		uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Start), UI_LEAVE_START, uiStartStepLive());
-		uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
 		return n;
 	}
 	// DISARM always acts; the card, the touch loss and the gate refuse arming.
 	bool armOk = s_armed || (!mscHoldsCard(mscGetState()) && !s_touchLost && !armGatedNow());
+	// BACK always acts: it disarms first, as every way off the tester.
+	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Arm), BTN_ARM, armOk);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Latch), BTN_LATCH, true);
-	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Menu), BTN_MENU, true);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Throttle),
 	             UiRect{ THR_TRACK_X, THR_TRACK_Y, THR_TRACK_W, THR_TRACK_H }, s_armed);
 	uiControlAdd(out, &n, max, UI_FIX(TesterCtl::Pad),
@@ -1778,7 +1886,7 @@ void uiTick() {
 
 	// A screen owns the whole panel, and a tool the pins it claims, while it
 	// runs. A screen returns false once it has left, by BACK, by the leave
-	// page's last button or by the tester's MENU button, and the stack pops
+	// page's last button or by the tester's BACK, and the stack pops
 	// it to the screen that opened it: MENU, the hub it was chosen on, or
 	// the tester for SETUP opened from a readout (navPop()). A tool
 	// chosen on a hub is pushed after the hub's tick, over the hub.

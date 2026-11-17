@@ -65,8 +65,8 @@ Slice C is built: MENU, a list from the registry in `src/ui_registry.cpp`,
 and SETUP, one sectioned list with pole count and throttle ceiling at its
 top (`src/ui_menu.*`, `src/ui_settings.*`, `src/ui_sdlog.*`). Every header is
 36 px tall. MENU is the root and the first screen after the splash, with
-no BACK; its first row, ESC TESTER, opens the tester, whose MENU button
-disarms and returns to MENU (slice 3 of
+no BACK; its first row, ESC TESTER, opens the tester, whose BACK, in the
+header, disarms and returns to MENU (slice 3 of
 [menu-c.md](docs/design/menu-c.md#slice-3-as-built)). DShot runs only while
 ESC TESTER or ESC COMMANDS is open, or SETUP over the tester; from
 power-up on, everywhere else, SIG is driven low and AUX rests on its
@@ -600,6 +600,19 @@ looked at beyond the lit panel is not recorded. The boot diagnostic
 builds `MiniRcBench-touch-lcd-2.8-boot-diag.uf2`, which blinks GP16 a step's
 number of times before each of the 12 steps of `setup()` and blinks fast on a
 hard fault. The bench plan is unblocked. The release tag waits on the owner.
+
+**The owner's decisions of 2026-11-17 on the look,** host tests only, not
+seen on the panel: `REC`, `RECORDING` and a critical `BOARD` voltage are red
+badges with dark ink, 5.45; on every leave page the header's top-right button
+reads `LEAVE` before the release and acts as the wide LEAVE button, reads
+`BACK` after it and returns to the hub after the same 1000 ms wait; a
+top-right button that does not act is a dim frame with a dim label (8.74),
+readable, in place of the faint outline; ESC TESTER has the standard header
+with its BACK at the top right, the `MENU` button is gone, and HOLD TO ARM and
+LATCH share the button row. Recorded in
+[ui-theme.md](docs/design/ui-theme.md#decisions) decisions 17 and 18. The
+panel decides whether the dim frame reads and whether the smaller RPM digits
+(21 x 32 px) read.
 
 **Code review of 2026-11-17.** A review of six areas of the code found the
 following, fixed on the branch `ccr-review-fixes`. All of it is tested on the
@@ -1366,7 +1379,7 @@ criteria; none has run.
     a 5 px radius, and chips are square (item 25).
     Slice 10 is built
     ([ui-theme.md](docs/design/ui-theme.md#slice-10-as-built)): cyan is the
-    accent. BACK and the tester's `MENU` button are cyan with a dark label,
+    accent. BACK, the tester's included, is cyan with a dark label,
     a setting's value and SETUP's section captions are cyan text, and a
     changed value in a list row is dark on a cyan rectangle with its 3 px
     bar; a value read from a device stays `C_TEXT`. The
@@ -1384,9 +1397,9 @@ criteria; none has run.
     Slice 13 is built
     ([ui-theme.md](docs/design/ui-theme.md#slice-13-as-built)): a walk over
     every text the host suite draws, in both themes, finds no pair under 4.5
-    outside the named exceptions; it found three red texts on `C_PANEL` at
-    4.03, `REC`, `RECORDING` and a low `BOARD` voltage, kept red pending the
-    owner's review. Slice 14 is built
+    outside the named exceptions; the three red texts it found on `C_PANEL`
+    at 4.03, `REC`, `RECORDING` and a critical `BOARD` voltage, are red
+    badges with dark ink, 5.45, by the owner's decision of 2026-11-17. Slice 14 is built
     ([ui-theme.md](docs/design/ui-theme.md#slice-14-as-built)): README.md and
     the wiki name the two neutrals dim and faint in place of "grey", and rule
     9 of `test/check_docs.py` refuses the word. The menu, theme and DShot
@@ -1743,37 +1756,37 @@ model.
 | `src/theme.cpp` | 11 | 11 | 100.0% |
 | `src/theme.h` | 2 | 2 | 100.0% |
 | `src/touch.h` | 4 | 4 | 100.0% |
-| `src/ui.cpp` | 644 | 643 | 99.8% |
+| `src/ui.cpp` | 653 | 652 | 99.8% |
 | `src/ui.h` | 1 | 1 | 100.0% |
-| `src/ui_am32.cpp` | 1201 | 1174 | 97.8% |
+| `src/ui_am32.cpp` | 1203 | 1176 | 97.8% |
 | `src/ui_angle.cpp` | 360 | 355 | 98.6% |
-| `src/ui_bridge.cpp` | 250 | 246 | 98.4% |
+| `src/ui_bridge.cpp` | 251 | 247 | 98.4% |
 | `src/ui_esc_cmd.cpp` | 232 | 227 | 97.8% |
 | `src/ui_esc_config.cpp` | 6 | 6 | 100.0% |
-| `src/ui_hitec.cpp` | 1135 | 1077 | 94.9% |
+| `src/ui_hitec.cpp` | 1136 | 1078 | 94.9% |
 | `src/ui_hold.cpp` | 36 | 36 | 100.0% |
 | `src/ui_hub.cpp` | 108 | 108 | 100.0% |
 | `src/ui_hub.h` | 37 | 37 | 100.0% |
 | `src/ui_input.cpp` | 27 | 27 | 100.0% |
-| `src/ui_kst.cpp` | 1159 | 1124 | 97.0% |
-| `src/ui_leave.cpp` | 108 | 108 | 100.0% |
+| `src/ui_kst.cpp` | 1160 | 1125 | 97.0% |
+| `src/ui_leave.cpp` | 119 | 119 | 100.0% |
 | `src/ui_list.cpp` | 149 | 149 | 100.0% |
-| `src/ui_menu.cpp` | 111 | 110 | 99.1% |
+| `src/ui_menu.cpp` | 114 | 113 | 99.1% |
 | `src/ui_registry.cpp` | 5 | 5 | 100.0% |
 | `src/ui_rx_signals.cpp` | 7 | 7 | 100.0% |
-| `src/ui_sbus.cpp` | 235 | 234 | 99.6% |
-| `src/ui_sbus_out.cpp` | 471 | 469 | 99.6% |
+| `src/ui_sbus.cpp` | 236 | 235 | 99.6% |
+| `src/ui_sbus_out.cpp` | 472 | 470 | 99.6% |
 | `src/ui_screen.h` | 8 | 8 | 100.0% |
 | `src/ui_sdlog.cpp` | 254 | 250 | 98.4% |
-| `src/ui_servo.cpp` | 756 | 756 | 100.0% |
+| `src/ui_servo.cpp` | 757 | 757 | 100.0% |
 | `src/ui_servo_hub.cpp` | 8 | 8 | 100.0% |
 | `src/ui_settings.cpp` | 468 | 463 | 98.9% |
 | `src/ui_slider.cpp` | 109 | 109 | 100.0% |
-| `src/ui_widgets.cpp` | 100 | 100 | 100.0% |
+| `src/ui_widgets.cpp` | 108 | 108 | 100.0% |
 | `src/usb_bridge.cpp` | 374 | 369 | 98.7% |
 | `src/usb_dev.cpp` | 37 | 35 | 94.6% |
 | `src/usb_msc.h` | 37 | 35 | 94.6% |
-| **Total** | **16638** | **16373** | **98.4%** |
+| **Total** | **16677** | **16412** | **98.4%** |
 
 Generated by `tools/coverage.py`. CI runs it with `--check` and fails on drift.
 <!-- coverage-table:end -->

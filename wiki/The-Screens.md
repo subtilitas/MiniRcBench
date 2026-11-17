@@ -4,7 +4,7 @@
 
 The firmware has sixteen screens. `MENU` is the root and the first screen
 after the splash: six rows, with no `BACK`. Its first row, `ESC TESTER`,
-opens the tester, whose `MENU` button returns to `MENU`. The next three
+opens the tester, whose `BACK` returns to `MENU`. The next three
 rows each open a hub, a list of the tools for one kind of device: ESC
 PROGRAM the ESC tools, SERVO the servo tools, RECEIVER the receiver signal
 tools. Every tool is two taps from `MENU`. A tool is left with `BACK`,
@@ -42,13 +42,16 @@ MENU ──┬── ESC TESTER ──> Tester ──MENU──> MENU
 ```
 
 **BACK is at the top right**, in the header band, on every screen except
-`MENU` and the tester. The header is 36 px tall and `BACK` is 64 × 32 px.
+`MENU`. The header is 36 px tall and `BACK` is 64 × 32 px. The tester has
+this header too, with `ESC TESTER` on the left; its `BACK` always acts.
 `MENU` is the root: its header reads `MENU` and has no `BACK`, since
-nothing lies behind it. The tester has no header; its `MENU` button is its
-way back. On the leave page of SERVO TESTER, KST SERVO, HITEC
-SERVO, S.BUS MONITOR and ESC SETTINGS, `BACK` is drawn disabled, an outline with
-a faint label, and a tap on it does nothing: each way on is a labelled button,
-`STAY`, `NEXT SERVO`, `BACK TO MONITOR` or the hub's title. The
+nothing lies behind it. On the leave page of SERVO TESTER, S.BUS MONITOR,
+S.BUS OUTPUT, KST SERVO, HITEC SERVO, USB BRIDGE and ESC SETTINGS, the
+top-right button is the wide button's twin. It reads `LEAVE` before the
+release and acts as `LEAVE`, live while `LEAVE` is. While the claim releases
+it does not act. After the release it reads `BACK` and, 1 s later, returns
+to the hub as the wide button does. A top-right button that does not act is a
+dim frame with a dim label on the background, readable and not cyan. The
 same holds on `ESC WRITE`, `KST WRITE` and `HITEC WRITE` while a write runs or
 waits for the SD card: no `BACK` leaves a device half written.
 
@@ -87,9 +90,9 @@ fill, the servo pulse, a hold's progress bar. Red is output on or a failure:
 write in doubt. Amber is a warning or the step to take now. Magenta is an alert,
 such as `STALLED`. Blue is a setting that stays on: `LATCH`, a
 toggle that is on, `PROG MODE`, servo B. Cyan is the accent, as on rcbench,
-and has four uses. It is the way back: `BACK` in a header and the tester's
-`MENU` button are cyan with a dark label, and a `BACK` that does nothing is
-drawn disabled, not cyan. It is the mark `>` on a `MENU` row that opens a
+and has four uses. It is the way back: `BACK` in a header, the
+tester's included, is cyan with a dark label, and a top-right button that
+does not act is a dim frame with a dim label, not cyan. It is the mark `>` on a `MENU` row that opens a
 hub. It is a setting of the bench, as cyan text: the values and section
 captions of SETUP, the values of SERVO SET and OUTPUT SET, LENGTH on ANGLE
 SETUP. And it is a value changed and not yet written or applied: dark text
@@ -127,9 +130,11 @@ white label, and a changed value is white text on a dark cyan fill.
 <img src="img/tester-armed.png" width="240" alt="The tester screen">
 
 `MENU`'s first row, `ESC TESTER`, opens the tester. It opens **disarmed**,
-at throttle 0, with `LATCH` off, every time. It has no header: its `MENU`
-button, at the bottom right, returns to `MENU` and first disarms, sets the
-throttle to 0 and turns `LATCH` off. While the signal pins are in use, the
+at throttle 0, with `LATCH` off, every time. It has the 36 px header of
+every screen: `ESC TESTER` on the left and `BACK`, 64 × 32 px, at the top
+right, cyan and always live. `BACK` returns to `MENU` and first disarms, sets
+the throttle to 0 and turns `LATCH` off. The status band lies below the
+header, y 36 to 62, and the RPM area below that, y 63 to 127. While the signal pins are in use, the
 `ESC TESTER` row is drawn as an outline and a tap on it opens nothing.
 
 DShot starts when the tester opens: the ESC hears the EDT enable, then
@@ -141,10 +146,10 @@ earliest arm is 2.5 s after the tester opens. If the board has no free
 hardware to send DShot with (two free state machines of one PIO block, the
 chip's programmable input/output unit; `DSERR` in the status bar), the bar
 reads `DSHOT COULD NOT START` in amber and `HOLD TO ARM` stays an outline.
-`MENU` stops DShot: the ESC hears throttle 0 for at least 250 ms after the
+`BACK` stops DShot: the ESC hears throttle 0 for at least 250 ms after the
 last throttle, then nothing, and the pin is held low.
 
-**Top row.** From left to right:
+**Status band.** Under the header, from left to right:
 
 - the arm badge: `SAFE` (a green frame) or `ARMED` (red);
 - `DSHOT` and the DShot bitrate in kbit/s, for example `DSHOT600`, as set
@@ -153,18 +158,18 @@ last throttle, then nothing, and the pin is held low.
   the display could not set up its DShot output; nothing is sent to the ESC
   then;
 - the recording state: `REC`, `SD`, `SDERR` or `NOSD`
-  (see [SD Logging](SD-Logging)). `SDERR`, a recording that stopped on its
-  own, is drawn on an amber chip, and stays clear of the arm badge, the RPM
+  (see [SD Logging](SD-Logging)). `REC` is a red badge with a dark label.
+  `SDERR`, a recording that stopped on its own, is drawn on an amber chip, and stays clear of the arm badge, the RPM
   and the throttle;
 
-  <img src="img/tester-sderr.png" width="240" alt="The tester armed, SDERR on an amber chip in the top row">
+  <img src="img/tester-sderr.png" width="240" alt="The tester armed, SDERR on an amber chip in the status band">
 
 - `BOARD` and the board's own battery voltage, read through its
   200 kΩ/100 kΩ divider; at most 9.90 V. It is not the ESC's pack: that is
   the `VOLTAGE` tile. With only USB (Universal Serial Bus) power connected,
   what this reads is not measured, and the firmware cannot tell USB power
   from the cell: no pin of the board senses USB power. The voltage is amber
-  below 3.50 V and red below 3.30 V, a lithium-polymer cell's usual low
+  below 3.50 V and dark on a red badge below 3.30 V, a lithium-polymer cell's usual low
   range, not measured on this board. The colour follows the value as drawn:
   `3.50V` is never amber, `3.30V` never red. It returns to the colour above
   once it is 50 mV over the threshold. With USB power alone the value can be
@@ -178,7 +183,8 @@ last throttle, then nothing, and the pin is held low.
 
 **RPM.** Mechanical RPM (revolutions per minute), computed from the eRPM
 (electrical RPM) the ESC (electronic speed controller) reports and the pole
-count. The `ERPM` value and the pole count, for example `14 POLES`, are shown
+count. The five digits are 21 × 32 px, six of them in the high-contrast
+theme, in the RPM area, y 63 to 127. The `ERPM` value and the pole count, for example `14 POLES`, are shown
 below it. Green digits: eRPM arrived within the last 500 ms. Dark red zero: it
 did not, and the line reads `NO TELEMETRY`. The row under it, right, is the
 swipe hint: `SWIPE = THROTTLE`, or `SWIPE ACTIVE` while a swipe moves the
@@ -266,7 +272,7 @@ the bar reads `ARM TO ENABLE`.
 
 **Pole count and ceiling open SETUP.** While the tester is disarmed,
 `14 POLES` and `MAX 20%` are underlined, and a tap on either opens SETUP. The
-tap disarms as the `MENU` button does, and `BACK` on SETUP returns to the
+tap disarms as `BACK` does, and `BACK` on SETUP returns to the
 tester. While armed the underline goes, `KV EST` takes the pole count's place,
 and a tap on them does nothing: the pole count lies in the throttle pad and
 `MAX` reaches into the bar's grab area, so the press drives the throttle as
@@ -279,7 +285,11 @@ in the dim label colour; armed, it takes the text colour.
 <img src="img/tester-disarmed.png" width="240" alt="The tester disarmed with telemetry: SAFE in green, 14 POLES and MAX 20% underlined, SWIPE = THROTTLE dim, ARM TO ENABLE in the bar">
 
 **Buttons.** `HOLD TO ARM` / `DISARM`, `LATCH` (the throttle stays where the
-finger leaves it; blue while on), `MENU`.
+finger leaves it; blue while on). They share the button row at the bottom:
+`HOLD TO ARM` is 150 px wide and `LATCH` 72 px. There is no third button;
+the way back is `BACK` in the header. The swipe pad for the throttle is
+everything from y 63 to y 239, 177 px; the header and the status band are
+not part of it.
 
 While a computer holds the SD card over USB, arming is refused: `HOLD TO ARM`
 is drawn as an outline, and the bar reads `EJECT THE USB DRIVE TO ARM` in
@@ -320,7 +330,7 @@ bench check is listed in STATUS.md in the repository, open item 23.
 <img src="img/menu.png" width="240" alt="The MENU screen">
 
 The first screen after the splash, and the root: the header reads `MENU`
-and has no `BACK`. The tester's `MENU` button returns here and first
+and has no `BACK`. The tester's `BACK` returns here and first
 **disarms**, sets the throttle to 0 and turns `LATCH` off. DShot is off on
 `MENU`: the ESC signal pin is held low, and `MENU` shows no EDT chip. The
 chip is on [ESC COMMANDS](#esc-commands), which runs DShot.
@@ -344,12 +354,12 @@ with DShot off, because a waiting bootloader can read DShot as a command:
 `AND READ DSHOT AS A COMMAND.` Power-cycle the ESC, then tap `START DSHOT`,
 which is drawn disabled for the first second. The tap clears the line on MENU and
 starts DShot; on the tester, `HOLD TO ARM` then waits 1.5 s as after any
-open. `MENU` on the tester and `BACK` on ESC COMMANDS leave the step at once
+open. `BACK` on the tester and on ESC COMMANDS leaves the step at once
 with DShot still off and the line kept, so the next open shows the step
 again. Nothing else on the screen works on the step. This is tested on the
 host only.
 
-<img src="img/tester-start-step.png" width="240" alt="ESC TESTER on the start step: POWER-CYCLE THE ESC., START DSHOT faint, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS on the start step: the step, START DSHOT faint, BACK">
+<img src="img/tester-start-step.png" width="240" alt="ESC TESTER on the start step: POWER-CYCLE THE ESC., START DSHOT faint, BACK at the top right"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS on the start step: the step, START DSHOT faint, BACK">
 
 Below the strip is a list of six rows, 40 px tall at a 42 px pitch:
 `ESC TESTER` first, then one row for each kind of device on the signal pin,
@@ -454,7 +464,7 @@ board is still sending something else, such as the 260 ms to 1020 ms
 pause after a beacon, waits: it goes out once the wire is free, or is
 dropped after 2 s, and the lines then read
 `NOT SENT: THE ESC WAS NOT READY.`. While a command of the page waits or
-goes out, the buttons and `BACK` are drawn disabled, and a press that starts on them
+goes out, the buttons are drawn disabled and `BACK` is a dim frame with a dim label, and a press that starts on them
 then does nothing when it lifts.
 
 The lines under the buttons say what was sent, for example
@@ -474,7 +484,7 @@ shows its 3D note ([The tester](#the-tester)); `3D OFF` leaves the note until
 the board restarts or ESC SETTINGS reads 3D MODE off. None of these commands
 has been sent to an ESC from this board yet.
 
-<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS while beacon 3 goes out: every button and BACK faint"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS with no ESC answering: NO ESC ANSWERS ON SIG GP0. in amber, every button faint">
+<img src="img/esccmd-sending.png" width="240" alt="ESC COMMANDS while beacon 3 goes out: every button faint and BACK a dim frame"> <img src="img/esccmd-no-esc.png" width="240" alt="ESC COMMANDS with no ESC answering: NO ESC ANSWERS ON SIG GP0. in amber, every button faint">
 
 ### SERVO
 

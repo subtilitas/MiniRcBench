@@ -372,7 +372,7 @@ static void freshUi() {
 
 /** @brief From the tester through MENU and RECEIVER to S.BUS OUTPUT. */
 static void openOutput() {
-	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(UI_FIX(UI_BACK));
 	soFrames(1);
 	tapId(menuRow(&UI_RX_SIGNALS));
 	soFrames(1);
@@ -1169,9 +1169,10 @@ static void testBootloader() {
 	          messageIs("AN ESC BOOTLOADER ANSWERS ON SIG GP0.", SBOUT_UI_BL_2, SBOUT_UI_BL_3, UI_COL_WARN));
 
 	tapId(UI_FIX(UI_BACK));
-	checkTrue("BACK: decision 8's page before LEAVE, the claim kept",
+	checkTrue("BACK: decision 8's page before LEAVE, the claim kept, the top-right LEAVE live",
 	          pinClaimState() == ClaimState::Running && ctlEnabled(UI_FIX(SbusOutCtl::Stay)) &&
-	          ctlEnabled(UI_FIX(SbusOutCtl::Leave)) && !ctlEnabled(UI_FIX(UI_BACK)));
+	          ctlEnabled(UI_FIX(SbusOutCtl::Leave)) && ctlEnabled(UI_FIX(UI_BACK)) &&
+	          homeTagLook("LEAVE") == BackLook::Live);
 	checkTrue("step 1, current: ESC SETTINGS' three lines",
 	          leaveStepIs(66, '1', AM32_UI_LEAVE_1, true) && leaveStepIs(78, 0, AM32_UI_LEAVE_1A, true) &&
 	          leaveStepIs(90, 0, AM32_UI_LEAVE_1B, true));

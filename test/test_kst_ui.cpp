@@ -565,15 +565,20 @@ static uint32_t leaveReleases(const char *where) {
 	checkTrue(what, uiKstView() == KstView::Leave && ctlPresent(UI_FIX(KstCtl::NextServo)) &&
 	                ctlPresent(UI_FIX(KstCtl::Release)) && !ctlPresent(UI_FIX(KstCtl::Leave)) &&
 	                !ctlPresent(UI_FIX(KstCtl::Stay)));
+	snprintf(what, sizeof(what), "%s: the top-right BACK not acting while the pin goes", where);
+	checkTrue(what, !ctlEnabled(UI_FIX(UI_BACK)));
 	if (!untilEnabled(UI_FIX(KstCtl::NextServo), 200)) return 0;
 	uint32_t t0 = millis();
 	snprintf(what, sizeof(what), "%s: released, RESTART DSHOT waits, drawn disabled", where);
 	checkTrue(what, !ctlEnabled(UI_FIX(KstCtl::Release)) && leaveWideIs("SERVO", false) &&
 	                leaveLeftIs("NEXT SERVO", true));
+	snprintf(what, sizeof(what), "%s: the top-right BACK waits with it, drawn not acting", where);
+	checkTrue(what, !ctlEnabled(UI_FIX(UI_BACK)) && homeTagLook("BACK") == BackLook::Disabled);
 	if (!untilEnabled(UI_FIX(KstCtl::Release), 60)) return 0;
 	kstFrames(1);
-	snprintf(what, sizeof(what), "%s: RESTART DSHOT drawn live", where);
-	checkTrue(what, leaveWideIs("SERVO", true));
+	snprintf(what, sizeof(what), "%s: RESTART DSHOT drawn live, and BACK with it", where);
+	checkTrue(what, leaveWideIs("SERVO", true) && ctlEnabled(UI_FIX(UI_BACK)) &&
+	                homeTagLook("BACK") == BackLook::Live);
 	return millis() - 25 - t0;
 }
 
@@ -590,15 +595,13 @@ static void testLeaveAndBack() {
 	          leaveStepIs(UI_LEAVE_STEP_Y + 12, 0, "ESC TESTER'S DSHOT ON SIG GP0 READS", true) &&
 	          leaveStepIs(UI_LEAVE_STEP_Y + 24, 0, "AS A 970 US PULSE AT 1000 HZ.", true) &&
 	          leaveStepIs(UI_LEAVE_STEP_Y + 38, '2', "BACK TO SERVO.", false));
-	checkTrue("BACK disabled on the page, and drawn so",
-	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkTrue("the top-right BACK not acting while the pin goes, and drawn so",
+	          !ctlEnabled(UI_FIX(UI_BACK)) && homeTagLook("BACK") == BackLook::Disabled);
 	uint32_t waited = leaveReleases("KST, no servo");
 	checkTrue("RESTART DSHOT live 1000 ms after the pin is let go", waited >= 1000 && waited < 1025);
 	checkControlTable("KST leave, released");
-	checkTrue("BACK still disabled once released", !ctlEnabled(UI_FIX(UI_BACK)));
-	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
-	checkTrue("BACK there does nothing", uiKstView() == KstView::Leave &&
-	                                    pinClaimState() == ClaimState::Leaving);
+	checkTrue("BACK live with RESTART DSHOT once released", ctlEnabled(UI_FIX(UI_BACK)) &&
+	          ctlEnabled(UI_FIX(KstCtl::Release)));
 	tapId(UI_FIX(KstCtl::NextServo));
 	checkTrue("NEXT SERVO: the claim kept, the search again", uiKstView() == KstView::Main &&
 	          pinClaimHolder() == PinUser::Kst && untilCtl(UI_FIX(KstCtl::StopSearch), 200));
@@ -613,7 +616,8 @@ static void testLeaveAndBack() {
 	          !ctlPresent(UI_FIX(KstCtl::Reboot)) && !ctlPresent(UI_FIX(KstCtl::Release)));
 	checkControlTable("KST leave");
 	kstFrames(1);
-	checkTrue("BACK drawn disabled before LEAVE", backLook() == BackLook::Disabled);
+	checkTrue("the top-right button reads LEAVE before LEAVE, live",
+	          ctlEnabled(UI_FIX(UI_BACK)) && homeTagLook("LEAVE") == BackLook::Live);
 	checkTrue("the strip: the type and SIG", lineIs(UI_STRIP_Y + 4, "V6  SIG GP0", C_DIM));
 	checkTrue("step 1, current: POWER THE SERVO OFF, THEN LEAVE. and why",
 	          leaveStepIs(66, '1', "POWER THE SERVO OFF, THEN LEAVE.", true) &&
@@ -632,8 +636,6 @@ static void testLeaveAndBack() {
 	checkTrue("no card with OWN: no REBOOT note, the bench does not reboot", leaveNoteBlank(0));
 	card();
 	kstFrames(4);
-	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
-	checkTrue("BACK on the leave page does nothing", uiKstView() == KstView::Leave);
 	tapId(UI_FIX(KstCtl::Stay));
 	checkTrue("STAY: the list, the claim held", uiKstView() == KstView::List &&
 	          pinClaimState() == ClaimState::Running);
@@ -687,6 +689,9 @@ static void testLeaveAndBack() {
 	tapId(UI_FIX(KstCtl::Release), IdExpect::Disabled);
 	checkTrue("a tap in the 1000 ms wait: nothing", uiCurrentScreen() == UiScreenId::Kst &&
 	          pinClaimState() == ClaimState::Leaving);
+	tapId(UI_FIX(UI_BACK), IdExpect::Disabled);
+	checkTrue("nor one on the top-right BACK", uiCurrentScreen() == UiScreenId::Kst &&
+	          pinClaimState() == ClaimState::Leaving);
 	pressId(UI_FIX(KstCtl::Release), IdExpect::Disabled);
 	holdId(UI_FIX(KstCtl::Release), 44);
 	checkTrue("held past the wait: RESTART DSHOT live, not drawn pressed",
@@ -695,9 +700,9 @@ static void testLeaveAndBack() {
 	kstFrames(2);
 	checkTrue("its lift restarts nothing", uiCurrentScreen() == UiScreenId::Kst &&
 	          pinClaimState() == ClaimState::Leaving);
-	tapId(UI_FIX(KstCtl::Release));
+	tapId(UI_FIX(UI_BACK));
 	kstFrames(8);
-	checkTrue("RESTART DSHOT: SERVO, the pin back to DShot",
+	checkTrue("the top-right BACK, as RESTART DSHOT: SERVO, the pin back to DShot",
 	          uiCurrentScreen() == UiScreenId::ServoHub && pinClaimState() == ClaimState::Free);
 	tapId(UI_FIX(UI_BACK));  // to MENU
 	openTester();
@@ -1753,7 +1758,7 @@ static void testSwitchedSupply() {
 		checkTrue("the note counts the 2 s down, dim", left > 0 && leaveNoteIs(0, note, C_DIM));
 	}
 	fakeDumpFrame("shot_leave_kst_supply_off.ppm");
-	checkTrue("BACK disabled, and drawn so",
+	checkTrue("BACK not acting, and drawn so",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
 	checkControlTable("KST leave, the supply off");
 	checkTrue("NEXT SERVO once the supply has been off 2 s",
@@ -1761,8 +1766,8 @@ static void testSwitchedSupply() {
 	checkTrue("with the switch no NEXT SERVO line: the bench powers it", leaveNoteBlank(0));
 	checkTrue("RESTART DSHOT 1000 ms later", !ctlEnabled(UI_FIX(KstCtl::Release)) &&
 	          untilEnabled(UI_FIX(KstCtl::Release), 60) && time_us_32() - t0 >= 3000000u);
-	checkTrue("BACK stays disabled, and drawn so",
-	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
+	checkTrue("BACK live with it, and drawn so",
+	          ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Live);
 	FakePin p = fakePin(servoSupplyPinOf(1));
 	checkTrue("GP28 an undriven input after the claim", !p.output && p.inputOff);
 	tapId(UI_FIX(KstCtl::Release));

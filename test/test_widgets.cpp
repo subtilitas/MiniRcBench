@@ -578,7 +578,7 @@ static void headerCopy(uint16_t *out) {
 }
 
 static void testHeaderBackDisabled() {
-	section("Widgets: uiHeader() draws a disabled BACK as uiButton() does");
+	section("Widgets: uiHeader() draws a disabled BACK as uiHomeTag() does");
 
 	static uint16_t live[GFX_W * UI_HDR_H], off[GFX_W * UI_HDR_H], ref[GFX_W * UI_HDR_H];
 	const UiRect b = uiBackRect();
@@ -588,12 +588,12 @@ static void testHeaderBackDisabled() {
 	gfxFill(C_RED);
 	uiHeader("UNPLUG", idle(), false);
 	headerCopy(off);
-	// The reference: the live header with BACK drawn over it disabled.
+	// The reference: the live header with the home tag drawn over it not acting.
 	gfxFill(C_RED);
 	uiHeader("UNPLUG", idle());
-	uiButton(b, "BACK", C_CYAN, C_ONACCENT, 1, false, false);
+	uiHomeTag("BACK", false, false);
 	headerCopy(ref);
-	checkTrue("disabled: the band matches the live header with a disabled uiButton() BACK",
+	checkTrue("disabled: the band matches the live header with a not-acting uiHomeTag() BACK",
 	          memcmp(off, ref, sizeof(off)) == 0);
 	checkTrue("and differs from the live one", memcmp(off, live, sizeof(off)) != 0);
 	bool sameOutside = true;
@@ -603,8 +603,8 @@ static void testHeaderBackDisabled() {
 			if (!in && off[y * GFX_W + x] != live[y * GFX_W + x]) sameOutside = false;
 		}
 	checkTrue("only inside BACK's rectangle", sameOutside);
-	checkTrue("an outline with C_BG inside",
-	          off[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_BG && off[b.y * GFX_W + b.x + b.w / 2] == C_GRID);
+	checkTrue("a C_DIM outline with C_BG inside",
+	          off[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_BG && off[b.y * GFX_W + b.x + b.w / 2] == C_DIM);
 	checkTrue("the default is live", live[(b.y + b.h / 2) * GFX_W + b.x + 4] == C_CYAN);
 
 	gfxFill(C_RED);
@@ -625,7 +625,7 @@ static int bandCount(uint16_t col) {
 /**
  * @brief BACK is the home tag (slice 10 of menu-c.md's build plan,
  *        ui-theme.md decision 1): `C_CYAN` with a `C_ONACCENT` label at rest
- *        and pressed, uiButton()'s disabled look when it would do nothing,
+ *        and pressed, a C_DIM frame and label on C_BG when it would do nothing,
  *        and nothing at the root, in both themes.
  */
 static void testHeaderHomeTag() {
@@ -669,9 +669,9 @@ static void testHeaderHomeTag() {
 
 		gfxFill(C_BG);
 		uiHeader("TITLE", idle(), false);
-		snprintf(what, sizeof(what), "%s: disabled: C_BG inside, a C_GRID label, and no cyan pixel in the band", name);
-		checkTrue(what, px(b.x + 4, b.y + b.h / 2) == C_BG && fakeTextIs(lx, ly, "BACK", C_GRID, C_BG, 1) &&
-		                bandCount(C_CYAN) == 0);
+		snprintf(what, sizeof(what), "%s: disabled: C_BG inside, a C_DIM frame and label, and no cyan pixel in the band", name);
+		checkTrue(what, px(b.x + 4, b.y + b.h / 2) == C_BG && px(b.x + b.w / 2, b.y) == C_DIM &&
+		                fakeTextIs(lx, ly, "BACK", C_DIM, C_BG, 1) && bandCount(C_CYAN) == 0);
 
 		gfxFill(C_BG);
 		uiHeaderRoot("MENU");
@@ -2021,6 +2021,138 @@ static void testLeaveLatch() {
 	gfxFill(C_BG);
 }
 
+/** @brief How the top-right button is drawn with @p label, as test/ui_ids.h's homeTagLook() reads it. */
+enum class TagLook : uint8_t { Live, Disabled, Other };
+static TagLook homeTagLook(const char *label) {
+	const UiRect r = uiBackRect();
+	const uint16_t fill = px(r.x + 4, r.y + r.h / 2), edge = px(r.x + r.w / 2, r.y);
+	const int lx = r.x + (r.w - gfxTextW(label, 1)) / 2, ly = r.y + (r.h - 7) / 2;
+	if (fill == C_CYAN && (fakeTextIs(lx, ly, label, C_ONACCENT, C_CYAN, 1) ||
+	                       fakeTextIs(lx + 1, ly + 1, label, C_ONACCENT, C_CYAN, 1)))
+		return TagLook::Live;
+	if (fill == C_BG && edge == C_DIM && fakeTextIs(lx, ly, label, C_DIM, C_BG, 1)) return TagLook::Disabled;
+	return TagLook::Other;
+}
+
+/**
+ * @brief The header's top-right button on the leave page: LEAVE before the
+ *        release, acting as the wide LEAVE; not acting while the claim
+ *        releases; BACK after it, not acting for the wide button's wait,
+ *        then acting as the wide hub button.
+ */
+static void testLeaveTopRight() {
+	section("Leave page: the top-right button is LEAVE, then BACK, as the wide button");
+
+	UiLeave l;
+	UiLeaveText t = kstOwnText();
+	const UiRect b = uiBackRect();
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	checkStr("before the release it reads LEAVE", uiLeaveBackLabel(&l), "LEAVE");
+	checkTrue("and is live with LEAVE enabled", uiLeaveBackLive(&l, 0));
+	gfxFill(C_RED);
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("drawn live: the cyan home tag reading LEAVE", homeTagLook("LEAVE") == TagLook::Live);
+
+	l.leaveEnabled = false;
+	checkTrue("LEAVE disabled: not live", !uiLeaveBackLive(&l, 0));
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("drawn not acting: C_DIM on C_BG", homeTagLook("LEAVE") == TagLook::Disabled);
+	checkTrue("its tap does nothing, the page stays before LEAVE",
+	          tapLeave(&l, b, 0) == UiLeaveEv::None && l.phase == UiLeavePhase::Before);
+	l.leaveEnabled = true;
+	checkTrue("enabled: its tap is Leave, the page releasing",
+	          tapLeave(&l, b, 0) == UiLeaveEv::Leave && l.phase == UiLeavePhase::Releasing);
+
+	checkStr("releasing: it reads BACK", uiLeaveBackLabel(&l), "BACK");
+	checkTrue("not live", !uiLeaveBackLive(&l, 0));
+	uiLeaveDraw(&l, t, idle(), 0);
+	checkTrue("drawn not acting", homeTagLook("BACK") == TagLook::Disabled);
+	checkTrue("its tap does nothing", tapLeave(&l, b, 0) == UiLeaveEv::None);
+
+	uiLeavePoll(&l, true, 5000);
+	checkTrue("released, 999 ms in: not live", !uiLeaveBackLive(&l, 5999));
+	uiLeaveDraw(&l, t, idle(), 5999);
+	checkTrue("drawn not acting during the wait", homeTagLook("BACK") == TagLook::Disabled);
+	checkTrue("a tap during the wait does nothing", tapLeave(&l, b, 5999) == UiLeaveEv::None);
+	uiLeaveTouch(&l, press(b.x + b.w / 2, b.y + b.h / 2), 5999);
+	checkTrue("a press that landed at 999 ms and lifts at 1100 ms: nothing",
+	          uiLeaveTouch(&l, lift(), 6100) == UiLeaveEv::None);
+	checkTrue("1000 ms in: live", uiLeaveBackLive(&l, 6000));
+	uiLeaveDraw(&l, t, idle(), 6000);
+	checkTrue("drawn live: the cyan home tag reading BACK", homeTagLook("BACK") == TagLook::Live);
+	checkTrue("its tap is Release, as the wide button's", tapLeave(&l, b, 6000) == UiLeaveEv::Release);
+
+	// The same through the header a screen draws.
+	uiLeaveOpen(&l, UiLeavePhase::Before, 1000);
+	gfxFill(C_RED);
+	uiHeaderLeave("SERVO TESTER", &l, idle(), 0);
+	checkTrue("uiHeaderLeave(): LEAVE live before the release", homeTagLook("LEAVE") == TagLook::Live);
+	tapLeave(&l, UI_LEAVE_WIDE, 0);
+	uiHeaderLeave("SERVO TESTER", &l, idle(), 0);
+	checkTrue("BACK not acting while releasing", homeTagLook("BACK") == TagLook::Disabled);
+	uiLeavePoll(&l, true, 100);
+	uiHeaderLeave("SERVO TESTER", &l, idle(), 1099);
+	checkTrue("not acting 999 ms after the release", homeTagLook("BACK") == TagLook::Disabled);
+	uiHeaderLeave("SERVO TESTER", &l, idle(), 1100);
+	checkTrue("live at 1000 ms", homeTagLook("BACK") == TagLook::Live);
+	idle();
+	gfxFill(C_BG);
+}
+
+/**
+ * @brief uiHomeTag() at rest, pressed and not acting, with BACK and LEAVE,
+ *        in both themes: live a C_CYAN fill with a C_ONACCENT label; not
+ *        acting a C_DIM frame and label on C_BG, no cyan.
+ */
+static void testHomeTag() {
+	section("Widgets: uiHomeTag() live and not acting, both themes");
+
+	const UiRect b = uiBackRect();
+	const char *labels[2] = { "BACK", "LEAVE" };
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *name = th ? "high contrast" : "dark";
+		char what[112];
+		for (int i = 0; i < 2; i++) {
+			const char *lab = labels[i];
+			const int lx = b.x + (b.w - gfxTextW(lab, 1)) / 2, ly = b.y + (b.h - 7) / 2;
+
+			gfxFill(C_PANEL);
+			uiHomeTag(lab, false, true);
+			snprintf(what, sizeof(what), "%s, %s: live: C_CYAN fill, C_ONACCENT label, C_GRID frame", name, lab);
+			checkTrue(what, px(b.x + 4, b.y + b.h / 2) == C_CYAN && px(b.x + b.w - 5, b.y + 4) == C_CYAN &&
+			                px(b.x + b.w / 2, b.y) == C_GRID && fakeTextIs(lx, ly, lab, C_ONACCENT, C_CYAN, 1));
+
+			gfxFill(C_PANEL);
+			uiHomeTag(lab, true, true);
+			snprintf(what, sizeof(what), "%s, %s: pressed: C_INK frame, label moved 1 px", name, lab);
+			checkTrue(what, px(b.x + 6, b.y + b.h / 2) == C_CYAN && px(b.x + b.w / 2, b.y) == C_INK &&
+			                fakeTextIs(lx + 1, ly + 1, lab, C_ONACCENT, C_CYAN, 1));
+
+			gfxFill(C_PANEL);
+			uiHomeTag(lab, false, false);
+			snprintf(what, sizeof(what), "%s, %s: not acting: C_DIM frame and label on C_BG", name, lab);
+			bool frame = px(b.x + b.w / 2, b.y) == C_DIM && px(b.x + b.w / 2, b.y + b.h - 1) == C_DIM &&
+			             px(b.x, b.y + b.h / 2) == C_DIM && px(b.x + b.w - 1, b.y + b.h / 2) == C_DIM;
+			checkTrue(what, frame && px(b.x + 4, b.y + b.h / 2) == C_BG && px(b.x + b.w - 5, b.y + 4) == C_BG &&
+			                fakeTextIs(lx, ly, lab, C_DIM, C_BG, 1));
+			int cyan = 0;
+			for (int y = b.y; y < b.y + b.h; y++)
+				for (int x = b.x; x < b.x + b.w; x++) cyan += px(x, y) == C_CYAN;
+			snprintf(what, sizeof(what), "%s, %s: not acting: no cyan pixel", name, lab);
+			checkTrue(what, cyan == 0);
+
+			gfxFill(C_PANEL);
+			uiHomeTag(lab, true, false);
+			snprintf(what, sizeof(what), "%s, %s: not acting, pressed: the same look", name, lab);
+			checkTrue(what, px(b.x + b.w / 2, b.y) == C_DIM && px(b.x + 4, b.y + b.h / 2) == C_BG &&
+			                fakeTextIs(lx, ly, lab, C_DIM, C_BG, 1));
+		}
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
 static void testLeaveSteps() {
 	section("Leave page: step numbers and the room above the notes");
 
@@ -2081,6 +2213,7 @@ void runWidgetTests() {
 	testNullTouch();
 	testHeaderBackDisabled();
 	testHeaderHomeTag();
+	testHomeTag();
 	testHeaderRule();
 	testDisabledFrame();
 	testButtonRadius();
@@ -2105,5 +2238,6 @@ void runWidgetTests() {
 	testLeaveDraw();
 	testLeaveEnabled();
 	testLeaveLatch();
+	testLeaveTopRight();
 	testLeaveSteps();
 }

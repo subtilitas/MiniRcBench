@@ -143,8 +143,8 @@ steady surface, level or not.
 2. `STEP 2 OF 3`: lift it, turn it round, end for end, and put it back
    screen up on the same spot. Keep it still for 2 s.
 3. `STEP 3 OF 3`: turn it screen down for 3 s, then screen up again. While
-   it lies screen down every touch is ignored and `BACK` and `AGAIN` are
-   drawn as outlines, so the glass on the table taps nothing.
+   it lies screen down every touch is ignored and `AGAIN` is drawn as an outline and `BACK` as a dim
+   frame with a dim label, so the glass on the table taps nothing.
 
 The page then shows the offset of each of the sensor's three axes in mg and
 the gain of the axis through the screen. Hold `HOLD TO KEEP` for 1 s to use

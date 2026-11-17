@@ -104,6 +104,27 @@ protocol.
 
 ### Changed
 
+- `REC` on the tester's status band, `RECORDING` as the LOGS row's status
+  on MENU and a critical `BOARD` voltage are red badges with dark ink, 5.45,
+  in place of red text on the control face at 4.03. The contrast walk holds
+  no exception for them.
+- On every tool's leave page (SERVO TESTER, S.BUS MONITOR, S.BUS OUTPUT, KST
+  SERVO, HITEC SERVO, USB BRIDGE, ESC SETTINGS) the header's top-right button
+  reads `LEAVE` before the release and acts as the wide LEAVE button, live
+  while LEAVE is enabled. While the claim releases it does not act. After the
+  release it reads `BACK` and, after the same 1000 ms wait as the wide hub
+  button, returns to the hub as that button does. The wide button stays.
+  Before, BACK on the leave page did nothing. A top-right button that does not
+  act, on the leave page, on a write page during a write, on ESC COMMANDS
+  while it sends, on USB BRIDGE while a write waits and on FLIP CAL while a
+  pose is held, is a dim frame with a dim label on the background
+  (`uiHomeTag()`, `C_DIM`, 8.74) in place of the faint outline.
+- ESC TESTER has the standard 36 px header: the title `ESC TESTER` and BACK,
+  64 x 32 px at the top right, cyan and always live. BACK disarms and returns
+  to MENU, as the `MENU` button did, which is gone. The status band lies
+  below the header, y 36 to 62; the RPM digits are 21 x 32 px, stroke 4, in
+  the RPM area y 63 to 127; the throttle swipe pad is y 63 to 239. HOLD TO
+  ARM {6, 283, 150, 33} and LATCH {162, 283, 72, 33} share the button row.
 - A hard fault restarts the board instead of hanging it. `src/fault.cpp`
   replaces the SD library's handler, whose breakpoint locks the core up
   with no debugger attached. It marks the fault and the faulting PC in
