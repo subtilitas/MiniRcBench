@@ -458,6 +458,7 @@ static void testHeartbeatTripLatches() {
 		fakeRelease(); lifeFrames(1);
 	}
 	checkTrue("armed, LATCH holds a throttle", uiArmed() && fakeArmed() && fakeThrottle() > 0);
+	checkInt("the log started before core1 was armed: no start while armed", fakeLogStartsArmed(), 0);
 	fakeEscHeartbeatTrip();
 	lifeFrames(1);
 	checkTrue("the next frame: the tester disarmed, the trip cleared",

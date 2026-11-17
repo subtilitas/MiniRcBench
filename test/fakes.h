@@ -304,6 +304,8 @@ void fakeAm32FailReadsAfter(int ok, int n);
 void fakeAm32BootloaderVersion(uint8_t v);
 /** @brief The next am32BlWrite() erases the page, programs its first @p n bytes and answers NAK. */
 void fakeAm32PartialWrite(uint8_t n);
+/** @brief sdLogStart() calls made while core1 was armed (fakeArmed()). */
+int fakeLogStartsArmed();
 /** @brief As core1 on a heartbeat lapse while armed: disarm, throttle 0, escHeartbeatTripped() true. */
 void fakeEscHeartbeatTrip();
 /** @brief The next @p n am32BlWrite() calls store byte 0x1B with bit 6 flipped. */

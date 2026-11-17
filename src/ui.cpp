@@ -1309,6 +1309,12 @@ static void handleMainTouch() {
 			    (uint32_t)(millis() - s_armPressStart) >= ARM_HOLD_MS) {
 				s_armed = true;
 				s_throttle = 0;
+				// The log starts on the arm, synchronously and possibly for
+				// longer than UI_HEARTBEAT_TIMEOUT_MS on a slow card: before
+				// core1 is armed, then the heartbeat stamped, so the start's
+				// stall cannot trip the heartbeat and undo the arm.
+				sdLogSetArmed(true);
+				escHeartbeat();
 				escSetArmed(true);
 				s_armPressing = false;
 				// Removing this clear fails no test: no disarm can fire while

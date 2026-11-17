@@ -1513,7 +1513,10 @@ void fakeSdLogSetHighest(uint32_t n) { g_logHighest = n; }
 
 // As sd_log.cpp: the highest number on the card plus 1, through the shipped
 // rule; after LOG99999.BFL the start is refused with its cause.
+static int g_logStartsArmed = 0;  /**< sdLogStart() calls made with core1 armed. */
+int fakeLogStartsArmed() { return g_logStartsArmed; }
 bool sdLogStart() {
+	if (g_armed) g_logStartsArmed++;
 	if (g_log.state == SdLogState::NoCard) return false;
 	if (g_log.state == SdLogState::Logging) return true;
 	g_log.end = SdLogEnd::None;
