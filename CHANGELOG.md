@@ -44,6 +44,13 @@ protocol.
 
 ### Changed
 
+- A hard fault restarts the board instead of hanging it. `src/fault.cpp`
+  replaces the SD library's handler, whose breakpoint locks the core up
+  with no debugger attached. It marks the fault and the faulting PC in
+  watchdog scratch registers 0 and 1, blinks the backlight pin GP16 50 ms
+  on and off for 2 s, and triggers a watchdog reset. SETUP's LAST RESTART
+  reads `FAULT` in amber, with `PC 1000ABCD` as the row's caption. The boot
+  diagnostic build blinks without end, as before. Not tested on hardware.
 - The nine model generator files in `lib/rcbench/hardware/` are copied again
   from rcbench at commit 33270eab. Each carries
   `SPDX-License-Identifier: CC-BY-NC-SA-4.0` from rcbench's licence change,

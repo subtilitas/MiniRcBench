@@ -9,6 +9,7 @@
 #include "check.h"
 #include "diag.h"
 #include "fakes.h"
+#include "hardware/structs/watchdog.h"
 
 #include <string.h>
 
@@ -163,10 +164,34 @@ static void testUptimeText() {
 	         (long)(diagUptimeSeconds() - s0), 2);
 }
 
+/** @brief The hard fault handler's mark decides first, keeps the PC, and is cleared. */
+static void testFaultMark() {
+	section("Diagnostics: the hard fault handler's mark (fault.h)");
+	fakeSetChipReset(DIAG_CR_HAD_POR);
+	fakeSetWatchdog(1, false);
+	fakeSetBootType(0);
+	g_fakeWatchdog.scratch[DIAG_FAULT_SCRATCH_MARK] = DIAG_FAULT_MAGIC;
+	g_fakeWatchdog.scratch[DIAG_FAULT_SCRATCH_PC] = 0x10012345u;
+	diagCaptureRestart();
+	checkTrue("the mark with REASON set: FAULT, not REBOOT", diagLastRestart() == RestartReason::Fault);
+	checkStr("its text", diagRestartText(diagLastRestart()), "FAULT");
+	checkTrue("the PC kept", diagFaultPc() == 0x10012345u);
+	checkTrue("the mark cleared", g_fakeWatchdog.scratch[DIAG_FAULT_SCRATCH_MARK] == 0);
+	diagCaptureRestart();
+	checkTrue("the next restart reads as its own kind, the PC 0",
+	          diagLastRestart() == RestartReason::Reboot && diagFaultPc() == 0);
+	g_fakeWatchdog.scratch[DIAG_FAULT_SCRATCH_MARK] = DIAG_FAULT_MAGIC ^ 1u;
+	diagCaptureRestart();
+	checkTrue("another word in scratch 0 is no mark", diagLastRestart() == RestartReason::Reboot);
+	g_fakeWatchdog.scratch[DIAG_FAULT_SCRATCH_MARK] = 0;
+	fakeSetWatchdog(0, false);
+}
+
 void runDiagTests() {
 	testEachFlag();
 	testOrder();
 	testTextWidths();
 	testCapture();
+	testFaultMark();
 	testUptimeText();
 }

@@ -12,7 +12,7 @@
  * that never returns leaves the panel dark after its group. bootDiagDone()
  * drives GP16 high for good once setup() returns. A hard fault, which a
  * panic() reaches through its breakpoint, blinks 50 ms on and 50 ms off
- * forever.
+ * forever in this build (fault.h); the default build restarts after 2 s.
  *
  * The timing reads TIMER0's raw 1 MHz count. The SDK's runtime
  * starts that timer before main(), so nothing setup() initialises is needed.

@@ -472,7 +472,7 @@ Other patterns:
 | Pattern | Meaning |
 |---|---|
 | No blink at all | The image does not reach `setup()`. |
-| 50 ms on, 50 ms off, without end | A hard fault. With no debugger attached, a `panic()` ends in one too. |
+| 50 ms on, 50 ms off, without end | A hard fault. With no debugger attached, a `panic()` ends in one too. The default build blinks the same for 2 s, then restarts; see "Hard faults". |
 | On, without end | `setup()` returned. |
 
 After group 8 the pin goes back to the backlight's state machine between
@@ -482,6 +482,22 @@ A panel that stays dark then, and lights once `setup()` returns, points at the
 backlight's state machine. Once `setup()` returns, the diagnostic holds GP16
 high, so the backlight runs at 100 % and the BACKLIGHT setting has no effect.
 The groups add 35 s to the boot.
+
+**Hard faults**
+
+`src/fault.cpp` is the hard fault handler of every build. It runs from RAM
+and by register only. On a fault of either core it writes `0x464C5431` to
+watchdog scratch register 0 and the faulting PC (program counter) to scratch
+register 1, blinks GP16 50 ms on and 50 ms off 20 times, 2 s in all, and
+triggers a watchdog reset of everything but the oscillators. After the
+restart SETUP's LAST RESTART reads `FAULT` in amber with `PC 1000ABCD` under
+its label. `arm-none-eabi-addr2line -e MiniRcBench-touch-lcd-2.8.elf
+0x1000ABCD` names the source line. A fault at every boot repeats: 2 s of
+blinks, a restart, and the blinks again. The SD library's handler in
+`crash.c` is renamed out of the image: it stops on a breakpoint, which with
+no debugger attached locks the core up and leaves the board hung. With
+`-DBOOT_DIAG=ON` the handler blinks without end and does not restart. Not
+tested on hardware.
 
 ### Reproducible builds
 
@@ -902,7 +918,7 @@ label, and a toggle that is on fills blue.
 | BOARD | **BUILT FOR** | `RP2350-TOUCH-LCD-2.8`, the board the image is built for. Read-only |
 | BOARD | **VERSION** | The firmware version from `src/version.h`, for example `0.1.0`. Read-only |
 | BOARD | **CLOCK** | The board's clock to the minute, `2026-11-14 15:42`, or `NOT SET` in dim, with the caption `SET AT EACH POWER-UP`: the board has no cell on J2, so `tools/set_clock.py` sets it again after each power-up ([Setting the clock](#setting-the-clock)). Redrawn once a minute and after a set while its row shows. Read-only |
-| DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH` and `WATCHDOG`. Read-only. See below |
+| DIAGNOSTICS | **LAST RESTART** | Why the chip last restarted, read once at boot: `POWER-ON`, `BROWN-OUT`, `RUN PIN`, `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`, `POWER-DOWN`, `FAULT` or `UNKNOWN`. Amber for `BROWN-OUT`, `GLITCH`, `WATCHDOG` and `FAULT`; after `FAULT` the caption gives the faulting program counter, `PC 1000ABCD`. Read-only. See below |
 | DIAGNOSTICS | **UPTIME** | Time since boot as hours, minutes and seconds, `H:MM:SS`, for example `1:02:03`. Redrawn once a second while its row shows. Read-only |
 
 The `-` and `+` buttons are 44 × 44 px and the toggles 94 × 44 px.
@@ -916,6 +932,7 @@ them into the reason; the first line that matches decides:
 
 | Read | Shows |
 |---|---|
+| watchdog scratch register 0 holds `0x464C5431` (`FLT1`) | `FAULT`: the hard fault handler restarted the board; scratch register 1 holds the PC (program counter), shown as the row's caption. The mark is cleared once read |
 | `watchdog_enable_caused_reboot()` | `WATCHDOG`: an armed watchdog timed out |
 | REASON non-zero and boot type `BOOT_TYPE_FLASH_UPDATE` (4) | `UPDATE`: the reboot after a UF2 copy |
 | REASON non-zero otherwise | `REBOOT`: a reboot through the watchdog that another program asked for, for example picotool |
@@ -4196,7 +4213,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,272 of 16,532 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,284 of 16,544 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

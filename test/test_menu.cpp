@@ -17,6 +17,7 @@
 
 #include "check.h"
 #include "fakes.h"
+#include "hardware/structs/watchdog.h"
 #include "settings.h"
 #include "ui.h"
 #include "ui_am32.h"
@@ -1100,6 +1101,21 @@ static void testSettingsDiagnostics() {
 		snprintf(what, sizeof(what), "%s in %s", c.text, c.col == C_AMBER ? "amber" : "the grid colour");
 		checkTrue(what, fakeTextIs(232 - gfxTextW(c.text, 1), 140 + 18, c.text, c.col, C_BG, 1));
 	}
+	// The hard fault handler's mark: FAULT in amber, the PC as the caption.
+	fakeSetChipReset(DIAG_CR_HAD_POR);
+	fakeSetWatchdog(0, false);
+	g_fakeWatchdog.scratch[DIAG_FAULT_SCRATCH_MARK] = DIAG_FAULT_MAGIC;
+	g_fakeWatchdog.scratch[DIAG_FAULT_SCRATCH_PC] = 0x1000ABCDu;
+	diagCaptureRestart();
+	tapId(UI_FIX(UI_BACK));
+	tapId(menuRow(&UI_SETTINGS));
+	for (int i = 0; i < 4; i++) dragList(230, -180);
+	checkTrue("a fault reads FAULT in amber",
+	          fakeTextIs(232 - gfxTextW("FAULT", 1), 140 + 18, "FAULT", C_AMBER, C_BG, 1));
+	checkTrue("its label moves up for the caption",
+	          fakeTextIs(UI_MARGIN, 140 + 12, "LAST RESTART", C_DIM, C_BG, 1));
+	checkTrue("the caption names the PC: PC 1000ABCD in dim",
+	          fakeTextIs(UI_MARGIN, 140 + 25, "PC 1000ABCD", C_DIM, C_BG, 1));
 	checkControlTable("SETUP, DIAGNOSTICS");
 	fakeSetWatchdog(0, false);
 	fakeSetBootType(0);
