@@ -41,9 +41,13 @@ typedef struct sd_card_t sd_card_t;
 
 /** Dynamically-assigned state the driver fills in during a mount attempt. */
 typedef struct sd_card_state_t {
+	uint8_t  m_Status;   /**< DSTATUS: STA_NOINIT after a card fault. */
 	int      card_type;
 	uint32_t sectors;
 } sd_card_state_t;
+#ifndef STA_NOINIT
+#define STA_NOINIT 0x01
+#endif
 
 struct sd_card_t {
 	sd_if_t      type;

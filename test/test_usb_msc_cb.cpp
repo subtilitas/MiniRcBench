@@ -86,6 +86,16 @@ int main() {
 	check("ejected: back with the logger", mscGetState() == MscState::Idle &&
 	      g_reacquires == before + 1);
 
+	printf("USB drive: a card marked uninitialised after a fault is not served\n");
+	mscInit();
+	g_card.state.m_Status = STA_NOINIT;
+	before = g_reacquires;
+	check("USB DRIVE accepted", mscRequest() == MscRefusal::None);
+	mscTick();
+	check("the handover gives it back: idle, reacquired, not served",
+	      mscGetState() == MscState::Idle && g_reacquires == before + 1 && !tud_msc_test_unit_ready_cb(0));
+	g_card.state.m_Status = 0;
+
 	printf("USB drive: an unmount with nothing held changes nothing\n");
 	mscInit();
 	tud_umount_cb();
