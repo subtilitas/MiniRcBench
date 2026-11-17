@@ -60,17 +60,10 @@ bool contrastPairExcepted(const char *text, int fg, int bg, bool high) {
 	// The disabled label, the group captions and the read-only values: under
 	// 4.5 by intent in Dark (ui-theme.md, "Contrast").
 	if (fg == TC_GRID) return true;
-	// Red on the control face, 4.03 in Dark, for these words only: ERROR in
-	// the tester's ESC STATUS tile (the note's named pair); REC on the
-	// tester's status band, RECORDING on LOGS and a low BOARD voltage on the
-	// status band (slice 13's finds, pending the owner's review). A voltage
-	// is a number followed by V.
-	if (!high && fg == TC_RED && bg == TC_PANEL) {
-		if (strcmp(text, "ERROR") == 0 || strcmp(text, "REC") == 0 || strcmp(text, "RECORDING") == 0)
-			return true;
-		size_t n = strlen(text);
-		if (n >= 2 && text[n - 1] == 'V' && strspn(text, "0123456789.") == n - 1) return true;
-	}
+	// ERROR in the tester's ESC STATUS tile, red on the control face, 4.03
+	// in Dark: the note's named pair, that word only. REC, RECORDING and a
+	// critical BOARD voltage are red badges with dark ink (5.45).
+	if (!high && fg == TC_RED && bg == TC_PANEL && strcmp(text, "ERROR") == 0) return true;
 	// High contrast's two pairs on its PANEL, 3.42 and 3.82, kept by the note.
 	if (high && bg == TC_PANEL && (fg == TC_AMBER || fg == TC_LIME)) return true;
 	return false;

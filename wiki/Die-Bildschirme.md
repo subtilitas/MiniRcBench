@@ -170,7 +170,8 @@ noch Gas 0, dann nichts, und der Pin liegt auf Low.
   in Bernstein ersetzt sie, wenn die Anzeige ihren DShot-Ausgang nicht
   einrichten konnte; dann wird nichts an den ESC gesendet;
 - der Aufzeichnungszustand: `REC`, `SD`, `SDERR` oder `NOSD`
-  (siehe [SD-Aufzeichnung](SD-Aufzeichnung)). `SDERR`, eine Aufzeichnung,
+  (siehe [SD-Aufzeichnung](SD-Aufzeichnung)). `REC` ist ein rotes Feld mit
+  dunkler Beschriftung. `SDERR`, eine Aufzeichnung,
   die von selbst endete, steht auf einem bernsteinfarbenen Feld und lässt
   Scharf-Feld, Drehzahl und Gas frei;
 
@@ -182,7 +183,7 @@ noch Gas 0, dann nichts, und der Pin liegt auf Low.
   USB-Versorgung (Universal Serial Bus) anzeigt, ist nicht gemessen, und die
   Firmware kann USB-Versorgung nicht vom Akku unterscheiden: Kein Pin der
   Platine erfasst die USB-Versorgung. Die Spannung ist unter 3,50 V
-  bernsteinfarben und unter 3,30 V rot, der übliche untere Bereich einer
+  bernsteinfarben und unter 3,30 V dunkel auf einem roten Feld, der übliche untere Bereich einer
   Lithium-Polymer-Zelle, auf dieser Platine nicht gemessen. Die Farbe folgt
   dem angezeigten Wert: `3.50V` ist nie bernsteinfarben, `3.30V` nie rot.
   Sie erhält die Farbe darüber zurück, sobald sie 50 mV über der Schwelle

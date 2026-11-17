@@ -588,6 +588,14 @@ static_assert(STATUS_IDLE_Y + 7 * 2 + 1 <= Z_STATUS_Y1 + 1,
  *        other log states, 3 px of fill left of it, 2 px right, 2 px above
  *        and below, between the arm badge (to x 95) and BOARD.
  */
+/** @brief A critical BOARD voltage's red badge: from y 5, 18 px, around the scale-2 digits at y 7. */
+#define STATUS_VOLT_BADGE_Y 5
+#define STATUS_VOLT_BADGE_H 18
+static_assert(STATUS_VOLT_BADGE_Y + STATUS_VOLT_BADGE_H <= Z_STATUS_Y1 + 1,
+              "the voltage badge leaves the status bar");
+static_assert(STATUS_BOARD_X + (6 * (int)(sizeof(STATUS_BOARD_TEXT) - 1) - 1) + 3 <
+                  GFX_W - 4 - (12 * 5 - 2) - 3,
+              "the voltage badge, 5 characters at scale 2, runs into BOARD");
 #define STATUS_SDERR_X 101
 #define STATUS_SDERR_Y 12
 #define STATUS_SDERR_W 34
@@ -697,6 +705,11 @@ static void drawStatusBar() {
 		// the arm badge and BOARD, clear of both. Square, as every chip.
 		gfxRect(STATUS_SDERR_X, STATUS_SDERR_Y, STATUS_SDERR_W, STATUS_SDERR_H, C_AMBER);
 		gfxText(STATUS_SDERR_X + 3, STATUS_SDERR_Y + 2, lg, C_PAPER, 1);
+	} else if (log.state == SdLogState::Logging) {
+		// Recording: a red chip with dark ink, 5.45, where red text on the
+		// band's C_PANEL read 4.03. In the SDERR chip's place, as wide as REC.
+		gfxRect(STATUS_SDERR_X, STATUS_SDERR_Y, gfxTextW(lg, 1) + 6, STATUS_SDERR_H, C_RED);
+		gfxText(STATUS_SDERR_X + 3, STATUS_SDERR_Y + 2, lg, C_ONACCENT, 1);
 	} else {
 		gfxText(104, 14, lg, lgCol, 1);
 	}
@@ -708,9 +721,15 @@ static void drawStatusBar() {
 		snprintf(buf, sizeof(buf), "IDLE %ds", idleLeft);
 		gfxText(GFX_W - 4 - gfxTextW(buf, 2), STATUS_IDLE_Y, buf, C_AMBER, 2);
 	} else {
-		uint16_t vcol = s_boardCell == BoardCell::Critical ? C_RED
-		              : s_boardCell == BoardCell::Low      ? C_AMBER : C_TEXT;
-		gfxText(GFX_W - 4 - gfxTextW(volts, 2), 7, volts, vcol, 2);
+		const int vx = GFX_W - 4 - gfxTextW(volts, 2);
+		if (s_boardCell == BoardCell::Critical) {
+			// A critical cell: a red badge with dark ink, 5.45, where red
+			// digits on the band's C_PANEL read 4.03. Square, as every chip.
+			gfxRect(vx - 3, STATUS_VOLT_BADGE_Y, gfxTextW(volts, 2) + 6, STATUS_VOLT_BADGE_H, C_RED);
+			gfxText(vx, 7, volts, C_ONACCENT, 2);
+		} else {
+			gfxText(vx, 7, volts, s_boardCell == BoardCell::Low ? C_AMBER : C_TEXT, 2);
+		}
 		// Names whose voltage it is. IDLE displaces it with the voltage.
 		gfxText(STATUS_BOARD_X, STATUS_BOARD_Y, STATUS_BOARD_TEXT, C_DIM, 1);
 	}

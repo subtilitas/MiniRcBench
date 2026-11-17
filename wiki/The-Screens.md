@@ -153,8 +153,8 @@ last throttle, then nothing, and the pin is held low.
   the display could not set up its DShot output; nothing is sent to the ESC
   then;
 - the recording state: `REC`, `SD`, `SDERR` or `NOSD`
-  (see [SD Logging](SD-Logging)). `SDERR`, a recording that stopped on its
-  own, is drawn on an amber chip, and stays clear of the arm badge, the RPM
+  (see [SD Logging](SD-Logging)). `REC` is a red badge with a dark label.
+  `SDERR`, a recording that stopped on its own, is drawn on an amber chip, and stays clear of the arm badge, the RPM
   and the throttle;
 
   <img src="img/tester-sderr.png" width="240" alt="The tester armed, SDERR on an amber chip in the top row">
@@ -164,7 +164,7 @@ last throttle, then nothing, and the pin is held low.
   the `VOLTAGE` tile. With only USB (Universal Serial Bus) power connected,
   what this reads is not measured, and the firmware cannot tell USB power
   from the cell: no pin of the board senses USB power. The voltage is amber
-  below 3.50 V and red below 3.30 V, a lithium-polymer cell's usual low
+  below 3.50 V and dark on a red badge below 3.30 V, a lithium-polymer cell's usual low
   range, not measured on this board. The colour follows the value as drawn:
   `3.50V` is never amber, `3.30V` never red. It returns to the colour above
   once it is 50 mV over the threshold. With USB power alone the value can be

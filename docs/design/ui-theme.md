@@ -1781,7 +1781,6 @@ over every text the host suite draws, in both themes, for a pair under the
   |---|---|---|---|---|
   | `GRID` on any | both | 3.57 on `BG` in Dark | disabled labels, group captions, read-only values | by intent; WCAG exempts a disabled control ([Contrast](#contrast)) |
   | `RED` on `PANEL` | Dark | 4.03 | `ERROR` in the tester's ESC STATUS tile | the note's named pair |
-  | `RED` on `PANEL` | Dark | 4.03 | `REC` on the tester's status band, `RECORDING` on LOGS, a low `BOARD` voltage on the status band | found by the walk; kept red, pending the owner's review |
   | `AMBER` and `LIME` on `PANEL` | High contrast | 3.42 and 3.82 | warnings and live readings on the control face | the note keeps High contrast's values |
 
   Each exception names its words, so a new red text on a `C_PANEL` fill
@@ -1796,10 +1795,15 @@ Mutations, each run against the whole suite and restored:
 
 Readings of the note where the code asked for a choice:
 
-- **The three red texts the walk found stay red.** A red chip with dark
-  ink, as `SDERR` is an amber chip, would read 5.45, but moves the status
-  band's layout. They are listed as exceptions, pending the owner's review;
-  the panel decides whether 4.03 reads.
+- **The three red texts the walk found are red badges.** `REC` on the
+  tester's status band, `RECORDING` as the LOGS row's status on MENU and a
+  critical `BOARD` voltage were red text on `C_PANEL` at 4.03. By the
+  owner's decision of 2026-11-17 each is a square red badge with
+  `C_ONACCENT` ink, 5.45, as `SDERR` is an amber chip: `REC` in the `SDERR`
+  chip's place, from x 101, y 12, 11 px tall; the voltage's badge from y 5,
+  18 px tall, 3 px either side of the scale-2 digits; on MENU any status in
+  `C_RED` is drawn so, from 3 px left of the text, y + 14, 11 px tall. The
+  walk holds no exception for them.
 - **Text only.** The walk reads what `gfxText()` draws. Frames, the
   seven-segment digits and the fills are not text and are not walked; the
   contrast table gives their ratios.

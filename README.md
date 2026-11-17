@@ -1216,8 +1216,8 @@ two PIO state machines; nothing is sent to the ESC then.
 The large voltage at the top right, captioned `BOARD`, is the board's own
 battery, read through the 200 kΩ/100 kΩ divider on GP27. It reads at most
 9.90 V. The ESC's pack voltage is the **VOLTAGE** tile. It is drawn amber
-below 3.50 V (`BOARD_CELL_LOW_MV`) and red below 3.30 V
-(`BOARD_CELL_CRIT_MV`), a lithium-polymer cell's usual low range, not
+below 3.50 V (`BOARD_CELL_LOW_MV`) and, below 3.30 V
+(`BOARD_CELL_CRIT_MV`), as dark digits on a red badge, a lithium-polymer cell's usual low range, not
 measured on this board, and goes back only 50 mV (`BOARD_CELL_HYST_MV`)
 above each threshold (`uiBoardCell()`). The band is taken from the value as
 drawn, rounded to centivolts, so `3.50V` is never amber and `3.30V` never
@@ -4262,7 +4262,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,373 of 16,638 lines in 100 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,381 of 16,646 lines in 100 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

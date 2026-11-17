@@ -3788,6 +3788,32 @@ static void testTouchLossStall() {
  * @brief The BOARD voltage's colour: amber below 3.50 V, red below 3.30 V,
  *        back only 50 mV above each threshold.
  */
+/** @brief A recording on the tester's band and on MENU's LOGS row: red badges with dark ink. */
+static void testRecBadges() {
+	section("Tester and MENU: a recording is a red badge with dark ink");
+	if (uiCurrentScreen() != UiScreenId::Tester) openTester();
+	sdLogRemount();
+	checkTrue("a log runs", sdLogStart() && sdLogActive());
+	frames(2);
+	const uint16_t *fb = gfxBuffer();
+	checkTrue("REC on a red chip from x 101, y 12, 23 px wide",
+	          fakeTextIs(104, 14, "REC", C_ONACCENT, C_RED, 1) && fb[12 * GFX_W + 101] == C_RED &&
+	          fb[22 * GFX_W + 123] == C_RED && fb[12 * GFX_W + 124] == C_PANEL);
+	testerToMenu();
+	frames(1);
+	const UiRect row = ctlRect(menuRow(&UI_SDLOG));
+	const int w = gfxTextW("RECORDING", 1);
+	const int x = UI_MENU_STATUS_R - w;
+	checkTrue("MENU's LOGS row: RECORDING on a red badge",
+	          fakeTextIs(x, row.y + 16, "RECORDING", C_ONACCENT, C_RED, 1) &&
+	          fb[(row.y + 14) * GFX_W + x - 3] == C_RED && fb[(row.y + 24) * GFX_W + x + w + 2] == C_RED &&
+	          fb[(row.y + 14) * GFX_W + x - 4] != C_RED);
+	sdLogStop();
+	frames(1);
+	checkTrue("stopped: no badge on the row", fb[(row.y + 14) * GFX_W + x - 3] != C_RED);
+	openTester();
+}
+
 static void testBoardCellColour() {
 	section("Tester: the BOARD voltage's colour");
 
@@ -3840,8 +3866,15 @@ static void testBoardCellColour() {
 
 	// Drawn, through the ADC: raw * 3.3 / 4095 * 3 V. The first frame takes
 	// the reading unsmoothed; later ones move a tenth of the way a frame.
+	// C_RED stands for the critical badge: dark digits on a red rectangle from
+	// 3 px left of them, y 5 to y 22.
 	auto shows = [](const char *text, uint16_t col) {
-		return fakeTextIs(GFX_W - 4 - gfxTextW(text, 2), 7, text, col, C_PANEL, 2);
+		const int x = GFX_W - 4 - gfxTextW(text, 2);
+		if (col == C_RED)
+			return fakeTextIs(x, 7, text, C_ONACCENT, C_RED, 2) &&
+			       gfxBuffer()[5 * GFX_W + x - 3] == C_RED && gfxBuffer()[22 * GFX_W + x - 3] == C_RED &&
+			       gfxBuffer()[4 * GFX_W + x - 3] == C_PANEL && gfxBuffer()[5 * GFX_W + x - 4] == C_PANEL;
+		return fakeTextIs(x, 7, text, col, C_PANEL, 2);
 	};
 	struct { uint16_t raw; const char *text; uint16_t col; const char *what; } cases[] = {
 		{ 1427, "3.45V", C_AMBER, "3.45 V: amber" },
@@ -9693,6 +9726,7 @@ void runUiTests() {
 	testTesterBoardAndCard();
 	testTesterReadouts();
 	testBoardCellColour();
+	testRecBadges();
 	testSplash();
 	testSplashTouch();
 	testTextProbes();

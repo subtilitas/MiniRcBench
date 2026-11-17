@@ -104,6 +104,10 @@ protocol.
 
 ### Changed
 
+- `REC` on the tester's status band, `RECORDING` as the LOGS row's status
+  on MENU and a critical `BOARD` voltage are red badges with dark ink, 5.45,
+  in place of red text on the control face at 4.03. The contrast walk holds
+  no exception for them.
 - A hard fault restarts the board instead of hanging it. `src/fault.cpp`
   replaces the SD library's handler, whose breakpoint locks the core up
   with no debugger attached. It marks the fault and the faulting PC in
