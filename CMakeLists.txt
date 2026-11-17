@@ -245,6 +245,7 @@ add_executable(MiniRcBench
     src/theme.cpp
     src/settings.cpp
     src/diag.cpp
+    src/fault.cpp
     src/servo_supply.cpp
     src/card_dir.cpp
     src/backup_ring.cpp
@@ -355,13 +356,14 @@ pico_enable_stdio_uart(MiniRcBench 0)
 
 # The board goes in the filename, so an image names the board it was built
 # for after it has left the build tree.
+# The SD library's crash.c defines the hard fault handler too, and its
+# handler stops on a breakpoint, which locks the core up with no debugger
+# attached. It is renamed here, so the vector table takes src/fault.cpp's.
+set_source_files_properties(${SD_FATFS_DIR}/src/crash.c PROPERTIES
+    COMPILE_DEFINITIONS HardFault_Handler=sd_crash_hardfault_unused)
 if(BOOT_DIAG)
     target_sources(MiniRcBench PRIVATE src/boot_diag.cpp)
     target_compile_definitions(MiniRcBench PRIVATE BOOT_DIAG=1)
-    # The SD library's crash.c defines the hard fault handler too. Its
-    # handler is renamed here, so the vector table takes boot_diag.cpp's.
-    set_source_files_properties(${SD_FATFS_DIR}/src/crash.c PROPERTIES
-        COMPILE_DEFINITIONS HardFault_Handler=sd_crash_hardfault_unused)
     set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-touch-lcd-2.8-boot-diag")
     message(STATUS "Boot diagnostic: on (GP16 blinks each setup() step)")
 else()

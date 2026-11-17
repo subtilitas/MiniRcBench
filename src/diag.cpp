@@ -31,6 +31,8 @@ static_assert(DIAG_BOOT_TYPE_FLASH_UPDATE == BOOT_TYPE_FLASH_UPDATE, "boot type"
 #endif
 
 static RestartReason s_reason = RestartReason::Unknown;
+/** @brief The faulting PC of a Fault restart, else 0. */
+static uint32_t s_faultPc = 0;
 
 /** @brief One CHIP_RESET flag group and the reason it decodes to, in decoding order. */
 struct FlagReason {
@@ -81,18 +83,28 @@ const char *diagRestartText(RestartReason r) {
 		case RestartReason::Debugger:  return "DEBUGGER";
 		case RestartReason::Glitch:    return "GLITCH";
 		case RestartReason::PowerDown: return "POWER-DOWN";
+		case RestartReason::Fault:     return "FAULT";
 		case RestartReason::Unknown:   break;
 	}
 	return "UNKNOWN";
 }
 
 void diagCaptureRestart() {
+	s_faultPc = 0;
+	if (watchdog_hw->scratch[DIAG_FAULT_SCRATCH_MARK] == DIAG_FAULT_MAGIC) {
+		s_reason = RestartReason::Fault;
+		s_faultPc = watchdog_hw->scratch[DIAG_FAULT_SCRATCH_PC];
+		watchdog_hw->scratch[DIAG_FAULT_SCRATCH_MARK] = 0;
+		return;
+	}
 	s_reason = diagDecodeRestart(powman_hw->chip_reset, watchdog_hw->reason,
 	                             watchdog_enable_caused_reboot(),
 	                             rom_get_last_boot_type());
 }
 
 RestartReason diagLastRestart() { return s_reason; }
+
+uint32_t diagFaultPc() { return s_faultPc; }
 
 void diagUptimeText(char *buf, size_t n, uint32_t seconds) {
 	snprintf(buf, n, "%lu:%02u:%02u", (unsigned long)(seconds / 3600u),

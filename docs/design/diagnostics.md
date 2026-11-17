@@ -51,6 +51,7 @@ The first match decides.
 
 | Order | Input | Text | Colour |
 |---:|---|---|---|
+| 0 | watchdog scratch register 0 holds `DIAG_FAULT_MAGIC`, `0x464C5431`: the mark of the hard fault handler, `src/fault.cpp` | `FAULT`, with the PC of scratch register 1 as the row's caption, `PC 1000ABCD` | amber |
 | 1 | `watchdog_enable_caused_reboot()` | `WATCHDOG` | amber |
 | 2 | REASON non-zero and boot type 4, `BOOT_TYPE_FLASH_UPDATE` | `UPDATE` | grid |
 | 3 | REASON non-zero, any other boot type or an error | `REBOOT` | grid |
@@ -96,6 +97,11 @@ RESCUE_FLAG (bit 4) and DOUBLE_TAP (bit 0) are not reasons and are ignored.
   level, the RUN pin pulled low, the glitch detector, the switched core
   powered down.
 - `DEBUGGER`: a reset from an attached debugger, Arm or RISC-V.
+- `FAULT`: a hard fault, on either core, and the restart its handler
+  triggered. The handler resets through the watchdog, so REASON is set
+  too; the mark decides first and is cleared once read, so the next
+  restart reads as its own kind. Scratch registers 0 and 1 are not used
+  by the SDK's `watchdog_reboot()`, which writes registers 4 to 7.
 - `WATCHDOG`: an armed watchdog timed out.
 - `UPDATE`: the reboot after a UF2 copy. UF2 is the Universal Serial Bus
   (USB) Flashing Format: a firmware file copied onto the drive the boot ROM

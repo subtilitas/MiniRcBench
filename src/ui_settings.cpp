@@ -458,7 +458,20 @@ static void restartValue(char *b, size_t n, uint16_t *c) {
 	RestartReason r = diagLastRestart();
 	snprintf(b, n, "%s", diagRestartText(r));
 	*c = r == RestartReason::BrownOut || r == RestartReason::Glitch ||
-	     r == RestartReason::Watchdog ? C_AMBER : C_GRID;
+	     r == RestartReason::Watchdog || r == RestartReason::Fault ? C_AMBER : C_GRID;
+}
+/** @brief LAST RESTART's caption after a fault: the faulting PC, `PC 1000ABCD`. */
+#define RESTART_PC_FMT "PC %08lX"
+/** @brief The caption's characters: `PC ` and eight hex digits. */
+#define RESTART_PC_CHARS 11
+static_assert(UI_MARGIN + 6 * RESTART_PC_CHARS - 1 + 4 <= RO_R - (6 * DIAG_RESTART_TEXT_WIDEST - 1),
+              "LAST RESTART's caption runs into its widest value");
+/** @brief The faulting PC under LAST RESTART after a fault (fault.h), else none. */
+static void restartCaption(char *b, size_t n, uint16_t *c) {
+	b[0] = 0;
+	if (diagLastRestart() != RestartReason::Fault) return;
+	snprintf(b, n, RESTART_PC_FMT, (unsigned long)diagFaultPc());
+	*c = C_DIM;
 }
 /** @brief Time since boot, `H:MM:SS`. */
 static void uptimeValue(char *b, size_t n, uint16_t *c) {
@@ -466,7 +479,7 @@ static void uptimeValue(char *b, size_t n, uint16_t *c) {
 	*c = C_GRID;
 }
 static constexpr SettingsRow ROWS_DIAG[] = {
-	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
+	{ "LAST RESTART", SettingsKind::ReadOnly, DIAG_RESTART_TEXT_WIDEST, restartValue, nullptr, nullptr, nullptr, nullptr, restartCaption, nullptr },
 	{ "UPTIME",       SettingsKind::ReadOnly, DIAG_UPTIME_TEXT_WIDEST,  uptimeValue,  nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
 };
 

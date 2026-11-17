@@ -54,8 +54,20 @@ enum class RestartReason : uint8_t {
 	Debugger,   /**< HAD_DP_RESET_REQ, HAD_RESCUE or HAD_HZD_SYS_RESET_REQ. */
 	Glitch,     /**< HAD_GLITCH_DETECT: the glitch detector. */
 	PowerDown,  /**< HAD_SWCORE_PD: the switched core was powered down. */
+	Fault,      /**< The hard fault handler restarted the board (fault.h): its mark in watchdog scratch register 0. */
 	Unknown,    /**< None of the above. */
 };
+
+/**
+ * @defgroup diag_fault The hard fault handler's mark (fault.h)
+ * @brief Watchdog scratch registers 0 and 1, which a watchdog reset keeps.
+ *        The SDK's watchdog_reboot() uses registers 4 to 7.
+ * @{
+ */
+#define DIAG_FAULT_SCRATCH_MARK 0            /**< Holds @ref DIAG_FAULT_MAGIC after a fault. */
+#define DIAG_FAULT_SCRATCH_PC   1            /**< The faulting program counter. */
+#define DIAG_FAULT_MAGIC        0x464C5431u  /**< `FLT1` in ASCII. */
+/** @} */
 
 /** @brief Characters of the longest diagRestartText(). */
 #define DIAG_RESTART_TEXT_WIDEST 10
@@ -89,7 +101,7 @@ RestartReason diagDecodeRestart(uint32_t chipReset, uint32_t watchdogReason,
 /**
  * @brief A reason as short upper-case text: `POWER-ON`, `BROWN-OUT`,
  *        `RUN PIN`, `WATCHDOG`, `UPDATE`, `REBOOT`, `DEBUGGER`, `GLITCH`,
- *        `POWER-DOWN` or `UNKNOWN`.
+ *        `POWER-DOWN`, `FAULT` or `UNKNOWN`.
  * @param r The reason.
  * @return Static text, at most DIAG_RESTART_TEXT_WIDEST characters.
  */
@@ -98,11 +110,19 @@ const char *diagRestartText(RestartReason r);
 /**
  * @brief Read the four values and keep the decoded reason. Called once,
  *        first thing in setup().
+ *
+ * The hard fault handler's mark decides before them: with
+ * @ref DIAG_FAULT_MAGIC in scratch register 0 the reason is Fault and the
+ * PC in scratch register 1 is kept. The mark is then cleared, so a later
+ * restart of another kind reads as that kind.
  */
 void diagCaptureRestart();
 
 /** @brief The reason diagCaptureRestart() kept; Unknown before it ran. */
 RestartReason diagLastRestart();
+
+/** @brief The faulting PC the hard fault handler marked; 0 unless the reason is Fault. */
+uint32_t diagFaultPc();
 
 /** @brief Characters of the longest diagUptimeText(): `1193046:28:15`. */
 #define DIAG_UPTIME_TEXT_WIDEST 13
