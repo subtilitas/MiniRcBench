@@ -1345,6 +1345,11 @@ int &fakeChangedWalked() {
 	return n;
 }
 
+unsigned &fakeGreenWalked() {
+	static unsigned m = 0;
+	return m;
+}
+
 bool fakeChangedIs(int x, int y, const char *text, uint16_t ground, int scale) {
 	if (!fakeTextIs(x, y, text, C_ONACCENT, C_CYAN, scale)) return false;
 	const uint16_t *fb = gfxBuffer();

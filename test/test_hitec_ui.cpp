@@ -655,6 +655,7 @@ static void testWrite() {
 	          uiHitecView() == HitecView::Write && ctlEnabled(UI_FIX(HitecCtl::WriteHold)) &&
 	          jobSpeed() == before);
 	checkControlTable("Hitec write page");
+	checkStartHold(UI_FIX(HitecCtl::WriteHold), "HOLD TO WRITE", 2, "HITEC WRITE");
 	checkTrue("the strip counts 1 CHANGE", fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 CHANGE", C_DIM, C_BG, 1) &&
 	          !fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 VALUE", C_DIM, C_BG, 1));
 	fakeDumpFrame("shot_hitec_write.ppm");
@@ -914,6 +915,7 @@ static void testFiles() {
 	hitecFrames(60);
 	checkTrue("it restores nothing until its hold", jobSpeed() != before &&
 	          ctlEnabled(UI_FIX(HitecCtl::WriteHold)));
+	checkStartHold(UI_FIX(HitecCtl::WriteHold), "HOLD TO RESTORE", 2, "HITEC RESTORE");
 	holdUntilGone(UI_FIX(HitecCtl::WriteHold));
 	checkTrue("the restore ends", untilCtl(UI_FIX(HitecCtl::WriteOk), 800));
 	checkInt("the servo is back to the backup", jobSpeed(), before);
@@ -1342,8 +1344,9 @@ static void testStallAndBack() {
 	uint32_t t0 = millis();
 	checkTrue("RESTART DSHOT waits, drawn disabled", !ctlEnabled(UI_FIX(HitecCtl::Release)) &&
 	          leaveWideIs("SERVO", false) && leaveNoteBlank(0));
-	checkTrue("RESTART DSHOT live 1000 ms later", untilEnabled(UI_FIX(HitecCtl::Release), 60) &&
-	          millis() - t0 >= 1000 && millis() - t0 < 1025);
+	checkTrue("RESTART DSHOT live 1000 ms later, SERVO dark on cyan",
+	          untilEnabled(UI_FIX(HitecCtl::Release), 60) && millis() - t0 >= 1000 && millis() - t0 < 1025 &&
+	          leaveWideIs("SERVO", true));
 	checkTrue("BACK still disabled, and drawn so",
 	          !ctlEnabled(UI_FIX(UI_BACK)) && backLook() == BackLook::Disabled);
 	checkControlTable("Hitec leave, released");

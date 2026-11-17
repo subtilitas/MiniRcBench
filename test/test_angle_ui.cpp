@@ -90,15 +90,17 @@ static bool blank(int y, int h) {
 static bool stripIs(const char *cap, uint16_t capCol, const char *chip, uint16_t fill) {
 	uint16_t fg = (fill == C_AMBER || fill == C_INK) ? C_PAPER : C_ONACCENT;
 	return fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, cap, capCol, C_BG, 1) &&
-	       fakeTextIs(uiChipX(chip) + 6, UI_STRIP_Y + 4, chip, fg, fill, 1);
+	       (fill == C_GREEN ? greenChipIs(chip) : fakeTextIs(uiChipX(chip) + 6, UI_STRIP_Y + 4, chip, fg, fill, 1));
 }
 
 /**
  * @brief The chip reads @p chip on @p fill, whatever the caption; with
- *        `C_GRID`, as the neutral chip.
+ *        `C_GRID`, as the neutral chip, and with `C_GREEN` as the outlined
+ *        green chip.
  */
 static bool chipIs(const char *chip, uint16_t fill) {
 	if (fill == C_GRID) return neutralChipIs(chip);
+	if (fill == C_GREEN) return greenChipIs(chip);
 	uint16_t fg = (fill == C_AMBER || fill == C_INK) ? C_PAPER : C_ONACCENT;
 	return fakeTextIs(uiChipX(chip) + 6, UI_STRIP_Y + 4, chip, fg, fill, 1);
 }
@@ -287,7 +289,7 @@ static void testReading() {
 	openMeter();
 	checkTrue("settled flat", settle());
 	checkTrue("+0.0` in lime, scale 5, ending at x 231", angleIs("+0.0`", C_LIME));
-	checkTrue("the strip: LONG EDGE  AXIS TILT 0`, SETTLED on green",
+	checkTrue("the strip: LONG EDGE  AXIS TILT 0`, SETTLED, the green outline",
 	          stripIs("LONG EDGE  AXIS TILT 0`", C_DIM, "SETTLED", C_GREEN));
 	checkTrue("NOT ZEROED: FROM LEVEL, dim, at y 108", lineIs(108, UI_ANGLE_NOT_ZEROED, C_DIM));
 	checkTrue("the texts of decision 17: 30 and 29 characters, 179 and 173 px at scale 1",

@@ -160,14 +160,19 @@ struct TouchState;
  * (docs/design/menu-b.md, slice 2 as built).
  * @{
  */
-/** @brief Safe or done: the SAFE badge and chip, EDT ON, WRITE VERIFIED,
- *         SAVED. */
+/** @brief Safe or done, as a word or an outline and never as a fill: the
+ *         SAFE badge and chip, OK, SETTLED, EDT ON, WRITE VERIFIED, SAVED
+ *         (docs/design/ui-theme.md, decision 10). */
 #define UI_COL_SAFE     C_GREEN
+/** @brief A press that starts an output, as a button's fill at rest: HOLD TO
+ *         WRITE, HOLD TO RESTORE, HOLD TO START, HOLD TO APPLY and START
+ *         DSHOT (docs/design/ui-theme.md, decision 2). @see uiStartHold() */
+#define UI_COL_START    C_GREEN
 /** @brief A live reading: RPM, the throttle fill, the pulse readout, servo
  *         A's horn, hold progress bars, spinners, LINK, the SD read counter,
  *         the sweep count. */
 #define UI_COL_LIVE     C_LIME
-/** @brief Output on, or a failure: ARMED, RUNNING, STOP, DISARM, a running
+/** @brief Output on, or a failure: ARMED, RUNNING, STOP, DISARM, a held
  *         hold's fill, REC, a save that failed, a write in doubt. */
 #define UI_COL_ON       C_RED
 /** @brief A warning: text to read before the next action, the current step,
@@ -251,6 +256,23 @@ bool uiTapped(const UiRect &r, const TouchState *t);
  */
 void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
               int scale, bool pressed, bool enabled = true);
+
+/**
+ * @brief Draw a hold that starts an output: @ref UI_COL_START, `C_GREEN`,
+ *        at rest and @ref UI_COL_ON, `C_RED`, while held, with a
+ *        `C_ONACCENT` label on both (docs/design/ui-theme.md, "Green").
+ *        HOLD TO WRITE and HOLD TO RESTORE of ESC WRITE, KST and Hitec, HOLD
+ *        TO START of SERVO TESTER and S.BUS OUTPUT, and HOLD TO APPLY draw
+ *        through it. A hold that edits or commands, such as HOLD TO SAVE,
+ *        stays neutral and draws through uiButton().
+ * @param r       Rectangle.
+ * @param label   Text, centred.
+ * @param scale   Text scale.
+ * @param holding The hold is timing a press (UiHold::holding): the red
+ *                fill and the pressed look.
+ * @param enabled False draws uiButton()'s disabled look, which is not green.
+ */
+void uiStartHold(const UiRect &r, const char *label, int scale, bool holding, bool enabled);
 
 /**
  * @brief Draw the header band: title on the left, BACK on the right, and
@@ -394,10 +416,18 @@ void uiBackGuardDraw(int pending, const char *verb);
  * theme's ink on a `C_GRID` fill has a contrast ratio of 3.51, under the 4.5
  * a label on a fill needs.
  *
+ * A safe or done chip is an outline too: `SAFE`, `OK`, `SETTLED`, `EDT ON`.
+ * Its @p fill is @ref UI_COL_SAFE, `C_GREEN`, and it is drawn as a 1 px
+ * `C_GREEN` frame with `C_BG` inside and a `C_GREEN` label, because a green
+ * fill is a button that starts an output (docs/design/ui-theme.md, "Green",
+ * decision 10).
+ *
  * @param text Label, drawn at scale 1 from 6 px inside the chip.
  * @param fill Chip colour. The label is @ref C_ONACCENT over it, and
  *             @ref C_PAPER over `C_AMBER` and `C_INK` (theme.h). `C_GRID`
  *             draws the neutral chip: a frame, no fill, a `C_DIM` label.
+ *             `C_GREEN` draws the outlined chip: a green frame, no fill, a
+ *             green label.
  */
 void uiChip(const char *text, uint16_t fill);
 

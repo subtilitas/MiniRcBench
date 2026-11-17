@@ -350,6 +350,7 @@ static void testEditAndWrite() {
 	          uiKstView() == KstView::Write && ctlEnabled(UI_FIX(KstCtl::WriteHold)) &&
 	          simField(KST_F_DEAD_BAND) == deadBand);
 	checkControlTable("KST write page");
+	checkStartHold(UI_FIX(KstCtl::WriteHold), "HOLD TO WRITE", 2, "KST WRITE");
 	kstFrames(1);
 	checkTrue("the strip counts 1 CHANGE, the leave page's word",
 	          fakeTextIs(UI_MARGIN, UI_STRIP_Y + 4, "1 CHANGE", C_DIM, C_BG, 1) &&
@@ -536,6 +537,7 @@ static void testLockedAndRestore() {
 	checkTrue("it restores nothing until its hold: HOLD TO RESTORE waits",
 	          ctlEnabled(UI_FIX(KstCtl::WriteHold)) && job().locked &&
 	          lineIs(UI_STRIP_Y + 4, "BACK TO THE SESSION'S BACKUP", C_DIM));
+	checkStartHold(UI_FIX(KstCtl::WriteHold), "HOLD TO RESTORE", 2, "KST RESTORE");
 	kstFrames(1);
 	fakeDumpFrame("shot_kst_restore.ppm");
 	checkTrue("the hold runs the restore", holdUntilGone(UI_FIX(KstCtl::WriteHold)));

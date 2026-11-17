@@ -344,8 +344,12 @@ static bool rightIs(int y, const char *text, uint16_t col) {
 	return fakeTextIs(SBUS_UI_VALUE_END - gfxTextW(text, 1), y, text, col, C_BG, 1);
 }
 
-/** @brief The chip reads @p text on @p fill, the label in @p fg. */
+/**
+ * @brief The chip reads @p text on @p fill, the label in @p fg; with
+ *        `C_GREEN`, as the outlined green chip, whose label is `C_GREEN`.
+ */
 static bool chipIs(const char *text, uint16_t fill, uint16_t fg) {
+	if (fill == C_GREEN) return fg == C_GREEN && greenChipIs(text);
 	return fakeTextIs(uiChipX(text) + 6, UI_STRIP_Y + 4, text, fg, fill, 1) &&
 	       pixel(uiChipX(text) + 1, UI_STRIP_Y + 3) == fill;
 }
@@ -515,7 +519,7 @@ static void testMonitor() {
 	sbFrames(12);
 	SbusStatus st = jobStatus();
 	checkTrue("frames decode", st.frames >= 18);
-	checkTrue("the chip: OK, green, its label C_ONACCENT", chipIs(SBUS_VIEW_OK, C_GREEN, C_ONACCENT));
+	checkTrue("the chip: OK, the green outline, its label C_GREEN", chipIs(SBUS_VIEW_OK, C_GREEN, C_GREEN));
 	bool rows = true;
 	for (int i = 0; i < (int)SBUS_CHANNELS; i++) {
 		char v[8];
@@ -564,7 +568,7 @@ static void testMonitor() {
 	checkTrue("225 ms on, frames clean since: still FRAME LOST",
 	          chipIs(SBUS_VIEW_FRAME_LOST, C_AMBER, C_PAPER));
 	sbFrames(2);
-	checkTrue("275 ms on: OK", chipIs(SBUS_VIEW_OK, C_GREEN, C_ONACCENT));
+	checkTrue("275 ms on: OK", chipIs(SBUS_VIEW_OK, C_GREEN, C_GREEN));
 
 	// Failsafe: the receiver's failsafe values with the bit.
 	SbusLineFrame fs = sbusLineFrame(0);
@@ -621,7 +625,7 @@ static void testMonitor() {
 	sbusLineStream(t, SBUS_LINE_14MS, 8, f);
 	sbFrames(6);
 	checkTrue("one parity, framing and break error each", leftIs(SBUS_UI_LINE3_Y, "PAR 1 FRM 1 BRK 1 OVR 0", C_TEXT));
-	checkTrue("frames again: OK", chipIs(SBUS_VIEW_OK, C_GREEN, C_ONACCENT));
+	checkTrue("frames again: OK", chipIs(SBUS_VIEW_OK, C_GREEN, C_GREEN));
 	sbFrames(8);
 
 	// BACK: the leave page, opened releasing.
@@ -662,9 +666,11 @@ static void testMonitor() {
 	const uint32_t released = millis();
 	checkTrue("the pin let go on the frame after BACK", pinClaimUnplugDue());
 	while (millis() - released < 975) sbFrames(1);
-	checkTrue("975 ms after the pin went: RESTART DSHOT still waits", !ctlEnabled(UI_FIX(SbusCtl::Release)));
+	checkTrue("975 ms after the pin went: RESTART DSHOT still waits, RECEIVER drawn disabled",
+	          !ctlEnabled(UI_FIX(SbusCtl::Release)) && leaveWideIs("RECEIVER", false));
 	sbFrames(1);
-	checkTrue("1000 ms: it acts", ctlEnabled(UI_FIX(SbusCtl::Release)));
+	checkTrue("1000 ms: it acts, RECEIVER dark on cyan",
+	          ctlEnabled(UI_FIX(SbusCtl::Release)) && leaveWideIs("RECEIVER", true));
 	int resumes = fakeParkCount();
 	tapId(UI_FIX(SbusCtl::Release));
 	checkTrue("RESTART DSHOT: RECEIVER, the pins parked with the job idle",
@@ -925,7 +931,7 @@ static void testKeepClearsHold() {
 	send(f, 4);
 	sbFrames(1);
 	checkTrue("the new bind's frames within 250 ms of it", jobStatus().frames > 0 && millis() - seen < 250);
-	checkTrue("read OK, not FRAME LOST", chipIs(SBUS_VIEW_OK, C_GREEN, C_ONACCENT));
+	checkTrue("read OK, not FRAME LOST", chipIs(SBUS_VIEW_OK, C_GREEN, C_GREEN));
 	tapId(UI_FIX(UI_BACK));
 	sbFrames(42);
 	tapId(UI_FIX(SbusCtl::Release));

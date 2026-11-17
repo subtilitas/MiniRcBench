@@ -74,8 +74,14 @@ first `BACK` stays and puts two amber lines on the strip, for example
 `2 CHANGES NOT WRITTEN.` and `BACK AGAIN DISCARDS THEM.`; a second `BACK`
 drops the changes, and any other touch keeps them.
 
-**The colours follow a table of roles.** Green is safe or done: `SAFE`,
-`EDT ON`, `WRITE VERIFIED`, `SAVED`. Lime is a live reading: RPM, the throttle
+**The colours follow a table of roles.** Green has two forms. As a
+button's fill it starts an output: `HOLD TO ARM`, `HOLD TO WRITE`,
+`HOLD TO RESTORE`, `HOLD TO START`, `HOLD TO APPLY` and `START DSHOT` are
+green with a dark label at rest and turn red while held. As a word or a
+frame it is safe or done: the chips `SAFE`, `OK`, `SETTLED` and `EDT ON`
+are a green frame around a green word, the tester's `SAFE` badge a 2 px
+green frame, and `WRITE VERIFIED` and `SAVED` are green text. Nothing is
+filled green while the tester is armed. Lime is a live reading: RPM, the throttle
 fill, the servo pulse, a hold's progress bar. Red is output on or a failure:
 `ARMED`, `RUNNING`, `STOP`, a tool's hold button while it is held, `REC`, a
 write in doubt. Amber is a warning or the step to take now. Magenta is an alert,
@@ -88,7 +94,8 @@ hub. It is a setting of the bench, as cyan text: the values and section
 captions of SETUP, the values of SERVO SET and OUTPUT SET, LENGTH on ANGLE
 SETUP. And it is a value changed and not yet written or applied: dark text
 on a cyan fill, with a cyan bar at its row's left edge. A value read from an
-ESC or a servo is in the text colour. Labels, captions and the buttons that
+ESC or a servo is in the text colour. A leave page's wide button to the
+hub, which reads the hub's title, is cyan with a dark label once it acts. Labels, captions and the buttons that
 open or command something are in the text colour or grey. A button has
 rounded corners. A chip on the strip under a title is square, so it does not
 look like a button; the tester's arm badge and its `SDERR` chip are square
@@ -138,7 +145,7 @@ last throttle, then nothing, and the pin is held low.
 
 **Top row.** From left to right:
 
-- the arm badge: `SAFE` (green) or `ARMED` (red);
+- the arm badge: `SAFE` (a green frame) or `ARMED` (red);
 - `DSHOT` and the DShot bitrate in kbit/s, for example `DSHOT600`, as set
   under SETUP → DSHOT, dim, and in the text colour once an EDT (Extended
   DShot Telemetry) enable has been sent. `DSERR` in amber replaces it when

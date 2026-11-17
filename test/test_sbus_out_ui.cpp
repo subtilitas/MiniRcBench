@@ -284,8 +284,9 @@ static bool leftIs(int y, const char *text, uint16_t col) {
 	return fakeTextIs(UI_MARGIN, y, text, col, C_BG, 1);
 }
 
-/** @brief The chip reads @p text on @p fill. */
+/** @brief The chip reads @p text on @p fill; with `C_GREEN`, as the outlined green chip. */
 static bool chipIs(const char *text, uint16_t fill) {
+	if (fill == C_GREEN) return greenChipIs(text);
 	uint16_t fg = fill == C_AMBER || fill == C_INK ? C_PAPER : C_ONACCENT;
 	return fakeTextIs(uiChipX(text) + 6, UI_STRIP_Y + 4, text, fg, fill, 1) &&
 	       pixel(uiChipX(text) + 1, UI_STRIP_Y + 3) == fill;
@@ -486,7 +487,7 @@ static void testEntryProbeStart() {
 	fakeRelease();
 	soFrames(1);
 
-	checkTrue("SAFE: the chip on green", chipIs("SAFE", UI_COL_SAFE));
+	checkTrue("SAFE: the outlined green chip", chipIs("SAFE", UI_COL_SAFE));
 	checkTrue("the caption ends 34 px before RUNNING's chip",
 	          uiChipX("RUNNING") - (UI_MARGIN + 137) == 34 && uiChipX("RUNNING") == 179);
 	checkTrue("note 1 at y 62, amber: GP0 GOES TO A FLIGHT CONTROLLER.",
@@ -523,7 +524,7 @@ static void testEntryProbeStart() {
 		          s.x == 6 && s.w == 110 && p.x == 120 && p.w == 55 && t.x == 179 && t.w == 55 &&
 		          s.y == 285 && s.h == 32 && t.y == 285);
 		checkTrue("their labels: HOLD TO START, CH 9-16, SET",
-		          fakeTextIs(s.x + (110 - 77) / 2, s.y + 12, "HOLD TO START", C_TEXT, C_PANEL, 1) &&
+		          fakeTextIs(s.x + (110 - 77) / 2, s.y + 12, "HOLD TO START", C_ONACCENT, C_GREEN, 1) &&
 		          fakeTextIs(p.x + (55 - 41) / 2, p.y + 12, "CH 9-16", C_TEXT, C_PANEL, 1) &&
 		          fakeTextIs(t.x + (55 - 17) / 2, t.y + 12, "SET", C_TEXT, C_PANEL, 1));
 	}
@@ -535,6 +536,7 @@ static void testEntryProbeStart() {
 		          fakeInkExtent(SBOUT_UI_NOTE1_Y, 16, C_BG, &x0, &x1) && x0 == UI_MARGIN && x1 <= 231);
 	}
 	checkControlTable("S.BUS OUTPUT, SAFE");
+	checkStartHold(UI_FIX(SbusOutCtl::Start), "HOLD TO START", 1, "S.BUS OUTPUT");
 	fakeDumpFrame("shot_sbus_out_safe.ppm");
 
 	// A drag while SAFE moves nothing and sends nothing.
@@ -1109,9 +1111,11 @@ static void testLeave() {
 	const uint32_t released = millis();
 	checkTrue("BACK while RUNNING: frames stop, GP0 let go", pinClaimUnplugDue() && !jobSt().running);
 	while (millis() - released < 975) soFrames(1);
-	checkTrue("975 ms after: RESTART DSHOT still waits", !ctlEnabled(UI_FIX(SbusOutCtl::Release)));
+	checkTrue("975 ms after: RESTART DSHOT still waits, RECEIVER drawn disabled",
+	          !ctlEnabled(UI_FIX(SbusOutCtl::Release)) && leaveWideIs("RECEIVER", false));
 	soFrames(1);
-	checkTrue("1000 ms: it acts", ctlEnabled(UI_FIX(SbusOutCtl::Release)));
+	checkTrue("1000 ms: it acts, RECEIVER dark on cyan",
+	          ctlEnabled(UI_FIX(SbusOutCtl::Release)) && leaveWideIs("RECEIVER", true));
 	int resumes = fakeParkCount();
 	tapId(UI_FIX(SbusOutCtl::Release));
 	checkTrue("RESTART DSHOT: RECEIVER, the pins parked with the job idle",

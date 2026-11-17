@@ -927,8 +927,7 @@ static void drawButtons(bool startOk, int holdPct) {
 		uiButton(BTN_START, SV_STOP_LABEL, C_RED, C_ONACCENT, 2, k.p[4]);
 	} else {
 		uiHoldDrawBar(&s_hold, BTN_START, SV_BAR_Y, millis());
-		uiButton(BTN_START, SV_START_LABEL, s_hold.holding ? C_RED : C_PANEL,
-		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, startOk);
+		uiStartHold(BTN_START, SV_START_LABEL, 1, s_hold.holding, startOk);
 	}
 	uiButton(BTN_SET, SV_SET_LABEL, C_PANEL, C_TEXT, 1, k.p[5]);
 }
@@ -1328,8 +1327,7 @@ static void drawSet(int holdPct) {
 	if (changed(3, &kf, sizeof(kf))) {
 		gfxRect(0, SET_FOOT_Y - 4, GFX_W, GFX_H - SET_FOOT_Y + 4, C_BG);
 		uiHoldDrawBar(&s_hold, BTN_APPLY, SET_FOOT_Y - 4, millis());
-		uiButton(BTN_APPLY, SET_APPLY_LABEL, s_hold.holding ? C_RED : C_PANEL,
-		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, applyOk);
+		uiStartHold(BTN_APPLY, SET_APPLY_LABEL, 1, s_hold.holding, applyOk);
 		if (s_st.running) uiButton(BTN_DEFAULTS, SET_STOP_LABEL, C_RED, C_ONACCENT, 2, kf.dp);
 		else              uiButton(BTN_DEFAULTS, SET_DEFAULTS_LABEL, C_PANEL, C_AMBER, 1, kf.dp);
 	}

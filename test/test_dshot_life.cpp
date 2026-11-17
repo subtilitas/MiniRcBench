@@ -426,6 +426,67 @@ static void testArmGate() {
 	lifeFrames(2);
 }
 
+/**
+ * @brief Slice 12 of menu-c.md's build plan (docs/design/ui-theme.md,
+ *        decision 2, "Green"): HOLD TO ARM green at rest, red from the first
+ *        frame of a hold that arming allows, the disabled button while the
+ *        gate or the touch loss refuses arming; SAFE an outlined chip; ARMED
+ *        the one filled badge, with no green pixel on the frame while armed.
+ */
+static void testArmLook() {
+	section("ui-theme.md slice 12: green on the tester");
+
+	freshLife();
+	openTesterBound();
+	const uint32_t bound = escTaskBoundMs();
+	const UiRect arm = ctlRect(UI_FIX(TesterCtl::Arm));
+	auto px = [](int x, int y) { return gfxBuffer()[y * GFX_W + x]; };
+	auto armFill = [&]() { return px(arm.x + 4, arm.y + arm.h / 2); };
+	const int lx = arm.x + (arm.w - gfxTextW("HOLD TO ARM", 1)) / 2, ly = arm.y + (arm.h - 7) / 2;
+	const int sx = 4 + (92 - gfxTextW("SAFE", 2)) / 2;
+
+	frameAt(bound + 1499);
+	checkTrue("1499 ms after the bind: HOLD TO ARM on C_BG, its label C_GRID",
+	          armFill() == C_BG && fakeTextIs(lx, ly, "HOLD TO ARM", C_GRID, C_BG, 1));
+	frameAt(bound + 1500);
+	checkTrue("1500 ms, the touch answering: dark on green",
+	          armFill() == C_GREEN && fakeTextIs(lx, ly, "HOLD TO ARM", C_ONACCENT, C_GREEN, 1));
+	checkTrue("SAFE: a 2 px C_GREEN frame, C_BG inside",
+	          px(4, 3) == C_GREEN && px(5, 4) == C_GREEN && px(95, 22) == C_GREEN &&
+	          px(6, 5) == C_BG && px(93, 20) == C_BG);
+	checkTrue("SAFE: the word in C_GREEN at scale 2", fakeTextIs(sx, 7, "SAFE", C_GREEN, C_BG, 2));
+
+	int ax, ay;
+	ctlCentre(UI_FIX(TesterCtl::Arm), &ax, &ay);
+	fakePress(ax, ay);
+	lifeFrame(25);
+	checkTrue("the hold's first frame: C_RED", armFill() == C_RED && !uiArmed());
+	while (!uiArmed() && millis() < bound + 4000) {
+		fakeHold(ax, ay);
+		lifeFrame(25);
+	}
+	fakeRelease();
+	lifeFrames(2);
+	checkTrue("armed: DISARM on C_RED, ARMED filled C_RED",
+	          uiArmed() && armFill() == C_RED && px(6, 5) == C_RED && px(4, 3) == C_RED);
+	bool green = false;
+	for (int i = 0; i < GFX_W * GFX_H; i++) green = green || gfxBuffer()[i] == C_GREEN;
+	checkTrue("while armed: no C_GREEN pixel on the tester", !green);
+	tapId(UI_FIX(TesterCtl::Arm));
+	lifeFrames(2);
+	checkTrue("disarmed: green again", !uiArmed() && armFill() == C_GREEN && px(6, 5) == C_BG);
+
+	fakeTouchAnswers(false);
+	lifeFrames(6);
+	checkTrue("touch lost: HOLD TO ARM on C_BG, no green fill",
+	          uiTouchLost() && armFill() == C_BG && fakeTextIs(lx, ly, "HOLD TO ARM", C_GRID, C_BG, 1));
+	fakeTouchAnswers(true);
+	lifeFrames(2);
+	checkTrue("answering: green", armFill() == C_GREEN);
+	tapId(UI_FIX(TesterCtl::Menu));
+	lifeFrames(2);
+}
+
 /** @brief The frames between the tap and core1's bind: the stamp is 0 and gates. */
 static void testTapToBind() {
 	section("DShot lifetime: the frames between the tap and the bind");
@@ -900,8 +961,10 @@ static void startStepCase(void (*cue)(), const char *src, bool tester) {
 	snprintf(what, sizeof(what), "%s: a press landed at 999 ms, lifted at 1025 ms: the step stays",
 	         scr);
 	checkTrue(what, uiStartStepShown() && escTaskParked() && fakeRebuildCount() == binds);
-	snprintf(what, sizeof(what), "%s: 1000 ms on, START DSHOT live", scr);
-	checkTrue(what, ctlEnabled(start) && neutralButtonIs(start, UI_LEAVE_START_LABEL, 2));
+	snprintf(what, sizeof(what), "%s: 1000 ms on, START DSHOT live, dark on green", scr);
+	checkTrue(what, ctlEnabled(start) && startButtonIs(start, UI_LEAVE_START_LABEL, 2));
+	snprintf(what, sizeof(what), "%s, the start step at 1000 ms", scr);
+	checkControlTable(what);
 	tapId(start);
 	snprintf(what, sizeof(what), "%s: START DSHOT ends the step and clears every cue", scr);
 	checkTrue(what, !uiStartStepShown() && !uiRunCue(0) && uiDshotWanted());
@@ -1281,6 +1344,7 @@ void runDshotLifeTests() {
 	testOpenClose();
 	testSetupOverTester();
 	testArmGate();
+	testArmLook();
 	testTapToBind();
 	testRebindCancels();
 	testDrainRace();

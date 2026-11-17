@@ -651,10 +651,18 @@ static void drawStatusBar() {
 
 	// The badge is a chip, and a chip is square: the 5 px radius is a
 	// button's (docs/design/ui-theme.md, decisions 4 and 13).
-	uint16_t badge = s_armed ? C_RED : C_GREEN;
-	gfxRect(4, 3, 92, 20, badge);
+	// ARMED is the one filled badge. SAFE is an outline, a 2 px C_GREEN
+	// frame with C_BG inside and the word in C_GREEN: a green fill is a
+	// button that starts an output (docs/design/ui-theme.md, "Green").
 	const char *txt = s_armed ? "ARMED" : "SAFE";
-	gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, C_ONACCENT, 2);
+	if (s_armed) {
+		gfxRect(4, 3, 92, 20, C_RED);
+		gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, C_ONACCENT, 2);
+	} else {
+		gfxRect(4, 3, 92, 20, UI_COL_SAFE);
+		gfxRect(6, 5, 88, 16, C_BG);
+		gfxText(4 + (92 - gfxTextW(txt, 2)) / 2, 7, txt, UI_COL_SAFE, 2);
+	}
 
 	if (!s_armed && progress > 0) {
 		gfxRect(4, 21, 92 * progress / 100, 2, C_LIME);
@@ -1039,7 +1047,8 @@ static void drawButtons() {
 	// finger and stay lit until something else happened to invalidate the row.
 	int pressKey = (pressing(BTN_ARM, s_touch) ? 1 : 0) |
 	               (pressing(BTN_LATCH, s_touch) ? 2 : 0) |
-	               (pressing(BTN_MENU, s_touch) ? 4 : 0);
+	               (pressing(BTN_MENU, s_touch) ? 4 : 0) |
+	               (s_armPressing ? 8 : 0);
 	// ARM is gated on the card in handleMainTouch() and in the control table;
 	// it is drawn on the same expression. @see ui_widgets.h
 	// Drawn disabled, too, while a touch that does not answer refuses arming,
@@ -1060,9 +1069,14 @@ static void drawButtons() {
 	// whole button band and nothing but it. It used to start a row early to
 	// cover a boundary row that belonged to neither region.
 	gfxRect(0, Z_BTN_Y0, GFX_W, Z_BTN_Y1 - Z_BTN_Y0 + 1, C_BG);
-	uiButton(BTN_ARM, s_armed ? "DISARM" : "HOLD TO ARM",
-	        s_armed ? C_RED : C_PANEL, s_armed ? C_ONACCENT : C_TEXT,
-	        s_armed ? 2 : 1, cardFree && pressing(BTN_ARM, s_touch), cardFree != 0);
+	// HOLD TO ARM starts an output: green at rest, red from the first frame
+	// of a hold that arming allows (uiStartHold()); while arming is refused
+	// it is the disabled button. DISARM is red.
+	if (s_armed)
+		uiButton(BTN_ARM, "DISARM", C_RED, C_ONACCENT, 2,
+		         cardFree && pressing(BTN_ARM, s_touch), cardFree != 0);
+	else
+		uiStartHold(BTN_ARM, "HOLD TO ARM", 1, cardFree && s_armPressing, cardFree != 0);
 	uiButton(BTN_LATCH, "LATCH", s_latch ? C_BLUE : C_PANEL,
 	        s_latch ? C_ONACCENT : C_DIM, 1, pressing(BTN_LATCH, s_touch));
 	// The tester has no header: MENU is its home tag, the way back, and

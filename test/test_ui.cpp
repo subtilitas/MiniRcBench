@@ -1684,6 +1684,7 @@ static bool allOf(int x, int y, int w, int h, uint16_t c) {
 
 static bool menuChipIs(const char *text, uint16_t fill) {
 	if (fill == C_GRID) return neutralChipIs(text);
+	if (fill == C_GREEN) return greenChipIs(text);
 	const int w = gfxTextW(text, 1) + 12, x = GFX_W - UI_MARGIN - w;
 	return gfxBuffer()[(UI_STRIP_Y + UI_STRIP_H / 2) * GFX_W + x + 2] == fill &&
 	       fakeTextIs(x + 6, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, text, C_ONACCENT, fill, 1);
@@ -3682,7 +3683,7 @@ static void testTouchLoss() {
 	fakeTouchAnswers(true);
 	frames(1);
 	checkTrue("answering: the note goes", hintIs("SWIPE = THROTTLE", C_DIM));
-	checkTrue("and HOLD TO ARM is live again", armFill() == C_PANEL);
+	checkTrue("and HOLD TO ARM is live again, green", armFill() == C_GREEN);
 
 	// The refusal itself: a driver that still reports the finger while the
 	// controller counts as lost does not arm the tester.
@@ -4808,8 +4809,8 @@ static void testTesterBoardAndCard() {
 	const int tx = thr.x + 8, ty = thr.y + (thr.h - 7) / 2;
 	auto armFill = [&]() { return gfxBuffer()[(arm.y + arm.h / 2) * GFX_W + arm.x + 4]; };
 	const int lx = arm.x + (arm.w - gfxTextW("HOLD TO ARM", 1)) / 2, ly = arm.y + (arm.h - 7) / 2;
-	checkTrue("card free: HOLD TO ARM on the panel fill", armFill() == C_PANEL &&
-	          fakeTextIs(lx, ly, "HOLD TO ARM", C_TEXT, C_PANEL, 1));
+	checkTrue("card free: HOLD TO ARM dark on green", armFill() == C_GREEN &&
+	          fakeTextIs(lx, ly, "HOLD TO ARM", C_ONACCENT, C_GREEN, 1));
 	checkTrue("and the track reads ARM TO ENABLE", fakeTextIs(tx, ty, "ARM TO ENABLE", C_DIM, C_PANEL, 1));
 
 	fakeMscSet(MscState::Serving, 0);
@@ -4836,8 +4837,8 @@ static void testTesterBoardAndCard() {
 
 	fakeMscSet(MscState::Idle, 0);
 	frames(2);
-	checkTrue("card back: HOLD TO ARM live again", armFill() == C_PANEL &&
-	          fakeTextIs(lx, ly, "HOLD TO ARM", C_TEXT, C_PANEL, 1));
+	checkTrue("card back: HOLD TO ARM live again, dark on green", armFill() == C_GREEN &&
+	          fakeTextIs(lx, ly, "HOLD TO ARM", C_ONACCENT, C_GREEN, 1));
 	checkTrue("and the track reads ARM TO ENABLE again",
 	          fakeTextIs(tx, ty, "ARM TO ENABLE", C_DIM, C_PANEL, 1));
 	holdToArm();
@@ -5873,11 +5874,12 @@ static void testAm32WritePage() {
 	checkTrue("then AND 1 MORE, dim, y 142", fakeTextIs(UI_MARGIN, 142, "AND 1 MORE", C_DIM, C_BG, 1));
 	checkTrue("the backup line: BACKUP FIRST: BACKUP/AM001.TXT, dim, y 236",
 	          fakeTextIs(UI_MARGIN, 236, "BACKUP FIRST: BACKUP/AM001.TXT", C_DIM, C_BG, 1));
-	checkTrue("HOLD TO WRITE in the wide button, scale 2",
+	checkTrue("HOLD TO WRITE in the wide button, scale 2, dark on green",
 	          fakeTextIs(6 + (228 - gfxTextW("HOLD TO WRITE", 2)) / 2, 268 + (46 - 14) / 2, "HOLD TO WRITE",
-	                     C_TEXT, C_PANEL, 2));
+	                     C_ONACCENT, C_GREEN, 2));
 	UiRect hr = ctlRect(UI_FIX(Am32Ctl::WriteHold));
 	checkTrue("HOLD TO WRITE: 6/228 at y 268, 46 px", hr.x == 6 && hr.w == 228 && hr.y == 268 && hr.h == 46);
+	checkStartHold(UI_FIX(Am32Ctl::WriteHold), "HOLD TO WRITE", 2, "ESC WRITE");
 	checkTrue("nothing written by opening the page", fakeAm32Writes() == writes);
 	fakeDumpFrame("shot_am32_write.ppm");
 
@@ -5988,7 +5990,8 @@ static void testAm32PageWritesWhatItShows() {
 	checkTrue("WRITE... acts on it", ctlEnabled(UI_FIX(Am32Ctl::Write)));
 	checkTrue("the page opens", am32OpenPage());
 	checkTrue("  0 CHANGES, HOLD TO WRITE drawn disabled",
-	          am32StripIs("0 CHANGES", C_DIM) && !ctlEnabled(UI_FIX(Am32Ctl::WriteHold)));
+	          am32StripIs("0 CHANGES", C_DIM) && !ctlEnabled(UI_FIX(Am32Ctl::WriteHold)) &&
+	          disabledButtonIs(UI_FIX(Am32Ctl::WriteHold), "HOLD TO WRITE", 2));
 	pressId(UI_FIX(Am32Ctl::WriteHold), IdExpect::Disabled);
 	holdId(UI_FIX(Am32Ctl::WriteHold), 60);
 	fakeRelease(); frames(2);

@@ -11,6 +11,7 @@
 
 #include "check.h"
 #include "fakes.h"
+#include "ui_screen.h"
 
 int g_failures = 0;
 
@@ -123,6 +124,19 @@ int main() {
 	section("Changed values: the frames checkControlTable() walked");
 	printf("  changed values walked: %d\n", fakeChangedWalked());
 	checkTrue("ESC SETTINGS, KST SERVO, HITEC SERVO and SERVO SET each showed one or more", fakeChangedWalked() >= 4);
+
+	// checkControlTable() walks each frame's green fills; a walk that met no
+	// start button would pass whatever the buttons drew.
+	section("Start buttons: the screens whose green fill checkControlTable() met");
+	printf("  screens: 0x%04x\n", fakeGreenWalked());
+	{
+		const UiScreenId want[] = { UiScreenId::Am32, UiScreenId::Kst, UiScreenId::Hitec, UiScreenId::Servo,
+		                            UiScreenId::SbusOut, UiScreenId::EscCmd, UiScreenId::Tester };
+		unsigned mask = 0;
+		for (UiScreenId s : want) mask |= 1u << (unsigned)s;
+		checkTrue("ESC WRITE, KST, HITEC, SERVO TESTER, S.BUS OUTPUT, ESC COMMANDS and ESC TESTER each showed one",
+		          (fakeGreenWalked() & mask) == mask);
+	}
 
 	section("Critical sections");
 	checkInt("uses before critical_section_init()", fakeCriticalSectionMisuse(), 0);

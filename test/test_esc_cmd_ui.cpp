@@ -201,12 +201,7 @@ static void testLayout() {
 	checkTrue("its widest, SIG GP1  DSHOT1200, 107 px, ends 64 px before EDT OFF at x 179",
 	          gfxTextW("SIG GP1  DSHOT1200", 1) == 107 &&
 	          uiChipX(UI_MENU_EDT_OFF) - (UI_MARGIN + 107) == 64);
-	{
-		const int w = gfxTextW(UI_MENU_EDT_ON, 1) + 12, x = GFX_W - UI_MARGIN - w;
-		checkTrue("the chip: EDT ON, green, as MENU's",
-		          fakeTextIs(x + 6, UI_STRIP_Y + (UI_STRIP_H - 7) / 2, UI_MENU_EDT_ON, C_ONACCENT,
-		                     C_GREEN, 1));
-	}
+	checkTrue("the chip: EDT ON, the outlined green chip", greenChipIs(UI_MENU_EDT_ON));
 	checkTrue("the captions BEEP, DIRECTION, 3D MODE, dim at y 62, 120, 182",
 	          fakeTextIs(UI_MARGIN, 62, "BEEP", C_DIM, C_BG, 1) &&
 	          fakeTextIs(UI_MARGIN, 120, "DIRECTION", C_DIM, C_BG, 1) &&

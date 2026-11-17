@@ -8,6 +8,7 @@
 #include "gfx.h"
 #include "touch.h"
 #include "ui_hold.h"
+#include "ui_widgets.h"
 
 #include <stdio.h>
 
@@ -123,10 +124,13 @@ void uiLeaveDraw(const UiLeave *l, const UiLeaveText &text, const TouchState *t,
 	bool wideLive = before ? l->leaveEnabled : uiLeaveReleaseLive(l, nowMs);
 	// The wide button looks pressed only under a press that counts: one that
 	// landed while LEAVE was disabled, or during the hub title's wait, does
-	// nothing on its lift. After LEAVE it reads where it leads: the hub.
+	// nothing on its lift. After LEAVE it reads where it leads: the hub. It
+	// is then a way back and starts nothing, so it is cyan, as BACK
+	// (docs/design/ui-theme.md, decision 16); LEAVE stays neutral.
 	bool counts = before ? l->leavePress : l->releasePress;
-	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : (text.hub ? text.hub : ""), C_PANEL, C_TEXT, 2,
-	         wideLive && counts && uiPressing(UI_LEAVE_WIDE, t), wideLive);
+	uiButton(UI_LEAVE_WIDE, before ? "LEAVE" : (text.hub ? text.hub : ""), before ? C_PANEL : C_CYAN,
+	         before ? C_TEXT : C_ONACCENT, 2, wideLive && counts && uiPressing(UI_LEAVE_WIDE, t),
+	         wideLive);
 }
 
 void uiLeaveStartOpen(UiLeaveStart *s, bool cue, uint32_t nowMs) {
@@ -157,9 +161,10 @@ void uiLeaveStartDraw(const UiLeaveStart *s, const TouchState *t, uint32_t nowMs
 	text.step[0][1] = UI_LEAVE_START_WHY_1;
 	text.step[0][2] = UI_LEAVE_START_WHY_2;
 	drawStep(text, 0, UI_LEAVE_STEP_Y, true);
-	// START DSHOT starts an output: green from ui-theme.md slice 11 on; the
-	// neutral fill until then, as HOLD TO START.
+	// START DSHOT starts an output: green, with dark ink
+	// (docs/design/ui-theme.md, decision 16). It is a tap, not a hold, so a
+	// press keeps the fill and takes the pressed frames.
 	bool live = uiLeaveStartLive(s, nowMs);
-	uiButton(UI_LEAVE_START, UI_LEAVE_START_LABEL, C_PANEL, C_TEXT, 2,
+	uiButton(UI_LEAVE_START, UI_LEAVE_START_LABEL, UI_COL_START, C_ONACCENT, 2,
 	         live && s->press && uiPressing(UI_LEAVE_START, t), live);
 }
