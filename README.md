@@ -383,6 +383,7 @@ Build options:
 -DDSHOT_PIN_LCD_2_8=1    # the ESC pin a blank board starts on
 -DKISS_PIN_LCD_2_8=0     # ...and the telemetry pin; the two move together
 -DSTRICT=ON              # warnings fatal, for this project's sources
+-DBOOT_DIAG=ON           # blink each boot step on GP16, see Boot diagnostic
 ```
 
 The ESC pin defaults to **GP0** (`DSHOT_PIN_LCD_2_8`) and the telemetry pin
@@ -424,6 +425,61 @@ artifact, so an untagged commit can be tested on hardware.
 wiring, not firmware, and builds for the RP2350-Touch-LCD-2.8 only. A plain
 `ninja -C build` builds it locally next to the firmware, as
 `build/sdtest.uf2`.
+
+### Boot diagnostic
+
+The boot diagnostic finds the step of `setup()` that stops a board before the
+panel lights. The backlight pin, GP16, blinks a step's number before that
+step runs. The diagnostic drives the pin as a plain SIO (single-cycle I/O)
+output, apart from the backlight's PIO state machine. It times the blinks
+from TIMER0's 1 MHz count, which the Pico SDK starts before `main()`.
+
+Build it in a build directory of its own:
+
+```sh
+cmake -B build-diag -G Ninja -DPICO_BOARD=pico2 -DPICO_PLATFORM=rp2350-arm-s \
+      -DCMAKE_BUILD_TYPE=Release -DBOOT_DIAG=ON .
+ninja -C build-diag MiniRcBench
+```
+
+The output is `build-diag/MiniRcBench-touch-lcd-2.8-boot-diag.uf2`.
+`-DBOOT_DIAG` is off by default. With it off, the image is byte-identical to
+an image built without the option.
+
+Each group of blinks is 150 ms on and 150 ms off per blink, then 1 s off.
+The step runs after its group. The last group seen names the step that did
+not return.
+
+| Blinks | Step that runs next |
+|---|---|
+| 1 | `diagCaptureRestart()`: the restart reason |
+| 2 | `usbDevInit()`: USB device and serial port |
+| 3 | `settingsLoad()`: settings from flash |
+| 4 | `servoSupplyInit()`: servo supply enable pin |
+| 5 | `escTaskInit()`: ESC pins parked |
+| 6 | `core1JobInit()`: core1 jobs |
+| 7 | `gfxInit()`: framebuffer |
+| 8 | `st7789Init()`: panel, SPI, backlight state machine |
+| 9 | `touchInit()`: touch controller and I2C bus |
+| 10 | `senseInit()`: current sensor |
+| 11 | `clockInit()`: real-time clock |
+| 12 | `uiInit()`: palette, backlight level, first screen |
+
+Other patterns:
+
+| Pattern | Meaning |
+|---|---|
+| No blink at all | The image does not reach `setup()`. |
+| 50 ms on, 50 ms off, without end | A hard fault. With no debugger attached, a `panic()` ends in one too. |
+| On, without end | `setup()` returned. |
+
+After group 8 the pin goes back to the backlight's state machine between
+groups. From then on, the panel lights at the backlight level while each step
+runs. After group 12 the splash shows for 3 s at the stored backlight level.
+A panel that stays dark then, and lights once `setup()` returns, points at the
+backlight's state machine. Once `setup()` returns, the diagnostic holds GP16
+high, so the backlight runs at 100 % and the BACKLIGHT setting has no effect.
+The groups add 35 s to the boot.
 
 ### Reproducible builds
 

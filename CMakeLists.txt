@@ -30,6 +30,13 @@ cmake_minimum_required(VERSION 3.18)
 # happened and guessing.
 option(SD_DEBUG "Enable verbose SD driver logging over USB serial" OFF)
 
+# The boot diagnostic (src/boot_diag.h): before each step of setup() up to
+# uiInit(), the backlight pin GP16 blinks the step's number; after setup()
+# the pin stays high; a hard fault blinks it fast forever. The image is
+# MiniRcBench-touch-lcd-2.8-boot-diag.uf2. Off by default, and with it off
+# the image is the same as without the option.
+option(BOOT_DIAG "Blink each setup() step's number on the backlight pin" OFF)
+
 # There is no board to choose: the build targets the RP2350-Touch-LCD-2.8,
 # and a BOARD given on the command line is ignored.
 
@@ -348,7 +355,18 @@ pico_enable_stdio_uart(MiniRcBench 0)
 
 # The board goes in the filename, so an image names the board it was built
 # for after it has left the build tree.
-set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-touch-lcd-2.8")
+if(BOOT_DIAG)
+    target_sources(MiniRcBench PRIVATE src/boot_diag.cpp)
+    target_compile_definitions(MiniRcBench PRIVATE BOOT_DIAG=1)
+    # The SD library's crash.c defines the hard fault handler too. Its
+    # handler is renamed here, so the vector table takes boot_diag.cpp's.
+    set_source_files_properties(${SD_FATFS_DIR}/src/crash.c PROPERTIES
+        COMPILE_DEFINITIONS HardFault_Handler=sd_crash_hardfault_unused)
+    set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-touch-lcd-2.8-boot-diag")
+    message(STATUS "Boot diagnostic: on (GP16 blinks each setup() step)")
+else()
+    set_target_properties(MiniRcBench PROPERTIES OUTPUT_NAME "MiniRcBench-touch-lcd-2.8")
+endif()
 
 # The program name defaults to the target name. The version is what
 # `picotool info` reports for an image or a connected board.
