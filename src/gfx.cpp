@@ -388,7 +388,18 @@ static void gfxChar(int x, int y, char ch, uint16_t fg, int scale) {
 	gfxMarkDirty(dirtyTop, dirtyBot);
 }
 
+#ifdef GFX_TEXT_PROBE
+void (*g_gfxTextProbe)(int, int, const char *, uint16_t, uint16_t, bool, int) = nullptr;
+#endif
+
 void gfxText(int x, int y, const char *s, uint16_t fg, int scale) {
+#ifdef GFX_TEXT_PROBE
+	if (g_gfxTextProbe && *s) {
+		int gx = x + 5 * scale, gy = y + 3 * scale;
+		bool known = gx >= s_clipX0 && gx < s_clipX1 && gy >= s_clipY0 && gy < s_clipY1;
+		g_gfxTextProbe(x, y, s, fg, known ? s_fb[gy * GFX_W + gx] : 0, known, scale);
+	}
+#endif
 	int cx = x;
 	for (const char *p = s; *p; p++) {
 		gfxChar(cx, y, *p, fg, scale);

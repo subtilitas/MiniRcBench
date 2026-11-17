@@ -14,8 +14,17 @@
 /** @brief Count of failed checks across every suite in this run. */
 extern int g_failures;
 
+/** @brief The heading of the section that runs, for walks that name where they met a frame. */
+inline const char *&checkSection() {
+	static const char *s = "";
+	return s;
+}
+
 /** @brief Print a section heading. */
-inline void section(const char *name) { printf("\n%s\n", name); }
+inline void section(const char *name) {
+	checkSection() = name;
+	printf("\n%s\n", name);
+}
 
 /**
  * @brief Assert an integer is within @p tol of @p want.

@@ -1,13 +1,14 @@
 # UI theme after rcbench's
 
-Status: slices 7 to 12 of [the build plan](menu-c.md#build-plan), the
-palette, the neutral fills, the radius, cyan and green on the tools and on
-the tester, are built, host tests only
+Status: slices 7 to 13 of [the build plan](menu-c.md#build-plan), the
+palette, the neutral fills, the radius, cyan, green on the tools and on
+the tester, and the contrast walk over the screens, are built, host tests
+only
 ([Slices 7 and 8 as built](#slices-7-and-8-as-built),
 [Slice 9 as built](#slice-9-as-built),
 [Slice 10 as built](#slice-10-as-built),
-[Slices 11 and 12 as built](#slices-11-and-12-as-built)). Slices 13 and 14
-are proposed, not built. The owner decided its five questions on 2026-11-15.
+[Slices 11 and 12 as built](#slices-11-and-12-as-built),
+[Slice 13 as built](#slice-13-as-built)). Slice 14 is proposed, not built. The owner decided its five questions on 2026-11-15.
 The two questions the answers raised, and the colours of two buttons of the
 DShot lifetime, are settled by the developer's calls of 2026-11-16, pending the
 owner's review ([Decisions](#decisions)). Every colour is computed and not seen
@@ -1176,9 +1177,9 @@ tests and its dependence on the DShot slices, D1 to D5. None needs hardware
 | 8 | Neutral fills: the edit buttons, the neutral chip, the header's rule, the hints, the slider's fill. Built with slice 7 |
 | 9 | Radius. Built: [Slice 9 as built](#slice-9-as-built) |
 | 10 | Cyan. Built: [Slice 10 as built](#slice-10-as-built) |
-| 11 | Green on the tools |
-| 12 | Green on the tester |
-| 13 | Screens |
+| 11 | Green on the tools. Built: [Slices 11 and 12 as built](#slices-11-and-12-as-built) |
+| 12 | Green on the tester. Built with slice 11 |
+| 13 | Screens. Built: [Slice 13 as built](#slice-13-as-built) |
 | 14 | The look's records and previews |
 
 Notes on the slices:
@@ -1753,6 +1754,54 @@ Readings of the note where the code asked for a choice:
   while `s_armPressing` holds, the press arming allows. A press on the
   disabled button is not timed and draws no red, as [Green](#green) item 5
   asks.
+
+## Slice 13 as built
+
+Slice 13, the screens, of [the build plan](menu-c.md#build-plan): a walk
+over every text the host suite draws, in both themes, for a pair under the
+4.5 contrast ratio that WCAG 2 asks of small text ([Contrast](#contrast)).
+
+- **The probe.** `gfxText()` in `src/gfx.cpp` calls `g_gfxTextProbe`
+  before it draws, with the text's colour and the pixel under the first
+  cell's gap column, x + 5 × scale, y + 3 × scale, which no glyph lights.
+  It exists only with `GFX_TEXT_PROBE`, which `test/Makefile` defines; the
+  firmware does not build it.
+- **The walk.** `test/test_contrast.cpp` installs the probe at the start of
+  the suite and reads every text until its end. It names each colour by
+  the active theme's table and computes the WCAG 2 ratio from the RGB565
+  words read back to 8 bits a channel. A pair under 4.5 that is not an
+  exception is reported with its text, its roles, its theme, its place and
+  the section that first drew it. The suite reads about 890,000 texts, about
+  5,000 of them in High contrast. `fakeTextIs()` draws its expectation with
+  the probe off.
+- **The exceptions,** `contrastPairExcepted()`:
+
+  | Pair | Theme | Ratio | Texts | Why |
+  |---|---|---|---|---|
+  | `GRID` on any | both | 3.57 on `BG` in Dark | disabled labels, group captions, read-only values | by intent; WCAG exempts a disabled control ([Contrast](#contrast)) |
+  | `RED` on `PANEL` | Dark | 4.03 | `ERROR` in the tester's ESC STATUS tile | the note's named pair |
+  | `RED` on `PANEL` | Dark | 4.03 | `REC` on the tester's status band, `RECORDING` on LOGS, a low `BOARD` voltage on the status band | found by the walk; kept red, pending the owner's review |
+  | `AMBER` and `LIME` on `PANEL` | High contrast | 3.42 and 3.82 | warnings and live readings on the control face | the note keeps High contrast's values |
+
+  Each exception names its words, so a new red text on a `C_PANEL` fill
+  fails the walk.
+
+Mutations, each run against the whole suite and restored:
+
+| Mutation | Result |
+|---|---|
+| LATCH's label drawn in `C_RED` on its `C_PANEL` fill | 4 checks fail, among them the walk's "Dark: "LATCH" RED on PANEL, 4.03" |
+| The neutral chip's label in `C_ONACCENT` on its `C_BG` inside | 23 checks fail, the first "dark, NO ESC: inside, C_BG and the label's C_DIM only" |
+
+Readings of the note where the code asked for a choice:
+
+- **The three red texts the walk found stay red.** A red chip with dark
+  ink, as `SDERR` is an amber chip, would read 5.45, but moves the status
+  band's layout. They are listed as exceptions, pending the owner's review;
+  the panel decides whether 4.03 reads.
+- **Text only.** The walk reads what `gfxText()` draws. Frames, the
+  seven-segment digits and the fills are not text and are not walked; the
+  contrast table gives their ratios.
 
 ## Open questions
 

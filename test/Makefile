@@ -41,7 +41,7 @@ INCLUDES := -Istubs -I../src -I.
 #   make EXTRA_DEFINES="-DDSHOT_PIN_LCD_2_8=1 -DKISS_PIN_LCD_2_8=0" run
 # test_claim.cpp reads src/esc_task.cpp to check its sequence; the absolute
 # path finds it from any working directory.
-DEFINES := $(EXTRA_DEFINES) -DMRB_TEST_SRC_DIR='"$(abspath ../src)"'
+DEFINES := $(EXTRA_DEFINES) -DMRB_TEST_SRC_DIR='"$(abspath ../src)"' -DGFX_TEXT_PROBE=1
 
 # The servo tester, the KST and Hitec programmers, the S.BUS monitor, the
 # current sensor, the ESC settings and the angle meter list their own sources,
@@ -69,7 +69,7 @@ SRCS := test_main.cpp test_am32.cpp test_ui.cpp test_gfx.cpp test_kiss.cpp \
         test_blackbox.cpp test_log_ring.cpp test_settings.cpp test_servo_supply.cpp \
         test_usb_msc.cpp test_dshot_frame.cpp test_dshot_telem.cpp \
         test_dshot_edt.cpp test_esc_cmd.cpp test_kv_est.cpp test_sdio.cpp test_claim.cpp test_widgets.cpp test_ids.cpp test_menu.cpp test_hub.cpp test_dshot_life.cpp test_esc_cmd_ui.cpp test_backup_ring.cpp test_sd_cache.cpp test_diag.cpp test_run_summary.cpp test_clock.cpp \
-        fakes.cpp \
+        fakes.cpp test_contrast.cpp \
         ../src/gfx.cpp ../src/ui.cpp ../src/ui_settings.cpp ../src/ui_menu.cpp ../src/ui_esc_cmd.cpp ../src/esc_3d.cpp ../src/ui_registry.cpp ../src/ui_hub.cpp ../src/ui_servo_hub.cpp ../src/ui_esc_config.cpp ../src/ui_sdlog.cpp ../src/theme.cpp \
         ../src/ui_input.cpp ../src/ui_widgets.cpp ../src/ui_list.cpp \
         ../src/ui_hold.cpp ../src/ui_leave.cpp ../src/board_desc.cpp \

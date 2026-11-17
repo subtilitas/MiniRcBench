@@ -1318,7 +1318,12 @@ bool fakeTextIs(int x, int y, const char *text, uint16_t col, uint16_t bg, int s
 	for (int j = 0; j < h; j++) memcpy(keep[j], fb + (y + j) * GFX_W + x, (size_t)w * sizeof(uint16_t));
 	uint32_t shown = fakeRegionHash(x, y, w, h);
 	gfxRect(x, y, w, h, bg);
+	// The probe's own draw is an expectation, not a text the firmware drew:
+	// the contrast walk (test_contrast.cpp) does not read it.
+	auto walk = g_gfxTextProbe;
+	g_gfxTextProbe = nullptr;
 	gfxText(x, y, text, col, scale);
+	g_gfxTextProbe = walk;
 	bool same = fakeRegionHash(x, y, w, h) == shown;
 	for (int j = 0; j < h; j++) memcpy(fb + (y + j) * GFX_W + x, keep[j], (size_t)w * sizeof(uint16_t));
 	return same;
