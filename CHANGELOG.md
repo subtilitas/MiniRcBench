@@ -56,6 +56,17 @@ protocol.
 
 ### Changed
 
+- Green as a button's fill starts an output, as on rcbench (slices 11 and 12
+  of [menu-c.md](docs/design/menu-c.md#build-plan),
+  [ui-theme.md](docs/design/ui-theme.md#slices-11-and-12-as-built)). HOLD TO
+  ARM, HOLD TO WRITE and HOLD TO RESTORE of ESC WRITE, KST and Hitec, HOLD TO
+  START of SERVO TESTER and S.BUS OUTPUT, HOLD TO APPLY and START DSHOT are
+  `C_GREEN` with a dark label at rest and `C_RED` while held
+  (`uiStartHold()`). Safe or done is a green frame around a green word: the
+  chips SAFE, OK, SETTLED and EDT ON (`uiChip()` with `C_GREEN`) and the
+  tester's SAFE badge, a 2 px frame. ARMED stays the one filled badge. The
+  leave page's wide button to the hub is `C_CYAN` with a dark label once it
+  acts. Not seen on the panel.
 - Documentation only: the records of menu structure C and of the DShot
   lifetime, slice 6 of [menu-c.md](docs/design/menu-c.md#slice-6-as-built) and
   slice D5 of [dshot-lifetime.md](docs/design/dshot-lifetime.md#d5-as-built).

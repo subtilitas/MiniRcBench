@@ -45,7 +45,7 @@
 #define C_INK      (g_theme[TC_INK])      /**< Strongest mark against the background. */
 #define C_PAPER    (g_theme[TC_PAPER])    /**< Text drawn on a bright fill. */
 #define C_ONACCENT (g_theme[TC_ONACCENT]) /**< Text drawn on a saturated fill. */
-#define C_GREEN    (g_theme[TC_GREEN])    /**< Safe, done (`UI_COL_SAFE`). */
+#define C_GREEN    (g_theme[TC_GREEN])    /**< A start as a fill (`UI_COL_START`); safe, done as a word or an outline (`UI_COL_SAFE`). */
 #define C_LIME     (g_theme[TC_LIME])     /**< A live reading (`UI_COL_LIVE`). */
 #define C_AMBER    (g_theme[TC_AMBER])    /**< Warning (`UI_COL_WARN`). */
 #define C_RED      (g_theme[TC_RED])      /**< Output on, failure (`UI_COL_ON`). */

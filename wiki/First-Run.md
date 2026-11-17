@@ -143,15 +143,16 @@ If the ESC is powered and wired and this does not change, see
 
 <img src="img/tester-idle.png" width="240" alt="The tester disarmed: SAFE in green, ARM TO ENABLE in the throttle bar">
 
-Disarmed, the badge reads `SAFE` and the throttle bar reads `ARM TO ENABLE`.
+Disarmed, the badge is a green frame around `SAFE`, `HOLD TO ARM` is a green
+button, and the throttle bar reads `ARM TO ENABLE`.
 For the first 1.5 s after the tester opens it reads
 `DSHOT STARTING: WAIT 1.5 S` in amber instead, and `HOLD TO ARM` is drawn as
 an outline: the ESC needs to see DShot before it can arm. A press made then
 does nothing; lift and press again once the button is live.
 
 1. Check that the propeller is off.
-2. Press and **hold** `HOLD TO ARM` for 1 s. A green bar fills along the bottom of
-   the badge while you hold.
+2. Press and **hold** `HOLD TO ARM` for 1 s. The button turns red, and a lime
+   bar fills along the bottom of the badge while you hold.
 3. The badge turns red and reads `ARMED`. The backlight dims to a quarter for
    120 ms, so the event is visible while you watch the motor.
 

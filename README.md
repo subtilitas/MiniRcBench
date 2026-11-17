@@ -1054,6 +1054,19 @@ notes but the set in use amber.
 
 **Buttons and chips**
 
+A button that starts an output is green with a `C_ONACCENT` label at rest
+and `C_RED` while held (`uiStartHold()`, `UI_COL_START`): HOLD TO ARM,
+HOLD TO WRITE and HOLD TO RESTORE of ESC WRITE, KST and Hitec, HOLD TO
+START of SERVO TESTER and S.BUS OUTPUT, HOLD TO APPLY, and START DSHOT of
+the start step. Drawn disabled, it is `C_BG` with a `C_GRID` label, never
+green. Safe or done is never a fill: `uiChip()` with `C_GREEN` draws a 1 px
+green frame around a green word on `C_BG` (`SAFE`, `OK`, `SETTLED`, `EDT
+ON`), and the tester's `SAFE` badge is a 2 px green frame with the word at
+scale 2. `ARMED` is the one filled badge, `C_RED`. While armed the tester
+holds no `C_GREEN` pixel. A leave page's wide button to the hub is `C_CYAN`
+with a `C_ONACCENT` label once it acts, `C_BG` with a `C_GRID` label for
+its first 1000 ms. None of these colours is seen on the panel.
+
 A button has rounded corners with a radius of 5 px (`UI_RADIUS`), in both
 themes: its fill and its frame leave out three pixels at each corner, and
 the screen under them shows. A press counts on the whole rectangle, the
@@ -4177,7 +4190,7 @@ figure counts `src/` only: the copied rcbench files in `lib/rcbench/` are
 compiled into the instrumented suite but are not in it.
 
 <!-- coverage:start -->
-Host-suite line coverage of `src/` is **98.4%**: 16,266 of 16,526 lines in 99 files. CI fails below 93% in total or below 85% in any file.
+Host-suite line coverage of `src/` is **98.4%**: 16,268 of 16,528 lines in 99 files. CI fails below 93% in total or below 85% in any file.
 <!-- coverage:end -->
 
 `sd_log.cpp` is not linked into the host suite (FatFs and the card driver

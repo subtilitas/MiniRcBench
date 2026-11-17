@@ -1205,11 +1205,11 @@ static void testLayoutConstants() {
 	// uiChipX() is where uiChip() draws: MODE, 23 px and 6 px each side,
 	// from x 197 to the right margin.
 	gfxFill(C_BG);
-	uiChip("MODE", C_GREEN);
+	uiChip("MODE", C_RED);
 	const int cy = UI_STRIP_Y + UI_STRIP_H / 2;
 	checkInt("uiChipX(\"MODE\"): x 197", uiChipX("MODE"), 197);
 	checkTrue("the chip drawn from x 197 to x 231", gfxBuffer()[cy * GFX_W + 196] == C_BG &&
-	          gfxBuffer()[cy * GFX_W + 198] == C_GREEN && gfxBuffer()[cy * GFX_W + 231] == C_GREEN &&
+	          gfxBuffer()[cy * GFX_W + 198] == C_RED && gfxBuffer()[cy * GFX_W + 231] == C_RED &&
 	          gfxBuffer()[cy * GFX_W + 232] == C_BG);
 	checkInt("PROG MODE, 53 px: x 167", uiChipX("PROG MODE"), 167);
 }
@@ -1299,8 +1299,9 @@ static void testChipNeutral() {
 			checkTrue(what, fakeTextIs(x + 6, 44, text, C_DIM, C_BG, 1) &&
 			                !fakeTextIs(x + 6, 44, text, C_ONACCENT, C_GRID, 1));
 		}
-		// A chip with a state keeps its fill and its ink.
-		static const ThemeColor FILLS[] = { TC_GREEN, TC_LIME, TC_RED, TC_BLUE, TC_MAGENTA, TC_AMBER, TC_INK };
+		// A chip with a state keeps its fill and its ink; green is an
+		// outline (testChipGreen()).
+		static const ThemeColor FILLS[] = { TC_LIME, TC_RED, TC_BLUE, TC_MAGENTA, TC_AMBER, TC_INK };
 		bool filled = true;
 		for (ThemeColor f : FILLS) {
 			gfxFill(C_BG);
@@ -1311,6 +1312,101 @@ static void testChipNeutral() {
 		}
 		checkTrue(th ? "high contrast: a role's chip stays a fill with its ink"
 		             : "dark: a role's chip stays a fill with its ink", filled);
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
+/**
+ * @brief The safe or done chip (slice 11 of menu-c.md's build plan):
+ *        uiChip() with `C_GREEN` draws a 1 px `C_GREEN` frame, square,
+ *        `C_BG` inside and a `C_GREEN` label, in both themes; no pixel of
+ *        it is a fill.
+ */
+static void testChipGreen() {
+	section("Widgets: uiChip() with C_GREEN is an outline: the frame and the label green, C_BG inside");
+
+	static const char *const TEXTS[] = { "SAFE", "OK", "SETTLED", "EDT ON" };
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		for (const char *text : TEXTS) {
+			gfxFill(C_RED);
+			uiStripClear();
+			uiChip(text, C_GREEN);
+			const int w = gfxTextW(text, 1) + 12, x = GFX_W - UI_MARGIN - w;
+			bool frame = true;
+			int bg = 0, green = 0, other = 0;
+			for (int j = 42; j <= 53; j++)
+				for (int i = x; i < x + w; i++) {
+					bool edge = j == 42 || j == 53 || i == x || i == x + w - 1;
+					uint16_t p = px(i, j);
+					if (edge) { if (p != C_GREEN) frame = false; continue; }
+					if (p == C_BG) bg++;
+					else if (p == C_GREEN) green++;
+					else other++;
+				}
+			const char *thn = th ? "high contrast" : "dark";
+			char what[112];
+			snprintf(what, sizeof(what), "%s, %s: a 1 px C_GREEN frame, square, y 42 to y 53", thn, text);
+			checkTrue(what, frame && x == uiChipX(text) && px(x - 1, 47) == C_BG &&
+			                px(GFX_W - UI_MARGIN, 47) == C_BG && px(x + 2, 41) == C_BG &&
+			                px(x + 2, 54) == C_BG);
+			snprintf(what, sizeof(what), "%s, %s: inside, C_BG and the label's C_GREEN only, C_BG 1 px in",
+			         thn, text);
+			checkTrue(what, other == 0 && bg > green && green > 0 && px(x + 1, 43) == C_BG &&
+			                px(x + w - 2, 43) == C_BG && px(x + 1, 52) == C_BG && px(x + w - 2, 52) == C_BG);
+			snprintf(what, sizeof(what), "%s, %s: the label 6 px in at y 44, C_GREEN on C_BG", thn, text);
+			checkTrue(what, fakeTextIs(x + 6, 44, text, C_GREEN, C_BG, 1) &&
+			                !fakeTextIs(x + 6, 44, text, C_ONACCENT, C_GREEN, 1));
+		}
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+}
+
+/**
+ * @brief A hold that starts an output (slice 11 of menu-c.md's build plan):
+ *        uiStartHold() draws `C_GREEN` with a `C_ONACCENT` label at rest,
+ *        `C_RED` with the pressed look while held, and uiButton()'s
+ *        disabled look, with no green pixel, when it does not act; in both
+ *        themes.
+ */
+static void testStartHold() {
+	section("Widgets: uiStartHold() is green at rest, red while held, the outline when disabled");
+
+	const UiRect r = { 6, 268, 228, 46 };
+	const int lx = r.x + (r.w - gfxTextW("HOLD TO WRITE", 2)) / 2, ly = r.y + (r.h - 14) / 2;
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *tn = th ? "high contrast" : "dark";
+		char what[96];
+		gfxFill(C_BG);
+		uiStartHold(r, "HOLD TO WRITE", 2, false, true);
+		snprintf(what, sizeof(what), "%s: at rest, C_ONACCENT on C_GREEN, the C_GRID frame", tn);
+		checkTrue(what, px(r.x + 4, r.y + r.h / 2) == C_GREEN && px(r.x + r.w / 2, r.y) == C_GRID &&
+		                fakeTextIs(lx, ly, "HOLD TO WRITE", C_ONACCENT, C_GREEN, 2));
+		gfxFill(C_BG);
+		uiStartHold(r, "HOLD TO WRITE", 2, true, true);
+		snprintf(what, sizeof(what), "%s: held, C_ONACCENT on C_RED, 1 px on, the C_INK frames", tn);
+		checkTrue(what, px(r.x + 4, r.y + r.h / 2) == C_RED && px(r.x + r.w / 2, r.y) == C_INK &&
+		                px(r.x + 2, r.y + r.h / 2) == C_INK &&
+		                fakeTextIs(lx + 1, ly + 1, "HOLD TO WRITE", C_ONACCENT, C_RED, 2));
+		bool green = false;
+		for (int y = r.y; y < r.y + r.h; y++)
+			for (int x = r.x; x < r.x + r.w; x++) green = green || px(x, y) == C_GREEN;
+		snprintf(what, sizeof(what), "%s: held, no green pixel", tn);
+		checkTrue(what, !green);
+		for (int held = 0; held < 2; held++) {
+			gfxFill(C_BG);
+			uiStartHold(r, "HOLD TO WRITE", 2, held != 0, false);
+			green = false;
+			for (int y = r.y; y < r.y + r.h; y++)
+				for (int x = r.x; x < r.x + r.w; x++) green = green || px(x, y) == C_GREEN || px(x, y) == C_RED;
+			snprintf(what, sizeof(what), "%s: disabled%s: C_BG, a C_GRID label, no green or red", tn,
+			         held ? " under a hold" : "");
+			checkTrue(what, px(r.x + 4, r.y + r.h / 2) == C_BG && !green &&
+			                fakeTextIs(lx, ly, "HOLD TO WRITE", C_GRID, C_BG, 2));
+		}
 	}
 	themeSet(Theme::Dark);
 	gfxFill(C_BG);
@@ -1772,6 +1868,17 @@ static bool buttonIs(const UiRect &r, const char *label, int scale, bool live) {
 	return px(r.x + 4, r.y + r.h / 2) == fill && fakeTextIs(x, y, label, live ? C_TEXT : C_GRID, fill, scale);
 }
 
+/**
+ * @brief Whether button @p r is the way back to the hub: @p label in
+ *        `C_ONACCENT` on `C_CYAN`, the `C_GRID` frame at rest
+ *        (docs/design/ui-theme.md, decision 16).
+ */
+static bool hubButtonIs(const UiRect &r, const char *label) {
+	int x = r.x + (r.w - gfxTextW(label, 2)) / 2, y = r.y + (r.h - 14) / 2;
+	return px(r.x + 4, r.y + r.h / 2) == C_CYAN && px(r.x + r.w / 2, r.y) == C_GRID &&
+	       fakeTextIs(x, y, label, C_ONACCENT, C_CYAN, 2);
+}
+
 static void testLeaveDraw() {
 	section("Leave page: steps, notes and buttons in each phase");
 
@@ -1827,16 +1934,18 @@ static void testLeaveDraw() {
 	checkTrue("released, 999 ms in: NEXT SERVO live, SERVO still disabled",
 	          buttonIs(UI_LEAVE_LEFT, "NEXT SERVO", 1, true) && buttonIs(UI_LEAVE_WIDE, "SERVO", 2, false));
 	uiLeaveDraw(&l, t, idle(), 2000);
-	checkTrue("1000 ms in: SERVO live", buttonIs(UI_LEAVE_WIDE, "SERVO", 2, true));
+	checkTrue("1000 ms in: SERVO live, the way back: C_ONACCENT on C_CYAN",
+	          hubButtonIs(UI_LEAVE_WIDE, "SERVO") && !buttonIs(UI_LEAVE_WIDE, "SERVO", 2, true));
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 1999);
 	uiLeaveTouch(&l, move(w.x + 20, w.y + 20), 2100);
 	uiLeaveDraw(&l, t, &s_touch, 2100);
 	checkTrue("a press that landed during the wait, held past it: no pressed look",
-	          buttonIs(UI_LEAVE_WIDE, "SERVO", 2, true) && px(w.x + 2, w.y + w.h / 2) != C_INK);
+	          hubButtonIs(UI_LEAVE_WIDE, "SERVO") && px(w.x + 2, w.y + w.h / 2) != C_INK);
 	uiLeaveTouch(&l, lift(), 2200);
 	uiLeaveTouch(&l, press(w.x + 20, w.y + 20), 2000);
 	uiLeaveDraw(&l, t, &s_touch, 2000);
-	checkTrue("pressed: the inner ring", px(w.x + 2, w.y + w.h / 2) == C_INK);
+	checkTrue("pressed: the inner ring, the cyan fill kept",
+	          px(w.x + 2, w.y + w.h / 2) == C_INK && px(w.x + 5, w.y + w.h / 2) == C_CYAN);
 	uiLeaveTouch(&l, lift(), 2000);
 	idle();
 
@@ -1983,6 +2092,8 @@ void runWidgetTests() {
 	testStripTwoLines();
 	testChip();
 	testChipNeutral();
+	testChipGreen();
+	testStartHold();
 	testChangeText();
 	testBackGuard();
 	testBackGuardDraw();

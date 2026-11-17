@@ -3029,7 +3029,7 @@ static void testScreenOpens() {
 	checkTrue("STANDARD PWM 50 Hz, one servo, SPEED 100 %",
 	          s_profile.type == ServoType::Standard && s_profile.rateHz == 50 &&
 	          s_profile.servos == 1 && (int)s_speed.value == 100);
-	checkTrue("the chip says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
+	checkTrue("the chip says SAFE", greenChipIs("SAFE"));
 	// menu-b.md decision 13: the title is the label of the entry that opens it.
 	checkTrue("the title reads SERVO TESTER",
 	          fakeTextIs(UI_MARGIN, (UI_HDR_H - 14) / 2, "SERVO TESTER", C_TEXT, C_PANEL, 2));
@@ -3039,7 +3039,8 @@ static void testScreenOpens() {
 	          strcmp(UI_SERVO.title, SERVO_UI_TITLE) == 0);
 	checkTrue("13 characters or fewer: it ends 4 px or more before BACK",
 	          strlen(SERVO_UI_TITLE) <= 13 && UI_MARGIN + gfxTextW(SERVO_UI_TITLE, 2) + 4 <= UI_BACK_X);
-	checkTrue("HOLD TO START is live", fillOf(BTN_START) == C_PANEL);
+	checkTrue("HOLD TO START is live: green", fillOf(BTN_START) == C_GREEN);
+	checkStartHold(UI_FIX(ServoCtl::Start), SV_START_LABEL, 1, "SERVO TESTER");
 	checkControlTable("SERVO, SAFE");
 	checkTrue("MIN, CENTRE, MAX and SWEEP are outlines while SAFE",
 	          fillOf(BTN_MIN) == C_BG && fillOf(BTN_CENTRE) == C_BG &&
@@ -3242,7 +3243,7 @@ static void testHorn() {
 	uiFrames(3);
 	checkTrue("opened again: SAFE, the old trip forgotten",
 	          pinClaimState() == ClaimState::Running && !s_st.tripped &&
-	          pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
+	          greenChipIs("SAFE"));
 
 	// Stalled, left, and opened while an ESC answers: refused, and the chip
 	// does not carry the old session's trip beside the reason.
@@ -4033,7 +4034,8 @@ static void testSetScreen() {
 	const char *l1, *l2; uint16_t col;
 	setNote(&l1, &l2, &col);
 	checkTrue("the note names the heli risk", l1 && strstr(l1, "HELI PROFILE") != nullptr);
-	checkTrue("HOLD TO APPLY is live", fillOf(BTN_APPLY) == C_PANEL);
+	checkTrue("HOLD TO APPLY is live: green", fillOf(BTN_APPLY) == C_GREEN);
+	checkStartHold(UI_FIX(ServoCtl::Apply), SET_APPLY_LABEL, 1, "SERVO SET");
 	fakeDumpFrame("shot_servo_set_warning.ppm");
 	int x, y;
 	ctlCentre(UI_FIX(ServoCtl::Apply), &x, &y);
@@ -4245,7 +4247,7 @@ static void testTravelNote() {
 	          s_edit.type == ServoType::Wide && s_pending && s_profile.type == ServoType::Narrow760);
 	checkTrue("the pending warning is the end-stop note, amber", noteIs(T1, T2, C_AMBER));
 	uiFrames(1);
-	checkTrue("HOLD TO APPLY is live", fillOf(BTN_APPLY) == C_PANEL);
+	checkTrue("HOLD TO APPLY is live: green", fillOf(BTN_APPLY) == C_GREEN);
 	fakeDumpFrame("shot_servo_set_travel.ppm");
 	selectRow(7);   // SHAPE
 	checkTrue("pending: the note on every row", noteIs(T1, T2, C_AMBER));
@@ -4798,7 +4800,7 @@ static void testBindRefused() {
 	fakePwmBreakSliceMap(false);
 	tapId(UI_FIX(ServoCtl::Retry));
 	uiFrames(2);
-	checkTrue("RETRY: running", pinClaimState() == ClaimState::Running && fillOf(BTN_START) == C_PANEL);
+	checkTrue("RETRY: running, HOLD TO START green", pinClaimState() == ClaimState::Running && fillOf(BTN_START) == C_GREEN);
 
 	openSet();
 	selectRow(2);
@@ -4994,7 +4996,7 @@ static void testSupplyLineAndHint() {
 		checkTrue("the supply's line under it at y 52, amber",
 		          fakeTextIs(UI_MARGIN, UI_STRIP_LINE2_Y, want, C_AMBER, C_BG, 1));
 		checkTrue("and above the dial", UI_STRIP_LINE2_Y + 7 <= SERVO_DIAL_Y0);
-		checkTrue("the chip still says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
+		checkTrue("the chip still says SAFE", greenChipIs("SAFE"));
 		checkTrue("SAFE: the enable pin driven low", fakePin(en).output && !fakePin(en).high);
 		char esc[48];
 		snprintf(esc, sizeof(esc), SERVO_UI_ESC_1_FMT, 0u);
@@ -5167,7 +5169,7 @@ static void testSupplyScreenFaults() {
 	checkTrue("500 ms below 4.5 V: SAFE, the enable pin low, the notes say why",
 	          !s_st.running && !fakePin(28).high && fakePin(SIG).level == 0 &&
 	          notesAre(SERVO_UI_NO_START_1, C_AMBER, b2, C_DIM));
-	checkTrue("the chip says SAFE", pixel(GFX_W - UI_MARGIN - 4, UI_STRIP_Y + 3) == C_GREEN);
+	checkTrue("the chip says SAFE", greenChipIs("SAFE"));
 
 	// The touch controller stops answering while the supply is on, UI frames
 	// 25 ms apart: core0's stop (uiTouchLost()) at four failed reads and
@@ -5287,8 +5289,12 @@ static void testSupplyScreenFaults() {
 	freshUi();
 }
 
-/** @brief Whether the strip's chip reads @p text on @p fill, ending at x 232. */
+/**
+ * @brief Whether the strip's chip reads @p text on @p fill, ending at x 232;
+ *        with `C_GREEN`, as the outlined green chip.
+ */
 static bool chipIs(const char *text, uint16_t fill) {
+	if (fill == C_GREEN) return greenChipIs(text);
 	int x = uiChipX(text);
 	return pixel(x, UI_STRIP_Y + 3) == fill && pixel(x - 1, UI_STRIP_Y + 3) == C_BG &&
 	       fakeTextIs(x + 6, UI_STRIP_Y + 2 + (UI_CHIP_H - 7) / 2, text, C_ONACCENT, fill, 1);

@@ -608,6 +608,68 @@ static void testChangedWalk() {
 	gfxFill(C_BG);
 }
 
+/**
+ * @brief The walk over a frame's green fills (slice 11 of menu-c.md's build
+ *        plan), and the outlined chip's reader: a green button on a control
+ *        of the start list is counted, one elsewhere is reported, and a chip,
+ *        filled or outlined, and green text are not fills larger than a chip.
+ */
+static void testGreenWalk() {
+	section("Control ids: the walk over a frame's green fills");
+	fakeFlashClear(); settingsLoad(); uiInitTester(); idFrames(4);
+	tapId(UI_FIX(TesterCtl::Menu));
+	tapId(toolEntry(&UI_SERVO));
+	idFrames(20);
+	checkTrue("SERVO TESTER is open", uiCurrentScreen() == UiScreenId::Servo);
+	const UiControl t[] = {
+		{ UI_FIX(ServoCtl::Start), { 6, 268, 110, 46 }, true },
+		{ UI_FIX(ServoCtl::Set), { 124, 268, 110, 46 }, true },
+	};
+	for (int th = 0; th < 2; th++) {
+		themeSet(th ? Theme::HighContrast : Theme::Dark);
+		const char *tn = th ? "high contrast" : "dark";
+		char what[112];
+		gfxFill(C_BG);
+		uiChip("SAFE", C_GREEN);
+		gfxText(UI_MARGIN, 100, "WRITE VERIFIED", C_GREEN, 3);
+		snprintf(what, sizeof(what), "%s: the outlined chip and green text: no fill", tn);
+		checkInt(what, greenFillsStart(t, 2), 0);
+		snprintf(what, sizeof(what), "%s: greenChipIs() reads the outline, neutralChipIs() does not", tn);
+		checkTrue(what, greenChipIs("SAFE") && !neutralChipIs("SAFE"));
+		// A filled 12 px chip is a chip, not a larger fill, and is not the outline.
+		gfxRect(uiChipX("SAFE"), UI_STRIP_Y + 2, gfxTextW("SAFE", 1) + 12, UI_CHIP_H, C_GREEN);
+		snprintf(what, sizeof(what), "%s: a filled chip is not a fill larger than a chip", tn);
+		checkInt(what, greenFillsStart(t, 2), 0);
+		snprintf(what, sizeof(what), "%s: greenChipIs() does not read a filled chip", tn);
+		checkTrue(what, !greenChipIs("SAFE"));
+		uiStartHold(t[0].rect, "HOLD TO START", 1, false, true);
+		snprintf(what, sizeof(what), "%s: HOLD TO START green on its control: counted", tn);
+		checkInt(what, greenFillsStart(t, 2), 1);
+		uiStartHold(t[1].rect, "SET", 1, false, true);
+		snprintf(what, sizeof(what), "%s: a green SET, not a start control: reported", tn);
+		checkInt(what, greenFillsStart(t, 2), -1);
+		uiButton(t[1].rect, "SET", C_PANEL, C_TEXT, 1, false, true);
+		gfxRect(150, 150, 13, 13, C_GREEN);
+		snprintf(what, sizeof(what), "%s: a 13 px green square on no control: reported", tn);
+		checkInt(what, greenFillsStart(t, 2), -1);
+		gfxRect(150, 150, 13, 13, C_BG);
+		gfxRect(150, 150, 40, 12, C_GREEN);
+		snprintf(what, sizeof(what), "%s: a green fill 12 px tall on no control: a chip's height, not reported",
+		         tn);
+		checkInt(what, greenFillsStart(t, 2), 1);
+	}
+	themeSet(Theme::Dark);
+	gfxFill(C_BG);
+	idFrames(1);
+	// Out as testServo() leaves: the leave page, its last button, the hub.
+	tapId(UI_FIX(UI_BACK));
+	for (int i = 0; i < 200 && !ctlEnabled(UI_FIX(ServoCtl::Release)); i++) idFrames(1);
+	tapId(UI_FIX(ServoCtl::Release));
+	idFrames(4);
+	tapId(UI_FIX(UI_BACK));
+	checkTrue("out through the leave page and SERVO to MENU", uiCurrentScreen() == UiScreenId::Menu);
+}
+
 void runIdTests() {
 	testHelpersFail();
 	testHelpersReport();
@@ -617,4 +679,5 @@ void runIdTests() {
 	testLayoutTable();
 	testCornerWalk();
 	testChangedWalk();
+	testGreenWalk();
 }

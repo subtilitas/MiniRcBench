@@ -31,12 +31,18 @@
 #include "ui_sbus_out.h"
 #include "ui.h"
 #include "ui_leave.h"
+#include "ui_am32.h"
+#include "ui_kst.h"
+#include "ui_hitec.h"
+#include "ui_servo.h"
+#include "ui_esc_cmd.h"
 #include "ui_widgets.h"
 #include "ui_list.h"
 #include "gfx.h"
 #include "theme.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #ifndef UI_IDS_FRAMES
 #error "define UI_IDS_FRAMES(n) before including ui_ids.h"
@@ -431,34 +437,94 @@ static inline bool neutralButtonIs(UiControlId id, const char *label, int scale)
 	return buttonLookIs(id, label, C_PANEL, C_TEXT, scale);
 }
 
+/**
+ * @brief Whether @p id is a start button at rest: `C_GREEN`, the frame, a
+ *        `C_ONACCENT` label (docs/design/ui-theme.md, "Green").
+ */
+static inline bool startButtonIs(UiControlId id, const char *label, int scale) {
+	return buttonLookIs(id, label, C_GREEN, C_ONACCENT, scale);
+}
+
+/**
+ * @brief Whether @p id is a start hold while held: the `C_RED` fill under
+ *        the pressed look, the `C_INK` frame, and @p label in `C_ONACCENT`
+ *        1 px right and down (uiStartHold()).
+ */
+static inline bool heldStartIs(UiControlId id, const char *label, int scale) {
+	UiControl c;
+	if (!ctlFind(id, &c)) return false;
+	const UiRect &r = c.rect;
+	const uint16_t *fb = gfxBuffer();
+	const int x = r.x + 1 + (r.w - gfxTextW(label, scale)) / 2, y = r.y + 1 + (r.h - 7 * scale) / 2;
+	return fb[(r.y + r.h / 2) * GFX_W + r.x + 4] == C_RED && fb[r.y * GFX_W + r.x + r.w / 2] == C_INK &&
+	       fakeTextIs(x, y, label, C_ONACCENT, C_RED, scale);
+}
+
+/**
+ * @brief A start hold's look by control id (slice 11 of menu-c.md's build
+ *        plan): `C_GREEN` with a `C_ONACCENT` label at rest; a press of two
+ *        frames, too short to act, draws it `C_RED` with the pressed look;
+ *        after the lift it is green again and still live. The hold is live
+ *        when the call begins.
+ * @param where Names the hold in the checks' text.
+ */
+static inline void checkStartHold(UiControlId id, const char *label, int scale, const char *where) {
+	char what[112];
+	snprintf(what, sizeof(what), "%s: %s at rest, dark on green", where, label);
+	checkTrue(what, ctlEnabled(id) && startButtonIs(id, label, scale));
+	pressId(id);
+	holdId(id, 1);
+	snprintf(what, sizeof(what), "%s: %s held, dark on red, pressed", where, label);
+	checkTrue(what, heldStartIs(id, label, scale));
+	fakeRelease();
+	UI_IDS_FRAMES(1);
+	snprintf(what, sizeof(what), "%s: lifted at 50 ms, %s green again and live", where, label);
+	checkTrue(what, ctlEnabled(id) && startButtonIs(id, label, scale));
+}
+
 /** @brief Whether @p id is drawn disabled: `C_BG`, the frame, a `C_GRID` label. */
 static inline bool disabledButtonIs(UiControlId id, const char *label, int scale) {
 	return buttonLookIs(id, label, C_BG, C_GRID, scale);
 }
 
 /**
- * @brief Whether the strip's chip reads @p text as the neutral chip: a 1 px
- *        `C_GRID` frame on every edge, 12 px tall, ending at x 231, `C_BG`
- *        inside with no pixel of the frame's colour, and the label in
- *        `C_DIM` 6 px in.
+ * @brief Whether the strip's chip reads @p text as an outlined chip: a 1 px
+ *        frame in @p frameCol on every edge, 12 px tall, ending at x 231,
+ *        `C_BG` inside with no pixel but the label's, and the label in
+ *        @p labelCol 6 px in. The pixel 1 px in from each corner is `C_BG`.
  */
-static inline bool neutralChipIs(const char *text) {
+static inline bool outlinedChipIs(const char *text, uint16_t frameCol, uint16_t labelCol) {
 	const int w = gfxTextW(text, 1) + 12, x = uiChipX(text);
 	const int y = UI_STRIP_Y + (UI_STRIP_H - UI_CHIP_H) / 2;
 	const uint16_t *fb = gfxBuffer();
 	bool frame = true, inside = true;
 	for (int i = 0; i < w; i++)
-		frame = frame && fb[y * GFX_W + x + i] == C_GRID && fb[(y + UI_CHIP_H - 1) * GFX_W + x + i] == C_GRID;
+		frame = frame && fb[y * GFX_W + x + i] == frameCol && fb[(y + UI_CHIP_H - 1) * GFX_W + x + i] == frameCol;
 	for (int j = 0; j < UI_CHIP_H; j++)
-		frame = frame && fb[(y + j) * GFX_W + x] == C_GRID && fb[(y + j) * GFX_W + x + w - 1] == C_GRID;
+		frame = frame && fb[(y + j) * GFX_W + x] == frameCol && fb[(y + j) * GFX_W + x + w - 1] == frameCol;
 	for (int j = 1; j < UI_CHIP_H - 1; j++)
 		for (int i = 1; i < w - 1; i++) {
 			uint16_t p = fb[(y + j) * GFX_W + x + i];
-			if (p != C_BG && p != C_DIM) inside = false;
+			if (p != C_BG && p != labelCol) inside = false;
 		}
-	return frame && inside && fb[(y + 1) * GFX_W + x + 1] == C_BG &&
-	       fakeTextIs(x + 6, y + (UI_CHIP_H - 7) / 2, text, C_DIM, C_BG, 1);
+	const int y1 = y + UI_CHIP_H - 2, x1 = x + w - 2;
+	return frame && inside && fb[(y + 1) * GFX_W + x + 1] == C_BG && fb[(y + 1) * GFX_W + x1] == C_BG &&
+	       fb[y1 * GFX_W + x + 1] == C_BG && fb[y1 * GFX_W + x1] == C_BG &&
+	       fakeTextIs(x + 6, y + (UI_CHIP_H - 7) / 2, text, labelCol, C_BG, 1);
 }
+
+/**
+ * @brief Whether the strip's chip reads @p text as the neutral chip: a
+ *        `C_GRID` frame, `C_BG` inside and the label in `C_DIM`.
+ */
+static inline bool neutralChipIs(const char *text) { return outlinedChipIs(text, C_GRID, C_DIM); }
+
+/**
+ * @brief Whether the strip's chip reads @p text as the safe or done chip:
+ *        a `C_GREEN` frame, `C_BG` inside and the label in `C_GREEN`
+ *        (docs/design/ui-theme.md, "Green", slice 11).
+ */
+static inline bool greenChipIs(const char *text) { return outlinedChipIs(text, C_GREEN, C_GREEN); }
 
 /**
  * @brief Whether the header's rule is drawn: row y 35 in `C_GRID` from x 0
@@ -602,6 +668,65 @@ static inline int changedFillsClear(const UiControl *t, uint8_t n) {
 	return found;
 }
 
+/**
+ * @brief Whether @p id on the open screen is a control of the start list:
+ *        a button that starts an output and is green at rest
+ *        (docs/design/ui-theme.md, "Green"). HOLD TO WRITE and HOLD TO
+ *        RESTORE of ESC WRITE, KST and Hitec; HOLD TO START of SERVO TESTER
+ *        and S.BUS OUTPUT; HOLD TO APPLY; HOLD TO ARM on ESC TESTER; START
+ *        DSHOT on ESC TESTER and ESC COMMANDS.
+ */
+static inline bool startControl(UiControlId id) {
+	switch (uiCurrentScreen()) {
+		case UiScreenId::Am32:    return id == UI_FIX(Am32Ctl::WriteHold);
+		case UiScreenId::Kst:     return id == UI_FIX(KstCtl::WriteHold);
+		case UiScreenId::Hitec:   return id == UI_FIX(HitecCtl::WriteHold);
+		case UiScreenId::Servo:   return id == UI_FIX(ServoCtl::Start) || id == UI_FIX(ServoCtl::Apply);
+		case UiScreenId::SbusOut: return id == UI_FIX(SbusOutCtl::Start);
+		case UiScreenId::EscCmd:  return id == UI_FIX(EscCmdCtl::Start);
+		case UiScreenId::Tester:  return id == UI_FIX(TesterCtl::Start) || id == UI_FIX(TesterCtl::Arm);
+		default:                  return false;
+	}
+}
+
+/**
+ * @brief Walk the frame for `C_GREEN` rectangles larger than a chip: every
+ *        square of 13 x 13 px, one row taller than @ref UI_CHIP_H, all of
+ *        whose pixels are `C_GREEN`. Each lies inside a control of @p t that
+ *        startControl() names (slice 11 of menu-c.md's build plan). Text,
+ *        an outlined chip and a filled chip hold no such square.
+ * @return The start controls that hold one, or -1 when a square lies
+ *         outside every start control.
+ */
+static inline int greenFillsStart(const UiControl *t, uint8_t n) {
+	const uint16_t *fb = gfxBuffer();
+	const int side = UI_CHIP_H + 1;
+	static int run[GFX_W];
+	for (int x = 0; x < GFX_W; x++) run[x] = 0;
+	bool hit[UI_CONTROLS_MAX] = {};
+	for (int y = 0; y < GFX_H; y++) {
+		int across = 0;
+		for (int x = 0; x < GFX_W; x++) {
+			run[x] = fb[y * GFX_W + x] == C_GREEN ? run[x] + 1 : 0;
+			across = run[x] >= side ? across + 1 : 0;
+			if (across < side) continue;
+			const int x0 = x - side + 1, y0 = y - side + 1;
+			bool inside = false;
+			for (uint8_t i = 0; i < n && !inside; i++) {
+				const UiRect &r = t[i].rect;
+				if (startControl(t[i].id) && x0 >= r.x && y0 >= r.y && x < r.x + r.w && y < r.y + r.h) {
+					inside = true;
+					hit[i] = true;
+				}
+			}
+			if (!inside) return -1;
+		}
+	}
+	int found = 0;
+	for (uint8_t i = 0; i < n; i++) found += hit[i] ? 1 : 0;
+	return found;
+}
+
 /** @brief @p a and @p b are a tester readout and the pad or the track, either way round. */
 static inline bool readoutOverPad(UiControlId a, UiControlId b) {
 	if (uiCurrentScreen() != UiScreenId::Tester) return false;
@@ -621,9 +746,10 @@ static inline bool readoutOverPad(UiControlId a, UiControlId b) {
  *        BACK at uiBackRect() on every other screen, drawn live where the
  *        table says it acts and disabled where it says it does not, over
  *        the header's rule at y 35, every button with its rounded
- *        corners left to the ground (buttonCornersClear()), and every
+ *        corners left to the ground (buttonCornersClear()), every
  *        changed value's rectangle clear of its row's text
- *        (changedFillsClear()). The one
+ *        (changedFillsClear()), and every green fill larger than a chip
+ *        on a control of the start list (greenFillsStart()). The one
  *        overlap allowed is the tester's
  *        readouts (`TesterCtl::Poles`, `TesterCtl::Max`) over the pad
  *        and the track, never with both acting.
@@ -665,6 +791,10 @@ static inline void checkControlTable(const char *where) {
 	if (fills > 0) fakeChangedWalked() += fills;
 	snprintf(what, sizeof(what), "%s: a changed value's rectangle starts 4 px or more after its row's text", where);
 	checkTrue(what, fills >= 0);
+	const int greens = greenFillsStart(t, n);
+	if (greens > 0) fakeGreenWalked() |= 1u << (unsigned)uiCurrentScreen();
+	snprintf(what, sizeof(what), "%s: every green fill larger than a chip is a start control", where);
+	checkTrue(what, greens >= 0);
 	if (uiCurrentScreen() == UiScreenId::Tester || uiCurrentScreen() == UiScreenId::Menu) {
 		snprintf(what, sizeof(what), "%s: no BACK in the table", where);
 		checkTrue(what, !ctlPresent(UI_FIX(UI_BACK)));
@@ -723,12 +853,19 @@ static inline bool leaveNoteBlank(int k) {
 	return true;
 }
 
-/** @brief Whether the leave page's wide button reads @p label, live or drawn disabled. */
+/**
+ * @brief Whether the leave page's wide button reads @p label, live or drawn
+ *        disabled. Live, LEAVE is neutral, `C_TEXT` on `C_PANEL`, and the
+ *        hub's title is the way back, `C_ONACCENT` on `C_CYAN`
+ *        (docs/design/ui-theme.md, decision 16).
+ */
 static inline bool leaveWideIs(const char *label, bool live) {
 	const UiRect &r = UI_LEAVE_WIDE;
 	int x = r.x + (r.w - gfxTextW(label, 2)) / 2, y = r.y + (r.h - 14) / 2;
-	return live ? fakeTextIs(x, y, label, C_TEXT, C_PANEL, 2)
-	            : fakeTextIs(x, y, label, C_GRID, C_BG, 2);
+	if (!live) return fakeTextIs(x, y, label, C_GRID, C_BG, 2);
+	if (strcmp(label, "LEAVE") == 0) return fakeTextIs(x, y, label, C_TEXT, C_PANEL, 2);
+	return fakeTextIs(x, y, label, C_ONACCENT, C_CYAN, 2) &&
+	       gfxBuffer()[(r.y + r.h / 2) * GFX_W + r.x + 4] == C_CYAN;
 }
 
 /** @brief Whether the leave page's left button reads @p label, live or drawn disabled. */

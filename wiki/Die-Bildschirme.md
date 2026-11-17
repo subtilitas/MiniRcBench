@@ -80,8 +80,15 @@ bernsteinfarbene Zeilen auf den Streifen, zum Beispiel
 `2 CHANGES NOT WRITTEN.` und `BACK AGAIN DISCARDS THEM.`; ein zweites `BACK`
 verwirft die Änderungen, jede andere Berührung behält sie.
 
-**Die Farben folgen einer Tabelle von Rollen.** Grün heißt sicher oder
-erledigt: `SAFE`, `EDT ON`, `WRITE VERIFIED`, `SAVED`. Hellgrün ist ein
+**Die Farben folgen einer Tabelle von Rollen.** Grün hat zwei Formen. Als
+Füllung einer Schaltfläche startet es einen Ausgang: `HOLD TO ARM`,
+`HOLD TO WRITE`, `HOLD TO RESTORE`, `HOLD TO START`, `HOLD TO APPLY` und
+`START DSHOT` sind in Ruhe grün mit dunkler Beschriftung und werden rot,
+solange sie gehalten werden. Als Wort oder Rahmen heißt es sicher oder
+erledigt: die Chips `SAFE`, `OK`, `SETTLED` und `EDT ON` sind ein grüner
+Rahmen um ein grünes Wort, das Feld `SAFE` des Testers ein grüner Rahmen
+von 2 px, und `WRITE VERIFIED` und `SAVED` sind grüner Text. Solange der
+Tester scharf ist, ist nichts grün gefüllt. Hellgrün ist ein
 laufender Messwert: die Drehzahl, die Gasfüllung, der Servoimpuls, der
 Fortschrittsbalken beim Halten. Rot heißt Ausgang an oder ein Fehler: `ARMED`,
 `RUNNING`, `STOP`, die Halte-Schaltfläche eines Werkzeugs, solange sie gehalten
@@ -155,7 +162,7 @@ noch Gas 0, dann nichts, und der Pin liegt auf Low.
 
 **Obere Zeile.** Von links nach rechts:
 
-- das Scharf-Feld: `SAFE` (grün) oder `ARMED` (rot);
+- das Scharf-Feld: `SAFE` (ein grüner Rahmen) oder `ARMED` (rot);
 - `DSHOT` und die DShot-Bitrate in kbit/s, zum Beispiel `DSHOT600`, wie unter
   SETUP → DSHOT eingestellt, gedämpft, und in der Textfarbe, sobald eine
   EDT-Freigabe (Extended DShot Telemetry) gesendet wurde. `DSERR`

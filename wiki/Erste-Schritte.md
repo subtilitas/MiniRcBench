@@ -153,7 +153,8 @@ nicht der des ESC; die Spannung des ESC steht in der Kachel `VOLTAGE`.
 
 <img src="img/tester-idle.png" width="240" alt="Der Tester entschärft: SAFE in Grün, ARM TO ENABLE im Gasbalken">
 
-Entschärft zeigt das Feld `SAFE`, und der Gasbalken zeigt `ARM TO ENABLE`.
+Entschärft ist das Feld ein grüner Rahmen um `SAFE`, `HOLD TO ARM` ist eine
+grüne Schaltfläche, und der Gasbalken zeigt `ARM TO ENABLE`.
 In den ersten 1,5 s nach dem Öffnen des Testers zeigt er stattdessen
 `DSHOT STARTING: WAIT 1.5 S` in Bernstein, und `HOLD TO ARM` ist als Umriss
 gezeichnet: Der ESC muss DShot sehen, bevor er scharf werden kann. Ein Druck
@@ -161,8 +162,8 @@ in dieser Zeit bewirkt nichts; loslassen und erneut drücken, sobald die
 Schaltfläche bedienbar ist.
 
 1. Prüfe, dass der Propeller ab ist.
-2. `HOLD TO ARM` drücken und 1 s **halten**. Währenddessen füllt sich ein
-   grüner Balken am unteren Rand des Felds.
+2. `HOLD TO ARM` drücken und 1 s **halten**. Die Schaltfläche wird rot, und
+   währenddessen füllt sich ein hellgrüner Balken am unteren Rand des Felds.
 3. Das Feld wird rot und zeigt `ARMED`. Die Hintergrundbeleuchtung sinkt für
    120 ms auf ein Viertel, damit du das Scharfschalten siehst, während du auf
    den Motor schaust.

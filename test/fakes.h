@@ -367,6 +367,14 @@ bool fakeChangedIs(int x, int y, const char *text, uint16_t ground, int scale);
 int &fakeChangedWalked();
 
 /**
+ * @brief The screens on which checkControlTable() met a `C_GREEN` fill on a
+ *        control of the start list since the start, over every test file,
+ *        one bit per `UiScreenId`: the suite's last section holds that the
+ *        walk met the start buttons (slice 11 of menu-c.md's build plan).
+ */
+unsigned &fakeGreenWalked();
+
+/**
  * @brief The leftmost and rightmost columns in rows @p y to @p y + @p h - 1
  *        that hold a pixel other than @p bg.
  * @return false when every pixel there is @p bg.

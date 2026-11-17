@@ -965,9 +965,9 @@ change.
       by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
       row that opens a hub, a selected tab's label, a settings value and a
       section caption. "Changed" is the cyan fill and the bar of decision 8.
-      SETUP's captions and values are `C_CYAN`. Not built: the leave page's
-      button to the hub is slice 11's, and no screen has a tab. The other
-      uses are built by slice 10 of [menu-c.md](menu-c.md#build-plan)
+      SETUP's captions and values are `C_CYAN`. Not built: no screen has a
+      tab. The leave page's button to the hub is built by slice 11, the other
+      uses by slice 10 of [menu-c.md](menu-c.md#build-plan)
       ([ui-theme.md](ui-theme.md#slice-10-as-built)).
     - Revised by [ui-theme.md](ui-theme.md#decisions) decision 2 of 2026-11-15
       and that note's choices 10 and 11, which the owner has not decided:
@@ -976,7 +976,9 @@ change.
       decisions 14 and 16, pending the owner's review, HOLD TO RESTORE and START
       DSHOT. "Safe, done" is never a fill: it is a word in `C_GREEN`, or a
       square chip with a `C_GREEN` frame and label on `C_BG`, the tester's SAFE
-      badge among them. Not built.
+      badge among them. Built: slices 11 and 12 of
+      [menu-c.md](menu-c.md#build-plan)
+      ([ui-theme.md](ui-theme.md#slices-11-and-12-as-built)).
     - Revised by [ui-theme.md](ui-theme.md#widgets): a chip with no state to
       report, `NO ESC`, `PORT CLOSED` and `MOVING`, is a 1 px `C_GRID` frame on
       `C_BG` with a `C_DIM` label, square and 12 px tall. Built: slice 8 of
@@ -1059,7 +1061,9 @@ change.
       starts an output is `C_GREEN` with a `C_ONACCENT` label at rest and
       `C_RED` while held, HOLD TO ARM included. By ui-theme.md decision 14,
       pending the owner's review, every other hold is neutral at rest and
-      `C_RED` while held. Not built.
+      `C_RED` while held. Built: slices 11 and 12 of
+      [menu-c.md](menu-c.md#build-plan)
+      ([ui-theme.md](ui-theme.md#slices-11-and-12-as-built)).
 15. **Words that say what they mean** (item 11).
 
     | | Today | Becomes | Code |

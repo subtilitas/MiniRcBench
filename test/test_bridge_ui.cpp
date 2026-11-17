@@ -109,10 +109,12 @@ static bool defaultLines(int skip0 = -1, int skip1 = -1) {
 
 /**
  * @brief The chip reads @p text in @p fg on @p fill; with `C_GRID`, as the
- *        neutral chip, whose label is `C_DIM` on `C_BG`.
+ *        neutral chip, whose label is `C_DIM` on `C_BG`, and with `C_GREEN`
+ *        as the outlined green chip, whose label is `C_GREEN` on `C_BG`.
  */
 static bool chipIs(const char *text, uint16_t fill, uint16_t fg) {
 	if (fill == C_GRID) return fg == C_DIM && neutralChipIs(text);
+	if (fill == C_GREEN) return fg == C_GREEN && greenChipIs(text);
 	return fakeTextIs(uiChipX(text) + 6, UI_STRIP_Y + 4, text, fg, fill, 1) &&
 	       pixel(uiChipX(text) + 1, UI_STRIP_Y + 3) == fill;
 }
@@ -430,8 +432,11 @@ static void testWriteAndLeave() {
 	brFrames(1);
 	checkTrue("the PROGRAM before BRIDGE had no RUN: FLASH THE ESC AGAIN BEFORE USE. on this page too",
 	          flashNote() && usbBridgeWriteUnfinished());
+	checkTrue("ESC PROGRAM waits, drawn disabled",
+	          !ctlEnabled(UI_FIX(BridgeCtl::Release)) && leaveWideIs("ESC PROGRAM", false));
 	brFrames(43);
-	checkTrue("1000 ms after the line was let go: RESTART DSHOT live", ctlEnabled(UI_FIX(BridgeCtl::Release)));
+	checkTrue("1000 ms after the line was let go: RESTART DSHOT live, ESC PROGRAM dark on cyan",
+	          ctlEnabled(UI_FIX(BridgeCtl::Release)) && leaveWideIs("ESC PROGRAM", true));
 	tapId(UI_FIX(BridgeCtl::Release));
 	checkTrue("RESTART DSHOT: ESC PROGRAM", uiCurrentScreen() == UiScreenId::EscConfig);
 	tapId(UI_FIX(UI_BACK));  // to MENU

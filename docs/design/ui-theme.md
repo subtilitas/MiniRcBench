@@ -1,11 +1,13 @@
 # UI theme after rcbench's
 
-Status: slices 7, 8, 9 and 10 of [the build plan](menu-c.md#build-plan), the
-palette, the neutral fills, the radius and cyan, are built, host tests only
+Status: slices 7 to 12 of [the build plan](menu-c.md#build-plan), the
+palette, the neutral fills, the radius, cyan and green on the tools and on
+the tester, are built, host tests only
 ([Slices 7 and 8 as built](#slices-7-and-8-as-built),
 [Slice 9 as built](#slice-9-as-built),
-[Slice 10 as built](#slice-10-as-built)). Slices 11 to 14 are
-proposed, not built. The owner decided its five questions on 2026-11-15.
+[Slice 10 as built](#slice-10-as-built),
+[Slices 11 and 12 as built](#slices-11-and-12-as-built)). Slices 13 and 14
+are proposed, not built. The owner decided its five questions on 2026-11-15.
 The two questions the answers raised, and the colours of two buttons of the
 DShot lifetime, are settled by the developer's calls of 2026-11-16, pending the
 owner's review ([Decisions](#decisions)). Every colour is computed and not seen
@@ -1097,9 +1099,10 @@ with its number, here and in the note the line stands in. Slice 14 of
    > by ui-theme.md decisions 15 and 16, pending the owner's review), `>` on a
    > row that opens a hub, a selected tab's label, a settings value and a
    > section caption. "Changed" is the cyan fill and the bar of decision 8.
-   > SETUP's captions and values are `C_CYAN`. Not built: the leave page's
-   > button to the hub is slice 11's, and no screen has a tab. The other uses
-   > are built by slice 10 ([Slice 10 as built](#slice-10-as-built)).
+   > SETUP's captions and values are `C_CYAN`. Not built: no screen has a
+   > tab. The leave page's button to the hub is built by slice 11
+   > ([Slices 11 and 12 as built](#slices-11-and-12-as-built)), the other
+   > uses by slice 10 ([Slice 10 as built](#slice-10-as-built)).
 
 3. **menu-b.md decision 11,** the role "safe, done: `C_GREEN`", with its
    uses "SAFE badge and chip, EDT ON chip".
@@ -1111,7 +1114,8 @@ with its number, here and in the note the line stands in. Slice 14 of
    > decisions 14 and 16, pending the owner's review, HOLD TO RESTORE and START
    > DSHOT. "Safe, done" is never a fill: it is a word in `C_GREEN`, or a square
    > chip with a `C_GREEN` frame and label on `C_BG`, the tester's SAFE badge
-   > among them. Not built.
+   > among them. Built: slices 11 and 12
+   > ([Slices 11 and 12 as built](#slices-11-and-12-as-built)).
 
 4. **menu-b.md decision 14,** the row "Hold fill: `C_RED`".
 
@@ -1120,7 +1124,8 @@ with its number, here and in the note the line stands in. Slice 14 of
    > starts an output is `C_GREEN` with a `C_ONACCENT` label at rest and
    > `C_RED` while held, HOLD TO ARM included. By ui-theme.md decision 14,
    > pending the owner's review, every other hold is neutral at rest and
-   > `C_RED` while held. Not built.
+   > `C_RED` while held. Built: slices 11 and 12
+   > ([Slices 11 and 12 as built](#slices-11-and-12-as-built)).
 
 5. **menu-b.md decision 11,** the row "MENU `NO ESC` chip, no eRPM:
    `C_GRID`, square".
@@ -1675,6 +1680,79 @@ page's cyan button to the hub and START DSHOT (slice 11), green on the
 tester (slice 12), the walk over every screen's pairs (slice 13) and the
 records and "grey" (slice 14). The previews under `docs/` and `wiki/img/`
 are rendered with cyan as built here.
+
+## Slices 11 and 12 as built
+
+Slice 11, green on the tools, and slice 12, green on the tester, of
+[the build plan](menu-c.md#build-plan) ([decisions 2 and 16](#decisions),
+[Green](#green)). Host tests in `test/test_widgets.cpp`,
+`test/test_ids.cpp`, `test/test_dshot_life.cpp`, `test/test_ui.cpp`,
+`test/test_servo.cpp`, `test/test_kst_ui.cpp`, `test/test_hitec_ui.cpp`,
+`test/test_sbus_out_ui.cpp`, `test/test_sbus_ui.cpp`,
+`test/test_angle_ui.cpp`, `test/test_bridge_ui.cpp`,
+`test/test_esc_cmd_ui.cpp` and `test/ui_ids.h`. Not seen on the panel.
+
+| Block | Where | What it draws |
+|---|---|---|
+| A hold that starts an output | `uiStartHold()`, `UI_COL_START`, `src/ui_widgets.{h,cpp}` | `C_GREEN` with a `C_ONACCENT` label at rest, `C_RED` with the pressed look while held; disabled, `uiButton()`'s disabled look, `C_BG` with a `C_GRID` label. HOLD TO WRITE of ESC WRITE (`src/ui_am32.cpp`), HOLD TO WRITE and HOLD TO RESTORE of KST and Hitec (`src/ui_kst.cpp`, `src/ui_hitec.cpp`), HOLD TO START of SERVO TESTER and S.BUS OUTPUT, and HOLD TO APPLY (`src/ui_servo.cpp`, `src/ui_sbus_out.cpp`) draw through it |
+| The outlined chip | `uiChip()`, `src/ui_widgets.cpp` | with `C_GREEN`, `UI_COL_SAFE`: a 1 px `C_GREEN` frame, `C_BG` inside, a `C_GREEN` label. SAFE on SERVO TESTER and S.BUS OUTPUT, OK on S.BUS MONITOR, SETTLED on ANGLE METER, EDT ON on ESC COMMANDS |
+| The leave page's wide button | `uiLeaveDraw()`, `src/ui_leave.cpp` | LEAVE stays neutral. After LEAVE the button reads the hub's title: `C_BG` with a `C_GRID` label for its 1000 ms wait, then `C_CYAN` with a `C_ONACCENT` label |
+| START DSHOT | `uiLeaveStartDraw()`, `src/ui_leave.cpp` | the start step of ESC TESTER and ESC COMMANDS: `C_BG` with a `C_GRID` label for 999 ms, then `C_GREEN` with a `C_ONACCENT` label. A tap, not a hold: a press keeps the fill and takes the pressed frames |
+| HOLD TO ARM and DISARM | `drawButtons()`, `src/ui.cpp` | HOLD TO ARM through `uiStartHold()`: `C_GREEN` at rest, `C_RED` from the first frame of a hold that arming allows (`s_armPressing`, now part of the redraw key), the disabled look while a USB host holds the card, while the arm gate holds and while the touch is lost. DISARM is `C_RED` at scale 2, as before |
+| The arm badge | `drawStatusBar()`, `src/ui.cpp` | SAFE: a 2 px `C_GREEN` frame, `C_BG` inside, the word in `C_GREEN` at scale 2. ARMED: the `C_RED` fill with a `C_ONACCENT` word, the one filled badge. The hold's `C_LIME` progress at the badge's lower edge is unchanged |
+| The roles | `TC_GREEN` in `src/theme.h`, `C_GREEN` in `src/gfx.h`, `UI_COL_SAFE` and `UI_COL_START` in `src/ui_widgets.h` | green as a fill is a start; as a word or an outline it is safe or done |
+
+The tests the plan names, and where they are:
+
+- **Each hold's fill and label at rest, while held and disabled.**
+  `testStartHold()` in `test/test_widgets.cpp`, both themes; on the
+  screens, by control id, `checkStartHold()`, `startButtonIs()` and
+  `heldStartIs()` in `test/ui_ids.h`, in the suites of ESC WRITE, KST,
+  Hitec, SERVO TESTER, SERVO SET and S.BUS OUTPUT.
+- **The outlined chip.** `testChipGreen()` in `test/test_widgets.cpp`;
+  `outlinedChipIs()`, `greenChipIs()` and `neutralChipIs()` in
+  `test/ui_ids.h`, which the SAFE, OK, SETTLED and EDT ON checks read.
+- **The walk over the suite's frames.** `greenFillsStart()` in
+  `test/ui_ids.h`, which `checkControlTable()` runs on every frame it
+  reads: every `C_GREEN` rectangle larger than a chip lies inside a control
+  that `startControl()` names. `testGreenWalk()` in `test/test_ids.cpp`
+  holds the walk itself. The tester's badge needs no exemption once it is
+  an outline.
+- **The leave page's wide button and START DSHOT.** `leaveWideIs()` in
+  `test/ui_ids.h`, read by the leave pages' cases of SERVO TESTER, KST,
+  Hitec, USB BRIDGE, S.BUS MONITOR and S.BUS OUTPUT; the start step in
+  `test/test_dshot_life.cpp`.
+- **The tester.** `testArmLook()` in `test/test_dshot_life.cpp`: HOLD TO
+  ARM `C_BG` with a `C_GRID` label at 1499 ms after the bind, `C_GREEN`
+  with `C_ONACCENT` ink at 1500 ms; `C_RED` on the hold's first frame;
+  SAFE's frame, inside and word by pixel; ARMED and DISARM on `C_RED`; no
+  `C_GREEN` pixel in the frame while armed; the disabled look while the
+  touch is lost. The card case of `test/test_ui.cpp` reads `C_GREEN` once
+  the card is free. #49's cases pass unchanged.
+
+Mutations, each run against the whole suite and restored:
+
+| Mutation | Result |
+|---|---|
+| KST's hold left neutral | 5 checks fail, the first "KST WRITE: HOLD TO WRITE at rest, dark on green" |
+| `uiChip()` filling a `C_GREEN` chip | 42 checks fail, the first "the chip says SAFE" |
+| The hub button left neutral | 12 checks fail, the first "live 1000 ms after SIG was let go" |
+| START DSHOT neutral | 5 checks fail, the first "ESC TESTER: 1000 ms on, START DSHOT live, dark on green" |
+| The tester's badge filled green | 12 checks fail, the first "tester, disarmed: every green fill larger than a chip is a start control" |
+| HOLD TO ARM left green while held | 1 check fails: "the hold's first frame: C_RED" |
+| HOLD TO ARM green while the gate holds | 13 checks fail, the first "HOLD TO ARM drawn disabled: an outline, no fill" |
+| HOLD TO ARM green while armed | 2 checks fail, the first "armed: DISARM on C_RED, ARMED filled C_RED" |
+| HOLD TO SAVE drawn green | 10 checks fail, each "every green fill larger than a chip is a start control" on SETUP |
+
+Readings of the note where the code asked for a choice:
+
+- **One widget for the start holds.** `uiStartHold()` keeps the rule in one
+  place; a hold that edits or commands, HOLD TO SAVE among them, stays on
+  `uiButton()` and is neutral ([decision 14](#decisions)).
+- **The hold's red follows the timed press.** HOLD TO ARM turns red only
+  while `s_armPressing` holds, the press arming allows. A press on the
+  disabled button is not timed and draws no red, as [Green](#green) item 5
+  asks.
 
 ## Open questions
 

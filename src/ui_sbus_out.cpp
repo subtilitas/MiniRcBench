@@ -538,8 +538,7 @@ static void drawBottom(bool retry) {
 		uiButton(BTN_START, "STOP", UI_COL_ON, C_ONACCENT, 2, k.p0);
 	} else {
 		uiHoldDrawBar(&s_hold, BTN_START, SBOUT_UI_BAR_Y, millis());
-		uiButton(BTN_START, "HOLD TO START", s_hold.holding ? UI_COL_ON : C_PANEL,
-		         s_hold.holding ? C_ONACCENT : C_TEXT, 1, s_hold.holding, startOk);
+		uiStartHold(BTN_START, "HOLD TO START", 1, s_hold.holding, startOk);
 	}
 	uiButton(BTN_PAGE, s_page ? SBOUT_UI_PAGE_1 : SBOUT_UI_PAGE_2, C_PANEL, C_TEXT, 1, k.p1);
 	uiButton(BTN_SET, "SET", C_PANEL, C_TEXT, 1, k.p2);

@@ -1101,14 +1101,14 @@ static void drawWriteTail(bool page, bool running, const char *verified, bool ho
 	gfxText(UI_MARGIN, WP_BACKUP_Y, bl, bc, 1);
 
 	if (page) {
-		// C_RED while holding rather than C_REDDARK: that colour's other job
+		// Green at rest, C_RED while holding (uiStartHold()), and C_RED
+		// rather than C_REDDARK: that colour's other job
 		// is the dead-telemetry digit, which has to read as "off" and
 		// therefore inverts direction between the two palettes. A fill that
 		// carries C_ONACCENT text needs to stand off it in both, and C_RED does.
 		bool holding = s_writeHold.holding;
 		uiHoldDrawBar(&s_writeHold, BTN_OK, FOOT_Y - 4, millis());
-		uiButton(BTN_OK, "HOLD TO WRITE", holding ? C_RED : C_PANEL, holding ? C_ONACCENT : C_TEXT, 2,
-		         holding, holdLive);
+		uiStartHold(BTN_OK, "HOLD TO WRITE", 2, holding, holdLive);
 	} else {
 		// Pressed only under a press that can act: not under the hold's
 		// finger. Drawn disabled while the write runs.

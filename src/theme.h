@@ -76,7 +76,9 @@ enum ThemeColor : uint8_t {
 	TC_PAPER,     /**< Equals the background; text on `C_AMBER` and `C_INK`. */
 	TC_ONACCENT,  /**< Text on a saturated fill: near black in Dark, white in
 	               *   High contrast. */
-	TC_GREEN,     /**< Safe, done: SAFE, EDT ON, WRITE VERIFIED, SAVED. */
+	TC_GREEN,     /**< As a fill, a press that starts an output: the start
+	               *   holds, START DSHOT. As a word or an outline, safe or
+	               *   done: SAFE, EDT ON, WRITE VERIFIED, SAVED. */
 	TC_LIME,      /**< A live reading: RPM, throttle fill, hold bars. */
 	TC_AMBER,     /**< Warning: text to read before the next action. */
 	TC_RED,       /**< Output on, or a failure: ARMED, RUNNING, REC. */

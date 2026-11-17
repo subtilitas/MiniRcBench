@@ -1283,8 +1283,7 @@ static void drawWrite() {
 	}
 	bool ok = holdOk();
 	uiHoldDrawBar(&s_hold, BTN_WIDE, HL_FOOT_Y - 4, millis());
-	uiButton(BTN_WIDE, s_restoring ? "HOLD TO RESTORE" : "HOLD TO WRITE", s_hold.holding ? C_RED : C_PANEL,
-	         s_hold.holding ? C_ONACCENT : C_TEXT, 2, s_hold.holding, ok);
+	uiStartHold(BTN_WIDE, s_restoring ? "HOLD TO RESTORE" : "HOLD TO WRITE", 2, s_hold.holding, ok);
 }
 
 static void writeTouch() {

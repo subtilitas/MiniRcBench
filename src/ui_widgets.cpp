@@ -94,6 +94,10 @@ void uiButton(const UiRect &r, const char *label, uint16_t fill, uint16_t fg,
 	        r.y + d + (r.h - 7 * scale) / 2, label, fg, scale);
 }
 
+void uiStartHold(const UiRect &r, const char *label, int scale, bool holding, bool enabled) {
+	uiButton(r, label, holding ? UI_COL_ON : UI_COL_START, C_ONACCENT, scale, holding, enabled);
+}
+
 UiRect uiBackRect() {
 	return UiRect{UI_BACK_X, UI_BACK_Y, UI_BACK_W, UI_BACK_H};
 }
@@ -176,11 +180,14 @@ void uiChip(const char *text, uint16_t fill) {
 	gfxRect(x, y, w, UI_CHIP_H, fill);
 	// y 44, the line of uiStripText(), so the chip reads level with the caption.
 	uint16_t fg = (fill == C_AMBER || fill == C_INK) ? C_PAPER : C_ONACCENT;
-	if (fill == C_GRID) {
-		// The neutral chip: no state to report, so no fill. C_GRID is the
-		// frame, 1 px, and the label is a label's colour.
+	if (fill == C_GRID || fill == UI_COL_SAFE) {
+		// No fill. The neutral chip has no state to report: C_GRID is the
+		// frame, 1 px, and the label is a label's colour. Safe or done is
+		// never a fill, since a green fill is a button that starts an
+		// output (docs/design/ui-theme.md, "Green"): the frame and the
+		// label are C_GREEN.
 		gfxRect(x + 1, y + 1, w - 2, UI_CHIP_H - 2, C_BG);
-		fg = C_DIM;
+		fg = fill == C_GRID ? C_DIM : UI_COL_SAFE;
 	}
 	gfxText(x + 6, y + (UI_CHIP_H - 7) / 2, text, fg, 1);
 }
