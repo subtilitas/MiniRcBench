@@ -75,6 +75,8 @@ __attribute__((warn_unused_result)) bool fakeClockSetMs(uint64_t ms);
  * suite. A section is unmarked until its init call, as a zeroed static is.
  */
 unsigned fakeCriticalSectionMisuse();
+/** @brief Spin locks the suite's critical_section_init() calls would have claimed on the chip. */
+unsigned fakeCsClaims();
 /**
  * @brief Run @p hook once, right after the next critical_section_exit():
  *        core1's work put between two of core0's reads that no frame loop

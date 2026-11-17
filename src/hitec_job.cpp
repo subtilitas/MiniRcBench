@@ -6,6 +6,7 @@
  * which servos this module works with.
  */
 
+#include "cs_shared.h"
 #include "hitec_job.h"
 #include "hitec_line.h"
 #include "hitec_line_port.h"
@@ -569,7 +570,7 @@ static void advance(uint32_t nowMs, bool uiAlive) {
 }
 
 static void hitecJobInit() {
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 }
 
 /** @brief The `hitec_line_err_t` of a refused open as the bind failure a screen names. */

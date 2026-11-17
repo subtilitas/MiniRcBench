@@ -3,6 +3,7 @@
  * @brief The S.BUS output's core1 job. @see sbus_out_job.h
  */
 
+#include "cs_shared.h"
 #include "sbus_out_job.h"
 #include "sbus_job.h"
 #include "pin_claim.h"
@@ -266,7 +267,7 @@ static void padRelease() {
 }
 
 static void sbusOutJobInit() {
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 }
 
 static uint8_t sbusOutJobBind(uint8_t sigGpio, uint8_t auxGpio) {

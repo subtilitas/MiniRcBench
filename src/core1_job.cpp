@@ -3,6 +3,7 @@
  * @brief Core1 job dispatch: start, bind, step, stop. @see core1_job.h
  */
 
+#include "cs_shared.h"
 #include "core1_job.h"
 #include "esc_task.h"
 #include "servo_job.h"
@@ -52,7 +53,7 @@ static uint8_t       s_error = CORE1_JOB_OK;        /**< Last bind failure. */
 static bool s_bound = false;
 
 void core1JobInit() {
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 	for (const Core1JobOps *ops : s_ops)
 		if (ops && ops->init) ops->init();
 }

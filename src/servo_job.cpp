@@ -3,6 +3,7 @@
  * @brief The servo tester's core1 job. @see servo_job.h
  */
 
+#include "cs_shared.h"
 #include "servo_job.h"
 #include "esc_task.h"
 #include "servo_pwm.h"
@@ -417,7 +418,7 @@ static void drivePower() {
 }
 
 static void servoJobInit() {
-	critical_section_init(&s_cs);
+	csInitShared(&s_cs);
 	servoProfileDefault(&s_profile);
 	s_status.upMs = SUPPLY_UP_NONE;
 }
