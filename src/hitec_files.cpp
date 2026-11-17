@@ -165,9 +165,11 @@ HitecFiles hitecFilesSaveAs(const hitec_image_t *img, char *name) {
 
 /** @brief Parse @p len bytes of a servo file or a record as the image to load. */
 static HitecFiles parseImage(const char *text, size_t len, uint8_t series, hitec_image_t *out) {
-	hitec_image_t img;
+	// Static: the record is 784 bytes and the image 290, on core0's deepest
+	// path (card parse under a screen tick). Core0 only, not re-entered.
+	static hitec_image_t img;
 	if (hitec_card_file_parse(text, len, &img, nullptr, nullptr) != HITEC_CARD_OK) {
-		hitec_card_record_t rec;
+		static hitec_card_record_t rec;
 		if (hitec_card_parse(text, len, &rec) != HITEC_CARD_OK) return HitecFiles::BadText;
 		img = rec.before;
 	}

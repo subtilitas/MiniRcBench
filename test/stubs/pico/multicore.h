@@ -5,7 +5,14 @@
 // running, which is deliberate -- escSnapshot() is the only way across, so the
 // UI is testable with core1 absent.
 #pragma once
+#include <stddef.h>
+#include <stdint.h>
 void multicore_launch_core1(void (*entry)(void));
+/** @brief The SDK's default core1 stack size, 2 KB. */
+#ifndef PICO_CORE1_STACK_SIZE
+#define PICO_CORE1_STACK_SIZE 0x800
+#endif
+void multicore_launch_core1_with_stack(void (*entry)(void), uint32_t *stack_bottom, size_t stack_size_bytes);
 void multicore_reset_core1(void);
 
 // The lockout API, used by settings_flash.cpp to park core1 across a flash

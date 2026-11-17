@@ -945,22 +945,24 @@ static void listTouch() {
 // the write page
 // ---------------------------------------------------------------------------
 
-/** @brief This write's record: the servo before it and the target. */
-static hitec_card_record_t recordOf() {
-	hitec_card_record_t r;
+/** @brief This write's record: the servo before it and the target, into @p out. @param out The record. */
+static void recordOf(hitec_card_record_t *out) {
+	hitec_card_record_t &r = *out;
 	memset(&r, 0, sizeof(r));
 	r.series = s_family;
 	r.port = 0;
 	r.pin = sigGpio();
 	r.before = s_st.image;
 	r.target = s_pageTo;
-	return r;
 }
 
 /** @brief The card calls before a write; false when the card took no file. */
 static bool writeFiles() {
 	HitecCardPhase phase;
-	hitec_card_record_t rec = recordOf();
+	// Static: a record is 784 bytes, and this path to FatFs is core0's
+	// deepest stack. writeFiles() runs on core0 only and does not re-enter.
+	static hitec_card_record_t rec;
+	recordOf(&rec);
 	if (!s_firstDone) {
 		hitecFilesFirstWrite(&s_st.backup, &rec, &s_write);
 		if (!hitecFilesWriteAllowed(&s_write)) {
@@ -1454,7 +1456,9 @@ static void loadSelected() {
 	int idx = 0;
 	FileRow k = rowKind(s_fileSel, &idx);
 	if (k == FileRow::Factory) {
-		hitec_image_t f = s_st.image;
+		// Static, as img below: core0's stack is 4 KB at most.
+		static hitec_image_t f;
+		f = s_st.image;
 		if (!hitec_c_factory(&f)) {
 			fileNote(C_AMBER, "THE FACTORY BLOCK WAS NOT READ");
 			return;
