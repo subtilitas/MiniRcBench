@@ -2,8 +2,9 @@
 
 One ordered list of every hardware test that MiniRcBench's design notes and
 [STATUS.md](../STATUS.md#open-items) name, for bringing the firmware up on
-the Waveshare RP2350-Touch-LCD-2.8. Nothing in this plan has run: every test
-below is open. The plan changes no design decision. A test passes only when
+the Waveshare RP2350-Touch-LCD-2.8. The panel lights and the board boots on the
+owner's board (owner's report of 2026-11-17). Nothing in this plan has run:
+every test below is open. The plan changes no design decision. A test passes only when
 its result is written into STATUS.md and the note, as each test says.
 
 ## Purpose and use

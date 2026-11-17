@@ -586,42 +586,45 @@ ports the first branch's frame slot and ring.
 State as of 2026-11-17. 0.1.0 is not tagged; CHANGELOG still dates it
 2026-11-15, and the date moves to the tag day.
 
-**The panel stays dark: cause found, fix not yet seen on the board.** The
-boot diagnostic on the owner's board stops after group 6 and then blinks
-fast: `core1JobInit()` panics. The SDK hands out eight spin locks through
-`spin_lock_claim_unused()`; TinyUSB took one and the firmware's critical
-sections nine more, so the ninth of these claims panicked. Every critical
-section in `src/` now takes a shared striped spin lock (`src/cs_shared.h`);
-the image claims one. The rest of this paragraph is the record before the
-finding. The owner's board, a Waveshare
-RP2350-Touch-LCD-2.8 with no INA219 (current sensor) on J3, shows no picture
-with images from `main` at 75b5ebb, 9eac294, 7b8691a and cff09ae; the
-backlight stays off. A DshotDisplay image runs on the same board. The
-backlight first turns on in `st7789Init()`, at level 200, and its state
-machine keeps running after a later fault, so the board stops before or
-inside `st7789Init()`, or never reaches `setup()`. A reading of the boot
-path finds no defect. The candidates, most likely first:
+**The panel lights and the board boots on the owner's board (owner's
+report of 2026-11-17; nothing else measured).** The panel had stayed dark.
+The boot diagnostic on the owner's board stopped after group 6 and then
+blinked fast: `core1JobInit()` panicked. The SDK hands out eight spin locks
+through `spin_lock_claim_unused()`; TinyUSB took one and the firmware's
+critical sections nine more, so the ninth of these claims panicked. Every
+critical section in `src/` takes a shared striped spin lock
+(`src/cs_shared.h`) and the image claims one. With that fix, pull request
+#139, the owner reports that the bench boots and seems to work. What was
+looked at beyond the lit panel is not recorded. The boot diagnostic
+(README.md, "Boot diagnostic") stays as a tool: `cmake -DBOOT_DIAG=ON`
+builds `MiniRcBench-touch-lcd-2.8-boot-diag.uf2`, which blinks GP16 a step's
+number of times before each of the 12 steps of `setup()` and blinks fast on a
+hard fault. The bench plan is unblocked. The release tag waits on the owner.
 
-1. the backlight on pio0 (`src/backlight.pio`, `st7789Init()`), new since
-   85bb5af6 of 2026-10-29 in place of DshotDisplay's PWM (pulse-width
-   modulation) backlight; not checked on hardware;
-2. a hard fault: the SD library's `crash.c` handler, linked into every
-   image up to 64939b9, stops on `__breakpoint()` before its reset, which
-   with no debugger attached locks the core up, so a fault leaves the board
-   hung and, before `st7789Init()`, dark. `src/fault.cpp` replaces it: a
-   fault now blinks GP16 for 2 s and restarts, and LAST RESTART reads
-   `FAULT` with the PC (README.md, "Hard faults"). A board that blinks fast
-   for 2 s at every boot has this cause;
-3. a step new since the fork: `diagCaptureRestart()`, `settingsLoad()`
-   carrying over a DshotDisplay block, the pad parking of `escTaskInit()`,
-   `servoSupplyInit()`, `core1JobInit()`.
+**Code review of 2026-11-17.** A review of six areas of the code found the
+following, fixed on the branch `ccr-review-fixes`. All of it is tested on the
+host only; none has run on the board.
 
-The boot diagnostic finds the step: `cmake -DBOOT_DIAG=ON` builds
-`MiniRcBench-touch-lcd-2.8-boot-diag.uf2`, which blinks GP16 a step's
-number of times before each of the 12 steps of `setup()` and blinks fast
-on a hard fault (README.md, "Boot diagnostic"). Two images on either side
-of 85bb5af6, built from 5e1666dd and 85bb5af6, separate candidate 1. This
-blocks the bench and the release.
+- AM32 ESC SETTINGS reads, writes, verifies and backs up the whole 192-byte
+  settings page, and refuses a write when the ESC on the wire is not the one
+  that was read (`ESC CHANGED: NOT WRITTEN`). The backup file is format 2.
+- A DShot heartbeat lapse of more than 250 ms while armed disarms on core1
+  and latches; the next `uiTick()` stops the tester, so arming again takes
+  the 1 s hold.
+- A Hitec D series write reads the servo first and writes only if it holds
+  the image the plan starts from.
+- Core1 runs on a 2 KB static array, so core0's stack has all 8 KB of
+  SCRATCH_X and SCRATCH_Y.
+- DISARM acts while a USB host holds the card; only arming is refused.
+- The logger skips the search for the 16 MiB run after one `FR_DENIED` until
+  the next mount, initialises the SD driver first, and mounts the card again
+  after a close that failed; `cardCreate()` does the same before it removes a
+  partial file.
+- USB DRIVE refuses a card the driver marks uninitialised after a fault.
+- `st7789Init()` sends the cleared framebuffer before the backlight lights,
+  `senseInit()` frees a held I2C bus before the clock read, and the splash
+  loop serves USB.
+- The DShot pump's reported mode is one byte that core1 publishes (internal).
 
 **Built since 2026-11-16,** host tests only: slices D3 and D4 of
 [dshot-lifetime.md](docs/design/dshot-lifetime.md), slices 6 and D5 of
@@ -645,9 +648,10 @@ its Release run publishes the image, `SHA256SUMS.txt` and
 v0.1.0-rc1 exists, the tag at a93e1c1, published as a pre-release with
 `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes), `SHA256SUMS.txt`
 and `THIRD_PARTY_NOTICES.txt`, with no manual. An image that shows no
-picture is not worth a release: the tag waits for the panel.
+picture is not worth a release; the panel now shows one on the owner's
+board. The tag waits on the owner.
 
-The bench follows a picture on the panel.
+The bench follows the panel, which lights.
 [docs/bench-plan.md](docs/bench-plan.md) orders every bench test of the
 design notes and of the open items below into ten sessions that build on
 each other, with the setups, pass criteria and the place each result goes.
@@ -655,9 +659,8 @@ Every tool is tested on the host only (item 18).
 
 Waiting on the owner:
 
-- the boot diagnostic and the two images around 85bb5af6 on the board;
 - the review of the design calls above;
-- the tag `v0.1.0`, once the panel shows a picture;
+- the tag `v0.1.0`;
 - the bench, which needs the hardware and the instruments the plan lists;
 - the converter module's name (item 19) and item 21's open question on a
   second contact.
@@ -1464,7 +1467,11 @@ criteria; none has run.
 - **Logs past the pre-allocation.** 16 MiB lasts about 38 minutes at
   7.3 kB/s. Past that, or when `f_expand()` finds no contiguous space, FatFs
   allocates clusters as the file grows. The stall that causes is not measured,
-  and a failed pre-allocation is not reported.
+  and a failed pre-allocation is not reported. After one `FR_DENIED` from
+  `f_expand()` the logger skips the search until the next mount, so a FAT32
+  card with no free 16 MiB run is not walked at every arm. A close that
+  fails makes the logger mount the card again at its next start; the
+  summary's empty `.TXT` can stay.
 - **USB DRIVE.** Read-only. Refused while armed or recording, with the reason
   shown for 4000 ms. Arming is refused while a host holds the card. A cable
   pulled with the board on its battery does not give the card back: EJECT

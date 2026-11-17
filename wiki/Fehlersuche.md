@@ -173,9 +173,11 @@ Vier Sperren halten den Motor an, und jede zeigt sich auf dem Bildschirm:
   Anzeige oder ein hängender I2C-Bus
   (Inter-Integrated Circuit) kann die Ursache sein; welche, wird nicht
   unterschieden.
-- **Herzschlag-Sicherung.** Hält die Anzeige-Firmware an, setzt der zweite
-  Kern das Gas nach 250 ms auf null. Der Bildschirm wäre dann ebenfalls
-  eingefroren.
+- **Herzschlag-Sicherung.** Hält die Anzeige-Firmware bei scharfem Tester
+  länger als 250 ms an, schaltet der zweite Kern scharf aus, setzt das Gas auf
+  null und hält den Stopp fest. Das Gas bleibt auf null, wenn der Bildschirm
+  wieder läuft: Der Tester ist entschärft, und erneutes Scharfschalten
+  verlangt das 1-s-Halten. Der Bildschirm wäre dann ebenfalls eingefroren.
 
 Bleibt der Motor ohne eines davon stehen, prüfe die Schutzfunktionen des ESC
 (Unterspannungsabschaltung, Temperatur, Desync) und sieh dir `ESC STATUS` und

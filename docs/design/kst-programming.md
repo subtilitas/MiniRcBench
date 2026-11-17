@@ -1343,9 +1343,12 @@ a host:
   computer frees the other's data, and later sessions keep the second name
   as one more KSTnnn.TXT.
 - A create whose close fails with a clean window, a data sector that does
-  not take its write: FatFs keeps the file open, refuses to remove it or to
-  open it for reading (`FR_LOCKED`), and holds one of its 16 lock entries
-  (`FF_FS_LOCK`) until the card is mounted again.
+  not take its write: FatFs keeps the file open and holds one of its 16 lock
+  entries (`FF_FS_LOCK`), and would refuse to remove it or to open it for
+  reading (`FR_LOCKED`). `cardCreate()` (`src/card_dir.cpp`) mounts the card
+  again, which drops the lock entries and the cached sectors, and then
+  removes the partial file. While a log runs or USB DRIVE holds the card, no
+  mount happens and the file stays.
 
 | Situation | Effect |
 |---|---|
@@ -1462,7 +1465,8 @@ so these run against the same simulated servo:
   board reports it (a disk error) and as `FR_WRITE_PROTECTED`, a full
   directory, a file or a directory in a file's way, a read-only record, a
   one-time write or sync error with no file or new directory left behind, a
-  close error that leaves its file locked, one of the two files taken, the
+  close error, after which the card is mounted again and the partial file
+  removed, one of the two files taken, the
   record found and loaded at entry, the store's save, list and load over
   FatFs. With the screen, in `test_kst_ui.cpp`: the record written before
   the first write frame and removed after a verify. With `GP28` or `GP29`,

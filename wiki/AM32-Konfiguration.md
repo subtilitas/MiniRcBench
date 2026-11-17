@@ -97,7 +97,7 @@ Bytes: `THE BYTES AS READ. THE FIELD TABLE` /
 <img src="img/am32-readonly.png" width="240" alt="Die Nur-Lese-Ansicht eines Blocks in Layout 5: LAYOUT 5 NOT KNOWN: READ-ONLY. und NOT VERIFIED. BACKUP AM001 in Bernstein, die 48 Bytes hexadezimal">
 
 Die Sicherung geht beim Öffnen der Ansicht auf die Karte, da später nichts
-geschrieben wird. Sie enthält die 48 Bytes, keine Feldzeile und die Zeile
+geschrieben wird. Sie enthält die ganze Seite mit 192 Bytes, keine Feldzeile und die Zeile
 `Layout not known: fields not read, not verified`. Die Ansicht hat ein
 Bedienelement, `BACK`, das zu ESC PROGRAM führt: keine Zeile, kein `WRITE...`,
 `REVERT` oder `HEX`, und der Bildschirm hat keinen Weg von dieser Ansicht zum
@@ -563,8 +563,10 @@ verweigert, hält das Schreiben auf: `NO BACKUP ON THE CARD: NOT WRITTEN`,
 darunter `CHECK THE CARD, THEN WRITE AGAIN.`. Ohne
 Karte läuft das Schreiben, und die Sicherung bleibt im Speicher, bis ein
 Schreiben mit Karte sie sichert oder der Editor schließt. Die Datei hält eine
-Zeile je Feld, das die Firmware liest, die 48 Bytes in Hex und eine
-Prüfsummenzeile; noch liest sie nichts zurück. Der ESC wird erst
+Zeile je Feld, das die Firmware liest, die 192 Bytes der Einstellungsseite
+in Hex (das Format der Datei ist 2: die Zeile `bytes 192` und 12 Hex-Zeilen)
+und eine Prüfsummenzeile; noch liest sie nichts zurück. Die Startmelodie und
+der CAN-Block (Controller Area Network) sind darin. Der ESC wird erst
 geschrieben, wenn die Sicherung auf der Karte liegt. Eine Blackbox-Aufzeichnung, die beim Öffnen des Editors läuft,
 endet.
 
@@ -576,8 +578,13 @@ prüft es nicht.
 
 ### Wenn das Schreiben scheitert
 
-Das Schreiben schickt die Einstellungen in drei Schritten: die Adresse, die
-48 Bytes und den Befehl, sie zu programmieren. Jeder Schritt wartet bis zu
+Das Schreiben schickt die ganze Einstellungsseite, 192 Bytes (0x00 bis 0xBF),
+weil der AM32-Bootloader die Seite löscht, bevor er ein Schreiben programmiert,
+das am Seitenanfang beginnt. Die ersten 48 Bytes sind die Einstellungen, die
+die Liste, die `HEX`-Ansicht und die Änderungen abdecken. Die Startmelodie
+(0x30 bis 0xAF) und der CAN-Block (0xB0 bis 0xBF) gehen so zurück, wie sie
+gelesen wurden. Das Schreiben schickt drei Schritte: die Adresse, die 192
+Bytes und den Befehl, sie zu programmieren. Jeder Schritt wartet bis zu
 250 ms auf die Bestätigung des ESC. Danach läuft das Zurücklesen, bis zu
 dreimal, jedes nach 300 ms Wartezeit. Der Bildschirm zeigt eines dieser
 Ergebnisse:
@@ -585,6 +592,7 @@ Ergebnisse:
 | Ergebnis | Was der Code gesehen hat |
 |---|---|
 | `NO BACKUP ON THE CARD: NOT WRITTEN` | Die Karte hat die Sicherung verweigert, oder das Zurückschreiben auf die Karte scheiterte. Nichts ging an den ESC |
+| `ESC CHANGED: NOT WRITTEN`, darunter `LEAVE AND READ IT AGAIN.` | Die Seite, kurz vor der Sicherung und dem Schreiben noch einmal gelesen, weicht von der beim Eintritt gelesenen ab: im Boot-Byte, in der Layout-Version, in den Firmware-Versionsbytes 0, 1, 3 und 4 oder in Melodie und CAN-Block (0x30 bis 0xBF), oder dieses Lesen scheiterte. Byte 2, die Bootloader-Version, wird nicht verglichen. Nichts ging an den ESC |
 | `WRITE FAILED: NO REPLY` | Ein Schritt bekam binnen 250 ms keine Bestätigung |
 | `WRITE FAILED: REFUSED` | Ein Schritt bekam ein Antwortbyte, das keine Bestätigung ist |
 | `WRITE FAILED: CRC FAIL` | Beim Schreiben nicht erreicht: Seine Antworten tragen keine Prüfsumme (CRC, Cyclic Redundancy Check) |

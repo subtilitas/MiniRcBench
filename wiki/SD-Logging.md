@@ -127,7 +127,11 @@ card is not closed. What it holds depends on when it was cut:
 - **Without the reservation, or past 16 MiB:** when the card had no free
   run of 16 MiB at the start, or the log grew past it, the file has the
   size written at the last of those 2 s steps; what came after it is not
-  in the file.
+  in the file. After one search that finds no free run, the firmware does
+  not search again until the card is mounted again (power-up, `RETRY MOUNT`,
+  the end of `USB DRIVE`, a tool's remount), so the logs in between start
+  without the reservation. A log or summary file whose close failed makes the
+  next `START` mount the card again first.
 
 These are facts of the firmware's code and of the FatFs library it uses,
 not measured on a card. How a viewer handles such a file is not tested.
@@ -345,6 +349,10 @@ Without a card, `USB DRIVE` is drawn unavailable and does nothing.
 |---|---|
 | `DISARM FIRST` | Disarm. The handover pauses the logger |
 | `STOP RECORDING FIRST` | Stop the recording |
+
+A card that the driver marks as not initialised, as after a card fault,
+counts as no card: the handover gives it back to the logger, and no drive
+appears on the computer.
 
 **Arming is blocked while the computer holds the card.** `BACK` leaves the
 screen for `MENU` without cancelling the handover, and `BACK` on `MENU` reaches

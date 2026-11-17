@@ -843,8 +843,10 @@ Choices made where the sections above leave room:
   well and reads CARD FULL too. Any other failed open reads WRITE FAILED.
 - **A short write** (CARD FULL) or a failed write (WRITE FAILED) closes the
   file and removes it. A failed close reads WRITE FAILED; FatFs then keeps
-  the file open and locked, so its removal is refused until the next mount,
-  after which the card holds an empty `.TXT` (seen over the RAM disk).
+  the file open and locked, so its removal is refused. The logger notes the
+  failed close (`s_closeLeaked`) and mounts the card again at its next
+  start, which frees the lock entry; the card then holds an empty `.TXT`
+  (seen over the RAM disk).
 - **The ring.** The text is built only when `logRingUsed()` is 0; otherwise
   the file reads WRITE FAILED without a write. The drain always empties it,
   so the branch is not reached. That the text fits is a `static_assert` on

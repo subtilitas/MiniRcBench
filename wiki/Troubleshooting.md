@@ -158,8 +158,11 @@ Four interlocks stop the motor, and each one shows on screen:
   answers again.
   A loose flex cable to the panel or a stuck I2C (Inter-Integrated
   Circuit) bus can cause it; which one is not told apart.
-- **Heartbeat backstop.** If the display firmware stops, the second core sets
-  the throttle to zero after 250 ms. The screen would also be frozen.
+- **Heartbeat backstop.** If the display firmware stops for more than
+  250 ms while the tester is armed, the second core disarms, sets the throttle
+  to zero and latches the stop. The throttle stays at zero when the screen
+  runs again: the tester is disarmed, and arming again takes the 1 s hold.
+  The screen would also be frozen.
 
 If the motor stops without any of these, check the ESC's own protections (low
 voltage cutoff, temperature, desync), and look at `ESC STATUS` and `ESC TEMP`.

@@ -441,7 +441,7 @@ The session ends the operation with `HITEC_SES_ERR_ABORTED`.
 |---|---|---|
 | Enter | Opening, EntryEnded (RETRY) | `hitec_session_enter()` ([entry](#entry)); OK goes to InMode and starts the full read |
 | ReadAll | InMode | `hitec_session_read_all()`; READ AGAIN |
-| Write | InMode, with a full read and the image known | `hitec_session_write()` to `target`; refused as `Unknown` while `unknown` is set |
+| Write | InMode, with a full read and the image known | A classic servo: `hitec_session_write()` to `target`. A D series servo: a full read first, then `hitec_session_write()` ([the read before a D series write](#the-read-before-a-d-series-write)). Refused as `Unknown` while `unknown` is set |
 | Abort | Entering, Busy with a read | the abort above; a write is not aborted ([choice 6](#choices-made-in-this-design)) |
 | Leave | every state but Leaving and Closed | the leave of [leave and claim end](#leave-and-claim-end); a running write finishes first, a read or an entry is aborted |
 | CardBegin, CardEnd | Opening, EntryEnded and InMode | the card phase ([card calls](#card-calls-and-the-heartbeat)) |
@@ -551,6 +551,30 @@ view shows the result and RETRY ([claim and entry](#claim-and-entry)).
   and releases the enable pin only 2,000 ms after the last switch-off command: LEAVE,
   BACK on the stalled view and BACK during an entry alike. BACK switches the
   supply off first if it is on; time spent off before BACK counts.
+
+### The read before a D series write
+
+A D series write is not answered, so a servo swapped or re-plugged after
+READ would take the planned registers, the save and the reboot. The job
+(`take()` and `preWriteRead()` in `src/hitec_job.cpp`) keeps the image the
+plan starts from and the write's target, and reads all 21 registers with
+`hitec_session_read_all()`. The state is Busy meanwhile. At the end of the
+read:
+
+- The read failed: nothing is written, and the result is
+  `HITEC_JOB_ERR_PREREAD`. A read cut by an abort or a lapse keeps
+  `HITEC_SES_ERR_ABORTED`.
+- The registers differ from the image the plan starts from, or their
+  known flags do: nothing is written, and the result is
+  `HITEC_JOB_ERR_CHANGED`.
+- The heartbeat is not alive, or a lapse is latched: nothing is written,
+  and the result is `HITEC_SES_ERR_ABORTED`.
+- Otherwise `hitec_session_write()` starts with the target, and the write
+  runs to its end as before.
+
+An Abort command taken during the read drops the pending write. A classic
+servo answers each cell and takes the write at once, with no read before it.
+Host tests only; not tried on a servo.
 
 ### Heartbeat and lapses
 
@@ -898,7 +922,8 @@ y   0 | HITEC WRITE                      [ BACK ]|
      the backup and the record again before the write.
   4. `Write` with the draft: `WRITING: DO NOT UNPLUG.`, then
      `WRITES SENT: 3 OF 5` from `stepIndex` and `planSteps`, then
-     `READING BACK`.
+     `READING BACK`. For a D series servo the job reads all 21 registers
+     before the first frame ([below](#the-read-before-a-d-series-write)).
   5. The result. `HITEC_SES_OK` with read-back: `2 VALUES WRITTEN AND
      VERIFIED.` in `C_GREEN`; the record is removed.
 - The card steps run in a card phase with a switch
@@ -920,7 +945,9 @@ y   0 | HITEC WRITE                      [ BACK ]|
   | ERR_WRITE | `CELL 0x06 GOT NO ANSWER. READ THE SERVO BEFORE A WRITE.` | red |
   | ERR_NO_SERVO, ERR_CUT, ERR_LINK, ERR_STEP | `THE WRITE STOPPED AT STEP 3 OF 5. READ THE SERVO BEFORE A WRITE.` | red |
   | ERR_READ | `ALL WRITES SENT; READ-BACK FAILED. READ THE SERVO BEFORE A WRITE.` | red |
-  | ERR_ABORTED | not reached by a write, which is never aborted; `NOTHING WAS WRITTEN.` with the code | amber |
+  | ERR_ABORTED | not reached by a write once it has started, which is never aborted; reached by a D series write whose read before it was cut by a lapse; `NOTHING WAS WRITTEN.` with the code | amber |
+  | `HITEC_JOB_ERR_CHANGED` (0xF0), D series only | `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.` | amber |
+  | `HITEC_JOB_ERR_PREREAD` (0xF1), D series only | `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A WRITE.` | amber |
   | ERR_ENTRY | not reached by a write; `NOTHING WAS WRITTEN.` with the code | amber |
   | ERR_PLAN | `NOTHING WAS WRITTEN: READ THE SERVO FIRST.` for `HITEC_PLAN_ERR_UNKNOWN` | amber |
   | ERR_NOT_IN_MODE, ERR_BUSY, ERR_ARG | `NOTHING WAS WRITTEN.` with the code | amber |

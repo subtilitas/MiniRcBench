@@ -28,8 +28,9 @@ Die Firmware hat diese Sperren. Sie ersetzen die Schritte oben nicht:
   anderen Bedienelemente wirken beim Loslassen.
 - Im scharfen Zustand entschärft der Tester nach **30 s** ohne Berührung. Die
   letzten 5 s zählen auf dem Bildschirm herunter.
-- Hält die Anzeige-Firmware an, setzt der zweite Kern das Gas nach **250 ms**
-  ohne Herzschlag auf null.
+- Hält die Anzeige-Firmware bei scharfem Tester **250 ms** an (kein
+  Herzschlag), schaltet der zweite Kern scharf aus und setzt das Gas auf null.
+  Der Stopp bleibt erhalten: Erneutes Scharfschalten verlangt das 1-s-Halten.
 
 ---
 

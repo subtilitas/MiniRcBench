@@ -139,7 +139,13 @@ hängt davon ab, wann sie abgeschnitten wurde:
 - **Ohne die Reservierung oder über 16 MiB hinaus:** Hatte die Karte beim
   Start keinen freien Block von 16 MiB, oder wuchs die Aufzeichnung darüber
   hinaus, hat die Datei die Größe, die beim letzten dieser 2-s-Schritte
-  geschrieben wurde; was danach kam, steht nicht in der Datei.
+  geschrieben wurde; was danach kam, steht nicht in der Datei. Nach einer
+  Suche, die keinen freien Block findet, sucht die Firmware nicht erneut,
+  bis die Karte neu eingebunden wird (Einschalten, `RETRY MOUNT`, Ende von
+  `USB DRIVE`, Neueinbindung eines Werkzeugs); die Aufzeichnungen dazwischen
+  starten ohne Reservierung. Ist das Schließen einer Log- oder
+  Zusammenfassungsdatei fehlgeschlagen, bindet das nächste `START` die Karte
+  zuerst neu ein.
 
 Das sind Fakten aus dem Code der Firmware und der von ihr genutzten
 FatFs-Bibliothek, nicht an einer Karte gemessen. Wie ein Viewer eine solche
@@ -375,6 +381,10 @@ Ohne Karte ist `USB DRIVE` als nicht verfügbar gezeichnet und tut nichts.
 |---|---|
 | `DISARM FIRST` | Entschärfen. Die Übergabe hält den Logger an |
 | `STOP RECORDING FIRST` | Die Aufzeichnung beenden |
+
+Eine Karte, die der Treiber als nicht initialisiert markiert, etwa nach
+einem Kartenfehler, gilt als keine Karte: Die Übergabe gibt sie an den Logger
+zurück, und am Computer erscheint kein Laufwerk.
 
 **Scharfschalten ist gesperrt, solange der Computer die Karte hat.** `BACK`
 verlässt den Bildschirm Richtung `MENU`, ohne die Übergabe abzubrechen, und

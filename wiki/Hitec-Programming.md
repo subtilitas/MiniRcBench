@@ -361,6 +361,15 @@ main view with `RETRY`, nothing is written, and the next write opens on a tap
 and waits for its own hold. A servo unplugged during the wait is noticed
 only when the write goes out, which then fails.
 
+A D series servo does not answer a write. So the job first reads all 21
+registers again. It writes only if the servo holds the image the plan starts
+from and the screen's heartbeat is alive. If the servo differs, nothing is
+written and the page reads `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE
+READ. READ IT AGAIN.` If that read fails, nothing is written and the page
+reads `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE
+A WRITE.` A stall of the screen during that read writes nothing either. A
+classic servo answers each cell and is not read first.
+
 The write then sends the changed registers 20 ms apart, saves them in the
 servo, restarts the servo (1.0 s) and reads all 21 registers back. For one
 setting this takes about 1.7 s, computed from rcbench's timings and not
@@ -413,6 +422,11 @@ field list.
 The amber results include:
 
 - `NOTHING WAS WRITTEN: READ THE SERVO FIRST.`
+- `NOTHING WAS WRITTEN: THE SERVO CHANGED SINCE THE READ. READ IT AGAIN.`
+  A D series servo read before the write differs from the image the plan
+  starts from.
+- `NOTHING WAS WRITTEN: THE READ BEFORE IT FAILED. READ THE SERVO BEFORE A WRITE.`
+  A D series servo: the read before the write did not end.
 - `NOTHING WAS WRITTEN: NO PLAN (CODE n).`, with the planner's code.
 - `NOTHING WAS WRITTEN (CODE n).`, with the session's code.
 - `THE SCREEN STALLED. NOTHING WAS WRITTEN.`

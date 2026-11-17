@@ -25,8 +25,9 @@ The firmware has these interlocks. They do not replace the steps above:
   control acts on release.
 - While armed, **30 s** without a touch disarms the tester. The last 5 s count
   down on screen.
-- If the display firmware stops, the second core sets the throttle to zero
-  after **250 ms** without a heartbeat.
+- If the display firmware stops for **250 ms** while the tester is armed
+  (no heartbeat), the second core disarms and sets the throttle to zero. The
+  stop latches: arming again takes the 1 s hold.
 
 ---
 
