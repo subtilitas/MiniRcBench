@@ -4,13 +4,12 @@
  */
 
 #include "ui_menu.h"
+#include "ui.h"
 #include "ui_registry.h"
 #include "ui_list.h"
 #include "ui_input.h"
 #include "ui_widgets.h"
-#include "usb_bridge.h"
 #include "ui_am32.h"
-#include "sbus_out_job.h"
 #include "esc_task.h"
 #include "esc_merge.h"
 #include "settings.h"
@@ -226,9 +225,9 @@ UiMenuResult uiMenuTick(const TouchState *t, const UiScreen **open) {
 		escSnapshot(&tel);
 		// ESC SETTINGS' cue, the USB bridge's (usb_bridge.h) or the S.BUS
 		// output's probe's (sbus_out_job.h): each is a bootloader that
-		// answered and was not told to run.
-		bool runCue = uiAm32RunCue(tel.lastRpmMs) | usbBridgeRunCue(tel.lastRpmMs) |
-		              sbusOutRunCue(tel.lastRpmMs);
+		// may wait and was not told to run. uiRunCue() ORs them, as the
+		// start step of ESC TESTER and ESC COMMANDS reads them.
+		bool runCue = uiRunCue(tel.lastRpmMs);
 		uint32_t key = frameKey(runCue);
 		if (key != s_drawnKey) {
 			s_drawnKey = key;

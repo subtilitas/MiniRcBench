@@ -387,7 +387,7 @@ Fields per frame:
 |---|---|
 | `loopIteration`, `time` | Frame counter and time |
 | `motor[0]` | Commanded throttle |
-| `eRPM[0]` | eRPM from bidirectional DShot |
+| `eRPM[0]` | eRPM from bidirectional DShot; 0 once the last eRPM frame is 500 ms old, as while DShot is off |
 | `eRPMkiss[0]` | eRPM from KISS |
 | `vbatLatest`, `amperageLatest` | Voltage and current from KISS; 0 while KISS is not live |
 | `vbatEdt`, `amperageEdt` | Voltage and current from EDT |

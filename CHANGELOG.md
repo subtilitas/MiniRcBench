@@ -1312,6 +1312,29 @@ protocol.
   that lands then not timed, and a press cancelled when the bind stamp moves
   (dshot-lifetime.md decisions 10 and 12, pending the owner's review).
   After a refused bind (`DSERR`) the track reads `DSHOT COULD NOT START`.
+- After v0.1.0-rc1: while MENU's run cue `POWER-CYCLE THE ESC TO RUN IT`
+  stands, ESC TESTER and ESC COMMANDS open on a start step with DShot parked:
+  `1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and
+  `AND READ DSHOT AS A COMMAND.`, and START DSHOT, drawn disabled for
+  1000 ms. Its tap clears the cue of ESC SETTINGS, USB BRIDGE and S.BUS
+  OUTPUT (`uiAm32RunCueClear()`, `usbBridgeRunCueClear()`,
+  `sbusOutRunCueClear()`), and DShot binds. The tester's MENU and ESC
+  COMMANDS' BACK leave the step with DShot parked and the cue kept; nothing
+  else on the screen is drawn or read there. Slice D3 of
+  [dshot-lifetime.md](docs/design/dshot-lifetime.md#d3-as-built),
+  decisions 8 and 14, pending the owner's review. Host tests only.
+- After v0.1.0-rc1: ESC COMMANDS reads `DSHOT STARTING ON SIG GP0.` in
+  place of `NO ESC ANSWERS ON SIG GP0.` while DShot's bind is pending and for
+  1500 ms after it.
+- After v0.1.0-rc1: a USB BRIDGE claim that ends with no leave page clears
+  MENU's run cue unless a byte came from the ESC on one of its binds
+  (`usbBridgeRunCueSettle()`, `bridgeWireBinds()`; decision 13, pending the
+  owner's review). Before, the cue stood after such a claim. A cue that
+  stands when a claim begins is kept: a second claim ended before its bind
+  does not clear the cue an earlier claim's ESC byte kept.
+- After v0.1.0-rc1: the log's `eRPM[0]` column is 0 once the last eRPM frame
+  is 500 ms old, as the EDT columns expire, so a log started by hand across
+  a parked pump no longer repeats the last eRPM.
 - After v0.1.0-rc1: the hubs SERVO and RX SIGNALS draw
   `NO ESC CHECK: UNPLUG ANY ESC FIRST.` in amber as the strip's second line
   while the claim is free; a hub's busy caption takes that line. MONITOR on RX

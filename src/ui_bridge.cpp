@@ -414,7 +414,13 @@ static bool back() {
 	if (pinClaimState() == ClaimState::Running)
 		pinClaimWantLeavePage(PinUser::Bridge);
 	pinClaimEnd(PinUser::Bridge);
-	if (!pinClaimLeavePage()) return false;
+	if (!pinClaimLeavePage()) {
+		// No leave page: the claim never reached Running and the bridge
+		// sent nothing. The cue goes unless a byte came from the ESC
+		// (docs/design/dshot-lifetime.md, decision 13).
+		usbBridgeRunCueSettle();
+		return false;
+	}
 	s_view = View::Leave;
 	s_full = true;
 	// The job lets the line go at once; the last button waits 1000 ms after.

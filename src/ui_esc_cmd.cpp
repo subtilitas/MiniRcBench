@@ -7,6 +7,8 @@
 #include "ui_hold.h"
 #include "ui_input.h"
 #include "ui_menu.h"
+#include "ui.h"
+#include "ui_leave.h"
 #include "ui_widgets.h"
 #include "esc_3d.h"
 #include "esc_task.h"
@@ -81,6 +83,7 @@ static constexpr bool linesFit() {
 	if (textLen(UI_ESC_CMD_SENT_FMT) - 4 + 9 > UI_ESC_CMD_LINE_CHARS) return false;
 	if (textLen(UI_ESC_CMD_BEEP_SENDING_FMT) - 4 + 2 > UI_ESC_CMD_LINE_CHARS) return false;
 	if (textLen(UI_ESC_CMD_NO_ANSWER_FMT) - 2 + 2 > UI_ESC_CMD_LINE_CHARS) return false;
+	if (textLen(UI_ESC_CMD_STARTING_FMT) - 2 + 2 > UI_ESC_CMD_LINE_CHARS) return false;
 	return true;
 }
 static_assert(linesFit(), "an ESC COMMANDS message line is wider than 37 characters");
@@ -176,13 +179,28 @@ static void setLine(View *v, int i, uint16_t col, const char *fmt, ...) {
 }
 
 /**
+ * @brief DShot started less than @ref ESC_CMD_SETTLE_MS ago, or its bind is
+ *        pending: no answer yet does not say that no ESC is there. A bind the
+ *        driver refused leaves the stamp 0 for good: no ESC answers then.
+ *        The stamp is read before the flag, as the tester's track reads them.
+ */
+static bool dshotStarting() {
+	const uint32_t bound = escTaskBoundMs();
+	const bool refused = escTaskBindRefused();
+	if (bound == 0) return !refused;
+	return (uint32_t)(millis() - bound) < ESC_CMD_SETTLE_MS;
+}
+
+/**
  * @brief The amber line for a readiness that refuses a command, or false
  *        for Busy and Ready.
  */
 static bool readinessLine(View *v, int i) {
 	switch (v->ready) {
 		case EscCmdReady::NoAnswer:
-			setLine(v, i, UI_COL_WARN, UI_ESC_CMD_NO_ANSWER_FMT, (unsigned)escTaskDshotPin());
+			setLine(v, i, UI_COL_WARN,
+			        dshotStarting() ? UI_ESC_CMD_STARTING_FMT : UI_ESC_CMD_NO_ANSWER_FMT,
+			        (unsigned)escTaskDshotPin());
 			return true;
 		case EscCmdReady::Turning:  setLine(v, i, UI_COL_WARN, "%s", UI_ESC_CMD_TURNING);  return true;
 		case EscCmdReady::Settling: setLine(v, i, UI_COL_WARN, "%s", UI_ESC_CMD_SETTLING); return true;
@@ -309,19 +327,11 @@ static uint32_t frameKey(const View *v, Chip chip) {
 	return h | 1u;
 }
 
+static void drawTop(Chip chip, bool backLive);
+
 static void draw(const View *v, Chip chip) {
 	gfxFill(C_BG);
-	uiHeader(UI_ESC_CMD_TITLE, s_t, !v->going);
-	uiStripClear();
-	char cap[32];
-	snprintf(cap, sizeof(cap), UI_ESC_CMD_STRIP_FMT, (unsigned)escTaskDshotPin(),
-	         (unsigned)escTaskDshotKbaud());
-	uiStripText(cap, C_DIM);
-	switch (chip) {
-		case Chip::On:    uiChip(UI_MENU_EDT_ON, C_GREEN); break;
-		case Chip::Off:   uiChip(UI_MENU_EDT_OFF, C_RED);  break;
-		case Chip::NoEsc: uiChip(UI_MENU_NO_ESC, C_GRID);  break;
-	}
+	drawTop(chip, !v->going);
 
 	gfxText(UI_MARGIN, UI_ESC_CMD_BEEP_CAP_Y, "BEEP", C_DIM, 1);
 	for (int i = 0; i < 5; i++) {
@@ -381,6 +391,9 @@ static void request(uint8_t cmd, bool save) {
 }
 
 void uiEscCmdEnter() {
+	// The start step while MENU's run cue stands (decision 8): DShot stays
+	// parked until START DSHOT.
+	uiStartStepEnter();
 	s_own = false;
 	s_ownCmd = 0;
 	tapGateReset(&s_backGate);
@@ -392,9 +405,59 @@ void uiEscCmdEnter() {
 	s_drawnKey = 0;
 }
 
+/** @brief The header, BACK live, and the strip: the caption and the chip. */
+static void drawTop(Chip chip, bool backLive) {
+	uiHeader(UI_ESC_CMD_TITLE, s_t, backLive);
+	uiStripClear();
+	char cap[32];
+	snprintf(cap, sizeof(cap), UI_ESC_CMD_STRIP_FMT, (unsigned)escTaskDshotPin(),
+	         (unsigned)escTaskDshotKbaud());
+	uiStripText(cap, C_DIM);
+	switch (chip) {
+		case Chip::On:    uiChip(UI_MENU_EDT_ON, C_GREEN); break;
+		case Chip::Off:   uiChip(UI_MENU_EDT_OFF, C_RED);  break;
+		case Chip::NoEsc: uiChip(UI_MENU_NO_ESC, C_GRID);  break;
+	}
+}
+
+/**
+ * @brief One frame on the start step (docs/design/dshot-lifetime.md,
+ *        decisions 8 and 14): the header with BACK, the strip, the step and
+ *        START DSHOT are all it draws and all that takes a touch. The BEEP
+ *        buttons, the four holds and the message lines are neither drawn
+ *        nor read, so nothing is queued. BACK is live from the first frame:
+ *        no request of the page can wait.
+ * @return false once BACK has left.
+ */
+static bool stepTick() {
+	if (gatedTap(&s_backGate, uiBackRect(), s_t, true)) return false;
+	if (uiStartStepTouch(s_t)) {
+		// The page draws whole from the next frame; DShot binds then.
+		s_drawnKey = 0;
+		return true;
+	}
+	Chip chip = chipNow();
+	uint32_t h = mix(2166136261u, 0x5354u);
+	h = mix(h, (uint32_t)chip);
+	h = mix(h, escTaskDshotPin());
+	h = mix(h, escTaskDshotKbaud());
+	h = mix(h, uiStartStepLive());
+	h = mix(h, uiPressing(UI_LEAVE_START, s_t));
+	h = mix(h, uiPressing(uiBackRect(), s_t));
+	h |= 1u;
+	if (h != s_drawnKey) {
+		s_drawnKey = h;
+		gfxFill(C_BG);
+		drawTop(chip, true);
+		uiStartStepDraw(s_t);
+	}
+	return true;
+}
+
 bool uiEscCmdTick(const TouchState *t) {
 	static const TouchState none = {};
 	s_t = t ? t : &none;
+	if (uiStartStepShown()) return stepTick();
 	View v;
 	buildView(&v);
 	// Leaving cancels a request that still waits, so it cannot fire later on
@@ -434,9 +497,15 @@ bool uiEscCmdTick(const TouchState *t) {
 }
 
 uint8_t uiEscCmdControls(UiControl *out, uint8_t max) {
+	uint8_t n = 0;
+	if (uiStartStepShown()) {
+		// The start step: BACK and START DSHOT, nothing else.
+		uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), true);
+		uiControlAdd(out, &n, max, UI_FIX(EscCmdCtl::Start), UI_LEAVE_START, uiStartStepLive());
+		return n;
+	}
 	View v;
 	buildView(&v);
-	uint8_t n = 0;
 	uiControlAdd(out, &n, max, UI_FIX(UI_BACK), uiBackRect(), !v.going);
 	for (int i = 0; i < 5; i++)
 		uiControlAdd(out, &n, max, UI_FIX((uint8_t)EscCmdCtl::Beep1 + i), beepRect(i), v.live);

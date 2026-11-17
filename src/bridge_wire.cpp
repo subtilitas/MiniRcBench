@@ -40,6 +40,12 @@ static uint32_t s_tail = 0;
 static bool     s_keepEcho = true;
 /** @brief The counts. Core1 writes. */
 static BridgeWireStats s_stats;
+/**
+ * @brief The line's binds, a failed one included. Core1 writes it after it
+ *        zeroes the counts, with a release store; core0 reads it with an
+ *        acquire load before the counts. @see bridgeWireBinds()
+ */
+static uint32_t s_binds = 0;
 /** @} */
 
 /**
@@ -114,6 +120,8 @@ uint16_t bridgeWireRecv(uint8_t *buf, uint16_t maxLen) {
 }
 
 void bridgeWireKeepEcho(bool keep) { WIRE_PUBLISH(s_keepEcho, keep); }
+
+uint32_t bridgeWireBinds() { return WIRE_OBSERVE(s_binds); }
 
 void bridgeWireStats(BridgeWireStats *out) {
 	out->sent       = WIRE_OBSERVE(s_stats.sent);
@@ -224,6 +232,10 @@ static uint8_t bridgeJobBind(uint8_t sigGpio, uint8_t /*auxGpio*/) {
 	WIRE_PUBLISH(s_head, 0u);
 	BridgeWireStats zero = {0, 0, 0, 0, 0};
 	s_stats = zero;
+	// After the counts are zeroed, before the line opens: a failed bind
+	// raises it too, and a core0 that reads the new value reads zeroed
+	// counts (docs/design/dshot-lifetime.md, decision 13).
+	WIRE_PUBLISH(s_binds, s_binds + 1u);
 	const uint8_t err = bridgeLineOpen(sigGpio);
 	if (err != CORE1_JOB_OK) return err;
 	WIRE_PUBLISH(s_open, true);

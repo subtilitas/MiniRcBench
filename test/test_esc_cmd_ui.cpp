@@ -80,6 +80,17 @@ static void openEc() {
 	ecFrames(1);
 }
 
+/**
+ * @brief Frames until DShot's bind is @ref ESC_CMD_SETTLE_MS old: before
+ *        then NoAnswer reads `DSHOT STARTING ON SIG GPn.`
+ *        (docs/design/dshot-lifetime.md, slice D3).
+ */
+static void pastStart() {
+	for (int k = 0; k < 100 && (escTaskBoundMs() == 0 ||
+	                            millis() - escTaskBoundMs() < ESC_CMD_SETTLE_MS); k++)
+		ecFrames(1);
+}
+
 /** @brief Line @p i of the message lines reads @p text in @p col. */
 static bool lineIs(int i, const char *text, uint16_t col) {
 	return fakeTextIs(UI_MARGIN, UI_ESC_CMD_LINE_Y + i * UI_ESC_CMD_LINE_H, text, col, C_BG, 1);
@@ -266,6 +277,7 @@ static void testReadiness() {
 	section("ESC COMMANDS: live only at Ready, the amber line says why");
 	freshEc();
 	openEc();
+	pastStart();
 	checkTrue("Ready: every control acts, drawn live", allControls(true) &&
 	          drawnLive(EscCmdCtl::Beep1, true) && drawnLive(EscCmdCtl::On3d, true));
 	struct R { EscCmdReady r; const char *line; const char *what; };
@@ -307,6 +319,7 @@ static void testReadiness() {
 	escTaskConfigure(other, w.dshotKbaud, w.kissEnable, w.dshotPin);
 	fakeSetCmdReady(EscCmdReady::NoAnswer);
 	ecFrames(1);
+	pastStart();
 	{
 		char line[40], strip[32];
 		snprintf(line, sizeof(line), "NO ESC ANSWERS ON SIG GP%u.", (unsigned)other);

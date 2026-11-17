@@ -321,11 +321,27 @@ Under the title, a strip names the two signal pins, SIG for the ESC and AUX
 for the KISS wire or a second servo, and the DShot rate the tester uses, for
 example `SIG GP0  AUX GP1  DSHOT600`.
 
-After an ESC SETTINGS session in which the ESC's bootloader answered, a second
-line under the caption reads `POWER-CYCLE THE ESC TO RUN IT` in amber, until
-an eRPM frame arrives on ESC TESTER or ESC COMMANDS, the last button of ESC
-SETTINGS' leave page is tapped, or the board restarts
-([AM32 Configuration](AM32-Configuration#leaving)).
+After a session of ESC SETTINGS, USB BRIDGE or S.BUS OUTPUT in which an
+ESC's bootloader may still wait, a second line under the caption reads
+`POWER-CYCLE THE ESC TO RUN IT` in amber, until `START DSHOT` is tapped on the
+start step below, the last button of the tool's leave page is tapped, an eRPM
+frame arrives, or the board restarts
+([AM32 Configuration](AM32-Configuration#leaving)). A USB BRIDGE visit that
+ends with no leave page, before the line was used, clears it unless a byte
+came from the ESC or the line already stood when the visit began.
+
+While that line stands, ESC TESTER and ESC COMMANDS open on a start step
+with DShot off, because a waiting bootloader can read DShot as a command:
+`1 POWER-CYCLE THE ESC.` over `ITS BOOTLOADER MAY STILL WAIT` and
+`AND READ DSHOT AS A COMMAND.` Power-cycle the ESC, then tap `START DSHOT`,
+which is grey for the first second. The tap clears the line on MENU and
+starts DShot; on the tester, `HOLD TO ARM` then waits 1.5 s as after any
+open. `MENU` on the tester and `BACK` on ESC COMMANDS leave the step at once
+with DShot still off and the line kept, so the next open shows the step
+again. Nothing else on the screen works on the step. This is tested on the
+host only.
+
+<img src="img/tester-start-step.png" width="240" alt="ESC TESTER on the start step: POWER-CYCLE THE ESC., START DSHOT grey, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS on the start step: the step, START DSHOT grey, BACK">
 
 Below the strip is a list of six rows, 40 px tall at a 42 px pitch:
 `ESC TESTER` first, then one row for each kind of device on the signal pin,
@@ -423,7 +439,9 @@ acts at 1 s. A direction or 3D change takes 620 ms on the wire. The buttons
 act while the ESC is ready, otherwise they are drawn as outlines and an
 amber line says why: `NO ESC ANSWERS ON SIG GP0.`,
 `MOTOR TURNING: WAIT UNTIL IT STOPS.` or `ESC STARTING: WAIT 1.5 S.` (AM32
-takes a command only after a second of zero throttle). A press while the
+takes a command only after a second of zero throttle). For the first 1.5 s
+after DShot starts, no answer reads `DSHOT STARTING ON SIG GP0.` instead: the
+ESC needs that time to see DShot. A press while the
 board is still sending something else, such as the 260 ms to 1020 ms
 pause after a beacon, waits: it goes out once the wire is free, or is
 dropped after 2 s, and the lines then read

@@ -416,6 +416,9 @@ static void testAm32() {
 	tapId(UI_FIX(UI_BACK));
 	idFrames(20);
 	checkTrue("BACK from AM32 reaches ESC PROGRAM, the opener", uiCurrentScreen() == UiScreenId::EscConfig);
+	// The session reached the bootloader: the ESC power-cycled, the run cue
+	// gone, so the next ESC TESTER opens with DShot, not on its start step.
+	uiAm32RunCueClear();
 }
 
 /** @brief Whether @p id's rectangle on the current frame is x, y, w, h. */

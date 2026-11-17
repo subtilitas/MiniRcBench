@@ -37,6 +37,19 @@ static bool           s_runPending = false;      /**< A RUN handed over, not yet
 static uint32_t       s_runFrame = 0;            /**< Its number among the frames handed over since the open. */
 static bool           s_cue = false;             /**< MENU's run cue (usbBridgeRunCue()). */
 static uint32_t       s_cueMs = 0;               /**< millis() when it was set. */
+/**
+ * @defgroup usb_bridge_cue_end The run cue at a claim's end
+ * @brief Decision 13 of docs/design/dshot-lifetime.md: a claim that ends
+ *        with no leave page clears the cue unless a byte came from the ESC.
+ * @{
+ */
+/** @brief A claim began and its end is not yet settled: the counts are watched. */
+static bool           s_cueWatch = false;
+/** @brief bridgeWireBinds() when the claim began. */
+static uint32_t       s_cueBinds = 0;
+/** @brief A byte came from the ESC on one of this claim's binds; no read clears it. */
+static bool           s_escSeen = false;
+/** @} */
 static bool           s_writeWait = false;
 static uint32_t       s_writeAtMs = 0;           /**< millis() of the write-class frame's handover. */
 static uint32_t       s_writeMark = 0;           /**< Bytes received once its echo is in: one more is its answer. */
@@ -570,7 +583,29 @@ static void forward() {
 	}
 }
 
+/**
+ * @brief Read the counts once the line has bound since the claim began:
+ *        they are then this claim's, from 0 at its last bind. More received
+ *        than sent, or a byte lost or a collision, is a byte from the ESC:
+ *        the echo gives one byte back per byte sent (bridge_wire.h).
+ *        bridgeWireStats() reads `sent` before `received`, so a read that
+ *        spans a byte sent and echoed shows one more received, and keeps
+ *        the cue: the error goes the safe way. No difference is taken
+ *        across a bind: the counts left by an earlier claim are never read.
+ */
+static void cueWatch() {
+	if (!s_cueWatch || bridgeWireBinds() == s_cueBinds) return;
+	BridgeWireStats w;
+	bridgeWireStats(&w);
+	if (usbBridgeEscByteSeen(&w)) s_escSeen = true;
+}
+
+bool usbBridgeEscByteSeen(const BridgeWireStats *w) {
+	return w->received > w->sent || w->lost > 0 || w->collisions > 0;
+}
+
 void usbBridgeTask() {
+	cueWatch();
 	runCheck();
 	bool running = claimRunning();
 	if (running && !s_open) openBridge();
@@ -622,11 +657,26 @@ bool usbBridgeRunCue(uint32_t lastRpmMs) {
 }
 
 void usbBridgeRunCueSet() {
+	// A cue that stands from an earlier claim counts as seen: the settle
+	// clears only a cue this claim raised, so a claim that ends early never
+	// clears a cue an ESC's byte kept.
+	s_escSeen = s_cue;
 	s_cue = true;
 	s_cueMs = millis();
+	s_cueBinds = bridgeWireBinds();
+	s_cueWatch = true;
 }
 
-void usbBridgeRunCueClear() { s_cue = false; }
+void usbBridgeRunCueSettle() {
+	cueWatch();
+	if (s_cueWatch && !s_escSeen) s_cue = false;
+	s_cueWatch = false;
+}
+
+void usbBridgeRunCueClear() {
+	s_cue = false;
+	s_cueWatch = false;
+}
 
 bool usbBridgePortOpen() { return tud_cdc_connected(); }
 

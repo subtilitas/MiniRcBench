@@ -357,11 +357,28 @@ Unter dem Titel nennt eine Leiste die beiden Signalpins, SIG für den ESC und
 AUX für das KISS-Kabel oder ein zweites Servo, und die DShot-Rate, die der
 Tester verwendet, zum Beispiel `SIG GP0  AUX GP1  DSHOT600`.
 
-Nach einer Sitzung in ESC SETTINGS, in der der Bootloader des ESC geantwortet
-hat, steht unter der Zeile eine zweite: `POWER-CYCLE THE ESC TO RUN IT` in
-Bernstein, bis auf ESC TESTER oder ESC COMMANDS ein eRPM-Frame eintrifft,
-die letzte Taste der Verlassenseite von ESC SETTINGS getippt wird oder die
-Platine neu startet ([AM32-Konfiguration](AM32-Konfiguration#verlassen)).
+Nach einer Sitzung in ESC SETTINGS, USB BRIDGE oder S.BUS OUTPUT, nach der
+der Bootloader eines ESC noch warten kann, steht unter der Zeile eine
+zweite: `POWER-CYCLE THE ESC TO RUN IT` in Bernstein, bis `START DSHOT` im
+Startschritt unten getippt wird, die letzte Taste der Verlassenseite des
+Werkzeugs getippt wird, ein eRPM-Frame eintrifft oder die Platine neu
+startet ([AM32-Konfiguration](AM32-Konfiguration#verlassen)). Ein Besuch in
+USB BRIDGE, der ohne Verlassenseite endet, bevor die Leitung benutzt wurde,
+nimmt sie weg, außer ein Byte kam vom ESC oder die Zeile stand schon, als
+der Besuch begann.
+
+Solange diese Zeile steht, öffnen ESC TESTER und ESC COMMANDS mit einem
+Startschritt und ohne DShot, denn ein wartender Bootloader kann DShot als
+Befehl lesen: `1 POWER-CYCLE THE ESC.` über `ITS BOOTLOADER MAY STILL WAIT`
+und `AND READ DSHOT AS A COMMAND.` Den ESC aus- und einschalten, dann
+`START DSHOT` tippen, das in der ersten Sekunde grau ist. Der Tipp nimmt die
+Zeile auf MENU weg und startet DShot; auf dem Tester wartet `HOLD TO ARM`
+danach 1,5 s wie nach jedem Öffnen. `MENU` auf dem Tester und `BACK` auf ESC
+COMMANDS verlassen den Schritt sofort, DShot bleibt aus und die Zeile
+bleibt, sodass das nächste Öffnen den Schritt wieder zeigt. Sonst wirkt
+nichts auf dem Bildschirm im Startschritt. Nur auf dem Host getestet.
+
+<img src="img/tester-start-step.png" width="240" alt="ESC TESTER im Startschritt: POWER-CYCLE THE ESC., START DSHOT grau, MENU"> <img src="img/esccmd-start-step.png" width="240" alt="ESC COMMANDS im Startschritt: der Schritt, START DSHOT grau, BACK">
 
 Unter der Leiste steht eine Liste mit sechs Zeilen von 40 px Höhe und 42 px
 Abstand: zuerst `ESC TESTER`, dann eine Zeile je Geräteart am Signalpin, der
@@ -471,7 +488,10 @@ dauert auf der Leitung 620 ms. Die Tasten wirken, solange der ESC bereit
 ist; sonst sind sie als Umriss gezeichnet, und eine bernsteinfarbene Zeile
 sagt warum: `NO ESC ANSWERS ON SIG GP0.`,
 `MOTOR TURNING: WAIT UNTIL IT STOPS.` oder `ESC STARTING: WAIT 1.5 S.` (AM32
-nimmt einen Befehl erst nach einer Sekunde Nullgas an). Ein Druck,
+nimmt einen Befehl erst nach einer Sekunde Nullgas an). In den ersten 1,5 s
+nach dem Start von DShot steht ohne Antwort stattdessen
+`DSHOT STARTING ON SIG GP0.`: So lange braucht der ESC, um DShot zu sehen.
+Ein Druck,
 während das Board noch etwas anderes sendet, etwa die Pause von 260 ms bis
 1020 ms nach einem Beacon, wartet: Er geht hinaus, sobald die Leitung frei
 ist, oder verfällt nach 2 s, und die Zeilen zeigen dann

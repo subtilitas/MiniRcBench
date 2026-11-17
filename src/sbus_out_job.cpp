@@ -530,6 +530,13 @@ bool sbusOutRunCue(uint32_t lastRpmMs) {
 	return true;
 }
 
+void sbusOutRunCueClear() {
+	SbusOutStatus st;
+	sbusOutJobStatus(&st);
+	// The last answer marked, as sbusOutProbeRestart() marks it.
+	s_cueMark = st.answerSeq;
+}
+
 void sbusOutProbeRestart() {
 	SbusOutStatus st;
 	sbusOutJobStatus(&st);
