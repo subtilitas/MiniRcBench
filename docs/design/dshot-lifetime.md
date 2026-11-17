@@ -1104,12 +1104,11 @@ Where the build chose, the note being silent or the safer reading taken:
   once more, clears the cue only with the flag clear, and ends the claim's
   watch, so a second BACK of the same screen changes nothing.
   `usbBridgeRunCueClear()` ends it too.
-- **A cue that stands at a claim.** Found in review after the first push:
-  decision 13's `usbBridgeRunCueSet()` cleared the flag at each claim. A
-  first claim whose ESC byte kept the cue, then a second claim ended before
-  its bind, BACK with no leave page, cleared the cue an ESC in its
-  bootloader still needed. `usbBridgeRunCueSet()` now sets the flag to
-  whether the cue already stands (`s_escSeen = s_cue;` before
+- **A cue that stands at a claim.** Clearing the flag at each claim would
+  let a second claim ended before its bind, BACK with no leave page, clear
+  the cue a first claim's ESC byte kept, while the ESC may wait in its
+  bootloader. `usbBridgeRunCueSet()` sets the flag to whether the cue
+  already stands (`s_escSeen = s_cue;` before
   `s_cue = true;`): the settle clears only a cue this claim raised.
   Decision 13 carries a "Revised by" line. The rule on the counts is
   `usbBridgeEscByteSeen()`, a pure function the tests call.
