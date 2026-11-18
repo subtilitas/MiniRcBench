@@ -660,9 +660,13 @@ its Release run publishes the image, `SHA256SUMS.txt` and
 `THIRD_PARTY_NOTICES.txt`, and its Docs run publishes `wiki/` (item 7).
 v0.1.0-rc1 exists, the tag at a93e1c1, published as a pre-release with
 `MiniRcBench-v0.1.0-rc1-touch-lcd-2.8.uf2` (796,672 bytes), `SHA256SUMS.txt`
-and `THIRD_PARTY_NOTICES.txt`, with no manual. An image that shows no
-picture is not worth a release; the panel now shows one on the owner's
-board. The tag waits on the owner.
+and `THIRD_PARTY_NOTICES.txt`, with no manual. v0.1.0-rc2 exists, the tag
+at 5a47422, published as a pre-release with
+`MiniRcBench-v0.1.0-rc2-touch-lcd-2.8.uf2` (1,042,432 bytes, SHA-256
+`ba0718e3...96072`). It boots and runs on the owner's board and on a second
+board flashed by a tester, who reports no problems as of 2026-11-18. Which
+screens and devices the tester exercised is not reported. No bench test of
+docs/bench-plan.md has run. The tag `v0.1.0` waits on the owner.
 
 The bench follows the panel, which lights.
 [docs/bench-plan.md](docs/bench-plan.md) orders every bench test of the
@@ -737,9 +741,9 @@ criteria; none has run.
 7. **The manual is not published.** The repository's wiki exists with one
    hand-made page, Home, dated 2026-10-29. `docs.yml` publishes `wiki/` after
    a successful Release run of a tag without a pre-release suffix, or by
-   hand. The one `v*` tag, v0.1.0-rc1, has a suffix: the Docs run its
-   Release run started on 2026-11-14 was skipped, so the wiki holds none of
-   `wiki/`.
+   hand. Both `v*` tags, v0.1.0-rc1 and v0.1.0-rc2, have a suffix: the
+   Docs runs their Release runs started were skipped, so the wiki holds none
+   of `wiki/`.
 8. **Pin claim on hardware.** The PIO and pad calls of the drain, the
    teardown and the rebuild run only in the firmware; the host suite runs the
    decisions they act on. Bench tests needed, with an oscilloscope on the ESC
@@ -1666,10 +1670,11 @@ files that ship with it; a missing or empty licence section fails the run
 before anything is published.
 A tag with a suffix, such as `v0.1.0-rc1`, is published as a GitHub
 pre-release. Each run is titled `Release <tag>`, which Docs reads to find
-the tag. The version is 0.1.0. The one MiniRcBench release is the
-pre-release v0.1.0-rc1 of 2026-11-14, the tag at a93e1c1, an image for
-testing with no manual published, by the owner's decision of 2026-11-14;
-its image has not run on hardware. 0.1.0 follows it before the bench checks,
+the tag. The version is 0.1.0. The MiniRcBench releases are two
+pre-releases, images for testing with no manual published: v0.1.0-rc1 of
+2026-11-14, the tag at a93e1c1, by the owner's decision of 2026-11-14, and
+v0.1.0-rc2 of 2026-11-17, the tag at 5a47422. The rc2 image runs on two
+boards; the rc1 image has not run on hardware. 0.1.0 follows it before the bench checks,
 by the owner's decision of 2026-11-15 (Next steps).
 
 **Docs** (`.github/workflows/docs.yml`): mirrors `wiki/` to the GitHub wiki
