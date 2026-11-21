@@ -133,10 +133,11 @@ protocol.
   reads `FAULT` in amber, with `PC 1000ABCD` as the row's caption. The boot
   diagnostic build blinks without end, as before. Not tested on hardware.
 - The nine model generator files in `lib/rcbench/hardware/` are copied again
-  from rcbench at commit 33270eab. Each carries
+  from rcbench at commit 37286375. Each carries
   `SPDX-License-Identifier: CC-BY-NC-SA-4.0` from rcbench's licence change,
-  pull request 860, `_font.py` excepted; no other line changes, and
-  `gen_models.py --check` finds no drift in the models.
+  pull request 860, `_font.py` excepted. The boost board's spec records the
+  round pad as the enable input (owner, 2026-11-19); the other changed lines
+  spell "center". `gen_models.py --check` finds no drift in the models.
 
 ### Added
 

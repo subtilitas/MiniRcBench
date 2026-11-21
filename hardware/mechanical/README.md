@@ -147,8 +147,9 @@ which are not in the repository. Limits:
   (3.0).
 - Part sizes and heights are the packages' nominal ones. The boost board's
   chip is not identified.
-- The boost board does not name its enable pad. The one round pad besides
-  the 4 corner pads, next to R3, is drawn as it.
+- The boost board does not name its enable pad. It is the one round pad
+  besides the 4 corner pads, next to R3 (owner, 2026-11-19). The level that
+  switches the output on is not known.
 - The print is set in a stroke font at the height and width each line has
   in the photo; it is not traced.
 - Not modelled: tracks, vias, pads under parts, solder, the print 2R2 on
