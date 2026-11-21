@@ -565,8 +565,10 @@ jobs:
       - name: Wiring diagram matches the pin sources
         run: python3 tools/make_wiring.py --check
 
-      # hardware/mechanical/models/*.step are written from the specs beside
-      # them. A dimension changed in a spec and not in its file fails here.
+      # hardware/mechanical/models/pcb/*.step are written from the specs in
+      # hardware/mechanical/. A dimension changed in a spec and not in its
+      # file fails here, and so does a file under models/ or renders/ that
+      # lies outside the folder _models.py names for it.
       - name: STEP models match their specs
         run: python3 hardware/mechanical/gen_models.py --check
 

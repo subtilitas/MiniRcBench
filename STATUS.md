@@ -416,9 +416,9 @@ The ESC and KISS pins are changeable on MENU → SETUP within the free set,
 and the two wires never share a pin.
 
 **Mechanical models of two modules.**
-[ina219_cjmcu219.step](hardware/mechanical/models/ina219_cjmcu219.step), the
+[ina219_cjmcu219.step](hardware/mechanical/models/pcb/ina219_cjmcu219.step), the
 INA219 current sensor board, 24.2 × 21.9 mm, 225 solids, and
-[boost_5v_en.step](hardware/mechanical/models/boost_5v_en.step), the 5V boost
+[boost_5v_en.step](hardware/mechanical/models/pcb/boost_5v_en.step), the 5V boost
 converter board, 13.7 × 21.7 mm, 69 solids, are drawn part by part with the
 print of both sides. Their specs are rcbench's, copied unchanged to
 `lib/rcbench/hardware/`, and measured from owner photos on 5 mm squared paper:
@@ -431,7 +431,7 @@ chip is not known.
 volume.
 
 **Mechanical model.**
-[hardware/mechanical/models/rp2350_touch_lcd_2_8.step](hardware/mechanical/models/rp2350_touch_lcd_2_8.step)
+[hardware/mechanical/models/pcb/rp2350_touch_lcd_2_8.step](hardware/mechanical/models/pcb/rp2350_touch_lcd_2_8.step)
 is a STEP (Standard for the Exchange of Product model data) facsimile of the
 board, 50.54 × 73.06 × 10.03 mm, 1039 solids: glass, display stack, board with
 its cut-outs, 4 standoffs, the two flat cables, every rear part 1.0 mm or

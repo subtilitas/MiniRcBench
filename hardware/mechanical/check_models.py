@@ -5,7 +5,7 @@ step_render.py, commit fb41a46a, where they are MIT.
 
 Read the written STEP models back with OpenCASCADE and check them.
 
-For every file in hardware/mechanical/models/:
+For every model a spec writes under hardware/mechanical/models/:
 
 - it reads, and holds as many solids as its spec makes;
 - every solid is a valid closed shell with a volume above 0;
@@ -16,7 +16,8 @@ Usage:
     python3 hardware/mechanical/check_models.py
     xvfb-run -a python3 hardware/mechanical/check_models.py --render DIR
 
---render also draws every model to DIR/<stem>_<view>.png, 1600 x 1200,
+--render also draws every model to DIR/<folder>/<stem>_<view>.png, the
+folder being the model's under models/, 1600 x 1200,
 from 4 sides: rear, front, rear straight on with y up, and the USB-C
 end.
 
@@ -207,7 +208,7 @@ def main(argv):
         made.update(spec.parts(gen_models.step_gen.COLORS))
     bad = 0
     for stem, solids in sorted(made.items()):
-        path = gen_models.MODELS / f"{stem}.step"
+        path = gen_models._models.path(stem)
         errors, box = check(path, len(solids))
         size = " x ".join(f"{box[k + 3] - box[k]:.2f}" for k in range(3))
         print(f"{'FAIL' if errors else 'ok  '} {path.name}: {len(solids)} "
@@ -216,8 +217,7 @@ def main(argv):
             print(f"     {line}")
         bad += bool(errors)
         if args.render:
-            args.render.mkdir(parents=True, exist_ok=True)
-            render(path, args.render)
+            render(path, gen_models._models.render_dir(args.render, stem))
     return 1 if bad else 0
 
 

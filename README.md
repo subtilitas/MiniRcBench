@@ -2800,7 +2800,7 @@ enable input (EN) is on that pin, GP28 at J4 pin 11 or GP29 at J4 pin 12:
   boost needs its input below 5 V: from a pack of two cells or a bench
   supply, a buck or a buck-boost does the same, such as the Pololu
   S13V30F5. The module is not named. The 5 V boost board of
-  `hardware/mechanical/models/boost_5v_en.step` names no chip, so its
+  `hardware/mechanical/models/pcb/boost_5v_en.step` names no chip, so its
   disconnect, its EN threshold, its current limit and its start-up time are
   not known until bench tests B6 and B7 of the design note.
 - EN takes 3.3 V as high: the enable pin is a 3.3 V output, on GP28 or

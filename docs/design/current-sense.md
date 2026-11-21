@@ -1853,7 +1853,7 @@ The owner chose the input and the topology: one LiPo cell, 3.0 V to 4.2 V,
 into a synchronous boost with load disconnect, 5.0 V, at least 3 A out
 ([decision 10](#decisions)). The module is not named. The owner's
 mechanical model
-[boost_5v_en.step](../../hardware/mechanical/models/boost_5v_en.step) is a
+[boost_5v_en.step](../../hardware/mechanical/models/pcb/boost_5v_en.step) is a
 5 V boost board, 13.7 × 21.7 mm, with one pad besides its 4 corner pads,
 drawn as its enable. Its chip is not known: the owner does not know it
 (2026-11-15), and the board's print names none. So its input range, its
