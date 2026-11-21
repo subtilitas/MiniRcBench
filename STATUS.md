@@ -424,7 +424,8 @@ print of both sides. Their specs are rcbench's, copied unchanged to
 `lib/rcbench/hardware/`, and measured from owner photos on 5 mm squared paper:
 positions within about 0.2 mm, no dimension verified with a caliper, board
 thickness and the inductor's height estimated. The boost board does not name
-its enable pad; the one pad besides the 4 corner pads is drawn as it. Its
+its enable pad; the one pad besides the 4 corner pads is it (owner,
+2026-11-19). The level that switches the output on is not known. Its
 chip is not known.
 `check_models.py` reads both back, outside CI: valid solids, none sharing
 volume.

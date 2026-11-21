@@ -248,7 +248,7 @@ module `README.md` and `CMakeLists.txt` are not copied, nor are
 `test_ew_line.c` and its `fake_pico/`, as for the KST and Hitec line
 drivers.
 
-The STEP writer and the specs of two modules, at commit `33270eab`:
+The STEP writer and the specs of two modules, at commit `37286375`:
 
 | File here | rcbench path |
 | --- | --- |
@@ -261,8 +261,8 @@ It writes STEP (Standard for the Exchange of Product model data) files, ISO
 10303-21 with the AP214 schema, from prisms, turned profiles and solids with
 flat and curved faces, using the Python standard library only.
 [hardware/mechanical/gen_models.py](../../hardware/mechanical/gen_models.py)
-writes the model of the board with it. The files of this table have no
-`SPDX-License-Identifier` line in rcbench, and none is added here.
+writes the model of the board with it. Each file of this table carries
+`SPDX-License-Identifier: CC-BY-NC-SA-4.0`, except the generated `_font.py`.
 
 `ina219_cjmcu219.py` and `boost_5v_en.py` in `hardware/mechanical/` draw the
 INA219 current sensor board and the 5V boost converter board part by part;
