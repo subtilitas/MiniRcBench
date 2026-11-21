@@ -5,7 +5,7 @@ The board, and two modules the bench is built with: the
 
 ## Board
 
-`models/rp2350_touch_lcd_2_8.step` is a STEP (Standard for the Exchange of
+`models/pcb/rp2350_touch_lcd_2_8.step` is a STEP (Standard for the Exchange of
 Product model data) model of the Waveshare RP2350-Touch-LCD-2.8, for designing
 an enclosure round it. It is a facsimile: drawn here from measurements, not
 Waveshare's file. Waveshare publishes no 3D file of this board. All
@@ -19,13 +19,13 @@ dimensions are mm.
 | Schema | AP214, ISO 10303-21 |
 | File size | 8.1 MB |
 
-![Rear](renders/rp2350_touch_lcd_2_8_rear.png)
+![Rear](renders/pcb/rp2350_touch_lcd_2_8_rear.png)
 
-![Rear, straight on](renders/rp2350_touch_lcd_2_8_rear_flat.png)
+![Rear, straight on](renders/pcb/rp2350_touch_lcd_2_8_rear_flat.png)
 
-![Front](renders/rp2350_touch_lcd_2_8_front.png)
+![Front](renders/pcb/rp2350_touch_lcd_2_8_front.png)
 
-![USB-C end](renders/rp2350_touch_lcd_2_8_usb_end.png)
+![USB-C end](renders/pcb/rp2350_touch_lcd_2_8_usb_end.png)
 
 ## Frame
 
@@ -125,13 +125,13 @@ files are the same bytes as rcbench's.
 
 | | |
 | --- | --- |
-| ![INA219 board](renders/ina219_cjmcu219_front.png) | ![INA219 board, underside](renders/ina219_cjmcu219_rear_flat.png) |
-| ![Boost board](renders/boost_5v_en_front.png) | ![Boost board, underside](renders/boost_5v_en_rear_flat.png) |
+| ![INA219 board](renders/pcb/ina219_cjmcu219_front.png) | ![INA219 board, underside](renders/pcb/ina219_cjmcu219_rear_flat.png) |
+| ![Boost board](renders/pcb/boost_5v_en_front.png) | ![Boost board, underside](renders/pcb/boost_5v_en_rear_flat.png) |
 
 | File | Content | Size | Origin |
 | --- | --- | --- | --- |
-| `models/ina219_cjmcu219.step` | INA219 current sensor board, print CJMCU: 12 plated holes, shunt R100, INA219, 5 chip parts, 4 bridge pads, print; 225 solids, 3.5 MB | 24.20 × 21.90 × 2.74 | header hole 1 (Vcc) on the underside; x along the header, y towards the terminal holes, +z up |
-| `models/boost_5v_en.step` | 5V boost converter board: 4 plated corner holes, enable pad, chip, inductor, 2 diodes, 3 capacitors, 3 resistors, print; 69 solids, 0.6 MB | 13.70 × 21.70 × 4.63 | IN+ hole on the underside; x towards IN-, y towards the outputs, +z up |
+| `models/pcb/ina219_cjmcu219.step` | INA219 current sensor board, print CJMCU: 12 plated holes, shunt R100, INA219, 5 chip parts, 4 bridge pads, print; 225 solids, 3.5 MB | 24.20 × 21.90 × 2.74 | header hole 1 (Vcc) on the underside; x along the header, y towards the terminal holes, +z up |
+| `models/pcb/boost_5v_en.step` | 5V boost converter board: 4 plated corner holes, enable pad, chip, inductor, 2 diodes, 3 capacitors, 3 resistors, print; 69 solids, 0.6 MB | 13.70 × 21.70 × 4.63 | IN+ hole on the underside; x towards IN-, y towards the outputs, +z up |
 
 The INA219 board has a 6-hole header at 2.54 pitch, Vcc Gnd Scl Sda Vin-
 Vin+, 2.0 above one long edge, and 4 mounting holes of about 2.5, 20.2 ×
@@ -162,18 +162,21 @@ which are not in the repository. Limits:
 | `touch_lcd_2_8.py` | the board's dimensions and the position of each part |
 | `_parts.py` | the parts: chip parts, leaded and leadless packages, sockets, USB-C, button, card slot, trimmer |
 | `_solid.py` | profiles with straight sides and arcs, pushed along an axis, turned and moved |
-| `gen_models.py` | writes `models/*.step` from the specs here and the two module specs in `lib/rcbench/hardware/mechanical/`; `--check` compares |
+| `gen_models.py` | writes `models/pcb/*.step` from the specs here and the two module specs in `lib/rcbench/hardware/mechanical/`; `--check` compares, and fails on a file under `models/` or `renders/` that `_models.py` does not account for |
+| `_models.py` | names the folder of each model under `models/` and `renders/`: `pcb`, `casing` or `parts`, as in rcbench |
 | `check_models.py` | reads the files back with OpenCASCADE; `--render` draws them |
 | `check_photo.py` | draws the model's rear parts on photo P |
 | `_trace_print.py` | traces print and bare tin from photo P into `_print.py` |
 | `_print.py` | the traced outlines; written by `_trace_print.py` |
-| `models/` | the STEP files |
-| `renders/` | 4 views of the board and 2 of each module, 1600 × 1200 pixels |
+| `models/pcb/` | 3 boards: `rp2350_touch_lcd_2_8.step`, `ina219_cjmcu219.step`, `boost_5v_en.step` |
+| `models/casing/` | 2 printed parts of the case: `case_shell_esp_rp_touch_lcd.stp`, `button.stp` |
+| `models/parts/` | the cell `lipo_102540_1000mah.step` and the assembled bench `minircbench.stp` |
+| `renders/pcb/` | 4 views of the board and 2 of each module, 1600 × 1200 pixels |
 
 ## Commands
 
 ```sh
-python3 hardware/mechanical/gen_models.py            # write models/*.step
+python3 hardware/mechanical/gen_models.py            # write models/pcb/*.step
 python3 hardware/mechanical/gen_models.py --check    # exit 1 when a file differs from its spec
 pip install cadquery-ocp
 python3 hardware/mechanical/check_models.py          # valid solids, no shared volume, size
@@ -210,7 +213,7 @@ The rest of the repository, the software, is MIT.
 | File type | Where the licence is stated |
 | --- | --- |
 | `*.py` | the line `# SPDX-License-Identifier: CC-BY-NC-SA-4.0` at the top, except `check_photo.py`, which reads MIT |
-| `models/*.step`, `models/*.stp`, `renders/*.png`, `hardware/cad/` | no line in the file; `hardware/LICENSE-CAD.txt` covers them |
+| `models/*/*.step`, `models/*/*.stp`, `renders/*/*.png`, `hardware/cad/` | no line in the file; `hardware/LICENSE-CAD.txt` covers them |
 
 The Waveshare name and logo on the board's model are Waveshare's trademarks;
 the licence gives no right to them.

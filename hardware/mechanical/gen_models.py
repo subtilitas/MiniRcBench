@@ -10,13 +10,18 @@ specs LIB_SPECS names in lib/rcbench/hardware/mechanical/, which are
 rcbench's files unchanged; each defines ``parts(colors)``, a dict of
 file stem to solids as lib/rcbench/hardware/kicad/tools/step_gen.py's
 ``write`` takes them. The models go to
-hardware/mechanical/models/<stem>.step.
+hardware/mechanical/models/<folder>/<stem>.step; _models.py names each
+stem's folder.
 
 Usage:
     python3 hardware/mechanical/gen_models.py           write the files
     python3 hardware/mechanical/gen_models.py --check   exit 1 when a file
                                                         differs from its
-                                                        spec
+                                                        spec, or a file
+                                                        under models/ or
+                                                        renders/ lies
+                                                        where _models.py
+                                                        does not put it
 """
 
 import importlib.util
@@ -24,10 +29,12 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-MODELS = HERE / "models"
 sys.path.insert(0, str(HERE.parent.parent / "lib" / "rcbench" / "hardware"
                        / "kicad" / "tools"))
 import step_gen  # noqa: E402
+
+sys.path.insert(0, str(HERE))
+import _models  # noqa: E402
 
 LIB = HERE.parent.parent / "lib" / "rcbench" / "hardware" / "mechanical"
 # rcbench's specs of the modules this bench is built with.
@@ -87,8 +94,7 @@ def outputs():
     out = {}
     for spec in load_specs():
         for stem, items in spec.parts(step_gen.COLORS).items():
-            out[MODELS / f"{stem}.step"] = (
-                step_gen.write(stem, items), items)
+            out[_models.path(stem)] = (step_gen.write(stem, items), items)
     return out
 
 
@@ -116,7 +122,11 @@ def main(argv):
             print(f"wrote {path.relative_to(HERE.parent.parent)}")
     for p in stale:
         print(f"STALE {p}: run hardware/mechanical/gen_models.py")
-    return 1 if stale else 0
+    strays = _models.strays()
+    for p in strays:
+        print(f"STRAY {p.relative_to(HERE.parent.parent)}: not where "
+              "hardware/mechanical/_models.py puts it")
+    return 1 if stale or strays else 0
 
 
 if __name__ == "__main__":

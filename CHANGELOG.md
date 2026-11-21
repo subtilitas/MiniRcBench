@@ -104,6 +104,12 @@ protocol.
 
 ### Changed
 
+- `hardware/mechanical/models/` and `renders/` are sorted into the 3
+  folders rcbench uses: `pcb/` (3 boards), `casing/` (2 printed parts of
+  the case) and `parts/` (the cell and the assembled bench); the 8 renders
+  lie in `renders/pcb/`. `_models.py` names each model's folder.
+  `gen_models.py --check` fails on a file that lies elsewhere. File names
+  are unchanged.
 - `REC` on the tester's status band, `RECORDING` as the LOGS row's status
   on MENU and a critical `BOARD` voltage are red badges with dark ink, 5.45,
   in place of red text on the control face at 4.03. The contrast walk holds
