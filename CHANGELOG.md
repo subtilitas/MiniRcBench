@@ -147,6 +147,12 @@ protocol.
 
 ### Added
 
+- `docs/video/`: the storyboards `minircbench-build` (10 steps, 505.57 s)
+  and `minircbench-features` (12 chapters, 1000.70 s) with their 83 stills
+  of the 240 x 320 display, frames of the host suite at commit `2cdf044`.
+  `tools/make_video.py` of the rcbench repository renders a storyboard
+  given by its path and takes its stills from `stills/` beside it
+  ([Videos of the MiniRcBench](docs/video/README.md)).
 - The boot diagnostic, built with `-DBOOT_DIAG=ON` and off by default. Before
   each of the 12 steps of `setup()` up to `uiInit()`, the backlight pin GP16
   blinks the step's number as a plain SIO (single-cycle I/O) output: 150 ms
