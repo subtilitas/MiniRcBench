@@ -54,6 +54,23 @@ A still is a frame of the host suite: `cd test && make` writes
 - The lengths are those of renders made from rcbench. The render of
   `minircbench-build` at 505.57 s used 12 older stills, frames of commit
   `8c7ace3`; a render with these stills is not made.
+- `minircbench-build` shows the build the owner stated on 2026-11-14
+  and 2026-11-15: the boost board's input on the battery socket's pins,
+  its enable pad on GP28 with 10 kΩ to ground, the 0 Ω resistor of size
+  0402 between the enable pad and IN+ taken off, a male servo connector
+  with the switched 5 V in each of the case's two openings, the INA219
+  in the boost board's OUT+, a 470 µF capacitor of 10 V or more and a
+  5.6 V zener diode of 2 W to 5 W across the boost board's output, no
+  fuse, a cell with its own protection circuit. The zener's package is
+  not stated; it is drawn as an axial part.
+- The storyboard states on its own, with no other source: the order of
+  the steps, the wire colours, the pull-down's place between EN and IN-,
+  the daisy chain from the TMT connector to the ESC connector, the
+  cell's lead running over the board, and screws of M2.5 x 6.
+- The sockets' places and prints are read from Waveshare's photo of the
+  board's rear and its pin drawing. How a contact leaves a JST-SH plug
+  is described from the housing's form and is not tried on the lead the
+  board comes with.
 - No frame shows hardware: every still is drawn by the host suite from
   simulated values, and the currents, voltages and rpm in them are not
   measurements.
